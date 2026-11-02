@@ -9,7 +9,17 @@ flat ink characters in a painted three.js world, rendered inside Remotion.
 > Jaguar. A reporter fried an egg in the beam. Its architect had done it before: his Las Vegas hotel was already
 > scorching people by the pool. Facts and sources are at the top of [`scorch/SCRIPT.md`](scorch/SCRIPT.md).
 
-Preview: [`preview/scorch_preview.mp4`](preview/scorch_preview.mp4) is a 2 fps rough cut with the final sound, rendered without a GPU. [`preview/contact.jpg`](preview/contact.jpg) shows one frame per beat.
+**Version 2 (current, `Scorch2Short`, rendered by `npm run render`)** is a rebuild after feedback on v1:
+- **Voice:** Kokoro TTS (`af_heart`, the highest-rated Kokoro voice) with a tighter script
+  ([`scorch2/SCRIPT.md`](scorch2/SCRIPT.md)). The tools to regenerate it are in `scorch2/tools/`.
+- **Acting:** characters gesture (hands on head, cheering, pointing, holding things, thumbs-up), walk, jump and
+  react on the word. New free arm poses (`armL`/`armR`) were added to `src/videos/bridge/toon.ts`.
+- **18 shots** with closer framing and visual gags: the crane on the roof, the spoon and satellite-dish pop-ins, a
+  time-lapse sun, a cyclist leaping off the seat, the coffee drop, a tourist diving into the pool.
+- **Reviewed in motion:** two rounds of full-length 6 fps previews in which every shot was checked and fixed, then
+  a 10 fps preview with sound ([`preview/scorch_v2_preview.mp4`](preview/scorch_v2_preview.mp4)).
+
+Version 1 is still there as `ScorchShort` (`npm run render:v1`, preview in `preview/scorch_preview.mp4`).
 
 The voice, music, sound effects, picture and script are all ready. Rendering the video is the one step that needs a
 GPU, so run it on your own computer (instructions below).
@@ -45,6 +55,8 @@ the truck, emu feet and drumming).
 ## What's where
 | Path | What |
 |---|---|
+| `src/videos/scorch2/` | **v2** (current): `story.ts` shot plan + cameras, `world.ts` world + per-shot acting, `draw.ts` props (spoon, dish, coffee, cash, flame, trophy...), `Scorch2.tsx` post + sound |
+| `scorch2/` | v2 script, Kokoro voice + word timings, sound (`audio/score.py`), voice tools (`tools/tts.py`, `tools/wer.py`) |
 | `src/videos/scorch/story.ts` | Shot plan: 16 shots timed to the voice's word timings, camera moves, lens blur per beat, impact kicks |
 | `src/videos/scorch/world.ts` | The world: Eastcheap street, concave tower, sunbeam, sunshade fins, flat-window diagram, Las Vegas pool, cast and props per shot |
 | `src/videos/scorch/draw.ts` | Ink drawings of the props: melting car, doormat, bike, frying pan and egg, magnifying glass, leaf, rosette, palms, loungers, umbrellas |
