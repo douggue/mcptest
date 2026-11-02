@@ -35,6 +35,13 @@ GPU, so run it on your own computer (instructions below).
 Each Remotion bundle copies `public/` into your temp folder. If `C:` is short on space, run
 `$env:REMOTION_TMP="D:\remotion-tmp"` first, and delete old `remotion-webpack-bundle-*` folders there now and then.
 
+## Short #2: "The War the Army Lost to Birds" (the Great Emu War, 1932)
+In 1932 the Australian army sent a major, two soldiers, two Lewis guns and 10,000 bullets against 20,000 emus, and
+lost. Facts and sources: [`emu/SCRIPT.md`](emu/SCRIPT.md). Render it with `npm.cmd run render:emu:test` (5 s check),
+then `npm.cmd run render:emu` → `out\emu_1080p.mp4`. Code: `src/videos/emu/` (story, world, ink drawings of the
+emus, truck, Lewis gun, crates, gum trees, tally board). Sound: `emu/audio/score.py` (comic march, gunfire, the jam,
+the truck, emu feet and drumming).
+
 ## What's where
 | Path | What |
 |---|---|

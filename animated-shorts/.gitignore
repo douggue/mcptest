@@ -3,3 +3,5 @@ out/
 *.log
 scorch/audio/mix.wav
 scorch/audio/stem_*.wav
+emu/audio/mix.wav
+emu/audio/stem_*.wav
