@@ -26,6 +26,12 @@ User rules that apply:
 - Save after every step.
 - "Just do it" once the script is approved.
 
+## House style (this repo): read `animated-shorts/STYLE.md` first
+The owner approved the v2 London-tower short ("keep that style"). For every new short in this repo, follow
+`animated-shorts/STYLE.md`: Kokoro `af_heart` voice, about one shot per sentence, characters acting on every beat
+with the free arm poses, props carrying the jokes, close framing, and two rounds of full-length motion review
+before delivery. Start from `animated-shorts/src/videos/scorch2/` as the template.
+
 ## Pipeline
 1. **Topic and facts.** Pick one surprising true story with a physical cause and effect (it should be visual), plus a simple everyday analogy that explains it.
    - Write the facts with their source at the top of `SCRIPT.md`.
