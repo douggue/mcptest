@@ -14,23 +14,26 @@ Preview: [`preview/scorch_preview.mp4`](preview/scorch_preview.mp4) is a 2 fps r
 The voice, music, sound effects, picture and script are all ready. Rendering the video is the one step that needs a
 GPU, so run it on your own computer (instructions below).
 
-## Render it on Windows (RTX 3050 laptop: about 15-30 min for 1080p)
-1. Install **Node.js 20 or 22 LTS** from <https://nodejs.org> (defaults are fine). Also install **Git**, or download
-   this repo as a ZIP.
-2. Open **PowerShell** in this folder (`animated-shorts`) and run:
+## Render it on Windows (RTX 3050 laptop)
+1. Install **Node.js 20 or 22 LTS** from <https://nodejs.org> and **Git** (defaults are fine).
+2. Open **PowerShell** in this folder (`animated-shorts`). If PowerShell says "running scripts is disabled", type
+   `npm.cmd` instead of `npm` below, or run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once.
    ```powershell
    npm install
-   npm run render:test      # first 5 seconds only: checks everything works (about 1-2 min)
+   npm run gpu              # check the GPU is used: look for "WebGL: Hardware accelerated"
+   npm run render:test      # 70 frames around a crossfade: check speed (frames/s) and that it finishes
    npm run render           # full video -> out\scorch_1080p.mp4 (with sound)
-   npm run render:2k        # optional 1440x2560 version -> out\scorch_2k.mp4
+   npm run render:emu       # the Emu War short -> out\emu_1080p.mp4
    ```
-   The first render downloads a headless Chrome (about 150 MB). `--gl angle` makes Chrome use your graphics card. If
-   the laptop has a "battery saver" or "Optimus" mode, plug it in and let Windows use the NVIDIA GPU for `node.exe`
-   (NVIDIA Control Panel → Manage 3D settings → Program settings).
-3. To scrub through it live: `npm run studio`, which opens the Remotion Studio in your browser.
+   The renders use `--gl angle` (Direct3D on your GPU) and `--chrome-mode chrome-for-testing` (a Chrome build with
+   full GPU support; it downloads about 150 MB once), with 3 tabs in parallel (`--concurrency 3`). If a render is
+   slow, try `--concurrency 2` or `4` on `render:test` and keep whichever gives the most frames per second.
+   Plug the laptop in, and in **NVIDIA Control Panel → Manage 3D settings → Program settings** set `chrome.exe`
+   and `node.exe` to "High-performance NVIDIA processor".
+3. To scrub through it live: `npm run studio`.
 
 Each Remotion bundle copies `public/` into your temp folder. If `C:` is short on space, run
-`set REMOTION_TMP=D:\remotion-tmp` first, and delete old `remotion-webpack-bundle-*` folders there now and then.
+`$env:REMOTION_TMP="D:\remotion-tmp"` first, and delete old `remotion-webpack-bundle-*` folders there now and then.
 
 ## What's where
 | Path | What |
