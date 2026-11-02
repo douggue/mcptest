@@ -9,6 +9,8 @@ flat ink characters in a painted three.js world, rendered inside Remotion.
 > Jaguar. A reporter fried an egg in the beam. Its architect had done it before: his Las Vegas hotel was already
 > scorching people by the pool. Facts and sources are at the top of [`scorch/SCRIPT.md`](scorch/SCRIPT.md).
 
+Preview: [`preview/scorch_preview.mp4`](preview/scorch_preview.mp4) is a 2 fps rough cut with the final sound, rendered without a GPU. [`preview/contact.jpg`](preview/contact.jpg) shows one frame per beat.
+
 The voice, music, sound effects, picture and script are all ready. Rendering the video is the one step that needs a
 GPU, so run it on your own computer (instructions below).
 
