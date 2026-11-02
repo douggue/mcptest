@@ -41,7 +41,7 @@ export const SHOTS: ShotDef[] = [
   { id: 15, a: 1558, b: 1642, light: "day" },   // luckily: the architect, smug
   { id: 16, a: 1642, b: 1699, light: "day" },   // unluckily: already twice
   { id: 17, a: 1699, b: 1819, light: "day" },   // Las Vegas: frying tourists by the pool
-  { id: 18, a: 1819, b: TOTAL, light: "golden" }, // the award: Britain's worst new building
+  { id: 18, a: 1819, b: TOTAL, light: "day" },    // the award: Britain's worst new building
 ];
 export const XFADE: Record<number, number> = { 9: 6, 17: 8, 18: 8 };
 export const FLASH_AT = 101;
@@ -105,7 +105,7 @@ const CAMS: Record<number, Key[]> = {
     { f: 40, dur: 55, s: (f) => zoom([8.6, 0.6, 6.3], [2, 9, -16], 62, push(f, 40, 0.002), { roll: -0.06 }) },
   ],
   2: [
-    { f: 101, s: (f) => dolly([90, 12, 150], [0, 82, -20], push(f, 101, 0.0015), { fov: 50 }) },
+    { f: 101, s: (f) => dolly([55, 21, 30], [0, 86, -20], push(f, 101, 0.0015), { fov: 54 }) },
     { f: W(5.84), dur: 34, s: (f) => dolly([48, 150, 58], [0, 178, -32], push(f, W(5.84), 0.002), { fov: 46, roll: 0.03 }) },
     { f: W(7.28), dur: 30, s: (f) => dolly([75, 55, 115], [0, 85, -20], push(f, W(7.28), 0.0018), { fov: 52 }) },
     { f: W(8.94), cut: true, s: (f) => dolly([210, 80, -14], [24, 80, -24], push(f, W(8.94), 0.002), { fov: 56 }) },
@@ -121,7 +121,7 @@ const CAMS: Record<number, Key[]> = {
     { f: 538, cut: true, s: (f) => dolly([11.4, 1.5, 5.9], [7.0, 1.35, 3.2], push(f, 538, 0.003), { fov: 46 }) },
   ],
   6: [
-    { f: 603, s: (f) => dolly(add(SHOP, [2.2, 1.3, -3.6]), add(SHOP, [0.2, 0.8, 0]), push(f, 603, 0.003), { fov: 46, roll: 0.04 }) },
+    { f: 603, s: (f) => dolly(add(SHOP, [2.0, 1.3, -3.6]), add(SHOP, [-0.35, 0.85, 0]), push(f, 603, 0.003), { fov: 46, roll: 0.04 }) },
     { f: W(22.28), cut: true, s: (f) => dolly(add(BIKE, [2.0, 1.4, -3.4]), add(BIKE, [0.1, 1.0, 0]), push(f, W(22.28), 0.003), { fov: 46, roll: -0.04 }) },
   ],
   7: [
@@ -132,11 +132,11 @@ const CAMS: Record<number, Key[]> = {
     { f: 853, s: () => ({ pos: [HOT[0] - 0.2, 1.1, 6.2], look: [HOT[0], 1.5, HOT[2] + 0.5], fov: 44, roll: 0 }) },
     { f: 868, dur: 40, s: (f) => zoom([HOT[0] - 0.2, 0.9, 6.2], [0, 110, -28], 62, push(f, 868, 0.002), { roll: 0.08 }) },
   ],
-  9: [{ f: 918, s: (f) => dolly(add(LAB, [16, 6, 18]), add(LAB, [0, 4, 4]), push(f, 918, 0.0018), { fov: 50, roll: 0.02 }) }],
+  9: [{ f: 918, s: (f) => dolly(add(LAB, [8, 2.6, 15.5]), add(LAB, [0, 3.4, 4]), push(f, 918, 0.0018), { fov: 52, roll: 0.02 }) }],
   10: [{ f: 1022, s: (f) => dolly([150, 45, 60], [10, 70, -18], push(f, 1022, 0.002), { fov: 54 }) }],
   11: [{ f: 1108, s: (f) => dolly(add(KIDP, [1.4, 1.1, -3.1]), add(KIDP, [0.25, 0.7, 0.05]), push(f, 1108, 0.004), { fov: 44, roll: -0.04 }) }],
   12: [
-    { f: 1197, s: (f) => dolly([100, 48, 28], [0, 72, -22], push(f, 1197, 0.0012), { fov: 54 }) },
+    { f: 1197, s: (f) => dolly([165, 48, -4], [0, 55, -8], push(f, 1197, 0.0012), { fov: 58 }) },
     { f: W(42.5), cut: true, s: (f) => dolly([HOT[0] + 7, 3.2, -9], [HOT[0], 0.8, HOT[2]], push(f, W(42.5), 0.003), { fov: 42, roll: 0.04 }) },
   ],
   13: [
@@ -150,7 +150,7 @@ const CAMS: Record<number, Key[]> = {
   15: [{ f: 1558, s: (f) => dolly(add(ARCH, [0.8, 1.6, 3.3]), add(ARCH, [0, 1.65, 0]), push(f, 1558, 0.003), { fov: 42 }) }],
   16: [{ f: 1642, s: (f) => dolly(add(ARCH, [0.2, 1.75, 2.2]), add(ARCH, [0, 1.85, 0]), push(f, 1642, 0.006), { fov: 38, roll: 0.06 }) }],
   17: [
-    { f: 1699, s: (f) => dolly(add(VEGAS, [3.5, 1.5, 11.5]), add(VEGAS, [-0.5, 1.3, 5]), push(f, 1699, 0.0025), { fov: 50, roll: 0.03 }) },
+    { f: 1699, s: (f) => dolly(add(VEGAS, [2.2, 1.3, 9.4]), add(VEGAS, [-1.2, 0.9, 5.4]), push(f, 1699, 0.0025), { fov: 50, roll: 0.03 }) },
     { f: W(58.94), cut: true, s: (f) => dolly(add(VEGAS, [0.6, 1.3, 8.6]), add(VEGAS, [-0.6, 0.9, 5.5]), push(f, W(58.94), 0.004), { fov: 44, roll: -0.04 }) },
   ],
   18: [

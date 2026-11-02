@@ -482,7 +482,7 @@ export class World {
     const beamTex = ctex("beamFade", 8, 256, (g) => { const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, "#000000"); gr.addColorStop(0.55, "#5a5a5a"); gr.addColorStop(1, "#ffffff"); g.fillStyle = gr; g.fillRect(0, 0, 8, 256); });
     beamTex.colorSpace = THREE.NoColorSpace;
     // opaque queue + renderOrder 0.8: drawn after the city but before the character cards, so a card in the beam stays solid
-    const beamM = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.2, 0.155, 0.055), map: beamTex, transparent: false, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide, fog: false });
+    const beamM = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.13, 0.1, 0.035), map: beamTex, transparent: false, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide, fog: false });
     const mkBeam = (a: THREE.Vector3, bb: THREE.Vector3, rA: number, rB: number) => {
       const L = a.distanceTo(bb), g = new THREE.CylinderGeometry(rB, rA, L, 32, 1, true); g.translate(0, L / 2, 0);
       const m = new THREE.Mesh(g, beamM); m.position.copy(a); m.quaternion.setFromUnitVectors(V(0, 1, 0), bb.clone().sub(a).normalize());
