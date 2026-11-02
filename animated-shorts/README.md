@@ -32,7 +32,7 @@ GPU, so run it on your own computer (instructions below).
    npm install
    npm run gpu              # check the GPU is used: look for "WebGL: Hardware accelerated"
    npm run render:test      # 70 frames around a crossfade: check speed (frames/s) and that it finishes
-   npm run render           # full video -> out\scorch_1080p.mp4 (with sound)
+   npm run render           # full v2 video -> out\scorch_v2_1080p.mp4 (with sound)
    npm run render:emu       # the Emu War short -> out\emu_1080p.mp4
    ```
    The renders use `--gl angle` (Direct3D on your GPU) and `--chrome-mode chrome-for-testing` (a Chrome build with
