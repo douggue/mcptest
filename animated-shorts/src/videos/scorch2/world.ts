@@ -203,10 +203,10 @@ const stage = (id: number, f: number, cam: CamInfo): Stage => {
       break;
     }
     case 2: {
-      if (f > W(7.28) && f < W(8.94)) for (let i = 0; i < 6; i++) {
+      if (f > W(7.28) && f < W(8.94)) for (let i = 0; i < 9; i++) {
         const on = (f + i * 5) % 18 < 9; if (!on) continue;
-        const x = -18 + 7 * i, y = 40 + ((i * 37) % 100);
-        out.fx.push({ key: "glint", cw: 200, ch: 200, draw: glint, x, y, z: faceZ(TOWER, x, y) + 1.5, w: 6, h: 6, soft: true });
+        const x = -20 + 5 * i, y = 30 + ((i * 37) % 110);
+        out.fx.push({ key: "glint", cw: 200, ch: 200, draw: glint, x, y, z: faceZ(TOWER, x, y) + 1.5, w: 9, h: 9, soft: true });
       }
       popFx("spoon", 600, 1600, spoon, 62, 62, -10, 34, 90, W(9.52));
       break;
@@ -217,7 +217,8 @@ const stage = (id: number, f: number, cam: CamInfo): Stage => {
       if (f < 346) { const tq = Math.round(((t * 3) % 1) * 10) / 10; out.fx.push({ key: `smoke|${tq}`, cw: 300, ch: 300, draw: (p) => smoke(p, tq), x: x - 2.7, y: 0.35, z: CAR[2] + 0.2, w: 0.7, h: 0.7, soft: true }); }
       if (f >= 356 && f < 392) {
         const pat = f > 366 && f < 388, bob = pat ? 0.03 * Math.abs(Math.sin(f * 0.6)) : 0;
-        person(BIZ, "biz", CAR[0] + 3.0, CAR[2] + 0.9, { mode: "stand", expr: pat ? "smile_closed" : "grin", look: -1, armR: pat ? ARM.patR : undefined, armL: pat ? undefined : ARM.hipL }, 1, { y: gy(CAR[0] + 3, CAR[2] + 0.9) + bob });
+        const out_ = smooth((f - 356) / 9), bx = CAR[0] + 1.6 + 1.4 * out_, bz = CAR[2] - 0.6 + 1.5 * out_;
+        person(BIZ, "biz", bx, bz, { mode: out_ < 1 ? "stroll" : "stand", phase: (t * 1.2) % 1, expr: pat ? "smile_closed" : "grin", look: -1, armR: pat ? ARM.patR : undefined, armL: pat ? undefined : ARM.hipL }, 1, { y: gy(bx, bz) + bob });
       } else if (f >= 392) {
         const wx = CAR[0] + 3.0 + 1.5 * ((f - 392) / FPS);
         walker(BIZ, "biz", wx, CAR[2] + 1.0, 1, "whistle", 1);
@@ -298,7 +299,7 @@ const stage = (id: number, f: number, cam: CamInfo): Stage => {
       carCard(CAR[0], { mirror: 1, badge: 1, panel: 1 });
       steamAt(CAR[0], 1.8, CAR[2] + 0.1, 0.9);
       if (f > W(44.22) && f < W(44.22) + 18) { const tb = q(clamp01((f - W(44.22)) / 18), 12); out.fx.push({ key: `burst|${tb}`, cw: 500, ch: 500, draw: (p) => fxBurst(p, tb), x: HOT[0], y: 1.2, z: HOT[2] + 0.4, w: 3, h: 3 }); }
-      if (id === 13) popFx("handle", 400, 1400, handle, 36, 20, -12, 22, 76, W(45.04), -0.7);
+      if (id === 13) person(BIZ, "biz", CAR[0] + 3.4, CAR[2] + 1.0, { mode: "stand", expr: "shock", look: 0, headTilt: -10, armL: ARM.headL }, 1);
       break;
     }
     case 14: {
@@ -340,13 +341,13 @@ const stage = (id: number, f: number, cam: CamInfo): Stage => {
       break;
     }
     case 18: {
-      popFx("rosette", 800, 1200, rosette, 0, 95, faceZ(TOWER, 0, 95) + 2, 30, 45, W(61.92));
+      popFx("rosette", 800, 1200, rosette, 0, 78, faceZ(TOWER, 0, 78) + 2, 26, 39, W(61.92));
       for (let i = 0; i < 7; i++) {
-        const x = 15 + (i % 4) * 1.5 + (i >> 2) * 0.7, z = -2.2 - (i >> 2) * 1.4 - (i % 2) * 0.4, up = Math.floor(f / 6 + i) % 2 === 0;
+        const x = -2.5 + (i % 4) * 1.6 + (i >> 2) * 0.8, z = -11.2 - (i >> 2) * 1.5 - (i % 2) * 0.4, up = Math.floor(f / 6 + i) % 2 === 0;
         person(FOLK[i % FOLK.length], `folk${i % FOLK.length}`, x, z, { mode: "stand", expr: i % 3 ? "laugh" : "grin", look: -1, armL: up ? ARM.upL : ARM.shrugL, armR: up ? ARM.upR : ARM.shrugR }, i + 20);
       }
-      person(ARCHITECT, "arch", 19.2, -0.6, { mode: "stand", expr: "nervous", armR: ARM.holdR, frontR: true, look: -1 }, 7);
-      out.fx.push({ key: "trophy", cw: 500, ch: 700, draw: trophy, x: 19.5, y: 1.0, z: -0.35, w: 0.32, h: 0.45 });
+      person(ARCHITECT, "arch", 2.6, -9.2, { mode: "stand", expr: "nervous", armR: ARM.holdR, frontR: true, look: -1 }, 7);
+      out.fx.push({ key: "trophy", cw: 500, ch: 700, draw: trophy, x: 2.92, y: 1.12, z: -8.95, w: 0.32, h: 0.45 });
       break;
     }
   }
@@ -480,11 +481,12 @@ export class World {
     // ---- the beam: a glowing cone from the face to the hot spot, plus the spot itself ----
     const beamTex = ctex("beamFade", 8, 256, (g) => { const gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, "#000000"); gr.addColorStop(0.55, "#5a5a5a"); gr.addColorStop(1, "#ffffff"); g.fillStyle = gr; g.fillRect(0, 0, 8, 256); });
     beamTex.colorSpace = THREE.NoColorSpace;
-    const beamM = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3, 0.23, 0.08), map: beamTex, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide, fog: false });
+    // opaque queue + renderOrder 0.8: drawn after the city but before the character cards, so a card in the beam stays solid
+    const beamM = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.2, 0.155, 0.055), map: beamTex, transparent: false, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.FrontSide, fog: false });
     const mkBeam = (a: THREE.Vector3, bb: THREE.Vector3, rA: number, rB: number) => {
       const L = a.distanceTo(bb), g = new THREE.CylinderGeometry(rB, rA, L, 32, 1, true); g.translate(0, L / 2, 0);
       const m = new THREE.Mesh(g, beamM); m.position.copy(a); m.quaternion.setFromUnitVectors(V(0, 1, 0), bb.clone().sub(a).normalize());
-      m.layers.set(NOINK); m.frustumCulled = false; m.renderOrder = 4; R.add(m); return m;
+      m.layers.set(NOINK); m.frustumCulled = false; m.renderOrder = 0.8; R.add(m); return m; // before the cards (1): never washes a character
     };
     this.beam = mkBeam(V(HOT[0], 0.1, HOT[2]), V(0, 105, faceZ(TOWER, 0, 105) + 1), 1.2, 15);
     this.beamV = mkBeam(V(VEGAS[0], 0.1, VEGAS[2] + 5), V(VEGAS[0], 55, faceZ(HOTEL, 0, 55) + 1), 1.6, 26);
@@ -537,7 +539,7 @@ export class World {
     }
     // ---- beam, spot, fins, rays ----
     // the beam cone reads in wides and the reporter's walk; never over the car close-ups
-    const beamOn = (id === 1 && f > 40) || id === 7 && f < W(27.48) || (id === 8 && f > 868) || id === 12 || id === 13;
+    const beamOn = (id === 1 && f > 78) || id === 7 && f < W(27.48) || (id === 8 && f > 868) || id === 12 || id === 13;
     const spotOn = beamOn || id === 4 || id === 5 || id === 7 || id === 1;
     this.beam.visible = beamOn; this.spot.visible = spotOn;
     // shot 4 time-lapse: the hot spot crawls along the street onto the parked car
@@ -607,11 +609,11 @@ export class World {
         this.labRays[i * 2 + 1].set(P, land, u2);
       }
     }
-    if (id === 12 || id === 13) {
+    if (id === 12) {
       let n = 0;
       for (const y of [45, 80, 115, 145]) for (const x of [-16, 0, 16]) {
         const P: V3 = [x, y, faceZ(TOWER, x, y) + 0.6], from: V3 = [x - inc.x * 140, y - inc.y * 140, P[2] - inc.z * 140];
-        const u1 = id === 13 ? 1 : rayIn(f, W(40.42) + n * 2, 30), u2 = id === 13 ? 1 : rayIn(f, W(42.5) + n * 2, 30);
+        const u1 = rayIn(f, W(40.42) + n * 2, 30), u2 = rayIn(f, W(42.5) + n * 2, 30);
         this.rays[n * 2].set(from, P, u1);
         this.rays[n * 2 + 1].set(P, [HOT[0], 0.6, HOT[2]], u2);
         n++;

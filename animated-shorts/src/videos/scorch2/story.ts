@@ -58,7 +58,7 @@ export const layersAt = (f: number): { id: number; alpha: number }[] => {
 
 // ---- story state ----
 export const melt = (f: number) => {
-  if (f < 101) return { mirror: 0.15 + 0.6 * smooth(f / 90), badge: 0.3 * smooth((f - 20) / 60), panel: 0.3 * smooth((f - 30) / 60) };
+  if (f < 101) return { mirror: 0.1 + 0.8 * smooth((f - 4) / 34), badge: 0.4 * smooth((f - 20) / 50), panel: 0.35 * smooth((f - 30) / 50) };
   if (f < 464) return { mirror: 0, badge: 0, panel: 0 };
   return { mirror: smooth((f - W(15.62)) / 16), badge: smooth((f - W(17.14)) / 18), panel: smooth((f - W(18.68)) / 26) };
 };
@@ -97,7 +97,7 @@ const zoom = (pos: V3, look: V3, fov: number, k: number, rest: Partial<Cam> = {}
   ({ pos, look, fov: (360 / Math.PI) * Math.atan(Math.tan((fov * Math.PI) / 360) * k), ...rest });
 const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 // the car card faces the lens; its mirror sits ~0.95 m right of centre at ~1.1 m, the badge at the nose ~2.2 m right
-const MIRROR = add(CAR, [0.95, 1.05, 0]), BADGE = add(CAR, [2.2, 0.95, 0]);
+const MIRROR = add(CAR, [0.95, 1.05, 0]), BADGE = add(CAR, [1.75, 0.95, 0]);
 
 const CAMS: Record<number, Key[]> = {
   1: [
@@ -105,8 +105,9 @@ const CAMS: Record<number, Key[]> = {
     { f: 40, dur: 55, s: (f) => zoom([8.6, 0.6, 6.3], [2, 9, -16], 62, push(f, 40, 0.002), { roll: -0.06 }) },
   ],
   2: [
-    { f: 101, s: (f) => dolly([60, 30, 90], [0, 150, -30], push(f, 101, 0.0012), { fov: 50 }) },
-    { f: 150, dur: 70, s: (f) => dolly([75, 120, 70], [0, 120, -24], push(f, 150, 0.0015), { fov: 48, roll: 0.02 }) },
+    { f: 101, s: (f) => dolly([90, 12, 150], [0, 82, -20], push(f, 101, 0.0015), { fov: 50 }) },
+    { f: W(5.84), dur: 34, s: (f) => dolly([48, 150, 58], [0, 178, -32], push(f, W(5.84), 0.002), { fov: 46, roll: 0.03 }) },
+    { f: W(7.28), dur: 30, s: (f) => dolly([75, 55, 115], [0, 85, -20], push(f, W(7.28), 0.0018), { fov: 52 }) },
     { f: W(8.94), cut: true, s: (f) => dolly([210, 80, -14], [24, 80, -24], push(f, W(8.94), 0.002), { fov: 56 }) },
   ],
   3: [
@@ -117,42 +118,45 @@ const CAMS: Record<number, Key[]> = {
   5: [
     { f: 464, s: (f) => dolly(add(MIRROR, [0.2, 0.15, 1.7]), MIRROR, push(f, 464, 0.004), { fov: 36, roll: 0.05 }) },
     { f: 507, cut: true, s: (f) => dolly(add(BADGE, [0.5, 0.1, 1.6]), BADGE, push(f, 507, 0.004), { fov: 36, roll: -0.05 }) },
-    { f: 538, cut: true, s: (f) => dolly([14, 1.4, 5.9], [6.4, 1.3, 2.8], push(f, 538, 0.003), { fov: 50 }) },
+    { f: 538, cut: true, s: (f) => dolly([11.4, 1.5, 5.9], [7.0, 1.35, 3.2], push(f, 538, 0.003), { fov: 46 }) },
   ],
   6: [
     { f: 603, s: (f) => dolly(add(SHOP, [2.2, 1.3, -3.6]), add(SHOP, [0.2, 0.8, 0]), push(f, 603, 0.003), { fov: 46, roll: 0.04 }) },
     { f: W(22.28), cut: true, s: (f) => dolly(add(BIKE, [2.0, 1.4, -3.4]), add(BIKE, [0.1, 1.0, 0]), push(f, W(22.28), 0.003), { fov: 46, roll: -0.04 }) },
   ],
   7: [
-    { f: 711, s: (f) => dolly([HOT[0] - 3, 1.6, -9], [reporterX(f) + 0.4, 1.3, HOT[2] + 0.5], push(f, 711, 0.0015), { fov: 46 }) },
+    { f: 711, s: (f) => dolly([HOT[0] - 2, 1.5, -5.6], [reporterX(f) + 0.4, 1.25, HOT[2] + 0.5], push(f, 711, 0.0015), { fov: 44 }) },
     { f: W(27.48), dur: 18, s: (f) => dolly([HOT[0] + 0.3, 1.5, -1.4], [HOT[0], 1.1, HOT[2] + 0.6], push(f, W(27.48), 0.004), { fov: 40 }) },
   ],
   8: [
-    { f: 853, s: () => ({ pos: [HOT[0] + 0.3, 1.4, -1.6], look: [HOT[0], 1.6, HOT[2] + 0.6], fov: 42, roll: 0 }) },
-    { f: 868, dur: 40, s: (f) => zoom([HOT[0] + 0.3, 1.0, -1.6], [-2, 120, -30], 58, push(f, 868, 0.002), { roll: 0.08 }) },
+    { f: 853, s: () => ({ pos: [HOT[0] - 0.2, 1.1, 6.2], look: [HOT[0], 1.5, HOT[2] + 0.5], fov: 44, roll: 0 }) },
+    { f: 868, dur: 40, s: (f) => zoom([HOT[0] - 0.2, 0.9, 6.2], [0, 110, -28], 62, push(f, 868, 0.002), { roll: 0.08 }) },
   ],
   9: [{ f: 918, s: (f) => dolly(add(LAB, [16, 6, 18]), add(LAB, [0, 4, 4]), push(f, 918, 0.0018), { fov: 50, roll: 0.02 }) }],
   10: [{ f: 1022, s: (f) => dolly([150, 45, 60], [10, 70, -18], push(f, 1022, 0.002), { fov: 54 }) }],
-  11: [{ f: 1108, s: (f) => dolly(add(KIDP, [1.3, 1.0, -2.5]), add(KIDP, [0.35, 0.65, 0.05]), push(f, 1108, 0.004), { fov: 42, roll: -0.04 }) }],
+  11: [{ f: 1108, s: (f) => dolly(add(KIDP, [1.4, 1.1, -3.1]), add(KIDP, [0.25, 0.7, 0.05]), push(f, 1108, 0.004), { fov: 44, roll: -0.04 }) }],
   12: [
-    { f: 1197, s: (f) => dolly([130, 60, 150], [0, 70, -22], push(f, 1197, 0.0012), { fov: 50 }) },
+    { f: 1197, s: (f) => dolly([100, 48, 28], [0, 72, -22], push(f, 1197, 0.0012), { fov: 54 }) },
     { f: W(42.5), cut: true, s: (f) => dolly([HOT[0] + 7, 3.2, -9], [HOT[0], 0.8, HOT[2]], push(f, W(42.5), 0.003), { fov: 42, roll: 0.04 }) },
   ],
   13: [
-    { f: 1346, s: () => ({ pos: [22, 1.5, 5.8], look: [HOT[0], 1, HOT[2]], fov: 50, roll: 0 }) },
-    { f: 1356, dur: 50, s: (f) => zoom([22, 1.5, 5.8], [0, 115, -24], 66, push(f, 1356, 0.0015), { roll: -0.06 }) },
+    { f: 1346, s: () => ({ pos: [13, 1.3, 5.9], look: [HOT[0] + 1.5, 1.2, HOT[2]], fov: 50, roll: 0 }) },
+    { f: W(45.94), dur: 46, s: (f) => zoom([13, 1.0, 5.9], [2, 120, -26], 66, push(f, W(45.94), 0.0015), { roll: -0.06 }) },
   ],
   14: [
-    { f: 1442, s: (f) => dolly([12, 1.5, 5.8], [6.2, 1.5, 2.4], push(f, 1442, 0.003), { fov: 46 }) },
-    { f: W(49.64), cut: true, s: (f) => dolly([60, 22, 110], [0, 95, -18], push(f, W(49.64), 0.0018), { fov: 50 }) },
+    { f: 1442, s: (f) => dolly([11.2, 1.5, 5.9], [5.7, 1.45, 2.6], push(f, 1442, 0.003), { fov: 46 }) },
+    { f: W(49.64), cut: true, s: (f) => dolly([72, 42, 30], [0, 100, -18], push(f, W(49.64), 0.0018), { fov: 52 }) },
   ],
-  15: [{ f: 1558, s: (f) => dolly(add(ARCH, [1.0, 1.55, 4.4]), add(ARCH, [0, 1.75, 0]), push(f, 1558, 0.003), { fov: 42 }) }],
+  15: [{ f: 1558, s: (f) => dolly(add(ARCH, [0.8, 1.6, 3.3]), add(ARCH, [0, 1.65, 0]), push(f, 1558, 0.003), { fov: 42 }) }],
   16: [{ f: 1642, s: (f) => dolly(add(ARCH, [0.2, 1.75, 2.2]), add(ARCH, [0, 1.85, 0]), push(f, 1642, 0.006), { fov: 38, roll: 0.06 }) }],
   17: [
-    { f: 1699, s: (f) => dolly(add(VEGAS, [5, 1.8, 13]), add(VEGAS, [-1, 1.6, 4]), push(f, 1699, 0.0025), { fov: 52, roll: 0.03 }) },
+    { f: 1699, s: (f) => dolly(add(VEGAS, [3.5, 1.5, 11.5]), add(VEGAS, [-0.5, 1.3, 5]), push(f, 1699, 0.0025), { fov: 50, roll: 0.03 }) },
     { f: W(58.94), cut: true, s: (f) => dolly(add(VEGAS, [0.6, 1.3, 8.6]), add(VEGAS, [-0.6, 0.9, 5.5]), push(f, W(58.94), 0.004), { fov: 44, roll: -0.04 }) },
   ],
-  18: [{ f: 1819, s: (f) => dolly([25, 1.5, 3.6], [4, 46, -22], push(f, 1819, 0.0016), { fov: 64, roll: -0.03 }) }],
+  18: [
+    { f: 1819, s: (f) => dolly([6.5, 1.55, 0.5], [2, 1.5, -10.5], push(f, 1819, 0.0025), { fov: 46 }) },
+    { f: W(61.4), dur: 32, s: (f) => zoom([6.5, 1.2, 0.5], [0, 78, -26], 64, push(f, W(61.4), 0.0015), { roll: -0.05 }) },
+  ],
 };
 export const camAt = (id: number, f: number): Cam => {
   const c = run(CAMS[id], f);
