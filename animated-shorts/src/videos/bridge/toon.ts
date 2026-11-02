@@ -437,6 +437,9 @@ export type FrontOpts = {
   prop?: Prop; tilt?: number; headTilt?: number; wave?: number;
   /** canvas angle the key light comes FROM (painted crescent + thick outline side) */
   light?: number; facing?: -1 | 0 | 1; seed?: number;
+  /** free arm poses (overrides the mode's default arm on that side): [elbow dx, elbow dy, hand dx, hand dy] from the
+   *  shoulder in head-heights, screen x to the right; `front` draws that arm over the torso (holding / covering) */
+  armL?: [number, number, number, number]; armR?: [number, number, number, number]; frontL?: boolean; frontR?: boolean;
 };
 
 const footStroke = (p: Pen, a: P2, b: P2, w: number, col: string) => {
@@ -446,7 +449,7 @@ const footStroke = (p: Pen, a: P2, b: P2, w: number, col: string) => {
 
 export const bodyFront = (p: Pen, o: Outfit, opts: FrontOpts) => {
   const { phase = 0, expr = "neutral", mode = "march", look = 0, blink = false, lift = 60, prop = null, tilt = 0, headTilt = 0, wave,
-    light = DEF_LIGHT, facing = 0, seed = 1 } = opts;
+    light = DEF_LIGHT, facing = 0, seed = 1, armL, armR, frontL = false, frontR = false } = opts;
   const Bd = BUILD[o.build ?? "adult"], skin = o.skin ?? SKIN, two = Math.PI * 2, lid = lidOf(blink);
   const H = headBlob(seed, Bd.a, facing), W = 2 * H.a, HH = 2 * H.b, u = W / 100;
   const tall = (1 + Bd.torso + Bd.legs) * HH, sole = 975;
@@ -529,6 +532,15 @@ export const bodyFront = (p: Pen, o: Outfit, opts: FrontOpts) => {
       const Hd = lerp2([tcx + 1.15 * T.a + 14 * u, S[1] - 0.55 * HH], [tcx + 1.45 * T.a + 22 * u, S[1] + 0.35 * HH], k);
       arms.push({ pts: [S, E, Hd], front: true });
     } else arms.push({ pts: hang(1, sw), front: false });
+  }
+  // free poses replace the default arm on their side (index 0 = left, 1 = right)
+  if (mode !== "sit" && mode !== "fall") {
+    const free = (side: -1 | 1, q: [number, number, number, number], front: boolean): Arm => {
+      const S = sh(side);
+      return { pts: [S, [S[0] + q[0] * HH, S[1] + q[1] * HH], [S[0] + q[2] * HH, S[1] + q[3] * HH]], front };
+    };
+    if (armL) arms[0] = free(-1, armL, frontL);
+    if (armR) arms[1] = free(1, armR, frontR);
   }
   const drawArm = (a: Arm) => { p.stroke(curve(a.pts[0], a.pts[1], a.pts[2]), 5.2 * u, armCol); p.dot(a.pts[2][0], a.pts[2][1], 5.5 * u); };
   // behind the body: rifle, sword, arms

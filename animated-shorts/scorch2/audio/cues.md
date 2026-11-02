@@ -1,0 +1,97 @@
+# Sound cues
+
+mix.wav: 48 kHz stereo, 64.333 s, integrated -14.4 LUFS, true peak -2.1 dBTP
+
+## Music sections
+-  0.00- 3.38 s hook (story)
+-  3.38-28.42 s story (story)
+- 28.42-30.60 s wait (stinger only)
+- 30.60-47.46 s explain (explain)
+- 47.46-54.74 s shade (story)
+- 54.74-56.64 s unlucky (stinger only)
+- 56.64-60.64 s vegas (lounge)
+- 60.64-64.33 s end (end)
+
+## SFX events
+-   0.00 s  beam hum + shimmer (hook)
+-   0.30 s  mirror droop (hook)
+-   2.96 s  whoosh into flash
+-   3.60 s  city ambience bed
+-   7.67 s  glass glints
+-   7.91 s  glass glints
+-   8.15 s  glass glints
+-   8.39 s  glass glints
+-   8.63 s  glass glints
+-   9.45 s  spoon pops in
+-  10.30 s  car rolls in
+-  11.55 s  car settles
+-  11.85 s  car door
+-  12.20 s  pats the roof
+-  12.45 s  pats the roof
+-  12.70 s  pats the roof
+-  13.00 s  businessman whistles
+-  13.16 s  businessman whistles
+-  13.32 s  businessman whistles
+-  13.48 s  businessman whistles
+-  13.64 s  businessman whistles
+-  13.80 s  businessman whistles
+-  13.80 s  time-lapse whoosh
+-  14.30 s  footsteps (back with coffee)
+-  14.75 s  footsteps (back with coffee)
+-  15.20 s  footsteps (back with coffee)
+-  15.55 s  mirror melts: droop
+-  17.07 s  badge drips
+-  17.29 s  badge drips
+-  17.51 s  badge drips
+-  18.61 s  panels go soft: squelch
+-  18.96 s  coffee cup splat
+-  21.07 s  doormat smoke fsss
+-  21.23 s  shopkeeper stamps
+-  21.43 s  shopkeeper stamps
+-  21.63 s  shopkeeper stamps
+-  21.83 s  shopkeeper stamps
+-  22.61 s  seat blister pops
+-  22.71 s  seat blister pops
+-  22.81 s  seat blister pops
+-  22.85 s  cyclist yelp (spring)
+-  22.91 s  seat blister pops
+-  23.90 s  footsteps (reporter)
+-  24.35 s  footsteps (reporter)
+-  24.80 s  footsteps (reporter)
+-  25.25 s  footsteps (reporter)
+-  25.70 s  footsteps (reporter)
+-  27.85 s  egg sizzle
+-  31.29 s  rays bounce (flat)
+-  31.39 s  rays bounce (flat)
+-  31.49 s  rays bounce (flat)
+-  31.59 s  rays bounce (flat)
+-  31.69 s  rays bounce (flat)
+-  35.87 s  satellite dish pops in
+-  39.05 s  leaf catches fire: fwip
+-  40.35 s  rays gather
+-  42.43 s  squeeze rise
+-  44.15 s  burning spot: fwoomp
+-  44.97 s  giant handle pops in
+-  46.29 s  crane up gliss (160 m)
+-  46.42 s  crane up gliss (160 m)
+-  46.55 s  crane up gliss (160 m)
+-  46.68 s  crane up gliss (160 m)
+-  46.81 s  crane up gliss (160 m)
+-  46.94 s  crane up gliss (160 m)
+-  47.07 s  crane up gliss (160 m)
+-  47.20 s  crane up gliss (160 m)
+-  48.31 s  cash 'ka-ching'
+-  48.43 s  cash 'ka-ching'
+-  49.57 s  sunshade fins clank
+-  49.84 s  sunshade fins clank
+-  50.11 s  sunshade fins clank
+-  50.38 s  sunshade fins clank
+-  50.65 s  sunshade fins clank
+-  50.92 s  sunshade fins clank
+-  52.73 s  smug thumbs-up 'ting'
+-  54.93 s  sweat drop
+-  56.80 s  pool / lounge ambience
+-  58.87 s  tourists sizzle
+-  60.25 s  tourist splashes into the pool
+-  61.47 s  award applause
+-  61.85 s  rosette pops onto the tower

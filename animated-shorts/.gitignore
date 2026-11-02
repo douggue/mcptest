@@ -5,3 +5,5 @@ scorch/audio/mix.wav
 scorch/audio/stem_*.wav
 emu/audio/mix.wav
 emu/audio/stem_*.wav
+scorch2/audio/mix.wav
+scorch2/audio/stem_*.wav
