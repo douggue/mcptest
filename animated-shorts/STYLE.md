@@ -1,6 +1,8 @@
 # House style for our shorts (approved 2026-11-02 on "The Building That Cooked Breakfast" v2)
 
-The owner reviewed v2 and said "everything good this time; keep that style". Every new short follows this.
+The owner reviewed v2 and said "everything good this time; keep that style". Every new short follows this, **plus the measured rules in `REFERENCE_STUDY.md`**, which take priority where
+they differ (no hard cuts, one protagonist, characters always big and moving, a visual event every ~1 s). No
+captions: the owner adds them in CapCut.
 
 ## Voice
 - Kokoro TTS, voice `af_heart`, speed ~1.3, generated per line with ~0.16 s between lines
