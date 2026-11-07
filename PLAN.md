@@ -1,8 +1,8 @@
 # Personal Multi-Profile Browser — Build Plan
 
-A single-user, local-first tool for running many fully isolated browser profiles.
-Each profile has its own storage, proxy and stable fingerprint, and the tool has a
-local API for automation.
+A single-user **Windows desktop app** (Windows 10/11, installed from a normal `.exe`/`.msi`)
+for running many fully isolated browser profiles. Each profile has its own storage, proxy
+and stable fingerprint, and the app has a local API for automation.
 
 ---
 
@@ -31,9 +31,18 @@ local API for automation.
 | Fingerprint generation | **BrowserForge** (via Camoufox) | Builds fingerprints from real-world distributions, so the values stay internally consistent. |
 | API | **FastAPI** on `127.0.0.1` only, with a bearer token | Simple, typed and async. |
 | Storage | **SQLite** (one file) plus a directory per profile | Zero ops, easy to back up. |
-| Secrets | OS keyring (via `keyring`) holds the master key, and **libsodium** (`pynacl`) encrypts proxy creds and profile archives | Nothing sensitive is stored in plaintext. |
-| UI | Local web UI (React + Vite), served by the daemon; optional **Tauri** wrapper later | One codebase, and it works in any browser. |
+| Secrets | **Windows Credential Manager** (via `keyring`) holds the master key, and **libsodium** (`pynacl`) encrypts proxy creds and profile archives | Nothing sensitive is stored in plaintext. |
+| Desktop app | **Tauri 2** (Rust shell + React screens rendered in Windows' built-in WebView2) | Real native window, tray icon and installer, about 10MB versus about 150MB for Electron. AdsPower itself is a desktop shell of this kind (Electron). |
+| Backend packaging | Python daemon frozen with **PyInstaller** into one `.exe`, shipped inside the app as a Tauri "sidecar" | You don't need Python installed. The app starts and stops the daemon automatically. |
+| Installer and updates | Tauri bundler (NSIS `.exe` + `.msi`), Tauri updater | One-click install and auto-update. |
+| Data location | `%LOCALAPPDATA%\MultiProfile\` (DB, profiles, logs) | The standard Windows place, per user. |
 | Automation | Playwright connects to a per-profile websocket server | Works with existing Playwright scripts. |
+
+**Tauri vs Electron.** Both work, and the React screens are the same either way, so switching later is cheap.
+Tauri is the default: smaller installer (about 10MB vs 150MB), lower RAM use, and it uses Windows' built-in WebView2.
+Pick **Electron** instead if you'd rather not install Rust or deal with Rust build errors
+(it's JavaScript only), or if you want its larger ecosystem of examples. Sidecar, tray and updater
+all have direct Electron equivalents (`child_process`, `Tray`, `electron-updater`).
 
 **Engine abstraction.** Everything talks to an `Engine` interface (`launch`, `stop`, `ws_endpoint`).
 Camoufox is the first implementation. A Chromium engine can be added later without touching the rest of the code.
@@ -50,7 +59,8 @@ These rules matter more than any single feature:
 2. **Stability.** A profile's fingerprint is generated **once**, saved, and reused on every launch.
    A fingerprint that changes every session looks worse than an ordinary one.
 3. **Match the host OS.** OS-level signals (font rendering, TCP/TLS stack) are hard to fake.
-   By default, generate fingerprints for the OS the tool runs on.
+   Because the app runs on Windows, profiles default to **Windows fingerprints**. Windows is also
+   the most common desktop OS, so these profiles blend in best.
 4. **Proxy-aligned geo.** On launch, look up the proxy's exit IP and set timezone, locale,
    `Accept-Language` and geolocation to match. WebRTC must never expose the real IP.
 5. **One identity, one IP.** Each profile gets its own sticky proxy. Two profiles never share an exit IP.
@@ -62,9 +72,11 @@ These rules matter more than any single feature:
 ## 4. Architecture
 
 ```
-┌──────────────┐     HTTP (localhost + token)     ┌───────────────────────────┐
-│ Web UI/Tauri │ ───────────────────────────────▶ │  Daemon (FastAPI)         │
-└──────────────┘                                  │  ├─ ProfileService        │
+┌──────────────────┐  HTTP (localhost + token)    ┌───────────────────────────┐
+│ Windows app      │ ───────────────────────────▶ │  Daemon (FastAPI) .exe    │
+│ (Tauri window,   │  starts/stops daemon as      │  ├─ ProfileService        │
+│  tray icon)      │  a bundled sidecar           │                           │
+└──────────────────┘                              │                           │
 ┌──────────────┐                                  │  ├─ FingerprintService    │
 │ Your scripts │ ── POST /profiles/:id/start ───▶ │  ├─ ProxyService (+geo)   │
 │ (Playwright) │ ◀── { ws_endpoint } ──────────── │  ├─ LaunchManager (locks) │
@@ -99,7 +111,10 @@ app/
     backup.py          # export/import encrypted profile archives
   api/
     profiles.py proxies.py launch.py selftest.py
-ui/                    # React + Vite
+desktop/               # Tauri 2 Windows app
+  src/                 # React screens (profiles, proxies, tests, settings)
+  src-tauri/           # Rust shell: window, tray, sidecar launch, updater
+    binaries/          # PyInstaller-built daemon .exe goes here
 tests/
 PLAN.md
 ```
@@ -152,10 +167,12 @@ POST   /backup/export   POST /backup/import
 
 Each phase ends with a **done when** check. Do not move on until it passes.
 
-### Phase 0 — Setup (½ day)
-- Python 3.12 project with `uv`, plus `ruff`, `pytest` and pre-commit.
-- Install Camoufox and download its browser binary. Confirm one window opens with a test script.
-- **Done when:** a hard-coded script opens Camoufox at `https://example.com`.
+### Phase 0 — Setup on Windows (1 day)
+- Install Python 3.12 with `uv`, Node 20 LTS, Rust (`rustup`), and Visual Studio Build Tools (C++ workload, needed by Tauri).
+- Set up `ruff`, `pytest` and pre-commit.
+- Install Camoufox and download its Windows browser binary. Confirm one window opens with a test script.
+- Scaffold the Tauri 2 app and confirm an empty window builds and runs.
+- **Done when:** a hard-coded script opens Camoufox at `https://example.com`, and `npm run tauri dev` shows a window.
 
 ### Phase 1 — Profiles and isolation (2–3 days)
 - SQLite schema and migrations. `ProfileService` handles CRUD.
@@ -190,13 +207,28 @@ Each phase ends with a **done when** check. Do not move on until it passes.
 - **Done when:** an external Playwright script connects, drives the page, disconnects,
   and the profile keeps running for manual use.
 
-### Phase 5 — UI (4–5 days)
-- Profile table: name, group, tags, proxy, country flag, status, last used, and Start/Stop buttons.
-- Create and edit dialog: OS and screen options, assign a proxy, preview the fingerprint summary.
-- Proxy manager: bulk import, check all, health badges.
-- Bulk actions: start or stop a group, assign proxies, delete.
-- Optional: wrap it with Tauri for a tray icon and an app window.
-- **Done when:** the whole daily workflow works without the terminal.
+### Phase 5 — Windows app screens (4–5 days)
+- Tauri shell: main window, **system tray** (show running profiles, quick start/stop, quit),
+  optional start-with-Windows, single-instance lock.
+- The app launches the bundled daemon on startup and shuts it down cleanly on exit
+  (it also stops running profiles, or asks first).
+- **Profiles screen:** table with name, group, tags, proxy, country flag, status, last used, and Start/Stop buttons.
+- **Create/edit dialog:** screen options, assign a proxy, fingerprint summary preview.
+- **Proxies screen:** bulk paste/import, check all, health badges.
+- **Bulk actions:** start or stop a group, assign proxies, delete.
+- **Settings:** data folder, API token (copy button for scripts), backup location.
+- **Done when:** the whole daily workflow works from the app, with no terminal.
+
+### Phase 5b — Packaging and install (2 days)
+- Freeze the daemon with PyInstaller into one `.exe` and register it as a Tauri sidecar.
+- The Camoufox browser binary is downloaded on first run into `%LOCALAPPDATA%`, with a progress bar,
+  so the installer stays small.
+- Build the NSIS `.exe` installer and `.msi`, with an uninstaller that asks whether to keep profile data.
+- Tauri updater with signed update manifests.
+- Optional: code-signing certificate, so Windows SmartScreen doesn't warn "unknown publisher".
+  Without it, personal use is fine; you click "More info → Run anyway" once.
+- **Done when:** on a clean Windows VM you run the installer, launch the app,
+  create a profile and browse, with nothing else installed.
 
 ### Phase 6 — Self-test harness (2 days)
 - Headless-free run: start the profile, visit a set of public leak and fingerprint test pages
@@ -232,8 +264,9 @@ Each phase ends with a **done when** check. Do not move on until it passes.
 |---|---|---|
 | 1 | 0, 1, 2 | Isolated profiles with stable fingerprints from the CLI |
 | 2 | 3, 4 | Proxy-aligned profiles drivable from scripts |
-| 3 | 5 | Usable daily through the UI |
-| 4 | 6, 7 | Self-tested, encrypted and backed up. Feature-complete for personal use. |
+| 3 | 5 | Usable daily as a Windows app (run from dev build) |
+| 4 | 5b, 6 | Installable `.exe`, leak self-tests built in |
+| 5 | 7 | Encrypted backups, cookies and cloning. Feature-complete for personal use. |
 
 ---
 
@@ -253,7 +286,9 @@ Each phase ends with a **done when** check. Do not move on until it passes.
 | Engine updates change fingerprint output | Pin the engine version per profile, and run golden self-tests before upgrading. |
 | Proxy drops mid-session and leaks the real IP | Run all traffic through the proxy inside the engine, with no direct fallback, and run health checks before launch. |
 | Profile corruption | Per-profile locks, automatic backups before upgrades. |
-| Secrets on disk | Master key in the OS keyring, everything else encrypted. API on localhost only, with a token. |
+| Secrets on disk | Master key in Windows Credential Manager, everything else encrypted. API on localhost only, with a token. |
+| Antivirus flags the PyInstaller `.exe` (common false positive) | Build with `--onedir` instead of `--onefile`, code-sign if possible, add a Defender exclusion for the app folder if needed. |
+| Daemon left running after a crash | The app checks for and kills an orphaned daemon on startup (PID file + port check). |
 
 ---
 
