@@ -17,7 +17,6 @@
     "dialog:allow-open",
     "dialog:allow-save",
     "opener:allow-open-url",
-    "updater:default",
     "autostart:default"
   ]
 }
