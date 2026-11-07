@@ -58,7 +58,10 @@ class Settings:
     )
     proxy_check_timeout: float = 15.0
     # Run the leak self-test automatically after create / proxy change / regenerate.
-    auto_selftest: bool = _env_flag("MULTIPROFILE_AUTO_SELFTEST", True)
+    # Off by default: the self-test starts and stops the real profile, which would
+    # open and immediately close the browser window right after you click Start.
+    # Run it on demand from the Leak tests screen instead.
+    auto_selftest: bool = _env_flag("MULTIPROFILE_AUTO_SELFTEST", False)
     # Refuse to start a profile that has no proxy assigned (strict "one identity, one IP").
     require_proxy: bool = _env_flag("MULTIPROFILE_REQUIRE_PROXY", False)
     # Where the web UI may talk from during `npm run dev` (Vite dev server).

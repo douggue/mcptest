@@ -51,11 +51,12 @@ def _camel(s: str) -> str:
 
 
 def to_camel_case_dict(d: dict[str, Any]) -> dict[str, Any]:
-    out: dict[str, Any] = {}
-    for k, v in d.items():
-        key = _camel(k) if isinstance(k, str) else k
-        out[key] = to_camel_case_dict(v) if isinstance(v, dict) and k != "firefox_user_prefs" else v
-    return out
+    # Only the top-level Playwright option names are camelCased. Nested maps must
+    # keep their literal keys: `env` carries CAMOU_CONFIG_* (Camoufox's whole
+    # fingerprint config) and `firefox_user_prefs` carries dotted pref names like
+    # "network.proxy.type". Recursing into them renamed those keys and silently
+    # disabled all spoofing, and left the browser running without a window.
+    return {(_camel(k) if isinstance(k, str) else k): v for k, v in d.items()}
 
 
 def _driver_paths() -> tuple[str, Path]:
