@@ -27,7 +27,6 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [apiBase, setApiBase] = useState("");
   const [bootedAt] = useState(() => Date.now());
-  const [, tick] = useState(0);
 
   const notify = (msg: string) => {
     setToast(msg);
@@ -56,15 +55,12 @@ export default function App() {
 
   useEffect(() => {
     reload();
-    const t = window.setInterval(reload, 4000);
+    // Poll a little faster while offline so the UI reconnects promptly, but
+    // `reload` only changes state when something actually changed, so this no
+    // longer forces a re-render on every tick (which made the connect form flicker).
+    const t = window.setInterval(reload, online ? 4000 : 1500);
     return () => window.clearInterval(t);
-  }, [reload]);
-  // While booting, poll fast so the splash goes away as soon as the daemon answers.
-  useEffect(() => {
-    if (online) return;
-    const t = window.setInterval(() => { reload(); tick((n) => n + 1); }, 700);
-    return () => window.clearInterval(t);
-  }, [online, reload]);
+  }, [reload, online]);
 
   const groups = Array.from(new Set(profiles.map((p) => p.group_name).filter(Boolean))) as string[];
   const running = profiles.filter((p) => p.status === "running").length;
