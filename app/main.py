@@ -56,8 +56,14 @@ def build_context(
     proxy_svc = proxies_service or ProxyService(db, vault, settings)
     profile_svc = ProfileService(db, settings, fingerprints, proxy_svc)
     launcher = LaunchManager(db, engine, profile_svc, proxy_svc, settings)
-    probe = BrowserProbe(settings.ip_echo_urls)
-    selftest_svc = SelfTestService(db, profile_svc, proxy_svc, launcher, collector or probe.collect)
+    if collector is None:
+        if engine.name == "mock":
+            from app.engines.mock_engine import MockCollector
+
+            collector = MockCollector(engine)  # type: ignore[arg-type]
+        else:
+            collector = BrowserProbe(settings.ip_echo_urls).collect
+    selftest_svc = SelfTestService(db, profile_svc, proxy_svc, launcher, collector)
     backup_svc = BackupService(db, settings, profile_svc, proxy_svc, launcher)
     return AppContext(
         settings=settings,

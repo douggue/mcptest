@@ -72,3 +72,46 @@ class MockEngine:
     # -- test helpers ----------------------------------------------------------
     def crash(self, profile_id: str) -> None:
         self._alive.discard(profile_id)
+
+
+class MockCollector:
+    """Stands in for ``BrowserProbe.collect`` when the mock engine is active.
+
+    Reports exactly what the launch spec asked for, so the self-test passes for
+    aligned profiles and fails for broken ones (no proxy, bad override).
+    """
+
+    def __init__(self, engine: MockEngine):
+        self.engine = engine
+
+    async def __call__(self, ws_endpoint: str, external_pages: list[str] | None) -> dict[str, Any]:
+        spec = next(
+            (s for s in reversed(self.engine.launched) if ws_endpoint.endswith(s.profile_id)), None
+        )
+        if spec is None:
+            raise RuntimeError(f"mock engine knows nothing about {ws_endpoint}")
+        fp, geo = spec.fingerprint, spec.geo
+        nav = fp.get("navigator", {})
+        langs = (
+            [geo.locale, geo.locale.split("-")[0]]
+            if geo and geo.locale
+            else nav.get("languages", [])
+        )
+        rtc_ips = (
+            [] if spec.options.webrtc == "block" else [f"{spec.exit_ip or '198.51.100.7'} (srflx)"]
+        )
+        return {
+            "observed": {
+                "userAgent": nav.get("userAgent"),
+                "platform": nav.get("platform"),
+                "languages": langs,
+                "hardwareConcurrency": nav.get("hardwareConcurrency"),
+                "timezone": (geo.timezone if geo and geo.timezone else "UTC"),
+                "screen": dict(fp.get("screen", {})),
+                "webrtc": {"supported": spec.options.webrtc != "block", "ips": rtc_ips},
+            },
+            "exit_ip": spec.exit_ip or "198.51.100.7",
+            "external_pages": [
+                {"url": u, "ok": True, "title": "(mock)"} for u in external_pages or []
+            ],
+        }
