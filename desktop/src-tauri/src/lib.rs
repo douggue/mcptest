@@ -172,7 +172,8 @@ fn quit(app: &AppHandle) {
     let state = app.state::<Daemon>();
     request_shutdown(&state.data_dir, state.port);
     let _ = wait_until_closed(state.port, Duration::from_secs(25));
-    if let Some(child) = state.child.lock().unwrap().take() {
+    let child = state.child.lock().unwrap().take();
+    if let Some(child) = child {
         let _ = child.kill();
     }
     app.exit(0);
@@ -303,7 +304,10 @@ pub fn run() {
             if let tauri::RunEvent::ExitRequested { .. } = event {
                 let state = app.state::<Daemon>();
                 request_shutdown(&state.data_dir, state.port);
-                if let Some(child) = state.child.lock().unwrap().take() {
+                // Take the child out and drop the MutexGuard before using it, so the
+                // guard's temporary does not outlive `state`.
+                let child = state.child.lock().unwrap().take();
+                if let Some(child) = child {
                     let _ = wait_until_closed(state.port, Duration::from_secs(25));
                     let _ = child.kill();
                 }
