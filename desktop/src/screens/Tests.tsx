@@ -1,96 +1,129 @@
-import { useCallback, useEffect, useState } from "react";
-import { ago, api, Profile, SelfTestReport } from "../api";
+import { useEffect, useState } from "react";
+import { ago, api, SelfTestReport } from "../api";
+import type { Shared } from "../App";
+import { Avatar, Icons } from "../ui";
 
-export default function Tests({ notify }: { notify: (m: string) => void }) {
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+export default function Tests({ s }: { s: Shared }) {
+  const { profiles, reload, notify } = s;
   const [selected, setSelected] = useState<string>("");
   const [history, setHistory] = useState<SelfTestReport[]>([]);
   const [running, setRunning] = useState(false);
   const [external, setExternal] = useState(false);
   const [events, setEvents] = useState<{ ts: string; kind: string; profile_id: string | null; detail: Record<string, unknown> }[]>([]);
 
-  const load = useCallback(async () => {
-    try {
-      const p = await api<Profile[]>("/profiles");
-      setProfiles(p);
-      setEvents(await api("/events?limit=60"));
-      if (!selected && p.length) setSelected(p[0].id);
-    } catch {
-      /* offline */
-    }
-  }, [selected]);
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!selected && profiles.length) setSelected((profiles.find((p) => p.last_selftest_passed === false) || profiles[0]).id);
+  }, [profiles, selected]);
+  useEffect(() => {
+    api("/events?limit=40").then((e) => setEvents(e as typeof events)).catch(() => undefined);
+  }, [running, profiles]);
   useEffect(() => {
     if (!selected) return;
     api<SelfTestReport[]>(`/profiles/${selected}/selftest`).then(setHistory).catch(() => setHistory([]));
-  }, [selected, running]);
+  }, [selected, running, profiles]);
 
-  const run = async () => {
+  const issues = profiles.filter((p) => p.last_selftest_passed === false);
+  const run = async (id = selected) => {
     setRunning(true);
     try {
-      const r = await api<SelfTestReport>(`/profiles/${selected}/selftest?external=${external}`, { method: "POST" });
-      notify(r.passed ? "Self-test passed" : "Self-test failed, see details");
+      const r = await api<SelfTestReport>(`/profiles/${id}/selftest?external=${external}`, { method: "POST" });
+      notify(r.passed ? "Leak test passed" : "Leak test found issues");
     } catch (e) {
       notify((e as Error).message);
     } finally {
       setRunning(false);
-      load();
+      reload();
     }
   };
+  const current = profiles.find((p) => p.id === selected);
 
   return (
     <div>
-      <h2>Leak self-test</h2>
-      <div className="toolbar">
-        <select value={selected} onChange={(e) => setSelected(e.target.value)}>
-          {profiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-        <label className="row"><input type="checkbox" checked={external} onChange={(e) => setExternal(e.target.checked)} /> also open public test pages (BrowserLeaks, CreepJS, DNS leak)</label>
+      <div className="page-head">
+        <div>
+          <h2>Leak tests</h2>
+          <div className="sub">{issues.length ? `${issues.length} profile${issues.length > 1 ? "s" : ""} with issues` : "No open issues"} · the browser is asked what it exposes and compared with the proxy and the frozen fingerprint</div>
+        </div>
         <div className="grow" />
-        <button onClick={run} disabled={!selected || running}>{running ? "Running…" : "Run self-test"}</button>
+        <div className="actions">
+          <label className="check-row"><input type="checkbox" checked={external} onChange={(e) => setExternal(e.target.checked)} /> Also open public test pages</label>
+          <select style={{ width: 240 }} value={selected} onChange={(e) => setSelected(e.target.value)}>
+            {profiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <button className="primary lg" onClick={() => run()} disabled={!selected || running}><Icons.shield /> {running ? "Running…" : "Run leak test"}</button>
+        </div>
       </div>
-      <p className="muted">
-        The profile is started if needed, the browser is asked what it exposes (exit IP, WebRTC candidates, timezone,
-        languages, UA, screen, cores) and the answers are compared with the proxy and the frozen fingerprint.
-      </p>
-      {history.length === 0 && <div className="card muted">No reports yet for this profile.</div>}
-      {history.map((r, i) => (
-        <details key={r.id} className="card" open={i === 0}>
-          <summary>
-            <span className={"badge " + (r.passed ? "ok" : "bad")}>{r.passed ? "PASS" : "FAIL"}</span> {ago(r.ran_at)}{" "}
-            <span className="muted">{r.ran_at}</span>
-            {r.error && <span className="error"> · {r.error}</span>}
-          </summary>
-          <div style={{ marginTop: 8 }}>
-            {r.checks.map((c) => (
-              <div className="check" key={c.name}>
-                <span>{c.passed ? "✅" : "❌"}</span>
-                <span className="name">{c.name}</span>
-                <span className="mono muted">{c.passed ? fmt(c.actual) : `${c.reason || ""} (expected ${fmt(c.expected)}, got ${fmt(c.actual)})`}</span>
-              </div>
-            ))}
+
+      {issues.length > 0 && (
+        <div className="banner warn">
+          <Icons.warn />
+          <span>Issues in <b>{issues.map((p) => p.name).join(", ")}</b>. Fix the proxy or location and run the test again.</span>
+          <div className="grow" />
+          {issues.map((p) => <button key={p.id} className="sm" onClick={() => setSelected(p.id)}>Show {p.name}</button>)}
+        </div>
+      )}
+
+      {current && (
+        <div className="card">
+          <div className="card-head">
+            <div className="who"><Avatar name={current.name} /><div><div className="cell-title" style={{ fontSize: 15 }}>{current.name}</div><div className="cell-sub">{current.proxy ? `${current.proxy.label || current.proxy.host} · ${current.proxy.last_geo?.timezone || ""}` : "no proxy"}</div></div></div>
+            {history[0] && (history[0].passed ? <span className="badge ok plain"><Icons.check /> Passed {ago(history[0].ran_at)}</span> : <span className="badge warn plain"><Icons.warn /> Issues {ago(history[0].ran_at)}</span>)}
           </div>
-        </details>
-      ))}
-      <h2 style={{ marginTop: 24 }}>Recent events</h2>
-      <table>
-        <tbody>
-          {events.map((e, i) => (
-            <tr key={i}>
-              <td className="muted mono" style={{ whiteSpace: "nowrap" }}>{e.ts}</td>
-              <td>{e.kind}</td>
-              <td className="muted">{profiles.find((p) => p.id === e.profile_id)?.name || e.profile_id || ""}</td>
-              <td className="mono muted">{JSON.stringify(e.detail)}</td>
-            </tr>
+          {history.length === 0 && <div className="empty">Not run yet.</div>}
+          {history.map((r, i) => (
+            <details key={r.id} open={i === 0} style={{ borderTop: i ? "1px solid var(--line)" : "none", paddingTop: i ? 10 : 0, marginTop: i ? 10 : 0 }}>
+              <summary className="muted" style={{ fontSize: 12 }}>{i === 0 ? "Latest run" : "Earlier run"} · {r.ran_at}{r.error ? <span className="error"> · {r.error}</span> : ""}</summary>
+              <div className="checks" style={{ marginTop: 6 }}>
+                {r.checks.map((c) => (
+                  <div className="row" key={c.name}>
+                    <span style={{ color: c.passed ? "var(--ok)" : "var(--warn)" }}>{c.passed ? <Icons.check /> : <Icons.warn />}</span>
+                    <span className="name">{label(c.name)}</span>
+                    <span className="mono" style={{ color: c.passed ? "var(--muted)" : "var(--text)" }}>
+                      {c.passed ? fmt(c.actual) : `${c.reason || "mismatch"} · expected ${fmt(c.expected)}, got ${fmt(c.actual)}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </details>
           ))}
-        </tbody>
-      </table>
+        </div>
+      )}
+
+      <div className="card">
+        <div className="card-head"><h3>Recent events</h3></div>
+        <table>
+          <tbody>
+            {events.map((e, i) => (
+              <tr key={i}>
+                <td className="mono" style={{ whiteSpace: "nowrap", width: 180 }}>{e.ts.replace("T", " ").replace(/\+.*$/, "")}</td>
+                <td>{e.kind}</td>
+                <td className="muted">{profiles.find((p) => p.id === e.profile_id)?.name || e.profile_id || ""}</td>
+                <td className="mono" style={{ textAlign: "left" }}>{JSON.stringify(e.detail)}</td>
+              </tr>
+            ))}
+            {events.length === 0 && <tr><td className="empty">No events yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
+const LABELS: Record<string, string> = {
+  proxy_assigned: "Proxy assigned",
+  exit_ip_matches_proxy: "Exit IP is the proxy's",
+  webrtc_no_leak: "WebRTC shows no other IP",
+  timezone_matches_geo: "Timezone matches location",
+  language_matches_geo: "Language matches location",
+  user_agent_is_stored: "User agent unchanged",
+  platform_is_stored: "Platform unchanged",
+  ua_platform_consistent: "UA and platform agree",
+  screen_is_stored: "Screen unchanged",
+  cores_are_stored: "CPU cores unchanged",
+};
+function label(name: string) {
+  return LABELS[name] || name;
+}
 function fmt(v: unknown): string {
   if (v === null || v === undefined) return "—";
   return typeof v === "string" ? v : JSON.stringify(v);

@@ -104,6 +104,15 @@ export interface FingerprintSummary {
   languages: string[];
   gpu_renderer?: string | null;
 }
+export interface ProxyCheckResultLite {
+  proxy_id: string;
+  healthy: boolean;
+  exit_ip?: string | null;
+  geo?: Geo | null;
+  latency_ms?: number | null;
+  error?: string | null;
+  shared_with: string[];
+}
 export interface LaunchOptions {
   window?: [number, number] | null;
   webrtc: "proxy" | "block";
@@ -163,6 +172,7 @@ export interface Settings {
   headless: boolean;
   auto_selftest: boolean;
   require_proxy: boolean;
+  geoip_db?: string | null;
 }
 
 export function flag(country?: string | null): string {

@@ -159,6 +159,9 @@ legal liability.
 
 Web UI against the daemon with the mock engine (`docs/screenshots/`):
 
+![Startup](docs/screenshots/loading.png)
 ![Profiles](docs/screenshots/profiles.png)
+![New profile](docs/screenshots/profile-new.png)
 ![Proxies](docs/screenshots/proxies.png)
-![Self-test](docs/screenshots/tests.png)
+![Leak tests](docs/screenshots/tests.png)
+![Settings](docs/screenshots/settings.png)
