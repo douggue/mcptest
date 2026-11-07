@@ -164,7 +164,78 @@ It also makes every change to the engine visible as a patch file.
 
 ---
 
-## 5. Build phases
+## 5. App design and style
+
+A clickable mockup of the four core screens is on the design canvas:
+https://claude.ai/artifact/9A6nCdhEnzwJo5Qmw4ihbe
+
+The canvas is private until its owner shares it from its Share menu.
+
+### 5.1 Screens
+
+| Screen | What it does | Key elements |
+|---|---|---|
+| 1. Home | Shows every clone grouped by space | Space filter chips, 4-column icon grid per space, clone-number badge on each icon, "Clone an app" floating button |
+| 2. Pick an app | Lists the phone's apps to clone | Search field, target space selector, "Clone", "Cloning…" and "Open" button states, "Not supported" for apps that block virtual apps, a terms-of-service warning |
+| 3. Identity and proxy | Edits one clone's fake identity and network | Identity card with Regenerate, proxy on/off switch, SOCKS5 or HTTP choice, host, port and username fields, connection test with result, "Save and restart clone" |
+| 4. Leak test | Shows what the clone really sees | Summary banner, one row per check comparing "Real phone" with "Clone sees", "Isolated" or "Leak" tag, button to turn on the VPN safety net |
+
+Navigation: Home opens the picker from the floating button and the profile from a long-press on a clone. The profile opens the leak test.
+
+### 5.2 Style guide
+
+**Look.** Calm, light and utility-first. White cards on a pale gray ground, one blue accent, and orange reserved for clone numbers and warnings.
+
+**Colors**
+
+| Token | Hex | Used for |
+|---|---|---|
+| `background` | `#F7F7FA` | Screen background |
+| `surface` | `#FFFFFF` | Cards, lists, inputs |
+| `border` | `#E8E8EF` and `#E2E2EA` | Card outlines and input borders |
+| `text` | `#16161D` | Main text |
+| `text-muted` | `#5B5B6B` | Labels and secondary text. Passes 4.5:1 contrast on the background. |
+| `accent` | `#3B5BDB` | Primary buttons, selected chips, switches, links |
+| `accent-pressed` | `#2B44A8` | Pressed and hover states |
+| `accent-soft` | `#EEF1FD` | Tip banners |
+| `badge` and `warning` | `#C2410C` | Clone-number badges, leak warnings |
+| `warning-soft` | `#FFF4EC` | Warning banners |
+| `success` | `#15803D` | Passed checks, "Connected" status |
+
+Status is never shown by color alone. Every pass or leak also has an icon and a word.
+
+**Type**
+
+| Role | Font | Size and weight |
+|---|---|---|
+| Screen title | Space Grotesk | 22 to 26 sp, bold |
+| Section title | Space Grotesk | 16 to 17 sp, semibold |
+| Body and buttons | Inter | 13 to 15 sp, regular to semibold |
+| Labels | Inter | 11 to 12 sp, semibold |
+| IDs, IPs, ports | JetBrains Mono | 12 to 13 sp, medium |
+
+**Shape and spacing**
+- Spacing uses a 4 dp grid. Screen side padding is 20 dp. Gaps inside cards are 12 to 16 dp.
+- Corner radius is 20 dp for cards, 16 dp for app icons, 12 to 14 dp for inputs, and fully round for buttons and chips.
+- Every touch target is at least 44 dp.
+- Only the floating button has a shadow. Cards use a 1 dp border instead.
+
+**Components**
+- **App tile.** A 56 dp rounded icon with the clone-number badge at its bottom-right corner, and the app name below.
+- **Space chips.** 36 dp pills. The selected chip is filled with the accent. "New space" has a dashed outline.
+- **Buttons.** The primary button is filled with the accent and 52 dp tall. The secondary button is white with an outline. Small inline buttons are 36 to 40 dp.
+- **Switch.** 52 by 32 dp. It uses the accent when on and gray when off.
+- **Status row.** An icon in a colored circle, a name, a tag, and a "real versus clone" value pair.
+
+**Building it on Android**
+- Use Material 3 components, with the color tokens above as a custom color scheme.
+- Support dark mode by mapping each token to a dark value. Use the same accent hue, made lighter so it keeps 4.5:1 contrast.
+- Take app icons and names from the real apps through the package manager. The mockup uses letter tiles only as placeholders.
+- Optional: let users pick the accent color. The mockup offers blue, teal, purple and black.
+
+---
+
+## 6. Build phases
 
 ### Phase 1: Project setup (about 3 days)
 1. Create the Gradle project with the `app` module and the version catalog.
@@ -207,7 +278,7 @@ It also makes every change to the engine visible as a patch file.
 
 ---
 
-## 6. Risks
+## 7. Risks
 
 | Risk | Impact | How to reduce it |
 |---|---|---|
@@ -221,7 +292,7 @@ It also makes every change to the engine visible as a patch file.
 
 ---
 
-## 7. Timeline summary
+## 8. Timeline summary
 
 | Milestone | Effort for one Android developer |
 |---|---|
@@ -232,7 +303,7 @@ It also makes every change to the engine visible as a patch file.
 
 ---
 
-## 8. Requirements to start
+## 9. Requirements to start
 
 - A computer with Android Studio, JDK 21, Android SDK 35 and NDK 29.0.13846066
 - At least two real ARM phones on different Android versions. Emulators on x86 are not supported by the engine.
