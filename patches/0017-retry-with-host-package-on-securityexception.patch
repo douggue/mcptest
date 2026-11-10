@@ -1,0 +1,60 @@
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/hook/ClassInvocationStub.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/hook/ClassInvocationStub.java
+index 6c72178..0f5dc8c 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/hook/ClassInvocationStub.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/hook/ClassInvocationStub.java
+@@ -92,6 +92,35 @@ public abstract class ClassInvocationStub implements InvocationHandler, IInjectH
+         }
+     }
+ 
++    /**
++     * System services check that the package name an app passes belongs to the calling uid. A clone
++     * runs under the host's uid but passes its own package name, so calls we have no specific hook
++     * for fail with SecurityException ("callerPackageName does not match calling uid", "Caller with
++     * uid N is not com.x"). Each Android release adds such checks to more calls. Rather than crash
++     * the clone, the call is repeated once with the host package in place of the clone's.
++     * Returns null when there is nothing to replace.
++     */
++    private static Object[] withHostPackage(Object[] args) {
++        if (args == null || args.length == 0) return null;
++        String clonePkg;
++        String hostPkg;
++        try {
++            clonePkg = top.niunaijun.blackbox.app.BActivityThread.getAppPackageName();
++            hostPkg = top.niunaijun.blackbox.BlackBoxCore.getHostPkg();
++        } catch (Throwable t) {
++            return null;
++        }
++        if (clonePkg == null || hostPkg == null || clonePkg.equals(hostPkg)) return null;
++        Object[] copy = null;
++        for (int i = 0; i < args.length; i++) {
++            if (clonePkg.equals(args[i])) {
++                if (copy == null) copy = args.clone();
++                copy[i] = hostPkg;
++            }
++        }
++        return copy;
++    }
++
+     protected void addMethodHook(MethodHook methodHook) {
+         mMethodHookMap.put(methodHook.getMethodName(), methodHook);
+     }
+@@ -118,7 +147,18 @@ public abstract class ClassInvocationStub implements InvocationHandler, IInjectH
+             try {
+                 return method.invoke(mBase, args);
+             } catch (Throwable e) {
+-                throw e.getCause();
++                Throwable cause = e.getCause() != null ? e.getCause() : e;
++                if (cause instanceof SecurityException) {
++                    Object[] retry = withHostPackage(args);
++                    if (retry != null) {
++                        try {
++                            return method.invoke(mBase, retry);
++                        } catch (Throwable ignored) {
++                            // keep the first error: it is the one that describes the real call
++                        }
++                    }
++                }
++                throw cause;
+             }
+         }
+ 
