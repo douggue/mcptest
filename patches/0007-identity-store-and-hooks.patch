@@ -1,0 +1,175 @@
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/ITelephonyManagerProxy.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/ITelephonyManagerProxy.java
+index 00ce43d..9c5fb41 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/ITelephonyManagerProxy.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/ITelephonyManagerProxy.java
+@@ -18,6 +18,7 @@ import top.niunaijun.blackbox.fake.frameworks.BLocationManager;
+ import top.niunaijun.blackbox.fake.hook.BinderInvocationStub;
+ import top.niunaijun.blackbox.fake.hook.MethodHook;
+ import top.niunaijun.blackbox.fake.hook.ProxyMethod;
++import top.niunaijun.blackbox.fake.spoof.IdentityStore;
+ import top.niunaijun.blackbox.utils.Md5Utils;
+ 
+ 
+@@ -50,7 +51,7 @@ public class ITelephonyManagerProxy extends BinderInvocationStub {
+         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+ 
+ 
+-            return Md5Utils.md5(BlackBoxCore.getHostPkg());
++            return IdentityStore.getOr("imei", Md5Utils.md5(BlackBoxCore.getHostPkg()));
+         }
+     }
+ 
+@@ -60,7 +61,7 @@ public class ITelephonyManagerProxy extends BinderInvocationStub {
+         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+ 
+ 
+-            return Md5Utils.md5(BlackBoxCore.getHostPkg());
++            return IdentityStore.getOr("imei", Md5Utils.md5(BlackBoxCore.getHostPkg()));
+         }
+     }
+ 
+@@ -70,7 +71,7 @@ public class ITelephonyManagerProxy extends BinderInvocationStub {
+         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+ 
+ 
+-            return Md5Utils.md5(BlackBoxCore.getHostPkg());
++            return IdentityStore.getOr("meid", Md5Utils.md5(BlackBoxCore.getHostPkg()));
+         }
+     }
+ 
+@@ -95,7 +96,7 @@ public class ITelephonyManagerProxy extends BinderInvocationStub {
+     public static class GetSubscriberId extends MethodHook {
+         @Override
+         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+-            return Md5Utils.md5(BlackBoxCore.getHostPkg());
++            return IdentityStore.getOr("imsi", Md5Utils.md5(BlackBoxCore.getHostPkg()));
+         }
+     }
+ 
+@@ -103,7 +104,7 @@ public class ITelephonyManagerProxy extends BinderInvocationStub {
+     public static class GetDeviceIdWithFeature extends MethodHook {
+         @Override
+         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+-            return Md5Utils.md5(BlackBoxCore.getHostPkg());
++            return IdentityStore.getOr("imei", Md5Utils.md5(BlackBoxCore.getHostPkg()));
+         }
+     }
+ 
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IWifiManagerProxy.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IWifiManagerProxy.java
+index 2f1f81d..44d6025 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IWifiManagerProxy.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IWifiManagerProxy.java
+@@ -13,6 +13,7 @@ import black.android.os.BRServiceManager;
+ import top.niunaijun.blackbox.fake.hook.BinderInvocationStub;
+ import top.niunaijun.blackbox.fake.hook.MethodHook;
+ import top.niunaijun.blackbox.fake.hook.ProxyMethod;
++import top.niunaijun.blackbox.fake.spoof.IdentityStore;
+ 
+ 
+ public class IWifiManagerProxy extends BinderInvocationStub {
+@@ -43,9 +44,9 @@ public class IWifiManagerProxy extends BinderInvocationStub {
+         @Override
+         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+             WifiInfo wifiInfo = (WifiInfo) method.invoke(who, args);
+-            BRWifiInfo.get(wifiInfo)._set_mBSSID("ac:62:5a:82:65:c4");
+-            BRWifiInfo.get(wifiInfo)._set_mMacAddress("ac:62:5a:82:65:c4");
+-            BRWifiInfo.get(wifiInfo)._set_mWifiSsid(BRWifiSsid.get().createFromAsciiEncoded("BlackBox_Wifi"));
++            BRWifiInfo.get(wifiInfo)._set_mBSSID(IdentityStore.getOr("wifi_bssid", "ac:62:5a:82:65:c4"));
++            BRWifiInfo.get(wifiInfo)._set_mMacAddress(IdentityStore.getOr("wifi_mac", "02:00:00:00:00:00"));
++            BRWifiInfo.get(wifiInfo)._set_mWifiSsid(BRWifiSsid.get().createFromAsciiEncoded(IdentityStore.getOr("wifi_ssid", "Home_WiFi")));
+             return wifiInfo;
+         }
+ 
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/context/providers/SystemProviderStub.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/context/providers/SystemProviderStub.java
+index c3ceb6a..da7bea4 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/context/providers/SystemProviderStub.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/context/providers/SystemProviderStub.java
+@@ -7,6 +7,7 @@ import java.lang.reflect.Method;
+ import black.android.content.BRAttributionSource;
+ import top.niunaijun.blackbox.BlackBoxCore;
+ import top.niunaijun.blackbox.fake.hook.ClassInvocationStub;
++import top.niunaijun.blackbox.fake.spoof.IdentityStore;
+ import top.niunaijun.blackbox.utils.compat.ContextCompat;
+ 
+ 
+@@ -63,7 +64,8 @@ public class SystemProviderStub extends ClassInvocationStub implements BContentP
+                     }
+                 }
+             }
+-            return method.invoke(mBase, args);
++            Object result = method.invoke(mBase, args);
++            return overrideSettingsValue(args, result);
+         }
+         
+         
+@@ -86,6 +88,31 @@ public class SystemProviderStub extends ClassInvocationStub implements BContentP
+         return method.invoke(mBase, args);
+     }
+ 
++    /**
++     * Settings.Secure.getString(resolver, "android_id") arrives here as call("GET_secure", "android_id").
++     * Replace the returned value with the per-clone Android ID when the host set one.
++     */
++    private static Object overrideSettingsValue(Object[] args, Object result) {
++        try {
++            if (args == null || !(result instanceof android.os.Bundle)) return result;
++            for (int i = 0; i < args.length - 1; i++) {
++                if (args[i] instanceof String && ((String) args[i]).startsWith("GET_") && args[i + 1] instanceof String) {
++                    String name = (String) args[i + 1];
++                    String key = "android_id".equals(name) ? "android_id" : null;
++                    String value = key == null ? null : IdentityStore.get(key);
++                    if (value != null && !value.isEmpty()) {
++                        android.os.Bundle copy = new android.os.Bundle((android.os.Bundle) result);
++                        copy.putString("value", value);
++                        return copy;
++                    }
++                    break;
++                }
++            }
++        } catch (Throwable ignored) {
++        }
++        return result;
++    }
++
+     private boolean isSystemProviderAuthority(String authority) {
+         if (authority == null) return false;
+         
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/spoof/IdentityStore.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/spoof/IdentityStore.java
+new file mode 100644
+index 0000000..7ff0f40
+--- /dev/null
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/spoof/IdentityStore.java
+@@ -0,0 +1,33 @@
++package top.niunaijun.blackbox.fake.spoof;
++
++import java.util.Collections;
++import java.util.HashMap;
++import java.util.Map;
++
++/**
++ * Per-process identity overrides. The host app fills this in the clone process (from its
++ * AppLifecycleCallback.beforeCreateApplication) before any target-app code runs; engine hooks read it.
++ * Empty by default, so nothing is spoofed unless the host asks for it.
++ *
++ * Keys used by the engine hooks: android_id, imei, meid, imsi, wifi_mac, wifi_bssid, wifi_ssid.
++ */
++public final class IdentityStore {
++    private static volatile Map<String, String> sValues = Collections.emptyMap();
++
++    private IdentityStore() {
++    }
++
++    public static void set(Map<String, String> values) {
++        sValues = values == null ? Collections.<String, String>emptyMap()
++                : Collections.unmodifiableMap(new HashMap<>(values));
++    }
++
++    public static String get(String key) {
++        return sValues.get(key);
++    }
++
++    public static String getOr(String key, String fallback) {
++        String v = sValues.get(key);
++        return v == null || v.isEmpty() ? fallback : v;
++    }
++}

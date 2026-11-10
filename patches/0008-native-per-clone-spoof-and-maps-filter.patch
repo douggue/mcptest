@@ -1,0 +1,307 @@
+diff --git a/Bcore/src/main/cpp/BoxCore.cpp b/Bcore/src/main/cpp/BoxCore.cpp
+index 1a6a997..eafdb55 100644
+--- a/Bcore/src/main/cpp/BoxCore.cpp
++++ b/Bcore/src/main/cpp/BoxCore.cpp
+@@ -15,6 +15,10 @@
+ #include <Hook/RuntimeHook.h>
+ #include "Utils/HexDump.h"
+ #include "hidden_api.h"
++#include <string>
++#include <vector>
++
++void VirtualSpoof_configure(const std::vector<std::string> &props, const std::vector<std::string> &needles);
+ 
+ struct {
+     JavaVM *vm;
+@@ -131,6 +135,26 @@ bool disableResourceLoading(JNIEnv *env, jclass clazz) {
+     return true;
+ }
+ 
++static void jstringArrayToVector(JNIEnv *env, jobjectArray arr, std::vector<std::string> &out) {
++    if (!arr) return;
++    jsize n = env->GetArrayLength(arr);
++    for (jsize i = 0; i < n; i++) {
++        jstring js = (jstring) env->GetObjectArrayElement(arr, i);
++        if (!js) { out.emplace_back(); continue; }
++        const char *c = env->GetStringUTFChars(js, nullptr);
++        out.emplace_back(c ? c : "");
++        if (c) env->ReleaseStringUTFChars(js, c);
++        env->DeleteLocalRef(js);
++    }
++}
++
++void configureSpoof(JNIEnv *env, jclass clazz, jobjectArray props, jobjectArray mapsFilters) {
++    std::vector<std::string> p, m;
++    jstringArrayToVector(env, props, p);
++    jstringArrayToVector(env, mapsFilters, m);
++    VirtualSpoof_configure(p, m);
++}
++
+ static JNINativeMethod gMethods[] = {
+         {"disableHiddenApi", "()Z",                               (void *) disableHiddenApi},
+         {"disableResourceLoading", "()Z",                         (void *) disableResourceLoading},
+@@ -138,6 +162,7 @@ static JNINativeMethod gMethods[] = {
+         {"addIORule",  "(Ljava/lang/String;Ljava/lang/String;)V", (void *) addIORule},
+         {"enableIO",   "()V",                                     (void *) enableIO},
+         {"init",       "(I)V",                                    (void *) init},
++        {"configureSpoof", "([Ljava/lang/String;[Ljava/lang/String;)V", (void *) configureSpoof},
+ };
+ 
+ int registerNativeMethods(JNIEnv *env, const char *className,
+diff --git a/Bcore/src/main/cpp/Utils/VirtualSpoof.cpp b/Bcore/src/main/cpp/Utils/VirtualSpoof.cpp
+index 752384d..70de377 100644
+--- a/Bcore/src/main/cpp/Utils/VirtualSpoof.cpp
++++ b/Bcore/src/main/cpp/Utils/VirtualSpoof.cpp
+@@ -1,79 +1,185 @@
++// Per-process system-property spoofing and /proc/self/maps filtering.
++//
++// Upstream hard-coded one global "Pixel 6 / Android 12" table that was applied in every process,
++// including the host UI process, and never matched the real Android version. This version starts
++// EMPTY and is configured per clone process through NativeCore.configureSpoof(...), so each clone can
++// carry its own internally consistent device profile. Nothing is spoofed unless the host asks.
+ #include <sys/system_properties.h>
++#include <sys/syscall.h>
++#include <sys/types.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <stdio.h>
++#include <stdarg.h>
++#include <errno.h>
+ #include <cstring>
+-#include "./xdl.h"
++#include <cstdlib>
++#include <mutex>
++#include <string>
++#include <unordered_map>
++#include <vector>
++#include <jni.h>
+ #include <android/log.h>
+ #include <dlfcn.h>
++#include "./xdl.h"
+ #include "Dobby/dobby.h"
+ 
+-
+ #define LOG_TAG "VirtualSpoof"
+ #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+ 
+-struct SpoofedProp {
+-    const char* key;
+-    const char* value;
+-};
+-
+-SpoofedProp spoofed_props[] = {
+-        {"ro.product.model", "Pixel 6"},
+-        {"ro.product.brand", "google"},
+-        {"ro.product.manufacturer", "Google"},
+-        {"ro.product.device", "oriole"},
+-        {"ro.build.fingerprint", "google/oriole/oriole:12/SP1A.210812.015/7679548:user/release-keys"},
+-        {"ro.build.version.release", "12"},
+-        {"ro.build.version.security_patch", "2022-01-05"},
+-        {"ro.serialno", "1A2B3C4D5E6F"},
+-        {"ro.hardware", "qcom"},
+-        {"ro.boot.hardware", "qcom"},
+-        {"ro.product.board", "lahaina"},
+-        {"ro.product.cpu.abi", "arm64-v8a"},
+-        {"ro.build.type", "user"},
+-        {"ro.build.tags", "release-keys"},
+-        {"ro.kernel.qemu", "0"},
+-        {"ro.kernel.android.qemud", ""},
+-        {"ro.hardware.egl", "adreno"},
+-        {"ro.boot.qemu", "0"},
+-    {nullptr, nullptr} 
+-};
++static std::mutex g_lock;
++static std::unordered_map<std::string, std::string> g_props;
++static std::vector<std::string> g_maps_needles;
++static bool g_props_hooked = false;
++static bool g_open_hooked = false;
+ 
++static bool lookup_prop(const char *name, std::string &out) {
++    if (!name) return false;
++    std::lock_guard<std::mutex> guard(g_lock);
++    if (g_props.empty()) return false;
++    auto it = g_props.find(name);
++    if (it == g_props.end()) return false;
++    out = it->second;
++    return true;
++}
++
++// ---- __system_property_get / __system_property_read_callback ----------------------------------
+ 
+ static int (*orig_system_property_get)(const char *name, char *value) = nullptr;
+ 
++static int my_system_property_get(const char *name, char *value) {
++    std::string v;
++    if (value && lookup_prop(name, v)) {
++        strncpy(value, v.c_str(), PROP_VALUE_MAX - 1);
++        value[PROP_VALUE_MAX - 1] = '\0';
++        return (int) strlen(value);
++    }
++    return orig_system_property_get ? orig_system_property_get(name, value) : 0;
++}
+ 
+-int my_system_property_get(const char *name, char *value) {
+-    for (int i = 0; spoofed_props[i].key != nullptr; ++i) {
+-        if (strcmp(name, spoofed_props[i].key) == 0) {
+-            strcpy(value, spoofed_props[i].value);
+-             LOGD("[spoof] %s = %s", name, value);
+-            return strlen(value);
++typedef void (*prop_callback_t)(void *cookie, const char *name, const char *value, uint32_t serial);
++static void (*orig_read_callback)(const prop_info *pi, prop_callback_t cb, void *cookie) = nullptr;
++
++static void my_read_callback(const prop_info *pi, prop_callback_t cb, void *cookie) {
++    if (pi && cb) {
++        char name[PROP_NAME_MAX + 1] = {0};
++        char val[PROP_VALUE_MAX + 1] = {0};
++        // __system_property_read is deprecated but still exported; it gives us the property name.
++        if (__system_property_read(pi, name, val) >= 0) {
++            std::string v;
++            if (lookup_prop(name, v)) {
++                cb(cookie, name, v.c_str(), 0);
++                return;
++            }
+         }
+     }
+-    if (orig_system_property_get) {
+-        return orig_system_property_get(name, value);
++    if (orig_read_callback) orig_read_callback(pi, cb, cookie);
++}
++
++// ---- /proc/<pid>/maps filtering --------------------------------------------------------------
++
++static int (*orig_openat)(int dirfd, const char *path, int flags, ...) = nullptr;
++static int (*orig_open)(const char *path, int flags, ...) = nullptr;
++
++static bool is_maps_path(const char *path) {
++    if (!path || strncmp(path, "/proc/", 6) != 0) return false;
++    size_t n = strlen(path);
++    return n >= 5 && strcmp(path + n - 5, "/maps") == 0;
++}
++
++static bool line_hidden(const std::string &line, const std::vector<std::string> &needles) {
++    for (const auto &n : needles) {
++        if (!n.empty() && line.find(n) != std::string::npos) return true;
+     }
+-    value[0] = '\0';
+-    return 0;
++    return false;
+ }
+ 
+-void install_property_get_hook() {
+-    void* handle = xdl_open("libc.so", XDL_DEFAULT);
+-    void* target = xdl_dsym(handle, "__system_property_get", nullptr);
+-    if (target) {
+-        if (DobbyHook(target, (void*)my_system_property_get, (void**)&orig_system_property_get) == 0) {
+-            LOGD("Spoof installed successfully");
+-        } else {
+-            LOGD("Spoof hook failed");
++// Returns a memfd holding the filtered maps, or -1 to fall back to the real file.
++static int filtered_maps_fd(int real_fd) {
++    std::vector<std::string> needles;
++    {
++        std::lock_guard<std::mutex> guard(g_lock);
++        needles = g_maps_needles;
++    }
++    if (needles.empty()) return -1;
++    FILE *in = fdopen(dup(real_fd), "r");
++    if (!in) return -1;
++    int mfd = (int) syscall(__NR_memfd_create, "m", 0);
++    if (mfd < 0) { fclose(in); return -1; }
++    char *line = nullptr;
++    size_t cap = 0;
++    ssize_t len;
++    while ((len = getline(&line, &cap, in)) > 0) {
++        std::string s(line, (size_t) len);
++        if (!line_hidden(s, needles)) {
++            if (write(mfd, s.data(), s.size()) < 0) break;
+         }
+-        xdl_close(handle);
+-    } else{
+-        xdl_close(handle);
+     }
++    free(line);
++    fclose(in);
++    lseek(mfd, 0, SEEK_SET);
++    return mfd;
++}
+ 
++static int my_openat(int dirfd, const char *path, int flags, ...) {
++    mode_t mode = 0;
++    if (flags & (O_CREAT | O_TMPFILE)) {
++        va_list ap; va_start(ap, flags); mode = va_arg(ap, mode_t); va_end(ap);
++    }
++    int fd = orig_openat ? orig_openat(dirfd, path, flags, mode) : -1;
++    if (fd >= 0 && is_maps_path(path)) {
++        int m = filtered_maps_fd(fd);
++        if (m >= 0) { close(fd); return m; }
++    }
++    return fd;
+ }
+ 
++static int my_open(const char *path, int flags, ...) {
++    mode_t mode = 0;
++    if (flags & (O_CREAT | O_TMPFILE)) {
++        va_list ap; va_start(ap, flags); mode = va_arg(ap, mode_t); va_end(ap);
++    }
++    int fd = orig_open ? orig_open(path, flags, mode) : -1;
++    if (fd >= 0 && is_maps_path(path)) {
++        int m = filtered_maps_fd(fd);
++        if (m >= 0) { close(fd); return m; }
++    }
++    return fd;
++}
++
++// ---- installation ------------------------------------------------------------------------------
++
++static void install_props_hooks_locked() {
++    if (g_props_hooked) return;
++    g_props_hooked = true;
++    void *handle = xdl_open("libc.so", XDL_DEFAULT);
++    if (!handle) return;
++    void *get = xdl_dsym(handle, "__system_property_get", nullptr);
++    if (get) DobbyHook(get, (void *) my_system_property_get, (void **) &orig_system_property_get);
++    void *rcb = xdl_dsym(handle, "__system_property_read_callback", nullptr);
++    if (rcb) DobbyHook(rcb, (void *) my_read_callback, (void **) &orig_read_callback);
++    xdl_close(handle);
++}
++
++static void install_open_hooks_locked() {
++    if (g_open_hooked) return;
++    g_open_hooked = true;
++    void *handle = xdl_open("libc.so", XDL_DEFAULT);
++    if (!handle) return;
++    void *o = xdl_dsym(handle, "open", nullptr);
++    if (o) DobbyHook(o, (void *) my_open, (void **) &orig_open);
++    void *oa = xdl_dsym(handle, "openat", nullptr);
++    if (oa) DobbyHook(oa, (void *) my_openat, (void **) &orig_openat);
++    xdl_close(handle);
++}
+ 
+-__attribute__((constructor)) void init_virtual_spoof()
+-{
+-    install_property_get_hook();
+-    LOGD("VirtualSpoof: __system_property_get hook loaded");
++// Called from BoxCore.cpp (JNI). props = [k0, v0, k1, v1, ...]; needles = substrings of maps lines to drop.
++void VirtualSpoof_configure(const std::vector<std::string> &props, const std::vector<std::string> &needles) {
++    std::lock_guard<std::mutex> guard(g_lock);
++    g_props.clear();
++    for (size_t i = 0; i + 1 < props.size(); i += 2) g_props[props[i]] = props[i + 1];
++    g_maps_needles = needles;
++    if (!g_props.empty()) install_props_hooks_locked();
++    if (!g_maps_needles.empty()) install_open_hooks_locked();
++    LOGD("configured: %zu props, %zu maps filters", g_props.size(), g_maps_needles.size());
+ }
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java b/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java
+index 1053b7e..1480378 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java
+@@ -38,6 +38,9 @@ public class NativeCore {
+     
+     public static native boolean disableResourceLoading();
+ 
++    /** props = [key, value, key, value...] served for __system_property_get; mapsFilters = substrings of /proc/*/maps lines to hide. Empty = off. */
++    public static native void configureSpoof(String[] props, String[] mapsFilters);
++
+ 
+     @Keep
+     public static int getCallingUid(int origCallingUid) {

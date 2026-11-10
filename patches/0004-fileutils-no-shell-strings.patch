@@ -1,0 +1,32 @@
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/utils/FileUtils.java b/Bcore/src/main/java/top/niunaijun/blackbox/utils/FileUtils.java
+index e128ced..8432afd 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/utils/FileUtils.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/utils/FileUtils.java
+@@ -97,13 +97,13 @@ public class FileUtils {
+             }
+         }
+ 
++        // No shell: argument array, so paths with spaces or metacharacters cannot inject commands.
+         File file = new File(path);
+-        String cmd = "chmod ";
+-        if (file.isDirectory()) {
+-            cmd += " -R ";
+-        }
+         String cmode = String.format("%o", mode);
+-        Runtime.getRuntime().exec(cmd + cmode + " " + path).waitFor();
++        String[] cmd = file.isDirectory()
++                ? new String[]{"chmod", "-R", cmode, path}
++                : new String[]{"chmod", cmode, path};
++        Runtime.getRuntime().exec(cmd).waitFor();
+     }
+ 
+     public static void createSymlink(String oldPath, String newPath) throws Exception {
+@@ -115,7 +115,7 @@ public class FileUtils {
+                 
+             }
+         }
+-        Runtime.getRuntime().exec("ln -s " + oldPath + " " + newPath).waitFor();
++        Runtime.getRuntime().exec(new String[]{"ln", "-s", oldPath, newPath}).waitFor();
+     }
+ 
+     public static boolean isSymlink(File file) throws IOException {

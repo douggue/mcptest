@@ -1,0 +1,89 @@
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/BlackBoxCore.java b/Bcore/src/main/java/top/niunaijun/blackbox/BlackBoxCore.java
+index 23d9e49..c9d62f1 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/BlackBoxCore.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/BlackBoxCore.java
+@@ -998,6 +998,7 @@ public class BlackBoxCore extends ClientConfiguration {
+             
+             long totalTime = System.currentTimeMillis() - startTime;
+             Slog.d(TAG, "BlackBox initialization completed in " + totalTime + "ms");
++            mCoreReady = true;
+             
+         } catch (Exception e) {
+             long totalTime = System.currentTimeMillis() - startTime;
+@@ -1014,6 +1015,76 @@ public class BlackBoxCore extends ClientConfiguration {
+         }
+     }
+ 
++    /** Result callback for {@link #doCreateAsync}. Always delivered on the main thread. */
++    public interface ReadyCallback {
++        void onReady(boolean success);
++    }
++
++    private volatile boolean mCoreReady = false;
++    private final Object mReadyLock = new Object();
++    private java.util.List<ReadyCallback> mReadyCallbacks = new java.util.ArrayList<>();
++    private boolean mAsyncStarted = false;
++
++    /** True once doCreate() has finished (sync or async). */
++    public boolean isCoreReady() {
++        return mCoreReady;
++    }
++
++    /**
++     * Non-blocking variant of {@link #doCreate()}.
++     * In the UI (main) process the slow work (starting the server process and polling for it, up to
++     * several seconds) runs on a background thread and {@code callback} is posted to the main thread.
++     * In clone and server processes it runs synchronously, because the hooks must be in place before
++     * any target-app code runs. Safe to call more than once; every callback is delivered.
++     */
++    public void doCreateAsync(final ReadyCallback callback) {
++        final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
++        if (!isMainProcess()) {
++            boolean ok = true;
++            try {
++                doCreate();
++            } catch (Throwable t) {
++                ok = false;
++                Slog.e(TAG, "doCreate failed", t);
++            }
++            mCoreReady = true;
++            if (callback != null) callback.onReady(ok);
++            return;
++        }
++        boolean start = false;
++        synchronized (mReadyLock) {
++            if (mCoreReady) {
++                if (callback != null) main.post(() -> callback.onReady(true));
++                return;
++            }
++            if (callback != null) mReadyCallbacks.add(callback);
++            if (!mAsyncStarted) {
++                mAsyncStarted = true;
++                start = true;
++            }
++        }
++        if (!start) return;
++        new Thread(() -> {
++            boolean ok = true;
++            try {
++                doCreate();
++            } catch (Throwable t) {
++                ok = false;
++                Slog.e(TAG, "async doCreate failed", t);
++            }
++            final boolean result = ok;
++            java.util.List<ReadyCallback> toNotify;
++            synchronized (mReadyLock) {
++                mCoreReady = true;
++                toNotify = mReadyCallbacks;
++                mReadyCallbacks = new java.util.ArrayList<>();
++            }
++            for (ReadyCallback cb : toNotify) {
++                main.post(() -> cb.onReady(result));
++            }
++        }, "BlackBoxInit").start();
++    }
++
+     public static Object mainThread() {
+         return BRActivityThread.get().currentActivityThread();
+     }

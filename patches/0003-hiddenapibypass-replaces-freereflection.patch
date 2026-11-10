@@ -1,0 +1,51 @@
+diff --git a/Bcore/build.gradle b/Bcore/build.gradle
+index 857d57e..9bffc40 100644
+--- a/Bcore/build.gradle
++++ b/Bcore/build.gradle
+@@ -35,8 +35,8 @@ android {
+         ndkBuild {
+             path 'src/main/cpp/Android.mk'
+         }
+-        ndkVersion = "29.0.13846066"
+     }
++    ndkVersion rootProject.ext.ndkVersion
+ 
+     compileOptions {
+         sourceCompatibility JavaVersion.VERSION_21
+@@ -105,7 +105,8 @@ dependencies {
+ 
+     implementation 'com.moandjiezana.toml:toml4j:0.7.2'
+ 
+-    implementation 'com.github.tiann:FreeReflection:3.2.2'
++    // FreeReflection (JitPack) replaced by LSPosed AndroidHiddenApiBypass (Apache-2.0, Maven Central)
++    implementation "org.lsposed.hiddenapibypass:hiddenapibypass:${rootProject.ext.hiddenApiBypass}"
+ 
+ 
+ 
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/BlackBoxCore.java b/Bcore/src/main/java/top/niunaijun/blackbox/BlackBoxCore.java
+index c75fa72..23d9e49 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/BlackBoxCore.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/BlackBoxCore.java
+@@ -32,7 +32,7 @@ import java.util.Map;
+ 
+ import black.android.app.BRActivityThread;
+ import black.android.os.BRUserHandle;
+-import me.weishu.reflection.Reflection;
++import org.lsposed.hiddenapibypass.HiddenApiBypass;
+ import top.niunaijun.blackbox.app.BActivityThread;
+ import top.niunaijun.blackbox.app.LauncherActivity;
+ import top.niunaijun.blackbox.app.configuration.AppLifecycleCallback;
+@@ -1602,9 +1602,11 @@ public class BlackBoxCore extends ClientConfiguration {
+ 
+         if(!NativeCore.disableHiddenApi()){
+             try {
+-                Reflection.unseal(context);
++                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
++                    HiddenApiBypass.addHiddenApiExemptions("L");
++                }
+             } catch (Throwable t) {
+-                Slog.w(TAG, "Reflection.unseal failed: " + t.getMessage());
++                Slog.w(TAG, "HiddenApiBypass failed: " + t.getMessage());
+             }
+         }
+ 
