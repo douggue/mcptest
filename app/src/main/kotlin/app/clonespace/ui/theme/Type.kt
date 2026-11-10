@@ -1,6 +1,7 @@
 package app.clonespace.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -11,6 +12,7 @@ import app.clonespace.R
 
 // Variable fonts (SIL OFL, see third_party/fonts). Weight axes apply on Android 8+; older versions
 // fall back to the font's default weight.
+@OptIn(ExperimentalTextApi::class)
 private fun f(res: Int, w: FontWeight) =
     Font(res, w, variationSettings = FontVariation.Settings(FontVariation.weight(w.weight)))
 
