@@ -55,7 +55,7 @@ class ProbeActivity : Activity() {
                     }
                 }
                 override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                    if (request.isForMainFrame) done("error: ${error.description}")
+                    if (request.isForMainFrame) done("error: ${error.description} (code ${error.errorCode})")
                 }
                 override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {}
             }

@@ -65,7 +65,8 @@ object LeakAnalyzer {
         field(Keys.PROP_FINGERPRINT, "Native property ro.build.fingerprint", profile.fingerprint)
         field(Keys.PROP_SIM_OPERATOR, "Native property gsm.sim.operator.numeric", profile.simOperator)
         field(Keys.PROP_TIMEZONE, "Native property persist.sys.timezone", profile.timezone)
-        field(Keys.CPUINFO_HARDWARE, "/proc/cpuinfo Hardware", profile.hardware)
+        val cpu = cpuInfoRow(real, clone)
+        if (cpu != null) rows += cpu else field(Keys.CPUINFO_HARDWARE, "/proc/cpuinfo Hardware", profile.hardware)
         if (profile.spoofScreen) {
             field(Keys.DENSITY, "Screen density", profile.densityDpi.toString())
             field(Keys.WIDTH, "Screen width", profile.widthPx.toString())
@@ -97,6 +98,19 @@ object LeakAnalyzer {
         rows += LeakRow("sensors", "Sensor list", "n/a", "n/a", LeakStatus.UNKNOWN,
             "Stored in the profile; no engine hook applies it yet (pending)")
         return rows
+    }
+
+    /**
+     * Recent arm64 kernels (GKI: Pixel 6+, Galaxy S22+, ...) print no "Hardware" line in /proc/cpuinfo.
+     * When the real phone has none and the clone has none, there is nothing that identifies the real
+     * device, and inventing a line would make the clone look less like a real modern phone.
+     */
+    private fun cpuInfoRow(real: Map<String, String>, clone: Map<String, String>): LeakRow? {
+        val r = real[Keys.CPUINFO_HARDWARE] ?: return null
+        val c = clone[Keys.CPUINFO_HARDWARE] ?: return null
+        if (r.isNotBlank() || c.isNotBlank()) return null
+        return LeakRow(Keys.CPUINFO_HARDWARE, "/proc/cpuinfo Hardware", "none", "none", LeakStatus.ISOLATED,
+            note = "This kernel has no Hardware line, so there is nothing to hide (normal on recent phones)")
     }
 
     private fun ipRow(key: String, label: String, real: Map<String, String>, clone: Map<String, String>, proxy: ProxyConfig): LeakRow {

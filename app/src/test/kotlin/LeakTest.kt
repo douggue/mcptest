@@ -37,5 +37,19 @@ class LeakTest {
         assertTrue(LeakAnalyzer.analyze(real, emptyMap(), p, ProxyConfig()).none { it.key == Keys.DENSITY })
         assertTrue(LeakAnalyzer.analyze(real, emptyMap(), p.copy(spoofScreen = true), ProxyConfig()).any { it.key == Keys.DENSITY })
     }
+    @Test fun cpuInfoWithoutHardwareLineIsNotALeak() {
+        val r = real + (Keys.CPUINFO_HARDWARE to "")
+        var rows = LeakAnalyzer.analyze(r, mapOf(Keys.CPUINFO_HARDWARE to ""), p, ProxyConfig())
+        assertEquals(LeakStatus.ISOLATED, status(rows, Keys.CPUINFO_HARDWARE))
+        rows = LeakAnalyzer.analyze(real + (Keys.CPUINFO_HARDWARE to "Qualcomm"), mapOf(Keys.CPUINFO_HARDWARE to "Qualcomm"), p, ProxyConfig())
+        assertEquals(LeakStatus.LEAK, status(rows, Keys.CPUINFO_HARDWARE))
+        rows = LeakAnalyzer.analyze(real + (Keys.CPUINFO_HARDWARE to "Qualcomm"), mapOf(Keys.CPUINFO_HARDWARE to p.hardware), p, ProxyConfig())
+        assertEquals(LeakStatus.ISOLATED, status(rows, Keys.CPUINFO_HARDWARE))
+    }
+    @Test fun cpuInfoRewriteOnlyTouchesHardwareLine() {
+        val out = ProfileMapper.rewriteCpuInfo("processor\t: 0\nHardware\t: Qualcomm\nRevision\t: 0", p)
+        assertTrue(out.contains("Hardware\t: ${p.hardware}")); assertFalse(out.contains("Qualcomm"))
+        assertEquals("processor\t: 0", ProfileMapper.rewriteCpuInfo("processor\t: 0", p))
+    }
     @Test fun parseIp() { assertEquals("1.2.3.4", app.clonespace.shared.Trace.parseIp("fl=1\nip=1.2.3.4\nloc=US")); assertEquals("", app.clonespace.shared.Trace.parseIp("x")) }
 }

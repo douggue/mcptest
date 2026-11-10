@@ -1,0 +1,129 @@
+diff --git a/Bcore/src/main/cpp/Utils/ProxyHook.cpp b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+index 6b97b48..e7e81d5 100644
+--- a/Bcore/src/main/cpp/Utils/ProxyHook.cpp
++++ b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+@@ -122,25 +122,40 @@ struct Dest {
+     uint16_t port = 0;
+ };
+ 
++// Fills d from an IPv4 address (host order) + port; fake 198.18/15 addresses become the hostname.
++bool dest_v4(uint32_t ip, uint16_t port, Dest &d) {
++    d.family = AF_INET;
++    d.port = port;
++    if ((ip & kFakeMask) == kFakeBase) {
++        std::lock_guard<std::mutex> guard(g_lock);
++        auto it = g_idxToHost.find(ip - kFakeBase);
++        if (it == g_idxToHost.end()) return false;
++        d.isDomain = true;
++        d.domain = it->second;
++        return true;
++    }
++    sockaddr_in *s = (sockaddr_in *) &d.addr;
++    s->sin_family = AF_INET;
++    s->sin_port = htons(port);
++    s->sin_addr.s_addr = htonl(ip);
++    return true;
++}
++
+ bool make_dest(const sockaddr *sa, Dest &d) {
+-    d.family = sa->sa_family;
+     if (sa->sa_family == AF_INET) {
+         const sockaddr_in *s = (const sockaddr_in *) sa;
+-        d.port = ntohs(s->sin_port);
+-        uint32_t ip = ntohl(s->sin_addr.s_addr);
+-        if ((ip & kFakeMask) == kFakeBase) {
+-            std::lock_guard<std::mutex> guard(g_lock);
+-            auto it = g_idxToHost.find(ip - kFakeBase);
+-            if (it == g_idxToHost.end()) return false;
+-            d.isDomain = true;
+-            d.domain = it->second;
+-            return true;
+-        }
+-        memcpy(&d.addr, sa, sizeof(sockaddr_in));
+-        return true;
++        return dest_v4(ntohl(s->sin_addr.s_addr), ntohs(s->sin_port), d);
+     }
+     if (sa->sa_family == AF_INET6) {
+         const sockaddr_in6 *s = (const sockaddr_in6 *) sa;
++        // Java sockets on Android are dual-stack AF_INET6, so IPv4 targets (including our fake DNS
++        // answers) arrive as ::ffff:a.b.c.d. Treat them as the IPv4 address they are.
++        if (IN6_IS_ADDR_V4MAPPED(&s->sin6_addr)) {
++            uint32_t ip;
++            memcpy(&ip, s->sin6_addr.s6_addr + 12, 4);
++            return dest_v4(ntohl(ip), ntohs(s->sin6_port), d);
++        }
++        d.family = AF_INET6;
+         d.port = ntohs(s->sin6_port);
+         memcpy(&d.addr, sa, sizeof(sockaddr_in6));
+         return true;
+@@ -238,6 +253,28 @@ bool http_handshake(int fd, const Cfg &c, const Dest &d) {
+ int proxied_connect(int fd, const sockaddr *sa, const Cfg &c) {
+     Dest d;
+     if (!make_dest(sa, d)) { errno = ENETUNREACH; return -1; }
++    // The proxy address must match the socket's family: an AF_INET6 socket cannot connect to a
++    // sockaddr_in (EAFNOSUPPORT), which is what Java's dual-stack sockets are. Map IPv4 proxies.
++    sockaddr_storage target = c.proxy;
++    socklen_t targetLen = c.proxyLen;
++    int domain = 0;
++    socklen_t dl = sizeof domain;
++    if (getsockopt(fd, SOL_SOCKET, SO_DOMAIN, &domain, &dl) == 0 && domain == AF_INET6 &&
++        c.proxy.ss_family == AF_INET) {
++        const sockaddr_in *p4 = (const sockaddr_in *) &c.proxy;
++        sockaddr_in6 m{};
++        m.sin6_family = AF_INET6;
++        m.sin6_port = p4->sin_port;
++        m.sin6_addr.s6_addr[10] = 0xFF;
++        m.sin6_addr.s6_addr[11] = 0xFF;
++        memcpy(m.sin6_addr.s6_addr + 12, &p4->sin_addr, 4);
++        memset(&target, 0, sizeof target);
++        memcpy(&target, &m, sizeof m);
++        targetLen = sizeof m;
++    } else if (domain == AF_INET && c.proxy.ss_family == AF_INET6) {
++        errno = EAFNOSUPPORT;  // IPv6 proxy from an IPv4-only socket: cannot be reached
++        return -1;
++    }
+     int flags = fcntl(fd, F_GETFL, 0);
+     bool nonblock = flags >= 0 && (flags & O_NONBLOCK);
+     if (nonblock) fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+@@ -249,7 +286,7 @@ int proxied_connect(int fd, const sockaddr *sa, const Cfg &c) {
+     setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof tv);
+     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv);
+ 
+-    int rc = orig_connect(fd, (const sockaddr *) &c.proxy, c.proxyLen);
++    int rc = orig_connect(fd, (const sockaddr *) &target, targetLen);
+     bool ok = rc == 0;
+     int err = errno;
+     if (ok) {
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IActivityManagerProxy.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IActivityManagerProxy.java
+index d3aa382..6c820db 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IActivityManagerProxy.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IActivityManagerProxy.java
+@@ -773,6 +773,28 @@ public class IActivityManagerProxy extends ClassInvocationStub {
+         }
+     }
+ 
++    /**
++     * Android 15+ routes Context.checkPermission through checkPermissionForDevice(permission, pid, uid,
++     * deviceId). Without this, WebView's AwSettings sees INTERNET as denied, blocks network loads and
++     * every page fails with net::ERR_CACHE_MISS.
++     */
++    @ProxyMethod("checkPermissionForDevice")
++    public static class checkPermissionForDevice extends MethodHook {
++        @Override
++        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
++            if (args != null && args.length > 2 && args[2] instanceof Integer
++                    && (int) args[2] == BlackBoxCore.getBUid()) {
++                args[2] = BlackBoxCore.getHostUid();
++            }
++            String permission = args != null && args.length > 0 && args[0] instanceof String ? (String) args[0] : null;
++            if (permission != null && (permission.equals(Manifest.permission.ACCOUNT_MANAGER)
++                    || IPackageManagerProxy.isNetworkPermission(permission))) {
++                return PackageManager.PERMISSION_GRANTED;
++            }
++            return method.invoke(who, args);
++        }
++    }
++
+     @ProxyMethod("checkPermission")
+     public static class checkPermission extends MethodHook {
+         @Override

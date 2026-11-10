@@ -51,9 +51,15 @@ object Collector {
     /** Blocking network checks. Call off the main thread. */
     fun collectNetwork(): LinkedHashMap<String, String> {
         val m = LinkedHashMap<String, String>()
-        m[Keys.PUBLIC_IP] = runCatching { Trace.parseIp(httpsGet(Keys.TRACE_URL)) }.getOrElse { "error: ${it.javaClass.simpleName}" }
-        m[Keys.DNS] = runCatching { InetAddress.getByName(Keys.DNS_TEST_HOST).hostAddress ?: "" }.getOrElse { "error: ${it.javaClass.simpleName}" }
+        m[Keys.PUBLIC_IP] = runCatching { Trace.parseIp(httpsGet(Keys.TRACE_URL)) }.getOrElse { describe(it) }
+        m[Keys.DNS] = runCatching { InetAddress.getByName(Keys.DNS_TEST_HOST).hostAddress ?: "" }.getOrElse { describe(it) }
         return m
+    }
+
+    /** "error: ConnectException: failed to connect to /198.18.0.2 (port 443) ... ECONNREFUSED" for the leak screen. */
+    private fun describe(t: Throwable): String {
+        val msg = (t.message ?: t.cause?.message).orEmpty().replace('\n', ' ').take(160)
+        return "error: ${t.javaClass.simpleName}" + if (msg.isNotEmpty()) ": $msg" else ""
     }
 
     private fun httpsGet(url: String): String {

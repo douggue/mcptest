@@ -201,7 +201,10 @@ object VirtualEngine {
 
         override fun beforeApplicationOnCreate(packageName: String, processName: String, application: Application, userId: Int) {
             try {
-                host.profiles.load(userId, packageName)?.let { ProfileApplier.applyResources(application, it) }
+                host.profiles.load(userId, packageName)?.let {
+                    ProfileApplier.applyResources(application, it)
+                    ProfileApplier.keepLocale(application, it)
+                }
                 // Hide the container from /proc/self/maps once the engine itself has finished loading.
                 NativeCore.configureSpoof(ProfileMapper.nativeArray(props), ProfileMapper.mapsNeedles.toTypedArray())
                 val previous = Thread.getDefaultUncaughtExceptionHandler()
