@@ -1,0 +1,144 @@
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/app/dispatcher/AppServiceDispatcher.java b/Bcore/src/main/java/top/niunaijun/blackbox/app/dispatcher/AppServiceDispatcher.java
+index a255132..a360220 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/app/dispatcher/AppServiceDispatcher.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/app/dispatcher/AppServiceDispatcher.java
+@@ -69,6 +69,10 @@ public class AppServiceDispatcher {
+     }
+ 
+     public int onStartCommand(Intent proxyIntent, int flags, int startId) {
++        // The system restarts a sticky service with a null intent after its process was killed.
++        if (proxyIntent == null) {
++            return START_NOT_STICKY;
++        }
+         ProxyServiceRecord stubRecord = ProxyServiceRecord.create(proxyIntent);
+         if (stubRecord.mServiceIntent == null || stubRecord.mServiceInfo == null) {
+             return START_NOT_STICKY;
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/hook/HookManager.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/hook/HookManager.java
+index 3701fe5..7ebf312 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/hook/HookManager.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/hook/HookManager.java
+@@ -36,6 +36,7 @@ import top.niunaijun.blackbox.fake.service.IFingerprintManagerProxy;
+ import top.niunaijun.blackbox.fake.service.IGraphicsStatsProxy;
+ import top.niunaijun.blackbox.fake.service.IJobServiceProxy;
+ import top.niunaijun.blackbox.fake.service.ILauncherAppsProxy;
++import top.niunaijun.blackbox.fake.service.ILocaleManagerProxy;
+ import top.niunaijun.blackbox.fake.service.ILocationManagerProxy;
+ import top.niunaijun.blackbox.fake.service.IMediaRouterServiceProxy;
+ import top.niunaijun.blackbox.fake.service.IMediaSessionManagerProxy;
+@@ -151,6 +152,7 @@ public class HookManager {
+             addInjector(new ITelephonyRegistryProxy());
+             addInjector(new IDevicePolicyManagerProxy());
+             addInjector(new IAccountManagerProxy());
++            addInjector(new ILocaleManagerProxy());
+             addInjector(new NetworkPermissionCompat());
+             addInjector(new IConnectivityManagerProxy());
+             addInjector(new IDnsResolverProxy());
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/ILocaleManagerProxy.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/ILocaleManagerProxy.java
+new file mode 100644
+index 0000000..8957760
+--- /dev/null
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/ILocaleManagerProxy.java
+@@ -0,0 +1,89 @@
++package top.niunaijun.blackbox.fake.service;
++
++import java.lang.reflect.Method;
++
++import black.android.os.BRServiceManager;
++import top.niunaijun.blackbox.fake.hook.BinderInvocationStub;
++import top.niunaijun.blackbox.fake.hook.MethodHook;
++import top.niunaijun.blackbox.fake.hook.ProxyMethod;
++import top.niunaijun.blackbox.utils.Slog;
++
++/**
++ * Swallows locale updates made from inside the virtual space.
++ *
++ * Google Play Store (and other apps) call
++ * LocaleManager.setApplicationLocales() during init. That call lands on the
++ * system ILocaleManager service, which enforces the signature-level
++ * android.permission.CHANGE_CONFIGURATION. A virtualized process does not
++ * hold that permission, so the call throws:
++ *
++ *   SecurityException: setApplicationLocales: Neither user <uid> nor current
++ *   process has android.permission.CHANGE_CONFIGURATION.
++ *
++ * and takes the whole process down before Play Store finishes starting.
++ * Per-app locale is a pure UX preference, so acknowledging the call and
++ * discarding it is safe and unblocks Play Store startup.
++ */
++public class ILocaleManagerProxy extends BinderInvocationStub {
++
++    public static final String TAG = "ILocaleManagerProxy";
++
++    public ILocaleManagerProxy() {
++        super(BRServiceManager.get().getService("locale"));
++    }
++
++    @Override
++    protected Object getWho() {
++        // The stub proxies the interfaces of this object, so it must be the ILocaleManager
++        // interface, not the raw binder.
++        android.os.IBinder binder = BRServiceManager.get().getService("locale");
++        try {
++            return Class.forName("android.app.ILocaleManager$Stub")
++                    .getMethod("asInterface", android.os.IBinder.class).invoke(null, binder);
++        } catch (Throwable t) {
++            Slog.w(TAG, "ILocaleManager not available", t);
++            return null;
++        }
++    }
++
++    @Override
++    protected void inject(Object baseInvocation, Object proxyInvocation) {
++        replaceSystemService("locale");
++    }
++
++    @Override
++    public boolean isBadEnv() {
++        return BRServiceManager.get().getService("locale") == null;
++    }
++
++    @ProxyMethod("setApplicationLocales")
++    public static class SetApplicationLocales extends MethodHook {
++        @Override
++        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
++            Slog.d(TAG, "setApplicationLocales intercepted; ignored for virtual process");
++            return null;
++        }
++    }
++
++    @ProxyMethod("getApplicationLocales")
++    public static class GetApplicationLocales extends MethodHook {
++        @Override
++        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
++            try {
++                return method.invoke(who, args);
++            } catch (Throwable t) {
++                Slog.w(TAG, "getApplicationLocales failed, returning an empty list", t);
++                return android.os.LocaleList.getEmptyLocaleList();
++            }
++        }
++    }
++
++    @ProxyMethod("setSystemLocales")
++    public static class SetSystemLocales extends MethodHook {
++        @Override
++        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
++            Slog.d(TAG, "setSystemLocales intercepted; ignored for virtual process");
++            return null;
++        }
++    }
++}
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/proxy/record/ProxyServiceRecord.java b/Bcore/src/main/java/top/niunaijun/blackbox/proxy/record/ProxyServiceRecord.java
+index 272388a..e19445f 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/proxy/record/ProxyServiceRecord.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/proxy/record/ProxyServiceRecord.java
+@@ -31,6 +31,9 @@ public class ProxyServiceRecord {
+     }
+ 
+     public static ProxyServiceRecord create(Intent intent) {
++        if (intent == null) {
++            return new ProxyServiceRecord(null, null, null, 0, 0);
++        }
+         Intent target = intent.getParcelableExtra("_B_|_target_");
+         ServiceInfo serviceInfo = intent.getParcelableExtra("_B_|_service_info_");
+         int userId = intent.getIntExtra("_B_|_user_id_", 0);
