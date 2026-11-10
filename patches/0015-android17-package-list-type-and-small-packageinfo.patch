@@ -1,0 +1,218 @@
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/core/system/pm/PackageManagerCompat.java b/Bcore/src/main/java/top/niunaijun/blackbox/core/system/pm/PackageManagerCompat.java
+index ab9983b..00806dc 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/core/system/pm/PackageManagerCompat.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/core/system/pm/PackageManagerCompat.java
+@@ -212,9 +212,26 @@ public class PackageManagerCompat {
+                 }
+             }
+         }
++        shareApplicationInfo(pi);
+         return pi;
+     }
+ 
++    /**
++     * Every component must point at the SAME ApplicationInfo object as the package. The framework
++     * writes an ApplicationInfo into a parcel once and refers back to it for each further use of
++     * that object ("squashing"). With a separate copy per component, an app with a thousand
++     * activities (Facebook) produced a 6 MB reply, far over the 1 MB binder limit, so the call
++     * failed and the app was handed a PackageInfo with no APK path.
++     */
++    private static void shareApplicationInfo(PackageInfo pi) {
++        ApplicationInfo shared = pi.applicationInfo;
++        if (shared == null) return;
++        if (pi.activities != null) for (ActivityInfo c : pi.activities) if (c != null) c.applicationInfo = shared;
++        if (pi.receivers != null) for (ActivityInfo c : pi.receivers) if (c != null) c.applicationInfo = shared;
++        if (pi.services != null) for (ServiceInfo c : pi.services) if (c != null) c.applicationInfo = shared;
++        if (pi.providers != null) for (ProviderInfo c : pi.providers) if (c != null) c.applicationInfo = shared;
++    }
++
+     public static ActivityInfo generateActivityInfo(BPackage.Activity a, int flags, BPackageUserState state, int userId) {
+         if (!checkUseInstalledOrHidden(flags, state, a.info.applicationInfo)) {
+             return null;
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IActivityManagerProxy.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IActivityManagerProxy.java
+index 2fd794c..cb72acf 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IActivityManagerProxy.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IActivityManagerProxy.java
+@@ -775,7 +775,7 @@ public class IActivityManagerProxy extends ClassInvocationStub {
+     public static class getHistoricalProcessExitReasons extends MethodHook {
+         @Override
+         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+-            return ParceledListSliceCompat.create(new ArrayList<>());
++            return ParceledListSliceCompat.createFor(method, who, args, new ArrayList<>());
+         }
+     }
+ 
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/INotificationManagerProxy.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/INotificationManagerProxy.java
+index 481278d..71f5a62 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/INotificationManagerProxy.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/INotificationManagerProxy.java
+@@ -69,7 +69,7 @@ public class INotificationManagerProxy extends BinderInvocationStub {
+         @Override
+         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+             List<NotificationChannel> notificationChannels = BNotificationManager.get().getNotificationChannels(BActivityThread.getAppPackageName());
+-            return ParceledListSliceCompat.create(notificationChannels);
++            return ParceledListSliceCompat.createFor(method, who, args, notificationChannels);
+         }
+     }
+ 
+@@ -175,7 +175,7 @@ public class INotificationManagerProxy extends BinderInvocationStub {
+         @Override
+         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+             List<NotificationChannelGroup> notificationChannelGroups = BNotificationManager.get().getNotificationChannelGroups(BActivityThread.getAppPackageName());
+-            return ParceledListSliceCompat.create(notificationChannelGroups);
++            return ParceledListSliceCompat.createFor(method, who, args, notificationChannelGroups);
+         }
+     }
+ }
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IPackageManagerProxy.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IPackageManagerProxy.java
+index fe97f9c..864da98 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IPackageManagerProxy.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IPackageManagerProxy.java
+@@ -266,7 +266,7 @@ public class IPackageManagerProxy extends BinderInvocationStub {
+         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+             int flags = MethodParameterUtils.toInt(args[0]);
+             List<ApplicationInfo> installedApplications = BlackBoxCore.getBPackageManager().getInstalledApplications(flags, BlackBoxCore.getUserId());
+-            return ParceledListSliceCompat.create(installedApplications);
++            return ParceledListSliceCompat.createFor(method, who, args, installedApplications);
+         }
+     }
+ 
+@@ -277,7 +277,7 @@ public class IPackageManagerProxy extends BinderInvocationStub {
+         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+             int flags = MethodParameterUtils.toInt(args[0]);
+             List<PackageInfo> installedPackages = BlackBoxCore.getBPackageManager().getInstalledPackages(flags, BlackBoxCore.getUserId());
+-            return ParceledListSliceCompat.create(installedPackages);
++            return ParceledListSliceCompat.createFor(method, who, args, installedPackages);
+         }
+     }
+ 
+@@ -309,7 +309,7 @@ public class IPackageManagerProxy extends BinderInvocationStub {
+             int flags = MethodParameterUtils.toInt(args[2]);
+             List<ProviderInfo> providers = BlackBoxCore.getBPackageManager().
+                     queryContentProviders(BlackBoxCore.getAppProcessName(), BlackBoxCore.getBUid(), flags, BlackBoxCore.getUserId());
+-            return ParceledListSliceCompat.create(providers);
++            return ParceledListSliceCompat.createFor(method, who, args, providers);
+         }
+     }
+ 
+@@ -325,7 +325,7 @@ public class IPackageManagerProxy extends BinderInvocationStub {
+ 
+             
+             if (BuildCompat.isN()) {
+-                return ParceledListSliceCompat.create(resolves);
++                return ParceledListSliceCompat.createFor(method, who, args, resolves);
+             }
+ 
+             
+@@ -385,7 +385,7 @@ public class IPackageManagerProxy extends BinderInvocationStub {
+         @Override
+         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+             
+-            return ParceledListSliceCompat.create(new ArrayList<>());
++            return ParceledListSliceCompat.createFor(method, who, args, new ArrayList<>());
+         }
+     }
+ 
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IShortcutManagerProxy.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IShortcutManagerProxy.java
+index 25d21b6..d318aef 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IShortcutManagerProxy.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IShortcutManagerProxy.java
+@@ -57,7 +57,7 @@ public class IShortcutManagerProxy extends BinderInvocationStub {
+         addMethodHook(new PkgMethodProxy("getManifestShortcuts"){
+             @Override
+             protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+-                return ParceledListSliceCompat.create(new ArrayList<ShortcutInfo>());
++                return ParceledListSliceCompat.createFor(method, who, args, new ArrayList<ShortcutInfo>());
+             }
+         });
+     }
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/utils/compat/ParceledListSliceCompat.java b/Bcore/src/main/java/top/niunaijun/blackbox/utils/compat/ParceledListSliceCompat.java
+index 39cdf2a..0ffb76d 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/utils/compat/ParceledListSliceCompat.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/utils/compat/ParceledListSliceCompat.java
+@@ -1,6 +1,10 @@
+ package top.niunaijun.blackbox.utils.compat;
+ 
++import java.lang.reflect.Constructor;
++import java.lang.reflect.Field;
+ import java.lang.reflect.Method;
++import java.lang.reflect.Modifier;
++import java.util.ArrayList;
+ import java.util.List;
+ 
+ import black.android.content.pm.BRParceledListSlice;
+@@ -28,4 +32,74 @@ public class ParceledListSliceCompat {
+ 		BRParceledListSlice.get(slice).setLastSlice(true);
+ 		return slice;
+ 	}
++
++	/**
++	 * Builds the list in whatever type the hooked method really returns. Newer Android releases
++	 * replaced ParceledListSlice with dedicated types on some calls (Android 17:
++	 * getInstalledPackages returns android.content.pm.PackageInfoList), and returning the old type
++	 * there throws ClassCastException inside the app.
++	 */
++	public static Object createFor(Method method, Object who, Object[] args, List<?> list) {
++		Class<?> type = method == null ? Object.class : method.getReturnType();
++		Class<?> slice = BRParceledListSlice.getRealClass();
++		if (type == Object.class || slice == null || type.isAssignableFrom(slice)) {
++			return create(list);
++		}
++		if (type.isAssignableFrom(ArrayList.class)) {
++			return new ArrayList<Object>(list);
++		}
++		// 1. A constructor that takes the list.
++		for (Constructor<?> c : type.getDeclaredConstructors()) {
++			Class<?>[] p = c.getParameterTypes();
++			if (p.length == 1 && p[0].isAssignableFrom(ArrayList.class)) {
++				try {
++					c.setAccessible(true);
++					return c.newInstance(new ArrayList<Object>(list));
++				} catch (Throwable ignored) {
++				}
++			}
++		}
++		// 2. An empty instance, filled in.
++		try {
++			Constructor<?> c = type.getDeclaredConstructor();
++			c.setAccessible(true);
++			Object empty = c.newInstance();
++			if (replaceList(empty, list)) return empty;
++		} catch (Throwable ignored) {
++		}
++		// 3. The system's own answer, with its content replaced by ours.
++		try {
++			Object real = method.invoke(who, args);
++			if (real != null && replaceList(real, list)) return real;
++		} catch (Throwable ignored) {
++		}
++		top.niunaijun.blackbox.utils.Slog.w("ParceledListSliceCompat", "cannot build " + type.getName() + " for " + method.getName());
++		return create(list);
++	}
++
++	@SuppressWarnings({"unchecked", "rawtypes"})
++	private static boolean replaceList(Object holder, List<?> list) {
++		try {
++			Method getList = holder.getClass().getMethod("getList");
++			Object current = getList.invoke(holder);
++			if (current instanceof List) {
++				((List) current).clear();
++				((List) current).addAll(list);
++				return true;
++			}
++		} catch (Throwable ignored) {
++		}
++		for (Class<?> c = holder.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
++			for (Field f : c.getDeclaredFields()) {
++				if (Modifier.isStatic(f.getModifiers()) || !f.getType().isAssignableFrom(ArrayList.class) || f.getType() == Object.class) continue;
++				try {
++					f.setAccessible(true);
++					f.set(holder, new ArrayList<Object>(list));
++					return true;
++				} catch (Throwable ignored) {
++				}
++			}
++		}
++		return false;
++	}
+ }
