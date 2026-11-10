@@ -1,0 +1,47 @@
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/INotificationManagerProxy.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/INotificationManagerProxy.java
+index 60be277..481278d 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/INotificationManagerProxy.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/INotificationManagerProxy.java
+@@ -105,6 +105,7 @@ public class INotificationManagerProxy extends BinderInvocationStub {
+             String tag = (String) args[getTagIndex()];
+             int id = (int) args[getIdIndex()];
+             Notification notification = MethodParameterUtils.getFirstParam(args, Notification.class);
++            top.niunaijun.blackbox.fake.spoof.NotificationLabel.apply(notification);
+             BNotificationManager.get().enqueueNotificationWithTag(id, tag, notification);
+             return 0;
+         }
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/spoof/NotificationLabel.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/spoof/NotificationLabel.java
+new file mode 100644
+index 0000000..18dea8b
+--- /dev/null
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/spoof/NotificationLabel.java
+@@ -0,0 +1,29 @@
++package top.niunaijun.blackbox.fake.spoof;
++
++import android.app.Notification;
++import android.os.Bundle;
++
++/**
++ * Per-clone notification label. The host sets it in the clone process; every notification the clone
++ * posts then carries it as sub text, so users can tell accounts apart in the shade. Null = unchanged.
++ */
++public final class NotificationLabel {
++    private static volatile String sLabel;
++
++    private NotificationLabel() {
++    }
++
++    public static void set(String label) {
++        sLabel = label == null || label.isEmpty() ? null : label;
++    }
++
++    public static void apply(Notification notification) {
++        String label = sLabel;
++        if (label == null || notification == null) return;
++        try {
++            if (notification.extras == null) notification.extras = new Bundle();
++            notification.extras.putCharSequence(Notification.EXTRA_SUB_TEXT, label);
++        } catch (Throwable ignored) {
++        }
++    }
++}
