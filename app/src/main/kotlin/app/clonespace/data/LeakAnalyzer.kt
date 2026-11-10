@@ -30,13 +30,21 @@ object LeakAnalyzer {
 
         fun field(key: String, label: String, expected: String) {
             val r = real[key].orEmpty(); val c = clone[key]
+            // An empty answer hides the real value but is not what the profile says; a phone with no
+            // SIM operator or no model stands out, so it is reported instead of counted as isolated.
+            val blank = c != null && c.isBlank() && expected.isNotBlank()
             val status = when {
                 c == null -> LeakStatus.UNKNOWN
                 c == r && c != expected -> LeakStatus.LEAK
+                blank -> LeakStatus.UNKNOWN
                 else -> LeakStatus.ISOLATED
             }
             rows += LeakRow(key, label, r, c ?: "no data", status,
-                note = if (status == LeakStatus.ISOLATED && r == expected) "Same as the real phone by coincidence" else null)
+                note = when {
+                    blank -> "The clone got an empty value instead of the profile's ($expected)"
+                    status == LeakStatus.ISOLATED && r == expected -> "Same as the real phone by coincidence"
+                    else -> null
+                })
         }
 
         field(Keys.ANDROID_ID, "Android ID", profile.androidId)

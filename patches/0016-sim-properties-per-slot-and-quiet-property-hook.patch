@@ -1,0 +1,87 @@
+diff --git a/Bcore/src/main/cpp/Utils/VirtualSpoof.cpp b/Bcore/src/main/cpp/Utils/VirtualSpoof.cpp
+index 70de377..a4a296a 100644
+--- a/Bcore/src/main/cpp/Utils/VirtualSpoof.cpp
++++ b/Bcore/src/main/cpp/Utils/VirtualSpoof.cpp
+@@ -45,11 +45,35 @@ static bool lookup_prop(const char *name, std::string &out) {
+ 
+ // ---- __system_property_get / __system_property_read_callback ----------------------------------
+ 
++// Telephony properties hold one entry per SIM slot, separated by commas ("310260,310260" or
++// ",310260" when only the second slot has a SIM), and the framework reads the entry of the slot
++// the default subscription lives in. A single spoofed value therefore came back EMPTY on phones
++// whose active SIM is not in slot 0. Give the spoofed value the same shape as the real one.
++static std::string shape_like(const char *name, const std::string &spoof, const char *real) {
++    if (strncmp(name, "gsm.", 4) != 0 || !real || !strchr(real, ',')) return spoof;
++    std::string out;
++    const char *p = real;
++    while (true) {
++        const char *comma = strchr(p, ',');
++        size_t len = comma ? (size_t) (comma - p) : strlen(p);
++        if (len > 0) out += spoof;      // slot with a SIM: our value; empty slot stays empty
++        if (!comma) break;
++        out += ',';
++        p = comma + 1;
++    }
++    if (out.find_first_not_of(',') == std::string::npos) return spoof;
++    if (out.size() >= PROP_VALUE_MAX) out.resize(PROP_VALUE_MAX - 1);
++    return out;
++}
++
+ static int (*orig_system_property_get)(const char *name, char *value) = nullptr;
+ 
+ static int my_system_property_get(const char *name, char *value) {
+     std::string v;
+     if (value && lookup_prop(name, v)) {
++        char real[PROP_VALUE_MAX] = {0};
++        if (orig_system_property_get && strncmp(name, "gsm.", 4) == 0) orig_system_property_get(name, real);
++        v = shape_like(name, v, real);
+         strncpy(value, v.c_str(), PROP_VALUE_MAX - 1);
+         value[PROP_VALUE_MAX - 1] = '\0';
+         return (int) strlen(value);
+@@ -60,20 +84,34 @@ static int my_system_property_get(const char *name, char *value) {
+ typedef void (*prop_callback_t)(void *cookie, const char *name, const char *value, uint32_t serial);
+ static void (*orig_read_callback)(const prop_info *pi, prop_callback_t cb, void *cookie) = nullptr;
+ 
++struct ReadCtx {
++    prop_callback_t cb;
++    void *cookie;
++};
++
++// Runs inside the real read: it has the full property name (the deprecated __system_property_read
++// truncates names over 31 characters and logs an error on every call, which the framework's cache
++// keys hit constantly), the real value and the real serial.
++static void spoofing_callback(void *raw, const char *name, const char *value, uint32_t serial) {
++    ReadCtx *ctx = (ReadCtx *) raw;
++    std::string v;
++    if (lookup_prop(name, v)) {
++        v = shape_like(name, v, value);
++        ctx->cb(ctx->cookie, name, v.c_str(), serial);
++    } else {
++        ctx->cb(ctx->cookie, name, value, serial);
++    }
++}
++
+ static void my_read_callback(const prop_info *pi, prop_callback_t cb, void *cookie) {
+-    if (pi && cb) {
+-        char name[PROP_NAME_MAX + 1] = {0};
+-        char val[PROP_VALUE_MAX + 1] = {0};
+-        // __system_property_read is deprecated but still exported; it gives us the property name.
+-        if (__system_property_read(pi, name, val) >= 0) {
+-            std::string v;
+-            if (lookup_prop(name, v)) {
+-                cb(cookie, name, v.c_str(), 0);
+-                return;
+-            }
+-        }
++    if (!orig_read_callback) return;
++    if (!pi || !cb) { orig_read_callback(pi, cb, cookie); return; }
++    {
++        std::lock_guard<std::mutex> guard(g_lock);
++        if (g_props.empty()) { orig_read_callback(pi, cb, cookie); return; }
+     }
+-    if (orig_read_callback) orig_read_callback(pi, cb, cookie);
++    ReadCtx ctx{cb, cookie};
++    orig_read_callback(pi, spoofing_callback, &ctx);
+ }
+ 
+ // ---- /proc/<pid>/maps filtering --------------------------------------------------------------
