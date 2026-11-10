@@ -1,0 +1,105 @@
+# Sound cues
+
+mix.wav: 48 kHz stereo, 58.400 s, integrated -14.4 LUFS, true peak -1.8 dBTP
+
+## Music sections
+-  0.00- 5.20 s hook (story)
+-  5.20-31.40 s story (story)
+- 31.40-43.50 s why (explain)
+- 43.50-53.00 s fix (story)
+- 53.00-58.40 s end (end)
+
+## SFX events
+-   0.00 s  piazza ambience bed
+-   2.30 s  tourist camera shutter
+-   4.07 s  tower groans (still hasn't landed)
+-   5.01 s  whoosh into 1173
+-   5.60 s  chisel taps
+-   5.92 s  chisel taps
+-   6.24 s  chisel taps
+-   6.56 s  chisel taps
+-   6.88 s  chisel taps
+-   7.20 s  chisel taps
+-   7.52 s  chisel taps
+-   7.59 s  marble sparkle
+-   7.79 s  marble sparkle
+-   7.84 s  chisel taps
+-   8.06 s  marble sparkle
+-   8.16 s  chisel taps
+-   8.48 s  chisel taps
+-   8.89 s  cutaway thunk
+-   9.29 s  ruler ting
+-  10.09 s  'big mistake' bonk
+-  12.15 s  boot sinks: squelch
+-  13.83 s  stone groan: sinking
+-  13.93 s  creak
+-  14.97 s  war drum
+-  15.07 s  tools clatter
+-  15.15 s  tools clatter
+-  15.23 s  tools clatter
+-  15.30 s  running feet
+-  15.31 s  tools clatter
+-  15.39 s  tools clatter
+-  15.47 s  running feet
+-  15.64 s  running feet
+-  15.81 s  running feet
+-  15.98 s  running feet
+-  16.15 s  running feet
+-  16.83 s  calendar pages flip
+-  16.90 s  tower snores
+-  17.13 s  calendar pages flip
+-  17.43 s  calendar pages flip
+-  17.73 s  calendar pages flip
+-  17.80 s  tower snores
+-  18.03 s  calendar pages flip
+-  18.33 s  calendar pages flip
+-  18.90 s  builders return: steps
+-  19.10 s  builders return: steps
+-  19.30 s  builders return: steps
+-  19.50 s  builders return: steps
+-  19.70 s  builders return: steps
+-  20.00 s  new storey thuds
+-  20.73 s  new storey thuds
+-  21.47 s  new storey thuds
+-  21.77 s  measuring rod 'boing'
+-  22.20 s  new storey thuds
+-  22.93 s  new storey thuds
+-  25.79 s  banana pop + slide whistle
+-  26.40 s  1990: tourist chatter bed
+-  28.57 s  protractor tick-tick
+-  30.19 s  'closed' stamp + sad horn
+-  31.23 s  x-ray scan whoosh
+-  34.79 s  centre of weight pulse
+-  35.04 s  centre of weight pulse
+-  35.29 s  centre of weight pulse
+-  35.54 s  centre of weight pulse
+-  36.19 s  edge alarm beep
+-  36.37 s  edge alarm beep
+-  36.55 s  edge alarm beep
+-  38.63 s  chair creaks (fine, fine, fine)
+-  39.09 s  chair creaks (fine, fine, fine)
+-  39.25 s  chair creaks (fine, fine, fine)
+-  40.00 s  chair tips: long creak
+-  41.09 s  chair crash
+-  41.32 s  dizzy stars
+-  41.47 s  dizzy stars
+-  41.62 s  dizzy stars
+-  42.09 s  tension sting
+-  45.07 s  lead blocks thud
+-  45.24 s  lead blocks thud
+-  45.40 s  lead blocks thud
+-  45.57 s  lead blocks thud
+-  45.74 s  lead blocks thud
+-  45.91 s  lead blocks thud
+-  46.07 s  lead blocks thud
+-  46.24 s  lead blocks thud
+-  46.70 s  drill whirr
+-  47.40 s  soil buckets clank
+-  48.00 s  soil buckets clank
+-  48.60 s  soil buckets clank
+-  49.20 s  soil buckets clank
+-  51.15 s  tower settles back: deep groan
+-  51.71 s  relief chime
+-  53.20 s  piazza ambience + laughter
+-  55.85 s  tiny wobble groan
+-  57.19 s  wink 'ting'

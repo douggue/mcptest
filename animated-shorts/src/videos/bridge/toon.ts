@@ -440,6 +440,8 @@ export type FrontOpts = {
   /** free arm poses (overrides the mode's default arm on that side): [elbow dx, elbow dy, hand dx, hand dy] from the
    *  shoulder in head-heights, screen x to the right; `front` draws that arm over the torso (holding / covering) */
   armL?: [number, number, number, number]; armR?: [number, number, number, number]; frontL?: boolean; frontR?: boolean;
+  /** noodle limbs: outward bow of the knees and elbows in design units / u (0 = classic sticks) */
+  bend?: number;
 };
 
 const footStroke = (p: Pen, a: P2, b: P2, w: number, col: string) => {
@@ -449,7 +451,7 @@ const footStroke = (p: Pen, a: P2, b: P2, w: number, col: string) => {
 
 export const bodyFront = (p: Pen, o: Outfit, opts: FrontOpts) => {
   const { phase = 0, expr = "neutral", mode = "march", look = 0, blink = false, lift = 60, prop = null, tilt = 0, headTilt = 0, wave,
-    light = DEF_LIGHT, facing = 0, seed = 1, armL, armR, frontL = false, frontR = false } = opts;
+    light = DEF_LIGHT, facing = 0, seed = 1, armL, armR, frontL = false, frontR = false, bend = 0 } = opts;
   const Bd = BUILD[o.build ?? "adult"], skin = o.skin ?? SKIN, two = Math.PI * 2, lid = lidOf(blink);
   const H = headBlob(seed, Bd.a, facing), W = 2 * H.a, HH = 2 * H.b, u = W / 100;
   const tall = (1 + Bd.torso + Bd.legs) * HH, sole = 975;
@@ -488,7 +490,7 @@ export const bodyFront = (p: Pen, o: Outfit, opts: FrontOpts) => {
     for (const [side, ph] of [[-1, 0], [1, 0.5]] as const) {
       const up = Math.max(0, Math.sin(two * (phase + ph))) * L;
       const hx = 300 + side * 15 * u, fx = 300 + side * 22 * u, fy = sole - 4 * u - up;
-      const k: P2 = [(hx + fx) / 2 + side * (1.5 * u + up * 0.16), (hipY + fy) / 2 - up * 0.08];
+      const k: P2 = [(hx + fx) / 2 + side * (1.5 * u + up * 0.16 + bend * u), (hipY + fy) / 2 - up * 0.08];
       p.stroke(curve([hx, hipY], k, [fx, fy]), legW, legCol);
       footStroke(p, [fx - side * 3 * u, fy], [fx + side * 13 * u, fy + 0.5 * u], footW, footCol);
     }
@@ -542,7 +544,14 @@ export const bodyFront = (p: Pen, o: Outfit, opts: FrontOpts) => {
     if (armL) arms[0] = free(-1, armL, frontL);
     if (armR) arms[1] = free(1, armR, frontR);
   }
-  const drawArm = (a: Arm) => { p.stroke(curve(a.pts[0], a.pts[1], a.pts[2]), 5.2 * u, armCol); p.dot(a.pts[2][0], a.pts[2][1], 5.5 * u); };
+  const drawArm = (a: Arm) => {
+    let e = a.pts[1];
+    if (bend) { // noodle: push the elbow out, away from the shoulder-hand chord
+      const [s0, h] = [a.pts[0], a.pts[2]], dx = h[0] - s0[0], dy = h[1] - s0[1], l = Math.hypot(dx, dy) || 1, sd = s0[0] < 300 ? -1 : 1;
+      e = [e[0] + sd * Math.abs(dy / l) * bend * u * 0.8, e[1] - Math.abs(dx / l) * bend * u * 0.4];
+    }
+    p.stroke(curve(a.pts[0], e, a.pts[2], 14), 5.2 * u, armCol); p.dot(a.pts[2][0], a.pts[2][1], 5.5 * u);
+  };
   // behind the body: rifle, sword, arms
   if (rifle) {
     p.band([R0, R1], "#7a4b2a", 5 * u, 1.5 * u, "round");

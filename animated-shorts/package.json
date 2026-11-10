@@ -13,7 +13,9 @@
     "render:emu:test": "remotion render src/index.ts EmuShort out/emu_test.mp4 --codec h264 --crf 20 --gl angle --chrome-mode chrome-for-testing --concurrency 3 --frames 0-149",
     "stills": "node scripts/stills.mjs out/stills/s_ 60,560,870,1340,1850 0.5",
     "typecheck": "tsc --noEmit",
-    "render:v1": "remotion render src/index.ts ScorchShort out/scorch_1080p.mp4 --codec h264 --crf 18 --gl angle --chrome-mode chrome-for-testing --concurrency 3"
+    "render:v1": "remotion render src/index.ts ScorchShort out/scorch_1080p.mp4 --codec h264 --crf 18 --gl angle --chrome-mode chrome-for-testing --concurrency 3",
+    "render:pisa": "remotion render src/index.ts PisaShort out/pisa_1080p.mp4 --codec h264 --crf 18 --gl angle --chrome-mode chrome-for-testing --concurrency 3",
+    "render:pisa:test": "remotion render src/index.ts PisaShort out/pisa_test.mp4 --codec h264 --crf 20 --gl angle --chrome-mode chrome-for-testing --concurrency 3 --frames 0-300"
   },
   "dependencies": {
     "@react-three/fiber": "8.17.10",
