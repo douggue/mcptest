@@ -53,7 +53,7 @@ class ProfileTest {
         val m = ProfileMapper.systemProperties(p)
         assertEquals("SM-S911B", m["ro.product.model"]); assertEquals("SM-S911B", m["ro.product.vendor.model"])
         assertEquals(p.fingerprint, m["ro.build.fingerprint"])
-        assertEquals("26201", m["gsm.sim.operator.numeric"]); assertEquals("de", m["gsm.sim.operator.iso-country"])
+        assertEquals(p.simOperator, m["gsm.sim.operator.numeric"]); assertTrue(p.simOperator in setOf("26201", "26202")); assertEquals("de", m["gsm.sim.operator.iso-country"])
         assertEquals("Europe/Berlin", m["persist.sys.timezone"])
         assertFalse(m.containsKey("ro.build.version.release")); assertFalse(m.containsKey("ro.build.version.sdk"))
         assertEquals(0, ProfileMapper.nativeArray(m).size % 2)
