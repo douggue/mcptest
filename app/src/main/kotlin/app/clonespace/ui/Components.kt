@@ -112,8 +112,7 @@ fun StatusTag(status: LeakStatus) {
 @Composable
 fun SectionCard(title: String? = null, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp)).padding(16.dp),
+        modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surface).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (title != null) Text(title, style = MaterialTheme.typography.titleSmall)

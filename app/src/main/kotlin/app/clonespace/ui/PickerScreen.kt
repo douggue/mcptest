@@ -105,11 +105,11 @@ private fun AppRow(vm: MainViewModel, app: DeviceApp, existing: Int, enabled: Bo
             Text(app.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
             val note = when (app.support) {
                 Support.NO_ARM -> "Not supported: no ARM build"
-                Support.SPLIT_APK -> "Split APK, may not work"
+                Support.SPLIT_APK -> if (existing > 0) "$existing clone(s) already" else null
                 Support.OK -> if (existing > 0) "$existing clone(s) already" else null
             }
             if (note != null) Text(note, style = MaterialTheme.typography.bodySmall,
-                color = if (app.support == Support.OK) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
+                color = if (app.support == Support.NO_ARM) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
         }
         when {
             app.support == Support.NO_ARM -> Text("Not supported", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -32,9 +32,9 @@ private val DarkTokens = Tokens(
 val LocalTokens = staticCompositionLocalOf { LightTokens }
 
 private val Light = lightColorScheme(
-    primary = Color(0xFF3B5BDB), onPrimary = Color.White,
+    primary = Color(0xFF3F51E0), onPrimary = Color.White,
     primaryContainer = Color(0xFFEEF1FD), onPrimaryContainer = Color(0xFF2B44A8),
-    background = Color(0xFFF7F7FA), onBackground = Color(0xFF16161D),
+    background = Color(0xFFF2F3F8), onBackground = Color(0xFF16161D),
     surface = Color.White, onSurface = Color(0xFF16161D),
     surfaceVariant = Color(0xFFF1F1F6), onSurfaceVariant = Color(0xFF5B5B6B),
     outline = Color(0xFFE2E2EA), outlineVariant = Color(0xFFE8E8EF),
@@ -43,7 +43,7 @@ private val Light = lightColorScheme(
 private val Dark = darkColorScheme(
     primary = Color(0xFF8FA5FF), onPrimary = Color(0xFF0F1633),
     primaryContainer = Color(0xFF242B52), onPrimaryContainer = Color(0xFFD6DDFF),
-    background = Color(0xFF111118), onBackground = Color(0xFFEDEDF4),
+    background = Color(0xFF0E0E14), onBackground = Color(0xFFEDEDF4),
     surface = Color(0xFF1B1B24), onSurface = Color(0xFFEDEDF4),
     surfaceVariant = Color(0xFF242430), onSurfaceVariant = Color(0xFFA9A9BA),
     outline = Color(0xFF3A3A48), outlineVariant = Color(0xFF2C2C38),

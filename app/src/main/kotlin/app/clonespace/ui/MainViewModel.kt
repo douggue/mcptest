@@ -23,6 +23,7 @@ import app.clonespace.profile.DeviceProfile
 import app.clonespace.proxy.ProxyConfig
 import app.clonespace.proxy.ProxyTester
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -60,24 +61,63 @@ class MainViewModel(private val app: CloneApp) : ViewModel() {
 
     fun refresh() = viewModelScope.launch {
         if (!VirtualEngine.isReady) return@launch
-        runCatching { repo.clones() }.onSuccess { list ->
+        runCatching {
+            withContext(Dispatchers.IO) {
+                app.profiles.alignLocaleOnce(java.util.Locale.getDefault().toLanguageTag(), java.util.TimeZone.getDefault().id)
+                val list = repo.clones()
+                list.forEach { app.health.trim(it.spaceId, it.packageName) }
+                list to app.meta.spaces()
+            }
+        }.onSuccess { (list, spaces) ->
             _clones.value = list
-            _spaces.value = app.meta.spaces()
-            list.forEach { app.health.trim(it.spaceId, it.packageName) }
+            _spaces.value = spaces
         }.onFailure { say("Could not list clones: ${it.message}") }
     }
 
-    fun loadDeviceApps() = viewModelScope.launch { _deviceApps.value = repo.deviceApps() }
+    fun loadDeviceApps() = viewModelScope.launch {
+        runCatching { repo.deviceApps() }.onSuccess { _deviceApps.value = it }
+            .onFailure { _deviceApps.value = emptyList(); say("Could not list your apps: ${it.message}") }
+    }
 
     suspend fun icon(pkg: String, px: Int) = repo.deviceIcon(pkg, px)
     suspend fun cloneIcon(item: CloneItem, px: Int) = repo.cloneIcon(item, px)
 
     // ---- Clone actions ----------------------------------------------------------------------------
 
-    fun launch(item: CloneItem) = viewModelScope.launch {
-        val ok = VirtualEngine.launch(item.packageName, item.spaceId)
-        if (!ok) { app.health.recordLaunch(item.spaceId, item.packageName, false); say("${item.displayName} did not start") }
-        refresh()
+    /** Key of the clone that is starting right now; the UI shows "Opening…" and ignores more taps. */
+    var launching by mutableStateOf<String?>(null); private set
+
+    fun launch(item: CloneItem) {
+        if (launching != null) return          // a second tap while the first launch is starting does nothing
+        launching = item.key
+        viewModelScope.launch {
+            try {
+                val ok = VirtualEngine.launch(item.packageName, item.spaceId)
+                if (!ok) {
+                    withContext(Dispatchers.IO) { app.health.recordLaunch(item.spaceId, item.packageName, false) }
+                    say("${item.displayName} did not start. Try Force stop, then open it again.")
+                } else {
+                    delay(1500)                // keep the indicator until the clone's first screen covers ours
+                }
+            } finally {
+                launching = null
+                refresh()
+            }
+        }
+    }
+
+    // ---- Diagnostics ------------------------------------------------------------------------------
+
+    /** Time of the last crash of the app itself, 0 when there is none to show. */
+    var hostCrashAt by mutableStateOf(0L); private set
+
+    fun checkHostCrash() = viewModelScope.launch(Dispatchers.IO) { hostCrashAt = app.crashes.hostCrashedAt() }
+    fun dismissHostCrash() = viewModelScope.launch(Dispatchers.IO) { app.crashes.clearHost(); hostCrashAt = 0L }
+
+    suspend fun cloneCrash(item: CloneItem): String? = withContext(Dispatchers.IO) { app.crashes.clone(item.spaceId, item.packageName) }
+
+    suspend fun diagnosticReport(): String = withContext(Dispatchers.IO) {
+        app.crashes.report("${app.packageManager.getPackageInfo(app.packageName, 0).versionName} (${app.packageName})", _clones.value)
     }
 
     /** Clones [pkg] into existing [spaceIds] plus [newSpaces] fresh spaces (batch clone). */
@@ -92,19 +132,28 @@ class MainViewModel(private val app: CloneApp) : ViewModel() {
                 if (err == null) okCount++ else if (firstError == null) firstError = err
             }
             say(if (okCount == targets.size) "Cloned $label into $okCount space(s)" else "Cloned $okCount of ${targets.size}. ${firstError ?: ""}".trim())
+        } catch (t: Throwable) {
+            say("Could not clone $label: ${t.message ?: t.javaClass.simpleName}")
         } finally {
             cloning = cloning - pkg; busy = null; refresh()
         }
     }
 
-    fun remove(item: CloneItem) = viewModelScope.launch { repo.remove(item); refresh() }
-
-    fun clearData(item: CloneItem) = viewModelScope.launch {
-        VirtualEngine.forceStop(item.packageName, item.spaceId)
-        VirtualEngine.clearData(item.packageName, item.spaceId); say("Cleared data of ${item.displayName}")
+    fun remove(item: CloneItem) = viewModelScope.launch {
+        runCatching { repo.remove(item); withContext(Dispatchers.IO) { app.crashes.delete(item.spaceId, item.packageName) } }
+            .onFailure { say("Could not remove ${item.displayName}: ${it.message}") }
+        refresh()
     }
 
-    fun forceStop(item: CloneItem) = viewModelScope.launch { VirtualEngine.forceStop(item.packageName, item.spaceId); say("Stopped ${item.displayName}") }
+    fun clearData(item: CloneItem) = viewModelScope.launch {
+        runCatching { VirtualEngine.forceStop(item.packageName, item.spaceId); VirtualEngine.clearData(item.packageName, item.spaceId) }
+            .onSuccess { say("Cleared data of ${item.displayName}") }.onFailure { say("Could not clear data: ${it.message}") }
+    }
+
+    fun forceStop(item: CloneItem) = viewModelScope.launch {
+        runCatching { VirtualEngine.forceStop(item.packageName, item.spaceId) }
+            .onSuccess { say("Stopped ${item.displayName}") }.onFailure { say("Could not stop: ${it.message}") }
+    }
 
     fun rename(item: CloneItem, name: String?) = viewModelScope.launch(Dispatchers.IO) {
         app.meta.setMeta(item.spaceId, item.packageName, item.meta.copy(customName = name?.trim()?.takeIf { it.isNotEmpty() }))
@@ -118,15 +167,20 @@ class MainViewModel(private val app: CloneApp) : ViewModel() {
     fun renameSpace(id: Int, name: String) = viewModelScope.launch(Dispatchers.IO) { app.meta.renameSpace(id, name); refresh() }
 
     fun addSpace() = viewModelScope.launch {
-        val s = repo.newSpaces(1).first(); say("Created ${s.name}"); refresh()
+        runCatching { repo.newSpaces(1).first() }.onSuccess { say("Created ${it.name}") }.onFailure { say("Could not create a space: ${it.message}") }
+        refresh()
     }
 
-    fun removeSpace(id: Int) = viewModelScope.launch { repo.removeSpace(id); if (spaceFilter == id) spaceFilter = null; refresh() }
+    fun removeSpace(id: Int) = viewModelScope.launch {
+        runCatching { repo.removeSpace(id) }.onFailure { say("Could not delete the space: ${it.message}") }
+        if (spaceFilter == id) spaceFilter = null
+        refresh()
+    }
 
     fun pinShortcut(ctx: Context, item: CloneItem) = viewModelScope.launch {
         if (!ShortcutSupport.canPin(ctx)) { say("This launcher does not support pinned shortcuts"); return@launch }
-        val icon = repo.cloneIcon(item, 192)
-        ShortcutSupport.requestPin(ctx, item, icon)
+        runCatching { ShortcutSupport.requestPin(ctx, item, repo.cloneIcon(item, 192)) }
+            .onFailure { say("Could not add the shortcut: ${it.message}") }
     }
 
     // ---- Backup and restore (Storage Access Framework streams, no storage permission) -----------------
@@ -179,7 +233,11 @@ class MainViewModel(private val app: CloneApp) : ViewModel() {
 
     fun runLeakTest(item: CloneItem) = viewModelScope.launch {
         leak = LeakTestRunner.State.Running("Starting")
-        leak = leakRunner.run(item) { step -> leak = LeakTestRunner.State.Running(step) }
+        leak = try {
+            leakRunner.run(item) { step -> leak = LeakTestRunner.State.Running(step) }
+        } catch (t: Throwable) {
+            LeakTestRunner.State.Failed("The test could not finish: ${t.message ?: t.javaClass.simpleName}")
+        }
     }
 
     fun resetLeak() { leak = LeakTestRunner.State.Idle }
@@ -188,8 +246,7 @@ class MainViewModel(private val app: CloneApp) : ViewModel() {
 
     fun installGms(space: Int) = viewModelScope.launch {
         busy = "Installing Google Play services"
-        val r = VirtualEngine.installGms(space)
-        busy = null
+        val r = try { VirtualEngine.installGms(space) } finally { busy = null }
         say(if (r.ok) "Google Play services installed in this space" else "Could not install: ${r.message}")
     }
 

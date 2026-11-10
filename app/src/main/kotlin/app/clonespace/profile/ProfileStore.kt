@@ -33,7 +33,34 @@ class ProfileStore(private val root: File) {
     }
 
     fun ensure(space: Int, pkg: String, realSdk: Int, realRelease: String): DeviceProfile =
-        load(space, pkg) ?: ProfileGenerator.generate(realSdk, realRelease).also { save(space, pkg, it) }
+        load(space, pkg) ?: ProfileGenerator.forDevice(
+            realSdk, realRelease,
+            java.util.Locale.getDefault().country, java.util.Locale.getDefault().toLanguageTag(), java.util.TimeZone.getDefault().id,
+        ).also { save(space, pkg, it) }
+
+    /**
+     * One-time repair for profiles made by earlier builds, which picked a random country. Sets the
+     * language and time zone of every unlocked profile to the phone's. Identifiers are not touched,
+     * so accounts keep seeing the same device. Call from the UI process only (clone processes have a
+     * spoofed locale).
+     */
+    fun alignLocaleOnce(languageTag: String, timezone: String) {
+        val marker = File(root, ".locale-v2")
+        if (marker.exists() || languageTag.isBlank() || timezone.isBlank()) return
+        try {
+            root.mkdirs()
+            root.listFiles()?.filter { it.isDirectory }?.forEach { dir ->
+                val space = dir.name.toIntOrNull() ?: return@forEach
+                dir.listFiles()?.filter { it.name.endsWith(".json") }?.forEach { f ->
+                    val pkg = f.name.removeSuffix(".json")
+                    val p = load(space, pkg) ?: return@forEach
+                    if (!p.locked && (p.locale != languageTag || p.timezone != timezone)) save(space, pkg, p.copy(locale = languageTag, timezone = timezone))
+                }
+            }
+            marker.writeText("1")
+        } catch (_: Exception) {
+        }
+    }
 
     /** Regenerate identifiers. A locked profile is returned unchanged. */
     fun regenerate(space: Int, pkg: String, newDevice: Boolean = false): DeviceProfile? {

@@ -157,9 +157,16 @@ class CloneRepository(private val app: CloneApp) {
         runCatching { app.packageManager.getApplicationIcon(pkg).toBitmap(sizePx, sizePx) }.getOrNull()
     }
 
+    /** Icons are asked for by every tile on every recomposition key change; loading one costs an engine call. */
+    private val iconCache = android.util.LruCache<String, Bitmap>(64)
+
     suspend fun cloneIcon(item: CloneItem, sizePx: Int): Bitmap? = withContext(Dispatchers.IO) {
-        val info = VirtualEngine.appsIn(item.spaceId).firstOrNull { it.info.packageName == item.packageName }?.info
-        val d: Drawable? = info?.let { VirtualEngine.iconOf(it) }
-        runCatching { d?.toBitmap(sizePx, sizePx) }.getOrNull()
+        val key = "${item.packageName}@$sizePx"
+        iconCache.get(key)?.let { return@withContext it }
+        runCatching {
+            val info = VirtualEngine.appsIn(item.spaceId).firstOrNull { it.info.packageName == item.packageName }?.info
+            val d: Drawable? = info?.let { VirtualEngine.iconOf(it) }
+            d?.toBitmap(sizePx, sizePx)?.also { iconCache.put(key, it) }
+        }.getOrNull()
     }
 }

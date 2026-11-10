@@ -40,6 +40,9 @@ object VirtualEngine {
     @Volatile var isReady: Boolean = false; private set
     @Volatile var startupFailed: Boolean = false; private set
 
+    /** True once this process has become a clone (target app code is about to run in it). */
+    @Volatile var inClone: Boolean = false; private set
+
     /** True in the process that shows the UI. Clone and server processes run the same Application. */
     val isUiProcess: Boolean get() = BlackBoxCore.get().isMainProcess
 
@@ -177,6 +180,7 @@ object VirtualEngine {
         @Volatile private var props: Map<String, String> = emptyMap()
 
         override fun beforeCreateApplication(packageName: String, processName: String, context: Context, userId: Int) {
+            inClone = true
             try {
                 val profile = host.profiles.load(userId, packageName)
                 if (profile != null) {
@@ -210,6 +214,7 @@ object VirtualEngine {
                 val previous = Thread.getDefaultUncaughtExceptionHandler()
                 Thread.setDefaultUncaughtExceptionHandler { t, e ->
                     host.health.recordCrash(userId, packageName, e.javaClass.simpleName + ": " + e.message)
+                    host.crashes.recordClone(userId, packageName, processName, e)
                     previous?.uncaughtException(t, e)
                 }
             } catch (t: Throwable) {

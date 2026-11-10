@@ -1,0 +1,696 @@
+diff --git a/Bcore/src/main/cpp/Utils/ProxyHook.cpp b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+index e7e81d5..60c7fb6 100644
+--- a/Bcore/src/main/cpp/Utils/ProxyHook.cpp
++++ b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+@@ -21,6 +21,7 @@
+ #include <string.h>
+ #include <stdlib.h>
+ #include <stdio.h>
++#include <atomic>
+ #include <mutex>
+ #include <string>
+ #include <unordered_map>
+@@ -180,7 +181,64 @@ std::string b64(const std::string &in) {
+     return out;
+ }
+ 
+-bool socks5_handshake(int fd, const Cfg &c, const Dest &d) {
++void socks5_request(const Dest &d, std::string &req) {
++    req += (char) 5; req += (char) 1; req += (char) 0;
++    if (d.isDomain) {
++        req += (char) 3; req += (char) d.domain.size(); req += d.domain;
++    } else if (d.family == AF_INET) {
++        req += (char) 1;
++        req.append((const char *) &((const sockaddr_in *) &d.addr)->sin_addr, 4);
++    } else {
++        req += (char) 4;
++        req.append((const char *) &((const sockaddr_in6 *) &d.addr)->sin6_addr, 16);
++    }
++    req += (char) (d.port >> 8); req += (char) (d.port & 0xFF);
++}
++
++bool socks5_read_reply(int fd) {
++    uint8_t h[4];
++    if (!recv_all(fd, h, 4) || h[0] != 5 || h[1] != 0) return false;
++    size_t skip = h[3] == 1 ? 4 : h[3] == 4 ? 16 : 0;
++    if (h[3] == 3) { uint8_t l; if (!recv_all(fd, &l, 1)) return false; skip = l; }
++    uint8_t junk[260];
++    return recv_all(fd, junk, skip + 2);
++}
++
++// Set when a proxy did not answer a pipelined handshake; later connects use the step-by-step form.
++std::atomic<bool> g_noPipeline{false};
++
++// One round trip instead of three: greeting, login and request go out in a single write. The
++// handshake runs on the caller's thread (often the app's only network thread), so every saved
++// round trip is time during which nothing else in the app can use the network.
++// *stalled is set when the proxy sent nothing back (timeout or close) rather than a refusal.
++bool socks5_pipelined(int fd, const Cfg &c, const Dest &d, bool *stalled) {
++    bool auth = !c.user.empty();
++    std::string m;
++    m += (char) 5; m += (char) 1; m += (char) (auth ? 2 : 0);
++    if (auth) {
++        m += (char) 1; m += (char) c.user.size(); m += c.user;
++        m += (char) c.pass.size(); m += c.pass;
++    }
++    socks5_request(d, m);
++    if (!send_all(fd, m.data(), m.size())) return false;
++    uint8_t rep[2];
++    if (!recv_all(fd, rep, 2)) { *stalled = true; return false; }
++    if (rep[0] != 5 || rep[1] != (auth ? 2 : 0)) return false;
++    if (auth) {
++        uint8_t ar[2];
++        if (!recv_all(fd, ar, 2)) { *stalled = true; return false; }
++        if (ar[1] != 0) return false;
++    }
++    uint8_t h[4];
++    if (!recv_all(fd, h, 4)) { *stalled = true; return false; }
++    if (h[0] != 5 || h[1] != 0) return false;
++    size_t skip = h[3] == 1 ? 4 : h[3] == 4 ? 16 : 0;
++    if (h[3] == 3) { uint8_t l; if (!recv_all(fd, &l, 1)) return false; skip = l; }
++    uint8_t junk[260];
++    return recv_all(fd, junk, skip + 2);
++}
++
++bool socks5_stepwise(int fd, const Cfg &c, const Dest &d) {
+     bool auth = !c.user.empty();
+     uint8_t hello[4] = {5, 1, 0, 0};
+     size_t hn = 3;
+@@ -189,7 +247,7 @@ bool socks5_handshake(int fd, const Cfg &c, const Dest &d) {
+     uint8_t rep[2];
+     if (!recv_all(fd, rep, 2) || rep[0] != 5) return false;
+     if (rep[1] == 2) {
+-        if (!auth || c.user.size() > 255 || c.pass.size() > 255) return false;
++        if (!auth) return false;
+         std::string m;
+         m += (char) 1; m += (char) c.user.size(); m += c.user;
+         m += (char) c.pass.size(); m += c.pass;
+@@ -200,25 +258,23 @@ bool socks5_handshake(int fd, const Cfg &c, const Dest &d) {
+         return false;
+     }
+     std::string req;
+-    req += (char) 5; req += (char) 1; req += (char) 0;
+-    if (d.isDomain) {
+-        if (d.domain.size() > 255) return false;
+-        req += (char) 3; req += (char) d.domain.size(); req += d.domain;
+-    } else if (d.family == AF_INET) {
+-        req += (char) 1;
+-        req.append((const char *) &((const sockaddr_in *) &d.addr)->sin_addr, 4);
+-    } else {
+-        req += (char) 4;
+-        req.append((const char *) &((const sockaddr_in6 *) &d.addr)->sin6_addr, 16);
+-    }
+-    req += (char) (d.port >> 8); req += (char) (d.port & 0xFF);
++    socks5_request(d, req);
+     if (!send_all(fd, req.data(), req.size())) return false;
+-    uint8_t h[4];
+-    if (!recv_all(fd, h, 4) || h[0] != 5 || h[1] != 0) return false;
+-    size_t skip = h[3] == 1 ? 4 : h[3] == 4 ? 16 : 0;
+-    if (h[3] == 3) { uint8_t l; if (!recv_all(fd, &l, 1)) return false; skip = l; }
+-    uint8_t junk[260];
+-    return recv_all(fd, junk, skip + 2);
++    return socks5_read_reply(fd);
++}
++
++bool socks5_handshake(int fd, const Cfg &c, const Dest &d) {
++    if (c.user.size() > 255 || c.pass.size() > 255 || (d.isDomain && d.domain.size() > 255)) return false;
++    if (g_noPipeline.load()) return socks5_stepwise(fd, c, d);
++    bool stalled = false;
++    if (socks5_pipelined(fd, c, d, &stalled)) return true;
++    if (stalled) {
++        // Some small proxies drop bytes that arrive early. This connection is lost (the app
++        // retries), but every later one uses the compatible form.
++        g_noPipeline.store(true);
++        LOGD("proxy did not answer a pipelined handshake; using step-by-step from now on");
++    }
++    return false;
+ }
+ 
+ bool http_handshake(int fd, const Cfg &c, const Dest &d) {
+@@ -412,6 +468,7 @@ bool ProxyHook_configure(int type, const char *ip, int port, const char *user, c
+         install_locked();
+     }
+     g_cfg = c;
++    g_noPipeline.store(false);
+     LOGD("proxy configured: type=%d port=%d", type, port);
+     return true;
+ }
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java b/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java
+index 1e2e46c..c77f67f 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java
+@@ -73,6 +73,10 @@ public class NativeCore {
+                 }
+                 
+                 
++                if (android.os.Binder.getCallingPid() == Process.myPid()) {
++                    int selfBUid = top.niunaijun.blackbox.app.BActivityThread.getBUid();
++                    if (selfBUid > 0) return selfBUid;
++                }
+                 try {
+                     int callingBUid = BlackBoxCore.getCallingBUid();
+                     if (callingBUid > 0 && callingBUid < Process.LAST_APPLICATION_UID) {
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/core/system/BProcessManagerService.java b/Bcore/src/main/java/top/niunaijun/blackbox/core/system/BProcessManagerService.java
+index b699bcb..48f2a5c 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/core/system/BProcessManagerService.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/core/system/BProcessManagerService.java
+@@ -62,11 +62,14 @@ public class BProcessManagerService implements ISystemService {
+                 app = bProcess.get(processName);
+                 if (app != null) {
+                     if (app.initLock != null) {
+-                        app.initLock.block();
++                        app.initLock.block(5000);
+                     }
+-                    if (app.bActivityThread != null) {
++                    if (app.bActivityThread != null && app.bActivityThread.asBinder().isBinderAlive()) {
+                         return app;
+                     }
++                    Slog.w(TAG, "discarding dead process record " + processName);
++                    bProcess.remove(processName);
++                    mPidsSelfLocked.remove(app);
+                 }
+                 bpid = getUsingBPidL();
+                 Slog.d(TAG, "init bUid = " + buid + ", bPid = " + bpid);
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/core/system/ProcessRecord.java b/Bcore/src/main/java/top/niunaijun/blackbox/core/system/ProcessRecord.java
+index 4b5bbd2..b72f164 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/core/system/ProcessRecord.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/core/system/ProcessRecord.java
+@@ -58,9 +58,11 @@ public class ProcessRecord extends Binder {
+     }
+ 
+     public void kill() {
+-        if (pid > 0) {
++        int target = pid > 0 ? pid : top.niunaijun.blackbox.core.system.BProcessManagerService.getPid(
++                top.niunaijun.blackbox.BlackBoxCore.getContext(), ProxyManifest.getProcessName(bpid));
++        if (target > 0) {
+             try {
+-                Process.killProcess(pid);
++                Process.killProcess(target);
+             } catch (Throwable e) {
+                 e.printStackTrace();
+             }
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/core/system/accounts/BAccountManagerService.java b/Bcore/src/main/java/top/niunaijun/blackbox/core/system/accounts/BAccountManagerService.java
+index ed08606..9d94b88 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/core/system/accounts/BAccountManagerService.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/core/system/accounts/BAccountManagerService.java
+@@ -1761,7 +1761,14 @@ public class BAccountManagerService extends IBAccountManagerService.Stub impleme
+ 
+ 
+ 
+-            if (!mContext.bindService(intent, this, flags)) {
++            boolean bound;
++            try {
++                bound = mContext.bindService(intent, this, flags);
++            } catch (SecurityException e) {
++                Slog.w(TAG, "bindService to " + componentName + " denied", e);
++                bound = false;
++            }
++            if (!bound) {
+                 if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                     Log.v(TAG, "bindService to " + componentName + " failed");
+                 }
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/core/system/am/ActivityStack.java b/Bcore/src/main/java/top/niunaijun/blackbox/core/system/am/ActivityStack.java
+index 7d31655..57f2681 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/core/system/am/ActivityStack.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/core/system/am/ActivityStack.java
+@@ -105,6 +105,24 @@ public class ActivityStack {
+         Log.d(TAG, "startActivityLocked : " + resolveInfo.activityInfo);
+         ActivityInfo activityInfo = resolveInfo.activityInfo;
+ 
++        String resultCaller = null;
++        try {
++            resultCaller = intent.getStringExtra(top.niunaijun.blackbox.proxy.ProxyPendingActivity.EXTRA_RESULT_CALLER);
++        } catch (Throwable ignored) {
++        }
++        if (resultCaller != null) {
++            intent.removeExtra(top.niunaijun.blackbox.proxy.ProxyPendingActivity.EXTRA_RESULT_CALLER);
++            ActivityRecord caller = findResultCallerLocked(userId, ComponentName.unflattenFromString(resultCaller));
++            if (caller != null && resultTo != null) {
++                Log.d(TAG, "forwarding result of " + activityInfo.name + " to " + caller.component);
++                ActivityRecord selfRecord = newActivityRecord(intent, activityInfo, caller.token, userId);
++                Intent shadow = startActivityProcess(userId, intent, activityInfo, selfRecord);
++                shadow.setAction(UUID.randomUUID().toString());
++                shadow.addFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
++                return realStartActivityLocked(caller.processRecord.appThread, shadow, resolvedType, resultTo, null, -1, flags, options);
++            }
++        }
++
+         ActivityRecord sourceRecord = findActivityRecordByToken(userId, resultTo);
+         if (sourceRecord == null) {
+             resultTo = null;
+@@ -138,6 +156,18 @@ public class ActivityStack {
+         }
+ 
+         
++        if (taskRecord == null) {
++            // A second tap while the first launch is still starting must not open a second task.
++            ComponentName dupTarget = ComponentUtils.toComponentName(activityInfo);
++            synchronized (mLaunchingActivities) {
++                for (ActivityRecord launching : mLaunchingActivities) {
++                    if (!launching.finished && launching.userId == userId && dupTarget.equals(launching.component)) {
++                        Slog.w(TAG, "ignoring duplicate launch of " + dupTarget);
++                        return 0;
++                    }
++                }
++            }
++        }
+         if (taskRecord == null || taskRecord.needNewTask()) {
+             return startActivityInNewTaskLocked(userId, intent, activityInfo, resultTo, launchModeFlags);
+         }
+@@ -385,7 +415,7 @@ public class ActivityStack {
+         synchronized (mLaunchingActivities) {
+             mLaunchingActivities.add(targetRecord);
+             Message obtain = Message.obtain(mHandler, LAUNCH_TIME_OUT, targetRecord);
+-            mHandler.sendMessageDelayed(obtain, 2000);
++            mHandler.sendMessageDelayed(obtain, 10000);
+         }
+         return targetRecord;
+     }
+@@ -406,6 +436,33 @@ public class ActivityStack {
+         return record;
+     }
+ 
++    /** Top-most activity of the clone running in the proxy process of {@code caller} (ProxyActivity$P<bpid>). */
++    private ActivityRecord findResultCallerLocked(int userId, ComponentName caller) {
++        if (caller == null || !caller.getPackageName().equals(BlackBoxCore.getHostPkg())) return null;
++        String cls = caller.getClassName();
++        int index = cls.lastIndexOf("$P");
++        if (index < 0) return null;
++        int bpid;
++        try {
++            bpid = Integer.parseInt(cls.substring(index + 2));
++        } catch (NumberFormatException e) {
++            return null;
++        }
++        synchronized (mTasks) {
++            synchronizeTasks();
++            for (TaskRecord task : mTasks.values()) {
++                if (task.userId != userId) continue;
++                for (int i = task.activities.size() - 1; i >= 0; i--) {
++                    ActivityRecord record = task.activities.get(i);
++                    if (!record.finished && record.processRecord != null && record.processRecord.bpid == bpid) {
++                        return record;
++                    }
++                }
++            }
++        }
++        return null;
++    }
++
+     private ActivityRecord findActivityRecordByToken(int userId, IBinder token) {
+         ActivityRecord record = null;
+         if (token != null) {
+@@ -549,5 +606,37 @@ public class ActivityStack {
+         }
+         mTasks.clear();
+         mTasks.putAll(newTacks);
++        java.util.Iterator<Map.Entry<Integer, TaskRecord>> it = mTasks.entrySet().iterator();
++        while (it.hasNext()) {
++            Map.Entry<Integer, TaskRecord> entry = it.next();
++            TaskRecord task = entry.getValue();
++            synchronized (task.activities) {
++                java.util.Iterator<ActivityRecord> records = task.activities.iterator();
++                while (records.hasNext()) {
++                    if (!isProcessAlive(records.next().processRecord)) records.remove();
++                }
++                if (!task.activities.isEmpty()) continue;
++            }
++            it.remove();
++            removeSystemTask(entry.getKey());
++        }
++    }
++
++    private static boolean isProcessAlive(ProcessRecord p) {
++        return p != null && p.bActivityThread != null && p.bActivityThread.asBinder().isBinderAlive();
++    }
++
++    @SuppressWarnings("deprecation")
++    private void removeSystemTask(int taskId) {
++        for (ActivityManager.AppTask task : mAms.getAppTasks()) {
++            try {
++                if (task.getTaskInfo().id == taskId) {
++                    task.finishAndRemoveTask();
++                    Slog.d(TAG, "removed dead task " + taskId);
++                    return;
++                }
++            } catch (Throwable ignored) {
++            }
++        }
+     }
+ }
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/delegate/ServiceConnectionDelegate.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/delegate/ServiceConnectionDelegate.java
+index 3da6bdb..fb91045 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/delegate/ServiceConnectionDelegate.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/delegate/ServiceConnectionDelegate.java
+@@ -6,15 +6,17 @@ import android.content.Intent;
+ import android.os.IBinder;
+ import android.os.RemoteException;
+ 
+-import java.util.HashMap;
++import android.os.Parcel;
++
+ import java.util.Map;
++import java.util.concurrent.ConcurrentHashMap;
+ 
+ import black.android.app.BRIServiceConnectionO;
+ import top.niunaijun.blackbox.utils.compat.BuildCompat;
+ 
+ 
+ public class ServiceConnectionDelegate extends IServiceConnection.Stub {
+-    private static final Map<IBinder, ServiceConnectionDelegate> sServiceConnectDelegate = new HashMap<>();
++    private static final Map<IBinder, ServiceConnectionDelegate> sServiceConnectDelegate = new ConcurrentHashMap<>();
+     private final IServiceConnection mConn;
+     private final ComponentName mComponentName;
+ 
+@@ -48,6 +50,45 @@ public class ServiceConnectionDelegate extends IServiceConnection.Stub {
+         return delegate;
+     }
+ 
++    private static final String DESCRIPTOR = "android.app.IServiceConnection";
++
++    /**
++     * Forwards the raw transaction instead of calling connected(...) through a typed signature.
++     * The framework's IServiceConnection.connected has changed its parameter list across Android
++     * releases (2, 3 and more arguments). Calling one fixed signature throws AbstractMethodError or
++     * silently drops the callback on a release with another one, and the clone then waits forever
++     * for a service that did connect (upstream #60). Only the ComponentName is replaced; whatever
++     * follows it in the parcel is copied through untouched.
++     */
++    @Override
++    public boolean onTransact(int code, Parcel data, Parcel reply, int flags) throws RemoteException {
++        if (code == IBinder.FIRST_CALL_TRANSACTION) {
++            Parcel out = Parcel.obtain();
++            try {
++                data.enforceInterface(DESCRIPTOR);
++                ComponentName name = data.readInt() != 0 ? ComponentName.CREATOR.createFromParcel(data) : null;
++                int rest = data.dataPosition();
++                ComponentName target = mComponentName != null ? mComponentName : name;
++                out.writeInterfaceToken(DESCRIPTOR);
++                if (target != null) {
++                    out.writeInt(1);
++                    target.writeToParcel(out, 0);
++                } else {
++                    out.writeInt(0);
++                }
++                out.appendFrom(data, rest, data.dataSize() - rest);
++                mConn.asBinder().transact(code, out, null, IBinder.FLAG_ONEWAY);
++                return true;
++            } catch (Throwable t) {
++                top.niunaijun.blackbox.utils.Slog.w("ServiceConnectionDelegate", "raw forward failed, trying typed call", t);
++                data.setDataPosition(0);
++            } finally {
++                out.recycle();
++            }
++        }
++        return super.onTransact(code, data, reply, flags);
++    }
++
+     @Override
+     public void connected(ComponentName name, IBinder service) throws RemoteException {
+         connected(name, service, false);
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IActivityManagerProxy.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IActivityManagerProxy.java
+index 6c820db..2fd794c 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IActivityManagerProxy.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IActivityManagerProxy.java
+@@ -109,6 +109,15 @@ public class IActivityManagerProxy extends ClassInvocationStub {
+             
+             String methodName = method.getName();
+             Slog.w(TAG, "ActivityManager invoke: SecurityException in " + methodName + ", returning safe default", e);
++            Class<?> type = method.getReturnType();
++            if (type == boolean.class) return methodName.startsWith("stop") || methodName.startsWith("unbind");
++            if (type == int.class) return 0;
++            if (type == long.class) return 0L;
++            if (type == float.class) return 0f;
++            if (type == double.class) return 0d;
++            if (type == short.class) return (short) 0;
++            if (type == byte.class) return (byte) 0;
++            if (type == char.class) return (char) 0;
+             
+             
+             if (methodName.startsWith("set") || methodName.startsWith("update")) {
+@@ -589,6 +598,12 @@ public class IActivityManagerProxy extends ClassInvocationStub {
+                     args[i] = null;
+                 }
+             }
++            for (int i = args.length - 1; i >= 0; i--) {
++                if (args[i] instanceof Integer) {
++                    if ((Integer) args[i] < 0) args[i] = android.os.Process.myUid() / 100000;
++                    break;
++                }
++            }
+             return method.invoke(who, args);
+         }
+ 
+@@ -900,6 +915,21 @@ public class IActivityManagerProxy extends ClassInvocationStub {
+         }
+     }
+ 
++    @ProxyMethod("getUidProcessState")
++    public static class GetUidProcessState extends MethodHook {
++        private static final int PROCESS_STATE_TOP = 2; // ActivityManager.PROCESS_STATE_TOP (@hide)
++
++        @Override
++        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
++            try {
++                Object real = method.invoke(who, args);
++                if (real instanceof Integer) return real;
++            } catch (Throwable ignored) {
++            }
++            return PROCESS_STATE_TOP;
++        }
++    }
++
+     @ProxyMethod("registerUidObserver")
+     public static class registerUidObserver extends MethodHook {
+ 
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IAppOpsManagerProxy.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IAppOpsManagerProxy.java
+index 5f56c4f..d9552cf 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IAppOpsManagerProxy.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IAppOpsManagerProxy.java
+@@ -43,6 +43,58 @@ public class IAppOpsManagerProxy extends BinderInvocationStub {
+ 
+     @Override
+     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
++        return adaptResult(method, args, invokeOps(proxy, method, args));
++    }
++
++    private static Object adaptResult(Method method, Object[] args, Object result) {
++        Class<?> type = method.getReturnType();
++        if (!(result instanceof Integer) || type == int.class || type == Integer.class || type == void.class) {
++            return result;
++        }
++        int mode = (Integer) result;
++        if (type == boolean.class) return mode == AppOpsManager.MODE_ALLOWED;
++        if ("android.app.SyncNotedAppOp".equals(type.getName())) return newSyncNotedAppOp(type, mode, firstInt(args));
++        return type.isInstance(result) ? result : null;
++    }
++
++    private static Object newSyncNotedAppOp(Class<?> type, int mode, int op) {
++        try {
++            java.lang.reflect.Constructor<?> c = type.getDeclaredConstructor(int.class, int.class, String.class, String.class);
++            c.setAccessible(true);
++            return c.newInstance(mode, op, null, null);
++        } catch (Throwable ignored) {
++        }
++        try {
++            java.lang.reflect.Constructor<?> c = type.getDeclaredConstructor(int.class, int.class, String.class);
++            c.setAccessible(true);
++            return c.newInstance(mode, op, null);
++        } catch (Throwable ignored) {
++        }
++        try {
++            Object op2 = type.getConstructor(int.class, String.class).newInstance(op, null);
++            try {
++                java.lang.reflect.Field f = type.getDeclaredField("mOpMode");
++                f.setAccessible(true);
++                f.setInt(op2, mode);
++            } catch (Throwable ignored) {
++            }
++            return op2;
++        } catch (Throwable e) {
++            Slog.w(TAG, "AppOps: cannot create SyncNotedAppOp", e);
++            return null;
++        }
++    }
++
++    private static int firstInt(Object[] args) {
++        if (args != null) {
++            for (Object a : args) {
++                if (a instanceof Integer) return (Integer) a;
++            }
++        }
++        return 0;
++    }
++
++    private Object invokeOps(Object proxy, Method method, Object[] args) throws Throwable {
+         String methodName = method.getName();
+         
+         
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IConnectivityManagerProxy.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IConnectivityManagerProxy.java
+index 1a0c97f..f678b92 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IConnectivityManagerProxy.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IConnectivityManagerProxy.java
+@@ -596,6 +596,28 @@ public class IConnectivityManagerProxy extends BinderInvocationStub {
+     }
+ 
+     
++    @ProxyMethod("getNetworkInfoForUid")
++    public static class GetNetworkInfoForUid extends MethodHook {
++        @Override
++        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
++            if (args != null) {
++                for (int i = 0; i < args.length; i++) {
++                    if (args[i] instanceof Integer) {
++                        args[i] = android.os.Process.myUid();
++                        break;
++                    }
++                }
++            }
++            try {
++                Object result = method.invoke(who, args);
++                if (result != null) return result;
++            } catch (Throwable e) {
++                Slog.w(TAG, "getNetworkInfoForUid failed, using fallback: " + e);
++            }
++            return createNetworkInfo(ConnectivityManager.TYPE_WIFI, 0, "WIFI", "");
++        }
++    }
++
+     @ProxyMethod("getActiveNetworkInfoForUid")
+     public static class GetActiveNetworkInfoForUid extends MethodHook {
+         @Override
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/ILocationManagerProxy.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/ILocationManagerProxy.java
+index 3690f08..5cde069 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/ILocationManagerProxy.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/ILocationManagerProxy.java
+@@ -202,7 +202,12 @@ public class ILocationManagerProxy extends BinderInvocationStub {
+ 
+         @Override
+         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+-            return Arrays.asList(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER);
++            try {
++                Object real = method.invoke(who, args);
++                if (real instanceof java.util.List && !((java.util.List<?>) real).isEmpty()) return real;
++            } catch (Throwable ignored) {
++            }
++            return Arrays.asList(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER, "fused");
+         }
+     }
+ 
+@@ -212,7 +217,14 @@ public class ILocationManagerProxy extends BinderInvocationStub {
+         @Override
+         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+             String provider = (String) args[0];
+-            return Objects.equals(provider, LocationManager.GPS_PROVIDER);
++            try {
++                Object real = method.invoke(who, args);
++                if (real instanceof Boolean) return real;
++            } catch (Throwable ignored) {
++            }
++            return Objects.equals(provider, LocationManager.GPS_PROVIDER)
++                    || Objects.equals(provider, LocationManager.NETWORK_PROVIDER)
++                    || Objects.equals(provider, "fused");
+         }
+     }
+ 
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IPackageManagerProxy.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IPackageManagerProxy.java
+index 88161ff..fe97f9c 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IPackageManagerProxy.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IPackageManagerProxy.java
+@@ -135,7 +135,14 @@ public class IPackageManagerProxy extends BinderInvocationStub {
+             
+             
+             if ("com.android.vending".equals(packageName)) {
+-                return createFakeGooglePlayServicesPackageInfo();
++                PackageInfo real = BlackBoxCore.getBPackageManager().getPackageInfo(packageName, flags, BlackBoxCore.getUserId());
++                if (real == null) {
++                    try {
++                        real = (PackageInfo) method.invoke(who, args);
++                    } catch (Throwable ignored) {
++                    }
++                }
++                return real != null ? real : createFakeGooglePlayServicesPackageInfo();
+             }
+             
+             PackageInfo packageInfo = BlackBoxCore.getBPackageManager().getPackageInfo(packageName, flags, BlackBoxCore.getUserId());
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IUserManagerProxy.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IUserManagerProxy.java
+index ccb30dd..ae11dae 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IUserManagerProxy.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IUserManagerProxy.java
+@@ -44,6 +44,19 @@ public class IUserManagerProxy extends BinderInvocationStub {
+         }
+     }
+ 
++    @ProxyMethod("getApplicationRestrictionsForUser")
++    public static class GetApplicationRestrictionsForUser extends MethodHook {
++        @Override
++        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
++            args[0] = BlackBoxCore.getHostPkg();
++            try {
++                return method.invoke(who, args);
++            } catch (Throwable e) {
++                return new android.os.Bundle();
++            }
++        }
++    }
++
+     @ProxyMethod("getProfileParent")
+     public static class GetProfileParent extends MethodHook {
+         @Override
+@@ -53,6 +66,19 @@ public class IUserManagerProxy extends BinderInvocationStub {
+         }
+     }
+ 
++    @ProxyMethod("hasBaseUserRestriction")
++    public static class HasBaseUserRestriction extends MethodHook {
++        @Override
++        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
++            try {
++                Object real = method.invoke(who, args);
++                if (real instanceof Boolean) return real;
++            } catch (Throwable ignored) {
++            }
++            return false;
++        }
++    }
++
+     @ProxyMethod("getUsers")
+     public static class getUsers extends MethodHook {
+         @Override
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/proxy/ProxyPendingActivity.java b/Bcore/src/main/java/top/niunaijun/blackbox/proxy/ProxyPendingActivity.java
+index e1f57a9..61f69ef 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/proxy/ProxyPendingActivity.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/proxy/ProxyPendingActivity.java
+@@ -18,16 +18,27 @@ public class ProxyPendingActivity extends Activity {
+     @Override
+     protected void onCreate(@Nullable Bundle savedInstanceState) {
+         super.onCreate(savedInstanceState);
+-        finish();
+         ProxyPendingRecord pendingActivityRecord = ProxyPendingRecord.create(getIntent());
+         Slog.d(TAG, "ProxyPendingActivity: " + pendingActivityRecord);
+-        if (pendingActivityRecord.mTarget == null)
++        if (pendingActivityRecord.mTarget == null) {
++            finish();
+             return;
+-        pendingActivityRecord.mTarget.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+-        pendingActivityRecord.mTarget.setExtrasClassLoader(BlackBoxCore.getApplication().getClassLoader());
+-        startActivity(pendingActivityRecord.mTarget);
++        }
++        Intent target = pendingActivityRecord.mTarget;
++        target.setExtrasClassLoader(BlackBoxCore.getApplication().getClassLoader());
++        android.content.ComponentName caller = getCallingActivity();
++        if (caller != null) {
++            target.addFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT);
++            target.putExtra(EXTRA_RESULT_CALLER, caller.flattenToString());
++        } else {
++            target.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
++        }
++        startActivity(target);
++        finish();
+     }
+ 
++    public static final String EXTRA_RESULT_CALLER = "_B_|_result_caller_";
++
+     public static class P0 extends ProxyPendingActivity {
+ 
+     }

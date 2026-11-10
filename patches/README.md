@@ -19,6 +19,7 @@ Applied in filename order by `scripts/fetch-engine.sh` on top of NewBlackbox com
 | 0011 | per-clone-notification-label | `NotificationLabel` adds a per-clone sub text to every notification the clone posts |
 | 0012 | async-startup-report-real-failure | `doCreateAsync` reports failure honestly and allows a retry |
 | 0013 | proxy-dual-stack-and-webview-internet-permission | Proxy hook: v4-mapped (`::ffff:198.18.x.x`) targets from Java's dual-stack sockets are resolved to the fake-DNS hostname, and an IPv4 proxy is reached from AF_INET6 sockets via a v4-mapped address (was `ConnectException`). Adds `checkPermissionForDevice` (Android 15+) so WebView sees INTERNET as granted (was `ERR_CACHE_MISS`) |
+| 0014 | stability-fixes-and-faster-proxy-handshake | Service connections are forwarded as raw transactions, so they work whatever parameter list `IServiceConnection.connected` has on the running Android (upstream #60). Takes upstream PRs #72, #73, #74, #75, #78, #79, #80, #81 (SecurityException and null-unboxing crashes, dead clone processes and stale tasks, AppOps return types, PendingIntent results) and the duplicate-launch guard and 10 s launch timeout from #77. SOCKS5 handshake in one round trip instead of three, with automatic fallback for proxies that need step-by-step |
 
 To add a fix: edit `engine/`, then `git -C engine diff > patches/00NN-name.patch`, commit the patch file, and
 re-run `scripts/fetch-engine.sh` to prove the whole series still applies from scratch.

@@ -55,7 +55,12 @@ class MainActivity : ComponentActivity() {
         // (or failed), so the UI never touches a half-started engine and never blocks the main thread.
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
-        splash.setKeepOnScreenCondition { !VirtualEngine.isReady && !VirtualEngine.startupFailed }
+        // Never hold the splash for more than a few seconds: a slow engine start then shows a
+        // progress screen instead of looking like a frozen app.
+        val shownAt = android.os.SystemClock.elapsedRealtime()
+        splash.setKeepOnScreenCondition {
+            !VirtualEngine.isReady && !VirtualEngine.startupFailed && android.os.SystemClock.elapsedRealtime() - shownAt < 4_000
+        }
         enableEdgeToEdge()
         setContent { CloneSpaceTheme { Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { Root() } } }
     }
@@ -63,12 +68,15 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun Root() {
-    val ctx = androidx.compose.ui.platform.LocalContext.current as ComponentActivity
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     var ready by remember { mutableStateOf(VirtualEngine.isReady) }
     var failed by remember { mutableStateOf(VirtualEngine.startupFailed) }
-    LaunchedEffect(Unit) {
-        while (!VirtualEngine.isReady && !VirtualEngine.startupFailed) delay(100)
-        ready = VirtualEngine.isReady; failed = VirtualEngine.startupFailed
+    var attempt by remember { mutableStateOf(0) }
+    LaunchedEffect(attempt) {
+        var waited = 0
+        while (!VirtualEngine.isReady && !VirtualEngine.startupFailed && waited < 30_000) { delay(100); waited += 100 }
+        ready = VirtualEngine.isReady
+        failed = !ready   // also covers an engine that never answered
     }
 
     if (failed) {
@@ -76,11 +84,17 @@ private fun Root() {
             Text("The clone engine did not start", style = MaterialTheme.typography.titleMedium)
             Text("Close the app completely and open it again. If this keeps happening, your Android version may not be supported yet.",
                 style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 12.dp))
-            Button(onClick = { failed = false; VirtualEngine.start { ok -> ready = ok; failed = !ok } }) { Text("Try again") }
+            Button(onClick = { failed = false; attempt++; VirtualEngine.start { ok -> ready = ok; failed = !ok } }) { Text("Try again") }
         }
         return
     }
-    if (!ready) return
+    if (!ready) {
+        Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+            androidx.compose.material3.CircularProgressIndicator()
+            Text("Starting the clone engine…", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 16.dp))
+        }
+        return
+    }
 
     val vm: MainViewModel = viewModel(factory = viewModelFactory { initializer { MainViewModel(CloneApp.instance) } })
     val nav = rememberNavController()
@@ -105,7 +119,7 @@ private fun Root() {
             onDismissRequest = { storagePrompt = null },
             title = { Text("Allow file access?") },
             text = { Text("Many cloned apps need “All files access” to work on Android 11 and newer. You can also open the clone without it, but saving or reading files may fail.") },
-            confirmButton = { TextButton(onClick = { storagePrompt = null; VirtualEngine.requestAllFilesAccess(ctx) }) { Text("Open settings") } },
+            confirmButton = { TextButton(onClick = { storagePrompt = null; (ctx as? ComponentActivity)?.let { VirtualEngine.requestAllFilesAccess(it) } }) { Text("Open settings") } },
             dismissButton = {
                 TextButton(onClick = {
                     storagePrompt = null
@@ -119,21 +133,25 @@ private fun Root() {
     fun find(space: Int, pkg: String): CloneItem? = vm.clones.value.firstOrNull { it.spaceId == space && it.packageName == pkg }
     val args = listOf(navArgument("space") { type = NavType.IntType }, navArgument("pkg") { type = NavType.StringType })
 
+    // A fast double tap on Back must not pop the home screen and leave an empty window.
+    fun back() { if (nav.previousBackStackEntry != null) nav.popBackStack() }
+    fun go(route: String) { runCatching { nav.navigate(route) { launchSingleTop = true } } }
+
     NavHost(nav, startDestination = "home") {
         composable("home") {
             LaunchedEffect(Unit) { vm.refresh() }
-            HomeScreen(vm, onPick = { nav.navigate("picker") },
-                onIdentity = { nav.navigate("profile/${it.spaceId}/${it.packageName}") },
-                onLeak = { nav.navigate("leak/${it.spaceId}/${it.packageName}") })
+            HomeScreen(vm, onPick = { go("picker") },
+                onIdentity = { go("profile/${it.spaceId}/${it.packageName}") },
+                onLeak = { go("leak/${it.spaceId}/${it.packageName}") })
         }
-        composable("picker") { PickerScreen(vm, onBack = { nav.popBackStack() }) }
+        composable("picker") { PickerScreen(vm, onBack = { back() }) }
         composable("profile/{space}/{pkg}", arguments = args) { e ->
-            val item = find(e.arguments!!.getInt("space"), e.arguments!!.getString("pkg")!!)
-            if (item == null) nav.popBackStack() else ProfileScreen(vm, item, onBack = { nav.popBackStack() }, onLeak = { nav.navigate("leak/${item.spaceId}/${item.packageName}") })
+            val item = find(e.arguments?.getInt("space") ?: -1, e.arguments?.getString("pkg").orEmpty())
+            if (item == null) LaunchedEffect(Unit) { back() } else ProfileScreen(vm, item, onBack = { back() }, onLeak = { go("leak/${item.spaceId}/${item.packageName}") })
         }
         composable("leak/{space}/{pkg}", arguments = args) { e ->
-            val item = find(e.arguments!!.getInt("space"), e.arguments!!.getString("pkg")!!)
-            if (item == null) nav.popBackStack() else LeakScreen(vm, item, onBack = { nav.popBackStack() })
+            val item = find(e.arguments?.getInt("space") ?: -1, e.arguments?.getString("pkg").orEmpty())
+            if (item == null) LaunchedEffect(Unit) { back() } else LeakScreen(vm, item, onBack = { back() })
         }
     }
 }

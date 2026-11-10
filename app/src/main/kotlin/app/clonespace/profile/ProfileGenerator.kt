@@ -20,6 +20,9 @@ object ProfileGenerator {
         regionCode: String? = null,
         avoidModel: String? = null,
         now: Long = System.currentTimeMillis(),
+        /** Language tag and time zone to use instead of the region's defaults (see [forDevice]). */
+        locale: String? = null,
+        timezone: String? = null,
     ): DeviceProfile {
         val template = templateId?.let(Templates::byId)
             ?: Templates.all.filter { it.model != avoidModel }.random(rng.asKotlinRandom())
@@ -52,21 +55,32 @@ object ProfileGenerator {
             buildId = b.buildId, tags = "release-keys", type = "user",
             securityPatch = b.securityPatch,
             sdkInt = realSdk, release = realRelease,
-            locale = region.locale, timezone = region.timezone,
+            locale = locale ?: region.locale, timezone = timezone ?: region.timezone,
             densityDpi = template.densityDpi, widthPx = template.widthPx, heightPx = template.heightPx,
             spoofScreen = false,
             sensors = template.sensors,
         )
     }
 
-    /** New identifiers, same device family and region. Used by "Regenerate". */
+    /**
+     * Default profile for a new clone: a different device, but the language, country and time zone
+     * the phone is really set to. A clone that suddenly speaks German from a Berlin time zone while
+     * its network is in Miami is both unusable and far more suspicious than a second phone at home.
+     */
+    fun forDevice(realSdk: Int, realRelease: String, country: String, languageTag: String, timezone: String): DeviceProfile {
+        val region = Templates.regionByCode(country.uppercase()) ?: Templates.regionByCode("US")!!
+        return generate(realSdk, realRelease, null, region.code, null,
+            locale = languageTag.ifBlank { region.locale }, timezone = timezone.ifBlank { region.timezone })
+    }
+
+    /** New identifiers, same device family, region, language and time zone. Used by "Regenerate". */
     fun regenerate(old: DeviceProfile, now: Long = System.currentTimeMillis()): DeviceProfile =
-        generate(old.sdkInt, old.release, old.templateId, old.regionCode, null, now)
+        generate(old.sdkInt, old.release, old.templateId, old.regionCode, null, now, old.locale, old.timezone)
             .copy(spoofScreen = old.spoofScreen)
 
-    /** A completely different device. */
+    /** A completely different device in the same region, language and time zone. */
     fun reroll(old: DeviceProfile, now: Long = System.currentTimeMillis()): DeviceProfile =
-        generate(old.sdkInt, old.release, null, null, old.model, now).copy(spoofScreen = old.spoofScreen)
+        generate(old.sdkInt, old.release, null, old.regionCode, old.model, now, old.locale, old.timezone).copy(spoofScreen = old.spoofScreen)
 
     /** True when every vendor-specific and region-specific field agrees with the template and region. */
     fun isConsistent(p: DeviceProfile): Boolean {
@@ -76,7 +90,7 @@ object ProfileGenerator {
             p.device == t.device && p.product == t.product && p.hardware == t.hardware &&
             p.board == t.board && p.fingerprint.startsWith("${t.brand}/${t.product}/${t.device}:") &&
             p.fingerprint.contains("/${p.buildId}/") &&
-            p.locale == r.locale && p.timezone == r.timezone &&
+            p.locale.isNotBlank() && p.timezone.isNotBlank() &&
             p.simCountryIso == r.code.lowercase() &&
             r.operators.any { it.mccMnc == p.simOperator && it.name == p.simOperatorName } &&
             p.imsi.startsWith(p.simOperator) && isValidImei(p.imei)

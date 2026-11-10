@@ -103,11 +103,11 @@ fun ProfileScreen(vm: MainViewModel, item: CloneItem, onBack: () -> Unit, onLeak
             if (p == null) Text("Loading…") else {
                 // ---- Identity ------------------------------------------------------------------------------------
                 SectionCard("Identity") {
-                    Banner("Each clone gets its own device identity so accounts stay separate. All values are generated; nothing is read from your real phone.")
+                    Banner("Each clone gets its own device identity so accounts stay separate. The device and its IDs are generated. Language and time zone follow your phone unless you pick another region.")
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text("Device model", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                         Picker(Templates.all.map { it.id to "${it.brand.replaceFirstChar(Char::uppercase)} ${it.model}" }, p.templateId, enabled = !p.locked) { id ->
-                            edit { old -> ProfileGenerator.generate(old.sdkInt, old.release, id, old.regionCode).copy(locked = old.locked, spoofScreen = old.spoofScreen) }
+                            edit { old -> ProfileGenerator.generate(old.sdkInt, old.release, id, old.regionCode, locale = old.locale, timezone = old.timezone).copy(locked = old.locked, spoofScreen = old.spoofScreen) }
                         }
                     }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
