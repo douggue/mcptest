@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CloneSpace</string>
+    <string name="shortcut_gone">That clone no longer exists</string>
+    <!-- Overrides the engine's ":black" server-process name, a known container-detection tell. -->
+    <string name="black_box_service_name" translatable="false">:sync</string>
+</resources>

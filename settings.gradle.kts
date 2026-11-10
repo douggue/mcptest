@@ -23,7 +23,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "CloneSpace"
 
-include(":app")
+include(":app", ":probe")
 
 // The engine is fetched by scripts/fetch-engine.sh (git-ignored). Without it the app cannot build.
 val engineDir = file("engine")
