@@ -49,3 +49,24 @@ class DataTest {
         assertTrue(r.isFailure); assertFalse(File(base, "evil.txt").exists()); assertEquals("1", File(d0, "keep").readText())
     }
 }
+
+class GeoTest {
+    @Test fun parsesBothServices() {
+        val a = app.clonespace.proxy.GeoInfo.parse("HTTP/1.1 200 OK\r\n\r\n{\"ip\":\"8.8.8.8\",\"success\":true,\"country_code\":\"US\",\"city\":\"San Jose\",\"latitude\":37.33,\"longitude\":-121.89,\"timezone\":{\"id\":\"America/Los_Angeles\",\"utc\":\"-08:00\"}}")!!
+        assertEquals("America/Los_Angeles", a.timezone); assertEquals("en-US", a.locale); assertEquals(37.33, a.latitude)
+        val b = app.clonespace.proxy.GeoInfo.parse("{\"ip\":\"1.2.3.4\",\"country_code\":\"DE\",\"city\":\"Berlin\",\"latitude\":52.5,\"longitude\":13.4,\"timezone\":\"Europe/Berlin\",\"languages\":\"de\"}")!!
+        assertEquals("de-DE", b.locale); assertEquals("Europe/Berlin", b.timezone)
+        assertNull(app.clonespace.proxy.GeoInfo.parse("{\"success\":false,\"message\":\"limit\"}"))
+        assertNull(app.clonespace.proxy.GeoInfo.parse("<html>blocked</html>"))
+        assertEquals("sw-TZ", app.clonespace.proxy.GeoInfo.localeFor("TZ", "sw-TZ,en"))
+        assertEquals("en-ZZ", app.clonespace.proxy.GeoInfo.localeFor("ZZ"))
+    }
+    @Test fun jitterStaysCloseAndRoundTrips() {
+        val g = app.clonespace.proxy.GeoInfo("1.2.3.4", "US", "Miami", 25.77, -80.19, "America/New_York", "en-US")
+        val j = g.jittered(1.0, 0.0)
+        assertTrue(kotlin.math.abs(j.latitude - g.latitude) < 0.03 && kotlin.math.abs(j.longitude - g.longitude) < 0.04)
+        assertEquals(j, app.clonespace.proxy.GeoInfo.fromJson(j.toJson()))
+        val cfg = app.clonespace.proxy.ProxyConfig(true, app.clonespace.proxy.ProxyType.SOCKS5, "h", 1, matchLocation = true, geo = j)
+        assertEquals(cfg, app.clonespace.proxy.ProxyConfig.fromJson(cfg.toJson()))
+    }
+}

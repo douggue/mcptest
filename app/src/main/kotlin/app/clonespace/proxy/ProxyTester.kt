@@ -51,13 +51,53 @@ object ProxyTester {
         }
     }
 
+    /**
+     * Asks a public IP-location service where the proxy exits. The request goes through the proxy,
+     * so the service sees only the proxy's address, never the phone's. Two services are tried.
+     */
+    suspend fun locate(cfg: ProxyConfig): GeoInfo? = withContext(Dispatchers.IO) {
+        for ((host, path) in listOf("ipwho.is" to "/", "ipapi.co" to "/json/")) {
+            val geo = runCatching { GeoInfo.parse(httpsGet(cfg, host, path)) }.getOrNull()
+            if (geo != null) return@withContext geo
+        }
+        null
+    }
+
+    /** HTTPS GET of https://host/path through the proxy; the proxy resolves the host name. */
+    private fun httpsGet(cfg: ProxyConfig, host: String, path: String): String {
+        Socket().use { raw ->
+            raw.soTimeout = 10_000
+            raw.connect(InetSocketAddress(cfg.host, cfg.port), 8_000)
+            val out = raw.getOutputStream(); val inp = raw.getInputStream()
+            when (cfg.type) {
+                ProxyType.SOCKS5 -> socks5(inp, out, cfg, null, 443, host)
+                ProxyType.HTTP -> httpConnect(inp, out, cfg, host, 443)
+            }
+            val tls = (SSLSocketFactory.getDefault() as SSLSocketFactory).createSocket(raw, host, 443, false) as SSLSocket
+            val params = tls.sslParameters
+            params.endpointIdentificationAlgorithm = "HTTPS"
+            tls.sslParameters = params
+            tls.startHandshake()
+            val request = "GET $path HTTP/1.1\r\nHost: $host\r\nAccept: application/json\r\nUser-Agent: curl/8.5.0\r\nConnection: close\r\n\r\n"
+            tls.outputStream.write(request.toByteArray()); tls.outputStream.flush()
+            val bytes = java.io.ByteArrayOutputStream()
+            val buf = ByteArray(8192)
+            try {
+                while (bytes.size() < 200_000) { val n = tls.inputStream.read(buf); if (n < 0) break; bytes.write(buf, 0, n) }
+            } catch (_: java.io.IOException) {
+                // Some servers close without a TLS close_notify; what was read is still usable.
+            }
+            return bytes.toString("UTF-8")
+        }
+    }
+
     private fun read(inp: InputStream, n: Int): ByteArray {
         val b = ByteArray(n); var o = 0
         while (o < n) { val r = inp.read(b, o, n - o); if (r < 0) throw java.io.IOException("Proxy closed the connection"); o += r }
         return b
     }
 
-    private fun socks5(inp: InputStream, out: OutputStream, cfg: ProxyConfig, ipv4: ByteArray, port: Int) {
+    private fun socks5(inp: InputStream, out: OutputStream, cfg: ProxyConfig, ipv4: ByteArray?, port: Int, domain: String? = null) {
         val auth = cfg.username.isNotEmpty()
         out.write(if (auth) byteArrayOf(5, 2, 0, 2) else byteArrayOf(5, 1, 0)); out.flush()
         val rep = read(inp, 2)
@@ -72,7 +112,11 @@ object ProxyTester {
             }
             else -> throw java.io.IOException("Proxy rejected the login method")
         }
-        out.write(byteArrayOf(5, 1, 0, 1) + ipv4 + byteArrayOf((port shr 8).toByte(), port.toByte())); out.flush()
+        val target = if (ipv4 != null) byteArrayOf(1) + ipv4 else {
+            val d = (domain ?: throw java.io.IOException("No destination")).toByteArray()
+            byteArrayOf(3, d.size.toByte()) + d
+        }
+        out.write(byteArrayOf(5, 1, 0) + target + byteArrayOf((port shr 8).toByte(), port.toByte())); out.flush()
         val h = read(inp, 4)
         if (h[1].toInt() != 0) throw java.io.IOException("Proxy refused the connection (code ${h[1]})")
         when (h[3].toInt()) { 1 -> read(inp, 6); 4 -> read(inp, 18); 3 -> { val l = read(inp, 1)[0].toInt() and 0xFF; read(inp, l + 2) } }

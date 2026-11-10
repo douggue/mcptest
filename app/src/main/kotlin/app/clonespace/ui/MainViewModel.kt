@@ -223,10 +223,54 @@ class MainViewModel(private val app: CloneApp) : ViewModel() {
     fun importProfile(item: CloneItem, json: String) = app.profiles.import(item.spaceId, item.packageName, json)
 
     fun proxy(item: CloneItem): ProxyConfig = app.proxies.load(item.spaceId, item.packageName)
-    fun saveProxy(item: CloneItem, cfg: ProxyConfig, restart: Boolean) = viewModelScope.launch {
-        withContext(Dispatchers.IO) { app.proxies.save(item.spaceId, item.packageName, cfg) }
-        if (restart) VirtualEngine.forceStop(item.packageName, item.spaceId)
-        say(if (restart) "Saved. ${item.displayName} will use the new settings next time it starts" else "Saved")
+    /**
+     * Saves the proxy. With "match proxy location" on, also looks up where the proxy exits and sets
+     * the clone's GPS position, time zone and language to that place. Turning it off again restores
+     * the phone's language and time zone and the real GPS. Returns the config as stored.
+     */
+    suspend fun saveProxy(item: CloneItem, cfg: ProxyConfig): ProxyConfig {
+        busy = "Saving network settings"
+        try {
+            val before = withContext(Dispatchers.IO) { app.proxies.load(item.spaceId, item.packageName) }
+            var stored = cfg
+            var note = "Saved. ${item.displayName} uses the new settings next time it starts."
+            if (cfg.matchLocation && cfg.isUsable) {
+                busy = "Finding where the proxy exits"
+                val found = ProxyTester.locate(cfg)
+                if (found == null) {
+                    stored = cfg.copy(geo = null)
+                    note = "Saved, but the proxy's location could not be found, so GPS, time zone and language were left as they are. Check the proxy and save again."
+                } else {
+                    // Keep the same spot while the proxy still exits in the same city, so the clone does not jump around.
+                    val old = before.geo?.takeIf { before.matchLocation && it.city == found.city && it.country == found.country }
+                    val geo = old?.copy(ip = found.ip) ?: found.jittered(Math.random(), Math.random())
+                    stored = cfg.copy(geo = geo)
+                    withContext(Dispatchers.IO) { app.profiles.update(item.spaceId, item.packageName) { it.copy(locale = geo.locale, timezone = geo.timezone) } }
+                    val gps = VirtualEngine.setLocation(item.packageName, item.spaceId, geo.latitude, geo.longitude)
+                    note = "Saved. ${item.displayName} now reports ${geo.summary}" + if (gps) "." else ", but the GPS position could not be set."
+                }
+            } else {
+                stored = cfg.copy(matchLocation = cfg.matchLocation && cfg.isUsable, geo = null)
+                if (before.matchLocation) {
+                    withContext(Dispatchers.IO) {
+                        app.profiles.update(item.spaceId, item.packageName) {
+                            it.copy(locale = java.util.Locale.getDefault().toLanguageTag(), timezone = java.util.TimeZone.getDefault().id)
+                        }
+                    }
+                    VirtualEngine.clearLocation(item.packageName, item.spaceId)
+                    note = "Saved. ${item.displayName} is back on your phone's language, time zone and real GPS."
+                }
+            }
+            withContext(Dispatchers.IO) { app.proxies.save(item.spaceId, item.packageName, stored) }
+            runCatching { VirtualEngine.forceStop(item.packageName, item.spaceId) }
+            say(note)
+            return stored
+        } catch (t: Throwable) {
+            say("Could not save: ${t.message ?: t.javaClass.simpleName}")
+            return cfg
+        } finally {
+            busy = null
+        }
     }
 
     suspend fun testProxy(cfg: ProxyConfig) = ProxyTester.test(cfg)

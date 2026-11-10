@@ -75,6 +75,7 @@ fun ProfileScreen(vm: MainViewModel, item: CloneItem, onBack: () -> Unit, onLeak
     LaunchedEffect(item.key) {
         withContext(Dispatchers.IO) { profile = vm.profile(item); proxy = vm.proxy(item) }
     }
+    LaunchedEffect(Unit) { vm.messages.collect { notice = it } }
 
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) scope.launch(Dispatchers.IO) {
@@ -189,6 +190,18 @@ fun ProfileScreen(vm: MainViewModel, item: CloneItem, onBack: () -> Unit, onLeak
                         }
                         Switch(proxy.blockUdp, { proxy = proxy.copy(blockUdp = it) })
                     }
+                    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Match proxy location", style = MaterialTheme.typography.bodyMedium)
+                            Text("Sets this clone's GPS, time zone and language to the place the proxy exits. Looks the proxy's address up once at ipwho.is, through the proxy.",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(proxy.matchLocation && proxy.enabled, { proxy = proxy.copy(matchLocation = it) }, enabled = proxy.enabled)
+                    }
+                    if (proxy.matchLocation && proxy.enabled) {
+                        val g = proxy.geo
+                        Banner(if (g != null) "Clone reports: ${g.summary}" else "The location is looked up when you save.")
+                    }
                     OutlinedButton(onClick = { testing = true; test = null; scope.launch { test = vm.testProxy(proxy); testing = false } }, enabled = !testing && proxy.host.isNotBlank(), modifier = Modifier.heightIn(min = 44.dp)) {
                         Text(if (testing) "Testing…" else "Test connection")
                     }
@@ -196,7 +209,15 @@ fun ProfileScreen(vm: MainViewModel, item: CloneItem, onBack: () -> Unit, onLeak
                         if (r.ok) Banner("Connected in ${r.latencyMs} ms. Exit IP ${r.exitIp}.") else Banner("Failed: ${r.error}", warning = true)
                     }
                     Banner("Password is stored on this phone in the app's private storage and is never sent anywhere except to your proxy.")
-                    Button(onClick = { vm.saveProxy(item, proxy, restart = true) }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Save and restart clone") }
+                    var saving by remember { mutableStateOf(false) }
+                    Button(onClick = {
+                        saving = true
+                        scope.launch {
+                            proxy = vm.saveProxy(item, proxy)
+                            profile = withContext(Dispatchers.IO) { vm.profile(item) }   // language and time zone may have changed
+                            saving = false
+                        }
+                    }, enabled = !saving, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text(if (saving) "Saving…" else "Save and restart clone") }
                 }
 
                 OutlinedButton(onClick = onLeak, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Run leak test") }

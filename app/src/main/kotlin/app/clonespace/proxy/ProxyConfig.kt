@@ -14,12 +14,18 @@ data class ProxyConfig(
     val password: String = "",
     /** Fail UDP to public addresses so apps fall back to TCP instead of leaking around the proxy. */
     val blockUdp: Boolean = true,
+    /** GPS, time zone and language of the clone follow where the proxy exits. */
+    val matchLocation: Boolean = false,
+    /** Result of the last lookup of the proxy's exit location; null until one succeeded. */
+    val geo: GeoInfo? = null,
 ) {
     val isUsable get() = enabled && host.isNotBlank() && port in 1..65535
 
     fun toJson(): JSONObject = JSONObject().apply {
         put("enabled", enabled); put("type", type.name); put("host", host); put("port", port)
         put("username", username); put("password", password); put("blockUdp", blockUdp)
+        put("matchLocation", matchLocation)
+        geo?.let { put("geo", it.toJson()) }
     }
 
     companion object {
@@ -29,6 +35,8 @@ data class ProxyConfig(
             host = o.optString("host"), port = o.optInt("port", 1080),
             username = o.optString("username"), password = o.optString("password"),
             blockUdp = o.optBoolean("blockUdp", true),
+            matchLocation = o.optBoolean("matchLocation"),
+            geo = o.optJSONObject("geo")?.let { runCatching { GeoInfo.fromJson(it) }.getOrNull() },
         )
     }
 }

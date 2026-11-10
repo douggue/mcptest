@@ -19,6 +19,8 @@ import top.niunaijun.blackbox.BlackBoxCore
 import top.niunaijun.blackbox.app.configuration.AppLifecycleCallback
 import top.niunaijun.blackbox.app.configuration.ClientConfiguration
 import top.niunaijun.blackbox.core.NativeCore
+import top.niunaijun.blackbox.entity.location.BLocation
+import top.niunaijun.blackbox.fake.frameworks.BLocationManager
 import top.niunaijun.blackbox.fake.spoof.IdentityStore
 import top.niunaijun.blackbox.fake.spoof.NotificationLabel
 import java.io.File
@@ -125,6 +127,22 @@ object VirtualEngine {
     /** Returns true when a launch intent was found and started. */
     suspend fun launch(pkg: String, spaceId: Int): Boolean = withContext(Dispatchers.IO) {
         try { BlackBoxCore.get().launchApk(pkg, spaceId) } catch (t: Throwable) { Log.w(TAG, "launch failed", t); false }
+    }
+
+    // ---- Location the clone reports ------------------------------------------------------------------
+
+    /** Makes [pkg] in [spaceId] report this position from the system location service. Kept by the engine across restarts. */
+    suspend fun setLocation(pkg: String, spaceId: Int, latitude: Double, longitude: Double): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            val lm = BLocationManager.get()
+            lm.setPattern(spaceId, pkg, BLocationManager.OWN_MODE)
+            lm.setLocation(spaceId, pkg, BLocation(latitude, longitude))
+        }.onFailure { Log.w(TAG, "setLocation failed", it) }.isSuccess
+    }
+
+    /** Back to the phone's real location. */
+    suspend fun clearLocation(pkg: String, spaceId: Int): Boolean = withContext(Dispatchers.IO) {
+        runCatching { BLocationManager.get().setPattern(spaceId, pkg, BLocationManager.CLOSE_MODE) }.isSuccess
     }
 
     // ---- Labels and icons (host PackageManager over the virtual app's ApplicationInfo) ------------
