@@ -439,7 +439,7 @@ index 1480378..cd0ecbf 100644
 --- a/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java
 +++ b/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java
 @@ -41,6 +41,13 @@ public class NativeCore {
-     /** props = [key, value, key, value...] served for __system_property_get; mapsFilters = substrings of /proc/*/maps lines to hide. Empty = off. */
+     /** props = [key, value, key, value...] served for __system_property_get; mapsFilters = substrings of /proc/<pid>/maps lines to hide. Empty = off. */
      public static native void configureSpoof(String[] props, String[] mapsFilters);
  
 +    /**

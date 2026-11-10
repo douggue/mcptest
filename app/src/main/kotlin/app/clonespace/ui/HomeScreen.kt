@@ -173,6 +173,7 @@ fun HomeScreen(vm: MainViewModel, onPick: () -> Unit, onIdentity: (CloneItem) ->
                 action("Add home-screen shortcut") { vm.pinShortcut(ctx, item) }
                 action("Back up data to a file") { pendingBackup = item; backupPicker.launch("${item.packageName}-${item.spaceId}.clonespace.zip") }
                 action("Restore data from a file") { pendingRestore = item; restorePicker.launch(arrayOf("application/zip", "application/octet-stream")) }
+                if (vm.gmsSupported()) action("Install Google services in this space") { vm.installGms(item.spaceId) }
                 action("Force stop") { vm.forceStop(item) }
                 action("Clear data", danger = true) { confirm = Confirm.CLEAR to item }
                 action("Remove", danger = true) { confirm = Confirm.REMOVE to item }

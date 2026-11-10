@@ -299,7 +299,7 @@ index 1053b7e..1480378 100644
      
      public static native boolean disableResourceLoading();
  
-+    /** props = [key, value, key, value...] served for __system_property_get; mapsFilters = substrings of /proc/*/maps lines to hide. Empty = off. */
++    /** props = [key, value, key, value...] served for __system_property_get; mapsFilters = substrings of /proc/<pid>/maps lines to hide. Empty = off. */
 +    public static native void configureSpoof(String[] props, String[] mapsFilters);
 +
  

@@ -1,0 +1,68 @@
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/BlackBoxCore.java b/Bcore/src/main/java/top/niunaijun/blackbox/BlackBoxCore.java
+index c9d62f1..0904665 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/BlackBoxCore.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/BlackBoxCore.java
+@@ -999,6 +999,7 @@ public class BlackBoxCore extends ClientConfiguration {
+             long totalTime = System.currentTimeMillis() - startTime;
+             Slog.d(TAG, "BlackBox initialization completed in " + totalTime + "ms");
+             mCoreReady = true;
++            mCreateSucceeded = true;
+             
+         } catch (Exception e) {
+             long totalTime = System.currentTimeMillis() - startTime;
+@@ -1021,9 +1022,11 @@ public class BlackBoxCore extends ClientConfiguration {
+     }
+ 
+     private volatile boolean mCoreReady = false;
++    private volatile boolean mCreateSucceeded = false;
+     private final Object mReadyLock = new Object();
+     private java.util.List<ReadyCallback> mReadyCallbacks = new java.util.ArrayList<>();
+     private boolean mAsyncStarted = false;
++    private boolean mAsyncFinished = false;
+ 
+     /** True once doCreate() has finished (sync or async). */
+     public boolean isCoreReady() {
+@@ -1043,11 +1046,12 @@ public class BlackBoxCore extends ClientConfiguration {
+             boolean ok = true;
+             try {
+                 doCreate();
++                ok = mCreateSucceeded;
+             } catch (Throwable t) {
+                 ok = false;
+                 Slog.e(TAG, "doCreate failed", t);
+             }
+-            mCoreReady = true;
++            mCoreReady = ok;
+             if (callback != null) callback.onReady(ok);
+             return;
+         }
+@@ -1057,6 +1061,11 @@ public class BlackBoxCore extends ClientConfiguration {
+                 if (callback != null) main.post(() -> callback.onReady(true));
+                 return;
+             }
++            // A previous attempt finished without success: allow a retry.
++            if (mAsyncStarted && mReadyCallbacks.isEmpty() && !mCreateSucceeded && mAsyncFinished) {
++                mAsyncStarted = false;
++                mAsyncFinished = false;
++            }
+             if (callback != null) mReadyCallbacks.add(callback);
+             if (!mAsyncStarted) {
+                 mAsyncStarted = true;
+@@ -1068,6 +1077,7 @@ public class BlackBoxCore extends ClientConfiguration {
+             boolean ok = true;
+             try {
+                 doCreate();
++                ok = mCreateSucceeded;
+             } catch (Throwable t) {
+                 ok = false;
+                 Slog.e(TAG, "async doCreate failed", t);
+@@ -1075,7 +1085,8 @@ public class BlackBoxCore extends ClientConfiguration {
+             final boolean result = ok;
+             java.util.List<ReadyCallback> toNotify;
+             synchronized (mReadyLock) {
+-                mCoreReady = true;
++                mCoreReady = result;
++                mAsyncFinished = true;
+                 toNotify = mReadyCallbacks;
+                 mReadyCallbacks = new java.util.ArrayList<>();
+             }

@@ -60,7 +60,7 @@ fun LeakScreen(vm: MainViewModel, item: CloneItem, onBack: () -> Unit) {
                     val (iso, leaks, other) = LeakAnalyzer.summary(state.rows)
                     Banner(if (leaks == 0) "No leaks found: $iso checks isolated, $other not applicable or not tested." else "$leaks leak(s) found, $iso isolated, $other not tested. See the rows marked Leak.", warning = leaks > 0)
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(state.rows, key = { it.key }) { Row(it) }
+                        items(state.rows, key = { it.key }) { LeakRowCard(it) }
                         item {
                             Button(onClick = { vm.runLeakTest(item) }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(vertical = 8.dp)) { Text("Run again") }
                         }
@@ -72,7 +72,7 @@ fun LeakScreen(vm: MainViewModel, item: CloneItem, onBack: () -> Unit) {
 }
 
 @Composable
-private fun Row(r: LeakRow) {
+private fun LeakRowCard(r: LeakRow) {
     SectionCard {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(r.label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
