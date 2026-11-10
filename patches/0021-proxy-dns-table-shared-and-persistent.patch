@@ -1,0 +1,238 @@
+diff --git a/Bcore/src/main/cpp/BoxCore.cpp b/Bcore/src/main/cpp/BoxCore.cpp
+index d2b04d4..1ce511d 100644
+--- a/Bcore/src/main/cpp/BoxCore.cpp
++++ b/Bcore/src/main/cpp/BoxCore.cpp
+@@ -19,6 +19,7 @@
+ #include <vector>
+ 
+ bool ProxyHook_configure(int type, const char *ip, int port, const char *user, const char *pass, bool blockUdp);
++void ProxyHook_setDnsTable(const char *path);
+ void VirtualSpoof_configure(const std::vector<std::string> &props, const std::vector<std::string> &needles);
+ 
+ struct {
+@@ -156,6 +157,12 @@ void configureSpoof(JNIEnv *env, jclass clazz, jobjectArray props, jobjectArray
+     VirtualSpoof_configure(p, m);
+ }
+ 
++void setProxyDnsTable(JNIEnv *env, jclass clazz, jstring path) {
++    const char *p = path ? env->GetStringUTFChars(path, nullptr) : nullptr;
++    ProxyHook_setDnsTable(p);
++    if (p) env->ReleaseStringUTFChars(path, p);
++}
++
+ jboolean configureProxy(JNIEnv *env, jclass clazz, jint type, jstring ip, jint port, jstring user, jstring pass, jboolean blockUdp) {
+     const char *i = ip ? env->GetStringUTFChars(ip, nullptr) : nullptr;
+     const char *u = user ? env->GetStringUTFChars(user, nullptr) : nullptr;
+@@ -176,6 +183,7 @@ static JNINativeMethod gMethods[] = {
+         {"init",       "(I)V",                                    (void *) init},
+         {"configureSpoof", "([Ljava/lang/String;[Ljava/lang/String;)V", (void *) configureSpoof},
+         {"configureProxy", "(ILjava/lang/String;ILjava/lang/String;Ljava/lang/String;Z)Z", (void *) configureProxy},
++        {"setProxyDnsTable", "(Ljava/lang/String;)V", (void *) setProxyDnsTable},
+ };
+ 
+ int registerNativeMethods(JNIEnv *env, const char *className,
+diff --git a/Bcore/src/main/cpp/Utils/ProxyHook.cpp b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+index 60c7fb6..703a0b0 100644
+--- a/Bcore/src/main/cpp/Utils/ProxyHook.cpp
++++ b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+@@ -11,6 +11,8 @@
+ //  * Loopback, link-local and private (RFC1918) destinations are not proxied.
+ // Disabled (type 0) by default; configured per process through NativeCore.configureProxy().
+ #include <sys/socket.h>
++#include <sys/file.h>
++#include <sys/stat.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
+ #include <netdb.h>
+@@ -49,11 +51,116 @@ std::mutex g_lock;
+ Cfg g_cfg;
+ bool g_installed = false;
+ 
+-// Fake DNS table.
++// Fake DNS table: index <-> hostname. The fake address of a host is kFakeBase + index.
++//
++// The table is kept in a file shared by every process of the clone, and survives restarts. Apps
++// cache DNS answers on disk and share them between their processes (Facebook, TikTok); with a
++// table that lived only in one process's memory, a cached fake address meant a DIFFERENT host in
++// the next process, so the proxy was asked to connect to the wrong site: TLS certificate errors,
++// broken sessions, and crashes in code that got another server's reply.
+ std::unordered_map<uint32_t, std::string> g_idxToHost;
+ std::unordered_map<std::string, uint32_t> g_hostToIdx;
+ const uint32_t kFakeBase = 0xC6120000u;  // 198.18.0.0
+ const uint32_t kFakeMask = 0xFFFE0000u;  // /15
++// Indices start in the upper half (198.19.x.x) so addresses cached by builds that used a
++// per-process table (198.18.0.x) match nothing and are simply looked up again.
++const uint32_t kFirstIdx = 0x10000u;
++const uint32_t kLastIdx = 0x1FFFEu;
++std::string g_tablePath;       // empty: in-memory only
++off_t g_tableOffset = 0;       // how much of the file this process has read
++std::string g_tableRemainder;  // an incomplete last line, kept until the rest arrives
++
++// g_lock held. Reads the lines other processes (or earlier runs) appended since the last call.
++void table_read_new_locked(int fd) {
++    struct stat st{};
++    if (fstat(fd, &st) != 0) return;
++    if (st.st_size < g_tableOffset) {   // file was reset by another process
++        g_idxToHost.clear(); g_hostToIdx.clear(); g_tableOffset = 0; g_tableRemainder.clear();
++    }
++    if (st.st_size == g_tableOffset) return;
++    std::string data = g_tableRemainder;
++    char buf[4096];
++    off_t pos = g_tableOffset;
++    while (pos < st.st_size) {
++        ssize_t n = pread(fd, buf, sizeof buf, pos);
++        if (n <= 0) break;
++        data.append(buf, (size_t) n);
++        pos += n;
++    }
++    g_tableOffset = pos;
++    size_t start = 0;
++    while (true) {
++        size_t nl = data.find('\n', start);
++        if (nl == std::string::npos) break;
++        size_t sp = data.find(' ', start);
++        if (sp != std::string::npos && sp < nl) {
++            uint32_t idx = (uint32_t) strtoul(data.substr(start, sp - start).c_str(), nullptr, 10);
++            std::string host = data.substr(sp + 1, nl - sp - 1);
++            if (idx >= kFirstIdx && idx <= kLastIdx && !host.empty()) {
++                g_idxToHost[idx] = host;
++                g_hostToIdx[host] = idx;
++            }
++        }
++        start = nl + 1;
++    }
++    g_tableRemainder = data.substr(start);
++}
++
++int table_open() {
++    if (g_tablePath.empty()) return -1;
++    return open(g_tablePath.c_str(), O_RDWR | O_CREAT | O_APPEND | O_CLOEXEC, 0600);
++}
++
++// Returns the index for host, assigning one if needed; 0 when the name cannot be stored.
++uint32_t table_index_for(const char *node) {
++    std::string host(node);
++    if (host.empty() || host.size() > 255 || host.find_first_of(" \n\r\t") != std::string::npos) return 0;
++    std::lock_guard<std::mutex> guard(g_lock);
++    auto it = g_hostToIdx.find(host);
++    if (it != g_hostToIdx.end()) return it->second;
++    int fd = table_open();
++    if (fd >= 0) {
++        flock(fd, LOCK_EX);
++        table_read_new_locked(fd);
++        it = g_hostToIdx.find(host);
++        if (it != g_hostToIdx.end()) { flock(fd, LOCK_UN); close(fd); return it->second; }
++    }
++    uint32_t idx = kFirstIdx + (uint32_t) g_idxToHost.size();
++    if (idx > kLastIdx || g_idxToHost.count(idx)) {   // full (or inconsistent): start over
++        g_idxToHost.clear(); g_hostToIdx.clear(); g_tableRemainder.clear(); g_tableOffset = 0;
++        if (fd >= 0) { if (ftruncate(fd, 0) != 0) { /* keep going in memory */ } }
++        idx = kFirstIdx;
++    }
++    g_idxToHost[idx] = host;
++    g_hostToIdx[host] = idx;
++    if (fd >= 0) {
++        std::string line = std::to_string(idx) + " " + host + "\n";
++        ssize_t w = write(fd, line.data(), line.size());   // O_APPEND: one atomic record
++        if (w == (ssize_t) line.size()) g_tableOffset += w;
++        flock(fd, LOCK_UN);
++        close(fd);
++    }
++    return idx;
++}
++
++// g_lock NOT held. Hostname for an index, looking at the shared file when this process has not seen it.
++bool table_host_for(uint32_t idx, std::string &host) {
++    std::lock_guard<std::mutex> guard(g_lock);
++    auto it = g_idxToHost.find(idx);
++    if (it == g_idxToHost.end()) {
++        int fd = table_open();
++        if (fd >= 0) {
++            flock(fd, LOCK_SH);
++            table_read_new_locked(fd);
++            flock(fd, LOCK_UN);
++            close(fd);
++            it = g_idxToHost.find(idx);
++        }
++    }
++    if (it == g_idxToHost.end()) return false;
++    host = it->second;
++    return true;
++}
+ 
+ Cfg snapshot() {
+     std::lock_guard<std::mutex> guard(g_lock);
+@@ -128,11 +235,9 @@ bool dest_v4(uint32_t ip, uint16_t port, Dest &d) {
+     d.family = AF_INET;
+     d.port = port;
+     if ((ip & kFakeMask) == kFakeBase) {
+-        std::lock_guard<std::mutex> guard(g_lock);
+-        auto it = g_idxToHost.find(ip - kFakeBase);
+-        if (it == g_idxToHost.end()) return false;
++        // Unknown index (stale cache from an older table): fail, the app resolves the name again.
++        if (!table_host_for(ip - kFakeBase, d.domain)) return false;
+         d.isDomain = true;
+-        d.domain = it->second;
+         return true;
+     }
+     sockaddr_in *s = (sockaddr_in *) &d.addr;
+@@ -385,22 +490,13 @@ bool fake_resolve(const char *node, const char *service, const addrinfo *hints,
+     Cfg c = snapshot();
+     if (c.type == 0 || !node || !*node || is_numeric_or_local(node)) return false;
+     if (hints && hints->ai_family == AF_INET6) { *rc = EAI_NODATA; return true; }
+-    uint32_t idx;
+-    {
+-        std::lock_guard<std::mutex> guard(g_lock);
+-        auto it = g_hostToIdx.find(node);
+-        if (it != g_hostToIdx.end()) {
+-            idx = it->second;
+-        } else {
+-            idx = (uint32_t) g_hostToIdx.size() + 1;
+-            if (idx >= 0x1FFFF) { g_hostToIdx.clear(); g_idxToHost.clear(); idx = 1; }
+-            g_hostToIdx[node] = idx;
+-            g_idxToHost[idx] = node;
+-        }
+-    }
+-    sockaddr_in *sin = (sockaddr_in *) calloc(1, sizeof(sockaddr_in));
+-    addrinfo *ai = (addrinfo *) calloc(1, sizeof(addrinfo));
+-    if (!sin || !ai) { free(sin); free(ai); *rc = EAI_MEMORY; return true; }
++    uint32_t idx = table_index_for(node);
++    if (idx == 0) { *rc = EAI_NONAME; return true; }
++    // One block for the addrinfo and its address, as bionic allocates it: freeaddrinfo() frees
++    // only the addrinfo itself, so a separately allocated address would leak on every lookup.
++    addrinfo *ai = (addrinfo *) calloc(1, sizeof(addrinfo) + sizeof(sockaddr_storage));
++    if (!ai) { *rc = EAI_MEMORY; return true; }
++    sockaddr_in *sin = (sockaddr_in *) (ai + 1);
+     sin->sin_family = AF_INET;
+     sin->sin_addr.s_addr = htonl(kFakeBase + idx);
+     sin->sin_port = htons(service ? (uint16_t) atoi(service) : 0);
+@@ -447,6 +543,15 @@ void install_locked() {
+ 
+ }  // namespace
+ 
++// File that holds the fake-DNS table of this clone; call before ProxyHook_configure.
++void ProxyHook_setDnsTable(const char *path) {
++    std::lock_guard<std::mutex> guard(g_lock);
++    std::string p = path ? path : "";
++    if (p == g_tablePath) return;
++    g_tablePath = p;
++    g_idxToHost.clear(); g_hostToIdx.clear(); g_tableRemainder.clear(); g_tableOffset = 0;
++}
++
+ // ip must be numeric (the Java side resolves the proxy host before calling).
+ bool ProxyHook_configure(int type, const char *ip, int port, const char *user, const char *pass, bool blockUdp) {
+     std::lock_guard<std::mutex> guard(g_lock);
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java b/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java
+index c77f67f..d37cca8 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java
+@@ -48,6 +48,9 @@ public class NativeCore {
+      */
+     public static native boolean configureProxy(int type, String ip, int port, String user, String pass, boolean blockUdp);
+ 
++    /** File holding this clone's fake-DNS table, shared by its processes and kept across restarts. Call before configureProxy. */
++    public static native void setProxyDnsTable(String path);
++
+ 
+     @Keep
+     public static int getCallingUid(int origCallingUid) {

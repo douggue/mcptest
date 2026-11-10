@@ -215,6 +215,11 @@ object VirtualEngine {
                 NotificationLabel.set(
                     host.meta.meta(userId, packageName).notificationLabel ?: host.meta.spaceName(userId)
                 )
+                // One table file per clone, shared by all its processes and kept across restarts.
+                runCatching {
+                    val dir = java.io.File(host.filesDir, "dns").apply { mkdirs() }
+                    NativeCore.setProxyDnsTable(java.io.File(dir, "${userId}_$packageName.tbl").path)
+                }
                 applyProxy(host.proxies.load(userId, packageName))
             } catch (t: Throwable) {
                 // Never stop the clone from starting because spoofing failed; the leak test shows it.
