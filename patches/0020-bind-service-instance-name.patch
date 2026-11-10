@@ -1,0 +1,37 @@
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IActivityManagerProxy.java b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IActivityManagerProxy.java
+index cb72acf..c514ff8 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IActivityManagerProxy.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/fake/service/IActivityManagerProxy.java
+@@ -402,7 +402,16 @@ public class IActivityManagerProxy extends ClassInvocationStub {
+             return method.invoke(who, args);
+         } catch (Exception e) {
+             Slog.e(TAG, "BindServiceCommon: Unexpected error", e);
+-            return method.invoke(who, args);
++            try {
++                return method.invoke(who, args);
++            } catch (Throwable again) {
++                // A bind the system rejects is reported to the app as "could not bind" (0), which
++                // every caller handles, instead of an undeclared exception that kills the clone.
++                Throwable cause = again.getCause() != null ? again.getCause() : again;
++                if (cause instanceof SecurityException) throw cause;
++                Slog.e(TAG, "BindServiceCommon: bind rejected: " + cause);
++                return method.getReturnType() == long.class ? (Object) 0L : (Object) 0;
++            }
+         }
+     }
+ 
+@@ -435,6 +444,14 @@ public class IActivityManagerProxy extends ClassInvocationStub {
+     public static class bindServiceInstance extends MethodHook {
+         @Override
+         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
++            // (caller, token, service, resolvedType, connection, flags, instanceName, callingPackage, userId)
++            // The target is replaced by a normal, non-isolated proxy service, and the system
++            // refuses an instance name on those ("Can't use instance name ... with non-isolated
++            // service"), so the name is dropped, as the bindIsolatedService hook already does.
++            if (args != null && args.length > 7 && args[7] instanceof String
++                    && (args[6] == null || args[6] instanceof String)) {
++                args[6] = null;
++            }
+             return BindServiceCommon(who,method,args,7);
+         }
+ 
