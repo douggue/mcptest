@@ -34,7 +34,7 @@ On current Android, fewer identifiers matter than people expect:
 
 | Identifier | What a normal app sees today | What the cloner does |
 |---|---|---|
-| Android ID | One value per app signing key and per user since Android 8 | Fake a unique value per clone. This is the main identifier. |
+| Android ID | One value per app signing key and per user since Android 8. All clones share the host's signing key, so without spoofing every clone sees the same value. | Fake a unique value per clone. This is the main identifier. |
 | IMEI and serial number | Blocked for normal apps since Android 10 | Return a consistent fake or "unknown." Few apps can still read them. |
 | Wi-Fi MAC address | A fixed placeholder (`02:00:00:00:00:00`) since Android 6 | Usually nothing to do |
 | Installed apps list | Limited by package visibility rules since Android 11 | Hide the cloner and the other clones from each clone |
@@ -77,25 +77,27 @@ The plan builds on **NewBlackbox** (`github.com/ALEX5402/NewBlackbox`).
 | Fact | Detail |
 |---|---|
 | License | Apache 2.0. Commercial use is allowed. Keep the license and notices. |
-| Last update checked | July 2026, commit `89b59836c66f173756a4ae258cf379a957649820` |
+| Pinned commit | `89b59836c66f173756a4ae258cf379a957649820` (2026-07-19). Re-checked 2026-11-10: upstream `main` has no newer commit, so the pin stays. See `docs/research.md`. |
 | Lineage | VirtualApp, then BlackBox (the original BlackBox repository is now empty), then NewBlackbox |
-| Supported Android | 5.0 to 15 according to its docs |
+| Supported Android | Docs claim 14 and 15. Android 16 is not evidenced anywhere in the source and must be tested on a device. |
 | CPU architectures | ARM64 and ARMv7 only |
-| Build requirements | JDK 21, Android SDK 35, NDK 29.0.13846066, Gradle 8.14, Android Gradle Plugin 8.13 |
+| Build requirements | JDK 21, Android SDK 36, NDK 29.0.13846066, Gradle 8.14, Android Gradle Plugin 8.13 |
 | Modules | `Bcore` (the engine), `black-reflection` and `compiler` (reflection helpers and annotation processor) |
 
 ### 3.1 Problems found in the engine
 
-1. **Hidden log upload. Must fix.** When the engine catches a crash, it uploads the full device log plus device info to a third-party Telegram relay (`logs-sender-api.vercel.app`). The chat ID is hard-coded as the default in `ClientConfiguration.getLogSenderChatId()`. Device logs from cloned apps can contain private user data. The first patch makes that method return `null`, and our configuration also overrides it.
-2. **Old target API level.** The engine targets Android API 28. Google Play requires new apps and updates to target a recent API level, which rises every year. Raising it is the biggest technical risk in this project.
-3. **Blocking startup.** The engine's startup can block the main thread for up to 10 seconds.
-4. **Aspirational docs.** Its `Docs.md` describes methods that do not exist. Work from the source code instead. The real public API is in `BlackBoxCore.java`.
+1. **Hidden log upload. Must fix.** The engine uploads the full device log plus device info to a third-party Telegram relay (`logs-sender-api.vercel.app`). The chat ID is hard-coded as the default in `ClientConfiguration.getLogSenderChatId()`. Device logs from cloned apps can contain private user data. It fired automatically on caught crashes, from a demo-app button, and the engine also dumped the whole device logcat into public `Downloads/logs`. Patches 0001 and 0002 remove all three, and our configuration also returns `null`.
+2. **Old target API level.** The engine targets Android API 28. Google Play requires new apps and updates to target API 36 since 2026-08-31 (the extension ended 2026-11-01). The host app targets 36 and the engine is patched to match. Whether the hooks still work at 36 can only be learned on devices, and this remains the biggest technical risk.
+3. **Blocking startup.** The engine's startup polls for its server process and can block the calling thread for seconds. Patch 0005 adds `doCreateAsync(ReadyCallback)`.
+4. **Placebo and global spoofing.** The engine returned `md5(hostPackage)` as IMEI for every clone, never changed Android ID, forced a Pixel 6 / Android 12 property table in every process including the host, and its native hiding code installed no hooks. See `docs/research.md` section 3 and patches 0007 and 0008.
+5. **323 merged permissions.** The library manifest adds SMS, call log, `QUERY_ALL_PACKAGES`, `MANAGE_EXTERNAL_STORAGE` and more to the host. The app manifest removes the restricted ones.
+6. **Aspirational docs.** Its `Docs.md` describes methods that do not exist. Work from the source code instead. The real public API is in `BlackBoxCore.java`.
 
 ### 3.2 Engine API used by the app
 
 | Need | Real method |
 |---|---|
-| Start the engine | `doAttachBaseContext(context, ClientConfiguration)` then `doCreate()` |
+| Start the engine | `doAttachBaseContext(context, ClientConfiguration)` then `doCreateAsync(ReadyCallback)` (patched in; plain `doCreate()` blocks) |
 | Clone an installed app | `installPackageAsUser(packageName, userId)` returns `InstallResult` with `success` and `msg` |
 | Clone from an APK file | `installPackageAsUser(File, userId)` |
 | Launch a clone | `launchApk(packageName, userId)` |
@@ -241,8 +243,8 @@ Status is never shown by color alone. Every pass or leak also has an icon and a 
 1. Create the Gradle project with the `app` module and the version catalog.
 2. Write `scripts/fetch-engine.sh`. It clones NewBlackbox at the pinned commit and applies everything in `patches/`.
 3. Write the first patch, which disables the log upload.
-4. Set the root values the engine's build files read: `compileSdkVersion = 35`, `minSdk`, `targetSdkVersion`.
-5. Add the JitPack repository, because the engine depends on FreeReflection from there.
+4. Set the root values the engine's build files read: `compileSdkVersion = 36`, `minSdk = 24`, `targetSdkVersion = 36`, `ndkVersion`, `hiddenApiBypass`.
+5. JitPack is not needed: patch 0003 swaps FreeReflection for AndroidHiddenApiBypass from Maven Central.
 6. Confirm `./gradlew assembleDebug` produces an APK.
 
 ### Phase 2: Engine startup (about 2 days)
@@ -262,16 +264,16 @@ Status is never shown by color alone. Every pass or leak also has an icon and a 
 ### Phase 4: Making clones usable (about 2 to 3 weeks)
 1. **Notifications.** Label each clone's notifications with the space name so users can tell accounts apart.
 2. **Google sign-in.** Offer to install the virtual Google Play services into a space with `installGms`. Many apps need it to log in or receive push messages.
-3. **Storage access.** Request full file access when the engine's callback asks for it. Clones fail on Android 11 and newer without it.
+3. **Storage access.** Request full file access when the engine's callback asks for it. Clones fail on Android 11 and newer without it. `MANAGE_EXTERNAL_STORAGE` is a restricted Play permission, so only the sideload build requests it; the Play build uses per-clone app-specific storage.
 4. **Per-clone identity.** Implement the identifier table from section 1.2 using the engine's existing spoofing code. Store profiles per space and package.
-5. **Per-clone proxy.** Implement the two-part design from section 1.3. Start from the engine's existing VPN network option.
+5. **Per-clone proxy.** Implement the two-part design from section 1.3. The Play build ships only the in-process part. `VpnService` is not core functionality for a cloner under Play policy and is in the sideload build only.
 6. **Leak test.** A screen inside a clone shows the identifiers and public IP address it sees, compared with the real device. Test WebView, DNS and Google Play services traffic separately, because leaks usually happen there.
 7. **Compatibility testing.** Test your 20 most important target apps on Android 12, 13, 14, 15 and 16. Fix each crash as a new file in `patches/`.
 
 ### Phase 5: Release (about 1 to 3 months, mostly uncertain)
-1. **Target API level.** Raise the target to Play's current minimum and retest everything. Expect engine hooks to break. Budget the most time here.
+1. **Target API level.** The target is already 36, the Play minimum since 2026-08-31. Retest everything on Android 14 to 16 and expect engine hooks to break. Budget the most time here. API 37 will probably be required around August 2027.
 2. **Privacy policy.** Explain what the app reads, where the data stays, and that nothing is uploaded.
-3. **Permissions.** Justify each one in the Play Console, especially `QUERY_ALL_PACKAGES`, VPN and full file access.
+3. **Permissions.** Justify each one in the Play Console. The app avoids `QUERY_ALL_PACKAGES` (it uses a launcher `<queries>` intent), VPN and full file access in the Play build.
 4. **Store listing.** Present identity and proxy features as privacy isolation between accounts.
 5. **Fallback channel.** Keep a sideload or alternative-store release ready in case Play rejects the app.
 6. **Monetization.** Add ads or a subscription only after the app is stable. Crashes plus ads drive users away fast.
@@ -305,7 +307,19 @@ Status is never shown by color alone. Every pass or leak also has an icon and a 
 
 ## 9. Requirements to start
 
-- A computer with Android Studio, JDK 21, Android SDK 35 and NDK 29.0.13846066
+- A computer with Android Studio, JDK 21, Android SDK 36 and NDK 29.0.13846066
 - At least two real ARM phones on different Android versions. Emulators on x86 are not supported by the engine.
 - A Google Play developer account
 - Test accounts for every app you plan to support
+
+---
+
+## 10. Revisions after research (2026-11-10)
+
+Full evidence is in `docs/research.md`; the status of each phase is in `README.md`.
+
+- **Engine.** NewBlackbox stays. No candidate was clearly better. The only permissive, active alternatives are its own forks.
+- **Patches.** `patches/0001` to `0009` implement the engine fixes. `scripts/fetch-engine.sh` applies them.
+- **Play flavors.** The build has a `play` flavor (no VPN service, no `MANAGE_EXTERNAL_STORAGE`) and a `sideload` flavor with both.
+- **Android 17.** Cross-profile loopback is blocked by default and `ACCESS_LOCAL_NETWORK` is new. A localhost proxy design must be retested on API 37.
+- **Play Integrity.** Guest apps that require it cannot pass inside any container, because the token reflects the real caller. The listing and in-app warning must say so.
