@@ -199,6 +199,7 @@ object VirtualEngine {
 
         override fun beforeCreateApplication(packageName: String, processName: String, context: Context, userId: Int) {
             inClone = true
+            CompatShim.install()
             try {
                 val profile = host.profiles.load(userId, packageName)
                 if (profile != null) {
