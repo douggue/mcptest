@@ -95,7 +95,7 @@ All in `patches/` (one per fix, see `patches/README.md`); evidence in `docs/rese
 - [x] Patch 1 (log upload) and 11 more
 - [x] Root values the engine reads (compile 36, target 36, minSdk, NDK, hidden-API-bypass version)
 - [x] JitPack no longer needed
-- [ ] `./gradlew assembleDebug` produces an APK: **blocked here, not run**
+- [x] `./gradlew :app:assembleSideloadDebug` and `:app:assemblePlayDebug` produce APKs (built 2026-11-10 with SDK 36, NDK 29.0.13846066; 18 unit tests pass). Not yet run on a device.
 
 ### Phase 2: engine startup
 - [x] `attachBaseContext` with our `ClientConfiguration` (host package, no log upload)
