@@ -1,0 +1,454 @@
+diff --git a/Bcore/src/main/cpp/Android.mk b/Bcore/src/main/cpp/Android.mk
+index 4ddfa1e..b5e4430 100644
+--- a/Bcore/src/main/cpp/Android.mk
++++ b/Bcore/src/main/cpp/Android.mk
+@@ -36,6 +36,7 @@ Utils/elf_util.cpp \
+ Hook/DexFileHook.cpp \
+ Hook/FileSystemHook.cpp \
+ Utils/VirtualSpoof.cpp \
++Utils/ProxyHook.cpp \
+ Utils/HexDump.cpp \
+ Utils/AntiDetection.cpp \
+ Hook/VMClassLoaderHook.cpp \
+diff --git a/Bcore/src/main/cpp/BoxCore.cpp b/Bcore/src/main/cpp/BoxCore.cpp
+index eafdb55..d2b04d4 100644
+--- a/Bcore/src/main/cpp/BoxCore.cpp
++++ b/Bcore/src/main/cpp/BoxCore.cpp
+@@ -18,6 +18,7 @@
+ #include <string>
+ #include <vector>
+ 
++bool ProxyHook_configure(int type, const char *ip, int port, const char *user, const char *pass, bool blockUdp);
+ void VirtualSpoof_configure(const std::vector<std::string> &props, const std::vector<std::string> &needles);
+ 
+ struct {
+@@ -155,6 +156,17 @@ void configureSpoof(JNIEnv *env, jclass clazz, jobjectArray props, jobjectArray
+     VirtualSpoof_configure(p, m);
+ }
+ 
++jboolean configureProxy(JNIEnv *env, jclass clazz, jint type, jstring ip, jint port, jstring user, jstring pass, jboolean blockUdp) {
++    const char *i = ip ? env->GetStringUTFChars(ip, nullptr) : nullptr;
++    const char *u = user ? env->GetStringUTFChars(user, nullptr) : nullptr;
++    const char *p = pass ? env->GetStringUTFChars(pass, nullptr) : nullptr;
++    bool ok = ProxyHook_configure(type, i, port, u, p, blockUdp);
++    if (i) env->ReleaseStringUTFChars(ip, i);
++    if (u) env->ReleaseStringUTFChars(user, u);
++    if (p) env->ReleaseStringUTFChars(pass, p);
++    return ok ? JNI_TRUE : JNI_FALSE;
++}
++
+ static JNINativeMethod gMethods[] = {
+         {"disableHiddenApi", "()Z",                               (void *) disableHiddenApi},
+         {"disableResourceLoading", "()Z",                         (void *) disableResourceLoading},
+@@ -163,6 +175,7 @@ static JNINativeMethod gMethods[] = {
+         {"enableIO",   "()V",                                     (void *) enableIO},
+         {"init",       "(I)V",                                    (void *) init},
+         {"configureSpoof", "([Ljava/lang/String;[Ljava/lang/String;)V", (void *) configureSpoof},
++        {"configureProxy", "(ILjava/lang/String;ILjava/lang/String;Ljava/lang/String;Z)Z", (void *) configureProxy},
+ };
+ 
+ int registerNativeMethods(JNIEnv *env, const char *className,
+diff --git a/Bcore/src/main/cpp/Utils/ProxyHook.cpp b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+new file mode 100644
+index 0000000..6b97b48
+--- /dev/null
++++ b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+@@ -0,0 +1,380 @@
++// In-process per-clone proxy: SOCKS5 or HTTP CONNECT for outbound TCP, proxied DNS, optional UDP block.
++//
++// Android's VpnService works per app UID, and every clone shares the host's UID, so a per-clone
++// proxy has to live inside the clone process. This hooks libc connect() and the getaddrinfo family:
++//  * DNS: a hostname is answered with a fake address from 198.18.0.0/15. When connect() sees such an
++//    address it sends the hostname to the proxy (SOCKS5 ATYP=domain / HTTP CONNECT host:port), so
++//    the name is resolved by the proxy and no DNS query leaves the phone.
++//  * TCP to a public address: connected to the proxy, handshake done in place, then returns 0.
++//  * UDP to a public address (QUIC, DNS-over-UDP): fails with ENETUNREACH when blockUdp is set, so
++//    apps fall back to TCP instead of leaking around the proxy.
++//  * Loopback, link-local and private (RFC1918) destinations are not proxied.
++// Disabled (type 0) by default; configured per process through NativeCore.configureProxy().
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++#include <netdb.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <errno.h>
++#include <poll.h>
++#include <string.h>
++#include <stdlib.h>
++#include <stdio.h>
++#include <mutex>
++#include <string>
++#include <unordered_map>
++#include <vector>
++#include <jni.h>
++#include <android/log.h>
++#include <dlfcn.h>
++#include "./xdl.h"
++#include "Dobby/dobby.h"
++
++#define LOG_TAG "ProxyHook"
++#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
++
++namespace {
++
++struct Cfg {
++    int type = 0;  // 0 off, 1 SOCKS5, 2 HTTP CONNECT
++    sockaddr_storage proxy{};
++    socklen_t proxyLen = 0;
++    std::string user, pass;
++    bool blockUdp = true;
++};
++
++std::mutex g_lock;
++Cfg g_cfg;
++bool g_installed = false;
++
++// Fake DNS table.
++std::unordered_map<uint32_t, std::string> g_idxToHost;
++std::unordered_map<std::string, uint32_t> g_hostToIdx;
++const uint32_t kFakeBase = 0xC6120000u;  // 198.18.0.0
++const uint32_t kFakeMask = 0xFFFE0000u;  // /15
++
++Cfg snapshot() {
++    std::lock_guard<std::mutex> guard(g_lock);
++    return g_cfg;
++}
++
++int (*orig_connect)(int, const sockaddr *, socklen_t) = nullptr;
++int (*orig_getaddrinfo)(const char *, const char *, const addrinfo *, addrinfo **) = nullptr;
++int (*orig_gai_fornet)(const char *, const char *, const addrinfo *, unsigned, unsigned, addrinfo **) = nullptr;
++int (*orig_gai_fornetctx)(const char *, const char *, const addrinfo *, const void *, addrinfo **) = nullptr;
++
++bool is_direct_v4(uint32_t ip_host_order) {
++    uint8_t a = ip_host_order >> 24, b = (ip_host_order >> 16) & 0xFF;
++    if (a == 127 || a == 10 || a == 0) return true;
++    if (a == 169 && b == 254) return true;
++    if (a == 172 && b >= 16 && b <= 31) return true;
++    if (a == 192 && b == 168) return true;
++    return false;
++}
++
++bool is_direct(const sockaddr *sa) {
++    if (sa->sa_family == AF_INET) {
++        uint32_t ip = ntohl(((const sockaddr_in *) sa)->sin_addr.s_addr);
++        if ((ip & kFakeMask) == kFakeBase) return false;
++        return is_direct_v4(ip);
++    }
++    if (sa->sa_family == AF_INET6) {
++        const in6_addr &a = ((const sockaddr_in6 *) sa)->sin6_addr;
++        if (IN6_IS_ADDR_LOOPBACK(&a) || IN6_IS_ADDR_LINKLOCAL(&a)) return true;
++        if ((a.s6_addr[0] & 0xFE) == 0xFC) return true;  // fc00::/7
++        if (IN6_IS_ADDR_V4MAPPED(&a)) {
++            uint32_t ip;
++            memcpy(&ip, a.s6_addr + 12, 4);
++            return is_direct_v4(ntohl(ip));
++        }
++        return false;
++    }
++    return true;
++}
++
++bool send_all(int fd, const void *buf, size_t n) {
++    const char *p = (const char *) buf;
++    while (n > 0) {
++        ssize_t w = send(fd, p, n, MSG_NOSIGNAL);
++        if (w <= 0) { if (w < 0 && errno == EINTR) continue; return false; }
++        p += w; n -= (size_t) w;
++    }
++    return true;
++}
++
++bool recv_all(int fd, void *buf, size_t n) {
++    char *p = (char *) buf;
++    while (n > 0) {
++        ssize_t r = recv(fd, p, n, 0);
++        if (r <= 0) { if (r < 0 && errno == EINTR) continue; return false; }
++        p += r; n -= (size_t) r;
++    }
++    return true;
++}
++
++// Destination as host string (domain or numeric) + port.
++struct Dest {
++    bool isDomain = false;
++    std::string domain;
++    sockaddr_storage addr{};
++    int family = 0;
++    uint16_t port = 0;
++};
++
++bool make_dest(const sockaddr *sa, Dest &d) {
++    d.family = sa->sa_family;
++    if (sa->sa_family == AF_INET) {
++        const sockaddr_in *s = (const sockaddr_in *) sa;
++        d.port = ntohs(s->sin_port);
++        uint32_t ip = ntohl(s->sin_addr.s_addr);
++        if ((ip & kFakeMask) == kFakeBase) {
++            std::lock_guard<std::mutex> guard(g_lock);
++            auto it = g_idxToHost.find(ip - kFakeBase);
++            if (it == g_idxToHost.end()) return false;
++            d.isDomain = true;
++            d.domain = it->second;
++            return true;
++        }
++        memcpy(&d.addr, sa, sizeof(sockaddr_in));
++        return true;
++    }
++    if (sa->sa_family == AF_INET6) {
++        const sockaddr_in6 *s = (const sockaddr_in6 *) sa;
++        d.port = ntohs(s->sin6_port);
++        memcpy(&d.addr, sa, sizeof(sockaddr_in6));
++        return true;
++    }
++    return false;
++}
++
++std::string b64(const std::string &in) {
++    static const char *t = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
++    std::string out;
++    size_t i = 0;
++    while (i + 2 < in.size() + 2 && i < in.size()) {
++        uint32_t v = (uint8_t) in[i] << 16;
++        if (i + 1 < in.size()) v |= (uint8_t) in[i + 1] << 8;
++        if (i + 2 < in.size()) v |= (uint8_t) in[i + 2];
++        out += t[(v >> 18) & 63];
++        out += t[(v >> 12) & 63];
++        out += (i + 1 < in.size()) ? t[(v >> 6) & 63] : '=';
++        out += (i + 2 < in.size()) ? t[v & 63] : '=';
++        i += 3;
++    }
++    return out;
++}
++
++bool socks5_handshake(int fd, const Cfg &c, const Dest &d) {
++    bool auth = !c.user.empty();
++    uint8_t hello[4] = {5, 1, 0, 0};
++    size_t hn = 3;
++    if (auth) { hello[1] = 2; hello[2] = 0; hello[3] = 2; hn = 4; }
++    if (!send_all(fd, hello, hn)) return false;
++    uint8_t rep[2];
++    if (!recv_all(fd, rep, 2) || rep[0] != 5) return false;
++    if (rep[1] == 2) {
++        if (!auth || c.user.size() > 255 || c.pass.size() > 255) return false;
++        std::string m;
++        m += (char) 1; m += (char) c.user.size(); m += c.user;
++        m += (char) c.pass.size(); m += c.pass;
++        if (!send_all(fd, m.data(), m.size())) return false;
++        uint8_t ar[2];
++        if (!recv_all(fd, ar, 2) || ar[1] != 0) return false;
++    } else if (rep[1] != 0) {
++        return false;
++    }
++    std::string req;
++    req += (char) 5; req += (char) 1; req += (char) 0;
++    if (d.isDomain) {
++        if (d.domain.size() > 255) return false;
++        req += (char) 3; req += (char) d.domain.size(); req += d.domain;
++    } else if (d.family == AF_INET) {
++        req += (char) 1;
++        req.append((const char *) &((const sockaddr_in *) &d.addr)->sin_addr, 4);
++    } else {
++        req += (char) 4;
++        req.append((const char *) &((const sockaddr_in6 *) &d.addr)->sin6_addr, 16);
++    }
++    req += (char) (d.port >> 8); req += (char) (d.port & 0xFF);
++    if (!send_all(fd, req.data(), req.size())) return false;
++    uint8_t h[4];
++    if (!recv_all(fd, h, 4) || h[0] != 5 || h[1] != 0) return false;
++    size_t skip = h[3] == 1 ? 4 : h[3] == 4 ? 16 : 0;
++    if (h[3] == 3) { uint8_t l; if (!recv_all(fd, &l, 1)) return false; skip = l; }
++    uint8_t junk[260];
++    return recv_all(fd, junk, skip + 2);
++}
++
++bool http_handshake(int fd, const Cfg &c, const Dest &d) {
++    char host[256];
++    if (d.isDomain) {
++        snprintf(host, sizeof host, "%s", d.domain.c_str());
++    } else if (d.family == AF_INET) {
++        char b[INET_ADDRSTRLEN];
++        inet_ntop(AF_INET, &((const sockaddr_in *) &d.addr)->sin_addr, b, sizeof b);
++        snprintf(host, sizeof host, "%s", b);
++    } else {
++        char b[INET6_ADDRSTRLEN];
++        inet_ntop(AF_INET6, &((const sockaddr_in6 *) &d.addr)->sin6_addr, b, sizeof b);
++        snprintf(host, sizeof host, "[%s]", b);
++    }
++    std::string req = "CONNECT " + std::string(host) + ":" + std::to_string(d.port) + " HTTP/1.1\r\nHost: " +
++                      host + ":" + std::to_string(d.port) + "\r\n";
++    if (!c.user.empty()) req += "Proxy-Authorization: Basic " + b64(c.user + ":" + c.pass) + "\r\n";
++    req += "\r\n";
++    if (!send_all(fd, req.data(), req.size())) return false;
++    std::string resp;
++    char ch;
++    while (resp.size() < 8192) {
++        if (!recv_all(fd, &ch, 1)) return false;
++        resp += ch;
++        if (resp.size() >= 4 && resp.compare(resp.size() - 4, 4, "\r\n\r\n") == 0) break;
++    }
++    // "HTTP/1.x 200 ..."
++    return resp.size() > 12 && resp.compare(0, 5, "HTTP/") == 0 && resp.compare(9, 3, "200") == 0;
++}
++
++int proxied_connect(int fd, const sockaddr *sa, const Cfg &c) {
++    Dest d;
++    if (!make_dest(sa, d)) { errno = ENETUNREACH; return -1; }
++    int flags = fcntl(fd, F_GETFL, 0);
++    bool nonblock = flags >= 0 && (flags & O_NONBLOCK);
++    if (nonblock) fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
++    timeval tv{10, 0}, oldS{}, oldR{};
++    socklen_t tl = sizeof(timeval);
++    getsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &oldS, &tl);
++    tl = sizeof(timeval);
++    getsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &oldR, &tl);
++    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof tv);
++    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv);
++
++    int rc = orig_connect(fd, (const sockaddr *) &c.proxy, c.proxyLen);
++    bool ok = rc == 0;
++    int err = errno;
++    if (ok) {
++        ok = c.type == 1 ? socks5_handshake(fd, c, d) : http_handshake(fd, c, d);
++        if (!ok) err = ECONNREFUSED;
++    }
++    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &oldS, sizeof oldS);
++    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &oldR, sizeof oldR);
++    if (nonblock) fcntl(fd, F_SETFL, flags);
++    if (ok) return 0;
++    errno = err;
++    return -1;
++}
++
++int my_connect(int fd, const sockaddr *sa, socklen_t len) {
++    if (!sa) return orig_connect(fd, sa, len);
++    Cfg c = snapshot();
++    if (c.type == 0 || (sa->sa_family != AF_INET && sa->sa_family != AF_INET6) || is_direct(sa)) {
++        return orig_connect(fd, sa, len);
++    }
++    int stype = 0;
++    socklen_t sl = sizeof stype;
++    if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &stype, &sl) != 0) return orig_connect(fd, sa, len);
++    if (stype == SOCK_DGRAM) {
++        if (c.blockUdp) { errno = ENETUNREACH; return -1; }
++        return orig_connect(fd, sa, len);
++    }
++    if (stype != SOCK_STREAM) return orig_connect(fd, sa, len);
++    return proxied_connect(fd, sa, c);
++}
++
++bool is_numeric_or_local(const char *node) {
++    unsigned char buf[16];
++    if (inet_pton(AF_INET, node, buf) == 1 || inet_pton(AF_INET6, node, buf) == 1) return true;
++    return strcmp(node, "localhost") == 0;
++}
++
++// Returns true and fills *res when the lookup was answered locally.
++bool fake_resolve(const char *node, const char *service, const addrinfo *hints, addrinfo **res, int *rc) {
++    Cfg c = snapshot();
++    if (c.type == 0 || !node || !*node || is_numeric_or_local(node)) return false;
++    if (hints && hints->ai_family == AF_INET6) { *rc = EAI_NODATA; return true; }
++    uint32_t idx;
++    {
++        std::lock_guard<std::mutex> guard(g_lock);
++        auto it = g_hostToIdx.find(node);
++        if (it != g_hostToIdx.end()) {
++            idx = it->second;
++        } else {
++            idx = (uint32_t) g_hostToIdx.size() + 1;
++            if (idx >= 0x1FFFF) { g_hostToIdx.clear(); g_idxToHost.clear(); idx = 1; }
++            g_hostToIdx[node] = idx;
++            g_idxToHost[idx] = node;
++        }
++    }
++    sockaddr_in *sin = (sockaddr_in *) calloc(1, sizeof(sockaddr_in));
++    addrinfo *ai = (addrinfo *) calloc(1, sizeof(addrinfo));
++    if (!sin || !ai) { free(sin); free(ai); *rc = EAI_MEMORY; return true; }
++    sin->sin_family = AF_INET;
++    sin->sin_addr.s_addr = htonl(kFakeBase + idx);
++    sin->sin_port = htons(service ? (uint16_t) atoi(service) : 0);
++    ai->ai_family = AF_INET;
++    ai->ai_socktype = hints && hints->ai_socktype ? hints->ai_socktype : SOCK_STREAM;
++    ai->ai_protocol = hints ? hints->ai_protocol : 0;
++    ai->ai_addrlen = sizeof(sockaddr_in);
++    ai->ai_addr = (sockaddr *) sin;
++    if (hints && (hints->ai_flags & AI_CANONNAME)) ai->ai_canonname = strdup(node);
++    *res = ai;
++    *rc = 0;
++    return true;
++}
++
++int my_getaddrinfo(const char *n, const char *s, const addrinfo *h, addrinfo **r) {
++    int rc;
++    if (fake_resolve(n, s, h, r, &rc)) return rc;
++    return orig_getaddrinfo(n, s, h, r);
++}
++
++int my_gai_fornet(const char *n, const char *s, const addrinfo *h, unsigned netid, unsigned mark, addrinfo **r) {
++    int rc;
++    if (fake_resolve(n, s, h, r, &rc)) return rc;
++    return orig_gai_fornet(n, s, h, netid, mark, r);
++}
++
++int my_gai_fornetctx(const char *n, const char *s, const addrinfo *h, const void *ctx, addrinfo **r) {
++    int rc;
++    if (fake_resolve(n, s, h, r, &rc)) return rc;
++    return orig_gai_fornetctx(n, s, h, ctx, r);
++}
++
++void install_locked() {
++    if (g_installed) return;
++    g_installed = true;
++    void *handle = xdl_open("libc.so", XDL_DEFAULT);
++    if (!handle) return;
++    if (void *p = xdl_dsym(handle, "connect", nullptr)) DobbyHook(p, (void *) my_connect, (void **) &orig_connect);
++    if (void *p = xdl_dsym(handle, "getaddrinfo", nullptr)) DobbyHook(p, (void *) my_getaddrinfo, (void **) &orig_getaddrinfo);
++    if (void *p = xdl_dsym(handle, "android_getaddrinfofornet", nullptr)) DobbyHook(p, (void *) my_gai_fornet, (void **) &orig_gai_fornet);
++    if (void *p = xdl_dsym(handle, "android_getaddrinfofornetcontext", nullptr)) DobbyHook(p, (void *) my_gai_fornetctx, (void **) &orig_gai_fornetctx);
++    xdl_close(handle);
++}
++
++}  // namespace
++
++// ip must be numeric (the Java side resolves the proxy host before calling).
++bool ProxyHook_configure(int type, const char *ip, int port, const char *user, const char *pass, bool blockUdp) {
++    std::lock_guard<std::mutex> guard(g_lock);
++    Cfg c;
++    c.type = type;
++    c.blockUdp = blockUdp;
++    c.user = user ? user : "";
++    c.pass = pass ? pass : "";
++    if (type != 0) {
++        sockaddr_in *s4 = (sockaddr_in *) &c.proxy;
++        sockaddr_in6 *s6 = (sockaddr_in6 *) &c.proxy;
++        if (ip && inet_pton(AF_INET, ip, &s4->sin_addr) == 1) {
++            s4->sin_family = AF_INET; s4->sin_port = htons((uint16_t) port); c.proxyLen = sizeof(sockaddr_in);
++        } else if (ip && inet_pton(AF_INET6, ip, &s6->sin6_addr) == 1) {
++            s6->sin6_family = AF_INET6; s6->sin6_port = htons((uint16_t) port); c.proxyLen = sizeof(sockaddr_in6);
++        } else {
++            return false;
++        }
++        install_locked();
++    }
++    g_cfg = c;
++    LOGD("proxy configured: type=%d port=%d", type, port);
++    return true;
++}
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java b/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java
+index 1480378..cd0ecbf 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/core/NativeCore.java
+@@ -41,6 +41,13 @@ public class NativeCore {
+     /** props = [key, value, key, value...] served for __system_property_get; mapsFilters = substrings of /proc/*/maps lines to hide. Empty = off. */
+     public static native void configureSpoof(String[] props, String[] mapsFilters);
+ 
++    /**
++     * Per-process proxy. type 0 = off, 1 = SOCKS5, 2 = HTTP CONNECT. ip must be a numeric address.
++     * Hostnames are answered with fake 198.18.0.0/15 addresses and sent to the proxy by name.
++     * With blockUdp, UDP connects to public addresses fail so apps fall back to TCP.
++     */
++    public static native boolean configureProxy(int type, String ip, int port, String user, String pass, boolean blockUdp);
++
+ 
+     @Keep
+     public static int getCallingUid(int origCallingUid) {
