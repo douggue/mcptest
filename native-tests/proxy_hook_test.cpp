@@ -84,12 +84,12 @@ void serve_dns(int fd) {
             i += 1 + (size_t) m[i];
         }
         { std::lock_guard<std::mutex> g(g_mock.m); g_mock.seen.push_back("dns " + name); }
-        bool missing = name == "missing.example.com";
+        bool missing = name == "missing.example.com", broken = name == "broken.example.com";
         std::vector<const char *> ips;
-        if (!missing) ips.push_back("93.184.216.34");
+        if (!missing && !broken) ips.push_back("93.184.216.34");
         if (name == "video.example.com") ips.push_back("93.184.216.35");
         std::string r((const char *) m, i + 1 + 4);
-        r[2] = (char) 0x81; r[3] = (char) (missing ? 0x83 : 0x80);
+        r[2] = (char) 0x81; r[3] = (char) (missing ? 0x83 : broken ? 0x82 : 0x80);   // NXDOMAIN, SERVFAIL, fine
         r[6] = 0; r[7] = (char) ips.size();
         for (const char *ip : ips) {
             const char fixed[] = {(char) 0xC0, 0x0C, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4};
@@ -520,6 +520,33 @@ bool reach(const sockaddr_storage &ss, socklen_t len) {
     return ok;
 }
 
+// A minimal TLS ClientHello naming `host`, as the first bytes an app sends.
+std::string client_hello(const std::string &host) {
+    std::string ext;
+    ext += std::string("\0\0", 2);                                        // server_name
+    size_t n = host.size();
+    ext += (char) ((n + 5) >> 8); ext += (char) ((n + 5) & 0xFF);
+    ext += (char) ((n + 3) >> 8); ext += (char) ((n + 3) & 0xFF);
+    ext += (char) 0;
+    ext += (char) (n >> 8); ext += (char) (n & 0xFF);
+    ext += host;
+    std::string body;
+    body += std::string("\x03\x03", 2);
+    body += std::string(32, 'r');                                           // random
+    body += (char) 0;                                                       // no session id
+    body += std::string("\0\x02\x13\x01", 4);                              // one cipher suite
+    body += std::string("\x01\0", 2);                                      // no compression
+    body += (char) (ext.size() >> 8); body += (char) (ext.size() & 0xFF);
+    body += ext;
+    std::string hs;
+    hs += (char) 1; hs += (char) 0; hs += (char) (body.size() >> 8); hs += (char) (body.size() & 0xFF);
+    hs += body;
+    std::string rec;
+    rec += (char) 22; rec += (char) 3; rec += (char) 1;
+    rec += (char) (hs.size() >> 8); rec += (char) (hs.size() & 0xFF);
+    return rec + hs;
+}
+
 void test_domain() {
     // The proxy allows DNS through it: the app gets the real addresses, and connects to them.
     sockaddr_storage ss{};
@@ -532,6 +559,9 @@ void test_domain() {
     check(mock_count("dns video.example.com") == 1, "a repeated lookup is answered from memory");
     check(lookup("missing.example.com", "443").empty(), "a name that does not exist is reported as such");
     check(lookup(kDnsCheckName, "443") == "198.18.0.2", "the leak test's check name says lookups go through the proxy");
+    std::string odd = lookup("broken.example.com", "443");
+    check(odd.compare(0, 7, "198.19.") == 0 && lookup("after.example.com", "443") == "93.184.216.34",
+          "a name the resolver cannot answer gets a placeholder, and lookups carry on", "(%s)", odd.c_str());
 
     // The proxy refuses port 53: placeholder addresses, and the proxy resolves the name itself.
     ProxyHook_configure(g_mockType.load(), "127.0.0.1", g_mock.port, g_mock.user.c_str(), g_mock.pass.c_str(), true);
@@ -546,6 +576,15 @@ void test_domain() {
     lookup("third.example.com", "443");
     check(mock_count("1.1.1.1:53") + mock_count("8.8.8.8:53") == asked && now_ms() - t0 < 500,
           "after a refusal, lookups do not keep asking the proxy", "(%lld ms for two names)", (long long) (now_ms() - t0));
+    // The app keeps a placeholder address and uses it for another server: its TLS hello says which.
+    lookup("video.example.com", "7002", &ss, &len);
+    std::string hello = client_hello("wanted.example.com");
+    int fd = nb_connect_sa(AF_INET, (const sockaddr *) &ss, len);
+    bool sent = fd >= 0 && wait_writable(fd, 8000) && send(fd, hello.data(), hello.size(), MSG_NOSIGNAL) == (ssize_t) hello.size();
+    std::string back(hello.size(), '\0');
+    if (sent) { make_blocking(fd, 20); sent = rd(fd, &back[0], back.size()) && back == hello; }
+    if (fd >= 0) close(fd);
+    check(sent && mock_saw("wanted.example.com:7002"), "the server named in the app's TLS hello is the one the proxy is asked for");
     g_mock.refuseDns = false;
     ProxyHook_configure(g_mockType.load(), "127.0.0.1", g_mock.port, g_mock.user.c_str(), g_mock.pass.c_str(), true);
 }

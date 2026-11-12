@@ -1,0 +1,316 @@
+diff --git a/Bcore/src/main/cpp/Utils/ProxyHook.cpp b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+index 5ca6be4..9453503 100644
+--- a/Bcore/src/main/cpp/Utils/ProxyHook.cpp
++++ b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+@@ -535,6 +535,93 @@ struct RelayHalf {          // one direction of a tunnel
+     bool shut = false;      // ...and the end has been passed on
+ };
+ 
++// The outline of a TLS conversation as it passes: record types and sizes, nothing of the content
++// (which is encrypted anyway). It shows what no other log can: whether the app accepted the
++// server's answer, and how much each side then said. H handshake, C change-cipher, A data, ! alert
++// (followed by its number when it is not encrypted).
++struct TlsWatch {
++    uint8_t hdr[5] = {0, 0, 0, 0, 0};
++    int have = 0;               // bytes of a record header collected so far
++    size_t skip = 0;            // bytes of the current record still to pass
++    int grab = 0;               // bytes of a plain alert still to read
++    uint8_t alert[2] = {0, 0};
++    int records = 0, dataRecords = 0;
++    size_t dataBytes = 0;
++    bool off = false;           // not TLS, or seen enough
++    std::string trace;
++};
++
++void tls_watch(TlsWatch &w, const uint8_t *p, size_t n) {
++    while (n > 0 && !w.off) {
++        if (w.skip) {
++            size_t k = std::min(w.skip, n);
++            for (size_t i = 0; i < k && w.grab > 0; i++) {
++                w.alert[2 - w.grab] = p[i];
++                if (--w.grab == 0) w.trace += "(" + std::to_string(w.alert[1]) + ")";
++            }
++            w.skip -= k; p += k; n -= k;
++            continue;
++        }
++        while (w.have < 5 && n > 0) { w.hdr[w.have++] = *p++; n--; }
++        if (w.have < 5) return;
++        w.have = 0;
++        uint8_t type = w.hdr[0];
++        size_t len = (size_t) w.hdr[3] << 8 | w.hdr[4];
++        if (type < 20 || type > 23 || w.hdr[1] != 3 || len > 16384 + 256) {
++            if (w.records == 0) w.trace = "not TLS";
++            w.off = true;
++            return;
++        }
++        w.records++;
++        if (type == 23) { w.dataRecords++; w.dataBytes += len; }
++        if (w.records <= 10) {
++            if (!w.trace.empty()) w.trace += ' ';
++            w.trace += "C!HA"[type - 20];
++            w.trace += std::to_string(len);
++            if (type == 21 && len == 2) w.grab = 2;
++        } else if (w.records == 11) {
++            w.trace += " ..";
++        }
++        w.skip = len;
++        if (w.records >= 300) w.off = true;
++    }
++}
++
++// The server name in a TLS ClientHello, "" when the bytes are not one or it has none.
++std::string tls_sni(const uint8_t *p, size_t n) {
++    if (n < 5 + 4 + 34 + 1 || p[0] != 22 || p[1] != 3 || p[5] != 1) return "";
++    size_t end = std::min(n, (size_t) 5 + ((size_t) p[3] << 8 | p[4]));
++    size_t i = 5 + 4 + 2 + 32;                              // record and handshake headers, version, random
++    if (i + 1 > end) return "";
++    i += 1 + (size_t) p[i];                                 // session id
++    if (i + 2 > end) return "";
++    i += 2 + ((size_t) p[i] << 8 | p[i + 1]);               // cipher suites
++    if (i + 1 > end) return "";
++    i += 1 + (size_t) p[i];                                 // compression methods
++    if (i + 2 > end) return "";
++    size_t extEnd = std::min(end, i + 2 + ((size_t) p[i] << 8 | p[i + 1]));
++    i += 2;
++    while (i + 4 <= extEnd) {
++        unsigned type = (unsigned) p[i] << 8 | p[i + 1];
++        size_t len = (size_t) p[i + 2] << 8 | p[i + 3];
++        i += 4;
++        if (i + len > extEnd) return "";
++        if (type == 0) {                                    // server_name: list length, type 0, name length, name
++            if (len < 5 || p[i + 2] != 0) return "";
++            size_t nl = (size_t) p[i + 3] << 8 | p[i + 4];
++            if (5 + nl > len || nl == 0 || nl > 253) return "";
++            std::string name((const char *) p + i + 5, nl);
++            for (char ch : name) {
++                bool ok = (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '.' || ch == '-' || ch == '_';
++                if (!ok) return "";
++            }
++            return name;
++        }
++        i += len;
++    }
++    return "";
++}
++
+ struct RelayConn {
+     enum State { CONNECTING, HANDSHAKE, RELAY };
+     int cfd = -1, ufd = -1;                 // the app's side (accepted), the proxy's side
+@@ -555,6 +642,9 @@ struct RelayConn {
+     int64_t startedAt = 0;
+     size_t up = 0, down = 0;                // bytes carried for the app
+     char firstEnd = 0;                      // who ended it: A/a the app (cleanly/abruptly), P/p the proxy side
++    TlsWatch appSaid, serverSaid;
++    std::string askedFor;                   // the name the address stood for, when the app's TLS hello named another
++    bool helloChecked = false;
+ };
+ 
+ std::mutex g_relayLock;                     // guards the four below and g_relayPending
+@@ -583,6 +673,10 @@ struct RelayStats {
+     int upTiny = 0, upSmall = 0, upMore = 0, downTiny = 0, downSmall = 0, downMore = 0;
+     int perSecond[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+     std::unordered_map<std::string, int> names, addresses;   // where new connections went
++    int renamed = 0;                        // the app's TLS hello named another server than its address stood for
++    std::string renamedExample;
++    std::vector<std::string> samples;       // a few tunnels that ended young, in outline
++    std::unordered_map<std::string, int> sampled;
+     bool any() const { return opened || ready || failed || abandoned || broken || ended || down || up; }
+ };
+ RelayStats g_relayStats;
+@@ -608,6 +702,11 @@ void relay_summary(int64_t now) {
+                  t.ended, t.appClean, t.appAbrupt, t.proxyClean, t.proxyAbrupt, t.lifeShort, t.lifeMid, t.lifeLong,
+                  t.upTiny, t.upSmall, t.upMore, t.downTiny, t.downSmall, t.downMore, when.c_str());
+         }
++        if (t.renamed) {
++            LOGD("relay, %d connections were for another server than their address stood for; the name in the app's own "
++                 "TLS hello was used. For example: %s", t.renamed, t.renamedExample.c_str());
++        }
++        for (const std::string &line : t.samples) LOGD("relay, ended young: %s", line.c_str());
+         if (!t.names.empty() || !t.addresses.empty()) {
+             std::vector<std::pair<int, std::string>> all;
+             for (auto &e : t.names) all.emplace_back(e.second, e.first);
+@@ -741,6 +840,20 @@ void relay_close(RelayConn *c, bool reset) {
+         (c->down < 8192 ? t.downTiny : c->down < 102400 ? t.downSmall : t.downMore)++;
+         int second = t.since ? (int) ((now - t.since) / 1000) : 0;
+         t.perSecond[std::min(std::max(second, 0), 9)]++;
++        // A few of the short ones in outline, at most two per destination.
++        if (life < 2000 && t.samples.size() < 8) {
++            std::string to = relay_label(c->dest);
++            if (t.sampled[to]++ < 2) {
++                const char *by = c->firstEnd == 'A' ? "the app, cleanly" : c->firstEnd == 'a' ? "the app, abruptly"
++                               : c->firstEnd == 'P' ? "the proxy side, cleanly" : c->firstEnd == 'p' ? "the proxy side, abruptly" : "the relay";
++                t.samples.push_back(to + (c->askedFor.empty() ? "" : " (address stood for " + c->askedFor + ")") +
++                                    ", " + std::to_string(life) + " ms, ended by " + by +
++                                    ". App said: " + (c->appSaid.trace.empty() ? "nothing" : c->appSaid.trace) +
++                                    " [" + std::to_string(c->appSaid.dataRecords) + " data records, " + std::to_string(c->appSaid.dataBytes) + " B]" +
++                                    ". Server said: " + (c->serverSaid.trace.empty() ? "nothing" : c->serverSaid.trace) +
++                                    " [" + std::to_string(c->serverSaid.dataRecords) + " data records, " + std::to_string(c->serverSaid.dataBytes) + " B]");
++            }
++        }
+     }
+     if (c->cfd >= 0) close(c->cfd);     // closing also takes it out of the epoll set
+     if (c->ufd >= 0) close(c->ufd);
+@@ -891,7 +1004,7 @@ bool relay_stalled(const RelayConn *c, int64_t now) {
+ 
+ // Moves bytes one way until the source is empty, the sink is full or the turn is used up.
+ // 0: fine. 1: the source broke. 2: the sink broke.
+-int relay_move(int from, int to, RelayHalf &h, bool &readable, bool &writable, bool &more, size_t &total) {
++int relay_move(int from, int to, RelayHalf &h, bool &readable, bool &writable, bool &more, size_t &total, TlsWatch &watch) {
+     size_t moved = 0;
+     for (;;) {
+         if (h.off < h.pend.size()) {
+@@ -920,6 +1033,7 @@ int relay_move(int from, int to, RelayHalf &h, bool &readable, bool &writable, b
+         }
+         if (r == 0) { h.eof = true; continue; }
+         moved += (size_t) r;
++        if (!watch.off) tls_watch(watch, (const uint8_t *) g_relayBuf, (size_t) r);
+         total += (size_t) r;
+         ssize_t w = 0;
+         if (writable) {
+@@ -937,8 +1051,8 @@ int relay_move(int from, int to, RelayHalf &h, bool &readable, bool &writable, b
+ void relay_pump(RelayConn *c) {
+     bool more = false;
+     size_t up = 0, down = 0;
+-    int upward = relay_move(c->cfd, c->ufd, c->c2u, c->cRead, c->uWrite, more, up);
+-    int downward = upward ? 0 : relay_move(c->ufd, c->cfd, c->u2c, c->uRead, c->cWrite, more, down);
++    int upward = relay_move(c->cfd, c->ufd, c->c2u, c->cRead, c->uWrite, more, up, c->appSaid);
++    int downward = upward ? 0 : relay_move(c->ufd, c->cfd, c->u2c, c->uRead, c->cWrite, more, down, c->serverSaid);
+     g_relayStats.up += up;
+     g_relayStats.down += down;
+     c->up += up;
+@@ -992,6 +1106,29 @@ void relay_drive(RelayConn *c) {
+         sockaddr_storage peer{};
+         socklen_t pl = sizeof peer;
+         if (getpeername(c->ufd, (sockaddr *) &peer, &pl) != 0) { c->uWrite = false; return; }   // not connected yet
++        // An address we made up stands for a name in our table. The app, though, may keep such an
++        // address and later use it for another server (it caches lookups on disk, and shares them
++        // between names it believes are one server). The TLS hello it has already sent says which
++        // server it means; when that differs, the hello is right. Asking the proxy for the table's
++        // name instead would reach a server whose certificate the app then rejects, over and over.
++        if (c->dest.isDomain && !c->helloChecked) {
++            uint8_t hello[2048];
++            ssize_t got = recv(c->cfd, hello, sizeof hello, MSG_PEEK | MSG_DONTWAIT);
++            if (got < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) && relay_now_ms() - c->startedAt < 30) {
++                // Nothing from the app yet. A TLS hello follows the connect within a millisecond or
++                // two, so look again on the next turn of the loop rather than guess.
++                if (!c->queued) { c->queued = true; g_relayReady.push_back(c); }
++                return;
++            }
++            c->helloChecked = true;
++            std::string sni = got > 0 ? tls_sni(hello, (size_t) got) : "";
++            if (!sni.empty() && sni != c->dest.domain) {
++                g_relayStats.renamed++;
++                g_relayStats.renamedExample = "address for " + c->dest.domain + ", app wanted " + sni;
++                c->askedFor = c->dest.domain;
++                c->dest.domain = sni;
++            }
++        }
+         relay_begin_handshake(c);
+     }
+     if (c->st == RelayConn::HANDSHAKE) {
+@@ -1311,6 +1448,7 @@ std::unordered_map<std::string, DnsEntry> g_dnsCache;
+ std::vector<DnsTunnel> g_dnsIdle;
+ int64_t g_dnsOffUntil = 0;
+ int g_dnsState = 0;                                     // for the log: 0 not tried, 1 works, -1 refused
++int g_dnsFailures = 0;                                  // lookups in a row that got no answer
+ 
+ // A tunnel through the proxy to a public resolver's TCP port 53. *refused: the proxy said no
+ // (as opposed to not answering), so asking again soon is pointless.
+@@ -1338,7 +1476,8 @@ int dns_open(const Cfg &c, bool *refused) {
+ }
+ 
+ // One question on an open tunnel. 1: answered (ips may be empty: no such name, or no IPv4 address;
+-// *exists tells which), 0: the connection failed.
++// *exists tells which). 2: this name cannot be answered (not a valid name, or the resolver said
++// it cannot), the connection is fine. 0: the connection failed.
+ int dns_ask(int fd, const std::string &name, std::vector<uint32_t> &ips, uint32_t &ttl, bool &exists) {
+     uint8_t q[2 + 12 + 256 + 4];
+     size_t n = 2;
+@@ -1351,7 +1490,7 @@ int dns_ask(int fd, const std::string &name, std::vector<uint32_t> &ips, uint32_
+         size_t dot = name.find('.', start);
+         if (dot == std::string::npos) dot = name.size();
+         size_t len = dot - start;
+-        if (len == 0 || len > 63) return 0;
++        if (len == 0 || len > 63) return 2;
+         q[n++] = (uint8_t) len;
+         memcpy(q + n, name.data() + start, len);
+         n += len;
+@@ -1370,7 +1509,7 @@ int dns_ask(int fd, const std::string &name, std::vector<uint32_t> &ips, uint32_
+     if (len < 12 || len > sizeof m || !recv_all(fd, m, len)) return 0;
+     if (m[0] != (id >> 8) || m[1] != (id & 0xFF)) return 0;
+     int rcode = m[3] & 0x0F;
+-    if (rcode != 0 && rcode != 3) return 0;             // server trouble: not an answer
++    if (rcode != 0 && rcode != 3) return 2;             // the resolver's trouble with this name, not ours
+     exists = rcode == 0;
+     size_t questions = (size_t) m[4] << 8 | m[5], answers = (size_t) m[6] << 8 | m[7], i = 12;
+     auto skip_name = [&]() -> bool {
+@@ -1425,12 +1564,13 @@ int dns_resolve(const Cfg &c, const char *node, std::vector<uint32_t> &ips) {
+             if (now - t.usedAt <= kDnsIdleMs) fd = t.fd; else close(t.fd);
+         }
+     }
+-    bool reused = fd >= 0, refused = false, exists = false;
++    bool reused = fd >= 0, refused = false, exists = false, opened = fd >= 0;
+     uint32_t ttl = 0;
+     int got = 0;
+     for (int attempt = 0; attempt < 2 && got == 0; attempt++) {
+         if (fd < 0) { fd = dns_open(c, &refused); reused = false; }
+         if (fd < 0) break;
++        opened = true;
+         ips.clear();
+         got = dns_ask(fd, name, ips, ttl, exists);
+         if (got == 0) {
+@@ -1442,17 +1582,30 @@ int dns_resolve(const Cfg &c, const char *node, std::vector<uint32_t> &ips) {
+     std::lock_guard<std::mutex> guard(g_dnsLock);
+     now = relay_now_ms();
+     if (got == 0) {
+-        // Refused, silent or broken: use placeholder addresses for a while, instead of making
+-        // every lookup wait for the same failure.
+-        g_dnsOffUntil = now + (refused ? kDnsOffMs : kDnsRetryMs);
+-        if (g_dnsState != -1) {
+-            LOGD(refused ? "the proxy does not allow DNS through it; names get placeholder addresses"
+-                         : "DNS through the proxy does not answer; names get placeholder addresses for now");
++        // One lookup that failed says little: the resolver may have dropped a connection. Only a
++        // refusal, or several failures in a row, turn lookups off for a while, so that not every
++        // lookup has to wait for the same failure.
++        g_dnsFailures++;
++        LOGD("lookup of %s through the proxy failed: %s", name.c_str(),
++             refused ? "the proxy refused the connection to the resolver"
++                     : opened ? "the connection to the resolver broke" : "no connection to a resolver");
++        if (refused || g_dnsFailures >= 3) {
++            g_dnsOffUntil = now + (refused ? kDnsOffMs : kDnsRetryMs);
++            if (g_dnsState != -1) {
++                LOGD(refused ? "the proxy does not allow DNS through it; names get placeholder addresses"
++                             : "DNS through the proxy keeps failing; names get placeholder addresses for now");
++            }
++            g_dnsState = -1;
++            g_dnsFailures = 0;
+         }
+-        g_dnsState = -1;
+         if (haveOld) { ips = g_dnsCache[name].ips; return 1; }   // better an old answer than none
+         return -1;
+     }
++    g_dnsFailures = 0;
++    if (got == 2) {     // this name only: a placeholder address, and the proxy resolves it itself
++        if (g_dnsIdle.size() < 4) g_dnsIdle.push_back({fd, now}); else close(fd);
++        return -1;
++    }
+     if (g_dnsState != 1) LOGD("names are looked up through the proxy");
+     g_dnsState = 1;
+     if (g_dnsIdle.size() < 4) g_dnsIdle.push_back({fd, now}); else close(fd);
+@@ -1544,6 +1697,8 @@ void install_locked() {
+     if (void *p = xdl_dsym(handle, "android_getaddrinfofornet", nullptr)) DobbyHook(p, (void *) my_gai_fornet, (void **) &orig_gai_fornet);
+     if (void *p = xdl_dsym(handle, "android_getaddrinfofornetcontext", nullptr)) DobbyHook(p, (void *) my_gai_fornetctx, (void **) &orig_gai_fornetctx);
+     xdl_close(handle);
++    LOGD("hooks: connect %s, lookups %s, peer address %s", orig_connect ? "on" : "MISSING",
++         orig_getaddrinfo ? "on" : "MISSING", orig_getpeername ? "on" : "MISSING");
+ }
+ 
+ }  // namespace
+@@ -1586,6 +1741,7 @@ bool ProxyHook_configure(int type, const char *ip, int port, const char *user, c
+         g_dnsIdle.clear();
+         g_dnsOffUntil = 0;
+         g_dnsState = 0;
++        g_dnsFailures = 0;
+     }
+     LOGD("proxy configured: type=%d port=%d", type, port);
+     return true;
