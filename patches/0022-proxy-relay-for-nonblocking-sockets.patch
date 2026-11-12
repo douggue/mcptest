@@ -1,0 +1,662 @@
+diff --git a/Bcore/src/main/cpp/Utils/ProxyHook.cpp b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+index 703a0b0..ce467d4 100644
+--- a/Bcore/src/main/cpp/Utils/ProxyHook.cpp
++++ b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+@@ -5,21 +5,30 @@
+ //  * DNS: a hostname is answered with a fake address from 198.18.0.0/15. When connect() sees such an
+ //    address it sends the hostname to the proxy (SOCKS5 ATYP=domain / HTTP CONNECT host:port), so
+ //    the name is resolved by the proxy and no DNS query leaves the phone.
+-//  * TCP to a public address: connected to the proxy, handshake done in place, then returns 0.
++//  * TCP to a public address, blocking socket: connected to the proxy, handshake done in place,
++//    then returns 0.
++//  * TCP to a public address, non-blocking socket: connected to a relay thread on loopback, which
++//    returns at once; the relay reaches the proxy and copies the bytes (see "Relay" below).
+ //  * UDP to a public address (QUIC, DNS-over-UDP): fails with ENETUNREACH when blockUdp is set, so
+ //    apps fall back to TCP instead of leaking around the proxy.
+ //  * Loopback, link-local and private (RFC1918) destinations are not proxied.
+ // Disabled (type 0) by default; configured per process through NativeCore.configureProxy().
+ #include <sys/socket.h>
++#include <sys/epoll.h>
+ #include <sys/file.h>
++#include <sys/resource.h>
+ #include <sys/stat.h>
+ #include <netinet/in.h>
++#include <netinet/tcp.h>
+ #include <arpa/inet.h>
+ #include <netdb.h>
+ #include <fcntl.h>
+ #include <unistd.h>
+ #include <errno.h>
+ #include <poll.h>
++#include <pthread.h>
++#include <signal.h>
++#include <time.h>
+ #include <string.h>
+ #include <stdlib.h>
+ #include <stdio.h>
+@@ -27,6 +36,7 @@
+ #include <mutex>
+ #include <string>
+ #include <unordered_map>
++#include <unordered_set>
+ #include <vector>
+ #include <jni.h>
+ #include <android/log.h>
+@@ -300,6 +310,16 @@ void socks5_request(const Dest &d, std::string &req) {
+     req += (char) (d.port >> 8); req += (char) (d.port & 0xFF);
+ }
+ 
++void socks5_login(const Cfg &c, std::string &m) {
++    m += (char) 1; m += (char) c.user.size(); m += c.user;
++    m += (char) c.pass.size(); m += c.pass;
++}
++
++// SOCKS5 carries each of these behind a one-byte length.
++bool socks5_fits(const Cfg &c, const Dest &d) {
++    return c.user.size() <= 255 && c.pass.size() <= 255 && !(d.isDomain && d.domain.size() > 255);
++}
++
+ bool socks5_read_reply(int fd) {
+     uint8_t h[4];
+     if (!recv_all(fd, h, 4) || h[0] != 5 || h[1] != 0) return false;
+@@ -369,7 +389,7 @@ bool socks5_stepwise(int fd, const Cfg &c, const Dest &d) {
+ }
+ 
+ bool socks5_handshake(int fd, const Cfg &c, const Dest &d) {
+-    if (c.user.size() > 255 || c.pass.size() > 255 || (d.isDomain && d.domain.size() > 255)) return false;
++    if (!socks5_fits(c, d)) return false;
+     if (g_noPipeline.load()) return socks5_stepwise(fd, c, d);
+     bool stalled = false;
+     if (socks5_pipelined(fd, c, d, &stalled)) return true;
+@@ -382,7 +402,7 @@ bool socks5_handshake(int fd, const Cfg &c, const Dest &d) {
+     return false;
+ }
+ 
+-bool http_handshake(int fd, const Cfg &c, const Dest &d) {
++std::string http_request(const Cfg &c, const Dest &d) {
+     char host[256];
+     if (d.isDomain) {
+         snprintf(host, sizeof host, "%s", d.domain.c_str());
+@@ -399,6 +419,11 @@ bool http_handshake(int fd, const Cfg &c, const Dest &d) {
+                       host + ":" + std::to_string(d.port) + "\r\n";
+     if (!c.user.empty()) req += "Proxy-Authorization: Basic " + b64(c.user + ":" + c.pass) + "\r\n";
+     req += "\r\n";
++    return req;
++}
++
++bool http_handshake(int fd, const Cfg &c, const Dest &d) {
++    std::string req = http_request(c, d);
+     if (!send_all(fd, req.data(), req.size())) return false;
+     std::string resp;
+     char ch;
+@@ -462,6 +487,558 @@ int proxied_connect(int fd, const sockaddr *sa, const Cfg &c) {
+     return -1;
+ }
+ 
++// ---- Relay --------------------------------------------------------------------------------------
++// proxied_connect() does the handshake inside the caller's connect(). That suits a blocking
++// socket, whose caller expects to wait. It does not suit a non-blocking one: apps built on an
++// event loop (Cronet and its forks, so TikTok, YouTube and every WebView; native media players)
++// call connect() on the one thread that also moves the data of all their other connections, and
++// expect it to return at once. Holding that thread for a proxy round trip per connection stopped
++// all of the app's traffic while connections were being opened, and a video feed opens them all
++// the time: pictures arrived, videos stalled.
++//
++// So a non-blocking socket is connected to a listener on loopback instead, which returns at
++// once, and one relay thread per process does the slow part: it connects to the proxy, does the
++// handshake and then copies bytes both ways. Any number of handshakes run side by side. A
++// handshake that fails resets the app's connection.
++
++const int kRelayHandshakeMs = 15000;       // connect to the proxy and finish the handshake
++const int kRelayStallMs = 4000;            // no answer to a pipelined handshake: try step by step
++const int kRelayLingerMs = 120000;         // one side has ended and nothing moves any more
++const int kRelayPendingMs = 10000;         // a registered connect must reach the listener in this time
++const size_t kRelayChunk = 64 * 1024;
++const size_t kRelayBudget = 512 * 1024;    // bytes one tunnel may move before the others get a turn
++const uint64_t kRelayTagL4 = 1, kRelayTagL6 = 2;
++
++int64_t relay_now_ms() {
++    timespec ts{};
++    clock_gettime(CLOCK_MONOTONIC, &ts);
++    return (int64_t) ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
++}
++
++struct RelayPending {       // a connect() the hook sent to the listener
++    Dest dest;
++    Cfg cfg;
++    int64_t at = 0;
++};
++
++struct RelayHalf {          // one direction of a tunnel
++    std::string pend;       // read from one side, not yet taken by the other
++    size_t off = 0;
++    bool eof = false;       // the reading side has ended
++    bool shut = false;      // ...and the end has been passed on
++};
++
++struct RelayConn {
++    enum State { CONNECTING, HANDSHAKE, RELAY };
++    int cfd = -1, ufd = -1;                 // the app's side (accepted), the proxy's side
++    Cfg cfg;
++    Dest dest;
++    State st = CONNECTING;
++    bool closed = false, queued = false;
++    bool cRead = false, cWrite = false, uRead = false, uWrite = false;   // edge-triggered readiness
++    // handshake
++    bool pipelined = false, retried = false;
++    int step = 0;                           // SOCKS5: 0 method, 1 login, 2 connect reply
++    std::string out, in;
++    size_t outOff = 0, inPos = 0;
++    int64_t deadline = 0, stallAt = 0;
++    // tunnel
++    RelayHalf c2u, u2c;
++    int64_t lingerAt = 0;
++};
++
++std::mutex g_relayLock;                     // guards the four below and g_relayPending
++int g_relayState = 0;                       // 0 not started, 1 running, -1 not available
++int g_relayEp = -1, g_relayL4 = -1, g_relayL6 = -1;
++uint16_t g_relayPort4 = 0, g_relayPort6 = 0;
++std::unordered_map<std::string, RelayPending> g_relayPending;   // app socket's own address -> destination
++// Used by the relay thread only.
++std::unordered_set<RelayConn *> g_relayHs, g_relayLinger;
++std::vector<RelayConn *> g_relayReady, g_relayDead;
++char g_relayBuf[kRelayChunk];
++
++// "address/port" of a socket address. A v4-mapped address is written as the IPv4 address it is,
++// so the app's side (AF_INET6 socket) and the listener's side (AF_INET) agree.
++std::string relay_key(const sockaddr *sa) {
++    char b[INET6_ADDRSTRLEN] = "";
++    uint16_t port = 0;
++    if (sa->sa_family == AF_INET) {
++        const sockaddr_in *s = (const sockaddr_in *) sa;
++        inet_ntop(AF_INET, &s->sin_addr, b, sizeof b);
++        port = ntohs(s->sin_port);
++    } else if (sa->sa_family == AF_INET6) {
++        const sockaddr_in6 *s = (const sockaddr_in6 *) sa;
++        if (IN6_IS_ADDR_V4MAPPED(&s->sin6_addr)) inet_ntop(AF_INET, s->sin6_addr.s6_addr + 12, b, sizeof b);
++        else inet_ntop(AF_INET6, &s->sin6_addr, b, sizeof b);
++        port = ntohs(s->sin6_port);
++    }
++    return std::string(b) + "/" + std::to_string(port);
++}
++
++bool relay_watch(RelayConn *c, int fd, int side) {
++    epoll_event ev{};
++    ev.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP | EPOLLET;
++    ev.data.u64 = (uint64_t) (uintptr_t) c | (uint64_t) side;   // side 0: app, 1: proxy
++    return epoll_ctl(g_relayEp, EPOLL_CTL_ADD, fd, &ev) == 0;
++}
++
++void relay_close(RelayConn *c, bool reset) {
++    if (c->closed) return;
++    c->closed = true;
++    if (reset && c->cfd >= 0) {     // the app sees "connection reset", not a clean end
++        linger lg{1, 0};
++        setsockopt(c->cfd, SOL_SOCKET, SO_LINGER, &lg, sizeof lg);
++    }
++    if (c->cfd >= 0) close(c->cfd);     // closing also takes it out of the epoll set
++    if (c->ufd >= 0) close(c->ufd);
++    c->cfd = c->ufd = -1;
++    g_relayHs.erase(c);
++    g_relayLinger.erase(c);
++    if (c->queued) {
++        for (auto &q : g_relayReady) if (q == c) q = nullptr;
++        c->queued = false;
++    }
++    g_relayDead.push_back(c);   // freed after the current batch of events
++}
++
++// Opens the connection to the proxy. The handshake starts when it is writable.
++bool relay_dial(RelayConn *c) {
++    int fd = socket(c->cfg.proxy.ss_family, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
++    if (fd < 0) return false;
++    c->ufd = fd;
++    // The app's own socket options now apply to the loopback hop only, so set here what apps
++    // usually ask for: no send delay for small writes, and keep-alive so idle tunnels survive NAT.
++    int one = 1, idle = 45, cnt = 3;
++    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
++    setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &one, sizeof one);
++    setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof idle);
++    setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &idle, sizeof idle);
++    setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &cnt, sizeof cnt);
++    c->st = RelayConn::CONNECTING;
++    c->uRead = c->uWrite = false;
++    c->step = 0;
++    c->out.clear(); c->in.clear();
++    c->outOff = c->inPos = 0;
++    c->stallAt = 0;
++    c->deadline = relay_now_ms() + kRelayHandshakeMs;
++    int rc = orig_connect(fd, (const sockaddr *) &c->cfg.proxy, c->cfg.proxyLen);
++    if (rc != 0 && errno != EINPROGRESS) return false;
++    return relay_watch(c, fd, 1);
++}
++
++void relay_retry_stepwise(RelayConn *c) {
++    close(c->ufd);
++    c->ufd = -1;
++    c->retried = true;
++    if (!relay_dial(c)) relay_close(c, true);
++}
++
++void relay_begin_handshake(RelayConn *c) {
++    c->st = RelayConn::HANDSHAKE;
++    if (c->cfg.type != 1) {
++        c->pipelined = false;
++        c->out = http_request(c->cfg, c->dest);
++        return;
++    }
++    bool auth = !c->cfg.user.empty();
++    c->pipelined = !c->retried && !g_noPipeline.load();
++    if (c->pipelined) {     // greeting, login and request in one write: one round trip
++        c->out += (char) 5; c->out += (char) 1; c->out += (char) (auth ? 2 : 0);
++        if (auth) socks5_login(c->cfg, c->out);
++        socks5_request(c->dest, c->out);
++        c->stallAt = relay_now_ms() + kRelayStallMs;
++    } else {
++        c->out += (char) 5;
++        if (auth) { c->out += (char) 2; c->out += (char) 0; c->out += (char) 2; }
++        else { c->out += (char) 1; c->out += (char) 0; }
++    }
++}
++
++// Reads the proxy's SOCKS5 replies out of c->in. 1: tunnel open, 0: more bytes needed, -1: refused.
++int relay_socks_progress(RelayConn *c) {
++    bool auth = !c->cfg.user.empty();
++    for (;;) {
++        const uint8_t *p = (const uint8_t *) c->in.data() + c->inPos;
++        size_t n = c->in.size() - c->inPos;
++        if (c->step == 0) {
++            if (n < 2) return 0;
++            if (p[0] != 5) return -1;
++            if (p[1] == 2 && auth) {
++                c->step = 1;
++                if (!c->pipelined) socks5_login(c->cfg, c->out);
++            } else if (p[1] == 0 && !(c->pipelined && auth)) {
++                c->step = 2;
++                if (!c->pipelined) socks5_request(c->dest, c->out);
++            } else {
++                return -1;
++            }
++            c->inPos += 2;
++        } else if (c->step == 1) {
++            if (n < 2) return 0;
++            if (p[1] != 0) return -1;
++            c->step = 2;
++            if (!c->pipelined) socks5_request(c->dest, c->out);
++            c->inPos += 2;
++        } else {
++            if (n < 5) return 0;
++            if (p[0] != 5 || p[1] != 0) return -1;
++            size_t need = 4 + 2;
++            if (p[3] == 1) need += 4;
++            else if (p[3] == 4) need += 16;
++            else if (p[3] == 3) need += 1 + (size_t) p[4];
++            else return -1;
++            if (n < need) return 0;
++            c->inPos += need;
++            return 1;
++        }
++    }
++}
++
++int relay_http_progress(RelayConn *c) {
++    size_t end = c->in.find("\r\n\r\n");
++    if (end == std::string::npos) return c->in.size() > 8192 ? -1 : 0;
++    // "HTTP/1.x 200 ..."
++    if (c->in.size() <= 12 || c->in.compare(0, 5, "HTTP/") != 0 || c->in.compare(9, 3, "200") != 0) return -1;
++    c->inPos = end + 4;
++    return 1;
++}
++
++// The proxy closed the connection in the middle of a handshake. If it never answered what was
++// pipelined behind the greeting it may be one that drops early bytes: try once step by step.
++void relay_handshake_lost(RelayConn *c) {
++    if (c->pipelined && !c->retried && c->step < 2) relay_retry_stepwise(c);
++    else relay_close(c, true);
++}
++
++bool relay_stalled(const RelayConn *c, int64_t now) {
++    if (c->st != RelayConn::HANDSHAKE || !c->pipelined || c->retried || c->stallAt == 0) return false;
++    if (c->step < 2) return now >= c->stallAt;
++    // With a login, its answer proves the proxy read the pipelined bytes, and a late reply only
++    // means a slow destination. Without one there is no such proof, so wait twice as long.
++    return c->cfg.user.empty() && now >= c->stallAt + kRelayStallMs;
++}
++
++// Moves bytes one way until the source is empty, the sink is full or the turn is used up.
++// false: the tunnel is broken.
++bool relay_move(int from, int to, RelayHalf &h, bool &readable, bool &writable, bool &more, size_t &total) {
++    size_t moved = 0;
++    for (;;) {
++        if (h.off < h.pend.size()) {
++            if (!writable) return true;
++            ssize_t w = send(to, h.pend.data() + h.off, h.pend.size() - h.off, MSG_NOSIGNAL);
++            if (w < 0) {
++                if (errno == EINTR) continue;
++                if (errno == EAGAIN || errno == EWOULDBLOCK) { writable = false; return true; }
++                return false;
++            }
++            h.off += (size_t) w;
++            if (h.off == h.pend.size()) { std::string().swap(h.pend); h.off = 0; }
++            continue;
++        }
++        if (h.eof) {
++            if (!h.shut) { shutdown(to, SHUT_WR); h.shut = true; }
++            return true;
++        }
++        if (!readable) return true;
++        if (moved >= kRelayBudget) { more = true; return true; }
++        ssize_t r = recv(from, g_relayBuf, kRelayChunk, 0);
++        if (r < 0) {
++            if (errno == EINTR) continue;
++            if (errno == EAGAIN || errno == EWOULDBLOCK) { readable = false; return true; }
++            return false;
++        }
++        if (r == 0) { h.eof = true; continue; }
++        moved += (size_t) r;
++        total += (size_t) r;
++        ssize_t w = 0;
++        if (writable) {
++            w = send(to, g_relayBuf, (size_t) r, MSG_NOSIGNAL);
++            if (w < 0) {
++                if (errno == EAGAIN || errno == EWOULDBLOCK) writable = false;
++                else if (errno != EINTR) return false;
++                w = 0;
++            }
++        }
++        if (w < r) { h.pend.assign(g_relayBuf + w, (size_t) (r - w)); h.off = 0; }   // sent before reading more
++    }
++}
++
++void relay_pump(RelayConn *c) {
++    bool more = false;
++    size_t total = 0;
++    bool ok = relay_move(c->cfd, c->ufd, c->c2u, c->cRead, c->uWrite, more, total) &&
++              relay_move(c->ufd, c->cfd, c->u2c, c->uRead, c->cWrite, more, total);
++    if (!ok) { relay_close(c, true); return; }
++    if (c->c2u.shut && c->u2c.shut) { relay_close(c, false); return; }
++    if (c->c2u.shut || c->u2c.shut) {
++        // Half closed. The other half may never end (the app closed its socket and the far side
++        // keeps the tunnel open), so it is dropped once nothing has moved for a while.
++        if (c->lingerAt == 0 || total > 0) c->lingerAt = relay_now_ms() + kRelayLingerMs;
++        g_relayLinger.insert(c);
++    }
++    if (more && !c->queued) { c->queued = true; g_relayReady.push_back(c); }
++}
++
++void relay_begin_tunnel(RelayConn *c) {
++    if (c->retried && !g_noPipeline.exchange(true)) {
++        LOGD("proxy needs a step-by-step handshake; using it from now on");
++    }
++    c->st = RelayConn::RELAY;
++    g_relayHs.erase(c);
++    if (c->inPos < c->in.size()) c->u2c.pend.assign(c->in, c->inPos, std::string::npos);   // sent right behind the reply
++    std::string().swap(c->in);
++    std::string().swap(c->out);
++    c->cRead = c->cWrite = c->uRead = c->uWrite = true;   // try once; EAGAIN corrects the guess
++}
++
++void relay_drive(RelayConn *c) {
++    if (c->closed) return;
++    if (c->st == RelayConn::CONNECTING) {
++        if (!c->uWrite) return;
++        int err = 0;
++        socklen_t el = sizeof err;
++        if (getsockopt(c->ufd, SOL_SOCKET, SO_ERROR, &err, &el) != 0 || err != 0) { relay_close(c, true); return; }
++        sockaddr_storage peer{};
++        socklen_t pl = sizeof peer;
++        if (getpeername(c->ufd, (sockaddr *) &peer, &pl) != 0) { c->uWrite = false; return; }   // not connected yet
++        relay_begin_handshake(c);
++    }
++    if (c->st == RelayConn::HANDSHAKE) {
++        for (;;) {
++            while (c->outOff < c->out.size() && c->uWrite) {
++                ssize_t w = send(c->ufd, c->out.data() + c->outOff, c->out.size() - c->outOff, MSG_NOSIGNAL);
++                if (w >= 0) { c->outOff += (size_t) w; continue; }
++                if (errno == EINTR) continue;
++                if (errno == EAGAIN || errno == EWOULDBLOCK) { c->uWrite = false; break; }
++                relay_handshake_lost(c);
++                return;
++            }
++            if (!c->uRead) return;
++            char buf[2048];
++            ssize_t r = recv(c->ufd, buf, sizeof buf, 0);
++            if (r < 0 && errno == EINTR) continue;
++            if (r < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) { c->uRead = false; return; }
++            if (r <= 0) { relay_handshake_lost(c); return; }
++            c->in.append(buf, (size_t) r);
++            int p = c->cfg.type == 1 ? relay_socks_progress(c) : relay_http_progress(c);
++            if (p < 0) { relay_close(c, true); return; }
++            if (p > 0) { relay_begin_tunnel(c); break; }
++        }
++    }
++    if (c->st == RelayConn::RELAY) relay_pump(c);
++}
++
++void relay_accept(int lfd) {
++    for (;;) {
++        sockaddr_storage peer{};
++        socklen_t pl = sizeof peer;
++        int fd = accept4(lfd, (sockaddr *) &peer, &pl, SOCK_NONBLOCK | SOCK_CLOEXEC);
++        if (fd < 0) {
++            if (errno == EINTR || errno == ECONNABORTED) continue;
++            if (errno != EAGAIN && errno != EWOULDBLOCK) usleep(10 * 1000);   // out of descriptors: do not spin
++            return;
++        }
++        // Only connections this process's own connect() hook announced are served; anything else
++        // that finds the port (another app, a scanner) is closed.
++        RelayPending p;
++        bool found = false;
++        {
++            std::lock_guard<std::mutex> guard(g_relayLock);
++            auto it = g_relayPending.find(relay_key((const sockaddr *) &peer));
++            if (it != g_relayPending.end()) {
++                found = relay_now_ms() - it->second.at <= kRelayPendingMs;
++                p = std::move(it->second);
++                g_relayPending.erase(it);
++            }
++        }
++        RelayConn *c = found ? new (std::nothrow) RelayConn() : nullptr;
++        if (!c) { close(fd); continue; }
++        c->cfd = fd;
++        c->cfg = std::move(p.cfg);
++        c->dest = std::move(p.dest);
++        int one = 1;
++        setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
++        g_relayHs.insert(c);
++        if (!relay_watch(c, fd, 0) || !relay_dial(c)) { relay_close(c, true); continue; }
++    }
++}
++
++void *relay_main(void *) {
++    setpriority(PRIO_PROCESS, 0, -2);   // this thread only; it carries all of the app's traffic
++    epoll_event evs[128];
++    int64_t lingerChecked = relay_now_ms();
++    for (;;) {
++        int timeout = !g_relayReady.empty() ? 0 : !g_relayHs.empty() ? 250 : !g_relayLinger.empty() ? 5000 : -1;
++        int n = epoll_wait(g_relayEp, evs, 128, timeout);
++        if (n < 0 && errno != EINTR) usleep(10 * 1000);
++        for (int i = 0; i < n; i++) {
++            uint64_t tag = evs[i].data.u64;
++            if (tag == kRelayTagL4) { relay_accept(g_relayL4); continue; }
++            if (tag == kRelayTagL6) { relay_accept(g_relayL6); continue; }
++            RelayConn *c = (RelayConn *) (uintptr_t) (tag & ~(uint64_t) 1);
++            if (c->closed) continue;
++            uint32_t e = evs[i].events;
++            if (tag & 1) {
++                if (e & (EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLHUP)) c->uRead = true;
++                if (e & (EPOLLOUT | EPOLLERR | EPOLLHUP)) c->uWrite = true;
++            } else {
++                if ((e & (EPOLLERR | EPOLLHUP)) && c->st != RelayConn::RELAY) {   // the app gave up waiting
++                    relay_close(c, false);
++                    continue;
++                }
++                if (e & (EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLHUP)) c->cRead = true;
++                if (e & (EPOLLOUT | EPOLLERR | EPOLLHUP)) c->cWrite = true;
++            }
++            relay_drive(c);
++        }
++        if (!g_relayReady.empty()) {    // tunnels whose turn ended with data still waiting
++            std::vector<RelayConn *> run;
++            run.swap(g_relayReady);
++            for (RelayConn *c : run) {
++                if (!c) continue;
++                c->queued = false;
++                relay_drive(c);
++            }
++        }
++        int64_t now = relay_now_ms();
++        if (!g_relayHs.empty()) {
++            std::vector<RelayConn *> late, stalled;
++            for (RelayConn *c : g_relayHs) {
++                if (now >= c->deadline) late.push_back(c);
++                else if (relay_stalled(c, now)) stalled.push_back(c);
++            }
++            for (RelayConn *c : late) relay_close(c, true);
++            for (RelayConn *c : stalled) relay_retry_stepwise(c);
++        }
++        if (!g_relayLinger.empty() && now - lingerChecked >= 5000) {
++            lingerChecked = now;
++            std::vector<RelayConn *> idle;
++            for (RelayConn *c : g_relayLinger) if (now >= c->lingerAt) idle.push_back(c);
++            for (RelayConn *c : idle) relay_close(c, false);
++        }
++        for (RelayConn *c : g_relayDead) delete c;
++        g_relayDead.clear();
++    }
++    return nullptr;
++}
++
++int relay_listen(int family, uint16_t *port) {
++    int fd = socket(family, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
++    if (fd < 0) return -1;
++    sockaddr_storage ss{};
++    socklen_t len;
++    if (family == AF_INET6) {
++        int one = 1;
++        setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &one, sizeof one);
++        sockaddr_in6 *s = (sockaddr_in6 *) &ss;
++        s->sin6_family = AF_INET6;
++        s->sin6_addr = in6addr_loopback;
++        len = sizeof *s;
++    } else {
++        sockaddr_in *s = (sockaddr_in *) &ss;
++        s->sin_family = AF_INET;
++        s->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
++        len = sizeof *s;
++    }
++    // Loopback only, port chosen by the system.
++    if (bind(fd, (const sockaddr *) &ss, len) != 0 || listen(fd, 512) != 0 ||
++        getsockname(fd, (sockaddr *) &ss, &len) != 0) {
++        close(fd);
++        return -1;
++    }
++    *port = ntohs(family == AF_INET6 ? ((sockaddr_in6 *) &ss)->sin6_port : ((sockaddr_in *) &ss)->sin_port);
++    return fd;
++}
++
++// g_relayLock held. Starts the relay on first use.
++bool relay_start_locked() {
++    if (g_relayState != 0) return g_relayState > 0;
++    g_relayState = -1;
++    g_relayEp = epoll_create1(EPOLL_CLOEXEC);
++    if (g_relayEp < 0) return false;
++    g_relayL4 = relay_listen(AF_INET, &g_relayPort4);
++    g_relayL6 = relay_listen(AF_INET6, &g_relayPort6);
++    if (g_relayL4 < 0 && g_relayL6 < 0) return false;
++    epoll_event ev{};
++    ev.events = EPOLLIN;
++    if (g_relayL4 >= 0) { ev.data.u64 = kRelayTagL4; epoll_ctl(g_relayEp, EPOLL_CTL_ADD, g_relayL4, &ev); }
++    if (g_relayL6 >= 0) { ev.data.u64 = kRelayTagL6; epoll_ctl(g_relayEp, EPOLL_CTL_ADD, g_relayL6, &ev); }
++    // The app's signal handlers must not run on this thread; crash signals stay as they are.
++    sigset_t all, old;
++    sigfillset(&all);
++    for (int s : {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT, SIGTRAP}) sigdelset(&all, s);
++    pthread_sigmask(SIG_SETMASK, &all, &old);
++    pthread_t t;
++    int rc = pthread_create(&t, nullptr, relay_main, nullptr);
++    pthread_sigmask(SIG_SETMASK, &old, nullptr);
++    if (rc != 0) return false;
++    pthread_detach(t);
++    g_relayState = 1;
++    LOGD("relay started");
++    return true;
++}
++
++// connect() for a non-blocking socket: hands the connection to the relay and returns at once.
++// -2: the relay is not available, do the handshake in place.
++int relay_connect(int fd, const sockaddr *sa, const Cfg &c) {
++    Dest d;
++    if (!make_dest(sa, d)) { errno = ENETUNREACH; return -1; }
++    if (c.type == 1 && !socks5_fits(c, d)) { errno = ECONNREFUSED; return -1; }
++    int domain = AF_INET;
++    socklen_t dl = sizeof domain;
++    getsockopt(fd, SOL_SOCKET, SO_DOMAIN, &domain, &dl);
++    // Held across the connect, so the relay cannot look the connection up before it is registered.
++    std::lock_guard<std::mutex> guard(g_relayLock);
++    if (!relay_start_locked()) return -2;
++    sockaddr_storage to{};
++    socklen_t toLen;
++    if (domain == AF_INET6) {
++        sockaddr_in6 *s = (sockaddr_in6 *) &to;
++        s->sin6_family = AF_INET6;
++        if (g_relayL6 >= 0) {
++            s->sin6_addr = in6addr_loopback;
++            s->sin6_port = htons(g_relayPort6);
++        } else {    // no IPv6 loopback: reach the IPv4 listener through a v4-mapped address
++            s->sin6_addr.s6_addr[10] = 0xFF; s->sin6_addr.s6_addr[11] = 0xFF;
++            s->sin6_addr.s6_addr[12] = 127; s->sin6_addr.s6_addr[15] = 1;
++            s->sin6_port = htons(g_relayPort4);
++        }
++        toLen = sizeof *s;
++    } else {
++        if (g_relayL4 < 0) return -2;
++        sockaddr_in *s = (sockaddr_in *) &to;
++        s->sin_family = AF_INET;
++        s->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
++        s->sin_port = htons(g_relayPort4);
++        toLen = sizeof *s;
++    }
++    // A second connect() on the same socket (some apps poll for completion that way) must not
++    // register the connection again.
++    sockaddr_storage peer{};
++    socklen_t pl = sizeof peer;
++    bool again = getpeername(fd, (sockaddr *) &peer, &pl) == 0;
++    int rc = orig_connect(fd, (const sockaddr *) &to, toLen);
++    int err = errno;
++    if (!again && (rc == 0 || err == EINPROGRESS)) {
++        sockaddr_storage me{};
++        socklen_t ml = sizeof me;
++        if (getsockname(fd, (sockaddr *) &me, &ml) == 0) {
++            int64_t now = relay_now_ms();
++            if (g_relayPending.size() > 256) {   // announced but never arrived (the app closed first)
++                for (auto it = g_relayPending.begin(); it != g_relayPending.end();) {
++                    if (now - it->second.at > kRelayPendingMs) it = g_relayPending.erase(it); else ++it;
++                }
++            }
++            RelayPending &p = g_relayPending[relay_key((const sockaddr *) &me)];
++            p.dest = d;
++            p.cfg = c;
++            p.at = now;
++        }
++    }
++    errno = err;
++    return rc;
++}
++
+ int my_connect(int fd, const sockaddr *sa, socklen_t len) {
+     if (!sa) return orig_connect(fd, sa, len);
+     Cfg c = snapshot();
+@@ -476,6 +1053,11 @@ int my_connect(int fd, const sockaddr *sa, socklen_t len) {
+         return orig_connect(fd, sa, len);
+     }
+     if (stype != SOCK_STREAM) return orig_connect(fd, sa, len);
++    int flags = fcntl(fd, F_GETFL, 0);
++    if (flags >= 0 && (flags & O_NONBLOCK)) {
++        int rc = relay_connect(fd, sa, c);
++        if (rc != -2) return rc;
++    }
+     return proxied_connect(fd, sa, c);
+ }
+ 

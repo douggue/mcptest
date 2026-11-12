@@ -37,6 +37,10 @@ object ProfileApplier {
             setDefaultLocale(Locale.forLanguageTag(p.locale))
             TimeZone.setDefault(TimeZone.getTimeZone(p.timezone))
         }
+        // Native code gets local time from libc, which remembers the zone it read from
+        // persist.sys.timezone, possibly before the clone's property hook existed. libc looks at
+        // the TZ variable first on every call, so set it: Java and native time then agree.
+        runCatching { if (p.timezone.isNotBlank()) android.system.Os.setenv("TZ", p.timezone, true) }
     }
 
     /**

@@ -173,6 +173,7 @@ plan.md, README.md, THIRD_PARTY.md
 docs/research.md       research, decisions, corrections to the plan, open questions
 docs/engine-api.md     the engine's real API, from its source
 patches/               engine fixes, one per file; scripts/fetch-engine.sh applies them
+native-tests/          test of the engine's proxy code against a mock proxy; native-tests/run.sh runs it on an emulator or phone
 engine/                git-ignored, created by the script
 app/                   the app (Compose UI, VirtualEngine wrapper, profiles, proxy, data)
 probe/                 tiny app installed inside a clone by the leak test
