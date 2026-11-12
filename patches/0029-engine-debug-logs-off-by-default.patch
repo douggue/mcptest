@@ -1,0 +1,57 @@
+diff --git a/Bcore/src/main/java/top/niunaijun/blackbox/utils/Slog.java b/Bcore/src/main/java/top/niunaijun/blackbox/utils/Slog.java
+index 61b8edf..f08e1e5 100644
+--- a/Bcore/src/main/java/top/niunaijun/blackbox/utils/Slog.java
++++ b/Bcore/src/main/java/top/niunaijun/blackbox/utils/Slog.java
+@@ -11,32 +11,52 @@ public final class Slog {
+     private Slog() {
+     }
+ 
++    // Verbose, debug and info lines are off unless asked for. The engine writes them from hooked
++    // calls in every process of every clone, each one a write to the system log, and nothing reads
++    // them: the app's report keeps warnings and errors only. To see them again:
++    // adb shell setprop log.tag.CloneSpaceEngine VERBOSE, then restart the app.
++    private static final boolean CHATTY = chatty();
++
++    private static boolean chatty() {
++        try {
++            return Log.isLoggable("CloneSpaceEngine", Log.VERBOSE);
++        } catch (Throwable t) {
++            return false;
++        }
++    }
++
+     public static int v(String tag, String msg) {
++        if (!CHATTY) return 0;
+         return Log.println(Log.VERBOSE, tag, msg);
+     }
+ 
+     public static int v(String tag, String msg, Throwable tr) {
++        if (!CHATTY) return 0;
+         return Log.println(Log.VERBOSE, tag,
+                 msg + '\n' + Log.getStackTraceString(tr));
+     }
+ 
+     
+     public static int d(String tag, String msg) {
++        if (!CHATTY) return 0;
+         return Log.println(Log.DEBUG, tag, msg);
+     }
+ 
+     
+     public static int d(String tag, String msg, Throwable tr) {
++        if (!CHATTY) return 0;
+         return Log.println(Log.DEBUG, tag,
+                 msg + '\n' + Log.getStackTraceString(tr));
+     }
+ 
+     
+     public static int i(String tag, String msg) {
++        if (!CHATTY) return 0;
+         return Log.println(Log.INFO, tag, msg);
+     }
+ 
+     public static int i(String tag, String msg, Throwable tr) {
++        if (!CHATTY) return 0;
+         return Log.println(Log.INFO, tag,
+                 msg + '\n' + Log.getStackTraceString(tr));
+     }

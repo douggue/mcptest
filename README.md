@@ -36,6 +36,10 @@ scripts/fetch-engine.sh                 # clones NewBlackbox at the pin into eng
 ./gradlew :app:testPlayDebugUnitTest    # unit tests (profiles, backup, leak analysis, shortcut parsing)
 ```
 
+The debug build is **not debuggable** (`isDebuggable = false` in `app/build.gradle.kts`). Clones run inside
+this app's processes and inherit its flags, and in a debuggable process Android ignores an app's
+precompiled code. To attach a debugger or use `run-as`, set it back to `true` locally.
+
 `:app` builds the `:probe` app first and bundles it as an asset (the leak test installs it inside a clone).
 The APKs are ARM only (`arm64-v8a`, `armeabi-v7a`); x86 emulators will not work.
 

@@ -40,6 +40,12 @@ android {
     sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/probeAssets"))
 
     buildTypes {
+        debug {
+            // Clones run inside this app's processes and inherit its flags. In a debuggable process
+            // Android ignores an app's precompiled code and runs it in a slower mode, so every clone
+            // paid for it. The key and everything else stay as in a debug build.
+            isDebuggable = false
+        }
         release {
             isMinifyEnabled = false   // the engine's keep rules cover most classes; enable after device testing
         }
