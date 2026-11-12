@@ -715,6 +715,47 @@ void test_udp_block() {
     int rc = my_connect(fd, (sockaddr *) &ss, len);
     check(rc == -1 && errno == ENETUNREACH, "UDP to public addresses is refused");
     close(fd);
+
+    // The same without connect(): the destination is named in each send (QUIC stacks, WebRTC).
+    fd = socket(AF_INET, SOCK_DGRAM, 0);
+    sockaddr_storage fake;
+    socklen_t fakeLen = make_addr(AF_INET, "198.19.0.9", 443, fake);
+    errno = 0;
+    bool a = my_sendto(fd, "x", 1, 0, (sockaddr *) &ss, len) == -1 && errno == ENETUNREACH;
+    errno = 0;
+    bool b = my_sendto(fd, "x", 1, 0, (sockaddr *) &fake, fakeLen) == -1 && errno == ENETUNREACH;
+    iovec iov{(void *) "x", 1};
+    msghdr one{};
+    one.msg_name = &ss; one.msg_namelen = len; one.msg_iov = &iov; one.msg_iovlen = 1;
+    errno = 0;
+    bool c = my_sendmsg(fd, &one, 0) == -1 && errno == ENETUNREACH;
+    mmsghdr many[2]{};
+    many[0].msg_hdr = one;
+    many[1].msg_hdr = one;
+    errno = 0;
+    bool d = my_sendmmsg(fd, many, 2, 0) == -1 && errno == ENETUNREACH;
+    check(a && b && c && d, "UDP sent without connecting is refused too, to public and placeholder addresses",
+          "(sendto %d/%d, sendmsg %d, sendmmsg %d)", a, b, c, d);
+    // UDP that stays on the phone or the local network is left alone (DNS to the router, mDNS).
+    int local = socket(AF_INET, SOCK_DGRAM, 0);
+    sockaddr_in la{};
+    la.sin_family = AF_INET;
+    la.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    socklen_t ll = sizeof la;
+    bind(local, (sockaddr *) &la, sizeof la);
+    getsockname(local, (sockaddr *) &la, &ll);
+    char got = 0;
+    bool e = my_sendto(fd, "y", 1, 0, (sockaddr *) &la, sizeof la) == 1 && recv(local, &got, 1, 0) == 1 && got == 'y';
+    check(e, "UDP to the phone itself still works");
+    // With "block UDP" switched off nothing is refused (not sent anywhere here: only the decision is checked).
+    std::string user, pass;
+    { std::lock_guard<std::mutex> g(g_mock.m); user = g_mock.user; pass = g_mock.pass; }
+    ProxyHook_configure(g_mockType.load(), "127.0.0.1", g_mock.port, user.c_str(), pass.c_str(), false);
+    bool f = !udp_send_blocked(fd, &ss);
+    ProxyHook_configure(g_mockType.load(), "127.0.0.1", g_mock.port, user.c_str(), pass.c_str(), true);
+    check(f && udp_send_blocked(fd, &ss), "the switch decides: off lets UDP through, on refuses it");
+    close(local);
+    close(fd);
 }
 
 void test_no_pipeline_proxy() {

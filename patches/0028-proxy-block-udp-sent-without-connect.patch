@@ -1,0 +1,76 @@
+diff --git a/Bcore/src/main/cpp/Utils/ProxyHook.cpp b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+index 6e3fb03..f04e19d 100644
+--- a/Bcore/src/main/cpp/Utils/ProxyHook.cpp
++++ b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+@@ -1417,6 +1417,48 @@ int my_connect(int fd, const sockaddr *sa, socklen_t len) {
+     return proxied_connect(fd, sa, c);
+ }
+ 
++// ---- UDP that is sent without connect() ---------------------------------------------------------
++// my_connect() refuses UDP sockets that connect to a public address. A socket can also send
++// datagrams without ever connecting, by naming the destination in each call, and some stacks do
++// exactly that (Facebook's QUIC, WebRTC, some DNS code). Unhooked, those datagrams went straight
++// out: with a placeholder address they vanished and the app waited for a timeout before it fell
++// back to TCP; with a real address they left from the phone's own address, around the proxy.
++// UDP cannot be carried by the proxy, so with "block UDP" on these sends fail like the connect.
++std::atomic<bool> g_udpBlocked{false};
++ssize_t (*orig_sendto)(int, const void *, size_t, int, const sockaddr *, socklen_t) = nullptr;
++ssize_t (*orig_sendmsg)(int, const msghdr *, int) = nullptr;
++int (*orig_sendmmsg)(int, mmsghdr *, unsigned int, int) = nullptr;
++
++// True when this call names a public (or placeholder) destination on a UDP socket.
++bool udp_send_blocked(int fd, const void *name) {
++    if (!name || !g_udpBlocked.load(std::memory_order_relaxed)) return false;
++    const sockaddr *sa = (const sockaddr *) name;
++    if ((sa->sa_family != AF_INET && sa->sa_family != AF_INET6) || is_direct(sa)) return false;
++    int stype = 0;
++    socklen_t sl = sizeof stype;
++    return getsockopt(fd, SOL_SOCKET, SO_TYPE, &stype, &sl) == 0 && stype == SOCK_DGRAM;
++}
++
++ssize_t my_sendto(int fd, const void *buf, size_t len, int flags, const sockaddr *to, socklen_t tolen) {
++    if (udp_send_blocked(fd, to)) { errno = ENETUNREACH; return -1; }
++    return orig_sendto(fd, buf, len, flags, to, tolen);
++}
++
++ssize_t my_sendmsg(int fd, const msghdr *msg, int flags) {
++    if (msg && udp_send_blocked(fd, msg->msg_name)) { errno = ENETUNREACH; return -1; }
++    return orig_sendmsg(fd, msg, flags);
++}
++
++int my_sendmmsg(int fd, mmsghdr *msgs, unsigned int count, int flags) {
++    // Datagrams ahead of the first refused one are sent; the call then reports how many went.
++    for (unsigned int i = 0; msgs && i < count; i++) {
++        if (!udp_send_blocked(fd, msgs[i].msg_hdr.msg_name)) continue;
++        if (i == 0) { errno = ENETUNREACH; return -1; }
++        return orig_sendmmsg(fd, msgs, i, flags);
++    }
++    return orig_sendmmsg(fd, msgs, count, flags);
++}
++
+ bool is_numeric_or_local(const char *node) {
+     unsigned char buf[16];
+     if (inet_pton(AF_INET, node, buf) == 1 || inet_pton(AF_INET6, node, buf) == 1) return true;
+@@ -1704,8 +1746,12 @@ void install_locked() {
+     if (void *p = xdl_dsym(handle, "android_getaddrinfofornet", nullptr)) DobbyHook(p, (void *) my_gai_fornet, (void **) &orig_gai_fornet);
+     if (void *p = xdl_dsym(handle, "android_getaddrinfofornetcontext", nullptr)) DobbyHook(p, (void *) my_gai_fornetctx, (void **) &orig_gai_fornetctx);
+     xdl_close(handle);
+-    LOGD("hooks: connect %s, lookups %s, peer address %s", orig_connect ? "on" : "MISSING",
+-         orig_getaddrinfo ? "on" : "MISSING", orig_getpeername ? "on" : "MISSING");
++    if (void *p = xdl_dsym(handle, "sendto", nullptr)) DobbyHook(p, (void *) my_sendto, (void **) &orig_sendto);
++    if (void *p = xdl_dsym(handle, "sendmsg", nullptr)) DobbyHook(p, (void *) my_sendmsg, (void **) &orig_sendmsg);
++    if (void *p = xdl_dsym(handle, "sendmmsg", nullptr)) DobbyHook(p, (void *) my_sendmmsg, (void **) &orig_sendmmsg);
++    LOGD("hooks: connect %s, lookups %s, peer address %s, UDP sends %s", orig_connect ? "on" : "MISSING",
++         orig_getaddrinfo ? "on" : "MISSING", orig_getpeername ? "on" : "MISSING",
++         orig_sendto && orig_sendmsg && orig_sendmmsg ? "on" : "PARTLY MISSING");
+ }
+ 
+ }  // namespace
+@@ -1740,6 +1786,7 @@ bool ProxyHook_configure(int type, const char *ip, int port, const char *user, c
+         install_locked();
+     }
+     g_cfg = c;
++    g_udpBlocked.store(c.type != 0 && c.blockUdp);
+     g_noPipeline.store(false);
+     {
+         std::lock_guard<std::mutex> dns(g_dnsLock);
