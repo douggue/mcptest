@@ -28,6 +28,15 @@ class LeakTest {
         assertEquals(LeakStatus.ISOLATED, status(rows, Keys.DNS))
         rows = LeakAnalyzer.analyze(real, mapOf(Keys.PUBLIC_IP to "9.9.9.9", Keys.DNS to "93.184.216.34"), p, proxy)
         assertEquals(LeakStatus.LEAK, status(rows, Keys.DNS))
+        // a real address is fine when the hook says it looked the name up through the proxy
+        rows = LeakAnalyzer.analyze(real, mapOf(Keys.DNS to "93.184.216.34", Keys.DNS_CHECK to "198.18.0.2"), p, proxy)
+        assertEquals(LeakStatus.ISOLATED, status(rows, Keys.DNS))
+        assertTrue("through the proxy" in rows.first { it.key == Keys.DNS }.note!!)
+        rows = LeakAnalyzer.analyze(real, mapOf(Keys.DNS to "198.19.0.7", Keys.DNS_CHECK to "198.18.0.1"), p, proxy)
+        assertEquals(LeakStatus.ISOLATED, status(rows, Keys.DNS))
+        // the hook did not answer the check name: a real address is then a leak
+        rows = LeakAnalyzer.analyze(real, mapOf(Keys.DNS to "93.184.216.34", Keys.DNS_CHECK to "error: UnknownHostException"), p, proxy)
+        assertEquals(LeakStatus.LEAK, status(rows, Keys.DNS))
     }
     @Test fun timeZoneAgainstTheProxyLocation() {
         val paris = GeoInfo("9.9.9.9", "FR", "Paris", 48.85, 2.35, "Europe/Paris", "fr-FR")

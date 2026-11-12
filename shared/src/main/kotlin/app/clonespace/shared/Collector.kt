@@ -53,6 +53,7 @@ object Collector {
         val m = LinkedHashMap<String, String>()
         m[Keys.PUBLIC_IP] = runCatching { Trace.parseIp(httpsGet(Keys.TRACE_URL)) }.getOrElse { describe(it) }
         m[Keys.DNS] = runCatching { InetAddress.getByName(Keys.DNS_TEST_HOST).hostAddress ?: "" }.getOrElse { describe(it) }
+        m[Keys.DNS_CHECK] = runCatching { InetAddress.getByName(Keys.DNS_CHECK_HOST).hostAddress ?: "" }.getOrElse { describe(it) }
         return m
     }
 

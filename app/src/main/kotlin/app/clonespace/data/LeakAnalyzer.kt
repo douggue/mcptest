@@ -93,12 +93,23 @@ object LeakAnalyzer {
         rows += ipRow(Keys.PUBLIC_IP, "Public IP (app traffic)", real, clone, proxy)
         rows += ipRow(Keys.WEBVIEW_IP, "Public IP (WebView traffic)", real, clone, proxy)
         val dns = clone[Keys.DNS]
+        // With a proxy on, the hook either looks names up through the proxy (the clone then sees
+        // real addresses, like the phone does) or hands out placeholder addresses. A real address
+        // alone cannot show which, so the clone also asks for a name only the hook answers.
+        val check = clone[Keys.DNS_CHECK]
+        val throughProxy = check == "198.18.0.2"
+        val placeholders = check == "198.18.0.1" || (dns != null && (dns.startsWith("198.18.") || dns.startsWith("198.19.")))
         rows += LeakRow(Keys.DNS, "DNS lookup", real[Keys.DNS].orEmpty(), dns ?: "no data", when {
             dns == null -> LeakStatus.UNKNOWN
             !proxy.isUsable -> LeakStatus.SHARED
-            dns.startsWith("198.18.") || dns.startsWith("198.19.") -> LeakStatus.ISOLATED
+            throughProxy || placeholders -> LeakStatus.ISOLATED
             else -> LeakStatus.LEAK
-        }, note = if (!proxy.isUsable) "Proxy is off, so DNS goes out directly" else null)
+        }, note = when {
+            !proxy.isUsable -> "Proxy is off, so DNS goes out directly"
+            throughProxy -> "Names are looked up through the proxy, so the clone gets real addresses as seen from where the proxy exits"
+            placeholders -> "The proxy does not allow DNS through it: names get placeholder addresses and the proxy resolves them"
+            else -> null
+        })
 
         // A clone whose address is in one country and whose clock is in another stands out, and the
         // identity rows above cannot show it: they only compare the clone with its own profile.

@@ -1,0 +1,576 @@
+diff --git a/Bcore/src/main/cpp/Utils/ProxyHook.cpp b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+index 87d7fa8..5ca6be4 100644
+--- a/Bcore/src/main/cpp/Utils/ProxyHook.cpp
++++ b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+@@ -2,9 +2,11 @@
+ //
+ // Android's VpnService works per app UID, and every clone shares the host's UID, so a per-clone
+ // proxy has to live inside the clone process. This hooks libc connect() and the getaddrinfo family:
+-//  * DNS: a hostname is answered with a fake address from 198.18.0.0/15. When connect() sees such an
+-//    address it sends the hostname to the proxy (SOCKS5 ATYP=domain / HTTP CONNECT host:port), so
+-//    the name is resolved by the proxy and no DNS query leaves the phone.
++//  * DNS: a hostname is looked up through the proxy (DNS over TCP to a public resolver, inside a
++//    tunnel), so the app gets the real addresses as seen from where the proxy exits and no DNS
++//    query leaves the phone directly. When the proxy does not allow that, the name is answered
++//    with a fake address from 198.18.0.0/15 instead; when connect() sees such an address it sends
++//    the hostname to the proxy (SOCKS5 ATYP=domain / HTTP CONNECT host:port), which resolves it.
+ //  * TCP to a public address, blocking socket: connected to the proxy, handshake done in place,
+ //    then returns 0.
+ //  * TCP to a public address, non-blocking socket: connected to a relay thread on loopback, which
+@@ -437,6 +439,8 @@ bool http_handshake(int fd, const Cfg &c, const Dest &d) {
+     return resp.size() > 12 && resp.compare(0, 5, "HTTP/") == 0 && resp.compare(9, 3, "200") == 0;
+ }
+ 
++void peer_remember(int fd, const sockaddr *sa);
++
+ int proxied_connect(int fd, const sockaddr *sa, const Cfg &c) {
+     Dest d;
+     if (!make_dest(sa, d)) { errno = ENETUNREACH; return -1; }
+@@ -483,7 +487,7 @@ int proxied_connect(int fd, const sockaddr *sa, const Cfg &c) {
+     setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &oldS, sizeof oldS);
+     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &oldR, sizeof oldR);
+     if (nonblock) fcntl(fd, F_SETFL, flags);
+-    if (ok) return 0;
++    if (ok) { peer_remember(fd, sa); return 0; }
+     errno = err;
+     return -1;
+ }
+@@ -549,12 +553,14 @@ struct RelayConn {
+     RelayHalf c2u, u2c;
+     int64_t lingerAt = 0;
+     int64_t startedAt = 0;
++    size_t up = 0, down = 0;                // bytes carried for the app
++    char firstEnd = 0;                      // who ended it: A/a the app (cleanly/abruptly), P/p the proxy side
+ };
+ 
+ std::mutex g_relayLock;                     // guards the four below and g_relayPending
+ int g_relayState = 0;                       // 0 not started, 1 running, -1 not available
+ int g_relayEp = -1, g_relayL4 = -1, g_relayL6 = -1;
+-uint16_t g_relayPort4 = 0, g_relayPort6 = 0;
++std::atomic<uint16_t> g_relayPort4{0}, g_relayPort6{0};
+ std::unordered_map<std::string, RelayPending> g_relayPending;   // app socket's own address -> destination
+ // Used by the relay thread only.
+ std::unordered_set<RelayConn *> g_relayHs, g_relayLinger;
+@@ -570,7 +576,14 @@ struct RelayStats {
+     size_t down = 0, up = 0;
+     std::string lastFailure;
+     int64_t since = 0;
+-    bool any() const { return opened || ready || failed || abandoned || broken || down || up; }
++    // Tunnels that ended: who ended them, how long they lived, how much they carried, and when.
++    // An app that keeps dropping its connections shows here, and so does the reason to suspect.
++    int ended = 0, appClean = 0, appAbrupt = 0, proxyClean = 0, proxyAbrupt = 0;
++    int lifeShort = 0, lifeMid = 0, lifeLong = 0;
++    int upTiny = 0, upSmall = 0, upMore = 0, downTiny = 0, downSmall = 0, downMore = 0;
++    int perSecond[10] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
++    std::unordered_map<std::string, int> names, addresses;   // where new connections went
++    bool any() const { return opened || ready || failed || abandoned || broken || ended || down || up; }
+ };
+ RelayStats g_relayStats;
+ int g_relayOpenNow = 0;
+@@ -586,11 +599,49 @@ void relay_summary(int64_t now) {
+              sec, t.opened, t.ready, (long long) (t.ready ? t.setupSum / t.ready : 0), (long long) t.setupMax,
+              t.failed, t.lastFailure.empty() ? "" : ", last reason: ", t.lastFailure.c_str(), t.abandoned, t.broken,
+              g_relayOpenNow, t.down / 1024, (double) (t.down / 1024) / sec, t.up / 1024);
++        if (t.ended) {
++            std::string when;
++            for (int n : t.perSecond) when += (when.empty() ? "" : " ") + std::to_string(n);
++            LOGD("relay, %d tunnels ended. By the app: %d cleanly, %d abruptly. By the proxy side: %d cleanly, %d abruptly. "
++                 "Lived under 2 s: %d, 2 to 10 s: %d, longer: %d. The app sent under 1 KB: %d, 1 to 4 KB: %d, more: %d. "
++                 "It got under 8 KB: %d, 8 to 100 KB: %d, more: %d. Ended in each second: %s",
++                 t.ended, t.appClean, t.appAbrupt, t.proxyClean, t.proxyAbrupt, t.lifeShort, t.lifeMid, t.lifeLong,
++                 t.upTiny, t.upSmall, t.upMore, t.downTiny, t.downSmall, t.downMore, when.c_str());
++        }
++        if (!t.names.empty() || !t.addresses.empty()) {
++            std::vector<std::pair<int, std::string>> all;
++            for (auto &e : t.names) all.emplace_back(e.second, e.first);
++            for (auto &e : t.addresses) all.emplace_back(e.second, e.first);
++            std::sort(all.begin(), all.end(), [](const std::pair<int, std::string> &a, const std::pair<int, std::string> &b) {
++                return a.first != b.first ? a.first > b.first : a.second < b.second;
++            });
++            std::string most;
++            for (size_t i = 0; i < all.size() && i < 8; i++) {
++                most += (i ? ", " : "") + all[i].second + " x" + std::to_string(all[i].first);
++            }
++            LOGD("relay, new connections went to %zu names and %zu plain addresses. Most: %s",
++                 t.names.size(), t.addresses.size(), most.c_str());
++        }
+     }
+     t = RelayStats();
+     t.since = now;
+ }
+ 
++// Destination as text, for the log: the name the app asked for, or the address.
++std::string relay_label(const Dest &d) {
++    std::string label;
++    if (d.isDomain) {
++        label = d.domain;
++    } else {
++        char b[INET6_ADDRSTRLEN] = "";
++        if (d.family == AF_INET) inet_ntop(AF_INET, &((const sockaddr_in *) &d.addr)->sin_addr, b, sizeof b);
++        else inet_ntop(AF_INET6, &((const sockaddr_in6 *) &d.addr)->sin6_addr, b, sizeof b);
++        label = b;
++    }
++    if (d.port != 443) label += ":" + std::to_string(d.port);
++    return label;
++}
++
+ // "address/port" of a socket address. A v4-mapped address is written as the IPv4 address it is,
+ // so the app's side (AF_INET6 socket) and the listener's side (AF_INET) agree.
+ std::string relay_key(const sockaddr *sa) {
+@@ -609,6 +660,59 @@ std::string relay_key(const sockaddr *sa) {
+     return std::string(b) + "/" + std::to_string(port);
+ }
+ 
++// ---- getpeername ----------------------------------------------------------------------------
++// A proxied socket is really connected to the relay (or, for a blocking socket, to the proxy), and
++// that is what getpeername() would say. Code that checks who it is connected to, or that files its
++// connections for reuse under the peer's address, then never finds them again and opens a new
++// connection for every request. So the hook answers with the address the app asked to connect to.
++int (*orig_getpeername)(int, sockaddr *, socklen_t *) = nullptr;
++std::mutex g_peerLock;
++std::unordered_map<std::string, sockaddr_storage> g_peers;   // app socket's own address -> where it asked to go
++
++// Call after connect() on a proxied socket has been started or has succeeded.
++void peer_remember(int fd, const sockaddr *sa) {
++    sockaddr_storage me{};
++    socklen_t ml = sizeof me;
++    if (getsockname(fd, (sockaddr *) &me, &ml) != 0) return;
++    sockaddr_storage asked{};
++    memcpy(&asked, sa, sa->sa_family == AF_INET ? sizeof(sockaddr_in) : sizeof(sockaddr_in6));
++    std::lock_guard<std::mutex> guard(g_peerLock);
++    if (g_peers.size() > 8192) g_peers.clear();   // entries of closed sockets; a port that is reused is overwritten
++    g_peers[relay_key((const sockaddr *) &me)] = asked;
++}
++
++int my_getpeername(int fd, sockaddr *addr, socklen_t *len) {
++    if (!addr || !len) return orig_getpeername(fd, addr, len);
++    socklen_t room = *len;
++    int rc = orig_getpeername(fd, addr, len);
++    if (rc != 0) return rc;
++    Cfg c = snapshot();
++    if (c.type == 0) return rc;
++    sockaddr_storage real{};
++    socklen_t rl = sizeof real;
++    if (orig_getpeername(fd, (sockaddr *) &real, &rl) != 0) return rc;
++    if (real.ss_family != AF_INET && real.ss_family != AF_INET6) return rc;
++    std::string peer = relay_key((const sockaddr *) &real);
++    uint16_t p4 = g_relayPort4.load(), p6 = g_relayPort6.load();
++    bool ours = peer == relay_key((const sockaddr *) &c.proxy) ||
++                (p4 && peer == "127.0.0.1/" + std::to_string(p4)) || (p6 && peer == "::1/" + std::to_string(p6));
++    if (!ours) return rc;
++    sockaddr_storage me{};
++    socklen_t ml = sizeof me;
++    if (getsockname(fd, (sockaddr *) &me, &ml) != 0) return rc;
++    sockaddr_storage asked{};
++    {
++        std::lock_guard<std::mutex> guard(g_peerLock);
++        auto it = g_peers.find(relay_key((const sockaddr *) &me));
++        if (it == g_peers.end()) return rc;
++        asked = it->second;
++    }
++    socklen_t al = asked.ss_family == AF_INET ? sizeof(sockaddr_in) : sizeof(sockaddr_in6);
++    memcpy(addr, &asked, std::min(room, al));
++    *len = al;
++    return 0;
++}
++
+ bool relay_watch(RelayConn *c, int fd, int side) {
+     epoll_event ev{};
+     ev.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP | EPOLLET;
+@@ -624,6 +728,20 @@ void relay_close(RelayConn *c, bool reset) {
+         setsockopt(c->cfd, SOL_SOCKET, SO_LINGER, &lg, sizeof lg);
+     }
+     g_relayOpenNow--;
++    if (c->st == RelayConn::RELAY) {
++        RelayStats &t = g_relayStats;
++        int64_t now = relay_now_ms(), life = now - c->startedAt;
++        t.ended++;
++        if (c->firstEnd == 'A') t.appClean++;
++        else if (c->firstEnd == 'a') t.appAbrupt++;
++        else if (c->firstEnd == 'P') t.proxyClean++;
++        else if (c->firstEnd == 'p') t.proxyAbrupt++;
++        (life < 2000 ? t.lifeShort : life < 10000 ? t.lifeMid : t.lifeLong)++;
++        (c->up < 1024 ? t.upTiny : c->up < 4096 ? t.upSmall : t.upMore)++;
++        (c->down < 8192 ? t.downTiny : c->down < 102400 ? t.downSmall : t.downMore)++;
++        int second = t.since ? (int) ((now - t.since) / 1000) : 0;
++        t.perSecond[std::min(std::max(second, 0), 9)]++;
++    }
+     if (c->cfd >= 0) close(c->cfd);     // closing also takes it out of the epoll set
+     if (c->ufd >= 0) close(c->ufd);
+     c->cfd = c->ufd = -1;
+@@ -772,17 +890,17 @@ bool relay_stalled(const RelayConn *c, int64_t now) {
+ }
+ 
+ // Moves bytes one way until the source is empty, the sink is full or the turn is used up.
+-// false: the tunnel is broken.
+-bool relay_move(int from, int to, RelayHalf &h, bool &readable, bool &writable, bool &more, size_t &total) {
++// 0: fine. 1: the source broke. 2: the sink broke.
++int relay_move(int from, int to, RelayHalf &h, bool &readable, bool &writable, bool &more, size_t &total) {
+     size_t moved = 0;
+     for (;;) {
+         if (h.off < h.pend.size()) {
+-            if (!writable) return true;
++            if (!writable) return 0;
+             ssize_t w = send(to, h.pend.data() + h.off, h.pend.size() - h.off, MSG_NOSIGNAL);
+             if (w < 0) {
+                 if (errno == EINTR) continue;
+-                if (errno == EAGAIN || errno == EWOULDBLOCK) { writable = false; return true; }
+-                return false;
++                if (errno == EAGAIN || errno == EWOULDBLOCK) { writable = false; return 0; }
++                return 2;
+             }
+             h.off += (size_t) w;
+             if (h.off == h.pend.size()) { std::string().swap(h.pend); h.off = 0; }
+@@ -790,15 +908,15 @@ bool relay_move(int from, int to, RelayHalf &h, bool &readable, bool &writable,
+         }
+         if (h.eof) {
+             if (!h.shut) { shutdown(to, SHUT_WR); h.shut = true; }
+-            return true;
++            return 0;
+         }
+-        if (!readable) return true;
+-        if (moved >= kRelayBudget) { more = true; return true; }
++        if (!readable) return 0;
++        if (moved >= kRelayBudget) { more = true; return 0; }
+         ssize_t r = recv(from, g_relayBuf, kRelayChunk, 0);
+         if (r < 0) {
+             if (errno == EINTR) continue;
+-            if (errno == EAGAIN || errno == EWOULDBLOCK) { readable = false; return true; }
+-            return false;
++            if (errno == EAGAIN || errno == EWOULDBLOCK) { readable = false; return 0; }
++            return 1;
+         }
+         if (r == 0) { h.eof = true; continue; }
+         moved += (size_t) r;
+@@ -808,7 +926,7 @@ bool relay_move(int from, int to, RelayHalf &h, bool &readable, bool &writable,
+             w = send(to, g_relayBuf, (size_t) r, MSG_NOSIGNAL);
+             if (w < 0) {
+                 if (errno == EAGAIN || errno == EWOULDBLOCK) writable = false;
+-                else if (errno != EINTR) return false;
++                else if (errno != EINTR) return 2;
+                 w = 0;
+             }
+         }
+@@ -819,12 +937,21 @@ bool relay_move(int from, int to, RelayHalf &h, bool &readable, bool &writable,
+ void relay_pump(RelayConn *c) {
+     bool more = false;
+     size_t up = 0, down = 0;
+-    bool ok = relay_move(c->cfd, c->ufd, c->c2u, c->cRead, c->uWrite, more, up) &&
+-              relay_move(c->ufd, c->cfd, c->u2c, c->uRead, c->cWrite, more, down);
++    int upward = relay_move(c->cfd, c->ufd, c->c2u, c->cRead, c->uWrite, more, up);
++    int downward = upward ? 0 : relay_move(c->ufd, c->cfd, c->u2c, c->uRead, c->cWrite, more, down);
+     g_relayStats.up += up;
+     g_relayStats.down += down;
++    c->up += up;
++    c->down += down;
+     size_t total = up + down;
+-    if (!ok) { g_relayStats.broken++; relay_close(c, true); return; }
++    // Who ended the tunnel is whoever ended first: a clean end (the app's or the far side's), or a
++    // break on the app's socket (source going up, sink going down) or on the proxy's.
++    if (!c->firstEnd) {
++        if (c->c2u.eof) c->firstEnd = 'A';
++        else if (c->u2c.eof) c->firstEnd = 'P';
++        else if (upward || downward) c->firstEnd = (upward == 1 || downward == 2) ? 'a' : 'p';
++    }
++    if (upward || downward) { g_relayStats.broken++; relay_close(c, true); return; }
+     if (c->c2u.shut && c->u2c.shut) { relay_close(c, false); return; }
+     if (c->c2u.shut || c->u2c.shut) {
+         // Half closed. The other half may never end (the app closed its socket and the far side
+@@ -924,6 +1051,7 @@ void relay_accept(int lfd) {
+         setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
+         c->startedAt = relay_now_ms();
+         g_relayStats.opened++;
++        (c->dest.isDomain ? g_relayStats.names : g_relayStats.addresses)[relay_label(c->dest)]++;
+         g_relayOpenNow++;
+         g_relayHs.insert(c);
+         if (!relay_watch(c, fd, 0) || !relay_dial(c)) {
+@@ -1042,8 +1170,11 @@ bool relay_start_locked() {
+     g_relayState = -1;
+     g_relayEp = epoll_create1(EPOLL_CLOEXEC);
+     if (g_relayEp < 0) return false;
+-    g_relayL4 = relay_listen(AF_INET, &g_relayPort4);
+-    g_relayL6 = relay_listen(AF_INET6, &g_relayPort6);
++    uint16_t port4 = 0, port6 = 0;
++    g_relayL4 = relay_listen(AF_INET, &port4);
++    g_relayL6 = relay_listen(AF_INET6, &port6);
++    g_relayPort4 = port4;
++    g_relayPort6 = port6;
+     if (g_relayL4 < 0 && g_relayL6 < 0) return false;
+     epoll_event ev{};
+     ev.events = EPOLLIN;
+@@ -1116,6 +1247,7 @@ int relay_connect(int fd, const sockaddr *sa, const Cfg &c) {
+                     if (now - it->second.at > kRelayPendingMs) it = g_relayPending.erase(it); else ++it;
+                 }
+             }
++            peer_remember(fd, sa);
+             RelayPending &p = g_relayPending[relay_key((const sockaddr *) &me)];
+             p.dest = d;
+             p.cfg = c;
+@@ -1154,28 +1286,231 @@ bool is_numeric_or_local(const char *node) {
+     return strcmp(node, "localhost") == 0;
+ }
+ 
+-// Returns true and fills *res when the lookup was answered locally.
+-bool fake_resolve(const char *node, const char *service, const addrinfo *hints, addrinfo **res, int *rc) {
+-    Cfg c = snapshot();
+-    if (c.type == 0 || !node || !*node || is_numeric_or_local(node)) return false;
+-    if (hints && hints->ai_family == AF_INET6) { *rc = EAI_NODATA; return true; }
+-    uint32_t idx = table_index_for(node);
+-    if (idx == 0) { *rc = EAI_NONAME; return true; }
+-    // One block for the addrinfo and its address, as bionic allocates it: freeaddrinfo() frees
+-    // only the addrinfo itself, so a separately allocated address would leak on every lookup.
++// ---- Real addresses for names: DNS through the proxy -------------------------------------------
++// A fake address per name keeps lookups off the phone's network, but it hides from the app which
++// names live on the same servers. Apps use exactly that: a browser-style network stack reuses one
++// connection for every name that resolves to the server it is already connected to. TikTok's
++// several dozen names sit on a handful of servers; with a different fake address for each, the
++// app opened a connection per name, ran out of connection slots and kept closing and reopening
++// them, every time through the proxy. So names are resolved for real, through the proxy.
++const int kDnsTimeoutSec = 4;
++const int64_t kDnsOffMs = 10 * 60 * 1000;      // the proxy refused port 53: do not ask again for this long
++const int64_t kDnsRetryMs = 2 * 60 * 1000;     // it did not answer: do not ask again for this long
++const int64_t kDnsIdleMs = 8000;               // a resolver connection unused for longer is not trusted
++const uint32_t kDnsResolvers[] = {0x01010101u, 0x08080808u};   // 1.1.1.1, 8.8.8.8
++const char *kDnsCheckName = "dns-check.clonespace.invalid";    // answered with kFakeBase+1 or +2, see fake_resolve
++
++struct DnsEntry {
++    std::vector<uint32_t> ips;   // network byte order; empty: the name does not exist
++    int64_t expires = 0;
++};
++struct DnsTunnel { int fd; int64_t usedAt; };
++
++std::mutex g_dnsLock;                                   // guards the four below
++std::unordered_map<std::string, DnsEntry> g_dnsCache;
++std::vector<DnsTunnel> g_dnsIdle;
++int64_t g_dnsOffUntil = 0;
++int g_dnsState = 0;                                     // for the log: 0 not tried, 1 works, -1 refused
++
++// A tunnel through the proxy to a public resolver's TCP port 53. *refused: the proxy said no
++// (as opposed to not answering), so asking again soon is pointless.
++int dns_open(const Cfg &c, bool *refused) {
++    for (uint32_t resolver : kDnsResolvers) {
++        int fd = socket(c.proxy.ss_family, SOCK_STREAM | SOCK_CLOEXEC, 0);
++        if (fd < 0) return -1;
++        timeval tv{kDnsTimeoutSec, 0};
++        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof tv);
++        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv);
++        int one = 1;
++        setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
++        Dest d;
++        dest_v4(resolver, 53, d);
++        int64_t t0 = relay_now_ms();
++        bool connected = orig_connect(fd, (const sockaddr *) &c.proxy, c.proxyLen) == 0;
++        if (connected && (c.type == 1 ? socks5_handshake(fd, c, d) : http_handshake(fd, c, d))) return fd;
++        close(fd);
++        // A proxy that says no says it at once, and the other resolver may still be allowed.
++        // Silence means it drops this traffic: the other resolver would only double the wait.
++        if (!connected || relay_now_ms() - t0 >= 2000) break;
++        *refused = true;
++    }
++    return -1;
++}
++
++// One question on an open tunnel. 1: answered (ips may be empty: no such name, or no IPv4 address;
++// *exists tells which), 0: the connection failed.
++int dns_ask(int fd, const std::string &name, std::vector<uint32_t> &ips, uint32_t &ttl, bool &exists) {
++    uint8_t q[2 + 12 + 256 + 4];
++    size_t n = 2;
++    uint16_t id = (uint16_t) (relay_now_ms() ^ (uintptr_t) &q ^ (uint32_t) rand());
++    q[n++] = id >> 8; q[n++] = id & 0xFF;
++    q[n++] = 0x01; q[n++] = 0x00;                       // recursion desired
++    q[n++] = 0; q[n++] = 1; q[n++] = 0; q[n++] = 0; q[n++] = 0; q[n++] = 0; q[n++] = 0; q[n++] = 0;
++    size_t start = 0;
++    while (start <= name.size()) {
++        size_t dot = name.find('.', start);
++        if (dot == std::string::npos) dot = name.size();
++        size_t len = dot - start;
++        if (len == 0 || len > 63) return 0;
++        q[n++] = (uint8_t) len;
++        memcpy(q + n, name.data() + start, len);
++        n += len;
++        start = dot + 1;
++        if (dot == name.size()) break;
++    }
++    q[n++] = 0;
++    q[n++] = 0; q[n++] = 1;                             // type A
++    q[n++] = 0; q[n++] = 1;                             // class IN
++    q[0] = (uint8_t) ((n - 2) >> 8); q[1] = (uint8_t) ((n - 2) & 0xFF);
++    if (!send_all(fd, q, n)) return 0;
++    uint8_t lenb[2];
++    if (!recv_all(fd, lenb, 2)) return 0;
++    size_t len = (size_t) lenb[0] << 8 | lenb[1];
++    uint8_t m[4096];
++    if (len < 12 || len > sizeof m || !recv_all(fd, m, len)) return 0;
++    if (m[0] != (id >> 8) || m[1] != (id & 0xFF)) return 0;
++    int rcode = m[3] & 0x0F;
++    if (rcode != 0 && rcode != 3) return 0;             // server trouble: not an answer
++    exists = rcode == 0;
++    size_t questions = (size_t) m[4] << 8 | m[5], answers = (size_t) m[6] << 8 | m[7], i = 12;
++    auto skip_name = [&]() -> bool {
++        while (i < len) {
++            uint8_t l = m[i];
++            if (l == 0) { i += 1; return true; }
++            if ((l & 0xC0) == 0xC0) { i += 2; return true; }
++            i += 1 + (size_t) l;
++        }
++        return false;
++    };
++    for (size_t k = 0; k < questions; k++) { if (!skip_name()) return 0; i += 4; }
++    ttl = 0xFFFFFFFFu;
++    for (size_t k = 0; k < answers; k++) {
++        if (!skip_name() || i + 10 > len) return 0;
++        uint16_t type = (uint16_t) (m[i] << 8 | m[i + 1]);
++        uint32_t t = (uint32_t) m[i + 4] << 24 | (uint32_t) m[i + 5] << 16 | (uint32_t) m[i + 6] << 8 | m[i + 7];
++        size_t rd = (size_t) m[i + 8] << 8 | m[i + 9];
++        i += 10;
++        if (i + rd > len) return 0;
++        if (type == 1 && rd == 4 && ips.size() < 8) {
++            uint32_t ip;
++            memcpy(&ip, m + i, 4);
++            ips.push_back(ip);
++            if (t < ttl) ttl = t;
++        }
++        i += rd;
++    }
++    return 1;
++}
++
++// 1: ips filled. 0: no such name. -1: could not be looked up through the proxy (use a fake address).
++int dns_resolve(const Cfg &c, const char *node, std::vector<uint32_t> &ips) {
++    std::string name(node);
++    for (auto &ch : name) if (ch >= 'A' && ch <= 'Z') ch = (char) (ch - 'A' + 'a');
++    if (!name.empty() && name.back() == '.') name.pop_back();
++    if (name.empty() || name.size() > 253) return -1;
++    int64_t now = relay_now_ms();
++    bool haveOld = false;
++    int fd = -1;
++    {
++        std::lock_guard<std::mutex> guard(g_dnsLock);
++        auto it = g_dnsCache.find(name);
++        if (it != g_dnsCache.end()) {
++            if (now < it->second.expires) { ips = it->second.ips; return ips.empty() ? 0 : 1; }
++            haveOld = !it->second.ips.empty();
++        }
++        if (now < g_dnsOffUntil) return -1;
++        while (!g_dnsIdle.empty() && fd < 0) {
++            DnsTunnel t = g_dnsIdle.back();
++            g_dnsIdle.pop_back();
++            if (now - t.usedAt <= kDnsIdleMs) fd = t.fd; else close(t.fd);
++        }
++    }
++    bool reused = fd >= 0, refused = false, exists = false;
++    uint32_t ttl = 0;
++    int got = 0;
++    for (int attempt = 0; attempt < 2 && got == 0; attempt++) {
++        if (fd < 0) { fd = dns_open(c, &refused); reused = false; }
++        if (fd < 0) break;
++        ips.clear();
++        got = dns_ask(fd, name, ips, ttl, exists);
++        if (got == 0) {
++            close(fd);
++            fd = -1;
++            if (!reused) break;      // a fresh connection failed too: give up
++        }
++    }
++    std::lock_guard<std::mutex> guard(g_dnsLock);
++    now = relay_now_ms();
++    if (got == 0) {
++        // Refused, silent or broken: use placeholder addresses for a while, instead of making
++        // every lookup wait for the same failure.
++        g_dnsOffUntil = now + (refused ? kDnsOffMs : kDnsRetryMs);
++        if (g_dnsState != -1) {
++            LOGD(refused ? "the proxy does not allow DNS through it; names get placeholder addresses"
++                         : "DNS through the proxy does not answer; names get placeholder addresses for now");
++        }
++        g_dnsState = -1;
++        if (haveOld) { ips = g_dnsCache[name].ips; return 1; }   // better an old answer than none
++        return -1;
++    }
++    if (g_dnsState != 1) LOGD("names are looked up through the proxy");
++    g_dnsState = 1;
++    if (g_dnsIdle.size() < 4) g_dnsIdle.push_back({fd, now}); else close(fd);
++    if (ips.empty() && exists) return -1;      // the name exists but has no IPv4 address: let the proxy try by name
++    if (g_dnsCache.size() > 4096) g_dnsCache.clear();
++    DnsEntry &e = g_dnsCache[name];
++    e.ips = ips;
++    int64_t keep = ips.empty() ? 30 : std::min<int64_t>(std::max<int64_t>((int64_t) ttl, 30), 600);
++    e.expires = now + keep * 1000;
++    return ips.empty() ? 0 : 1;
++}
++
++// One addrinfo with its address in the same block, as bionic allocates it: freeaddrinfo() frees
++// only the addrinfo itself, so a separately allocated address would leak on every lookup.
++addrinfo *make_addrinfo(uint32_t ip_net_order, const char *service, const addrinfo *hints) {
+     addrinfo *ai = (addrinfo *) calloc(1, sizeof(addrinfo) + sizeof(sockaddr_storage));
+-    if (!ai) { *rc = EAI_MEMORY; return true; }
++    if (!ai) return nullptr;
+     sockaddr_in *sin = (sockaddr_in *) (ai + 1);
+     sin->sin_family = AF_INET;
+-    sin->sin_addr.s_addr = htonl(kFakeBase + idx);
++    sin->sin_addr.s_addr = ip_net_order;
+     sin->sin_port = htons(service ? (uint16_t) atoi(service) : 0);
+     ai->ai_family = AF_INET;
+     ai->ai_socktype = hints && hints->ai_socktype ? hints->ai_socktype : SOCK_STREAM;
+     ai->ai_protocol = hints ? hints->ai_protocol : 0;
+     ai->ai_addrlen = sizeof(sockaddr_in);
+     ai->ai_addr = (sockaddr *) sin;
+-    if (hints && (hints->ai_flags & AI_CANONNAME)) ai->ai_canonname = strdup(node);
+-    *res = ai;
++    return ai;
++}
++
++// Returns true and fills *res when the lookup was answered here.
++bool fake_resolve(const char *node, const char *service, const addrinfo *hints, addrinfo **res, int *rc) {
++    Cfg c = snapshot();
++    if (c.type == 0 || !node || !*node || is_numeric_or_local(node)) return false;
++    if (hints && hints->ai_family == AF_INET6) { *rc = EAI_NODATA; return true; }
++    std::vector<uint32_t> ips;
++    if (strcmp(node, kDnsCheckName) == 0) {
++        // For the leak test: proves that lookups are answered here, and says how. 198.18.0.2: names
++        // are looked up through the proxy. 198.18.0.1: the proxy does not allow it, fake addresses.
++        std::vector<uint32_t> probe;
++        ips.push_back(htonl(kFakeBase + (dns_resolve(c, "example.com", probe) >= 0 ? 2 : 1)));
++    } else {
++        int found = dns_resolve(c, node, ips);
++        if (found == 0) { *rc = EAI_NONAME; return true; }
++        if (found < 0) {
++            uint32_t idx = table_index_for(node);
++            if (idx == 0) { *rc = EAI_NONAME; return true; }
++            ips.assign(1, htonl(kFakeBase + idx));
++        }
++    }
++    addrinfo *head = nullptr, **tail = &head;
++    for (uint32_t ip : ips) {
++        addrinfo *ai = make_addrinfo(ip, service, hints);
++        if (!ai) { freeaddrinfo(head); *rc = EAI_MEMORY; return true; }
++        *tail = ai;
++        tail = &ai->ai_next;
++    }
++    if (head && hints && (hints->ai_flags & AI_CANONNAME)) head->ai_canonname = strdup(node);
++    *res = head;
+     *rc = 0;
+     return true;
+ }
+@@ -1204,6 +1539,7 @@ void install_locked() {
+     void *handle = xdl_open("libc.so", XDL_DEFAULT);
+     if (!handle) return;
+     if (void *p = xdl_dsym(handle, "connect", nullptr)) DobbyHook(p, (void *) my_connect, (void **) &orig_connect);
++    if (void *p = xdl_dsym(handle, "getpeername", nullptr)) DobbyHook(p, (void *) my_getpeername, (void **) &orig_getpeername);
+     if (void *p = xdl_dsym(handle, "getaddrinfo", nullptr)) DobbyHook(p, (void *) my_getaddrinfo, (void **) &orig_getaddrinfo);
+     if (void *p = xdl_dsym(handle, "android_getaddrinfofornet", nullptr)) DobbyHook(p, (void *) my_gai_fornet, (void **) &orig_gai_fornet);
+     if (void *p = xdl_dsym(handle, "android_getaddrinfofornetcontext", nullptr)) DobbyHook(p, (void *) my_gai_fornetctx, (void **) &orig_gai_fornetctx);
+@@ -1243,6 +1579,14 @@ bool ProxyHook_configure(int type, const char *ip, int port, const char *user, c
+     }
+     g_cfg = c;
+     g_noPipeline.store(false);
++    {
++        std::lock_guard<std::mutex> dns(g_dnsLock);
++        g_dnsCache.clear();
++        for (auto &t : g_dnsIdle) close(t.fd);
++        g_dnsIdle.clear();
++        g_dnsOffUntil = 0;
++        g_dnsState = 0;
++    }
+     LOGD("proxy configured: type=%d port=%d", type, port);
+     return true;
+ }

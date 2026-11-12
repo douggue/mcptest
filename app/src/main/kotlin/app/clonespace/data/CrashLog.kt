@@ -59,12 +59,15 @@ class CrashLog(private val root: File) {
         }
         host()?.let { append("\n== App crash ==\n").append(it).append('\n') }
         for (c in clones) clone(c.spaceId, c.packageName)?.let { append("\n== Clone crash ==\n").append(it).append('\n') }
-        append("\n== Recent log (this app only) ==\n").append(logcat())
+        // On their own, and first: the clones' other lines push these out of the recent log within seconds.
+        append("\n== Proxy relay (what the clones' proxy connections did) ==\n")
+        append(logcat("-s", "ProxyHook:D").lineSequence().filter { it.isNotBlank() && !it.startsWith("-----") }.toList().takeLast(45).joinToString("\n"))
+        append("\n\n== Recent log (this app only) ==\n").append(logcat("-t", "600", "*:W", "ProxyHook:D"))
     }
 
     /** An app can read only its own log lines; clones run under this app, so their lines are included. */
-    private fun logcat(): String = try {
-        val p = ProcessBuilder("logcat", "-d", "-t", "600", "-v", "time", "*:W", "ProxyHook:D").redirectErrorStream(true).start()
+    private fun logcat(vararg filter: String): String = try {
+        val p = ProcessBuilder(listOf("logcat", "-d", "-v", "time") + filter).redirectErrorStream(true).start()
         val text = p.inputStream.bufferedReader().use { it.readText() }
         if (!p.waitFor(5, TimeUnit.SECONDS)) p.destroy()
         text.takeLast(60_000)

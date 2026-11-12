@@ -23,6 +23,10 @@ object Keys {
     const val PUBLIC_IP = "public_ip"; const val DNS = "dns_example"; const val WEBVIEW_IP = "webview_ip"
     const val TRACE_URL = "https://1.1.1.1/cdn-cgi/trace"
     const val DNS_TEST_HOST = "example.com"
+    // A name only the clone's proxy hook answers: 198.18.0.2 when names are looked up through the
+    // proxy, 198.18.0.1 when the proxy does not allow that and names get placeholder addresses.
+    const val DNS_CHECK = "dns_check"
+    const val DNS_CHECK_HOST = "dns-check.clonespace.invalid"
 }
 
 object Trace {

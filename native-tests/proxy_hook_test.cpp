@@ -57,6 +57,7 @@ struct Mock {
     int port = 0;
     std::atomic<int> delayMs{300};
     std::atomic<bool> dropEarly{false};   // discard bytes sent before the greeting was answered
+    std::atomic<bool> refuseDns{false};   // refuse tunnels to port 53, as some proxies do
     std::mutex m;
     std::string user, pass;
     std::vector<std::string> seen;        // "host:port" of every request
@@ -66,8 +67,46 @@ struct Mock {
 bool rd(int fd, void *b, size_t n) { return recv_all(fd, b, n); }
 bool wr(int fd, const void *b, size_t n) { return send_all(fd, b, n); }
 
+// A resolver behind the proxy: DNS over TCP. Every name exists except missing.example.com;
+// video.example.com has two addresses.
+void serve_dns(int fd) {
+    for (;;) {
+        uint8_t lb[2];
+        if (!rd(fd, lb, 2)) return;
+        size_t len = (size_t) lb[0] << 8 | lb[1];
+        uint8_t m[512];
+        if (len < 17 || len > sizeof m || !rd(fd, m, len)) return;
+        std::string name;
+        size_t i = 12;
+        while (i < len && m[i]) {
+            if (!name.empty()) name += '.';
+            name.append((const char *) m + i + 1, m[i]);
+            i += 1 + (size_t) m[i];
+        }
+        { std::lock_guard<std::mutex> g(g_mock.m); g_mock.seen.push_back("dns " + name); }
+        bool missing = name == "missing.example.com";
+        std::vector<const char *> ips;
+        if (!missing) ips.push_back("93.184.216.34");
+        if (name == "video.example.com") ips.push_back("93.184.216.35");
+        std::string r((const char *) m, i + 1 + 4);
+        r[2] = (char) 0x81; r[3] = (char) (missing ? 0x83 : 0x80);
+        r[6] = 0; r[7] = (char) ips.size();
+        for (const char *ip : ips) {
+            const char fixed[] = {(char) 0xC0, 0x0C, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4};
+            r.append(fixed, sizeof fixed);
+            in_addr a{};
+            inet_pton(AF_INET, ip, &a);
+            r.append((const char *) &a, 4);
+        }
+        uint8_t out[2] = {(uint8_t) (r.size() >> 8), (uint8_t) (r.size() & 0xFF)};
+        if (!wr(fd, out, 2) || !wr(fd, r.data(), r.size())) return;
+    }
+}
+
 void serve(int fd, int port, const std::string &first) {
-    if (port == kStream) {
+    if (port == 53) {
+        serve_dns(fd);
+    } else if (port == kStream) {
         char chunk[1024];
         memset(chunk, 'v', sizeof chunk);
         while (wr(fd, chunk, sizeof chunk)) usleep(10 * 1000);
@@ -150,7 +189,8 @@ void mock_socks(int fd) {
     usleep(g_mock.delayMs.load() * 1000);
     { char b; if (recv(fd, &b, 1, MSG_PEEK | MSG_DONTWAIT) == 0) return; }   // the client has left
     g_mock.served++;
-    uint8_t rep[10] = {5, (uint8_t) (port == kRefuse ? 5 : 0), 0, 1, 0, 0, 0, 0, 0, 0};
+    bool refuse = port == kRefuse || (port == 53 && g_mock.refuseDns.load());
+    uint8_t rep[10] = {5, (uint8_t) (refuse ? 5 : 0), 0, 1, 0, 0, 0, 0, 0, 0};
     if (port == kBanner) {   // reply and first tunnel bytes in ONE segment
         std::string both((const char *) rep, 10);
         both += "HELLO";
@@ -158,7 +198,7 @@ void mock_socks(int fd) {
         serve(fd, port, "");
         return;
     }
-    if (!wr(fd, rep, 10) || port == kRefuse) return;
+    if (!wr(fd, rep, 10) || refuse) return;
     serve(fd, port, "");
 }
 
@@ -187,7 +227,7 @@ void mock_http(int fd) {
     usleep(g_mock.delayMs.load() * 1000);
     { char b; if (recv(fd, &b, 1, MSG_PEEK | MSG_DONTWAIT) == 0) return; }   // the client has left
     g_mock.served++;
-    if (port == kRefuse) {
+    if (port == kRefuse || (port == 53 && g_mock.refuseDns.load())) {
         const char *no = "HTTP/1.1 502 Bad Gateway\r\n\r\n";
         wr(fd, no, strlen(no));
         return;
@@ -229,6 +269,7 @@ void configure(int type, const char *user, const char *pass, int delayMs, bool d
     { std::lock_guard<std::mutex> g(g_mock.m); g_mock.user = user; g_mock.pass = pass; g_mock.seen.clear(); }
     g_mock.delayMs = delayMs;
     g_mock.dropEarly = dropEarly;
+    g_mock.refuseDns = false;
     g_mockType = type;
     if (!ProxyHook_configure(type, "127.0.0.1", g_mock.port, user, pass, true)) { printf("configure failed\n"); exit(2); }
 }
@@ -447,18 +488,66 @@ void test_upload_echo(uint32_t bytes) {
     close(fd);
 }
 
-void test_domain() {
+int mock_count(const std::string &what) {
+    std::lock_guard<std::mutex> g(g_mock.m);
+    int n = 0;
+    for (auto &x : g_mock.seen) n += x == what;
+    return n;
+}
+
+// Looks a name up as an app does. Returns the addresses as text, "" when the name does not exist.
+std::string lookup(const char *name, const char *service, sockaddr_storage *first = nullptr, socklen_t *firstLen = nullptr) {
     addrinfo hints{};
     hints.ai_socktype = SOCK_STREAM;
     addrinfo *res = nullptr;
-    int rc = my_getaddrinfo("video.example.com", "7002", &hints, &res);
-    if (rc != 0 || !res) { check(false, "fake DNS answers"); return; }
-    int fd = nb_connect_sa(AF_INET, res->ai_addr, res->ai_addrlen);
+    if (my_getaddrinfo(name, service, &hints, &res) != 0 || !res) return "";
+    std::string out;
+    for (addrinfo *ai = res; ai; ai = ai->ai_next) {
+        char b[INET_ADDRSTRLEN] = "";
+        inet_ntop(AF_INET, &((sockaddr_in *) ai->ai_addr)->sin_addr, b, sizeof b);
+        out += (out.empty() ? "" : " ") + std::string(b);
+    }
+    if (first) { memcpy(first, res->ai_addr, res->ai_addrlen); *firstLen = res->ai_addrlen; }
     freeaddrinfo(res);
+    return out;
+}
+
+bool reach(const sockaddr_storage &ss, socklen_t len) {
+    int fd = nb_connect_sa(AF_INET, (const sockaddr *) &ss, len);
     bool ok = fd >= 0 && wait_writable(fd, 8000);
     if (ok) { make_blocking(fd, 20); ok = ping(fd); }
-    check(ok && mock_saw("video.example.com:7002"), "host names reach the proxy by name");
     if (fd >= 0) close(fd);
+    return ok;
+}
+
+void test_domain() {
+    // The proxy allows DNS through it: the app gets the real addresses, and connects to them.
+    sockaddr_storage ss{};
+    socklen_t len = 0;
+    std::string got = lookup("video.example.com", "7002", &ss, &len);
+    check(got == "93.184.216.34 93.184.216.35" && mock_count("dns video.example.com") == 1,
+          "names are looked up through the proxy and get their real addresses", "(%s)", got.c_str());
+    check(len && reach(ss, len) && mock_saw("93.184.216.34:7002"), "a connection to a looked-up address works");
+    lookup("VIDEO.example.com", "7002");
+    check(mock_count("dns video.example.com") == 1, "a repeated lookup is answered from memory");
+    check(lookup("missing.example.com", "443").empty(), "a name that does not exist is reported as such");
+    check(lookup(kDnsCheckName, "443") == "198.18.0.2", "the leak test's check name says lookups go through the proxy");
+
+    // The proxy refuses port 53: placeholder addresses, and the proxy resolves the name itself.
+    ProxyHook_configure(g_mockType.load(), "127.0.0.1", g_mock.port, g_mock.user.c_str(), g_mock.pass.c_str(), true);
+    g_mock.refuseDns = true;
+    got = lookup("video.example.com", "7002", &ss, &len);
+    check(got.compare(0, 7, "198.19.") == 0 && reach(ss, len) && mock_saw("video.example.com:7002"),
+          "a proxy that refuses DNS still works: the name itself is sent to the proxy", "(%s)", got.c_str());
+    check(lookup(kDnsCheckName, "443") == "198.18.0.1", "the leak test's check name says placeholder addresses are in use");
+    int asked = mock_count("1.1.1.1:53") + mock_count("8.8.8.8:53");
+    int64_t t0 = now_ms();
+    lookup("another.example.com", "443");
+    lookup("third.example.com", "443");
+    check(mock_count("1.1.1.1:53") + mock_count("8.8.8.8:53") == asked && now_ms() - t0 < 500,
+          "after a refusal, lookups do not keep asking the proxy", "(%lld ms for two names)", (long long) (now_ms() - t0));
+    g_mock.refuseDns = false;
+    ProxyHook_configure(g_mockType.load(), "127.0.0.1", g_mock.port, g_mock.user.c_str(), g_mock.pass.c_str(), true);
 }
 
 void test_refused(const char *what, int port) {
@@ -527,6 +616,47 @@ void test_abandoned(int count) {
     check(served <= count / 10, "connections the app gives up on do not keep the proxy busy", "(%d of %d still went through)", served, count);
 }
 
+std::string peer_of(int fd) {
+    sockaddr_storage ss{};
+    socklen_t len = sizeof ss;
+    if (fd < 0 || my_getpeername(fd, (sockaddr *) &ss, &len) != 0) return "none";
+    return relay_key((const sockaddr *) &ss) + (ss.ss_family == AF_INET6 ? " v6" : " v4");
+}
+
+// Code that asks a socket who it is connected to must get the address it connected to. Otherwise
+// connections filed for reuse under that address are never found again.
+void test_peer() {
+    std::string want = std::string(kPublicIp) + "/" + std::to_string(kEcho);
+    int fd = open_tunnel(AF_INET, kEcho);
+    std::string a = peer_of(fd);
+    if (fd >= 0) close(fd);
+    fd = open_tunnel(AF_INET6, kEcho);
+    std::string b = peer_of(fd);
+    if (fd >= 0) close(fd);
+    fd = socket(AF_INET, SOCK_STREAM, 0);   // blocking socket: handshake in place
+    sockaddr_storage ss;
+    socklen_t len = make_addr(AF_INET, kPublicIp, kEcho, ss);
+    std::string c = my_connect(fd, (sockaddr *) &ss, len) == 0 ? peer_of(fd) : "none";
+    close(fd);
+    // a connection that is not proxied keeps its real peer
+    int l = socket(AF_INET, SOCK_STREAM, 0);
+    sockaddr_in la{};
+    la.sin_family = AF_INET;
+    la.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    socklen_t ll = sizeof la;
+    bind(l, (sockaddr *) &la, sizeof la);
+    listen(l, 4);
+    getsockname(l, (sockaddr *) &la, &ll);
+    fd = socket(AF_INET, SOCK_STREAM, 0);
+    std::string d = my_connect(fd, (sockaddr *) &la, sizeof la) == 0 ? peer_of(fd) : "none";
+    close(fd);
+    close(l);
+    std::string direct = "127.0.0.1/" + std::to_string(ntohs(la.sin_port)) + " v4";
+    check(a == want + " v4" && b == want + " v6" && c == want + " v4" && d == direct,
+          "a socket reports the address the app connected to, not the relay or the proxy",
+          "(%s | %s | %s | %s)", a.c_str(), b.c_str(), c.c_str(), d.c_str());
+}
+
 void test_udp_block() {
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
     sockaddr_storage ss;
@@ -556,9 +686,53 @@ void test_no_pipeline_proxy() {
 
 }  // namespace
 
+// "live <type 1|2> <proxy ip> <port> <user> <pass>": the same code against a real proxy and the
+// real internet instead of the mock. Prints what it sees; nothing is asserted.
+int live(char **a) {
+    ProxyHook_setDnsTable("/data/local/tmp/proxy_live.tbl");
+    if (!ProxyHook_configure(atoi(a[0]), a[1], atoi(a[2]), a[3], a[4], true)) { printf("bad proxy address\n"); return 2; }
+    const char *names[] = {"v16m.tiktokcdn-us.com", "p16-sign-va.tiktokcdn.com", "p16-sign-sg.tiktokcdn.com", "p19-sign.tiktokcdn-us.com",
+                           "api16-normal-useast5.tiktokv.us", "mon16-normal-useast5.tiktokv.us", "www.tiktok.com", "no-such-name-zz9.tiktokcdn.com"};
+    for (int pass = 0; pass < 2; pass++) {
+        int64_t t0 = now_ms();
+        for (const char *n : names) {
+            int64_t t = now_ms();
+            std::string got = lookup(n, "443");
+            if (pass == 0) printf("  %-34s %-52s %lld ms\n", n, got.empty() ? "(does not exist)" : got.c_str(), (long long) (now_ms() - t));
+        }
+        printf("  %s: %lld ms for %zu names\n", pass ? "again, from memory" : "first time", (long long) (now_ms() - t0), sizeof names / sizeof *names);
+    }
+    printf("  check name: %s\n", lookup(kDnsCheckName, "443").c_str());
+    sockaddr_storage ss{};
+    socklen_t len = 0;
+    lookup("example.com", "80", &ss, &len);
+    int64_t t0 = now_ms();
+    int fd = len ? nb_connect_sa(AF_INET, (sockaddr *) &ss, len) : -1;
+    if (fd < 0 || !wait_writable(fd, 8000)) { printf("  could not connect through the relay\n"); return 1; }
+    printf("  socket says it is connected to: %s\n", peer_of(fd).c_str());
+    make_blocking(fd, 20);
+    const char *req = "GET / HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n";
+    wr(fd, req, strlen(req));
+    std::vector<char> buf(65536);
+    size_t got = 0;
+    std::string head;
+    for (;;) {
+        ssize_t r = recv(fd, buf.data(), buf.size(), 0);
+        if (r <= 0) break;
+        if (head.size() < 15) head.append(buf.data(), std::min<size_t>((size_t) r, 15 - head.size()));
+        got += (size_t) r;
+    }
+    int64_t ms = std::max<int64_t>(1, now_ms() - t0);
+    printf("  plain HTTP request through the relay: answer \"%s\", %zu bytes in %.1f s\n", head.c_str(), got, ms / 1000.0);
+    close(fd);
+    usleep(10500 * 1000);   // let the relay write its summary to the log
+    return 0;
+}
+
 int main(int argc, char **argv) {
     setvbuf(stdout, nullptr, _IOLBF, 0);
     signal(SIGPIPE, SIG_IGN);
+    if (argc == 7 && strcmp(argv[1], "live") == 0) return live(argv + 2);
     const char *tbl = argc > 1 ? argv[1] : "/data/local/tmp/proxy_test.tbl";
     unlink(tbl);
     ProxyHook_setDnsTable(tbl);
@@ -579,6 +753,7 @@ int main(int argc, char **argv) {
     test_udp_block();
     test_many(300);
     test_abandoned(40);
+    test_peer();
 
     printf("SOCKS5, wrong password\n");
     { std::lock_guard<std::mutex> g(g_mock.m); g_mock.pass = "other"; }
@@ -601,6 +776,7 @@ int main(int argc, char **argv) {
     test_banner();
     test_refused("a refused destination is reported as a failed connection", kRefuse);
     test_abandoned(40);
+    test_peer();
 
     printf("%s (%d failed)\n", g_failures ? "FAILED" : "ALL PASSED", g_failures);
     return g_failures ? 1 : 0;
