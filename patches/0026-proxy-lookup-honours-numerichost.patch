@@ -1,0 +1,18 @@
+diff --git a/Bcore/src/main/cpp/Utils/ProxyHook.cpp b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+index 9453503..6e3fb03 100644
+--- a/Bcore/src/main/cpp/Utils/ProxyHook.cpp
++++ b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+@@ -1639,6 +1639,13 @@ addrinfo *make_addrinfo(uint32_t ip_net_order, const char *service, const addrin
+ bool fake_resolve(const char *node, const char *service, const addrinfo *hints, addrinfo **res, int *rc) {
+     Cfg c = snapshot();
+     if (c.type == 0 || !node || !*node || is_numeric_or_local(node)) return false;
++    // AI_NUMERICHOST asks "is this text an address?", not "what is this name's address?". It must
++    // fail for a name, as libc's own does. Android answers InetAddress.isNumeric() with exactly
++    // this call, and its TLS library leaves the server name out of the handshake when the host
++    // "is an address". Answered with an address, every Java TLS connection went out without a
++    // server name: the server replied with its default certificate, the app rejected it and
++    // tried again, without end (TikTok: its video and API connections).
++    if (hints && (hints->ai_flags & AI_NUMERICHOST)) return false;
+     if (hints && hints->ai_family == AF_INET6) { *rc = EAI_NODATA; return true; }
+     std::vector<uint32_t> ips;
+     if (strcmp(node, kDnsCheckName) == 0) {

@@ -558,6 +558,18 @@ void test_domain() {
     lookup("VIDEO.example.com", "7002");
     check(mock_count("dns video.example.com") == 1, "a repeated lookup is answered from memory");
     check(lookup("missing.example.com", "443").empty(), "a name that does not exist is reported as such");
+    {
+        // "Is this text an address?" (how Android's InetAddress.isNumeric asks). A name is not one.
+        addrinfo numeric{};
+        numeric.ai_flags = AI_NUMERICHOST;
+        addrinfo *res = nullptr;
+        int name = my_getaddrinfo("video.example.com", nullptr, &numeric, &res);
+        if (name == 0 && res) freeaddrinfo(res);
+        res = nullptr;
+        int address = my_getaddrinfo("93.184.216.34", nullptr, &numeric, &res);
+        if (address == 0 && res) freeaddrinfo(res);
+        check(name != 0 && address == 0, "a name is not mistaken for an address (apps would drop the server name from TLS)");
+    }
     check(lookup(kDnsCheckName, "443") == "198.18.0.2", "the leak test's check name says lookups go through the proxy");
     std::string odd = lookup("broken.example.com", "443");
     check(odd.compare(0, 7, "198.19.") == 0 && lookup("after.example.com", "443") == "93.184.216.34",
