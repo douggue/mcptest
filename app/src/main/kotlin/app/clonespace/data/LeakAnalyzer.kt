@@ -100,6 +100,23 @@ object LeakAnalyzer {
             else -> LeakStatus.LEAK
         }, note = if (!proxy.isUsable) "Proxy is off, so DNS goes out directly" else null)
 
+        // A clone whose address is in one country and whose clock is in another stands out, and the
+        // identity rows above cannot show it: they only compare the clone with its own profile.
+        if (proxy.isUsable) {
+            val zone = clone[Keys.TIMEZONE]
+            val geo = proxy.geo
+            rows += LeakRow("proxy_timezone", "Time zone matches the proxy's location", real[Keys.TIMEZONE].orEmpty(), zone ?: "no data", when {
+                zone == null || geo == null -> LeakStatus.UNKNOWN
+                zone == geo.timezone -> LeakStatus.ISOLATED
+                else -> LeakStatus.LEAK
+            }, note = when {
+                !proxy.matchLocation -> "\"Match proxy location\" is off, so the clone keeps the time zone of its identity, wherever the proxy exits"
+                geo == null -> "The proxy's location could not be looked up. Save the network settings again"
+                zone != null && zone != geo.timezone -> "The proxy exits in ${geo.timezone}. Save the network settings again and restart the clone"
+                else -> "The proxy exits in ${geo.timezone}"
+            })
+        }
+
         // Honest gaps: identifiers the engine cannot spoof yet.
         rows += LeakRow("advertising_id", "Advertising ID", "n/a", "n/a", LeakStatus.UNKNOWN,
             "Stored in the profile; applying it needs Google Play services hooks (pending)")

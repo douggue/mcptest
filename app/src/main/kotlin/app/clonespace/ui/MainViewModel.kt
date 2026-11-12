@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.clonespace.BuildConfig
 import app.clonespace.CloneApp
 import app.clonespace.ShortcutSupport
 import app.clonespace.data.BackupManager
@@ -23,6 +24,7 @@ import app.clonespace.profile.DeviceProfile
 import app.clonespace.proxy.ProxyConfig
 import app.clonespace.proxy.ProxyTester
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -117,7 +119,15 @@ class MainViewModel(private val app: CloneApp) : ViewModel() {
     suspend fun cloneCrash(item: CloneItem): String? = withContext(Dispatchers.IO) { app.crashes.clone(item.spaceId, item.packageName) }
 
     suspend fun diagnosticReport(): String = withContext(Dispatchers.IO) {
-        app.crashes.report("${app.packageManager.getPackageInfo(app.packageName, 0).versionName} (${app.packageName})", _clones.value)
+        val version = "${app.packageManager.getPackageInfo(app.packageName, 0).versionName} build ${BuildConfig.GIT_SHA} (${app.packageName})"
+        app.crashes.report(version, _clones.value) { c ->
+            val p = app.profiles.load(c.spaceId, c.packageName)
+            listOf(
+                if (p == null) "identity: no profile"
+                else "identity: region ${p.regionCode}, language ${p.locale}, time zone ${p.timezone}" + if (p.locked) ", locked" else "",
+                app.proxies.load(c.spaceId, c.packageName).describe(),
+            )
+        }
     }
 
     /** Clones [pkg] into existing [spaceIds] plus [newSpaces] fresh spaces (batch clone). */
@@ -228,7 +238,12 @@ class MainViewModel(private val app: CloneApp) : ViewModel() {
      * the clone's GPS position, time zone and language to that place. Turning it off again restores
      * the phone's language and time zone and the real GPS. Returns the config as stored.
      */
-    suspend fun saveProxy(item: CloneItem, cfg: ProxyConfig): ProxyConfig {
+    suspend fun saveProxy(item: CloneItem, cfg: ProxyConfig): ProxyConfig =
+        // In the view model's scope: leaving the screen during the lookup must not stop the save
+        // half way (identity changed, proxy settings not written, clone not restarted).
+        viewModelScope.async { saveProxyNow(item, cfg) }.await()
+
+    private suspend fun saveProxyNow(item: CloneItem, cfg: ProxyConfig): ProxyConfig {
         busy = "Saving network settings"
         try {
             val before = withContext(Dispatchers.IO) { app.proxies.load(item.spaceId, item.packageName) }
@@ -236,18 +251,21 @@ class MainViewModel(private val app: CloneApp) : ViewModel() {
             var note = "Saved. ${item.displayName} uses the new settings next time it starts."
             if (cfg.matchLocation && cfg.isUsable) {
                 busy = "Finding where the proxy exits"
-                val found = ProxyTester.locate(cfg)
+                val failures = ArrayList<String>()
+                val found = ProxyTester.locate(cfg, failures)
                 if (found == null) {
                     stored = cfg.copy(geo = null)
-                    note = "Saved, but the proxy's location could not be found, so GPS, time zone and language were left as they are. Check the proxy and save again."
+                    note = "Saved, but the proxy's location could not be found, so GPS, time zone and language were left as they are. " +
+                        "Check the proxy and save again. (${failures.joinToString("; ")})"
                 } else {
                     // Keep the same spot while the proxy still exits in the same city, so the clone does not jump around.
                     val old = before.geo?.takeIf { before.matchLocation && it.city == found.city && it.country == found.country }
                     val geo = old?.copy(ip = found.ip) ?: found.jittered(Math.random(), Math.random())
                     stored = cfg.copy(geo = geo)
-                    withContext(Dispatchers.IO) { app.profiles.update(item.spaceId, item.packageName) { it.copy(locale = geo.locale, timezone = geo.timezone) } }
+                    val updated = withContext(Dispatchers.IO) { app.profiles.update(item.spaceId, item.packageName) { it.copy(locale = geo.locale, timezone = geo.timezone) } }
                     val gps = VirtualEngine.setLocation(item.packageName, item.spaceId, geo.latitude, geo.longitude)
-                    note = "Saved. ${item.displayName} now reports ${geo.summary}" + if (gps) "." else ", but the GPS position could not be set."
+                    note = if (updated == null) "Saved, but this clone's identity could not be read, so its time zone and language were NOT changed to ${geo.timezone}. Open this screen again and save once more."
+                    else "Saved. ${item.displayName} now reports ${geo.summary}" + if (gps) "." else ", but the GPS position could not be set."
                 }
             } else {
                 stored = cfg.copy(matchLocation = cfg.matchLocation && cfg.isUsable, geo = null)

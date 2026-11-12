@@ -29,6 +29,25 @@ class LeakTest {
         rows = LeakAnalyzer.analyze(real, mapOf(Keys.PUBLIC_IP to "9.9.9.9", Keys.DNS to "93.184.216.34"), p, proxy)
         assertEquals(LeakStatus.LEAK, status(rows, Keys.DNS))
     }
+    @Test fun timeZoneAgainstTheProxyLocation() {
+        val paris = GeoInfo("9.9.9.9", "FR", "Paris", 48.85, 2.35, "Europe/Paris", "fr-FR")
+        val on = ProxyConfig(true, ProxyType.HTTP, "h", 8080, matchLocation = true, geo = paris)
+        val key = "proxy_timezone"
+        // clone still on the phone's zone while the proxy exits in Paris
+        var rows = LeakAnalyzer.analyze(real, mapOf(Keys.TIMEZONE to "America/New_York"), p, on)
+        assertEquals(LeakStatus.LEAK, status(rows, key))
+        assertTrue("Europe/Paris" in rows.first { it.key == key }.note!!)
+        rows = LeakAnalyzer.analyze(real, mapOf(Keys.TIMEZONE to "Europe/Paris"), p, on)
+        assertEquals(LeakStatus.ISOLATED, status(rows, key))
+        // switch off, or location never found: not a verdict, but the row says why
+        rows = LeakAnalyzer.analyze(real, mapOf(Keys.TIMEZONE to "America/New_York"), p, on.copy(matchLocation = false, geo = null))
+        assertEquals(LeakStatus.UNKNOWN, status(rows, key))
+        assertTrue("is off" in rows.first { it.key == key }.note!!)
+        rows = LeakAnalyzer.analyze(real, mapOf(Keys.TIMEZONE to "America/New_York"), p, on.copy(geo = null))
+        assertEquals(LeakStatus.UNKNOWN, status(rows, key))
+        // no proxy: no such row
+        assertTrue(LeakAnalyzer.analyze(real, mapOf(Keys.TIMEZONE to "UTC"), p, ProxyConfig()).none { it.key == key })
+    }
     @Test fun networkWithProxyOffIsShared() {
         val rows = LeakAnalyzer.analyze(real, mapOf(Keys.PUBLIC_IP to "1.2.3.4", Keys.DNS to "93.184.216.34"), p, ProxyConfig())
         assertEquals(LeakStatus.SHARED, status(rows, Keys.PUBLIC_IP)); assertEquals(LeakStatus.SHARED, status(rows, Keys.DNS))

@@ -39,15 +39,23 @@ data class GeoInfo(
             o.getDouble("latitude"), o.getDouble("longitude"), o.getString("timezone"), o.getString("locale"),
         )
 
-        /** Understands the replies of ipwho.is (timezone is an object) and ipapi.co (timezone is a string). */
+        /**
+         * Understands the replies of ipwho.is (timezone is an object), ipapi.co (timezone is a string)
+         * and ipinfo.io (country code in "country", position as "lat,lon" in "loc").
+         */
         fun parse(body: String): GeoInfo? = try {
             val o = JSONObject(body.substring(body.indexOf('{'), body.lastIndexOf('}') + 1))
             val tz = o.optJSONObject("timezone")?.optString("id") ?: o.optString("timezone")
-            val country = o.optString("country_code").uppercase()
+            val country = o.optString("country_code").ifBlank { o.optString("country").takeIf { it.length == 2 }.orEmpty() }.uppercase()
+            val loc = o.optString("loc").split(',').mapNotNull { it.trim().toDoubleOrNull() }.takeIf { it.size == 2 }
+            val lat = if (o.has("latitude")) o.getDouble("latitude") else loc?.get(0)
+            val lon = if (o.has("longitude")) o.getDouble("longitude") else loc?.get(1)
             if (o.has("success") && !o.optBoolean("success")) null
-            else if (country.length != 2 || tz.isBlank() || !o.has("latitude") || !o.has("longitude")) null
+            else if (country.length != 2 || tz.isBlank() || lat == null || lon == null) null
+            // An id Java does not know would silently become GMT in the clone.
+            else if (tz !in java.util.TimeZone.getAvailableIDs()) null
             else GeoInfo(
-                o.optString("ip"), country, o.optString("city"), o.getDouble("latitude"), o.getDouble("longitude"), tz,
+                o.optString("ip"), country, o.optString("city"), lat, lon, tz,
                 localeFor(country, o.optString("languages")),
             )
         } catch (_: Exception) {

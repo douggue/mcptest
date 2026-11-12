@@ -42,16 +42,20 @@ class CrashLog(private val root: File) {
     }
 
     /** Everything useful for a bug report, as one text. Slow (runs logcat); call off the main thread. */
-    fun report(appVersion: String, clones: List<CloneItem>): String = buildString {
+    fun report(appVersion: String, clones: List<CloneItem>, settings: (CloneItem) -> List<String> = { emptyList() }): String = buildString {
         append("CloneSpace ").append(appVersion).append('\n')
         append("Phone: ").append(Build.MANUFACTURER).append(' ').append(Build.MODEL)
             .append(", Android ").append(Build.VERSION.RELEASE).append(" (API ").append(Build.VERSION.SDK_INT).append(")\n")
-        append("Patch: ").append(Build.VERSION.SECURITY_PATCH).append(", ABI ").append(Build.SUPPORTED_ABIS.joinToString()).append("\n\n")
+        append("Patch: ").append(Build.VERSION.SECURITY_PATCH).append(", ABI ").append(Build.SUPPORTED_ABIS.joinToString()).append('\n')
+        append("Phone time zone ").append(java.util.TimeZone.getDefault().id)
+            .append(", language ").append(java.util.Locale.getDefault().toLanguageTag()).append("\n\n")
         append("== Clones ==\n")
         for (c in clones) {
             append(c.label).append(" [").append(c.packageName).append("] space ").append(c.spaceId).append(": ")
             append(when (c.health.lastLaunchOk) { true -> "last launch ok"; false -> "last launch FAILED"; null -> "never launched" })
             append(", crashes ").append(c.health.crashes).append('\n')
+            // What the clone is set to be: without it a report cannot explain a wrong time zone or a slow proxy.
+            for (line in runCatching { settings(c) }.getOrDefault(emptyList())) append("    ").append(line).append('\n')
         }
         host()?.let { append("\n== App crash ==\n").append(it).append('\n') }
         for (c in clones) clone(c.spaceId, c.packageName)?.let { append("\n== Clone crash ==\n").append(it).append('\n') }
@@ -60,7 +64,7 @@ class CrashLog(private val root: File) {
 
     /** An app can read only its own log lines; clones run under this app, so their lines are included. */
     private fun logcat(): String = try {
-        val p = ProcessBuilder("logcat", "-d", "-t", "600", "-v", "time", "*:W").redirectErrorStream(true).start()
+        val p = ProcessBuilder("logcat", "-d", "-t", "600", "-v", "time", "*:W", "ProxyHook:D").redirectErrorStream(true).start()
         val text = p.inputStream.bufferedReader().use { it.readText() }
         if (!p.waitFor(5, TimeUnit.SECONDS)) p.destroy()
         text.takeLast(60_000)

@@ -183,7 +183,7 @@ shared/                code shared by app and probe (collector, keys)
 Rules held throughout: only `VirtualEngine.kt` touches the engine; nothing slow runs on the main thread; no
 analytics and no uploads. The only network requests the app makes are ones you start: the proxy test and the leak
 test, both to `1.1.1.1` (through your proxy for the proxy test), the proxy-location lookup when "Match proxy location" is on
-(to `ipwho.is`, or `ipapi.co` if that fails, always through the proxy so only the proxy's address is seen), plus whatever the cloned apps themselves do.
+(to `ipwho.is`, then `ipinfo.io`, then `ipapi.co` if the one before fails, always through the proxy so only the proxy's address is seen), plus whatever the cloned apps themselves do.
 
 ## Open questions (from research)
 

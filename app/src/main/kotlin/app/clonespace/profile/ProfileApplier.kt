@@ -33,10 +33,9 @@ object ProfileApplier {
     }
 
     fun applyLocaleAndTimezone(p: DeviceProfile) {
-        runCatching {
-            setDefaultLocale(Locale.forLanguageTag(p.locale))
-            TimeZone.setDefault(TimeZone.getTimeZone(p.timezone))
-        }
+        // Separately: a language that cannot be applied must not also cost the clone its time zone.
+        runCatching { setDefaultLocale(Locale.forLanguageTag(p.locale)) }
+        runCatching { TimeZone.setDefault(TimeZone.getTimeZone(p.timezone)) }
         // Native code gets local time from libc, which remembers the zone it read from
         // persist.sys.timezone, possibly before the clone's property hook existed. libc looks at
         // the TZ variable first on every call, so set it: Java and native time then agree.

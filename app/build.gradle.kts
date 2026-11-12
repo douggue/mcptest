@@ -20,6 +20,8 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+        // Shown in the diagnostic report, so a report says which build produced it.
+        buildConfigField("String", "GIT_SHA", "\"${(System.getenv("GITHUB_SHA") ?: "local").take(7)}\"")
     }
 
     // play: no VpnService, no MANAGE_EXTERNAL_STORAGE. sideload: both, for users who want the extras.

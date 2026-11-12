@@ -114,7 +114,9 @@ fun ProfileScreen(vm: MainViewModel, item: CloneItem, onBack: () -> Unit, onLeak
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text("Region", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                         Picker(Templates.regions.map { it.code to "${it.code} · ${it.locale}" }, p.regionCode, enabled = !p.locked) { code ->
-                            edit { old -> ProfileGenerator.generate(old.sdkInt, old.release, old.templateId, code).copy(locked = old.locked, spoofScreen = old.spoofScreen) }
+                            // With "Match proxy location" on, language and time zone stay the proxy's; the region sets the rest.
+                            val g = proxy.geo?.takeIf { proxy.matchLocation && proxy.enabled }
+                            edit { old -> ProfileGenerator.generate(old.sdkInt, old.release, old.templateId, code, locale = g?.locale, timezone = g?.timezone).copy(locked = old.locked, spoofScreen = old.spoofScreen) }
                         }
                     }
                     KV("Android ID", p.androidId); KV("Advertising ID", p.advertisingId); KV("GSF ID", p.gsfId)
@@ -218,6 +220,8 @@ fun ProfileScreen(vm: MainViewModel, item: CloneItem, onBack: () -> Unit, onLeak
                             saving = false
                         }
                     }, enabled = !saving, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text(if (saving) "Saving…" else "Save and restart clone") }
+                    // Also here: the banner at the top of the page is off screen when this button is pressed.
+                    if (!saving) notice?.let { Banner(it) }
                 }
 
                 OutlinedButton(onClick = onLeak, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text("Run leak test") }

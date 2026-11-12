@@ -21,6 +21,18 @@ data class ProxyConfig(
 ) {
     val isUsable get() = enabled && host.isNotBlank() && port in 1..65535
 
+    /** One line for the diagnostic report. Never contains the host, the user name or the password. */
+    fun describe(): String = when {
+        !enabled -> "proxy: off"
+        !isUsable -> "proxy: on, but the host or port is missing"
+        else -> "proxy: ${type.name}, port $port, login ${if (username.isEmpty()) "no" else "yes"}, " +
+            "block UDP ${if (blockUdp) "on" else "off"}, match location " + when {
+                !matchLocation -> "off"
+                geo == null -> "ON, but the proxy's location was not found"
+                else -> "on (${geo.country} ${geo.city}, ${geo.timezone}, ${geo.locale})"
+            }
+    }
+
     fun toJson(): JSONObject = JSONObject().apply {
         put("enabled", enabled); put("type", type.name); put("host", host); put("port", port)
         put("username", username); put("password", password); put("blockUdp", blockUdp)

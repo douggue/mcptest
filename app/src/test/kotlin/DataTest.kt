@@ -56,6 +56,14 @@ class GeoTest {
         assertEquals("America/Los_Angeles", a.timezone); assertEquals("en-US", a.locale); assertEquals(37.33, a.latitude)
         val b = app.clonespace.proxy.GeoInfo.parse("{\"ip\":\"1.2.3.4\",\"country_code\":\"DE\",\"city\":\"Berlin\",\"latitude\":52.5,\"longitude\":13.4,\"timezone\":\"Europe/Berlin\",\"languages\":\"de\"}")!!
         assertEquals("de-DE", b.locale); assertEquals("Europe/Berlin", b.timezone)
+        // ipinfo.io: country code in "country", position in "loc"
+        val c = app.clonespace.proxy.GeoInfo.parse("{\"ip\":\"5.6.7.8\",\"city\":\"Paris\",\"region\":\"Île-de-France\",\"country\":\"FR\",\"loc\":\"48.8534,2.3488\",\"org\":\"AS1 Example\",\"timezone\":\"Europe/Paris\"}")!!
+        assertEquals("FR", c.country); assertEquals("Europe/Paris", c.timezone); assertEquals("fr-FR", c.locale)
+        assertEquals(48.8534, c.latitude); assertEquals(2.3488, c.longitude)
+        // ipwho.is also has "country", as a full name: the code must still come from "country_code"
+        assertEquals("FR", app.clonespace.proxy.GeoInfo.parse("{\"success\":true,\"country\":\"France\",\"country_code\":\"FR\",\"latitude\":48.9,\"longitude\":1.8,\"timezone\":{\"id\":\"Europe/Paris\"}}")!!.country)
+        assertNull(app.clonespace.proxy.GeoInfo.parse("{\"status\":429,\"error\":{\"title\":\"Rate limit exceeded\"}}"))
+        assertNull(app.clonespace.proxy.GeoInfo.parse("{\"country\":\"FR\",\"loc\":\"48.85\",\"timezone\":\"Europe/Paris\"}"))
         assertNull(app.clonespace.proxy.GeoInfo.parse("{\"success\":false,\"message\":\"limit\"}"))
         assertNull(app.clonespace.proxy.GeoInfo.parse("<html>blocked</html>"))
         assertEquals("sw-TZ", app.clonespace.proxy.GeoInfo.localeFor("TZ", "sw-TZ,en"))
@@ -68,5 +76,13 @@ class GeoTest {
         assertEquals(j, app.clonespace.proxy.GeoInfo.fromJson(j.toJson()))
         val cfg = app.clonespace.proxy.ProxyConfig(true, app.clonespace.proxy.ProxyType.SOCKS5, "h", 1, matchLocation = true, geo = j)
         assertEquals(cfg, app.clonespace.proxy.ProxyConfig.fromJson(cfg.toJson()))
+        // The report line says what is set, and never the host or the login.
+        val secret = app.clonespace.proxy.ProxyConfig(true, app.clonespace.proxy.ProxyType.HTTP, "203.0.113.9", 8080, "someuser", "somepass", matchLocation = true, geo = g)
+        val line = secret.describe()
+        assertTrue("HTTP" in line && "8080" in line && "login yes" in line && "America/New_York" in line)
+        assertFalse("203.0.113.9" in line || "someuser" in line || "somepass" in line)
+        assertTrue("was not found" in secret.copy(geo = null).describe())
+        assertTrue("match location off" in secret.copy(matchLocation = false, geo = null).describe())
+        assertEquals("proxy: off", app.clonespace.proxy.ProxyConfig().describe())
     }
 }

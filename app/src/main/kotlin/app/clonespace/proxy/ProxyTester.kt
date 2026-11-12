@@ -53,12 +53,21 @@ object ProxyTester {
 
     /**
      * Asks a public IP-location service where the proxy exits. The request goes through the proxy,
-     * so the service sees only the proxy's address, never the phone's. Two services are tried.
+     * so the service sees only the proxy's address, never the phone's. Three services are tried: a
+     * proxy's address is shared by many people, and any one service may be refusing it for the moment
+     * (too many lookups from that address). Why each one failed is added to [failures].
      */
-    suspend fun locate(cfg: ProxyConfig): GeoInfo? = withContext(Dispatchers.IO) {
-        for ((host, path) in listOf("ipwho.is" to "/", "ipapi.co" to "/json/")) {
-            val geo = runCatching { GeoInfo.parse(httpsGet(cfg, host, path)) }.getOrNull()
-            if (geo != null) return@withContext geo
+    suspend fun locate(cfg: ProxyConfig, failures: MutableList<String>? = null): GeoInfo? = withContext(Dispatchers.IO) {
+        for ((host, path) in listOf("ipwho.is" to "/", "ipinfo.io" to "/json", "ipapi.co" to "/json/")) {
+            val why = try {
+                val body = httpsGet(cfg, host, path)
+                GeoInfo.parse(body)?.let { return@withContext it }
+                "answered \"" + body.lineSequence().firstOrNull().orEmpty().take(40) + "\""
+            } catch (t: Throwable) {
+                t.message ?: t.javaClass.simpleName
+            }
+            failures?.add("$host: $why")
+            runCatching { android.util.Log.w("CloneSpace", "proxy location lookup at $host failed: $why") }
         }
         null
     }
