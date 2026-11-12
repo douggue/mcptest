@@ -50,6 +50,9 @@ android {
             isMinifyEnabled = false   // the engine's keep rules cover most classes; enable after device testing
         }
     }
+    // A build that is not debuggable gets the release-only lint pass ("lintVital") added to assemble.
+    // The engine module switches it off for itself; the debug build never ran it before.
+    lint { checkReleaseBuilds = false }
     testOptions { unitTests.isReturnDefaultValues = true }
 }
 
