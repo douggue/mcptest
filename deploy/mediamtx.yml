@@ -1,0 +1,42 @@
+# MediaMTX: internal relay between sources (playback workers / OBS) and per-platform output workers.
+# Every publish/read is authorised by the Stream Studio engine (authHTTPAddress).
+logLevel: warn
+logDestinations: [stdout]
+readTimeout: 10s
+writeTimeout: 10s
+
+authMethod: http
+# Overridden in docker-compose via MTX_AUTHHTTPADDRESS.
+authHTTPAddress: http://127.0.0.1:7001/mediamtx/auth
+authHTTPExclude:
+  - action: api
+  - action: metrics
+
+# Control API: only reachable inside the private Docker network.
+api: true
+apiAddress: :9997
+
+# RTMP ingest from OBS (public port 1935) and internal relay.
+rtmp: true
+rtmpAddress: :1935
+
+# HLS is only used for the dashboard preview (proxied & authenticated by the web app).
+hls: true
+hlsAddress: :8888
+hlsVariant: mpegts
+hlsSegmentDuration: 2s
+hlsSegmentCount: 5
+hlsAlwaysRemux: false
+# Set via MTX_HLSCDNSECRET; the dashboard sends it when proxying previews.
+hlsCDNSecret: ""
+
+rtsp: false
+webrtc: false
+srt: false
+moq: false
+playback: false
+metrics: false
+pprof: false
+
+paths:
+  all_others:

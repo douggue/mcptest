@@ -1,0 +1,17 @@
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Uploads arrive in 8 MB chunks.
+	request_body {
+		max_size 64MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	reverse_proxy web:8080 {
+		flush_interval -1
+	}
+}

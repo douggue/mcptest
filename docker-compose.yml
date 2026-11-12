@@ -1,0 +1,71 @@
+# Stream Studio — single-server deployment.
+#   caddy     HTTPS for the dashboard (automatic Let's Encrypt certificates)
+#   web       dashboard + API (restarting it never interrupts a broadcast)
+#   engine    scheduler, playback/output workers, media conversion
+#   mediamtx  internal relay + RTMP ingest for OBS (port 1935)
+
+x-app: &app
+  build: .
+  image: stream-studio:latest
+  env_file: .env
+  volumes:
+    - studio-data:/data
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  web:
+    <<: *app
+    command: ["node", "--disable-warning=ExperimentalWarning", "src/web/index.js"]
+    environment:
+      DATA_DIR: /data
+      ENGINE_URL: http://engine:7001
+      MEDIAMTX_HLS: http://mediamtx:8888
+      TRUST_PROXY: "1"
+    depends_on: [engine]
+
+  engine:
+    <<: *app
+    command: ["node", "--disable-warning=ExperimentalWarning", "src/engine/index.js"]
+    environment:
+      DATA_DIR: /data
+      ENGINE_HOST: 0.0.0.0
+      MEDIAMTX_RTMP: rtmp://mediamtx:1935
+      MEDIAMTX_API: http://mediamtx:9997
+    stop_grace_period: 10s
+
+  mediamtx:
+    image: bluenviron/mediamtx:1.21.3
+    restart: unless-stopped
+    volumes:
+      - ./deploy/mediamtx.yml:/mediamtx.yml:ro
+    environment:
+      MTX_AUTHHTTPADDRESS: http://engine:7001/mediamtx/auth
+      MTX_HLSCDNSECRET: ${HLS_CDN_SECRET}
+    ports:
+      - "1935:1935"   # RTMP ingest for OBS / encoders (keys are checked by the engine)
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [web]
+
+volumes:
+  studio-data:
+  caddy-data:
+  caddy-config:

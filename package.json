@@ -1,0 +1,14 @@
+{
+  "name": "stream-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Personal cloud streaming studio: scheduled pre-recorded and live multistreaming to YouTube, Facebook, TikTok, Twitch and more.",
+  "scripts": {
+    "web": "node --disable-warning=ExperimentalWarning src/web/index.js",
+    "engine": "node --disable-warning=ExperimentalWarning src/engine/index.js",
+    "dev": "node --disable-warning=ExperimentalWarning scripts/dev.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+  },
+  "engines": { "node": ">=22.13" },
+  "license": "MIT"
+}
