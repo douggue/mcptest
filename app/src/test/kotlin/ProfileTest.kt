@@ -15,6 +15,23 @@ class ProfileTest {
             assertEquals(16, p.androidId.length)
         }
     }
+    @Test fun regionAndPhonePresets() {
+        // Regions: where TikTok's creator programmes run (rewards: US GB DE FR JP KR BR MX; the older fund: also IT ES).
+        assertEquals(listOf("US", "GB", "DE", "FR", "JP", "KR", "BR", "MX", "IT", "ES"), Templates.regions.map { it.code })
+        assertNull(Templates.regionByCode("IN"))
+        for (r in Templates.regions) {
+            assertTrue(r.operators.isNotEmpty() && r.operators.all { it.mccMnc.length in 5..6 && it.mccMnc.all(Char::isDigit) }, r.code)
+            assertTrue(r.timezone in java.util.TimeZone.getAvailableIDs(), r.timezone)
+            assertEquals(r.code, r.locale.substringAfter('-'))
+        }
+        // Phones: ids and models are unique, and every one has a build for a current Android.
+        assertEquals(Templates.all.size, Templates.all.map { it.id }.toSet().size)
+        assertEquals(Templates.all.size, Templates.all.map { it.model }.toSet().size)
+        for (t in Templates.all) assertTrue(t.builds.keys.any { it >= 35 }, t.id)
+        for (id in listOf("pixel10", "pixel10pro", "pixel9a", "galaxys25", "galaxys25ultra", "galaxys24ultra", "xiaomi14")) {
+            assertNotNull(Templates.byId(id), id)
+        }
+    }
     @Test fun neverMixesVendors() {
         repeat(200) {
             val p = ProfileGenerator.generate(35, "15")

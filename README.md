@@ -132,7 +132,7 @@ All in `patches/` (one per fix, see `patches/README.md`); evidence in `docs/rese
 - [x] Material 3 UI following plan.md section 5.2, with dark mode and the three fonts (bundled, OFL)
 
 ### Device-profile system (privacy isolation between accounts)
-- 6 device templates (Pixel 7, 8, 9; Galaxy S23, A54; Xiaomi 13), 8 regions with real operator codes. One template per profile, so vendors never mix; the generator and tests check it.
+- 19 device templates (Pixel 7 to 10 including Pro, XL and a models; Galaxy S23, S24 Ultra, S25, S25 Ultra, A54, A55; Xiaomi 13, 14), 10 regions with real operator codes (US, GB, DE, FR, JP, KR, BR, MX, IT, ES). One template per profile, so vendors never mix; the generator and tests check it.
 - Profile fields: Android ID, all listed `Build` fields, advertising ID, GSF ID, IMEI (valid Luhn), IMSI, SIM serial, Wi-Fi MAC/SSID, serial, SIM operator/country/name, phone type, locale, time zone, density, resolution, sensor list.
 - **`SDK_INT` and release are recorded but never faked**: apps and the framework branch on them. The fingerprint is chosen for the real OS level so it agrees.
 - Store per space and package with regenerate, "new device", lock, import and export (import is rejected unless internally consistent).
