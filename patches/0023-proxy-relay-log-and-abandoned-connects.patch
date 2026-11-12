@@ -1,0 +1,272 @@
+diff --git a/Bcore/src/main/cpp/Utils/ProxyHook.cpp b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+index ce467d4..87d7fa8 100644
+--- a/Bcore/src/main/cpp/Utils/ProxyHook.cpp
++++ b/Bcore/src/main/cpp/Utils/ProxyHook.cpp
+@@ -32,6 +32,7 @@
+ #include <string.h>
+ #include <stdlib.h>
+ #include <stdio.h>
++#include <algorithm>
+ #include <atomic>
+ #include <mutex>
+ #include <string>
+@@ -503,7 +504,9 @@ int proxied_connect(int fd, const sockaddr *sa, const Cfg &c) {
+ 
+ const int kRelayHandshakeMs = 15000;       // connect to the proxy and finish the handshake
+ const int kRelayStallMs = 4000;            // no answer to a pipelined handshake: try step by step
+-const int kRelayLingerMs = 120000;         // one side has ended and nothing moves any more
++const int kRelayLingerMs = 120000;         // the far side has ended and nothing moves any more
++const int kRelayAppGoneMs = 15000;         // the app has ended its side and nothing moves any more
++const int kRelaySummaryMs = 10000;         // how often the log gets a line about what the relay did
+ const int kRelayPendingMs = 10000;         // a registered connect must reach the listener in this time
+ const size_t kRelayChunk = 64 * 1024;
+ const size_t kRelayBudget = 512 * 1024;    // bytes one tunnel may move before the others get a turn
+@@ -545,6 +548,7 @@ struct RelayConn {
+     // tunnel
+     RelayHalf c2u, u2c;
+     int64_t lingerAt = 0;
++    int64_t startedAt = 0;
+ };
+ 
+ std::mutex g_relayLock;                     // guards the four below and g_relayPending
+@@ -557,6 +561,36 @@ std::unordered_set<RelayConn *> g_relayHs, g_relayLinger;
+ std::vector<RelayConn *> g_relayReady, g_relayDead;
+ char g_relayBuf[kRelayChunk];
+ 
++// What the relay did since the last summary line in the log. With it, a report from a phone shows
++// whether the proxy refuses connections, does not answer, or is simply slow; nothing else can,
++// because the app only ever sees "connection reset".
++struct RelayStats {
++    int opened = 0, ready = 0, failed = 0, abandoned = 0, broken = 0;
++    int64_t setupSum = 0, setupMax = 0;
++    size_t down = 0, up = 0;
++    std::string lastFailure;
++    int64_t since = 0;
++    bool any() const { return opened || ready || failed || abandoned || broken || down || up; }
++};
++RelayStats g_relayStats;
++int g_relayOpenNow = 0;
++
++void relay_summary(int64_t now) {
++    RelayStats &t = g_relayStats;
++    if (t.since == 0) t.since = now;
++    if (now - t.since < kRelaySummaryMs) return;
++    if (t.any()) {
++        double sec = (double) (now - t.since) / 1000.0;
++        LOGD("relay, last %.0f s: %d connections asked for, %d ready (proxy took %lld ms on average, %lld ms at most), "
++             "%d failed%s%s, %d given up by the app, %d broken later, %d open now, down %zu KB (%.0f KB/s), up %zu KB",
++             sec, t.opened, t.ready, (long long) (t.ready ? t.setupSum / t.ready : 0), (long long) t.setupMax,
++             t.failed, t.lastFailure.empty() ? "" : ", last reason: ", t.lastFailure.c_str(), t.abandoned, t.broken,
++             g_relayOpenNow, t.down / 1024, (double) (t.down / 1024) / sec, t.up / 1024);
++    }
++    t = RelayStats();
++    t.since = now;
++}
++
+ // "address/port" of a socket address. A v4-mapped address is written as the IPv4 address it is,
+ // so the app's side (AF_INET6 socket) and the listener's side (AF_INET) agree.
+ std::string relay_key(const sockaddr *sa) {
+@@ -589,6 +623,7 @@ void relay_close(RelayConn *c, bool reset) {
+         linger lg{1, 0};
+         setsockopt(c->cfd, SOL_SOCKET, SO_LINGER, &lg, sizeof lg);
+     }
++    g_relayOpenNow--;
+     if (c->cfd >= 0) close(c->cfd);     // closing also takes it out of the epoll set
+     if (c->ufd >= 0) close(c->ufd);
+     c->cfd = c->ufd = -1;
+@@ -601,6 +636,22 @@ void relay_close(RelayConn *c, bool reset) {
+     g_relayDead.push_back(c);   // freed after the current batch of events
+ }
+ 
++// A handshake that did not end in a tunnel: the reason goes into the next summary line.
++void relay_fail(RelayConn *c, const std::string &why) {
++    if (c->closed) return;
++    g_relayStats.failed++;
++    g_relayStats.lastFailure = why;
++    relay_close(c, true);
++}
++
++// What the proxy answered when it refused, for the log.
++std::string relay_reply_text(const RelayConn *c) {
++    if (c->cfg.type != 1) return "the proxy answered \"" + c->in.substr(0, std::min(c->in.find('\r'), (size_t) 60)) + "\"";
++    const char *stage = c->step == 0 ? "the login method" : c->step == 1 ? "the user name or password" : "the destination";
++    int code = c->in.size() > c->inPos + 1 ? (uint8_t) c->in[c->inPos + 1] : -1;
++    return std::string("the proxy refused ") + stage + " (SOCKS5 code " + std::to_string(code) + ")";
++}
++
+ // Opens the connection to the proxy. The handshake starts when it is writable.
+ bool relay_dial(RelayConn *c) {
+     int fd = socket(c->cfg.proxy.ss_family, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+@@ -614,6 +665,8 @@ bool relay_dial(RelayConn *c) {
+     setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof idle);
+     setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &idle, sizeof idle);
+     setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &cnt, sizeof cnt);
++    unsigned unacked = 30000;   // ms: a proxy that stopped acknowledging data is gone
++    setsockopt(fd, IPPROTO_TCP, TCP_USER_TIMEOUT, &unacked, sizeof unacked);
+     c->st = RelayConn::CONNECTING;
+     c->uRead = c->uWrite = false;
+     c->step = 0;
+@@ -630,7 +683,7 @@ void relay_retry_stepwise(RelayConn *c) {
+     close(c->ufd);
+     c->ufd = -1;
+     c->retried = true;
+-    if (!relay_dial(c)) relay_close(c, true);
++    if (!relay_dial(c)) relay_fail(c, std::string("could not start a connection to the proxy: ") + strerror(errno));
+ }
+ 
+ void relay_begin_handshake(RelayConn *c) {
+@@ -707,7 +760,7 @@ int relay_http_progress(RelayConn *c) {
+ // pipelined behind the greeting it may be one that drops early bytes: try once step by step.
+ void relay_handshake_lost(RelayConn *c) {
+     if (c->pipelined && !c->retried && c->step < 2) relay_retry_stepwise(c);
+-    else relay_close(c, true);
++    else relay_fail(c, "the proxy closed the connection during the handshake");
+ }
+ 
+ bool relay_stalled(const RelayConn *c, int64_t now) {
+@@ -765,15 +818,19 @@ bool relay_move(int from, int to, RelayHalf &h, bool &readable, bool &writable,
+ 
+ void relay_pump(RelayConn *c) {
+     bool more = false;
+-    size_t total = 0;
+-    bool ok = relay_move(c->cfd, c->ufd, c->c2u, c->cRead, c->uWrite, more, total) &&
+-              relay_move(c->ufd, c->cfd, c->u2c, c->uRead, c->cWrite, more, total);
+-    if (!ok) { relay_close(c, true); return; }
++    size_t up = 0, down = 0;
++    bool ok = relay_move(c->cfd, c->ufd, c->c2u, c->cRead, c->uWrite, more, up) &&
++              relay_move(c->ufd, c->cfd, c->u2c, c->uRead, c->cWrite, more, down);
++    g_relayStats.up += up;
++    g_relayStats.down += down;
++    size_t total = up + down;
++    if (!ok) { g_relayStats.broken++; relay_close(c, true); return; }
+     if (c->c2u.shut && c->u2c.shut) { relay_close(c, false); return; }
+     if (c->c2u.shut || c->u2c.shut) {
+         // Half closed. The other half may never end (the app closed its socket and the far side
+-        // keeps the tunnel open), so it is dropped once nothing has moved for a while.
+-        if (c->lingerAt == 0 || total > 0) c->lingerAt = relay_now_ms() + kRelayLingerMs;
++        // keeps the tunnel open), so it is dropped once nothing has moved for a while. Apps on an
++        // event loop do not half-close, so when the app's side ended first the wait is short.
++        if (c->lingerAt == 0 || total > 0) c->lingerAt = relay_now_ms() + (c->c2u.shut ? kRelayAppGoneMs : kRelayLingerMs);
+         g_relayLinger.insert(c);
+     }
+     if (more && !c->queued) { c->queued = true; g_relayReady.push_back(c); }
+@@ -785,6 +842,10 @@ void relay_begin_tunnel(RelayConn *c) {
+     }
+     c->st = RelayConn::RELAY;
+     g_relayHs.erase(c);
++    int64_t took = relay_now_ms() - c->startedAt;
++    g_relayStats.ready++;
++    g_relayStats.setupSum += took;
++    g_relayStats.setupMax = std::max(g_relayStats.setupMax, took);
+     if (c->inPos < c->in.size()) c->u2c.pend.assign(c->in, c->inPos, std::string::npos);   // sent right behind the reply
+     std::string().swap(c->in);
+     std::string().swap(c->out);
+@@ -797,7 +858,10 @@ void relay_drive(RelayConn *c) {
+         if (!c->uWrite) return;
+         int err = 0;
+         socklen_t el = sizeof err;
+-        if (getsockopt(c->ufd, SOL_SOCKET, SO_ERROR, &err, &el) != 0 || err != 0) { relay_close(c, true); return; }
++        if (getsockopt(c->ufd, SOL_SOCKET, SO_ERROR, &err, &el) != 0 || err != 0) {
++            relay_fail(c, std::string("could not connect to the proxy: ") + strerror(err ? err : errno));
++            return;
++        }
+         sockaddr_storage peer{};
+         socklen_t pl = sizeof peer;
+         if (getpeername(c->ufd, (sockaddr *) &peer, &pl) != 0) { c->uWrite = false; return; }   // not connected yet
+@@ -821,7 +885,7 @@ void relay_drive(RelayConn *c) {
+             if (r <= 0) { relay_handshake_lost(c); return; }
+             c->in.append(buf, (size_t) r);
+             int p = c->cfg.type == 1 ? relay_socks_progress(c) : relay_http_progress(c);
+-            if (p < 0) { relay_close(c, true); return; }
++            if (p < 0) { relay_fail(c, relay_reply_text(c)); return; }
+             if (p > 0) { relay_begin_tunnel(c); break; }
+         }
+     }
+@@ -858,8 +922,14 @@ void relay_accept(int lfd) {
+         c->dest = std::move(p.dest);
+         int one = 1;
+         setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof one);
++        c->startedAt = relay_now_ms();
++        g_relayStats.opened++;
++        g_relayOpenNow++;
+         g_relayHs.insert(c);
+-        if (!relay_watch(c, fd, 0) || !relay_dial(c)) { relay_close(c, true); continue; }
++        if (!relay_watch(c, fd, 0) || !relay_dial(c)) {
++            relay_fail(c, std::string("could not start a connection to the proxy: ") + strerror(errno));
++            continue;
++        }
+     }
+ }
+ 
+@@ -868,7 +938,8 @@ void *relay_main(void *) {
+     epoll_event evs[128];
+     int64_t lingerChecked = relay_now_ms();
+     for (;;) {
+-        int timeout = !g_relayReady.empty() ? 0 : !g_relayHs.empty() ? 250 : !g_relayLinger.empty() ? 5000 : -1;
++        int timeout = !g_relayReady.empty() ? 0 : !g_relayHs.empty() ? 250 : g_relayStats.any() ? 1000
++                    : !g_relayLinger.empty() ? 5000 : -1;
+         int n = epoll_wait(g_relayEp, evs, 128, timeout);
+         if (n < 0 && errno != EINTR) usleep(10 * 1000);
+         for (int i = 0; i < n; i++) {
+@@ -882,9 +953,20 @@ void *relay_main(void *) {
+                 if (e & (EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLHUP)) c->uRead = true;
+                 if (e & (EPOLLOUT | EPOLLERR | EPOLLHUP)) c->uWrite = true;
+             } else {
+-                if ((e & (EPOLLERR | EPOLLHUP)) && c->st != RelayConn::RELAY) {   // the app gave up waiting
+-                    relay_close(c, false);
+-                    continue;
++                if (c->st != RelayConn::RELAY) {
++                    // The app gave up waiting (a feed starts and drops connections all the time): stop
++                    // here, so the proxy is not kept busy opening a tunnel nobody will use. A socket
++                    // that was closed without having sent anything reads as an immediate end.
++                    bool gone = (e & (EPOLLERR | EPOLLHUP)) != 0;
++                    if (!gone && (e & EPOLLRDHUP)) {
++                        char b;
++                        gone = recv(c->cfd, &b, 1, MSG_PEEK | MSG_DONTWAIT) == 0;
++                    }
++                    if (gone) {
++                        g_relayStats.abandoned++;
++                        relay_close(c, false);
++                        continue;
++                    }
+                 }
+                 if (e & (EPOLLIN | EPOLLRDHUP | EPOLLERR | EPOLLHUP)) c->cRead = true;
+                 if (e & (EPOLLOUT | EPOLLERR | EPOLLHUP)) c->cWrite = true;
+@@ -907,7 +989,10 @@ void *relay_main(void *) {
+                 if (now >= c->deadline) late.push_back(c);
+                 else if (relay_stalled(c, now)) stalled.push_back(c);
+             }
+-            for (RelayConn *c : late) relay_close(c, true);
++            for (RelayConn *c : late) {
++                relay_fail(c, c->st == RelayConn::CONNECTING ? "no connection to the proxy within 15 s"
++                                                             : "no answer from the proxy within 15 s");
++            }
+             for (RelayConn *c : stalled) relay_retry_stepwise(c);
+         }
+         if (!g_relayLinger.empty() && now - lingerChecked >= 5000) {
+@@ -918,6 +1003,7 @@ void *relay_main(void *) {
+         }
+         for (RelayConn *c : g_relayDead) delete c;
+         g_relayDead.clear();
++        relay_summary(now);
+     }
+     return nullptr;
+ }
+@@ -963,11 +1049,12 @@ bool relay_start_locked() {
+     ev.events = EPOLLIN;
+     if (g_relayL4 >= 0) { ev.data.u64 = kRelayTagL4; epoll_ctl(g_relayEp, EPOLL_CTL_ADD, g_relayL4, &ev); }
+     if (g_relayL6 >= 0) { ev.data.u64 = kRelayTagL6; epoll_ctl(g_relayEp, EPOLL_CTL_ADD, g_relayL6, &ev); }
+-    // The app's signal handlers must not run on this thread; crash signals stay as they are.
+-    sigset_t all, old;
+-    sigfillset(&all);
+-    for (int s : {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGABRT, SIGTRAP}) sigdelset(&all, s);
+-    pthread_sigmask(SIG_SETMASK, &all, &old);
++    // The app's handlers for ordinary signals must not run on this thread. Crash signals and the
++    // system's own (stack dumps for crash and not-responding reports) stay as they are.
++    sigset_t block, old;
++    sigemptyset(&block);
++    for (int s : {SIGPIPE, SIGQUIT, SIGUSR1, SIGUSR2, SIGHUP, SIGINT, SIGALRM, SIGCHLD, SIGTERM}) sigaddset(&block, s);
++    pthread_sigmask(SIG_BLOCK, &block, &old);
+     pthread_t t;
+     int rc = pthread_create(&t, nullptr, relay_main, nullptr);
+     pthread_sigmask(SIG_SETMASK, &old, nullptr);

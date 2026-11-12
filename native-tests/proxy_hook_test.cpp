@@ -60,6 +60,7 @@ struct Mock {
     std::mutex m;
     std::string user, pass;
     std::vector<std::string> seen;        // "host:port" of every request
+    std::atomic<int> served{0};           // requests that got as far as a reply to a client still there
 } g_mock;
 
 bool rd(int fd, void *b, size_t n) { return recv_all(fd, b, n); }
@@ -147,6 +148,8 @@ void mock_socks(int fd) {
     int port = pp[0] << 8 | pp[1];
     record(host, port);
     usleep(g_mock.delayMs.load() * 1000);
+    { char b; if (recv(fd, &b, 1, MSG_PEEK | MSG_DONTWAIT) == 0) return; }   // the client has left
+    g_mock.served++;
     uint8_t rep[10] = {5, (uint8_t) (port == kRefuse ? 5 : 0), 0, 1, 0, 0, 0, 0, 0, 0};
     if (port == kBanner) {   // reply and first tunnel bytes in ONE segment
         std::string both((const char *) rep, 10);
@@ -182,6 +185,8 @@ void mock_http(int fd) {
     }
     record(host, port);
     usleep(g_mock.delayMs.load() * 1000);
+    { char b; if (recv(fd, &b, 1, MSG_PEEK | MSG_DONTWAIT) == 0) return; }   // the client has left
+    g_mock.served++;
     if (port == kRefuse) {
         const char *no = "HTTP/1.1 502 Bad Gateway\r\n\r\n";
         wr(fd, no, strlen(no));
@@ -506,6 +511,22 @@ void test_many(int count) {
     check(ok == count, "many connections at the same time", "(%d of %d in %lld ms)", ok, count, (long long) ms);
 }
 
+// A feed opens connections and drops them again as the user swipes. The proxy must not be kept
+// busy with tunnels nobody will use.
+void test_abandoned(int count) {
+    int before = g_mock.delayMs.load();
+    g_mock.delayMs = 800;
+    int served = g_mock.served.load();
+    for (int i = 0; i < count; i++) {
+        int fd = nb_connect(AF_INET, kEcho);
+        if (fd >= 0) close(fd);
+    }
+    usleep(1600 * 1000);
+    served = g_mock.served.load() - served;
+    g_mock.delayMs = before;
+    check(served <= count / 10, "connections the app gives up on do not keep the proxy busy", "(%d of %d still went through)", served, count);
+}
+
 void test_udp_block() {
     int fd = socket(AF_INET, SOCK_DGRAM, 0);
     sockaddr_storage ss;
@@ -557,6 +578,7 @@ int main(int argc, char **argv) {
     test_refused("a refused destination is reported as a failed connection", kRefuse);
     test_udp_block();
     test_many(300);
+    test_abandoned(40);
 
     printf("SOCKS5, wrong password\n");
     { std::lock_guard<std::mutex> g(g_mock.m); g_mock.pass = "other"; }
@@ -578,6 +600,7 @@ int main(int argc, char **argv) {
     test_download(AF_INET, 8u * 1024 * 1024);
     test_banner();
     test_refused("a refused destination is reported as a failed connection", kRefuse);
+    test_abandoned(40);
 
     printf("%s (%d failed)\n", g_failures ? "FAILED" : "ALL PASSED", g_failures);
     return g_failures ? 1 : 0;
