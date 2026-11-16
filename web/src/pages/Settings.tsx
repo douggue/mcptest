@@ -7,14 +7,20 @@ import { Button, Field, Panel, Seg, Slider, toast, toastError } from '../ui';
 
 type Brand = { name: string; accent: string; secondary: string; font: string; logo: string; logoPos: string; logoSize: number; watermark: string };
 type SettingsData = {
-  anthropic_api_key: string; anthropic_api_key_set: boolean; ai_model: string; whisper_model: string; copy_folder: string;
+  ai_provider: 'anthropic' | 'gemini'; anthropic_api_key: string; anthropic_api_key_set: boolean; ai_model: string;
+  gemini_api_key: string; gemini_api_key_set: boolean; gemini_model: string; whisper_model: string; copy_folder: string;
   pexels_api_key: string; pexels_api_key_set: boolean; tts_voice: string; brand: Brand;
 };
 
 export default function Settings() {
   const [s, setS] = useState<SettingsData | null>(null);
   const [logos, setLogos] = useState<Asset[]>([]);
-  const [health, setHealth] = useState<{ ffmpeg: boolean; ai: boolean; data: string } | null>(null);
+  const [health, setHealth] = useState<{ ffmpeg: boolean; ai: boolean; ai_provider: string; data: string } | null>(null);
+  const [geminiModels, setGeminiModels] = useState<{ id: string; label: string }[]>([
+    { id: 'gemini-flash-latest', label: 'Gemini Flash (latest; default, works on the free tier)' },
+    { id: 'gemini-pro-latest', label: 'Gemini Pro (latest; strongest)' },
+    { id: 'gemini-flash-lite-latest', label: 'Gemini Flash-Lite (latest; cheapest)' },
+  ]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -26,6 +32,14 @@ export default function Settings() {
 
   const set = (patch: Partial<SettingsData>) => setS({ ...s, ...patch });
   const setBrand = (patch: Partial<Brand>) => setS({ ...s, brand: { ...s.brand, ...patch } });
+
+  async function loadGeminiModels() {
+    try {
+      const rows = await api.get<{ id: string; label: string }[]>('/api/ai/models?provider=gemini');
+      setGeminiModels(rows);
+      toast(`Found ${rows.length} Gemini models for your key`, 'good');
+    } catch (e) { toastError(e); }
+  }
 
   async function save() {
     setSaving(true);
@@ -49,13 +63,16 @@ export default function Settings() {
 
       {health && !health.ffmpeg && <div className="notice bad">ffmpeg was not found. Install it and restart Cutroom; nothing can be cut or rendered without it.</div>}
 
-      <Panel title="AI">
-        <p className="muted">With a key, Claude picks the moments, scores them, plans graphics, writes hooks and post text, and translates captions. Without one, simpler built-in rules are used and translation is unavailable.</p>
+      <Panel title="AI" actions={health?.ai ? <span className="pill good">Using {health.ai_provider}</span> : <span className="pill muted">No key set</span>}>
+        <p className="muted">With a key, the AI picks the moments, scores them, plans graphics, writes hooks and post text, and translates captions. Without one, simpler built-in rules are used and translation is unavailable. Transcripts are sent to the provider you choose.</p>
+        <Field label="Provider" hint="If the chosen provider has no key, the other one is used when it has one.">
+          <Seg value={s.ai_provider} onChange={(v) => set({ ai_provider: v })} options={[{ value: 'anthropic', label: 'Claude (Anthropic)' }, { value: 'gemini', label: 'Gemini (Google)' }]} />
+        </Field>
         <div className="grid-2">
           <Field label="Anthropic API key" hint={s.anthropic_api_key_set ? 'A key is set. Type a new one to replace it.' : 'Stored only in your data folder. You can also set ANTHROPIC_API_KEY before starting.'}>
             <input type="password" autoComplete="off" placeholder={s.anthropic_api_key_set ? '••••••••  (set)' : 'sk-ant-…'} value={s.anthropic_api_key} onChange={(e) => set({ anthropic_api_key: e.target.value })} />
           </Field>
-          <Field label="Model" hint="The default gives the best picks; smaller models cost less per video.">
+          <Field label="Claude model" hint="The default gives the best picks; smaller models cost less per video.">
             <select value={s.ai_model} onChange={(e) => set({ ai_model: e.target.value })}>
               <option value="claude-opus-5-5">Claude Opus 5.5 (default)</option>
               <option value="claude-sonnet-5-5">Claude Sonnet 5.5</option>
@@ -63,6 +80,22 @@ export default function Settings() {
               <option value="claude-fable-5-2">Claude Fable 5.2</option>
             </select>
           </Field>
+        </div>
+        <div className="grid-2">
+          <Field label="Gemini API key" hint={s.gemini_api_key_set ? 'A key is set. Type a new one to replace it.' : 'Free to create in Google AI Studio. You can also set GEMINI_API_KEY before starting.'}>
+            <input type="password" autoComplete="off" placeholder={s.gemini_api_key_set ? '••••••••  (set)' : 'AIza…'} value={s.gemini_api_key} onChange={(e) => set({ gemini_api_key: e.target.value })} />
+          </Field>
+          <div className="field" role="group" aria-label="Gemini model">
+            <span className="field-label">Gemini model</span>
+            <div className="row">
+              <select value={s.gemini_model} onChange={(e) => set({ gemini_model: e.target.value })} aria-label="Gemini model">
+                {!geminiModels.some((m) => m.id === s.gemini_model) && <option value={s.gemini_model}>{s.gemini_model}</option>}
+                {geminiModels.map((m) => <option key={m.id} value={m.id}>{m.label === m.id ? m.id : `${m.label} — ${m.id}`}</option>)}
+              </select>
+              <Button small onClick={loadGeminiModels} disabled={!s.gemini_api_key_set} title="Ask Google which models your key can use">Load list</Button>
+            </div>
+            <span className="field-hint">“Latest” follows Google's current model. Save the key first, then load the full list.</span>
+          </div>
         </div>
       </Panel>
 

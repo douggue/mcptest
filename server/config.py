@@ -27,8 +27,11 @@ SUBDIRS = [
 ]
 
 DEFAULT_SETTINGS = {
+    "ai_provider": "anthropic",       # anthropic | gemini  (whichever has a key is used if this one has none)
     "anthropic_api_key": "",          # falls back to ANTHROPIC_API_KEY in the environment
     "ai_model": "claude-opus-5-5",
+    "gemini_api_key": "",             # falls back to GEMINI_API_KEY / GOOGLE_API_KEY in the environment
+    "gemini_model": "gemini-flash-latest",
     "whisper_model": "small",         # tiny | base | small | medium | large-v3
     "copy_folder": "",                # e.g. your Google Drive desktop folder; finished files are copied here
     "pexels_api_key": "",             # optional, for stock b-roll search
@@ -100,3 +103,8 @@ def save_settings(patch: dict) -> dict:
 
 def anthropic_key() -> str:
     return get_settings().get("anthropic_api_key") or os.environ.get("ANTHROPIC_API_KEY", "")
+
+
+def gemini_key() -> str:
+    return (get_settings().get("gemini_api_key") or os.environ.get("GEMINI_API_KEY", "")
+            or os.environ.get("GOOGLE_API_KEY", ""))

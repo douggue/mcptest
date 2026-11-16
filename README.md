@@ -7,7 +7,7 @@ A personal clipping tool that runs on your own computer. It has four parts:
 - **Library** – your exports, music, b-roll, sound effects, logos, voiceovers and style templates.
 - **Agency** – campaigns, accounts, a posting planner, view and earnings tracking, rule checks and duplicate detection.
 
-Everything is stored in the `data/` folder next to this file. Nothing is uploaded anywhere unless you add an AI key, in which case transcripts are sent to the Anthropic API.
+Everything is stored in the `data/` folder next to this file. Nothing is uploaded anywhere unless you add an AI key, in which case transcripts are sent to the provider you chose (Anthropic or Google).
 
 ## Install and run
 
@@ -46,11 +46,15 @@ For development, run `python run.py` and, in another terminal, `cd web && npm ru
 | Clipping local files, editing, rendering | Nothing |
 | Clipping or importing from a link | Internet. Sites change often, so if links stop working run `pip install -U "yt-dlp[default]"` |
 | Whisper transcription | A one-time model download on first use |
-| AI moment picking, scores, remix, hooks, post text | An Anthropic API key (Settings → AI). Without one, simpler built-in rules are used |
-| Caption translation | An Anthropic API key |
+| AI moment picking, scores, remix, hooks, post text | A Claude (Anthropic) or Gemini (Google) API key (Settings → AI). Without one, simpler built-in rules are used |
+| Caption translation | A Claude or Gemini API key |
 | Voiceover from a script | Internet (uses the `edge-tts` voice service) |
 | Stock b-roll search | A free Pexels API key (Settings) |
 | Refreshing view counts in Agency | Internet |
+
+## Choosing the AI
+
+Settings → AI lets you pick **Claude** or **Gemini** and paste a key for either or both. Gemini keys are free to create in Google AI Studio and the Flash models work on the free tier. The Gemini model defaults to `gemini-flash-latest`; after saving a key, **Load list** fetches the models your key can actually use. You can also set `ANTHROPIC_API_KEY` or `GEMINI_API_KEY` in the environment instead of saving keys.
 
 ## Clipper
 

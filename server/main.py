@@ -36,11 +36,12 @@ for mod in pkgutil.iter_modules(_routers.__path__):
 @app.get("/api/health")
 def health() -> dict:
     import shutil
-    from .config import anthropic_key
+    from .studio import ai
     return {
         "ok": True,
         "ffmpeg": bool(shutil.which("ffmpeg")),
-        "ai": bool(anthropic_key()),
+        "ai": ai.available(),
+        "ai_provider": ai.provider_label(),
         "data": str(DATA),
     }
 
@@ -63,27 +64,45 @@ def cancel_job(job_id: str) -> dict:
     return {"ok": jobs.cancel(job_id)}
 
 
+SECRETS = ("anthropic_api_key", "gemini_api_key", "pexels_api_key")
+
+
 @app.get("/api/settings")
 def read_settings() -> dict:
+    import os
     s = get_settings()
     # never send secrets back to the browser; only whether they are set
-    for key in ("anthropic_api_key", "pexels_api_key"):
+    for key in SECRETS:
         s[key + "_set"] = bool(s.get(key))
         s[key] = ""
-    import os
     s["anthropic_api_key_set"] = s["anthropic_api_key_set"] or bool(os.environ.get("ANTHROPIC_API_KEY"))
+    s["gemini_api_key_set"] = s["gemini_api_key_set"] or bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
     return s
 
 
 @app.put("/api/settings")
 def write_settings(patch: dict) -> dict:
     # an empty secret means "leave unchanged"
-    for key in ("anthropic_api_key", "pexels_api_key"):
+    for key in SECRETS:
         if key in patch and not patch[key]:
             patch.pop(key)
     patch = {k: v for k, v in patch.items() if not k.endswith("_set")}
     save_settings(patch)
     return read_settings()
+
+
+@app.get("/api/ai/models")
+def ai_models(provider: str = "anthropic") -> list[dict]:
+    """Model choices for Settings. Gemini's come live from Google when a key is set."""
+    from .studio import ai
+    if provider != "gemini":
+        return ai.CLAUDE_MODELS
+    try:
+        live = ai.gemini_models()
+    except ai.AIUnavailable as e:
+        raise HTTPException(422, str(e))
+    known = {m["id"] for m in ai.GEMINI_MODELS}
+    return ai.GEMINI_MODELS + [m for m in live if m["id"] not in known]
 
 
 app.mount("/media", StaticFiles(directory=DATA), name="media")

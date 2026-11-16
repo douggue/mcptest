@@ -35,7 +35,7 @@ export const go = (path: string) => {
 export function App() {
   const route = useRoute();
   const page = PAGES.find((p) => p.id === route[0]) ?? PAGES[0];
-  const [health, setHealth] = useState<{ ffmpeg: boolean; ai: boolean } | null>(null);
+  const [health, setHealth] = useState<{ ffmpeg: boolean; ai: boolean; ai_provider?: string } | null>(null);
 
   useEffect(() => {
     api.get('/api/health').then(setHealth).catch(() => setHealth(null));
@@ -57,7 +57,7 @@ export function App() {
         <div className="nav-foot">
           {health === null && <span className="pill bad">API offline</span>}
           {health && !health.ffmpeg && <span className="pill bad">ffmpeg missing</span>}
-          {health && <span className={'pill ' + (health.ai ? 'good' : 'muted')}>{health.ai ? 'AI ready' : 'AI key not set'}</span>}
+          {health && <span className={'pill ' + (health.ai ? 'good' : 'muted')}>{health.ai ? `AI ready · ${health.ai_provider || 'on'}` : 'AI key not set'}</span>}
         </div>
       </nav>
       <main className="main">{page.el()}</main>

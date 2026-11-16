@@ -6,6 +6,7 @@ opencv-python-headless>=4.9,<5
 numpy>=1.26
 pillow>=10
 anthropic>=1.0
+google-genai>=1.0       # Gemini as an alternative AI provider
 # Optional (install for local speech-to-text / text-to-speech):
 faster-whisper>=1.0
 edge-tts>=6.1

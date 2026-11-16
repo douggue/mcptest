@@ -1,34 +1,73 @@
-"""Claude access for the studio. Every caller has a rule-based fallback, so the app works without a key."""
+"""AI access for the studio: Claude (Anthropic) or Gemini (Google), chosen in Settings.
+
+Every caller has a rule-based fallback, so the app works without a key.
+"""
 from __future__ import annotations
 
 import json
 
-from ..config import anthropic_key, get_settings
+from ..config import anthropic_key, gemini_key, get_settings
 
-# Models that accept the server-side refusal fallback.
+# Claude models that accept the server-side refusal fallback.
 _FALLBACK_OK = ("claude-opus-5-5", "claude-opus-5", "claude-fable-5-2", "claude-fable-5-1", "claude-sonnet-5-5")
+
+CLAUDE_MODELS = [
+    {"id": "claude-opus-5-5", "label": "Claude Opus 5.5 (default)"},
+    {"id": "claude-sonnet-5-5", "label": "Claude Sonnet 5.5"},
+    {"id": "claude-haiku-5-5", "label": "Claude Haiku 5.5"},
+    {"id": "claude-fable-5-2", "label": "Claude Fable 5.2"},
+]
+# "-latest" names follow Google's current model, so they keep working as versions are retired.
+GEMINI_MODELS = [
+    {"id": "gemini-flash-latest", "label": "Gemini Flash (latest; default, works on the free tier)"},
+    {"id": "gemini-pro-latest", "label": "Gemini Pro (latest; strongest)"},
+    {"id": "gemini-flash-lite-latest", "label": "Gemini Flash-Lite (latest; cheapest)"},
+]
 
 
 class AIUnavailable(RuntimeError):
     """No key configured, or the request could not be completed."""
 
 
+def provider() -> str:
+    """The provider to use: the one chosen in Settings if it has a key, otherwise whichever does. '' if neither."""
+    keys = {"anthropic": anthropic_key(), "gemini": gemini_key()}
+    chosen = get_settings().get("ai_provider") or "anthropic"
+    if keys.get(chosen):
+        return chosen
+    return next((name for name, key in keys.items() if key), "")
+
+
 def available() -> bool:
-    return bool(anthropic_key())
+    return bool(provider())
+
+
+def provider_label() -> str:
+    return {"anthropic": "Claude", "gemini": "Gemini"}.get(provider(), "")
 
 
 def ask_json(system: str, user: str, schema: dict, max_tokens: int = 32000, effort: str = "medium") -> dict:
     """One structured request. Returns the parsed object or raises AIUnavailable with a readable reason."""
-    key = anthropic_key()
-    if not key:
-        raise AIUnavailable("No Anthropic API key is set (Settings → AI).")
+    which = provider()
+    if not which:
+        raise AIUnavailable("No AI key is set (Settings → AI).")
+    text = _ask_gemini(system, user, schema) if which == "gemini" else _ask_claude(system, user, schema, max_tokens, effort)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        raise AIUnavailable("The AI returned something that was not valid JSON.") from e
+
+
+# ---------------------------------------------------------------- Claude
+
+def _ask_claude(system: str, user: str, schema: dict, max_tokens: int, effort: str) -> str:
     try:
         import anthropic
     except ImportError as e:  # pragma: no cover
         raise AIUnavailable("The 'anthropic' package is not installed.") from e
 
     model = get_settings().get("ai_model") or "claude-opus-5-5"
-    client = anthropic.Anthropic(api_key=key)
+    client = anthropic.Anthropic(api_key=anthropic_key())
     kwargs: dict = dict(
         model=model,
         max_tokens=max_tokens,
@@ -60,8 +99,91 @@ def ask_json(system: str, user: str, schema: dict, max_tokens: int = 32000, effo
         raise AIUnavailable("The AI declined this request.")
     if message.stop_reason == "max_tokens":
         raise AIUnavailable("The AI response was cut off (too long).")
-    text = next((b.text for b in message.content if b.type == "text"), "")
+    return next((b.text for b in message.content if b.type == "text"), "")
+
+
+# ---------------------------------------------------------------- Gemini
+
+_GEMINI_DECLINED = {"SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "LANGUAGE"}
+
+
+def _gemini_client():
     try:
-        return json.loads(text)
-    except json.JSONDecodeError as e:
-        raise AIUnavailable("The AI returned something that was not valid JSON.") from e
+        from google import genai
+        from google.genai import types
+    except ImportError as e:
+        raise AIUnavailable("Gemini needs the 'google-genai' package: pip install google-genai") from e
+    # timeout is in milliseconds; a two-hour transcript can take a few minutes to read
+    return genai.Client(api_key=gemini_key(), http_options=types.HttpOptions(timeout=600_000))
+
+
+def _gemini_error(e: Exception, model: str) -> AIUnavailable:
+    code = getattr(e, "code", None)
+    message = str(getattr(e, "message", "") or e)
+    if code in (401, 403) or "API key" in message:
+        return AIUnavailable("The Gemini API key was rejected.")
+    if code == 404:
+        return AIUnavailable(f"Gemini does not know the model '{model}'. Pick another under Settings → AI.")
+    if code == 429:
+        return AIUnavailable("Gemini rate limit or quota reached; wait a minute, or use a Flash model on the free tier.")
+    if code and 400 <= code < 500:
+        return AIUnavailable(f"The AI request was rejected: {message[:200]}")
+    if code:
+        return AIUnavailable(f"Gemini API error {code}.")
+    return AIUnavailable("Could not reach the Gemini API.")
+
+
+def _ask_gemini(system: str, user: str, schema: dict) -> str:
+    client = _gemini_client()
+    from google.genai import errors, types
+    model = get_settings().get("gemini_model") or "gemini-flash-latest"
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=user,
+            config=types.GenerateContentConfig(
+                system_instruction=system,
+                response_mime_type="application/json",
+                response_json_schema=schema,
+            ),
+        )
+    except errors.APIError as e:
+        raise _gemini_error(e, model) from e
+    except Exception as e:   # connection and timeout errors come from the HTTP layer
+        raise _gemini_error(e, model) from e
+
+    feedback = response.prompt_feedback
+    if feedback is not None and feedback.block_reason:
+        raise AIUnavailable("The AI declined this request.")
+    candidate = response.candidates[0] if response.candidates else None
+    reason = getattr(candidate.finish_reason, "name", str(candidate.finish_reason or "")) if candidate else ""
+    if reason in _GEMINI_DECLINED:
+        raise AIUnavailable("The AI declined this request.")
+    if reason == "MAX_TOKENS":
+        raise AIUnavailable("The AI response was cut off (too long).")
+    text = ""
+    if candidate and candidate.content and candidate.content.parts:
+        text = "".join(p.text for p in candidate.content.parts if p.text and not getattr(p, "thought", False))
+    if not text:
+        raise AIUnavailable("The AI returned an empty answer.")
+    return text
+
+
+def gemini_models() -> list[dict]:
+    """Text models this key can use, straight from Google, so the list never goes stale."""
+    if not gemini_key():
+        raise AIUnavailable("Add a Gemini API key first.")
+    client = _gemini_client()
+    skip = ("embedding", "image", "tts", "audio", "live", "robotics", "computer-use", "veo", "imagen", "aqa", "gemma")
+    try:
+        found = []
+        for m in client.models.list():
+            name = (m.name or "").removeprefix("models/")
+            if "generateContent" not in (m.supported_actions or []) or not name.startswith("gemini"):
+                continue
+            if any(word in name for word in skip):
+                continue
+            found.append({"id": name, "label": m.display_name or name})
+    except Exception as e:
+        raise _gemini_error(e, "") from e
+    return sorted(found, key=lambda m: m["id"])
