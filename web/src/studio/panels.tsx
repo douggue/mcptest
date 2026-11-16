@@ -40,7 +40,7 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
       const r = await jobs.run<{ engine: string; shots: AnalysedShot[] }>(() =>
         api.post(`${base}/analyse`, { detect_cuts: detectCuts, track: follow, cuts: spec.shots.slice(1).map((s) => s.start) }));
       const found = r.shots.filter((s) => s.faces.length).length;
-      update((s) => applyAnalysis(s, r.shots, { splitTwo, follow }));
+      update((s) => applyAnalysis(s, r.shots, { splitTwo, follow, keepLayouts: !detectCuts }));
       toast(`${r.shots.length} shot${r.shots.length === 1 ? '' : 's'}; speaker found in ${found}`, found ? 'good' : 'info');
     } catch (e) { toastError(e); }
   }

@@ -6,8 +6,8 @@ import re
 from pathlib import Path
 
 from ..config import DATA, get_settings
-from ..jobs import Job
-from ..media import MediaError, ffmpeg, probe
+from ..jobs import Cancelled, Job
+from ..media import MediaError, ffmpeg, probe, ydl_opts
 
 
 def _finish(words: list[dict]) -> list[dict]:
@@ -40,19 +40,31 @@ def whisper(path: Path, job: Job, model_name: str | None = None, language: str |
            job, info["duration"], (0.0, 0.12), "Extracting audio")
     try:
         name = model_name or get_settings().get("whisper_model") or "small"
-        job.update(0.12, f"Loading speech model ({name}); the first run downloads it")
+
+        def run(device: str, compute: str) -> dict:
+            job.update(0.12, f"Loading speech model ({name}); the first run downloads it")
+            model = WhisperModel(name, device=device, compute_type=compute)
+            segments, meta = model.transcribe(str(wav), word_timestamps=True, vad_filter=True, language=language or None)
+            words: list[dict] = []
+            for seg in segments:
+                for w in seg.words or []:
+                    words.append({"text": w.word, "start": w.start, "end": w.end})
+                job.update(0.15 + 0.85 * min(1.0, seg.end / max(1.0, info["duration"])), "Transcribing")
+            return {"words": _finish(words), "language": meta.language, "engine": f"whisper-{name}"}
+
         try:
-            model = WhisperModel(name, device="auto", compute_type="auto")
-        except Exception as e:
-            raise MediaError(f"Could not load the '{name}' speech model (it is downloaded on first use, which needs "
-                             f"internet access): {e}") from e
-        segments, meta = model.transcribe(str(wav), word_timestamps=True, vad_filter=True, language=language or None)
-        words: list[dict] = []
-        for seg in segments:
-            for w in seg.words or []:
-                words.append({"text": w.word, "start": w.start, "end": w.end})
-            job.update(0.15 + 0.85 * min(1.0, seg.end / max(1.0, info["duration"])), "Transcribing")
-        return {"words": _finish(words), "language": meta.language, "engine": f"whisper-{name}"}
+            return run("auto", "auto")
+        except Cancelled:
+            raise
+        except Exception as first:
+            # A graphics card without the matching CUDA libraries fails here; plain CPU always works.
+            try:
+                return run("cpu", "int8")
+            except Cancelled:
+                raise
+            except Exception as e:
+                raise MediaError(f"Transcription failed. The '{name}' speech model is downloaded on first use, "
+                                 f"which needs internet access. Details: {e or first}") from e
     finally:
         wav.unlink(missing_ok=True)
 
@@ -64,7 +76,7 @@ def youtube_captions(url: str, job: Job, language: str = "en") -> dict:
     import yt_dlp
 
     job.update(0.1, "Looking up captions")
-    with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True, "skip_download": True}) as ydl:
+    with yt_dlp.YoutubeDL(ydl_opts(skip_download=True)) as ydl:
         info = ydl.extract_info(url, download=False)
     tracks = None
     for source in (info.get("subtitles") or {}, info.get("automatic_captions") or {}):

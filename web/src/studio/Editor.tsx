@@ -154,6 +154,17 @@ export function Editor({ project, clip, onBack }: { project: Project; clip: Clip
     return () => window.removeEventListener('keydown', on);
   });
 
+  // Changing the frame rate renumbers every frame; keep the playhead at the same moment.
+  const lastFps = useRef(spec.fps);
+  useEffect(() => {
+    if (lastFps.current === spec.fps) return;
+    const ratio = spec.fps / lastFps.current;
+    lastFps.current = spec.fps;
+    const target = Math.round(frame * ratio);
+    const id = setTimeout(() => seek(target), 0);   // after the player has taken the new rate
+    return () => clearTimeout(id);
+  }, [spec.fps]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const allWords = project.transcript?.words ?? [];
   const nudge = (dIn: number, dOut: number) => update((s) => {
     const tin = clamp(round3(s.in + dIn), 0, s.out + dOut - 1);

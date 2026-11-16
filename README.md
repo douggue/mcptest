@@ -44,7 +44,7 @@ For development, run `python run.py` and, in another terminal, `cd web && npm ru
 | Feature | Needs |
 |---|---|
 | Clipping local files, editing, rendering | Nothing |
-| Clipping or importing from a link | Internet; `yt-dlp` must be current (`pip install -U yt-dlp`) |
+| Clipping or importing from a link | Internet. Sites change often, so if links stop working run `pip install -U "yt-dlp[default]"` |
 | Whisper transcription | A one-time model download on first use |
 | AI moment picking, scores, remix, hooks, post text | An Anthropic API key (Settings → AI). Without one, simpler built-in rules are used |
 | Caption translation | An Anthropic API key |
@@ -104,6 +104,8 @@ Start with `python run.py --host 0.0.0.0` and open `http://<your computer's addr
 
 ## Good to know
 
+- YouTube links need a JavaScript runtime for `yt-dlp`; Cutroom points it at the Node.js you already installed, so there is nothing extra to set up.
+- Whisper uses a graphics card when one is set up for it and falls back to the processor otherwise.
 - Only clip videos you have the right to use. Downloading from a site may be against its terms unless the owner has allowed it, as clipping campaigns usually do.
 - Rendering takes roughly two to five times the clip's length on a typical laptop.
 - For sharper vertical crops from a wide video, import at 1440p or 4K.

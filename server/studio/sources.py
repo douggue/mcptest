@@ -6,7 +6,7 @@ from pathlib import Path
 
 from ..config import DATA, media_url
 from ..jobs import Cancelled, Job
-from ..media import MediaError, ffmpeg, probe, safe_name
+from ..media import MediaError, ffmpeg, probe, safe_name, ydl_opts
 from ..store import new_id
 
 BROWSER_VIDEO = {"h264", "vp9", "av1", "vp8"}
@@ -33,8 +33,8 @@ def download(url: str, max_height: int, job: Job) -> tuple[Path, dict]:
             if total:
                 job.update(0.02 + 0.9 * d.get("downloaded_bytes", 0) / total, "Downloading")
 
-    opts = {"format": fmt, "outtmpl": str(out_dir / f"{stem}.%(ext)s"), "merge_output_format": "mp4",
-            "quiet": True, "no_warnings": True, "noplaylist": True, "progress_hooks": [hook]}
+    opts = ydl_opts(format=fmt, outtmpl=str(out_dir / f"{stem}.%(ext)s"), merge_output_format="mp4",
+                    noplaylist=True, progress_hooks=[hook])
     job.update(0.01, "Contacting the site")
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -90,8 +90,14 @@ def new_project(name: str, video: Path, origin: str) -> dict:
     }
 
 
+def source_path(project: dict) -> Path:
+    """Where the project's video is now (worked out from its URL, so the data folder can be moved)."""
+    from ..config import media_path
+    return media_path(project["source"]["url"])
+
+
 def remove_project_files(project: dict) -> None:
-    src = Path(project["source"]["path"])
+    src = source_path(project)
     for f in (src, src.with_suffix(".jpg")):
         f.unlink(missing_ok=True)
     shutil.rmtree(DATA / "projects" / project["id"], ignore_errors=True)

@@ -99,7 +99,7 @@ def cmd_shorts(a: argparse.Namespace) -> int:
         elif a.engine == "youtube":
             project["transcript"] = transcribe.youtube_captions(project["origin"], job, a.language or "en")
         else:
-            project["transcript"] = transcribe.whisper(Path(project["source"]["path"]), job, a.model, a.language)
+            project["transcript"] = transcribe.whisper(sources.source_path(project), job, a.model, a.language)
         api.save(project)
         job.done()
         print(f"Transcript: {len(project['transcript']['words'])} words ({project['transcript']['engine']})", file=sys.stderr)

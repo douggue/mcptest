@@ -1,7 +1,7 @@
 fastapi>=0.110
 uvicorn[standard]>=0.29
 python-multipart>=0.0.9
-yt-dlp>=2025.1.1
+yt-dlp[default]>=2025.11.12   # [default] includes the JavaScript components YouTube needs
 opencv-python-headless>=4.9,<5
 numpy>=1.26
 pillow>=10

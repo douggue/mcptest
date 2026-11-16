@@ -178,7 +178,7 @@ def transcribe_project(pid: str, body: dict) -> dict:
                 raise MediaError("This project was not imported from a URL, so there are no online captions to fetch.")
             result = transcribe.youtube_captions(project["origin"], job, body.get("language") or "en")
         else:
-            result = transcribe.whisper(Path(project["source"]["path"]), job, body.get("model"), body.get("language"))
+            result = transcribe.whisper(sources.source_path(project), job, body.get("model"), body.get("language"))
         if not result["words"]:
             raise MediaError("No speech was found.")
         return _set_transcript(pid, result)
@@ -285,7 +285,7 @@ def analyse_clip(pid: str, cid: str, body: dict) -> dict:
     """Find cuts and faces. {detect_cuts: bool, track: bool, cuts?: [seconds]} -> job -> {engine, shots:[{start,end,faces,track}]}"""
     project = load(pid)
     clip = _clip(project, cid)
-    src = Path(project["source"]["path"])
+    src = sources.source_path(project)
     t_in, t_out = clip["spec"]["in"], clip["spec"]["out"]
 
     def work(job: jobs.Job) -> dict:

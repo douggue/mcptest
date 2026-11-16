@@ -14,8 +14,11 @@ from . import jobs
 from .config import DATA, WEB, ensure_dirs, get_settings, save_settings
 
 ensure_dirs()
-mimetypes.add_type("video/mp4", ".mp4")
-mimetypes.add_type("audio/mp4", ".m4a")
+# Windows can map these wrongly through the registry (.js as text/plain stops the interface loading).
+for _type, _ext in (("application/javascript", ".js"), ("text/css", ".css"), ("image/svg+xml", ".svg"),
+                    ("font/woff2", ".woff2"), ("font/woff", ".woff"), ("application/json", ".json"),
+                    ("video/mp4", ".mp4"), ("audio/mp4", ".m4a"), ("audio/wav", ".wav"), ("audio/mpeg", ".mp3")):
+    mimetypes.add_type(_type, _ext)
 
 app = FastAPI(title="Cutroom", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],

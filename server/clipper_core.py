@@ -295,8 +295,8 @@ def _ydl(opts: dict):
         import yt_dlp
     except ImportError as e:  # pragma: no cover
         raise ClipError("yt-dlp is not installed. Run: pip install -U yt-dlp") from e
-    base = {"quiet": True, "no_warnings": True, "noprogress": True, "retries": 3}
-    return yt_dlp.YoutubeDL({**base, **opts})
+    from .media import ydl_opts
+    return yt_dlp.YoutubeDL(ydl_opts(noprogress=True, **opts))
 
 
 def _friendly(e: Exception) -> str:

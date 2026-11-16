@@ -118,21 +118,25 @@ export function faceToX(cx: number, spec: ShortSpec, layout: Layout): number {
 
 export type AnalysedShot = { start: number; end: number; faces: Face[]; track: { t: number; cx: number }[] };
 
-/** Build the shot list from a picture analysis: one shot per camera cut, centred on whoever is speaking. */
-export function applyAnalysis(spec: EditSpec, shots: AnalysedShot[], opts: { splitTwo: boolean; follow: boolean }): EditSpec {
+/** Build the shot list from a picture analysis: one shot per camera cut, centred on whoever is speaking.
+ *  With `keepLayouts`, the analysis is for the user's own cuts, so each shot keeps its layout and transition. */
+export function applyAnalysis(spec: EditSpec, shots: AnalysedShot[], opts: { splitTwo: boolean; follow: boolean; keepLayouts?: boolean }): EditSpec {
+  const sameCuts = !!opts.keepLayouts && shots.length === spec.shots.length;
   const next: Shot[] = shots.map((s, i) => {
     const prev = spec.shots[i];
     const faces = s.faces;
-    const twoUp = opts.splitTwo && faces.length >= 2 && Math.min(faces[0].w, faces[1].w) / Math.max(faces[0].w, faces[1].w) > 0.55;
-    const layout: Layout = twoUp ? 'split' : 'single';
+    const similar = faces.length >= 2 && Math.min(faces[0].w, faces[1].w) / Math.max(faces[0].w, faces[1].w) > 0.55;
+    const layout: Layout = sameCuts ? prev.layout : opts.splitTwo && similar ? 'split' : 'single';
+    const n = paneCount(layout);
     let x: number[];
-    if (!faces.length) x = prev?.layout === layout ? prev.x : Array(paneCount(layout)).fill(50);
-    else if (twoUp) x = [...faces.slice(0, 2)].sort((a, b) => a.cx - b.cx).map((f) => faceToX(f.cx, spec, layout));
-    else x = [faceToX(faces[0].cx, spec, layout)];
+    if (layout === 'fit') x = [50];
+    else if (faces.length >= n && n > 1) x = [...faces.slice(0, n)].sort((a, b) => a.cx - b.cx).map((f) => faceToX(f.cx, spec, layout));
+    else if (faces.length && n === 1) x = [faceToX(faces[0].cx, spec, layout)];
+    else x = prev?.layout === layout ? prev.x : Array.from({ length: n }, (_, k) => (n === 1 ? 50 : Math.round((100 * (k + 0.5)) / n)));
     const moves = s.track.length > 1 && Math.max(...s.track.map((k) => k.cx)) - Math.min(...s.track.map((k) => k.cx)) > 0.04;
     return {
-      start: round3(s.start), layout, x, transition: 'cut', faces,
-      track: opts.follow && !twoUp && moves ? s.track.map((k) => ({ t: k.t, x: faceToX(k.cx, spec, layout) })) : undefined,
+      start: round3(s.start), layout, x, y: sameCuts ? prev.y : undefined, transition: sameCuts ? prev.transition : 'cut', faces,
+      track: opts.follow && layout === 'single' && moves ? s.track.map((k) => ({ t: k.t, x: faceToX(k.cx, spec, layout) })) : undefined,
     };
   });
   return { ...spec, shots: next.length ? next : spec.shots };

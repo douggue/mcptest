@@ -2,7 +2,7 @@
 //   node render.mjs --spec spec.json --out out.mp4 [--still 45] [--scale 1] [--crf 18]
 // Prints one JSON object per line on stdout: {"stage": "...", "progress": 0..1}
 import { bundle } from '@remotion/bundler';
-import { renderMedia, renderStill, selectComposition } from '@remotion/renderer';
+import { ensureBrowser, renderMedia, renderStill, selectComposition } from '@remotion/renderer';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -39,26 +39,35 @@ async function getBundle() {
   return dir;
 }
 
-const spec = JSON.parse(fs.readFileSync(args.spec, 'utf8'));
-const serveUrl = await getBundle();
-const inputProps = { spec };
-const browserExecutable = process.env.CUTROOM_CHROME || undefined;
-const chromiumOptions = { gl: process.env.CUTROOM_GL || undefined };
-const composition = await selectComposition({ serveUrl, id: 'Short', inputProps, browserExecutable, chromiumOptions });
+try {
+  const spec = JSON.parse(fs.readFileSync(args.spec, 'utf8'));
+  const serveUrl = await getBundle();
+  say({ stage: 'Starting the render browser (the first run downloads it)', progress: 0.1 });
+  await ensureBrowser({ browserExecutable: process.env.CUTROOM_CHROME || undefined });
+  const inputProps = { spec };
+  const browserExecutable = process.env.CUTROOM_CHROME || undefined;
+  const chromiumOptions = { gl: process.env.CUTROOM_GL || undefined };
+  const composition = await selectComposition({ serveUrl, id: 'Short', inputProps, browserExecutable, chromiumOptions });
 
-if (args.still !== undefined) {
-  await renderStill({
-    composition, serveUrl, inputProps, output: args.out, browserExecutable, chromiumOptions,
-    frame: Math.min(composition.durationInFrames - 1, Math.max(0, Number(args.still) || 0)),
-    imageFormat: 'jpeg', jpegQuality: 90, scale: Number(args.scale || 1),
-  });
-} else {
-  await renderMedia({
-    composition, serveUrl, inputProps, outputLocation: args.out, browserExecutable, chromiumOptions,
-    codec: 'h264', crf: Number(args.crf || 18), pixelFormat: 'yuv420p', scale: Number(args.scale || 1),
-    concurrency: Math.max(1, Math.min(8, Math.floor(os.cpus().length / 2))),
-    onProgress: ({ progress, stitchStage }) =>
-      say({ stage: stitchStage === 'muxing' ? 'Encoding' : 'Rendering frames', progress: 0.1 + progress * 0.9 }),
-  });
+  if (args.still !== undefined) {
+    await renderStill({
+      composition, serveUrl, inputProps, output: args.out, browserExecutable, chromiumOptions,
+      frame: Math.min(composition.durationInFrames - 1, Math.max(0, Number(args.still) || 0)),
+      imageFormat: 'jpeg', jpegQuality: 90, scale: Number(args.scale || 1),
+    });
+  } else {
+    await renderMedia({
+      composition, serveUrl, inputProps, outputLocation: args.out, browserExecutable, chromiumOptions,
+      codec: 'h264', crf: Number(args.crf || 18), pixelFormat: 'yuv420p', scale: Number(args.scale || 1),
+      concurrency: Math.max(1, Math.min(8, Math.floor(os.cpus().length / 2))),
+      onProgress: ({ progress, stitchStage }) =>
+        say({ stage: stitchStage === 'muxing' ? 'Encoding' : 'Rendering frames', progress: 0.1 + progress * 0.9 }),
+    });
+  }
+  say({ stage: 'Done', progress: 1 });
+} catch (err) {
+  // One clean line for the app to show; the stack goes to stderr for debugging.
+  say({ error: String(err?.message ?? err).split('\n')[0] });
+  console.error(err);
+  process.exit(1);
 }
-say({ stage: 'Done', progress: 1 });

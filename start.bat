@@ -9,6 +9,5 @@ call .venv\Scripts\activate.bat
 pip install -q -r requirements.txt
 if not exist web\node_modules (pushd web & call npm install & popd)
 if not exist web\dist\index.html (pushd web & call npm run build & popd)
-start "" http://127.0.0.1:8000
-python run.py --port 8000
+python run.py --open --port 8000
 pause

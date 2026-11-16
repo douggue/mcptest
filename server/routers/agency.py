@@ -322,7 +322,8 @@ def fetch_views(url: str) -> int:
     """Read a public view count from a post URL with yt-dlp. Needs network access to the platform."""
     import yt_dlp
 
-    opts = {"quiet": True, "skip_download": True, "no_warnings": True, "socket_timeout": 20, "noplaylist": True}
+    from ..media import ydl_opts
+    opts = ydl_opts(skip_download=True, socket_timeout=20, noplaylist=True)
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
     views = (info or {}).get("view_count")

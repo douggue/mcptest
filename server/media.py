@@ -28,7 +28,7 @@ def probe(path: str | Path) -> dict:
         capture_output=True, text=True,
     )
     if out.returncode != 0:
-        raise MediaError(out.stderr.strip() or f"could not read {path}")
+        raise MediaError("That file could not be read as video or audio; it may be damaged or not a media file.")
     info = json.loads(out.stdout)
     v = next((s for s in info.get("streams", []) if s.get("codec_type") == "video"
               and s.get("disposition", {}).get("attached_pic", 0) == 0), None)
@@ -132,3 +132,13 @@ def copy_to_folder(path: Path) -> str | None:
     dest = unique_path(dest_dir, path.stem, path.suffix.lstrip("."))
     shutil.copy2(path, dest)
     return str(dest)
+
+
+def ydl_opts(**extra) -> dict:
+    """Base yt-dlp options. YouTube needs a JavaScript runtime to work out stream URLs; yt-dlp only enables
+    Deno by default, so Node (which Cutroom already requires for rendering) is enabled too."""
+    runtimes: dict = {"deno": {}}
+    node = shutil.which("node")
+    if node:
+        runtimes["node"] = {"path": node}
+    return {"quiet": True, "no_warnings": True, "retries": 3, "js_runtimes": runtimes, **extra}

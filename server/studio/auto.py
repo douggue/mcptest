@@ -2,10 +2,9 @@
 from __future__ import annotations
 
 import uuid
-from pathlib import Path
 
 from ..jobs import Job
-from . import moments, vision
+from . import moments, sources, vision
 
 FILLERS = {"um", "uh", "uhh", "umm", "er", "erm", "ah", "hmm", "mm"}
 
@@ -64,7 +63,7 @@ def derive_segments(spec: dict, silence: float = 0.0) -> list[dict]:
 def auto_edit(project: dict, clip: dict, job: Job, center: bool = True, tighten: bool = True, graphics: bool = True) -> dict:
     """Centre the speaker per shot, tighten pauses and fillers, and add the remix plan. Mutates and returns the clip."""
     spec = clip["spec"]
-    src = Path(project["source"]["path"])
+    src = sources.source_path(project)
     if center:
         cuts = vision.detect_cuts(src, spec["in"], spec["out"])
         bounds = [spec["in"], *cuts, spec["out"]]

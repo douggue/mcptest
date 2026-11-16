@@ -27,15 +27,17 @@ export default function Studio() {
     }
   }, [pid]);
 
+  // Refetch on every move between project and clip (including the browser's Back button), so the editor never
+  // opens on a copy of the clip that is older than what was last saved.
   useEffect(() => {
     setProject(null);
     reload();
-  }, [reload]);
+  }, [reload, cid]);
 
   if (!pid) return <Projects />;
   if (missing) return <Empty title="Project not found"><a href="#/studio">Back to projects</a></Empty>;
   if (!project || project.id !== pid) return <Empty title="Loading…" />;
   const clip = cid ? project.clips.find((c) => c.id === cid) : undefined;
-  if (cid && clip) return <Editor key={clip.id} project={project} clip={clip} onBack={() => { go(`studio/${pid}`); reload(); }} />;
+  if (cid && clip) return <Editor key={clip.id} project={project} clip={clip} onBack={() => go(`studio/${pid}`)} />;
   return <ProjectView project={project} reload={reload} />;
 }

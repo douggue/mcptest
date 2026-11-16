@@ -4,9 +4,9 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import signal
 import subprocess
 import time
-from pathlib import Path
 
 from ..config import DATA, WEB, media_path, media_url
 from ..jobs import Cancelled, Job
@@ -19,33 +19,53 @@ def base_url() -> str:
     return f"http://127.0.0.1:{os.environ.get('CUTROOM_PORT', '8000')}"
 
 
+def _kill_tree(proc: subprocess.Popen) -> None:
+    try:
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True)
+        else:
+            os.killpg(proc.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError, OSError):
+        proc.kill()
+    proc.wait()
+
+
 def _run_node(args: list[str], job: Job, span: tuple[float, float]) -> None:
     node = shutil.which("node")
     if not node:
         raise MediaError("Node.js was not found on PATH; it is needed to render shorts.")
     if not (WEB / "node_modules" / "@remotion" / "renderer").exists():
         raise MediaError("Renderer packages are missing. Run 'npm install' in the web folder.")
+    # Own process group, so a cancel also stops the headless browser the renderer started.
+    group = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
     proc = subprocess.Popen([node, str(WEB / "render.mjs"), *args], cwd=str(WEB), stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE, text=True)
+                            stderr=subprocess.PIPE, text=True, **group)
+    reported = ""
     try:
         assert proc.stdout
         for line in proc.stdout:
             if job.cancelled:
-                proc.kill()
                 raise Cancelled()
             try:
                 msg = json.loads(line)
             except json.JSONDecodeError:
                 continue
+            if msg.get("error"):
+                reported = str(msg["error"])
+                continue
             job.update(span[0] + (span[1] - span[0]) * float(msg.get("progress", 0)), msg.get("stage"))
         proc.wait()
     finally:
         if proc.poll() is None:
-            proc.kill()
+            _kill_tree(proc)
     if proc.returncode != 0:
-        err = (proc.stderr.read() if proc.stderr else "").strip()
-        lines = [l for l in err.splitlines() if l.strip() and not l.lstrip().startswith("at ")]
-        raise MediaError("Render failed: " + (lines[-1] if lines else "unknown error")[:400])
+        if not reported:
+            err = (proc.stderr.read() if proc.stderr else "").strip().splitlines()
+            reported = next((l.strip() for l in err if l.strip().startswith("Error")), err[-1] if err else "unknown error")
+        if "Could not download Chrome" in reported:
+            reported = ("the renderer could not download its browser (needed once, about 100 MB). "
+                        "Check the internet connection and export again.")
+        raise MediaError("Render failed: " + reported[:400])
 
 
 def render_clip(project: dict, clip: dict, job: Job, scale: float = 1.0, crf: int = 18) -> dict:
