@@ -1,5 +1,5 @@
 // Shared UI kit. Keep pages consistent by using these rather than ad-hoc markup.
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode, isValidElement, useEffect, useRef, useState } from 'react';
 
 import { Job, cancelJob, waitJob } from './api';
 
@@ -70,13 +70,18 @@ export function Button({ variant = 'default', small, icon, busy, children, class
 }
 
 export function Field({ label, hint, children, grow }: { label: string; hint?: string; children: ReactNode; grow?: boolean }) {
-  return (
-    <label className={'field' + (grow ? ' grow' : '')}>
+  // A <label> forwards clicks to the first control inside it, which is right for one input but would press the
+  // first button of a button group — so anything other than a single input gets a labelled group instead.
+  const single = isValidElement(children) && typeof children.type === 'string' && ['input', 'select', 'textarea'].includes(children.type);
+  const body = (
+    <>
       <span className="field-label">{label}</span>
       {children}
       {hint && <span className="field-hint">{hint}</span>}
-    </label>
+    </>
   );
+  const cls = 'field' + (grow ? ' grow' : '');
+  return single ? <label className={cls}>{body}</label> : <div className={cls} role="group" aria-label={label}>{body}</div>;
 }
 
 export function Panel({ title, actions, children, className = '', pad = true }: {
@@ -200,7 +205,15 @@ export function useJobRunner() {
   const alive = useRef(true);
   useEffect(() => () => { alive.current = false; }, []);
   async function run<T = any>(start: () => Promise<{ job_id: string }>): Promise<T> {
-    const { job_id } = await start();
+    // show the bar straight away; the real job replaces this placeholder on the first poll
+    setJob({ id: '', kind: '', title: 'Starting…', meta: {}, status: 'queued', progress: 0, message: '', result: null, error: '', created: 0, finished: null });
+    let job_id: string;
+    try {
+      ({ job_id } = await start());
+    } catch (e) {
+      if (alive.current) setJob(null);
+      throw e;
+    }
     try {
       return await waitJob<T>(job_id, (j) => alive.current && setJob(j));
     } finally {
@@ -218,7 +231,7 @@ export function JobBar({ job }: { job: Job | null }) {
       <div className="jobbar-top">
         <span>{job.message || job.title}</span>
         <span className="mono">{Math.round(job.progress * 100)}%</span>
-        {active && <Button variant="ghost" small icon="x" onClick={() => cancelJob(job.id)} aria-label="Cancel" />}
+        {active && job.id && <Button variant="ghost" small icon="x" onClick={() => cancelJob(job.id)} aria-label="Cancel" />}
       </div>
       <div className="bar"><i style={{ width: `${job.progress * 100}%` }} /></div>
     </div>

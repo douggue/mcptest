@@ -91,7 +91,7 @@ if _dist.exists():
 
     @app.get("/{path:path}", include_in_schema=False)
     def spa(path: str):
-        f = _dist / path
-        if path and f.is_file():
+        f = (_dist / path).resolve()
+        if path and _dist.resolve() in f.parents and f.is_file():
             return FileResponse(f)
         return FileResponse(_dist / "index.html")

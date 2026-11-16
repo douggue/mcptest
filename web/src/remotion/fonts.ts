@@ -7,7 +7,6 @@ import '@fontsource/montserrat/900.css';
 import '@fontsource/inter/600.css';
 import '@fontsource/inter/800.css';
 import '@fontsource/jetbrains-mono/600.css';
-import '@fontsource/noto-color-emoji/400.css';
 
 const LOAD = [
   '400 40px "Anton"', '400 40px "Archivo Black"', '400 40px "Bebas Neue"', '700 40px "Montserrat"',
@@ -20,15 +19,13 @@ export function fontsReady(): Promise<unknown> {
   if (!ready) {
     ready = typeof document === 'undefined' || !document.fonts
       ? Promise.resolve()
-      : Promise.all([
-          ...LOAD.map((f) => document.fonts.load(f).catch(() => null)),
-          document.fonts.load('400 40px "Noto Color Emoji"', '😀').catch(() => null),
-        ]);
+      : Promise.all(LOAD.map((f) => document.fonts.load(f).catch(() => null)));
   }
   return ready;
 }
 
-export const EMOJI_STACK = '"Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji"';
+// Emoji come from the operating system's own colour font (a bundled web font rendered blank in headless Chromium).
+export const EMOJI_STACK = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji"';
 
 export function fontStack(font: string): string {
   return `"${font}", "Inter", system-ui, sans-serif, ${EMOJI_STACK}`;

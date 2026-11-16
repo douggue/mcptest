@@ -1,0 +1,12 @@
+services:
+  cutroom:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"   # local only; put a password-protected proxy in front before exposing it
+    volumes:
+      - cutroom-data:/data
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    restart: unless-stopped
+volumes:
+  cutroom-data:
