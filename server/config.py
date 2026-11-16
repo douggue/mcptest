@@ -5,6 +5,7 @@ import json
 import os
 import threading
 from pathlib import Path
+from urllib.parse import quote, unquote
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = Path(os.environ.get("CUTROOM_DATA", ROOT / "data")).resolve()
@@ -55,12 +56,12 @@ def ensure_dirs() -> None:
 def media_url(path: str | Path) -> str:
     """Public URL for a file under DATA."""
     rel = Path(path).resolve().relative_to(DATA)
-    return "/media/" + rel.as_posix()
+    return "/media/" + quote(rel.as_posix())
 
 
 def media_path(url: str) -> Path:
     """Inverse of media_url. Rejects anything that escapes DATA."""
-    rel = url.split("/media/", 1)[-1].split("?", 1)[0]
+    rel = unquote(url.split("/media/", 1)[-1].split("?", 1)[0])
     p = (DATA / rel).resolve()
     if DATA not in p.parents and p != DATA:
         raise ValueError("path outside data directory")
