@@ -146,6 +146,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run dist:win
+      - name: Voice-over recording with a simulated microphone
+        run: npx tsx tests/recording-electron.ts
       - name: Run the installer silently
         shell: pwsh
         run: |

@@ -35,6 +35,20 @@ const sources = [
     sha256: '9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23',
     directory: 'zlib-1.3.1',
   },
+  {
+    // Header-only interfaces to the NVIDIA and AMD drivers' encoders. Nothing from either vendor
+    // is linked in: FFmpeg loads the driver at run time and simply reports failure without one.
+    name: 'nv-codec-headers', version: '13.0.19.0', file: 'nv-codec-headers-13.0.19.0.tar.gz',
+    url: 'https://github.com/FFmpeg/nv-codec-headers/releases/download/n13.0.19.0/nv-codec-headers-13.0.19.0.tar.gz',
+    sha256: '13da39edb3a40ed9713ae390ca89faa2f1202c9dda869ef306a8d4383e242bee',
+    directory: 'nv-codec-headers-13.0.19.0',
+  },
+  {
+    name: 'amf-headers', version: '1.5.3', file: 'AMF-headers-v1.5.3.tar.gz',
+    url: 'https://github.com/GPUOpen-LibrariesAndSDKs/AMF/releases/download/v1.5.3/AMF-headers-v1.5.3.tar.gz',
+    sha256: '0f521ad98041f8001147cded4a660127f18b1c27a801a5cd691bda1fa48381be',
+    directory: 'amf-headers-v1.5.3',
+  },
 ];
 const tools = ['ffmpeg.exe', 'ffprobe.exe'];
 // Every Windows installation provides these; anything else would have to ship beside the tools.
@@ -95,7 +109,7 @@ configs.x264 = [`--prefix=${prefix}`, `--host=${host}`, `--cross-prefix=${host}-
 configs.ffmpeg = [
   `--prefix=${prefix}`, '--arch=x86_64', '--target-os=mingw32', `--cross-prefix=${host}-`, '--enable-cross-compile',
   '--enable-static', '--disable-shared', '--disable-autodetect', '--enable-gpl', '--enable-libx264', '--enable-zlib',
-  '--enable-w32threads', '--disable-network', '--disable-protocols', '--enable-protocol=file,pipe',
+  '--enable-w32threads', '--enable-d3d11va', '--enable-mediafoundation', '--enable-ffnvcodec', '--enable-nvenc', '--enable-amf', '--disable-network', '--disable-protocols', '--enable-protocol=file,pipe',
   '--disable-devices', '--enable-indev=lavfi', '--disable-ffplay', '--disable-doc', '--disable-debug',
   '--pkg-config=pkg-config', '--pkg-config-flags=--static',
   `--extra-cflags=-I${path.join(prefix, 'include')}`, `--extra-ldflags=-L${path.join(prefix, 'lib')} -static`,
@@ -103,6 +117,8 @@ configs.ffmpeg = [
 console.log(`Building zlib for ${target}…`);
 run('make', [...configs.zlib, '-j', jobs, 'libz.a'], directory('zlib'), env);
 run('make', [...configs.zlib, 'install'], directory('zlib'), env);
+run('make', ['install', `PREFIX=${prefix}`], directory('nv-codec-headers'), env);
+await fs.cp(path.join(directory('amf-headers'), 'AMF'), path.join(prefix, 'include', 'AMF'), { recursive: true });
 for (const name of ['x264', 'ffmpeg']) {
   console.log(`Building ${name} for ${target}…`);
   run('./configure', configs[name], directory(name), env);
@@ -124,8 +140,11 @@ for (const name of ['COPYING.GPLv2', 'COPYING.GPLv3', 'COPYING.LGPLv2.1', 'COPYI
   await fs.copyFile(path.join(directory('ffmpeg'), name), path.join(output, 'licenses', `FFmpeg-${name}`));
 await fs.copyFile(path.join(directory('x264'), 'COPYING'), path.join(output, 'licenses', 'x264-COPYING'));
 await fs.copyFile(path.join(directory('zlib'), 'LICENSE'), path.join(output, 'licenses', 'zlib-LICENSE'));
+// Neither header package ships a separate licence file; each header opens with its MIT notice.
+await fs.copyFile(path.join(directory('nv-codec-headers'), 'include/ffnvcodec/nvEncodeAPI.h'), path.join(output, 'licenses', 'nv-codec-headers-nvEncodeAPI.h'));
+await fs.copyFile(path.join(directory('amf-headers'), 'AMF/core/Version.h'), path.join(output, 'licenses', 'AMF-core-Version.h'));
 await fs.copyFile(fileURLToPath(import.meta.url), path.join(output, 'sources', 'build-media-tools-win.mjs'));
-await fs.writeFile(path.join(output, 'sources', 'README.txt'), 'Corresponding source for the bundled Windows FFmpeg/FFprobe executables. FFmpeg, x264 and zlib sources are unmodified. Place the source archives in .media-build/downloads of the JGcut repository and run node scripts/build-media-tools-win.mjs on Linux x64 with the mingw-w64 x86_64 GCC cross toolchain, NASM, make, pkg-config and Node.js 24.11+ or 26+. Configure arguments and the compiler version are in manifest.json; recipe placeholders/paths are resolved at build time. The executables statically include the mingw-w64 C runtime startup code and GCC support library of that toolchain and otherwise import only Windows system DLLs. GPL-2.0-or-later applies to this FFmpeg+x264 build. The original JGcut code is separately licensed under MIT.\n');
+await fs.writeFile(path.join(output, 'sources', 'README.txt'), 'Corresponding source for the bundled Windows FFmpeg/FFprobe executables. FFmpeg, x264 and zlib sources are unmodified, as are the NVIDIA and AMD encoder interface headers (MIT) compiled against for graphics-card encoding. Place the source archives in .media-build/downloads of the JGcut repository and run node scripts/build-media-tools-win.mjs on Linux x64 with the mingw-w64 x86_64 GCC cross toolchain, NASM, make, pkg-config and Node.js 24.11+ or 26+. Configure arguments and the compiler version are in manifest.json; recipe placeholders/paths are resolved at build time. The executables statically include the mingw-w64 C runtime startup code and GCC support library of that toolchain and otherwise import only Windows system DLLs. GPL-2.0-or-later applies to this FFmpeg+x264 build. The original JGcut code is separately licensed under MIT.\n');
 const scrub = value => value.replaceAll(prefix, '$BUILD_PREFIX');
 await fs.writeFile(path.join(output, 'manifest.json'), JSON.stringify({
   target, builtAt: new Date().toISOString(), recipeSHA256: recipeHash,

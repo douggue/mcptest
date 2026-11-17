@@ -71,6 +71,8 @@ import { createEditorProject } from "./editor/localizedDefaults";
 import { localizeMessage } from "./i18n/messages";
 import { isWindows, keys } from "./platform";
 import { exportPresetOptions, type ExportPresetId } from "./core/exportPresets";
+import { addRecording } from "./core/recording";
+import { startVoiceRecording, type VoiceRecording } from "./editor/voiceRecorder";
 import "./styles.css";
 type Modal = "updates" | "templates" | "reverse" | "freeze" | "package" | "export" | "settings" | "shortcuts" | "about" | "capcut" | null;
 type PendingCapcutImport = {
@@ -152,6 +154,17 @@ function ExportDialog({
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [preset, setPreset] = useState<ExportPresetId | "custom">("custom");
+  // undefined while the graphics card is being tried, null when exports are software only.
+  const [hardwareEncoder, setHardwareEncoder] = useState<string | null | undefined>(isWindows && window.editorAPI ? undefined : null);
+  useEffect(() => {
+    if (hardwareEncoder !== undefined) return;
+    let current = true;
+    void Promise.resolve(window.editorAPI?.getHardwareEncoder?.()).then(
+      (name) => { if (current) { setHardwareEncoder(name ?? null); if (name) setOptions((p) => ({ ...p, hardware: true })); } },
+      () => { if (current) setHardwareEncoder(null); },
+    );
+    return () => { current = false; };
+  }, []);
   const soundOnly = options.format === "m4a" || options.format === "wav";
   const presetFits = preset === "custom" || exportPresetOptions(project, preset).fits;
   const [scope, setScope] = useState("all");
@@ -365,6 +378,20 @@ function ExportDialog({
             </select>
           </label>
         </div>
+        {hardwareEncoder !== null && (options.format === "mp4" || options.format === "mov") && (
+          <label className="field-hint">
+            <input
+              id="export-hardware"
+              type="checkbox"
+              checked={Boolean(options.hardware)}
+              disabled={exporting || !hardwareEncoder}
+              onChange={(e) => setOptions((p) => ({ ...p, hardware: e.target.checked }))}
+            />{" "}
+            {hardwareEncoder
+              ? ui(`使用显卡编码，导出更快（${{ h264_nvenc: "NVIDIA", h264_amf: "AMD", h264_mf: "Windows 硬件编码器" }[hardwareEncoder] ?? hardwareEncoder}）。失败时自动改用软件编码。`, `Encode on the graphics card for a faster export (${{ h264_nvenc: "NVIDIA", h264_amf: "AMD", h264_mf: "Windows hardware encoder" }[hardwareEncoder] ?? hardwareEncoder}). Falls back to software encoding if it fails.`)
+              : ui("正在检测显卡编码…", "Checking the graphics card…")}
+          </label>
+        )}
         {options.format === "gif" && <p className="field-hint">{ui("GIF 没有声音，帧率最高 25，文件增长很快。建议选择较小的分辨率和较短的区间。", "A GIF has no sound, plays at 25 frames a second at most, and grows quickly. A small resolution and a short range work best.")}</p>}
         <p className="field-hint">
           {ui("导出原始素材和所有可见画面轨道，按音频设置混音。无需登录或上传。", "Renders original media and all visible video tracks, with audio mixed using your settings. No sign-in or upload required.")}</p>
@@ -603,6 +630,40 @@ export default function App() {
     },
     [notify],
   );
+  // A voice-over take: recording runs while the timeline plays from where the take started.
+  const voiceTake = useRef<(VoiceRecording & { time: number }) | null>(null);
+  const [recordingSince, setRecordingSince] = useState<number | null>(null);
+  const [recordingSeconds, setRecordingSeconds] = useState<number | null>(null);
+  useEffect(() => {
+    if (recordingSince === null) { setRecordingSeconds(null); return; }
+    setRecordingSeconds(0);
+    const timer = setInterval(() => setRecordingSeconds((Date.now() - recordingSince) / 1000), 500);
+    return () => clearInterval(timer);
+  }, [recordingSince]);
+  useEffect(() => () => voiceTake.current?.cancel(), []);
+  const toggleRecording = () => safe(async () => {
+    const editor = useEditorStore.getState();
+    const take = voiceTake.current;
+    if (!take) {
+      if (!window.editorAPI) throw new Error(translateUI("录制配音需要桌面版。", "Recording a voice-over requires the desktop app."));
+      const time = editor.playhead;
+      voiceTake.current = { ...(await startVoiceRecording()), time };
+      setRecordingSince(Date.now());
+      editor.setPlaying(true);
+      return;
+    }
+    voiceTake.current = null;
+    setRecordingSince(null);
+    editor.setPlaying(false);
+    const bytes = await take.stop();
+    const name = translateUI("配音", "Voice-over");
+    const asset = await window.editorAPI!.saveRecording(bytes, `${name} ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+    const edited = addRecording(useEditorStore.getState().project, asset, take.time, name);
+    useEditorStore.getState().commit(edited.project);
+    useEditorStore.getState().select([edited.clipId]);
+    useEditorStore.getState().seek(take.time);
+    notify(translateUI("配音已放到时间线", "The voice-over is on the timeline"));
+  });
   const active = s.project.clips.find((c) => c.id === s.selectedIds[0]);
   const activeTrack = s.project.tracks.find((t) => t.id === active?.trackId);
   const { t, language } = useTranslation();
@@ -1349,6 +1410,8 @@ export default function App() {
           onMoveClips={s.moveClips}
           onTrim={s.trim}
           onSplit={s.split}
+          onRecord={() => void toggleRecording()}
+          recordingSeconds={recordingSeconds}
           onDelete={() => void safe(s.deleteSelected)}
           onZoom={s.setZoom}
           onTrackUpdate={s.updateTrack}

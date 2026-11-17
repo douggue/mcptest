@@ -1039,6 +1039,19 @@ describe("real local media and FFmpeg export", () => {
     await expect(access(path.join(directory, "invalid.mp4"))).rejects.toThrow();
   }, 60_000);
 
+  it("falls back to software encoding when the graphics-card encoder cannot run", async () => {
+    // Forces the NVIDIA encoder: without such a card the first attempt fails and the export must still finish.
+    process.env.REACUT_HARDWARE_ENCODER = "h264_nvenc";
+    try {
+      const options = settings("hardware-fallback.mp4", { hardware: true });
+      const events = await render(project([clip(assets[0], "video", { duration: 1 })]), options);
+      expect(events.at(-1)?.status).toBe("complete");
+      const probe = await probeFile(options.path);
+      expect(probe.streams.find((s) => s.codec_type === "video")).toMatchObject({ codec_name: "h264", width: 160, height: 90 });
+    } finally {
+      delete process.env.REACUT_HARDWARE_ENCODER;
+    }
+  }, 60_000);
   it("exports GIF without sound, and sound-only M4A and WAV", async () => {
     const p = project([
       clip(assets[0], "video", { duration: 1 }),

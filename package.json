@@ -113,7 +113,8 @@
         }
       ],
       "extendInfo": {
-        "LSUIElement": true
+        "LSUIElement": true,
+        "NSMicrophoneUsageDescription": "JGcut records your voice-over when you press Record."
       }
     },
     "win": {

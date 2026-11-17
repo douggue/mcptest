@@ -42,6 +42,8 @@ import {
   registerBundledFont,
 } from "./media";
 import { startExport, cancelExport, cancelAllExports } from "./export";
+import { findHardwareEncoder } from "./hardwareEncoders";
+import { saveRecording } from "./recording";
 import { resolvePortableDocument, startPortablePackage, cancelPortablePackage, cancelPortablePackages, savePortableDocument } from "./portableProject";
 import { setBundledMediaToolsDirectory } from "./mediaTools";
 import { validateProject } from "../src/core/model";
@@ -608,6 +610,13 @@ function registerIPC() {
     );
   });
   handle("cancel-export", (jobId: string) => cancelExport(jobId));
+  handle("hardware-encoder", async () => (await findHardwareEncoder()) ?? null);
+  handle("save-recording", async (bytes: unknown, name: unknown) => {
+    if (!(bytes instanceof Uint8Array) || typeof name !== "string") throw new Error("录音无效");
+    const asset = await saveRecording(bytes, userFile("recordings"), cacheDir(), name);
+    authorizeAsset(asset);
+    return asset;
+  });
   handle("font-families", () => systemFontFamilies());
   handle("system-info", async () => ({
     version: app.getVersion(),

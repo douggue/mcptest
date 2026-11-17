@@ -1,3 +1,4 @@
+import { findHardwareEncoder, hardwareEncoderArguments, type HardwareEncoder } from "./hardwareEncoders";
 import { EASINGS, easingExpression } from "../src/core/easing";
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -394,6 +395,7 @@ export async function createExportArguments(
   options: ExportOptions,
   directory: string,
   output: string,
+  hardwareEncoder?: HardwareEncoder,
 ): Promise<string[]> {
   const duration = validate(project, options);
   const range = resolveExportRange(project, options);
@@ -682,20 +684,24 @@ export async function createExportArguments(
   if (gif) args.push("-loop", "0");
   else if (!audioOnly)
     args.push(
-      "-c:v",
-      "libx264",
-      "-preset",
-      options.quality === "draft"
-        ? "ultrafast"
-        : options.quality === "high"
-          ? "slow"
-          : "medium",
-      "-crf",
-      options.quality === "draft"
-        ? "28"
-        : options.quality === "high"
-          ? "17"
-          : "22",
+      ...(hardwareEncoder
+        ? hardwareEncoderArguments(hardwareEncoder, options.quality)
+        : [
+            "-c:v",
+            "libx264",
+            "-preset",
+            options.quality === "draft"
+              ? "ultrafast"
+              : options.quality === "high"
+                ? "slow"
+                : "medium",
+            "-crf",
+            options.quality === "draft"
+              ? "28"
+              : options.quality === "high"
+                ? "17"
+                : "22",
+          ]),
       "-pix_fmt",
       "yuv420p",
     );
@@ -779,11 +785,16 @@ export async function startExport(
   emit("preparing", 0);
   void (async () => {
     try {
+      const hardwareEncoder =
+        options.hardware && (options.format === "mp4" || options.format === "mov")
+          ? await findHardwareEncoder()
+          : undefined;
       const args = await createExportArguments(
         project,
         options,
         directory,
         job.temporaryOutput,
+        hardwareEncoder,
       );
       if (job.cancelled) {
         emit("cancelled", 0);
@@ -794,7 +805,7 @@ export async function startExport(
         emit("cancelled", 0);
         return;
       }
-      await new Promise<void>((resolve, reject) => {
+      const encode = (args: string[]) => new Promise<void>((resolve, reject) => {
         const child = spawn(executable, args, {
           shell: false,
           windowsHide: true,
@@ -824,6 +835,16 @@ export async function startExport(
             reject(new Error(`FFmpeg 导出失败：${diagnostic.trim() || code}`));
         });
       });
+      try {
+        await encode(args);
+      } catch (error) {
+        // A graphics-card encoder can refuse a size, a driver or a busy device. The software
+        // encoder renders the same picture, so start over with it rather than fail the export.
+        if (!hardwareEncoder || job.cancelled) throw error;
+        await rm(job.temporaryOutput, { force: true }).catch(() => {});
+        emit("rendering", 0);
+        await encode(await createExportArguments(project, options, directory, job.temporaryOutput));
+      }
       if (job.cancelled) {
         emit("cancelled", 0);
         return;

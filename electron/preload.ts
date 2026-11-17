@@ -73,6 +73,8 @@ const api: EditorAPI = {
   },
   getFontFamilies: () => ipcRenderer.invoke("font-families"),
   getSystemInfo: () => ipcRenderer.invoke("system-info"),
+  getHardwareEncoder: () => ipcRenderer.invoke("hardware-encoder"),
+  saveRecording: (bytes, name) => ipcRenderer.invoke("save-recording", bytes, name),
   readTextFile: (extensions) =>
     ipcRenderer.invoke("read-text-file", extensions),
   chooseCapcutProject: (mode) =>

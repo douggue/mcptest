@@ -25,6 +25,8 @@ import {
   Plus,
   Redo2,
   Scissors,
+  Mic,
+  Square,
   Trash2,
   Type,
   Undo2,
@@ -52,6 +54,9 @@ export interface TimelineProps {
   onMoveClips: (ids: string[], delta: number, trackId?: string) => void;
   onTrim: (id: string, edge: "start" | "end", time: number) => void;
   onSplit: () => void;
+  /** Start or stop a microphone take; `recordingSeconds` is set while one is running. */
+  onRecord?: () => void;
+  recordingSeconds?: number | null;
   onDelete: () => void;
   onZoom: (zoom: number) => void;
   onTrackUpdate: (id: string, patch: Partial<Track>) => void;
@@ -754,6 +759,19 @@ export default function Timeline(props: TimelineProps) {
           >
             <span className="tl-snap-icon">][</span>
           </button>
+          {props.onRecord && <>
+            <span className="tl-divider" />
+            <button
+              className={props.recordingSeconds != null ? "is-active tl-recording" : ""}
+              title={props.recordingSeconds != null ? ui("停止录音并放到时间线", "Stop recording and place it on the timeline") : ui("从播放位置开始录制配音", "Record a voice-over from the playhead")}
+              aria-label={props.recordingSeconds != null ? ui("停止录音", "Stop recording") : ui("录制配音", "Record voice-over")}
+              aria-pressed={props.recordingSeconds != null}
+              onClick={props.onRecord}
+            >
+              {props.recordingSeconds != null ? <Square size={15} /> : <Mic size={17} />}
+              {props.recordingSeconds != null && <span className="tl-recording-time">{Math.floor(props.recordingSeconds / 60)}:{String(Math.floor(props.recordingSeconds % 60)).padStart(2, "0")}</span>}
+            </button>
+          </>}
         </div>
         <div className="tl-toolbar-end">
           <span className="tl-duration">

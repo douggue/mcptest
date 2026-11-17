@@ -749,3 +749,14 @@
 .tl-track-controls button:hover { background: #3b3b3b; }
 .tl-status { background: #262626; border-top-color: #383838; }
 .tl-toolbar button.is-active { color: #16c4cb; background: #181818; }
+
+.tl-toolbar button.tl-recording {
+  width: auto;
+  padding: 0 8px;
+  gap: 6px;
+  color: #ff8a80;
+}
+.tl-recording-time {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}

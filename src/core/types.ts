@@ -138,6 +138,8 @@ export interface ExportOptions {
   quality: "draft" | "standard" | "high";
   /** gif has no sound; m4a and wav carry the mixed sound only. */
   format: "mp4" | "mov" | "gif" | "m4a" | "wav";
+  /** Encode MP4/MOV on the graphics card when one is usable; software encoding is the fallback. */
+  hardware?: boolean;
 }
 export interface ExportProgress {
   jobId: string;
@@ -234,6 +236,10 @@ export interface EditorAPI {
   ) => Promise<{ jobId: string }>;
   cancelExport: (jobId: string) => Promise<void>;
   onExportProgress: (callback: (event: ExportProgress) => void) => () => void;
+  /** Save a finished microphone take (the recorder's bytes) as a local audio asset. */
+  saveRecording: (bytes: Uint8Array, name: string) => Promise<MediaAsset>;
+  /** Name of the usable graphics-card encoder, or null when exports are software only. */
+  getHardwareEncoder: () => Promise<string | null>;
   getSystemInfo: () => Promise<{
     version: string;
     platform: string;
