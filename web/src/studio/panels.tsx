@@ -815,6 +815,15 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
             </>
           )}
           {g.type === 'nametag' && <Field label="Text"><input id="graphic-text" type="text" value={g.primary} onChange={(e) => patch({ primary: e.target.value }, 'gprim')} /></Field>}
+          {g.type === 'spotlight' && (
+            <>
+              <Slider label="Size" min={0.3} max={4} step={0.05} value={g.scale ?? 1} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => patch({ scale: v }, 'gscale')} />
+              <Slider label="Shape" min={0.4} max={2.5} step={0.02} value={g.ratio ?? 0.881} format={(v) => (v < 0.95 ? 'Wide' : v > 1.05 ? 'Tall' : 'Round')} onChange={(v) => patch({ ratio: v }, 'gratio')} />
+              <Slider label="Darkness around it" min={0.1} max={0.95} step={0.01} value={g.dim ?? 0.68} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => patch({ dim: v }, 'gdim')} />
+              <Slider label="Edge softness" min={0.02} max={1.2} step={0.02} value={g.soft ?? 0.3} format={(v) => (v < 0.1 ? 'Sharp' : v > 0.7 ? 'Very soft' : `${Math.round(v * 100)}%`)} onChange={(v) => patch({ soft: v }, 'gsoft')} />
+              <div className="row"><Button small onClick={() => patch({ scale: undefined, ratio: undefined, dim: undefined, soft: undefined })}>Back to the reference look</Button></div>
+            </>
+          )}
           {g.type === 'blurbox' && (
             <>
               <Field label="Cover with">

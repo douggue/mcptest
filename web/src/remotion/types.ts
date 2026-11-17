@@ -87,7 +87,9 @@ export type Graphic = {
   color?: string;      // label / circle / arrow / flash colour
   style?: LabelStyle;  // label look
   rotate?: number;     // degrees (arrow)
-  ratio?: number;      // height / width of a blur box
+  ratio?: number;      // height / width of a blur box or a spotlight
+  dim?: number;        // spotlight: how dark the surround goes, 0..1 (default 0.68)
+  soft?: number;       // spotlight: edge softness, the fade's width as a share of the spot (default 0.3)
   tag?: string;        // small speaker tag above a boxed label, e.g. "Cyclist:"
   origin?: 'style' | 'ai';   // who placed it, so re-applying a style or re-planning replaces only its own
   mediaType?: 'image' | 'video' | 'gif';

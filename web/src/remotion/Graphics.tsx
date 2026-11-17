@@ -358,10 +358,10 @@ export const GraphicLayer: React.FC<Ctx> = (ctx) => {
     const ramp = Math.min(interpolate(frame, [0, edge], [0, 1], { extrapolateRight: 'clamp' }),
       interpolate(frame, [frames - edge, frames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }));
     const sc = g.scale ?? 1;
-    const rx = width * 0.0972 * sc, ry = width * 0.0856 * sc;
-    const feather = 1.3;   // the gradient runs past the spot's edge by 30% of its size
+    const rx = width * 0.0972 * sc, ry = rx * (g.ratio ?? 0.881);
+    const feather = 1 + Math.max(0.02, g.soft ?? 0.3);   // the gradient runs past the spot's edge by this share of its size
     const cx = width / 2 + ((g.dx ?? 0) / 100) * width, cy = height / 2 + ((g.dy ?? 0) / 100) * height;
-    const dim = `rgba(0,0,0,${(0.68 * ramp).toFixed(3)})`;
+    const dim = `rgba(0,0,0,${((g.dim ?? 0.68) * ramp).toFixed(3)})`;
     return (
       <>
         {g.sfx && fxVolume > 0 && <Audio src={`${sfxBase}${g.sfx}.wav`} volume={fxVolume} />}
