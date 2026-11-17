@@ -364,6 +364,53 @@ def direct_clip(pid: str, cid: str) -> dict:
     return _clip_job(pid, cid, "direct", "Planning the edit from the picture", plan)
 
 
+@router.post("/{pid}/clips/{cid}/split")
+def split_clip(pid: str, cid: str, body: dict) -> dict:
+    """{t: source time} -> {first, second}: the clip becomes the part before t, and a new clip right after it holds the rest."""
+    from ..studio import clipops
+    try:
+        t = float(body["t"])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(422, "Say where to split.")
+    holder: dict = {}
+
+    def work(p: dict) -> None:
+        clip = _clip(p, cid)
+        try:
+            a, b = clipops.split(clip["spec"], t)
+        except MediaError as e:
+            raise HTTPException(422, str(e))
+        second = _new_clip(p, b["in"], b["out"], f"{clip['title']} (part 2)")
+        second.update(spec=b, profile_id=clip.get("profile_id"), meta=dict(clip.get("meta") or {}), status=clip.get("status", "draft"))
+        clip["spec"] = a
+        p["clips"].insert(p["clips"].index(clip) + 1, second)
+        holder.update(first=clip, second=second)
+    mutate(pid, work)
+    return holder
+
+
+@router.post("/{pid}/clips/merge")
+def merge_clips(pid: str, body: dict) -> dict:
+    """{ids: [clip ids], title?} -> the new clip: the kept parts of all of them in time order. The originals stay."""
+    from ..studio import clipops
+    ids = [str(i) for i in body.get("ids") or []]
+    holder: dict = {}
+
+    def work(p: dict) -> None:
+        clips = [_clip(p, i) for i in ids]
+        try:
+            spec = clipops.merge([c["spec"] for c in clips])
+        except MediaError as e:
+            raise HTTPException(422, str(e))
+        first = min(clips, key=lambda c: c["spec"]["in"])
+        clip = _new_clip(p, spec["in"], spec["out"], str(body.get("title") or f"{first['title']} + {len(clips) - 1} more"))
+        clip.update(spec=spec, profile_id=first.get("profile_id"), meta=dict(first.get("meta") or {}))
+        p["clips"].append(clip)
+        holder["clip"] = clip
+    mutate(pid, work)
+    return holder["clip"]
+
+
 @router.post("/{pid}/clips/{cid}/ask")
 def ask_clip(pid: str, cid: str, body: dict) -> dict:
     """{request, spec} -> job -> {changes: [...], reply, engine}: a plain-language edit turned into typed changes that the

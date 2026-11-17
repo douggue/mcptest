@@ -29,7 +29,7 @@ export type Header = { name: string; handle: string; avatar: string; verified: b
 
 export type Layout = 'single' | 'split' | 'trio' | 'fit';
 
-export type Face = { cx: number; cy: number; w: number; score: number }; // 0..1 of the source frame
+export type Face = { cx: number; cy: number; w: number; score: number; seen?: number }; // 0..1 of the source frame; seen = share of sampled frames
 
 export type Shot = {
   start: number;                        // where this camera setup begins
@@ -171,6 +171,7 @@ export type ShortSpec = {
   in: number;
   out: number;
   segments: Segment[];
+  ranges?: Segment[];     // the clip's own source ranges when it is made of several parts (merged clips, recaps): gaps between them stay cut
   freezes?: Freeze[];
   speeds?: Speed[];
   frame?: FrameMode;

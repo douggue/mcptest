@@ -58,7 +58,18 @@ export function deriveSegments(spec: EditSpec): Segment[] {
     cursor = Math.max(cursor, e);
   }
   if (tout - cursor > 0.08) segs.push({ start: round3(cursor), end: round3(tout) });
-  return segs.length ? segs : [{ start: tin, end: tout }];
+  const kept = spec.ranges?.length ? intersect(segs, spec.ranges) : segs;
+  return kept.length ? kept : segs.length ? segs : [{ start: tin, end: tout }];
+}
+
+/** The parts of `a` that also lie inside `b` (both sorted, non-overlapping). */
+function intersect(a: Segment[], b: Segment[]): Segment[] {
+  const out: Segment[] = [];
+  for (const x of a) for (const y of b) {
+    const s = Math.max(x.start, y.start), e = Math.min(x.end, y.end);
+    if (e - s > 0.08) out.push({ start: round3(s), end: round3(e) });
+  }
+  return out;
 }
 
 export const withSegments = (spec: EditSpec): EditSpec => ({ ...spec, segments: deriveSegments(spec) });
@@ -124,13 +135,30 @@ export type AnalysedShot = { start: number; end: number; faces: Face[]; track: {
 
 /** Build the shot list from a picture analysis: one shot per camera cut, centred on whoever is speaking.
  *  With `keepLayouts`, the analysis is for the user's own cuts, so each shot keeps its layout and transition. */
-export function applyAnalysis(spec: EditSpec, shots: AnalysedShot[], opts: { splitTwo: boolean; follow: boolean; keepLayouts?: boolean }): EditSpec {
+/** True when the people in a shot cannot all be shown in one crop: their faces span more of the picture than a
+ *  single crop shows. Only people of a similar size count, so a small figure in the background does not. */
+export function peopleDoNotFit(faces: Face[], spec: ShortSpec): boolean {
+  // a face found in only a few of the sampled frames is often a false detection (a lamp, a grill), so only steady
+  // ones count; older analyses without the count never switch
+  const steady = faces.filter((f) => (f.seen ?? 0) >= 0.6);
+  const big = steady.filter((f) => f.w >= Math.max(...steady.map((x) => x.w)) * 0.5);
+  if (big.length < 2) return false;
+  const panel = spec.frame?.mode === 'panel';
+  const bw = panel ? (spec.width * spec.frame!.width) / 100 : spec.width;
+  const bh = panel ? Math.min(spec.height, bw / spec.frame!.aspect) : spec.height;
+  const visible = (bw / bh) / (spec.srcW / spec.srcH);   // share of the source width one crop shows
+  if (visible >= 1) return false;
+  const left = Math.min(...big.map((f) => f.cx - f.w * 0.6)), right = Math.max(...big.map((f) => f.cx + f.w * 0.6));
+  return right - left > visible;
+}
+
+export function applyAnalysis(spec: EditSpec, shots: AnalysedShot[], opts: { splitTwo: boolean; follow: boolean; keepLayouts?: boolean; fitWide?: boolean }): EditSpec {
   const sameCuts = !!opts.keepLayouts && shots.length === spec.shots.length;
   const next: Shot[] = shots.map((s, i) => {
     const prev = spec.shots[i];
     const faces = s.faces;
     const similar = faces.length >= 2 && Math.min(faces[0].w, faces[1].w) / Math.max(faces[0].w, faces[1].w) > 0.55;
-    const layout: Layout = sameCuts ? prev.layout : opts.splitTwo && similar ? 'split' : 'single';
+    const layout: Layout = sameCuts ? prev.layout : opts.splitTwo && similar ? 'split' : opts.fitWide && peopleDoNotFit(faces, spec) ? 'fit' : 'single';
     const n = paneCount(layout);
     let x: number[];
     if (layout === 'fit') x = [50];

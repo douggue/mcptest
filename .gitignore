@@ -8,3 +8,4 @@ __pycache__/
 .bundle/
 *.whl
 *.tar.gz
+.claude/worktrees/

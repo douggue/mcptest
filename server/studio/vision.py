@@ -146,7 +146,8 @@ def analyse_shots(path: Path, ranges: list[tuple[float, float]], job: Job | None
                 if c["n"] < max(1, len(times) // 3):
                     continue   # a one-off detection is usually a false positive
                 faces.append({"cx": round(c["cx"], 4), "cy": round(c["cy"], 4), "w": round(c["w"], 4),
-                              "score": round(c["motion"] / c["n"] * (0.6 + c["w"]), 4)})
+                              "score": round(c["motion"] / c["n"] * (0.6 + c["w"]), 4),
+                              "seen": round(c["n"] / len(times), 2)})   # share of the sampled frames it was found in
             faces.sort(key=lambda f: (f["score"], f["w"]), reverse=True)
             keys: list[dict] = []
             if track and faces:

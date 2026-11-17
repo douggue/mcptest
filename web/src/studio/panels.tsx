@@ -10,7 +10,7 @@ import type { Ctx } from './Editor';
 import {
   ANIM_LABELS, AnalysedShot, FREE_TYPES, GRAPHIC_LABELS, TEXTLESS, ZONE_LABELS, addCut, addFreeze, addSpeed, applyAnalysis, applyRemix, aspectOf, autoBroll, autoZooms,
   applyDirect, applyStyle, clamp, faceToX, isFree, newGraphic, outSeconds, paneCount, patchWord, removeFillers, removeShot, restoreWords, round3,
-  captionsSrt, setAspect, setLayout, shuffleGraphics, uid, withSegments,
+  EditSpec, captionsSrt, setAspect, setLayout, shuffleGraphics, uid, withSegments,
 } from './logic';
 import { GenerateImageButton } from './GenerateButton';
 import { DirectPlan, ExportRow, StyleProfile, Template } from './types';
@@ -27,6 +27,7 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
   const { spec, update, t, project, clip, jobs, flush, seekSrc, assets } = ctx;
   const [follow, setFollow] = useState(false);
   const [splitTwo, setSplitTwo] = useState(false);
+  const [fitWide, setFitWide] = useState(true);
   const [hooks, setHooks] = useState<string[]>([]);
   const [script, setScript] = useState('');
   const idx = shotIndexAt(spec.shots, t);
@@ -42,7 +43,7 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
       const r = await jobs.run<{ engine: string; shots: AnalysedShot[] }>(() =>
         api.post(`${base}/analyse`, { detect_cuts: detectCuts, track: follow, cuts: spec.shots.slice(1).map((s) => s.start) }));
       const found = r.shots.filter((s) => s.faces.length).length;
-      update((s) => applyAnalysis(s, r.shots, { splitTwo, follow, keepLayouts: !detectCuts }));
+      update((s) => applyAnalysis(s, r.shots, { splitTwo, follow, fitWide, keepLayouts: !detectCuts }));
       toast(`${r.shots.length} shot${r.shots.length === 1 ? '' : 's'}; speaker found in ${found}`, found ? 'good' : 'info');
     } catch (e) { toastError(e); }
   }
@@ -100,6 +101,7 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
         <div className="row wrap">
           <Toggle checked={follow} onChange={setFollow} label="Follow movement" />
           <Toggle checked={splitTwo} onChange={setSplitTwo} label="Split when two faces" />
+          <Toggle checked={fitWide} onChange={setFitWide} label="Whole frame when people don't fit" />
         </div>
         <div className="chips">
           {spec.shots.map((s, i) => (
@@ -932,6 +934,17 @@ export function PostPanel({ ctx }: { ctx: Ctx }) {
   const { spec, update, jobs, flush, project, clip, meta, setMeta, title, setTitle, status, setStatus } = ctx;
   const [quality, setQuality] = useState<'1080' | '720'>('1080');
   const [upscale, setUpscale] = useState(false);
+  const [splitting, setSplitting] = useState(false);
+  async function splitHere() {
+    setSplitting(true);
+    try {
+      await flush();
+      const r = await api.post<{ first: { spec: EditSpec }; second: { title: string } }>(`/api/projects/${project.id}/clips/${clip.id}/split`, { t: ctx.t });
+      update(() => r.first.spec as EditSpec);
+      toast(`Split. The rest is now the clip "${r.second.title}".`, 'good');
+    } catch (e) { toastError(e); }
+    setSplitting(false);
+  }
   type UpState = { available: boolean; gpu: boolean; cpus: number; provider: string; model_downloaded: boolean };
   const [up, setUp] = useState<UpState | null>(null);
   useEffect(() => { api.get<UpState>('/api/upscale/state').then(setUp).catch(() => {}); }, []);
@@ -985,6 +998,10 @@ export function PostPanel({ ctx }: { ctx: Ctx }) {
         <Field label="Review status">
           <Seg small value={status} onChange={setStatus} options={[{ value: 'draft', label: 'Draft' }, { value: 'approved', label: 'Approved' }, { value: 'posted', label: 'Posted' }]} />
         </Field>
+        <div className="row wrap">
+          <Button small icon="scissors" disabled={splitting || ctx.t < spec.in + 0.5 || ctx.t > spec.out - 0.5} onClick={splitHere}
+            title="This clip keeps the part before the playhead; the rest becomes a new clip right after it">Split into two at {fmtTime(ctx.frame / spec.fps, true)}</Button>
+        </div>
       </Group>
 
       <Group title="Post text" actions={<Button small icon="sparkle" onClick={write} disabled={jobs.busy}>Write it</Button>}>
