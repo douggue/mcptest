@@ -107,6 +107,19 @@ OPEN_PATHS = {"/api/login", "/api/logout", "/api/health"}
 GUARDED = ("/api/", "/media/", "/docs", "/redoc", "/openapi.json")
 
 
+def _private_file(path: str) -> bool:
+    """True for anything inside the data folder's db/ (settings with API keys and YouTube tokens, sessions), however
+    the path is spelled: encoded, with '..', in another letter case (Windows), with backslashes, or via the
+    renderer's private prefix."""
+    from posixpath import normpath
+    from urllib.parse import unquote
+    p = unquote(path).replace("\\", "/").lower()
+    if p.startswith(INTERNAL_PREFIX.lower() + "/"):
+        p = p[len(INTERNAL_PREFIX):]
+    p = normpath("/" + p.lstrip("/"))
+    return p == "/media/db" or p.startswith("/media/db/")
+
+
 class Gate:
     """ASGI middleware: lets the renderer in through its private path, and asks everyone else to be logged in."""
 
@@ -117,6 +130,10 @@ class Gate:
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         path = scope["path"]
+        if _private_file(path):   # settings, keys, tokens and sessions are never served, to anyone
+            await send({"type": "http.response.start", "status": 404, "headers": [(b"content-length", b"0")]})
+            await send({"type": "http.response.body", "body": b""})
+            return
         if path.startswith(INTERNAL_PREFIX + "/"):
             inner = path[len(INTERNAL_PREFIX):]
             return await self.app({**scope, "path": inner, "raw_path": inner.encode()}, receive, send)

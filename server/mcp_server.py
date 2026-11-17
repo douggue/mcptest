@@ -350,7 +350,34 @@ def _derive_segments(spec: dict) -> list[dict]:
         cursor = max(cursor, e)
     if tout - cursor > 0.08:
         segs.append({"start": round(cursor, 3), "end": round(tout, 3)})
-    return segs or [{"start": tin, "end": tout}]
+    ranges = spec.get("ranges") or []
+    if not ranges:
+        return segs or [{"start": tin, "end": tout}]
+    # a multi-part clip (merged, recap, trailer): the gaps between its parts stay cut, as in the editor
+    def meet(a: list[dict], b: list[dict]) -> list[dict]:
+        out = []
+        for x in a:
+            for y in b:
+                s0, e0 = max(x["start"], y["start"]), min(x["end"], y["end"])
+                if e0 - s0 > 0.08:
+                    out.append({"start": round(s0, 3), "end": round(e0, 3)})
+        return out
+    return meet(segs, ranges) or meet([{"start": tin, "end": tout}], ranges) or [{"start": tin, "end": tout}]
+
+
+def _move_ranges(ranges: list[dict] | None, tin: float, tout: float) -> list[dict] | None:
+    """Mirror of moveRanges in web/src/studio/logic.ts."""
+    if not ranges:
+        return ranges
+    out = [{"start": max(r["start"], tin), "end": min(r["end"], tout)} for r in ranges]
+    out = [r for r in out if r["end"] - r["start"] > 0.05]
+    if not out:
+        return [{"start": round(tin, 3), "end": round(tout, 3)}]
+    if tin < ranges[0]["start"]:
+        out[0]["start"] = tin
+    if tout > ranges[-1]["end"]:
+        out[-1]["end"] = tout
+    return [{"start": round(r["start"], 3), "end": round(r["end"], 3)} for r in out]
 
 
 def _retime(spec: dict, all_words: list[dict], tin: float, tout: float) -> dict:
@@ -362,6 +389,7 @@ def _retime(spec: dict, all_words: list[dict], tin: float, tout: float) -> dict:
     else:
         shots = [{"start": tin, "layout": "single", "x": [50], "transition": "cut"}]
     spec = {**spec, "in": round(tin, 3), "out": round(tout, 3), "words": words, "shots": shots,
+            "ranges": _move_ranges(spec.get("ranges"), tin, tout),
             "zooms": [z for z in spec.get("zooms") or [] if tin <= z.get("at", tin) < tout],
             "graphics": [g for g in spec.get("graphics") or [] if tin <= g.get("at", tin) < tout]}
     if spec.get("freezes"):

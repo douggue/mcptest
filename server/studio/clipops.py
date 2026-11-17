@@ -63,6 +63,7 @@ def merge(specs: list[dict]) -> dict:
     title) come from the earliest clip."""
     if len(specs) < 2:
         raise MediaError("Choose at least two clips to merge.")
+    specs = copy.deepcopy(specs)   # never change the clips being merged
     if len({s["src"] for s in specs}) > 1:
         raise MediaError("Only clips from the same video can be merged.")
     specs = sorted(specs, key=lambda s: s["in"])
@@ -97,21 +98,43 @@ def merge(specs: list[dict]) -> dict:
             continue   # the same framing carried on, e.g. where a clip was split
         else:
             deduped.append(x)
-    graphics = [g for g in base.get("graphics") or [] if _standing(base, g)]
+    standing = [g for g in base.get("graphics") or [] if _standing(base, g)]
+    graphics = list(standing)
     for s in specs:
         graphics += [g for g in s.get("graphics") or [] if not _standing(s, g)]
+
+    def unique(items: list[dict], key) -> list[dict]:
+        """Overlapping clips carry the same freeze, zoom or graphic twice; keep one of each."""
+        seen, out = set(), []
+        for it in items:
+            k = it.get("id") or key(it)
+            if k not in seen:
+                seen.add(k)
+                out.append(it)
+        return out
     base.update(
         **{"in": ranges[0]["start"], "out": ranges[-1]["end"]},
         ranges=ranges, segments=[dict(r) for r in ranges],
         words=sorted(words.values(), key=lambda w: w["start"]),
         shots=deduped,
-        freezes=sorted((f for s in specs for f in s.get("freezes") or []), key=lambda f: f["at"]),
-        speeds=sorted((x for s in specs for x in s.get("speeds") or []), key=lambda x: x["start"]),
-        zooms=sorted((z for s in specs for z in s.get("zooms") or []), key=lambda z: z["at"]),
-        graphics=sorted(graphics, key=lambda g: g["at"]),
+        freezes=unique(sorted((f for s in specs for f in s.get("freezes") or []), key=lambda f: f["at"]), lambda f: round(f["at"], 2)),
+        speeds=_no_overlap(unique(sorted((x for s in specs for x in s.get("speeds") or []), key=lambda x: x["start"]), lambda x: (x["start"], x["end"]))),
+        zooms=unique(sorted((z for s in specs for z in s.get("zooms") or []), key=lambda z: z["at"]), lambda z: round(z["at"], 2)),
+        graphics=unique(sorted(graphics, key=lambda g: g["at"]), lambda g: (g["type"], round(g["at"], 2), g.get("primary", ""))),
     )
     total = sum(r["end"] - r["start"] for r in ranges) + sum(f["duration"] for f in base["freezes"])
-    for g in base["graphics"]:
-        if _standing(base, g) or g.get("origin") == "style":
-            g["duration"] = max(g.get("duration", 0), round(total, 2))
+    for g in standing:   # only graphics that stood for the whole first clip stand for the whole merge
+        g["duration"] = max(g.get("duration", 0), round(total, 2))
     return base
+
+
+def _no_overlap(speeds: list[dict]) -> list[dict]:
+    """Speed ranges from overlapping clips can overlap each other; the earlier one wins."""
+    out: list[dict] = []
+    for x in speeds:
+        if out and x["start"] < out[-1]["end"]:
+            if x["end"] <= out[-1]["end"]:
+                continue
+            x = dict(x, start=out[-1]["end"])
+        out.append(x)
+    return out

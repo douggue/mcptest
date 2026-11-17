@@ -397,6 +397,7 @@ def refresh_youtube(channel_id: str, rows: list[dict]) -> tuple[dict[str, dict],
     done: dict[str, dict] = {}
     failed: dict[str, str] = {}
     for p in rows:
+        p = posts.get(p["id"]) or p   # re-read: an upload may have finished since the list was taken
         yt = dict(p.get("youtube") or {})
         s = stats.get(yt.get("video_id", ""))
         if not s:

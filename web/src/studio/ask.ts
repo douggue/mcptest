@@ -22,11 +22,14 @@ export function applyAsk(spec: EditSpec, changes: AskChange[]): { spec: EditSpec
   let s: EditSpec = spec;
   const skipped: string[] = [];
   const made: AskChange[] = [];
-  const at = (rel: unknown) => round3(clamp(s.in + (num(rel) ?? 0), s.in, s.out));
+  // the AI's times count from where the clip started before this request, even after a trim in the same request
+  const start = spec.in;
+  const at = (rel: unknown) => round3(clamp(start + (num(rel) ?? 0), s.in, s.out));
   const words = () => s.words.filter((w) => w.end > s.in && w.start < s.out);
 
   for (const c of changes) {
     const before = skipped.length;
+    const prev = s;   // a change that is refused is undone on its own, keeping the ones before it
     switch (c.op) {
       case 'title': {
         const text = str(c.text).trim();
@@ -79,8 +82,10 @@ export function applyAsk(spec: EditSpec, changes: AskChange[]): { spec: EditSpec
       }
       case 'trim': {
         const a = num(c.start_seconds), b = num(c.end_seconds);
-        const tin = a !== undefined && a >= 0 ? s.in + a : s.in;
-        const tout = b !== undefined && b >= 0 ? s.in + b : s.out;
+        // the end may move past the clip's current end, but not past the last word the clip knows plus a moment
+        const last = Math.max(s.out, ...s.words.map((w) => w.end + 1));
+        const tin = a !== undefined && a >= 0 ? start + a : s.in;
+        const tout = Math.min(last, b !== undefined && b >= 0 ? start + b : s.out);
         if (tout - tin < 1) { skipped.push('The trim would leave less than a second, so it was not made.'); break; }
         s = withSegments({ ...s, in: round3(tin), out: round3(tout) });
         break;
@@ -93,7 +98,7 @@ export function applyAsk(spec: EditSpec, changes: AskChange[]): { spec: EditSpec
         if (!all && (!ids.includes(lo) || !ids.includes(hi))) { skipped.push(`Words ${lo}-${hi} are not in this clip.`); break; }
         const cut = c.op === 'cut_words';
         s = withSegments({ ...s, words: s.words.map((w) => (all || (w.id >= lo && w.id <= hi) ? { ...w, removed: cut } : w)) });
-        if (cut && words().every((w) => w.removed)) { skipped.push('That would cut every word, so it was not made.'); s = spec; }
+        if (cut && words().every((w) => w.removed)) { skipped.push('That would cut every word, so it was not made.'); s = prev; }
         break;
       }
       case 'tighten': {

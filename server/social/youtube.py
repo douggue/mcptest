@@ -582,7 +582,12 @@ def upload(channel_id: str, path: Path, body: dict, progress: Callable[[float, s
             progress(1.0, "Upload finished")
             return _json(raw)
         if status == 308:
-            offset, query, failures = _next_offset(h), False, 0
+            moved = _next_offset(h)
+            # only real progress resets the failure count: a status query that answers 308 while every chunk fails
+            # must not, or the upload would retry forever
+            if moved > offset:
+                failures = 0
+            offset, query = moved, False
             progress(offset / total, f"Uploading {_fmt_mb(offset)} of {_fmt_mb(total)}")
             continue
         if status in (404, 410) and restarts < 1:      # the upload session expired: start over once

@@ -232,7 +232,11 @@ def find_moments(pid: str, body: dict) -> dict:
         raise HTTPException(422, f"Unknown clip type: {kind}.")
     if kind == "topic" and not (body.get("query") or "").strip():
         raise HTTPException(422, "Type the topic to look for.")
-    min_len, max_len = float(body.get("min_len") or 20), float(body.get("max_len") or 60)
+    try:
+        min_len, max_len = float(body.get("min_len") or 20), float(body.get("max_len") or 60)
+        int(body.get("count") or 6)
+    except (TypeError, ValueError):
+        raise HTTPException(422, "The lengths and the number of clips must be numbers.")
     if max_len < min_len:
         raise HTTPException(422, "The longest length must be at least the shortest.")
     template = Collection("templates").get(body["template_id"]) if body.get("template_id") else None
@@ -423,7 +427,7 @@ def split_clip(pid: str, cid: str, body: dict) -> dict:
 def merge_clips(pid: str, body: dict) -> dict:
     """{ids: [clip ids], title?} -> the new clip: the kept parts of all of them in time order. The originals stay."""
     from ..studio import clipops
-    ids = [str(i) for i in body.get("ids") or []]
+    ids = list(dict.fromkeys(str(i) for i in body.get("ids") or []))   # the same clip twice is one clip
     holder: dict = {}
 
     def work(p: dict) -> None:

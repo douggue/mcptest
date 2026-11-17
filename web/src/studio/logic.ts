@@ -58,8 +58,23 @@ export function deriveSegments(spec: EditSpec): Segment[] {
     cursor = Math.max(cursor, e);
   }
   if (tout - cursor > 0.08) segs.push({ start: round3(cursor), end: round3(tout) });
-  const kept = spec.ranges?.length ? intersect(segs, spec.ranges) : segs;
-  return kept.length ? kept : segs.length ? segs : [{ start: tin, end: tout }];
+  if (!spec.ranges?.length) return segs.length ? segs : [{ start: tin, end: tout }];
+  const kept = intersect(segs, spec.ranges);
+  if (kept.length) return kept;
+  // everything inside the parts was cut: fall back to the parts themselves, never to the gaps between them
+  const parts = intersect([{ start: tin, end: tout }], spec.ranges);
+  return parts.length ? parts : [{ start: tin, end: tout }];
+}
+
+/** A multi-part clip's parts after its start or end moved: cut to the new span, the first and last part
+ *  stretched when the span grew, so dragging a handle outwards adds video as it does on any clip. */
+export function moveRanges(ranges: Segment[] | undefined, tin: number, tout: number): Segment[] | undefined {
+  if (!ranges?.length) return ranges;
+  const out = ranges.map((r) => ({ start: Math.max(r.start, tin), end: Math.min(r.end, tout) })).filter((r) => r.end - r.start > 0.05);
+  if (!out.length) return [{ start: round3(tin), end: round3(tout) }];
+  if (tin < ranges[0].start) out[0].start = tin;
+  if (tout > ranges[ranges.length - 1].end) out[out.length - 1].end = tout;
+  return out.map((r) => ({ start: round3(r.start), end: round3(r.end) }));
 }
 
 /** The parts of `a` that also lie inside `b` (both sorted, non-overlapping). */
@@ -106,7 +121,7 @@ export function retime(spec: EditSpec, all: Word[], tin: number, tout: number): 
   const shots = spec.shots.filter((s, i) => i === 0 || (s.start > tin && s.start < tout));
   shots[0] = { ...shots[0], start: tin };
   return withSegments({
-    ...spec, in: round3(tin), out: round3(tout), words, shots,
+    ...spec, in: round3(tin), out: round3(tout), words, shots, ranges: moveRanges(spec.ranges, tin, tout),
     zooms: spec.zooms.filter((z) => z.at >= tin && z.at < tout),
     graphics: spec.graphics.filter((g) => g.at >= tin && g.at < tout),
   });
