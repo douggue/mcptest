@@ -27,17 +27,19 @@ export type Ctx = {
   status: Clip['status']; setStatus: (s: Clip['status']) => void;
 };
 
-const TABS = [
-  { id: 'frame', label: 'Framing', icon: 'crop' },
-  { id: 'style', label: 'Style', icon: 'type' },
-  { id: 'words', label: 'Words', icon: 'scissors' },
-  { id: 'post', label: 'Export', icon: 'download' },
+const TOOLS = [
+  { id: 'frame', label: 'Framing', icon: 'crop', title: 'Framing and audio' },
+  { id: 'style', label: 'Style', icon: 'type', title: 'Captions and look' },
+  { id: 'words', label: 'Words', icon: 'scissors', title: 'Transcript' },
+  { id: 'motion', label: 'Motion', icon: 'bolt', title: 'Motion graphics' },
+  { id: 'post', label: 'Export', icon: 'download', title: 'Post text and export' },
 ] as const;
+type ToolId = (typeof TOOLS)[number]['id'];
 
 export function Editor({ project, clip, onBack }: { project: Project; clip: Clip; onBack: () => void }) {
   const [hist, setHist] = useState<History>(() => ({ past: [], present: withSegments(clip.spec), future: [], key: '', at: 0 }));
   const spec = hist.present;
-  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('frame');
+  const [tab, setTab] = useState<ToolId>('frame');
   const [frame, setFrame] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -177,35 +179,45 @@ export function Editor({ project, clip, onBack }: { project: Project; clip: Clip
   const ctx: Ctx = {
     project, clip, spec, update, frame, t, plan, frames, seconds, seek, seekSrc,
     flush: async () => { dirty.current = true; await save(); }, jobs, assets, reloadAssets,
-    selected, select: setSelected, meta, setMeta, title, setTitle, status, setStatus,
+    selected, select: (id) => { setSelected(id); if (id) setTab('motion'); }, meta, setMeta, title, setTitle, status, setStatus,
   };
+
+  const tool = TOOLS.find((x) => x.id === tab)!;
 
   return (
     <div className="editor">
-      <div className="editor-top">
-        <Button variant="ghost" small icon="back" onClick={onBack}>Clips</Button>
-        <h2 className="ellipsis" title={title}>{title}</h2>
-        <span className="pill muted">{saved ? 'Saved' : 'Saving…'}</span>
+      <header className="editor-top">
+        <Button variant="ghost" small icon="back" onClick={onBack} aria-label="Back to clips" title="Back to clips" />
+        <div className="editor-title">
+          <h2 className="ellipsis" title={title}>{title}</h2>
+          <span className="save-state">{saved ? <><Icon name="check" size={12} /> Saved</> : 'Saving…'}</span>
+        </div>
         <span className="spacer" />
+        <span className="pill mono" title="Change the shape and frame rate under Export">{spec.width}×{spec.height} · {spec.fps} fps</span>
         <Button variant="ghost" small icon="undo" onClick={undo} disabled={!hist.past.length} aria-label="Undo" title="Undo (Ctrl+Z)" />
         <Button variant="ghost" small icon="redo" onClick={redo} disabled={!hist.future.length} aria-label="Redo" title="Redo (Ctrl+Shift+Z)" />
-        <span className="pill accent mono">{spec.width}×{spec.height} · {spec.fps} fps</span>
         <Button variant="primary" small icon="download" onClick={() => setTab('post')}>Export</Button>
-      </div>
+      </header>
       <div className="editor-body">
-        <aside className="editor-side left">
-          <div className="tabs" role="tablist">
-            {TABS.map((x) => (
-              <button key={x.id} role="tab" aria-selected={tab === x.id} className={tab === x.id ? 'on' : ''} onClick={() => setTab(x.id)}>
-                <Icon name={x.icon} size={14} />{x.label}
-              </button>
-            ))}
+        <nav className="tool-rail" role="tablist" aria-label="Editor tools">
+          {TOOLS.map((x) => (
+            <button key={x.id} role="tab" aria-selected={tab === x.id} className={tab === x.id ? 'on' : ''} onClick={() => setTab(x.id)} title={x.title}>
+              <Icon name={x.icon} size={18} />
+              <span>{x.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <aside className="tool-panel">
+          <div className="tool-panel-head"><h3>{tool.title}</h3></div>
+          <div className="tool-panel-body">
+            <JobBar job={jobs.job} />
+            {tab === 'frame' && <FramePanel ctx={ctx} />}
+            {tab === 'style' && <StylePanel ctx={ctx} />}
+            {tab === 'words' && <WordsPanel ctx={ctx} />}
+            {tab === 'motion' && <MotionPanel ctx={ctx} />}
+            {tab === 'post' && <PostPanel ctx={ctx} />}
           </div>
-          <JobBar job={jobs.job} />
-          {tab === 'frame' && <FramePanel ctx={ctx} />}
-          {tab === 'style' && <StylePanel ctx={ctx} />}
-          {tab === 'words' && <WordsPanel ctx={ctx} />}
-          {tab === 'post' && <PostPanel ctx={ctx} />}
         </aside>
 
         <section className="editor-center">
@@ -216,31 +228,30 @@ export function Editor({ project, clip, onBack }: { project: Project; clip: Clip
                 controls={false} clickToPlay={false} spaceKeyToPlayOrPause={false} acknowledgeRemotionLicense />
             </div>
           </div>
-          <div className="transport">
-            <Button small icon="back" aria-label="Previous shot" title="Previous shot" onClick={() => seek([...shotStarts].reverse().find((f) => f < frame - 2) ?? 0)} />
-            <Button small onClick={() => seek(frame - 1)} aria-label="Back one frame" title="Back one frame (←)">−1f</Button>
-            <Button variant="primary" small icon={playing ? 'pause' : 'play'} onClick={toggle}>{playing ? 'Pause' : 'Play'}</Button>
-            <Button small onClick={() => seek(frame + 1)} aria-label="Forward one frame" title="Forward one frame (→)">+1f</Button>
-            <Button small icon="next" aria-label="Next shot" title="Next shot" onClick={() => seek(shotStarts.find((f) => f > frame + 2) ?? frames - 1)} />
-            <span className="time"><b>{fmtTime(frame / spec.fps, true)}</b> / {fmtTime(seconds, true)}</span>
+          <div className="deck">
+            <div className="transport">
+              <span className="time"><b>{fmtTime(frame / spec.fps, true)}</b> / {fmtTime(seconds, true)}</span>
+              <div className="transport-keys">
+                <Button variant="ghost" small icon="back" aria-label="Previous shot" title="Previous shot" onClick={() => seek([...shotStarts].reverse().find((f) => f < frame - 2) ?? 0)} />
+                <Button variant="ghost" small onClick={() => seek(frame - 1)} aria-label="Back one frame" title="Back one frame (←)">−1f</Button>
+                <button className="play" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'} title="Play or pause (Space)"><Icon name={playing ? 'pause' : 'play'} size={16} /></button>
+                <Button variant="ghost" small onClick={() => seek(frame + 1)} aria-label="Forward one frame" title="Forward one frame (→)">+1f</Button>
+                <Button variant="ghost" small icon="next" aria-label="Next shot" title="Next shot" onClick={() => seek(shotStarts.find((f) => f > frame + 2) ?? frames - 1)} />
+              </div>
+              <div className="trim" title={`This clip uses ${fmtTime(spec.in, true)} – ${fmtTime(spec.out, true)} of the source video`}>
+                <span className="small muted">Start</span>
+                <Button small onClick={() => nudge(-1, 0)} title="Start one second earlier">−1s</Button>
+                <Button small onClick={() => nudge(1, 0)} title="Start one second later">+1s</Button>
+                <span className="small muted">End</span>
+                <Button small onClick={() => nudge(0, -1)} title="End one second earlier">−1s</Button>
+                <Button small onClick={() => nudge(0, 1)} title="End one second later">+1s</Button>
+              </div>
+            </div>
+            <Timeline spec={spec} plan={plan} frames={frames} frame={frame} selected={selected} onSeek={seek}
+              onSelect={(id) => { setSelected(id); if (id) setTab('motion'); }}
+              onMove={(id, f, done) => update((s) => ({ ...s, graphics: s.graphics.map((g) => (g.id === id ? { ...g, at: round3(srcTimeAt(plan, f, s.fps)) } : g)) }), done ? '' : 'drag' + id)} />
           </div>
-          <div className="transport trim">
-            <span className="small muted">Clip range in source <span className="mono">{fmtTime(spec.in, true)} – {fmtTime(spec.out, true)}</span></span>
-            <span className="spacer" />
-            <span className="small muted">Start</span>
-            <Button small onClick={() => nudge(-1, 0)} title="Start one second earlier">−1s</Button>
-            <Button small onClick={() => nudge(1, 0)} title="Start one second later">+1s</Button>
-            <span className="small muted">End</span>
-            <Button small onClick={() => nudge(0, -1)} title="End one second earlier">−1s</Button>
-            <Button small onClick={() => nudge(0, 1)} title="End one second later">+1s</Button>
-          </div>
-          <Timeline spec={spec} plan={plan} frames={frames} frame={frame} selected={selected} onSeek={seek} onSelect={setSelected}
-            onMove={(id, f, done) => update((s) => ({ ...s, graphics: s.graphics.map((g) => (g.id === id ? { ...g, at: round3(srcTimeAt(plan, f, s.fps)) } : g)) }), done ? '' : 'drag' + id)} />
         </section>
-
-        <aside className="editor-side right">
-          <MotionPanel ctx={ctx} />
-        </aside>
       </div>
     </div>
   );

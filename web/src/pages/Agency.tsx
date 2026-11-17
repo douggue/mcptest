@@ -164,7 +164,7 @@ export default function Agency() {
       <div className="page-head">
         <div>
           <h1>Agency</h1>
-          <p>Plan posts, track campaigns and count views. Cutroom does not upload to platforms; you post each video yourself.</p>
+          <p>Plan posts, track campaigns and count views.</p>
         </div>
         <Seg<Tab>
           value={tab}

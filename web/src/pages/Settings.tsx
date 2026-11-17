@@ -52,7 +52,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="page" style={{ maxWidth: 860 }}>
+    <div className="page narrow">
       <div className="page-head">
         <div>
           <h1>Settings</h1>

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { api, upload } from '../api';
 import { Asset, ExportRow, Template } from '../studio/types';
-import { Button, Empty, Field, JobBar, Panel, Seg, fmtBytes, fmtDur, toast, toastError, useJobRunner } from '../ui';
+import { Button, Empty, Field, JobBar, Panel, fmtBytes, fmtDur, toast, toastError, useJobRunner } from '../ui';
 
 type Tab = 'exports' | 'music' | 'broll' | 'sfx' | 'brand' | 'voice' | 'templates';
 const TABS: { value: Tab; label: string }[] = [
@@ -73,7 +73,9 @@ export default function Library() {
           <p>Finished shorts, plus the music, b-roll, sounds, logos and style templates the studio draws on.</p>
         </div>
       </div>
-      <Seg value={tab} onChange={setTab} options={TABS} />
+      <div className="tabs-line" role="tablist">
+        {TABS.map((x) => <button key={x.value} role="tab" aria-selected={tab === x.value} className={tab === x.value ? 'on' : ''} onClick={() => setTab(x.value)}>{x.label}</button>)}
+      </div>
 
       {tab === 'exports' && (
         <Panel title={`Exports (${exportsList.length})`} pad={false}>
@@ -81,11 +83,11 @@ export default function Library() {
             <div className="panel-body grid-auto" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
               {exportsList.map((r) => (
                 <div key={r.id} className="card">
-                  <video className="thumb tall" src={r.file} poster={r.cover || undefined} controls preload="none" />
+                  <div className="thumb-wrap"><video className="thumb tall" src={r.file} poster={r.cover || undefined} controls preload="none" /></div>
                   <strong className="ellipsis" title={r.title}>{r.title}</strong>
                   <div className="small muted mono">{fmtDur(r.duration)} · {r.width}×{r.height} · {fmtBytes(r.size)}</div>
                   <div className="row between">
-                    <span className={'pill ' + (r.status === 'approved' ? 'good' : r.status === 'posted' ? 'info' : 'muted')}>{r.status}</span>
+                    <span className={'pill cap ' + (r.status === 'approved' ? 'good' : r.status === 'posted' ? 'info' : 'muted')}>{r.status}</span>
                     <div className="row gap-s">
                       <a className="btn small" href={r.file} download>Download</a>
                       <Button variant="ghost" small icon="trash" aria-label="Delete export" onClick={async () => { if (confirm(`Delete "${r.title}"?`)) { await api.del(`/api/exports/${r.id}`).catch(toastError); load(); } }} />

@@ -41,6 +41,13 @@ const ICONS = {
   users: 'M16 20v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 20v-1a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
   alert: 'M12 3 2 20h20zM12 10v4M12 17h.01',
   dollar: 'M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+  home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+  sliders: 'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M14 4v4M8 10v4M16 16v4',
+  bolt: 'M13 2 4 14h7l-1 8 9-12h-7z',
+  more: 'M5 12h.01M12 12h.01M19 12h.01',
+  cloud: 'M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 10.5a3.75 3.75 0 0 1-.5 7.5z',
+  arrow: 'M5 12h14M13 6l6 6-6 6',
+  key: 'M15 7a4 4 0 1 1-3.87 5H8v3H5v3H2v-3l7.13-7.13A4 4 0 0 1 15 7zM16.5 8.5h.01',
 } as const;
 export type IconName = keyof typeof ICONS;
 
@@ -62,7 +69,7 @@ type BtnProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 export function Button({ variant = 'default', small, icon, busy, children, className = '', disabled, ...rest }: BtnProps) {
   return (
-    <button className={`btn ${variant} ${small ? 'small' : ''} ${className}`} disabled={disabled || busy} {...rest}>
+    <button className={`btn ${variant} ${small ? 'small' : ''} ${children ? '' : 'icon-only'} ${className}`} disabled={disabled || busy} {...rest}>
       {busy ? <span className="spinner" /> : icon ? <Icon name={icon} size={small ? 14 : 16} /> : null}
       {children && <span>{children}</span>}
     </button>
@@ -165,7 +172,7 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
 export function Empty({ icon = 'film', title, children }: { icon?: IconName; title: string; children?: ReactNode }) {
   return (
     <div className="empty">
-      <Icon name={icon} size={28} />
+      <span className="empty-icon"><Icon name={icon} size={20} /></span>
       <strong>{title}</strong>
       {children && <p>{children}</p>}
     </div>
