@@ -20,8 +20,8 @@ RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 WORKDIR /app
-COPY requirements.txt .
-RUN python3 -m venv /venv && /venv/bin/pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt requirements-optional.txt ./
+RUN python3 -m venv /venv && /venv/bin/pip install --no-cache-dir -r requirements.txt -r requirements-optional.txt
 
 COPY web/package.json web/package-lock.json web/
 RUN cd web && npm ci

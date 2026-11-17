@@ -32,7 +32,7 @@ The first export also downloads the renderer's headless browser (about 100 MB), 
 
 ```bash
 python -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-optional.txt
 cd web && npm install && npm run build && cd ..
 python run.py                                     # --port 8000 --host 127.0.0.1
 ```
@@ -51,7 +51,7 @@ For development, run `python run.py` and, in another terminal, `cd web && npm ru
 | Voiceover from a script | Internet (uses the `edge-tts` voice service), or a Gemini key for Google voices |
 | Generating images, clips (Gemini Omni 1.2 Flash), voices and music | A Gemini key; billed by Google per use |
 | AI upscale | `pip install onnx onnxruntime`, and a one-time 5 MB download |
-| CapCut project export | `pip install pycapcut==0.0.4` (included in requirements) |
+| CapCut project export | `pip install pycapcut==0.0.4` (in requirements-optional.txt) |
 | Stock b-roll search | A free Pexels API key (Settings) |
 | Refreshing view counts in Agency | Internet |
 

@@ -7,7 +7,11 @@ for tool in python3 node npm ffmpeg; do
 done
 [ -d .venv ] || python3 -m venv .venv
 . .venv/bin/activate
-pip install -q -r requirements.txt
+pip install -r requirements.txt
+while read -r pkg _; do
+  case "$pkg" in ""|\#*) continue ;; esac
+  pip install "$pkg" >/dev/null 2>&1 || echo "Could not install optional $pkg; that feature stays off."
+done < requirements-optional.txt
 [ -d web/node_modules ] || (cd web && npm install)
 [ -f web/dist/index.html ] || (cd web && npm run build)
 exec python run.py --open --port "${1:-8000}"

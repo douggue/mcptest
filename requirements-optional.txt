@@ -1,0 +1,7 @@
+# Optional features. start.bat / start.sh install these one at a time, so one that cannot be installed on this
+# computer only switches off its own feature. Install by hand with: pip install -r requirements-optional.txt
+faster-whisper>=1.0     # Whisper transcription on this computer
+edge-tts>=6.1           # free voiceovers
+pycapcut==0.0.4         # CapCut project export (the API changes in 0.1, so this is pinned)
+onnx>=1.16              # AI upscaling (Real-ESRGAN, run without PyTorch)
+onnxruntime>=1.18
