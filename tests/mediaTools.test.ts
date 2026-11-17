@@ -38,3 +38,13 @@ it("does not hide a stale explicit override with the bundled tool", async () => 
 it("retains PATH discovery for source development", async () => {
   expect(await resolveMediaTool("ffmpeg", { platform: "darwin", env: { PATH: system } })).toBe(path.join(system, "ffmpeg"));
 });
+it("resolves the .exe tools shipped by the Windows installer ahead of PATH", async () => {
+  const windows = path.join(directory, "ReaCut", "resources", "media-tools");
+  await mkdir(windows, { recursive: true });
+  for (const tool of ["ffmpeg.exe", "ffprobe.exe"]) await writeFile(path.join(windows, tool), "");
+  for (const name of ["ffmpeg", "ffprobe"] as const)
+    expect(await resolveMediaTool(name, { platform: "win32", bundledDirectory: windows, env: { PATH: system } }))
+      .toBe(path.join(windows, `${name}.exe`));
+  await expect(resolveMediaTool("ffmpeg", { platform: "win32", bundledDirectory, env: { PATH: system } }))
+    .rejects.toThrow("内置 ffmpeg");
+});

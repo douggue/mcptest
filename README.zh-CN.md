@@ -103,6 +103,25 @@ DMG 和 ZIP 输出到 `release/`。首次构建会下载并编译内置 FFmpeg /
 
 当前安装包采用本地 ad-hoc 签名，尚未完成 Apple 公证。平台验证与构建细节见 [验证记录](docs/VALIDATION.md) 和 [媒体工具说明](docs/MEDIA_TOOLS.md)。
 
+### 构建 Windows 安装包
+
+Windows x64 安装包自带 FFmpeg / FFprobe，由 Linux 使用相同的固定源码交叉编译。先在 Linux x64 或 WSL 上构建媒体工具（`sudo apt-get install gcc-mingw-w64-x86-64 nasm pkg-config make`）：
+
+```sh
+npm run media:build:win
+```
+
+把生成的 `media-tools/win32-x64/` 目录复制到 Windows 主机的仓库中（也可继续在 Linux 主机上打包），然后运行：
+
+```sh
+npm ci
+npm run dist:win
+```
+
+`release/ReaCut-<version>-x64-setup.exe` 按当前用户安装，不需要管理员权限，并关联 `.reacut` 工程。安装包未做代码签名，首次运行时 Windows SmartScreen 会要求确认。[CI](.github/workflows/ci.yml) 的 `media-tools-windows` 与 `package-windows` 任务执行上述步骤并启动打包后的应用，安装包作为 `ReaCut-Windows` 产物附在每次运行中。
+
+Windows 上的差异：保留系统标题栏（按 Alt 显示菜单栏）；系统朗读使用已安装的 Windows 声音；MLX 语音识别与 Codex 插件启动器仍仅支持 macOS。
+
 ## 项目与数据
 
 - **本地编辑**：媒体处理、预览、项目保存和导出均在本机完成；普通项目引用本地素材，跨机器使用时可收集项目素材或重新链接。

@@ -37,6 +37,7 @@ import {
 import type { Clip, Project, Track, TrackKind } from "../core/types";
 import { linkedIds, trimLinked } from "../core/timelineEdits";
 import { snapToFrame } from "../core/model";
+import { keys } from "../platform";
 import "./Timeline.css";
 
 export interface TimelineProps {
@@ -669,7 +670,7 @@ export default function Timeline(props: TimelineProps) {
       <div className="tl-toolbar">
         <div className="tl-toolbar-group">
           <button
-            title={ui("撤销 · ⌘Z", "Undo · ⌘Z")}
+            title={keys(ui("撤销 · ⌘Z", "Undo · ⌘Z"))}
             aria-label={ui("撤销", "Undo")}
             onClick={props.onUndo}
             disabled={!props.canUndo}
@@ -677,7 +678,7 @@ export default function Timeline(props: TimelineProps) {
             <Undo2 size={17} />
           </button>
           <button
-            title={ui("重做 · ⇧⌘Z", "Redo · ⇧⌘Z")}
+            title={keys(ui("重做 · ⇧⌘Z", "Redo · ⇧⌘Z"))}
             aria-label={ui("重做", "Redo")}
             onClick={props.onRedo}
             disabled={!props.canRedo}
@@ -693,7 +694,7 @@ export default function Timeline(props: TimelineProps) {
             <MousePointer2 size={16} />
           </span>
           <button
-            title={ui("在播放位置分割 · ⌘B", "Split at playhead · ⌘B")}
+            title={keys(ui("在播放位置分割 · ⌘B", "Split at playhead · ⌘B"))}
             aria-label={ui("分割片段", "Split clip")}
             onClick={props.onSplit}
             disabled={
@@ -1475,7 +1476,7 @@ export default function Timeline(props: TimelineProps) {
               ? ui(`裁剪${gesture.edge === "start" ? "入点" : "出点"} · ${formatTimelineTime(gesture.time, project.fps)}`, `Trim ${gesture.edge === "start" ? "in" : "out"} point · ${formatTimelineTime(gesture.time, project.fps)}`)
               : selectedIds.length
                 ? ui(`已选择 ${selectedIds.length} 个片段`, `${selectedIds.length} clips selected`)
-                : ui("拖动移动/裁剪 · ⇧ 多选 · ⌥←/→ 逐帧微移", "Drag to move/trim · ⇧ Multiselect · ⌥←/→ Nudge by frame")}
+                : keys(ui("拖动移动/裁剪 · ⇧ 多选 · ⌥←/→ 逐帧微移", "Drag to move/trim · ⇧ Multiselect · ⌥←/→ Nudge by frame"))}
         </span>
         <span>
           {ui(`${project.tracks.length} 条轨道`, `${project.tracks.length} tracks`)} <i>·</i> {ui(`${project.clips.length} 个片段`, `${project.clips.length} clips`)}{" "}

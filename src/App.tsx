@@ -69,6 +69,7 @@ import Inspector from "./components/Inspector";
 import { useUITranslation, translateUI, useTranslation, useLanguageStore, type Language, type TranslationKey } from "./i18n";
 import { createEditorProject } from "./editor/localizedDefaults";
 import { localizeMessage } from "./i18n/messages";
+import { isWindows, keys } from "./platform";
 import "./styles.css";
 type Modal = "updates" | "templates" | "reverse" | "freeze" | "package" | "export" | "settings" | "shortcuts" | "about" | "capcut" | null;
 type PendingCapcutImport = {
@@ -1095,7 +1096,7 @@ export default function App() {
                     onClick={() => void safe(() => handleAction(action))}
                   >
                     {label}
-                    <kbd>{shortcut}</kbd>
+                    <kbd>{keys(shortcut)}</kbd>
                   </button>
                 ))}
                 <hr />
@@ -1132,7 +1133,7 @@ export default function App() {
             {t("toolbar.offline")}
           </span>
           <button
-            title={t("toolbar.saveProject.title")}
+            title={keys(t("toolbar.saveProject.title"))}
             aria-label={t("toolbar.saveProject.aria")}
             onClick={() => void safe(() => save())}
           >
@@ -1446,16 +1447,16 @@ export default function App() {
       {modal === "shortcuts" && (
         <ModalShell title={t("shortcuts.title")} onClose={() => setModal(null)}>
           <div className="shortcut-list">
-            {shortcuts.map(([action, keys]) => (
+            {shortcuts.map(([action, combination]) => (
               <div key={action}>
                 <span>{t(action)}</span>
-                <kbd>{keys}</kbd>
+                <kbd>{keys(combination)}</kbd>
               </div>
             ))}
           </div>
           <footer>
             <span className="muted small">
-              {t("shortcuts.windowsHint")}
+              {isWindows ? "" : t("shortcuts.windowsHint")}
             </span>
             <button className="primary" onClick={() => setModal(null)}>
               {t("dialog.ok")}
@@ -1472,7 +1473,7 @@ export default function App() {
             <h2>ReaCut · 映刻</h2>
             <span>{appVersion} {ui("· 独立开源桌面视频编辑器", " · Independent open-source desktop video editor")}</span>
             <p>
-              {ui("利用 REA 研究可观察的剪辑流程，以独立代码实现离线编辑。核心源码采用 MIT 许可证。macOS 安装包内置 FFmpeg / FFprobe 与 x264（GPL-2.0-or-later），对应源码、构建脚本及许可文件位于应用资源的 media-tools 目录。", "ReaCut uses REA to study observable editing workflows and independently implements offline editing. Core source code is MIT licensed. The macOS app bundles FFmpeg / FFprobe and x264 (GPL-2.0-or-later); corresponding source, build scripts and licenses are in the application resources' media-tools directory.")}</p>
+              {ui("利用 REA 研究可观察的剪辑流程，以独立代码实现离线编辑。核心源码采用 MIT 许可证。macOS 与 Windows 安装包内置 FFmpeg / FFprobe 与 x264（GPL-2.0-or-later），对应源码、构建脚本及许可文件位于应用资源的 media-tools 目录。", "ReaCut uses REA to study observable editing workflows and independently implements offline editing. Core source code is MIT licensed. The macOS and Windows apps bundle FFmpeg / FFprobe and x264 (GPL-2.0-or-later); corresponding source, build scripts and licenses are in the application resources' media-tools directory.")}</p>
             <p className="muted">
               {ui("非剪映官方产品。不包含剪映的专有代码、库或素材。", "Not an official CapCut product. Contains no proprietary CapCut code, libraries or assets.")}</p>
           </div>

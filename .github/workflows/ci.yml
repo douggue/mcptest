@@ -88,3 +88,64 @@ jobs:
           path: |
             release/ReaCut*.dmg
             release/ReaCut*mac.zip
+  media-tools-windows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Install the mingw-w64 cross toolchain
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 nasm pkg-config make
+      - name: Cross-compile pinned shipped media tools (Windows x64)
+        run: npm run media:build:win
+      - uses: actions/upload-artifact@v7
+        with:
+          name: media-tools-win32-x64
+          path: media-tools/win32-x64
+          if-no-files-found: error
+  package-windows:
+    needs: media-tools-windows
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: node node_modules/electron/install.js
+      - uses: actions/download-artifact@v8
+        with:
+          name: media-tools-win32-x64
+          path: media-tools/win32-x64
+      - name: Use the shipped media tools for tests
+        run: |
+          tools="$(cygpath -w "$GITHUB_WORKSPACE/media-tools/win32-x64")"
+          "$tools/ffmpeg.exe" -hide_banner -version
+          "$tools/ffmpeg.exe" -hide_banner -buildconf
+          echo "REACUT_FFMPEG=$tools\\ffmpeg.exe" >> "$GITHUB_ENV"
+          echo "REACUT_FFPROBE=$tools\\ffprobe.exe" >> "$GITHUB_ENV"
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run dist:win
+      - name: Packaged application check (Windows)
+        run: |
+          npm run demo
+          npx tsx tests/package-electron.ts
+      - name: Upload packaging evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-package-evidence
+          path: .test-output/package-electron/
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ReaCut-Windows
+          path: release/ReaCut-*-setup.exe
+          if-no-files-found: error

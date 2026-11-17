@@ -168,6 +168,9 @@ h3:first-child {
   -webkit-app-region: drag;
   position: relative;
 }
+.platform-windows .titlebar {
+  padding-left: 8px;
+}
 .titlebar button,
 .titlebar input,
 .titlebar-menus {

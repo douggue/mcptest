@@ -3,7 +3,7 @@ import {mkdtemp,mkdir,writeFile,readdir,rm} from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {randomUUID} from 'node:crypto';
-import {generateSpeech,cancelSpeech,cleanSpeechTemporaries,runSpeechProcess} from '../electron/speech';
+import {generateSpeech,cancelSpeech,cleanSpeechTemporaries,runSpeechProcess,sapiRate,parseSAPIVoices,speechVoices} from '../electron/speech';
 import {createProject} from '../src/core/model';
 describe('speech worker boundaries',()=>{
  it('rejects malformed requests and serializes/cancels jobs before work',async()=>{
@@ -27,4 +27,18 @@ describe('speech worker boundaries',()=>{
   await expect(runSpeechProcess(process.execPath,['-e','setInterval(()=>{},1000)'],undefined,undefined,30)).rejects.toThrow(/timed out/);
   await expect(runSpeechProcess(path.join(os.tmpdir(),'reacut-nonexistent-executable'),[])).rejects.toThrow();
  });
+ it('maps words-per-minute rates and voice listings onto Windows SAPI',()=>{
+  expect([80,175,400,100000].map(sapiRate)).toEqual([-7,0,8,10]);
+  expect(parseSAPIVoices('Microsoft Zira Desktop\ten-US\r\nMicrosoft Huihui Desktop\tzh-CN\r\nnot a voice line\r\n')).toEqual([{name:'Microsoft Zira Desktop',locale:'en_US'},{name:'Microsoft Huihui Desktop',locale:'zh_CN'}]);
+ });
+ it.runIf(process.platform==='win32')('synthesizes a WAV with an installed Windows system voice',async context=>{
+  const voice=(await speechVoices()).find(v=>v.locale.startsWith('en_'));
+  if(!voice) return context.skip();
+  const dir=await mkdtemp(path.join(os.tmpdir(),'reacut-speech-test-'));
+  try{const result=await generateSpeech(randomUUID(),createProject(),{mode:'tts',text:'ReaCut speaks on Windows.',voice:voice.name,rate:180},{},dir,()=>{});
+   expect(result.mode).toBe('tts');
+   if(result.mode==='tts'){expect(result.asset.kind).toBe('audio');expect(result.asset.duration).toBeGreaterThan(.5);expect(path.dirname(result.asset.path)).toBe(dir);}
+   expect((await readdir(dir)).filter(name=>name.startsWith('.speech-'))).toEqual([]);
+  }finally{await rm(dir,{recursive:true,force:true});}
+ },120000);
 });

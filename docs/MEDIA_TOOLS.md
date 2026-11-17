@@ -22,4 +22,17 @@ npm run dist:mac:installer
 
 所有上游源码归档、下载 URL、SHA-256、编译参数和许可证路径都在包内 `manifest.json` / `sources/` / `licenses/` 中。仓库留有脱敏的 [构建清单](media-tools-build.json)。清单的 `buildSHA256` 是签名前的指纹，应用签名可能改变可执行文件字节；最终签名后指纹另记录于 [验证摘要](validation-summary.json)。
 
-源码开发仍可使用系统安装的工具；Windows/Linux 安装包尚未集成对应平台媒体工具。不要将本机 macOS 的验证外推至这些平台。
+## Windows x64
+
+Windows 安装包同样自带 `ffmpeg.exe` 与 `ffprobe.exe`，位于安装目录的 `resources/media-tools/`，优先级规则与 macOS 相同。它们由 `scripts/build-media-tools-win.mjs` 在 Linux x64（或 WSL）上用 mingw-w64 交叉编译，使用与 macOS 相同的 FFmpeg 9.0.2 和 x264 固定源码，并从未修改的 zlib 1.3.1 源码静态链接 zlib（Windows 没有系统 zlib）：
+
+```sh
+sudo apt-get install gcc-mingw-w64-x86-64 nasm pkg-config make
+npm run media:build:win
+```
+
+配置与 macOS 一致：`--enable-gpl --enable-libx264`、未启用 `nonfree`、关闭网络协议；线程使用 Windows 原生线程，不启用 VideoToolbox / AudioToolbox。脚本校验源码 SHA-256，并检查可执行文件只导入 Windows 系统 DLL；可执行文件静态包含所用 mingw-w64 工具链的 C 运行时启动代码与 GCC 支持库。输出位于忽略的 `media-tools/win32-x64/`，同样带有 `manifest.json`、`sources/` 与 `licenses/`。
+
+在 Windows 主机上打包时，`npm run dist:win` 只校验已复制进来的 `media-tools/win32-x64/`，不会在 Windows 上编译；在 Linux x64 上打包时会自动运行上述脚本。CI 的 `media-tools-windows` 任务构建工具，`package-windows` 任务用它们运行单元测试、打包并启动安装后的应用。
+
+源码开发仍可使用系统安装的工具；Linux 安装包尚未集成对应平台媒体工具。不要将某一平台的验证外推至其他平台。

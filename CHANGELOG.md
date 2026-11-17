@@ -1,5 +1,12 @@
 # 更新记录
 
+## 未发布 — Windows x64 安装包
+
+- 新增 Windows x64 NSIS 安装包（`npm run dist:win`）：按用户安装，关联 `.reacut`，内置由固定源码交叉编译的 FFmpeg / FFprobe（`npm run media:build:win`）。安装包未签名。
+- Windows 下保留系统标题栏、隐藏式菜单栏并增加「退出」；再次打开工程文件时交给已运行的窗口；快捷键提示显示 Ctrl / Shift / Alt。
+- 系统朗读支持 Windows 已安装的语音（System.Speech）。MLX 语音识别与 Codex 插件启动器仍仅支持 macOS。
+- CI 新增 Windows 媒体工具构建、打包与安装后应用验收任务。
+
 ## 0.7.1 Preview — 2026-10-27
 
 - 设置与原生帮助菜单新增「检查更新」；中英文界面显示当前/新版本和纯文本发布说明，预览通道包含正式与预发布版本，不提供降级。

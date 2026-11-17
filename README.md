@@ -106,6 +106,25 @@ DMG and ZIP files are written to `release/`. The first build downloads and compi
 
 Current builds use local ad-hoc signing and are not Apple-notarized. See [validation](docs/VALIDATION.md) and [media tools](docs/MEDIA_TOOLS.md) for platform coverage and build details.
 
+### Build a Windows installer
+
+The Windows x64 installer bundles its own FFmpeg / FFprobe, cross-compiled on Linux from the same pinned sources. Build the tools on Linux x64 or WSL (`sudo apt-get install gcc-mingw-w64-x86-64 nasm pkg-config make`):
+
+```sh
+npm run media:build:win
+```
+
+Copy the resulting `media-tools/win32-x64/` folder into the checkout on a Windows host (or keep using the Linux host), then run:
+
+```sh
+npm ci
+npm run dist:win
+```
+
+`release/ReaCut-<version>-x64-setup.exe` installs per user without administrator rights and registers `.reacut` projects. The installer is not code-signed, so Windows SmartScreen asks for confirmation on first launch. The `media-tools-windows` and `package-windows` jobs in [CI](.github/workflows/ci.yml) run these steps and launch the packaged application; the installer is attached to each run as the `ReaCut-Windows` artifact.
+
+Windows differences: the native title bar is kept (press Alt for the menu bar), system text-to-speech uses the installed Windows voices, and MLX speech recognition and the Codex plugin launcher remain macOS-only.
+
 ## Projects and data
 
 - **Local editing:** media processing, preview, project storage and export run on your machine. Ordinary projects reference local media; collect project media or relink files when moving between machines.

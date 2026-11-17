@@ -11,6 +11,7 @@ import {
   dialog,
   ipcMain,
   Menu,
+  nativeTheme,
   protocol,
   shell,
 } from "electron";
@@ -63,8 +64,11 @@ const pluginMode = process.argv.includes("--reacut-plugin");
 if (process.platform === "darwin") app.setActivationPolicy(pluginMode ? "accessory" : "regular");
 if (pluginMode && !process.env.REACUT_USER_DATA)
   app.setPath("userData", path.join(app.getPath("appData"), "ReaCut-Plugin", "sessions", randomUUID()));
-if (app.isPackaged && process.platform === "darwin")
+// macOS and Windows installers ship their own FFmpeg/FFprobe next to the app resources.
+if (app.isPackaged && (process.platform === "darwin" || process.platform === "win32"))
   setBundledMediaToolsDirectory(path.join(process.resourcesPath, "media-tools"));
+// The editor is dark-only; keep the native Windows title bar and dialogs consistent with it.
+if (process.platform === "win32") nativeTheme.themeSource = "dark";
 if (process.env.REACUT_USER_DATA)
   app.setPath("userData", path.resolve(process.env.REACUT_USER_DATA));
 protocol.registerSchemesAsPrivileged([
@@ -101,14 +105,30 @@ function cleanAssistantMessages(value: unknown): AssistantMessage[] {
   if (JSON.stringify(messages).length > 250000) throw new Error("对话记录过大");
   return messages;
 }
-let pendingProject = process.argv.find(
-  (argument) => path.isAbsolute(argument) && /\.reacut$/i.test(argument),
-);
+const projectArgument = (argv: string[]) =>
+  argv.find((argument) => path.isAbsolute(argument) && /\.reacut$/i.test(argument));
+let pendingProject = projectArgument(process.argv);
 app.on("open-file", (event, file) => {
   event.preventDefault();
   pendingProject = file;
   if (window && !window.webContents.isLoading()) menuAction("open-external");
 });
+// Windows starts a new process for every double-clicked project. Hand the file to the
+// running editor instead; the lock is per user-data directory, so plugin sessions stay separate.
+const primaryInstance =
+  process.platform !== "win32" || pluginMode || !app.isPackaged || app.requestSingleInstanceLock();
+if (!primaryInstance) app.quit();
+else if (process.platform === "win32")
+  app.on("second-instance", (_event, argv) => {
+    if (!window) return;
+    if (window.isMinimized()) window.restore();
+    window.show();
+    window.focus();
+    const file = projectArgument(argv);
+    if (!file) return;
+    pendingProject = file;
+    if (!window.webContents.isLoading()) menuAction("open-external");
+  });
 let dirty = false,
   closeAllowed = false,
   askingClose = false,
@@ -811,8 +831,11 @@ function createWindow() {
     minHeight: 680,
     title: "ReaCut · 映刻",
     backgroundColor: "#141518",
-    titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 16, y: 17 },
+    // Inset traffic lights are a macOS title bar; elsewhere keep the native frame and
+    // reveal the menu bar with Alt, since the editor draws its own menus.
+    ...(process.platform === "darwin"
+      ? { titleBarStyle: "hiddenInset" as const, trafficLightPosition: { x: 16, y: 17 } }
+      : { autoHideMenuBar: true }),
     webPreferences: {
       preload: path.join(directory, "preload.cjs"),
       contextIsolation: true,
@@ -935,6 +958,12 @@ function updateApplicationMenu() {
           accelerator: "CmdOrCtrl+E",
           click: () => menuAction("export"),
         },
+        ...(process.platform === "darwin"
+          ? []
+          : [
+              { type: "separator" as const },
+              { label: nativeUI("退出", "Exit"), role: "quit" as const },
+            ]),
       ],
     },
     {
@@ -981,6 +1010,7 @@ function updateApplicationMenu() {
 }
 
 void app.whenReady().then(async () => {
+  if (!primaryInstance) return;
   try {
     const settings = JSON.parse(await readFile(userFile("assistant-clis.json"), "utf8"));
     for (const key of ["codex", "claude"] as const)

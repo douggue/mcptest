@@ -67,10 +67,10 @@ export async function cleanSpeechTemporaries(directory:string) {
 const jobs = new Map<string,{controller:AbortController;done:Promise<SpeechResult>}>();
 export function cancelSpeech(id:string) { jobs.get(id)?.controller.abort(); }
 export async function cancelAllSpeech() { for(const j of jobs.values()) j.controller.abort(); await Promise.allSettled([...jobs.values()].map(j=>j.done)); }
-export async function runSpeechProcess(file:string,args:string[],signal?:AbortSignal,onLine?:(line:string)=>void,timeout=120000):Promise<string> {
+export async function runSpeechProcess(file:string,args:string[],signal?:AbortSignal,onLine?:(line:string)=>void,timeout=120000,extraEnv:Record<string,string>={}):Promise<string> {
   signal?.throwIfAborted();
   return new Promise((resolve,reject)=>{
-    const child=spawn(file,args,{shell:false,env:{...process.env,HF_HUB_OFFLINE:'1',HF_HUB_DISABLE_TELEMETRY:'1',TRANSFORMERS_OFFLINE:'1',PYTHONDONTWRITEBYTECODE:'1'}});
+    const child=spawn(file,args,{shell:false,windowsHide:true,env:{...process.env,HF_HUB_OFFLINE:'1',HF_HUB_DISABLE_TELEMETRY:'1',TRANSFORMERS_OFFLINE:'1',PYTHONDONTWRITEBYTECODE:'1',...extraEnv}});
     let output='', pending='', diagnostic='', failure:Error|undefined;
     const abort=()=>{failure=new Error('Speech task cancelled.');child.kill('SIGKILL');};
     signal?.addEventListener('abort',abort,{once:true}); if(signal?.aborted) abort();
@@ -81,7 +81,24 @@ export async function runSpeechProcess(file:string,args:string[],signal?:AbortSi
     child.on('close',code=>{clearTimeout(timer);signal?.removeEventListener('abort',abort);if(failure||code!==0) reject(failure??new Error(`Local speech failed: ${diagnostic || code}`));else resolve(output);});
   });
 }
+// Windows: the System.Speech (SAPI) engine that ships with the OS. Scripts are fixed text; voice,
+// rate and file paths travel only through the child environment, never through the command line.
+const sapiPrelude="$ErrorActionPreference='Stop';[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;Add-Type -AssemblyName System.Speech;$s=New-Object System.Speech.Synthesis.SpeechSynthesizer;";
+const sapiVoices=sapiPrelude+"$s.GetInstalledVoices()|Where-Object{$_.Enabled}|ForEach-Object{$_.VoiceInfo.Name+\"`t\"+$_.VoiceInfo.Culture.Name}";
+const sapiSpeak=sapiPrelude+"$s.SelectVoice($env:REACUT_TTS_VOICE);$s.Rate=[int]$env:REACUT_TTS_RATE;$s.SetOutputToWaveFile($env:REACUT_TTS_OUTPUT);$s.Speak([System.IO.File]::ReadAllText($env:REACUT_TTS_INPUT,[System.Text.Encoding]::UTF8));$s.Dispose()";
+function runSAPI(script:string,env:Record<string,string>,signal:AbortSignal|undefined,timeout:number):Promise<string> {
+  const powershell=path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
+  return runSpeechProcess(powershell,['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],signal,undefined,timeout,env);
+}
+/** SAPI rates run from -10 (one third speed) to 10 (triple speed) around roughly 175 words/minute. */
+export function sapiRate(wordsPerMinute:number):number {
+  return Math.max(-10,Math.min(10,Math.round(10*Math.log(wordsPerMinute/175)/Math.log(3))));
+}
+export function parseSAPIVoices(output:string):SpeechVoice[] {
+  return output.split(/\r?\n/).flatMap(line=>{const m=line.match(/^([^\t]+)\t([A-Za-z]{2,3})-([A-Za-z0-9-]+)$/);return m?[{name:m[1].trim(),locale:`${m[2]}_${m[3]}`}]:[];});
+}
 export async function speechVoices(signal?:AbortSignal):Promise<SpeechVoice[]> {
+  if(process.platform==='win32') return parseSAPIVoices(await runSAPI(sapiVoices,{},signal,30000));
   if(process.platform!=='darwin') return [];
   const result=await runSpeechProcess('/usr/bin/say',['-v','?'],signal,undefined,15000);
   return result.split('\n').flatMap(line=>{const m=line.match(/^(.+?)\s+([a-z]{2,3}_[A-Z]{2})\s+#/);return m?[{name:m[1].trim(),locale:m[2]}]:[];});
@@ -141,12 +158,15 @@ export function generateSpeech(jobId:string,p:Project,request:SpeechRequest,sett
         const validated=validateCues(cues,source.duration);if(!validated.length) throw new Error('No speech detected.');
         report('complete',1);return {mode:'asr',cues:validated};
       }
-      if(process.platform!=='darwin') throw new Error('Local system TTS currently requires macOS.');
+      if(process.platform!=='darwin'&&process.platform!=='win32') throw new Error('Local system TTS currently requires macOS or Windows.');
       if(typeof request.text!=='string'||!request.text.trim()||request.text.length>10000||!Number.isInteger(request.rate)||request.rate<80||request.rate>400) throw new Error('Enter 1–10000 characters and a rate of 80–400 words/minute.');
       if(!(await speechVoices(signal)).some(v=>v.name===request.voice)) throw new Error('Selected system voice is unavailable.');
-      const input=path.join(temp,'text.txt'),aiff=path.join(temp,'speech.aiff');await writeFile(input,request.text,'utf8');
-      report('synthesize');await runSpeechProcess('/usr/bin/say',['-v',request.voice,'-r',String(request.rate),'-f',input,'-o',aiff],signal,undefined,600000);
-      await runMediaTool('ffmpeg',['-v','error','-nostdin','-y','-i',aiff,'-ar','48000','-ac','1','-c:a','pcm_s16le',wav],600000,1024*1024,{signal});
+      const windows=process.platform==='win32';
+      const input=path.join(temp,'text.txt'),spoken=path.join(temp,windows?'spoken.wav':'speech.aiff');await writeFile(input,request.text,'utf8');
+      report('synthesize');
+      if(windows) await runSAPI(sapiSpeak,{REACUT_TTS_VOICE:request.voice,REACUT_TTS_RATE:String(sapiRate(request.rate)),REACUT_TTS_INPUT:input,REACUT_TTS_OUTPUT:spoken},signal,600000);
+      else await runSpeechProcess('/usr/bin/say',['-v',request.voice,'-r',String(request.rate),'-f',input,'-o',spoken],signal,undefined,600000);
+      await runMediaTool('ffmpeg',['-v','error','-nostdin','-y','-i',spoken,'-ar','48000','-ac','1','-c:a','pcm_s16le',wav],600000,1024*1024,{signal});
       report('import',.9);
       const [asset]=await importAssets([wav],path.join(directory,'thumbnails'),signal);signal.throwIfAborted();
       const destination=path.join(directory,randomUUID()+'.wav');await rename(wav,destination);
