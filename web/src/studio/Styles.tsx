@@ -1,17 +1,20 @@
 // Styles manager: your own styles learned from reference videos, and the built-in ones.
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 
-import { api, upload } from '../api';
+import { api } from '../api';
+import { go, useRoute } from '../App';
 import { Button, Empty, Field, JobBar, Panel, Toggle, fmtDur, toast, toastError, useJobRunner } from '../ui';
 import { StyleAnalysis, StyleProfile, StyleRule } from './types';
+import { ReferencesPanel, MemoryPanel, HowItWorks } from './StyleRefs';
 
 export default function Styles() {
   const [styles, setStyles] = useState<StyleProfile[]>([]);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const route = useRoute();
+  // every style has its own page: #/styles/<id>
+  const openId = route[0] === 'styles' ? route[1] ?? null : null;
+  const setOpenId = (id: string | null) => go(id ? `styles/${id}` : 'styles');
   const [name, setName] = useState('');
-  const [uploading, setUploading] = useState('');
   const [newRule, setNewRule] = useState('');
-  const fileRef = useRef<HTMLInputElement>(null);
   const { job, run, busy } = useJobRunner();
 
   const load = () => api.get<StyleProfile[]>('/api/profiles').then(setStyles).catch(toastError);
@@ -31,21 +34,9 @@ export default function Styles() {
     } catch (e) { toastError(e); }
   }
 
-  async function addReferences(files: FileList | null) {
-    if (!files || !open) return;
-    const list = Array.from(files);
-    for (let i = 0; i < list.length; i++) {
-      setUploading(`Uploading ${i + 1} of ${list.length}…`);
-      const form = new FormData();
-      form.append('file', list[i]);
-      await upload(`/api/profiles/${open.id}/references`, form).catch(toastError);
-    }
-    setUploading('');
-    load();
-  }
-
   async function analyse() {
     if (!open) return;
+    if (open.copied_from && !confirm('Studying rebuilds this style\'s look (captions, colours, frame) and its learned rules from the reference videos, replacing what it copied from the built-in style. Your own rules are kept. Go ahead?')) return;
     try {
       const p = await run<StyleProfile>(() => api.post(`/api/profiles/${open.id}/analyse`));
       await load();
@@ -65,6 +56,7 @@ export default function Styles() {
           <div>
             <button className="crumb" style={{ background: 'none', border: 0, cursor: 'pointer', padding: 0 }} onClick={() => setOpenId(null)}>← All styles</button>
             <h2>{open.name}{open.draft ? ' (draft)' : ''}</h2>
+            <span className="small muted">{fixed ? 'Built-in style: its look is fixed, but its reference videos and what the AI remembers from them are yours.' : open.copied_from ? 'Your copy of a built-in style. Teach it, change its rules, add references.' : 'Your own style.'}</span>
           </div>
           <div className="row">
             {fixed ? <Button icon="copy" onClick={() => create(open)}>Copy to make it yours</Button>
@@ -72,30 +64,9 @@ export default function Styles() {
           </div>
         </div>
 
-        {!fixed && (
-          <Panel title={`Reference videos (${open.references?.length ?? 0})`} actions={<>
-            <Button small icon="upload" onClick={() => fileRef.current?.click()}>Add videos</Button>
-            <Button small variant="primary" icon="sparkle" onClick={analyse} busy={busy} disabled={!open.references?.length}>{open.analysed ? 'Study again' : 'Study the style'}</Button>
-          </>}>
-            <p className="muted">Upload several videos in the style you want. The more you add, the better it separates the style from one-off choices. With a Gemini key the whole videos are watched; with a Claude key, sampled frames are studied.</p>
-            <input ref={fileRef} type="file" accept="video/*,.mkv" multiple hidden onChange={(e) => { addReferences(e.target.files); e.target.value = ''; }} />
-            {uploading && <div className="notice">{uploading}</div>}
-            <JobBar job={job} />
-            {(open.references?.length ?? 0) === 0 ? <Empty icon="film" title="No references yet">Add two to five short videos that share the look you are after.</Empty> : (
-              <div className="media-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
-                {open.references!.map((r) => (
-                  <div key={r.file} className="card" style={{ padding: 8 }}>
-                    <video src={r.url} className="thumb tall" muted preload="metadata" controls />
-                    <div className="row between small"><span className="ellipsis" title={r.name}>{r.name}</span>
-                      <Button small variant="ghost" icon="trash" aria-label={`Remove ${r.name}`} onClick={async () => { await api.del(`/api/profiles/${open.id}/references/${encodeURIComponent(r.file)}`).catch(toastError); load(); }} /></div>
-                    {r.duration ? <span className="small muted mono">{fmtDur(r.duration)} · cut every {r.shot_seconds?.toFixed(1)}s</span> : <span className="small faint">Not studied yet</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-            {open.note && <div className="notice warn">{open.note}</div>}
-          </Panel>
-        )}
+        <ReferencesPanel style={open} reload={load} job={job} run={run} busy={busy} onStudy={!fixed ? analyse : undefined} />
+        <MemoryPanel style={open} reload={load} run={run} busy={busy} />
+        <HowItWorks style={open} />
 
         {(a || open.summary) && (
           <Panel title="What this style is">

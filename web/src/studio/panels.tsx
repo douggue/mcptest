@@ -662,7 +662,8 @@ function StyleChooser({ ctx }: { ctx: Ctx }) {
       const mine = await api.post<StyleProfile>('/api/profiles', { name: name.trim(), from: style.id });
       await load();
       setProfileId(mine.id);
-      toast('Copied. Corrections you teach will now be remembered.', 'good');
+      toast('Copied. Corrections you teach will now be remembered. Its own page opens in a new tab.', 'good');
+      window.open(`#/styles/${mine.id}`, '_blank');
     } catch (e) { toastError(e); }
   }
 
@@ -707,12 +708,15 @@ function StyleChooser({ ctx }: { ctx: Ctx }) {
         <optgroup label="Built-in">{builtin.map((x) => <option key={x.id} value={x.id}>{x.name}{x.draft ? ' (draft)' : ''}</option>)}</optgroup>
       </select>
       {style ? <span className="small muted">{style.summary || style.brief}</span>
-        : <span className="small muted">A style sets the shape, captions, colours and standing elements, and gives the AI its rules. Make your own from reference videos under Library → Styles.</span>}
+        : <span className="small muted">A style sets the shape, captions, colours and standing elements, and gives the AI its rules. Make your own from reference videos on the Styles page (left menu).</span>}
       {planNotes.length > 0 && <div className="notice warn"><b>Check by eye:</b> {planNotes.join(' ')}</div>}
-      {style?.builtin && (
-        <div className="row between">
-          <span className="small muted">Built-in styles are fixed.</span>
-          <Button small icon="copy" onClick={duplicate}>Copy to teach it</Button>
+      {style && (
+        <div className="row between wrap">
+          <span className="small muted">{style.builtin ? 'Built-in styles are fixed.' : `${style.references?.length ?? 0} reference videos · ${style.memory?.length ?? 0} things remembered`}</span>
+          <div className="row gap-s">
+            <Button small icon="eye" onClick={() => window.open(`#/styles/${style.id}`, '_blank')} title="This style's own page: its references, what the AI remembers, its rules and steps">Style page</Button>
+            {style.builtin && <Button small icon="copy" onClick={duplicate}>Copy to teach it</Button>}
+          </div>
         </div>
       )}
       {style && !style.builtin && (

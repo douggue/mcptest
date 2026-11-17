@@ -192,3 +192,9 @@
 .style-steps li.done .tick { background: var(--accent); border-color: var(--accent); }
 .style-steps .tick:disabled { cursor: default; opacity: .85; }
 .style-steps .link { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; white-space: nowrap; }
+
+/* a style's page: its reference links, memory and steps */
+.ref-links { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.ref-links a { color: inherit; text-decoration: none; }
+.ref-links a:hover { text-decoration: underline; }
+.memory-list, .how-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 5px; line-height: 1.4; }

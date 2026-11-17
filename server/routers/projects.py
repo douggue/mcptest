@@ -395,7 +395,9 @@ def direct_clip(pid: str, cid: str) -> dict:
         brief, rules = styles.guidance(clip.get("profile_id"))
         job.update(0.45, f"Planning the edit with {ai.provider_label()}")
         has_title = any(g.get("origin") == "style" and g.get("type") == "label" and g.get("duration", 0) > duration * 0.6 for g in spec.get("graphics") or [])
-        return moments.direct(frames, words, duration, brief, rules, clip["title"], limits=styles.limits(clip.get("profile_id")), has_title=has_title)
+        refs = styles.reference_frames(clip.get("profile_id"))
+        return moments.direct(frames, words, duration, brief, rules, clip["title"], limits=styles.limits(clip.get("profile_id")), has_title=has_title,
+                              reference_frames=refs)
 
     return _clip_job(pid, cid, "direct", "Planning the edit from the picture", plan)
 

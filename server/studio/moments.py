@@ -500,12 +500,20 @@ written to fit the story, keep it short and note that it is written, not heard."
 
 
 def direct(frames: list[tuple[float, bytes]], words: list[dict], duration: float, brief: str, rules: list[str] | None, title: str = "",
-           limits: dict | None = None, has_title: bool = False) -> dict:
+           limits: dict | None = None, has_title: bool = False, reference_frames: list | None = None) -> dict:
     """A story edit planned from the picture. Needs an AI key: there is no rule-based way to see what happens."""
     said = " ".join(f"[{w['start']:.1f}s] {w['text']}" if i % 6 == 0 else w["text"] for i, w in enumerate(words) if not w.get("removed")) or "(no speech)"
     parts: list = [
         f"The clip is {duration:.1f} seconds long" + (f"; working title: {title}" if title else "") + ".\n\nTranscript, with times in seconds from the start of the clip:\n" + said
         + _style_note(brief, rules) + _limits_note(limits) + "\n\nFrames follow, each introduced by its time."]
+    if reference_frames:
+        # the style's own reference videos, looked at again on every plan so the edit matches them, not just the words
+        parts.append("Before the clip, look again at stills from finished videos in this style. Match their look, text sizes, "
+                     "positions and pacing; never copy their words, names, watermarks or logos. The clip's own frames follow after these.")
+        for label, jpeg in reference_frames:
+            parts.append(label + ":")
+            parts.append({"image": jpeg})
+        parts.append("The clip to edit:")
     for t, jpeg in frames:
         parts.append(f"Frame at {t:.1f}s:")
         parts.append({"image": jpeg})

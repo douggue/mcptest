@@ -16,6 +16,14 @@ router = APIRouter(prefix="/api/profiles", tags=["styles"])
 VIDEO = {".mp4", ".mov", ".webm", ".mkv", ".m4v"}
 
 
+def _style(pid: str) -> dict:
+    """Any style, built-in or the person's own (references and memory can be kept for both)."""
+    p = P.lookup(pid)
+    if not p:
+        raise HTTPException(404, "style not found")
+    return p
+
+
 def _own(pid: str) -> dict:
     p = P.profiles.get(pid)
     if not p:
@@ -26,7 +34,7 @@ def _own(pid: str) -> dict:
 @router.get("")
 def list_profiles() -> list[dict]:
     mine = sorted(P.profiles.all(), key=lambda p: p.get("name", "").lower())
-    return mine + presets.BUILTIN
+    return mine + [P.lookup(b["id"]) for b in presets.BUILTIN]
 
 
 @router.post("")
@@ -34,22 +42,36 @@ def create_profile(body: dict) -> dict:
     name = safe_name(body.get("name", ""), "")
     if not name:
         raise HTTPException(422, "Give the style a name.")
-    base = presets.get(body.get("from", "")) or P.profiles.get(body.get("from", "")) or {}
+    base = P.lookup(body.get("from", "")) or {}   # a built-in style with its saved references and memory
     row = {"name": name, "references": [], "rules": copy.deepcopy(base.get("rules", [])), "brief": base.get("brief", ""),
            "style": copy.deepcopy(base.get("style", {})), "elements": copy.deepcopy(base.get("elements", [])),
            "planner": base.get("planner", "speech"), "summary": base.get("summary", ""), "analysis": None, "note": "",
            # a copy of a built-in style keeps its limits and its steps
            "limits": copy.deepcopy(base.get("limits")), "workflow": copy.deepcopy(base.get("workflow")),
-           "audio": copy.deepcopy(base.get("audio"))}
+           "audio": copy.deepcopy(base.get("audio")), "reference_links": copy.deepcopy(base.get("reference_links") or []),
+           "memory": list(base.get("memory") or []), "reviewed": base.get("reviewed"), "copied_from": base.get("id", "")}
     for r in row["rules"]:
         r["source"] = "copied"
-    return P.profiles.insert(row)
+    new = P.profiles.insert(row)
+    # the copy keeps its own copies of the reference videos
+    if base.get("references"):
+        dest = P.folder(new["id"])
+        dest.mkdir(parents=True, exist_ok=True)
+        refs = []
+        for r in base["references"]:
+            src = P.folder(base["id"]) / r["file"]
+            if src.is_file():
+                shutil.copy2(src, dest / src.name)
+                from ..config import media_url
+                refs.append({**r, "url": media_url(dest / src.name)})
+        new = P.profiles.update(new["id"], {"references": refs})
+    return new
 
 
 @router.put("/{pid}")
 def update_profile(pid: str, body: dict) -> dict:
     _own(pid)
-    patch = {k: body[k] for k in ("name", "rules", "brief", "style", "planner", "elements", "summary") if k in body}
+    patch = {k: body[k] for k in ("name", "rules", "brief", "style", "planner", "elements", "summary", "reference_links", "memory") if k in body}
     if "rules" in patch:
         patch["rules"] = [{"id": r.get("id") or f"u{int(time.time() * 1000)}{i}", "kind": r.get("kind", "editing"), "text": str(r.get("text", "")).strip(),
                            "source": r.get("source", "you"), "on": bool(r.get("on", True))} for i, r in enumerate(patch["rules"]) if str(r.get("text", "")).strip()]
@@ -65,24 +87,63 @@ def delete_profile(pid: str) -> dict:
 
 @router.post("/{pid}/references")
 def add_reference(pid: str, file: UploadFile = File(...)) -> dict:
-    profile = _own(pid)
+    _style(pid)
     name = Path(file.filename or "reference.mp4").name
     ext = Path(name).suffix.lower()
     if ext not in VIDEO:
         raise HTTPException(422, f"References must be videos ({', '.join(sorted(VIDEO))}).")
+    P.folder(pid).mkdir(parents=True, exist_ok=True)
     out = unique_path(P.folder(pid), safe_name(Path(name).stem, "reference"), ext.lstrip("."))
     with open(out, "wb") as f:
         shutil.copyfileobj(file.file, f)
-    from ..config import media_url
-    refs = [r for r in profile.get("references", []) if r.get("file") != out.name] + [{"name": out.name, "file": out.name, "url": media_url(out)}]
-    return P.profiles.update(pid, {"references": refs})
+    return P.add_reference_file(pid, out, Path(name).stem)
 
 
 @router.delete("/{pid}/references/{name}")
 def remove_reference(pid: str, name: str) -> dict:
-    profile = _own(pid)
+    profile = _style(pid)
     (P.folder(pid) / Path(name).name).unlink(missing_ok=True)
-    return P.profiles.update(pid, {"references": [r for r in profile.get("references", []) if r.get("file") != Path(name).name]})
+    return P.save(pid, {"references": [r for r in profile.get("references") or [] if r.get("file") != Path(name).name]})
+
+
+@router.post("/{pid}/references/link")
+def add_reference_link(pid: str, body: dict) -> dict:
+    """Download a reference video from a link and keep it with the style; then review the references again."""
+    _style(pid)
+    url = str(body.get("url", "")).strip()
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(422, "Paste a full link, starting with https://")
+    name = str(body.get("name", "")).strip()
+
+    def work(job: jobs.Job) -> dict:
+        p = P.download_reference(pid, url, name, job)
+        if not P.is_builtin(pid):   # keep the link, so the style lists it like the built-in ones do
+            links = [l for l in p.get("reference_links") or [] if l["url"] != url]
+            P.profiles.update(pid, {"reference_links": links + [{"title": name or p["references"][-1]["name"], "url": url}]})
+        if P.ai.available():
+            P.review(pid, job, (0.7, 1.0))
+        return P.lookup(pid)
+    return {"job_id": jobs.submit("style", "Downloading a reference", work).id}
+
+
+@router.post("/{pid}/references/download")
+def download_references(pid: str) -> dict:
+    """Download every reference link the style lists that is not saved yet, then review them."""
+    p = _style(pid)
+    if not p.get("reference_links"):
+        raise HTTPException(422, "This style lists no reference links. Add videos or links first.")
+    return {"job_id": jobs.submit("style", "Downloading references", lambda job: P.download_missing(pid, job)).id}
+
+
+@router.post("/{pid}/review")
+def review(pid: str) -> dict:
+    """Have the AI look at the saved references again and refresh what it remembers about the style."""
+    p = _style(pid)
+    if not p.get("references"):
+        raise HTTPException(422, "Save some reference videos first.")
+    if not P.ai.available():
+        raise HTTPException(422, "Reviewing references needs the AI. " + P.ai.setup_hint())
+    return {"job_id": jobs.submit("style", "Reviewing references", lambda job: P.review(pid, job)).id}
 
 
 @router.post("/{pid}/analyse")

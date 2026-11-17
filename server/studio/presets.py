@@ -12,6 +12,10 @@ def _rules(kind: str, *texts: str) -> list[dict]:
 BUILTIN: list[dict] = [
     {
         "id": "builtin-storyline", "name": "Storyline", "builtin": True, "planner": "story",
+        "reference_links": [
+            {"title": "Spotlight highlight (watch the first second)", "url": "https://www.youtube.com/shorts/I_xJZFxFhOY"},
+        ],
+        "reference_note": "Also add your own storyline tutorial video (the caption style) as a file.",
         "audio": {"music": "under", "music_volume": 0.45, "duck": True, "fade_in": 0.08, "fade_out": 0.5, "lufs": -16, "camera_on": ["spotlight"]},
         "limits": {"graphics": ["label", "spotlight"], "label_look": "box", "sfx": False, "emoji": False, "hook": False,
                    "freezes": True, "speeds": True, "min_rate": 0.6, "zooms": False, "tracking": False},
@@ -50,6 +54,16 @@ BUILTIN: list[dict] = [
     },
     {
         "id": "builtin-kindness", "name": "Kindness story", "builtin": True, "planner": "story",
+        "reference_links": [
+            {"title": "Small act of kindness on the road", "url": "https://www.youtube.com/shorts/i_pHokd2TJo"},
+            {"title": "A few seconds can save a life", "url": "https://www.youtube.com/shorts/RW8lT6fWk-E"},
+            {"title": "A heroic save", "url": "https://www.youtube.com/shorts/1Z6tJKCvjJc"},
+            {"title": "When the guard is actually cool", "url": "https://www.youtube.com/shorts/rWepNPO1LMQ"},
+            {"title": "Something simple can make someone's week", "url": "https://www.youtube.com/shorts/1bS5epgV4SM"},
+            {"title": "Disabled man gets the best day of his life", "url": "https://www.youtube.com/shorts/OAEPtROohJM"},
+            {"title": "Selfless sportsmanship", "url": "https://www.youtube.com/shorts/uJl7UVsp-0c"},
+            {"title": "A happy ending for the little boy", "url": "https://www.youtube.com/shorts/rYlxuJ1rigw"},
+        ],
         "audio": {"music": "replaces", "music_volume": 0.9, "duck": False, "fade_in": 0.08, "fade_out": 0.5, "lufs": -10, "camera_on": ["flash"]},
         "limits": {"graphics": ["label", "circle", "arrow", "flash", "dip", "emoji"], "label_look": "plain", "sfx": False, "emoji": True,
                    "hook": False, "freezes": True, "speeds": True, "min_rate": 0.5, "zooms": False, "tracking": True},
@@ -90,6 +104,12 @@ BUILTIN: list[dict] = [
     },
     {
         "id": "builtin-clean", "name": "Clean story", "builtin": True, "planner": "story",
+        "reference_links": [
+            {"title": "They refused to let racism win", "url": "https://www.youtube.com/shorts/_RLFhKUfYck"},
+            {"title": "Two girls stood up to racism", "url": "https://www.youtube.com/shorts/SUw-Vi1cytI"},
+            {"title": "They stood up for him", "url": "https://www.youtube.com/shorts/QMIipvnVC8w"},
+            {"title": "Two girls, one act of kindness", "url": "https://www.youtube.com/shorts/S77rHFKLppM"},
+        ],
         "audio": {"music": "replaces", "music_volume": 0.9, "duck": False, "fade_in": 0.08, "fade_out": 0.5, "lufs": -12, "camera_on": ["flash"]},
         "limits": {"graphics": ["label", "nametag", "circle", "arrow", "flash", "emoji"], "label_look": "quoted", "sfx": False, "emoji": True,
                    "hook": False, "freezes": False, "speeds": True, "min_rate": 0.5, "zooms": False, "tracking": True},
@@ -126,6 +146,8 @@ BUILTIN: list[dict] = [
     },
     {
         "id": "builtin-neon", "name": "Neon story", "builtin": True, "planner": "story",
+        "reference_links": [],
+        "reference_note": "Your skill keeps no links for this style: add your reference Shorts as files.",
         "audio": {"music": "none", "lufs": -12, "camera_on": []},
         "limits": {"graphics": ["label", "nametag", "spotlight", "arrow", "flash"], "label_look": "neon", "sfx": False, "emoji": False,
                    "hook": False, "freezes": True, "speeds": True, "min_rate": 0.5, "zooms": False, "tracking": True},
@@ -162,6 +184,8 @@ BUILTIN: list[dict] = [
     },
     {
         "id": "builtin-brand", "name": "Brand ad", "builtin": True, "planner": "speech",
+        "reference_links": [],
+        "reference_note": "Your skill keeps no links for this style: add your four reference Shorts as files.",
         "audio": {"music": "none", "lufs": -20, "camera_on": []},
         "limits": {"graphics": [], "sfx": False, "emoji": False, "hook": False, "freezes": False, "speeds": False, "zooms": True, "tracking": True},
         "workflow": [
@@ -196,6 +220,20 @@ BUILTIN: list[dict] = [
     },
     {
         "id": "builtin-narrated", "name": "Narrated story", "builtin": True, "planner": "speech", "draft": True,
+        "reference_links": [
+            {"title": "Adam Sandler wore a hoodie to the Oscars", "url": "https://www.youtube.com/watch?v=wbJZqjSuYsg"},
+            {"title": "Mr. Bean walks off stage after an award", "url": "https://www.youtube.com/watch?v=pdq6kEJau3M"},
+            {"title": "This baby evolved mid race", "url": "https://www.youtube.com/watch?v=0cPSXjw9cPA"},
+            {"title": "The Dr Pepper man", "url": "https://www.youtube.com/watch?v=wHdLuuzCp5Q"},
+            {"title": "Ronaldo defended this kid", "url": "https://www.youtube.com/watch?v=l-KPC_30ARI"},
+            {"title": "Only a grandmaster recognizes a grandmaster", "url": "https://www.youtube.com/watch?v=JkJbIrOeveI"},
+            {"title": "He took a massive aura risk", "url": "https://www.youtube.com/watch?v=NE79v03LMSc"},
+            {"title": "Juan did everything for his family", "url": "https://www.youtube.com/watch?v=m5D5uRmmG34"},
+            {"title": "The most impossible GeoGuessr guess", "url": "https://www.youtube.com/watch?v=v-vrUnX-Cws"},
+            {"title": "Why River Monsters really ended", "url": "https://www.youtube.com/watch?v=f9h6Tu7Na08"},
+            {"title": "Secret camera trick in Among Us", "url": "https://www.youtube.com/watch?v=s0k7YqBDnwI"},
+            {"title": "Will Smith slapped Chris Rock at the Oscars", "url": "https://www.youtube.com/watch?v=HPfFl0dVupg"},
+        ],
         "audio": {"music": "under", "music_volume": 0.3, "duck": True, "fade_in": 0.3, "fade_out": 0, "lufs": -10, "camera_on": []},
         "limits": {"graphics": [], "sfx": False, "emoji": False, "hook": False, "freezes": False, "speeds": False, "zooms": True, "tracking": True},
         "workflow": [

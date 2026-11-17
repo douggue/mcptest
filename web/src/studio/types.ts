@@ -56,7 +56,12 @@ export type StyleAnalysis = {
 export type StyleProfile = {
   id: string; name: string; builtin?: boolean; draft?: boolean; summary?: string; planner: 'speech' | 'story';
   style: Partial<EditSpec>; elements?: StyleElement[]; rules: StyleRule[]; brief: string;
-  references?: { name: string; file: string; url: string; width?: number; height?: number; duration?: number; cuts?: number; shot_seconds?: number }[];
+  references?: { name: string; file: string; url: string; source_url?: string; width?: number; height?: number; duration?: number; cuts?: number; shot_seconds?: number }[];
+  /** Links to the style's reference videos, downloaded and kept with the style. */
+  reference_links?: { title: string; url: string }[]; reference_note?: string;
+  /** What the AI noticed when it last looked at the saved references; sent with every request in this style. */
+  memory?: string[]; reviewed?: number; review_note?: string; review_engine?: string;
+  copied_from?: string;
   analysis?: StyleAnalysis | null; note?: string; engine?: string; analysed?: number;
   /** What the planners may add in this style (built-in styles only; none means no limits). */
   limits?: { graphics: string[]; label_look?: string; sfx: boolean; emoji: boolean; hook: boolean; freezes: boolean; speeds: boolean; min_rate?: number; zooms: boolean; tracking: boolean };

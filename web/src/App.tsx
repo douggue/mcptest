@@ -8,6 +8,7 @@ import Home from './pages/Home';
 import Library from './pages/Library';
 import Settings from './pages/Settings';
 import Studio from './pages/Studio';
+import StylesPage from './pages/StylesPage';
 import { Button, Icon, IconName, Toasts } from './ui';
 
 type Page = { id: string; label: string; short: string; icon: IconName; group: 'main' | 'create' | 'manage' | 'foot'; el: () => JSX.Element };
@@ -16,6 +17,7 @@ const PAGES: Page[] = [
   { id: 'clipper', label: 'Clipper', short: 'Clipper', icon: 'scissors', group: 'create', el: () => <Clipper /> },
   { id: 'studio', label: 'Shorts studio', short: 'Studio', icon: 'film', group: 'create', el: () => <Studio /> },
   { id: 'generate', label: 'Generate', short: 'Generate', icon: 'sparkle', group: 'create', el: () => <Generate /> },
+  { id: 'styles', label: 'Styles', short: 'Styles', icon: 'layers', group: 'manage', el: () => <StylesPage /> },
   { id: 'library', label: 'Library', short: 'Library', icon: 'folder', group: 'manage', el: () => <Library /> },
   { id: 'agency', label: 'Agency', short: 'Agency', icon: 'chart', group: 'manage', el: () => <Agency /> },
   { id: 'settings', label: 'Settings', short: 'Settings', icon: 'gear', group: 'foot', el: () => <Settings /> },

@@ -431,7 +431,10 @@ def analyse(pid: str, job: Job) -> dict:
     # rules the person wrote or approved are kept; rules from an earlier analysis are replaced
     kept = [r for r in profile.get("rules", []) if r.get("source") != "references"]
     style, elements, planner = style_from(analysis, refs, get_settings()["brand"])
-    patch = {"references": [{k: r[k] for k in ("name", "file", "url", "width", "height", "fps", "duration", "cuts", "shot_seconds")} for r in refs],
+    was = {r.get("file"): r for r in profile.get("references", [])}
+    patch = {"references": [{**{k: r[k] for k in ("name", "file", "url", "width", "height", "fps", "duration", "cuts", "shot_seconds")},
+                             "name": was.get(r["file"], {}).get("name") or r["name"], "source_url": was.get(r["file"], {}).get("source_url", "")}
+                            for r in refs],
              "analysis": analysis, "note": note, "style": style, "elements": elements, "planner": planner,
              "summary": (analysis or {}).get("summary", profile.get("summary", "")),
              "rules": kept + learned, "brief": _brief(analysis) if analysis else profile.get("brief", ""),
@@ -439,20 +442,164 @@ def analyse(pid: str, job: Job) -> dict:
     return profiles.update(pid, patch)
 
 
+# A built-in style's definition lives in code, but its saved reference videos and what the AI noticed in them
+# (its memory) are the person's, so they are kept here, keyed by the style's id.
+state = Collection("style_state")
+STATE_KEYS = ("references", "memory", "reviewed", "review_note", "review_engine")
+
+
+def is_builtin(pid: str) -> bool:
+    from . import presets
+    return presets.get(pid) is not None
+
+
 def lookup(profile_id: str | None) -> dict | None:
-    """A built-in style or one of the person's own."""
+    """A built-in style (with its saved references and memory) or one of the person's own."""
     if not profile_id:
         return None
     from . import presets
-    return presets.get(profile_id) or profiles.get(profile_id)
+    base = presets.get(profile_id)
+    if base:
+        saved = state.get(profile_id) or {}
+        return {**base, **{k: saved[k] for k in STATE_KEYS if k in saved}}
+    return profiles.get(profile_id)
+
+
+def save(pid: str, patch: dict) -> dict:
+    """Update a style's references or memory, built-in or not. Returns the style as lookup() gives it."""
+    if is_builtin(pid):
+        if state.get(pid):
+            state.update(pid, patch)
+        else:
+            state.insert({"id": pid, **patch})
+    else:
+        profiles.update(pid, patch)
+    return lookup(pid)
 
 
 def guidance(profile_id: str | None) -> tuple[str, list[str]]:
-    """(brief, active rules) to add to an AI request for a clip that uses this profile."""
+    """(brief, active rules) to add to an AI request for a clip that uses this profile. What the AI noticed when it
+    last reviewed the style's reference videos goes along as rules too, so every request carries that memory."""
     p = lookup(profile_id)
     if not p:
         return "", []
-    return p.get("brief", ""), [r["text"] for r in p.get("rules", []) if r.get("on", True)]
+    rules = [r["text"] for r in p.get("rules", []) if r.get("on", True)]
+    rules += [f"Seen in this style's reference videos: {m}" for m in p.get("memory") or []]
+    return p.get("brief", ""), rules
+
+
+# ---------------------------------------------------------------- reference videos: saved, reviewed, shown again
+
+def add_reference_file(pid: str, path: Path, name: str = "", source_url: str = "") -> dict:
+    """Record a video already in the style's folder as one of its references, with its measurements."""
+    p = lookup(pid) or {}
+    try:
+        m = measure(path)
+    except MediaError:
+        m = {}
+    row = {"name": name or path.stem, "file": path.name, "url": media_url(path), "source_url": source_url, **m}
+    refs = [r for r in p.get("references") or [] if r.get("file") != path.name and (not source_url or r.get("source_url") != source_url)]
+    return save(pid, {"references": refs + [row]})
+
+
+def download_reference(pid: str, url: str, name: str, job: Job, span: tuple[float, float] = (0.0, 1.0)) -> dict:
+    """Download one reference video into the style's folder (so it is kept), and record it."""
+    import shutil
+    from .sources import download
+    file, info = download(url, 1080, job)
+    out = folder(pid)
+    out.mkdir(parents=True, exist_ok=True)
+    from ..media import safe_name, unique_path
+    dest = unique_path(out, safe_name(name or info.get("title") or "reference", "reference"), file.suffix.lstrip("."))
+    shutil.move(str(file), str(dest))
+    return add_reference_file(pid, dest, name or info.get("title") or dest.stem, url)
+
+
+def download_missing(pid: str, job: Job) -> dict:
+    """Download every reference link the style lists that is not saved yet, then review them all.
+    A link that fails is reported and skipped; the others still download."""
+    p = lookup(pid)
+    if not p:
+        raise MediaError("That style no longer exists.")
+    have = {r.get("source_url") for r in p.get("references") or []}
+    todo = [l for l in p.get("reference_links") or [] if l["url"] not in have]
+    failed = []
+    for i, link in enumerate(todo):
+        job.update(0.02 + 0.6 * i / max(1, len(todo)), f"Downloading reference {i + 1} of {len(todo)}: {link['title']}")
+        try:
+            download_reference(pid, link["url"], link["title"], job)
+        except MediaError as e:
+            failed.append(f"{link['title']}: {e}")
+    note = ("Could not download " + "; ".join(failed)) if failed else ""
+    if (lookup(pid) or {}).get("references") and ai.available():
+        review(pid, job, (0.65, 1.0))
+    p = save(pid, {"review_note": note} if note else {})
+    return p
+
+
+REVIEW_SYSTEM = """You keep an editor's memory of a video style fresh. You are shown frames from the style's reference videos (finished shorts made in the style) together with the style's written description and rules. Look at the references again and write down the concrete things an editor must match that the description leaves out or gets only roughly: sizes, positions, colours, how text arrives and leaves, timings, framing, pacing, what the first frame shows, how videos end. Be specific and measurable; one fact per line. Then list where the references contradict the description. Describe the craft only: never copy their wording, names, channel names, watermarks or logos into a line."""
+REVIEW_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["memory", "contradictions"],
+                 "properties": {"memory": {"type": "array", "items": {"type": "string"}},
+                                "contradictions": {"type": "array", "items": {"type": "string"}}}}
+
+
+def _reference_files(p: dict) -> list[tuple[dict, Path]]:
+    pid = p["id"]
+    out = []
+    for r in p.get("references") or []:
+        f = folder(pid) / r["file"]
+        if f.is_file():
+            out.append((r, f))
+    return out
+
+
+def review(pid: str, job: Job, span: tuple[float, float] = (0.0, 1.0)) -> dict:
+    """Have the AI look at the saved references again and store what it noticed as the style's memory."""
+    p = lookup(pid)
+    if not p:
+        raise MediaError("That style no longer exists.")
+    files = _reference_files(p)
+    if not files:
+        raise MediaError("This style has no saved reference videos yet.")
+    if not ai.available():
+        raise ai.AIUnavailable("Reviewing reference videos needs the AI. " + ai.setup_hint())
+    per = max(4, min(10, 48 // len(files)))
+    rules = "\n".join(f"- {r['text']}" for r in p.get("rules", []) if r.get("on", True))
+    parts: list = [f"The style: {p.get('name')}\n\nIts description:\n{p.get('brief', '')}\n\nIts rules:\n{rules or '(none)'}\n\n"
+                   f"{len(files)} reference videos follow, as frames with their times."]
+    for i, (r, f) in enumerate(files):
+        job.update(span[0] + (span[1] - span[0]) * 0.5 * i / len(files), f"Looking at reference {i + 1} of {len(files)} again")
+        dur = r.get("duration") or probe(f)["duration"]
+        for t, jpeg in _study_frames(f, dur, per):
+            parts.append(f"Reference {i + 1}, frame at {t:.1f}s:")
+            parts.append({"image": jpeg})
+    job.update(span[0] + (span[1] - span[0]) * 0.6, f"Reviewing the references with {ai.provider_label()}")
+    out = ai.ask_json(REVIEW_SYSTEM, parts, REVIEW_SCHEMA, max_tokens=8000, effort="medium")
+    memory = [m.strip() for m in out["memory"] if m.strip()][:20]
+    note = ("The references differ from the description: " + " ".join(out["contradictions"])) if out["contradictions"] else ""
+    return save(pid, {"memory": memory, "reviewed": time.time(), "review_note": note, "review_engine": ai.provider_label()})
+
+
+def reference_frames(pid: str | None, n: int = 8) -> list[tuple[str, bytes]]:
+    """A few stills from the style's saved references, shown to the AI with every plan so it looks at them again."""
+    p = lookup(pid)
+    if not p:
+        return []
+    files = _reference_files(p)[:4]
+    if not files:
+        return []
+    out = []
+    per = max(2, n // len(files))
+    for i, (r, f) in enumerate(files):
+        dur = r.get("duration") or 0
+        if not dur:
+            try:
+                dur = probe(f)["duration"]
+            except MediaError:
+                continue
+        for t, jpeg in _frames(f, max(0.1, dur - 0.5), per, start=0.2):
+            out.append((f"Reference {i + 1} at {t:.1f}s", jpeg))
+    return out[:n]
 
 
 def limits(profile_id: str | None) -> dict | None:

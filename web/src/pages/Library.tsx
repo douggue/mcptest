@@ -3,13 +3,12 @@ import '../studio/studio.css';
 import { useEffect, useRef, useState } from 'react';
 
 import { api, upload } from '../api';
-import Styles from '../studio/Styles';
 import { Asset, ExportRow, Template } from '../studio/types';
 import { Button, Empty, Field, JobBar, Panel, fmtBytes, fmtDur, toast, toastError, useJobRunner } from '../ui';
 
-type Tab = 'exports' | 'styles' | 'music' | 'broll' | 'sfx' | 'brand' | 'voice' | 'templates';
+type Tab = 'exports' | 'music' | 'broll' | 'sfx' | 'brand' | 'voice' | 'templates';
 const TABS: { value: Tab; label: string }[] = [
-  { value: 'exports', label: 'Exports' }, { value: 'styles', label: 'Styles' }, { value: 'music', label: 'Music' }, { value: 'broll', label: 'B-roll' },
+  { value: 'exports', label: 'Exports' }, { value: 'music', label: 'Music' }, { value: 'broll', label: 'B-roll' },
   { value: 'sfx', label: 'Sound effects' }, { value: 'brand', label: 'Brand images' }, { value: 'voice', label: 'Voiceovers' },
   { value: 'templates', label: 'Templates' },
 ];
@@ -35,7 +34,6 @@ export default function Library() {
   const { job, run, busy } = useJobRunner();
 
   const load = () => {
-    if (tab === 'styles') return;
     if (tab === 'exports') api.get<ExportRow[]>('/api/exports').then(setExports).catch(toastError);
     else if (tab === 'templates') api.get<Template[]>('/api/templates').then(setTemplates).catch(toastError);
     else api.get<Asset[]>(`/api/assets/${tab}`).then(setAssets).catch(toastError);
@@ -65,7 +63,7 @@ export default function Library() {
     try { setStock(await api.get<Stock[]>(`/api/stock/search?q=${encodeURIComponent(query)}`)); } catch (e) { toastError(e); }
   }
 
-  const isAsset = tab !== 'exports' && tab !== 'templates' && tab !== 'styles';
+  const isAsset = tab !== 'exports' && tab !== 'templates';
 
   return (
     <div className="page">
@@ -79,7 +77,6 @@ export default function Library() {
         {TABS.map((x) => <button key={x.value} role="tab" aria-selected={tab === x.value} className={tab === x.value ? 'on' : ''} onClick={() => setTab(x.value)}>{x.label}</button>)}
       </div>
 
-      {tab === 'styles' && <Styles />}
 
       {tab === 'exports' && (
         <Panel title={`Exports (${exportsList.length})`} pad={false}>
