@@ -78,8 +78,15 @@ def for_render(spec: dict, offset: float, base_url: str, src_url: str) -> dict:
         shot.pop("faces", None)
     for z in s.get("zooms", []):
         z["at"] -= offset
+    for f in s.get("freezes") or []:
+        f["at"] -= offset
+    for sp in s.get("speeds") or []:
+        sp["start"] -= offset
+        sp["end"] -= offset
     for g in s.get("graphics", []):
         g["at"] -= offset
+        for k in g.get("outline") or []:
+            k["t"] -= offset
         if g.get("src"):
             g["src"] = url(g["src"])
     for line in s.get("captions", {}).get("translations", []):

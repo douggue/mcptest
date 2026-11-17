@@ -4,8 +4,8 @@ import { AbsoluteFill, Audio, Freeze, Img, OffthreadVideo, Sequence, continueRen
 import { CaptionLayer } from './Captions';
 import { GraphicLayer } from './Graphics';
 import { fontStack, fontWeight, fontsReady } from './fonts';
-import { Cut, Piece, buildPlan, driftAt, graphicFrames, paneXAt, speechEnvelope, srcTimeAt, totalFrames, transitionCuts, zoomAt } from './timing';
-import { DEFAULT_FRAME, Look, ShortSpec, Shot } from './types';
+import { Cut, Piece, buildPlan, driftAt, graphicFrames, paneXAt, shotIndexAt, speechEnvelope, srcTimeAt, totalFrames, transitionCuts, zoomAt } from './timing';
+import { DEFAULT_FRAME, Graphic, Look, ShortSpec, Shot } from './types';
 
 const LOOKS: Record<Look['preset'], string> = {
   none: '',
@@ -198,6 +198,82 @@ const HeaderLayer: React.FC<{ spec: ShortSpec; u: number }> = ({ spec, u }) => {
   );
 };
 
+/* ---------------------------------------------------------------- spotlight fitted to a person or object */
+
+/** Where a point of the source picture (0..1) lands on the canvas at a source time: the same sums as Panes. */
+export function sourcePoint(spec: ShortSpec, t: number, x: number, y: number): [number, number] {
+  const shot = spec.shots[shotIndexAt(spec.shots, t)] ?? { start: 0, layout: 'single', x: [50], transition: 'cut' } as Shot;
+  const fm = spec.frame ?? DEFAULT_FRAME;
+  const panel = fm.mode === 'panel';
+  const bw = panel ? Math.round((spec.width * fm.width) / 100) : spec.width;
+  const bh = panel ? Math.min(spec.height, Math.round(bw / fm.aspect)) : spec.height;
+  const boxLeft = (spec.width - bw) / 2;
+  const boxTop = panel ? Math.max(0, Math.min(spec.height - bh, (spec.height * fm.y) / 100 - bh / 2)) : 0;
+  const n = shot.layout === 'split' ? 2 : shot.layout === 'trio' ? 3 : 1;
+  const landscape = bw > bh;
+  const gap = n > 1 ? Math.round(bw * 0.006) : 0;
+  const pw = n > 1 && landscape ? (bw - gap * (n - 1)) / n : bw;   // the subject is taken to be in the first pane
+  const ph = n > 1 && !landscape ? (bh - gap * (n - 1)) / n : bh;
+  const zoom = zoomAt(spec.zooms, t) * driftAt(spec.shots, t, spec.out, spec.look.drift ?? 0);
+  let px: number, py: number;
+  if (shot.layout === 'fit') {
+    const s = Math.min(pw / spec.srcW, ph / spec.srcH) * zoom;
+    px = boxLeft + (pw - spec.srcW * s) / 2 + x * spec.srcW * s;
+    py = boxTop + (ph - spec.srcH * s) / 2 + y * spec.srcH * s;
+  } else {
+    const s = Math.max(pw / spec.srcW, ph / spec.srcH) * zoom;
+    const dw = spec.srcW * s, dh = spec.srcH * s;
+    px = boxLeft - (dw - pw) * ((paneXAt(spec.shots, t)[0] ?? 50) / 100) + x * dw;
+    py = boxTop - (dh - ph) * ((shot.y ?? 50) / 100) + y * dh;
+  }
+  return [spec.look.flip ? spec.width - px : px, py];
+}
+
+/** The subject's outline at a source time, blended between the two nearest traced outlines. */
+function outlineAt(keys: NonNullable<Graphic['outline']>, t: number): [number, number][] {
+  if (t <= keys[0].t || keys.length === 1) return keys[0].pts;
+  const last = keys[keys.length - 1];
+  if (t >= last.t) return last.pts;
+  let i = 0;
+  while (i + 1 < keys.length && keys[i + 1].t < t) i++;
+  const a = keys[i], b = keys[i + 1];
+  const k = (t - a.t) / Math.max(1e-6, b.t - a.t);
+  return a.pts.map(([x, y], j) => [x + ((b.pts[j]?.[0] ?? x) - x) * k, y + ((b.pts[j]?.[1] ?? y) - y) * k]);
+}
+
+/** Dims everything except the traced person or object, with the same darkness, softness and fade as the oval spot. */
+const OutlineSpot: React.FC<{ spec: ShortSpec; plan: Piece[]; g: Graphic; from: number; frames: number; u: number }> = ({ spec, plan, g, from, frames, u }) => {
+  const frame = useCurrentFrame();
+  const { fps, width, height } = useVideoConfig();
+  const t = srcTimeAt(plan, from + frame, fps);
+  const ox = ((g.dx ?? 0) / 100) * width, oy = ((g.dy ?? 0) / 100) * height;
+  const pts = outlineAt(g.outline!, t).map(([x, y]) => { const [px, py] = sourcePoint(spec, t, x, y); return [px + ox, py + oy]; });
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const edge = fps * 0.1;
+  const ramp = Math.min(interpolate(frame, [0, edge], [0, 1], { extrapolateRight: 'clamp' }),
+    interpolate(frame, [frames - edge, frames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }));
+  const margin = Math.max(0, 8 + ((g.scale ?? 1) - 1) * 60) * u;      // "size" grows the lit area past the outline
+  const blur = Math.max(0.5, (g.soft ?? 0.3) * 0.12 * Math.min(x1 - x0, y1 - y0));
+  const id = `os${g.id}`;
+  return (
+    <>
+      {g.sfx && spec.audio.fx > 0 && <Audio src={`${spec.sfxBase}${g.sfx}.wav`} volume={spec.audio.fx} />}
+      <svg width={width} height={height} style={{ position: 'absolute', inset: 0 }}>
+        <defs>
+          <filter id={`${id}f`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation={blur} /></filter>
+          <mask id={`${id}m`} maskUnits="userSpaceOnUse" x={0} y={0} width={width} height={height}>
+            <rect x={0} y={0} width={width} height={height} fill="#fff" />
+            <polygon points={pts.map((p) => p.join(',')).join(' ')} fill="#000" stroke="#000" strokeWidth={margin * 2} strokeLinejoin="round" filter={`url(#${id}f)`} />
+          </mask>
+        </defs>
+        <rect x={0} y={0} width={width} height={height} fill="#000" opacity={(g.dim ?? 0.68) * ramp} mask={`url(#${id}m)`} />
+      </svg>
+      <div data-el={`graphic:${g.id}`} style={{ position: 'absolute', left: x0 - margin, top: y0 - margin, width: x1 - x0 + margin * 2, height: y1 - y0 + margin * 2 }} />
+    </>
+  );
+};
+
 /* ---------------------------------------------------------------- transitions between shots */
 
 type Fx = { style: React.CSSProperties; under?: { cut: Cut; style: React.CSSProperties }; wash?: { color: string; opacity: number } };
@@ -332,7 +408,7 @@ export const Short: React.FC<{ spec: ShortSpec }> = ({ spec }) => {
         const { from, frames } = graphicFrames(plan, g, fps);
         return (
           <Sequence key={g.id} from={from} durationInFrames={frames}>
-            <GraphicLayer g={g} brand={spec.brand} u={u} frames={frames} fxVolume={spec.audio.fx} sfxBase={spec.sfxBase} />
+            {g.outline?.length ? <OutlineSpot spec={spec} plan={plan} g={g} from={from} frames={frames} u={u} /> : <GraphicLayer g={g} brand={spec.brand} u={u} frames={frames} fxVolume={spec.audio.fx} sfxBase={spec.sfxBase} />}
           </Sequence>
         );
       })}

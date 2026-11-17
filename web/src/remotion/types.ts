@@ -90,6 +90,7 @@ export type Graphic = {
   ratio?: number;      // height / width of a blur box or a spotlight
   dim?: number;        // spotlight: how dark the surround goes, 0..1 (default 0.68)
   soft?: number;       // spotlight: edge softness, the fade's width as a share of the spot (default 0.3)
+  outline?: { t: number; pts: [number, number][] }[];   // spotlight fitted to a subject: its outline over time, source time and 0..1 of the source frame
   tag?: string;        // small speaker tag above a boxed label, e.g. "Cyclist:"
   origin?: 'style' | 'ai';   // who placed it, so re-applying a style or re-planning replaces only its own
   mediaType?: 'image' | 'video' | 'gif';

@@ -364,6 +364,31 @@ def direct_clip(pid: str, cid: str) -> dict:
     return _clip_job(pid, cid, "direct", "Planning the edit from the picture", plan)
 
 
+@router.post("/{pid}/clips/{cid}/subject")
+def subject_outline(pid: str, cid: str, body: dict) -> dict:
+    """{t, box: [x0, y0, x1, y1] (0..1 of the source), find?: bool, until?: source time} -> job ->
+    {keys: [{t, pts: [[x, y], ...]}], box, found}: the outline of the person or object under a spotlight."""
+    try:
+        t = float(body["t"])
+        box = tuple(float(v) for v in body["box"])
+        until = float(body["until"]) if body.get("until") not in (None, "") else None
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(422, "Send the time and the box to look in.")
+    if len(box) != 4:
+        raise HTTPException(422, "The box needs four numbers.")
+    find = bool(body.get("find"))
+
+    project = load(pid)
+    _clip(project, cid)
+
+    def work(job: jobs.Job) -> dict:
+        from ..studio import subject
+        job.update(0.05, "Finding the person" if find else "Tracing the outline")
+        return subject.outline(sources.source_path(project), t, box, find, until, job)
+
+    return {"job_id": jobs.submit("subject", "Fitting the spotlight", work, {"project_id": pid, "clip_id": cid}).id}
+
+
 @router.post("/{pid}/clips/{cid}/translate")
 def translate_clip(pid: str, cid: str, body: dict) -> dict:
     language = (body.get("language") or "").strip()

@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api, upload } from '../api';
-import { captionPages, shotIndexAt, srcTimeAt } from '../remotion/timing';
+import { captionPages, graphicFrames, shotIndexAt, srcTimeAt } from '../remotion/timing';
+import { sourcePoint } from '../remotion/Short';
 import { ASPECTS, Anim, Aspect, CaptionPreset, DEFAULT_FRAME, FONTS, FrameMode, Graphic, GraphicType, LabelStyle, Layout, LookPreset, TRANSITIONS, Transition, Zone } from '../remotion/types';
 import { Button, Field, Seg, Slider, Toggle, fmtBytes, fmtDur, fmtTime, toast, toastError } from '../ui';
 import type { Ctx } from './Editor';
@@ -692,6 +693,31 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
   const g = spec.graphics.find((x) => x.id === selected) ?? null;
   const patch = (p: Partial<Graphic>, key = '') => g && update((s) => ({ ...s, graphics: s.graphics.map((x) => (x.id === g.id ? { ...x, ...p } : x)) }), key);
   const media = useMemo(() => assets.broll.filter((a) => a.type !== 'audio'), [assets.broll]);
+  const [follow, setFollow] = useState(false);
+  const [fitNote, setFitNote] = useState('');
+  useEffect(() => setFitNote(''), [selected]);
+
+  /** Fit the selected spotlight to the person or object under it: traced on the server from the source frame. */
+  async function fitSpot(find: boolean) {
+    if (!g) return;
+    // the oval's box on the canvas, turned into 0..1 of the source picture (the mapping is a scale and an offset)
+    const [ax, ay] = sourcePoint(spec, g.at, 0, 0), [bx, by] = sourcePoint(spec, g.at, 1, 1);
+    const rx = spec.width * 0.0972 * (g.scale ?? 1), ry = rx * (g.ratio ?? 0.881);
+    const cx = spec.width / 2 + ((g.dx ?? 0) / 100) * spec.width, cy = spec.height / 2 + ((g.dy ?? 0) / 100) * spec.height;
+    const toSrc = (px: number, py: number): [number, number] => [(px - ax) / (bx - ax), (py - ay) / (by - ay)];
+    const [x0, y0] = toSrc(cx - rx * 1.15, cy - ry * 1.15), [x1, y1] = toSrc(cx + rx * 1.15, cy + ry * 1.15);
+    const box = [Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)].map((v) => clamp(v, 0, 1));
+    const { from, frames } = graphicFrames(plan, g, spec.fps);
+    const until = srcTimeAt(plan, from + frames - 1, spec.fps);
+    try {
+      await flush();
+      const r = await jobs.run<{ keys: { t: number; pts: [number, number][] }[]; found: string }>(() =>
+        api.post(`/api/projects/${project.id}/clips/${clip.id}/subject`, { t: g.at, box, find, until: follow && until - g.at > 0.2 ? until : undefined }));
+      patch({ outline: r.keys, dx: 0, dy: 0, scale: 1 });
+      setFitNote(r.found === 'none' ? 'No person found near the spot, so it traced whatever is under the spot.'
+        : r.keys.length > 1 ? `Following it: ${r.keys.length} outlines over ${(r.keys[r.keys.length - 1].t - r.keys[0].t).toFixed(1)}s of video.` : '');
+    } catch (e) { toastError(e); }
+  }
 
   async function remix() {
     try {
@@ -817,8 +843,22 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
           {g.type === 'nametag' && <Field label="Text"><input id="graphic-text" type="text" value={g.primary} onChange={(e) => patch({ primary: e.target.value }, 'gprim')} /></Field>}
           {g.type === 'spotlight' && (
             <>
-              <Slider label="Size" min={0.3} max={4} step={0.05} value={g.scale ?? 1} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => patch({ scale: v }, 'gscale')} />
-              <Slider label="Shape" min={0.4} max={2.5} step={0.02} value={g.ratio ?? 0.881} format={(v) => (v < 0.95 ? 'Wide' : v > 1.05 ? 'Tall' : 'Round')} onChange={(v) => patch({ ratio: v }, 'gratio')} />
+              <Field label="Shape of the light">
+                <Seg small value={g.outline?.length ? 'subject' : 'oval'} onChange={(v) => (v === 'oval' ? patch({ outline: undefined }) : fitSpot(false))}
+                  options={[{ value: 'oval', label: 'Oval' }, { value: 'subject', label: 'Fit a person or object' }]} />
+              </Field>
+              <div className="row wrap">
+                <Button small icon="users" onClick={() => fitSpot(true)} disabled={jobs.busy} title="Finds the person nearest the spot and lights their outline">Find the person</Button>
+                <Button small icon="wand" onClick={() => fitSpot(false)} disabled={jobs.busy} title="Traces the person or object inside the oval">Trace what's under the spot</Button>
+              </div>
+              <Toggle checked={follow} onChange={setFollow} label="Follow it while it moves" />
+              <span className="small muted">
+                {g.outline?.length
+                  ? (fitNote || 'The light follows the outline. To fit again, choose Oval, drag the oval over the subject and trace again.')
+                  : 'Drag the oval over the person or object first. "Follow" only matters when the spotlight is on moving video, not a freeze.'}
+              </span>
+              <Slider label={g.outline?.length ? 'Margin around it' : 'Size'} min={0.3} max={4} step={0.05} value={g.scale ?? 1} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => patch({ scale: v }, 'gscale')} />
+              {!g.outline?.length && <Slider label="Shape" min={0.4} max={2.5} step={0.02} value={g.ratio ?? 0.881} format={(v) => (v < 0.95 ? 'Wide' : v > 1.05 ? 'Tall' : 'Round')} onChange={(v) => patch({ ratio: v }, 'gratio')} />}
               <Slider label="Darkness around it" min={0.1} max={0.95} step={0.01} value={g.dim ?? 0.68} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => patch({ dim: v }, 'gdim')} />
               <Slider label="Edge softness" min={0.02} max={1.2} step={0.02} value={g.soft ?? 0.3} format={(v) => (v < 0.1 ? 'Sharp' : v > 0.7 ? 'Very soft' : `${Math.round(v * 100)}%`)} onChange={(v) => patch({ soft: v }, 'gsoft')} />
               <div className="row"><Button small onClick={() => patch({ scale: undefined, ratio: undefined, dim: undefined, soft: undefined })}>Back to the reference look</Button></div>
