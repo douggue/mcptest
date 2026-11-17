@@ -67,8 +67,6 @@ if (pluginMode && !process.env.REACUT_USER_DATA)
 // macOS and Windows installers ship their own FFmpeg/FFprobe next to the app resources.
 if (app.isPackaged && (process.platform === "darwin" || process.platform === "win32"))
   setBundledMediaToolsDirectory(path.join(process.resourcesPath, "media-tools"));
-// The editor is dark-only; keep the native Windows title bar and dialogs consistent with it.
-if (process.platform === "win32") nativeTheme.themeSource = "dark";
 if (process.env.REACUT_USER_DATA)
   app.setPath("userData", path.resolve(process.env.REACUT_USER_DATA));
 protocol.registerSchemesAsPrivileged([
@@ -831,11 +829,11 @@ function createWindow() {
     minHeight: 680,
     title: "ReaCut · 映刻",
     backgroundColor: "#141518",
-    // Inset traffic lights are a macOS title bar; elsewhere keep the native frame and
-    // reveal the menu bar with Alt, since the editor draws its own menus.
-    ...(process.platform === "darwin"
-      ? { titleBarStyle: "hiddenInset" as const, trafficLightPosition: { x: 16, y: 17 } }
-      : { autoHideMenuBar: true }),
+    // Windows keeps its native frame; the menu bar appears with Alt because the editor
+    // draws its own menus. Other platforms keep the inset title bar options.
+    ...(process.platform === "win32"
+      ? { autoHideMenuBar: true }
+      : { titleBarStyle: "hiddenInset" as const, trafficLightPosition: { x: 16, y: 17 } }),
     webPreferences: {
       preload: path.join(directory, "preload.cjs"),
       contextIsolation: true,
@@ -1042,6 +1040,8 @@ void app.whenReady().then(async () => {
     for (const key of ["python", "model"] as const) if (typeof input[key] === "string" && path.isAbsolute(input[key])) speechSettings[key] = input[key];
   } catch { /* Optional local dependencies are never installed automatically. */ }
   await cleanSpeechTemporaries(userFile("speech-media"));
+  // The editor is dark-only; keep the native Windows title bar consistent with it.
+  if (process.platform === "win32") nativeTheme.themeSource = "dark";
   protocol.handle("reacut-media", serveMedia);
   registerIPC();
   uiLanguage = app.getLocale().toLowerCase().startsWith("zh") ? "zh-CN" : "en";
