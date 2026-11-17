@@ -13,6 +13,7 @@ import {
   EditSpec, captionsSrt, setAspect, setLayout, shuffleGraphics, uid, withSegments,
 } from './logic';
 import { GenerateImageButton } from './GenerateButton';
+import PublishPanel from './PublishPanel';
 import { DirectPlan, ExportRow, StyleProfile, Template } from './types';
 
 const Group = ({ title, actions, children, id }: { title: string; actions?: React.ReactNode; children: React.ReactNode; id?: string }) => (
@@ -1071,6 +1072,8 @@ export function PostPanel({ ctx }: { ctx: Ctx }) {
           </div>
         ))}
       </Group>
+
+      <PublishPanel key={exportsList[0]?.id ?? 'none'} project={project} clip={clip} meta={meta} exportRow={exportsList[0] ?? null} />
     </>
   );
 }

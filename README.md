@@ -67,7 +67,7 @@ Paste a link or drop a file, set the range with the slider or the time boxes, ch
 
 1. **Import** a long video from a link or a file.
 2. **Transcribe** it with Whisper, with the site's own captions, or by importing an SRT, VTT or JSON file.
-3. **Find moments.** Each gets a hook title, a reason and a 0–100 score built from hook, flow, value and trend. You can also describe what you are looking for, or mark a clip by hand.
+3. **Find moments.** Choose what to make: highlights, a series (Part 1, 2, 3…), every moment on a topic, a recap of the main points, or a trailer that holds back the ending. Pick a length (Auto, Short, Medium, Long), add instructions in your own words, or mark a clip by hand. Each clip gets a hook title and a 0–100 score. Once five or more of your posted clips have views, the AI is told what worked for your audience. Select clips to merge them, or export them all at once.
 4. **Edit** each clip:
    - *Framing* – detect camera cuts, centre the speaker in each shot, follow movement, split for two or three people, or fit the whole frame over a blur. Twelve transitions between shots (cross-fade, slide, push, zoom, whip pan, spin, blur, flash, dip to black, glitch, smooth pan, hard cut) with adjustable length. Zooms, freezes, speed changes, opening hook, audio mixer, voice clean-up, music with ducking, voiceover.
    - *Style* – caption styles, fonts, colours, emojis, translation, colour looks with brightness, contrast and saturation, film grain, cinema bars, slow push-in, fade in and out, mirror, brand kit, reusable templates and learned styles.
@@ -78,6 +78,10 @@ Paste a link or drop a file, set the range with the slider or the time boxes, ch
 **AI upscale.** Sharpens CCTV, dashcam and old phone footage with Real-ESRGAN before the short is made (needs `pip install onnx onnxruntime`; a 5 MB model downloads on first use). It is slow on a processor: about 1.2 seconds per frame on four cores, so roughly 15 to 20 minutes for a 30-second short. A graphics card is much faster.
 
 **Finish in CapCut.** Sends the edit to CapCut as a project you can keep editing: every cut and speed change, freeze frames, framing (tracking and punch-ins as keyframes), split screens, b-roll, logo, captions, title, text graphics, watermark, voice, voiceover, music and sound effects, each on its own track. On the same computer it is saved straight into CapCut; otherwise you download a zip to unpack into CapCut's projects folder. Effects CapCut cannot import (animated cards, circles, arrows, the word-by-word caption highlight, colour looks) are listed after the export. This uses the open-source `pycapcut` library and has not yet been opened in CapCut by us; tell us if a project does not open.
+
+**Edit by asking:** type a change in the box at the top of the editor ("make the title red and freeze for a second when he says sorry"). The AI picks the changes, the editor applies them as one step that Ctrl+Z undoes, and says what it could not do. Needs an AI key.
+
+**Split:** Export → "Split into two" cuts a clip at the playhead; each half keeps its edits.
 
 **Editing on the video:** click the captions, hook title, logo, watermark or a motion graphic in the preview to select it, drag to move it, and drag its corner to resize it. Double-click a title to edit its text. Positions snap to the centre line, and Style → Brand kit has a button to reset them.
 
@@ -98,6 +102,14 @@ python -m server.cli shorts "https://…" --engine youtube --query "the part abo
 `shorts` runs the whole pipeline (transcribe, pick moments, centre the speaker, tighten, add graphics, render) and prints the finished files. Run either command with `--help` for all options.
 
 The web API is documented at <http://127.0.0.1:8000/docs> while the app is running.
+
+## Posting to YouTube
+
+Settings → YouTube connects your own channels with your own Google Cloud OAuth client, and the Export panel and the Agency planner then post a short now or at a set time, and read its views, likes and comments back. Setup in [docs/YOUTUBE.md](docs/YOUTUBE.md). Until Google audits your app, uploads arrive as private; make them public in YouTube Studio.
+
+## Using Cutroom from Claude (MCP)
+
+`python -m server.mcp_server` lets Claude Desktop, Claude Code or any MCP client import videos, find moments, edit and export clips, and more, on a running Cutroom. Setup in [docs/MCP.md](docs/MCP.md).
 
 ## Copy to Google Drive
 

@@ -3,6 +3,8 @@ import './agency.css';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { api } from '../api';
+import PublishPanel from '../studio/PublishPanel';
+import { ExportWithMeta, YouTubeRecord } from '../studio/types';
 import {
   Button, Empty, Field, Icon, JobBar, Modal, Panel, Seg, Toggle, fmtDur, fmtMoney, fmtNum, toast, toastError,
   useJobRunner,
@@ -28,7 +30,12 @@ type Campaign = {
   min_views: number; start: string; end: string; link: string; notes: string; rules: Rules;
   stats: { earned: number; uncapped: number; budget: number; remaining: number | null; views: number; posts: number };
 };
-type Account = { id: string; platform: string; handle: string; label: string; times: string[]; notes: string };
+type Account = {
+  id: string; platform: string; handle: string; label: string; times: string[]; notes: string;
+  /** The YouTube channel connected under Settings → YouTube, if this account is linked to one. */
+  youtube_channel_id?: string;
+  youtube?: { channel_id: string; title: string; needs_reconnect: boolean; problem: string; can_upload: boolean } | null;
+};
 type Caption = { title: string; description: string; hashtags: string[] };
 type Video = {
   key: string; kind: 'export' | 'clip'; id: string; title: string; file: string; cover: string; duration: number;
@@ -37,6 +44,8 @@ type Video = {
 type Post = {
   id: string; video_key: string; video_title: string; account_id: string; campaign_id: string; scheduled: string;
   status: Status; url: string; notes: string; caption: Caption; views: number; earnings: number;
+  /** Set when the post was uploaded to YouTube from Cutroom. */
+  youtube?: YouTubeRecord;
 };
 type Pair = { a: string; b: string; a_title: string; b_title: string; reasons: string[]; score: number };
 type Dupes = { pairs: Pair[]; double_bookings: { video_key: string; account_id: string; post_ids: string[] }[] };
@@ -200,6 +209,7 @@ function Planner({ data, reload, goTo }: TabProps & { goTo: (t: Tab) => void }) 
   const [distributing, setDistributing] = useState(false);
   const [week, setWeek] = useState(() => mondayOf(new Date()));
   const [filter, setFilter] = useState<'all' | Status>('all');
+  const [publishing, setPublishing] = useState<Post | null>(null);
   const runner = useJobRunner();
 
   const now = new Date();
@@ -248,6 +258,7 @@ function Planner({ data, reload, goTo }: TabProps & { goTo: (t: Tab) => void }) 
       await reload();
     } catch (e) {
       toastError(e);
+      if (post.youtube?.video_id) await reload();   // a channel that needs reconnecting shows on its account
     }
   }
 
@@ -263,10 +274,21 @@ function Planner({ data, reload, goTo }: TabProps & { goTo: (t: Tab) => void }) 
     }
   }
 
+  /** A planned post with an export, on an account linked to a connected YouTube channel, can be uploaded from here. */
+  const canPublish = (p: Post) => {
+    const a = ix.account.get(p.account_id);
+    return p.status === 'planned' && p.video_key.startsWith('export:') && !!a?.youtube && !p.youtube?.video_id
+      && p.youtube?.state !== 'uploading';
+  };
+
   const actions = (p: Post) => {
     const file = ix.video.get(p.video_key)?.file;
     return (
       <>
+        {canPublish(p) && (
+          <Button small variant="ghost" icon="upload" title="Upload to YouTube" aria-label="Publish to YouTube"
+            onClick={() => setPublishing(p)}>Publish</Button>
+        )}
         {p.status === 'planned' && (
           <Button small variant="ghost" icon="check" title="Mark as posted" aria-label="Mark as posted"
             onClick={() => save(p, { status: 'posted' })} />
@@ -283,7 +305,8 @@ function Planner({ data, reload, goTo }: TabProps & { goTo: (t: Tab) => void }) 
           </a>
         )}
         {p.url && (
-          <Button small variant="ghost" icon="redo" title="Refresh views from the post link" aria-label="Refresh views"
+          <Button small variant="ghost" icon="redo" aria-label="Refresh views"
+            title={p.youtube?.video_id ? 'Refresh views, likes and comments from YouTube' : 'Refresh views from the post link'}
             onClick={() => refresh(p)} />
         )}
         <Button small variant="ghost" onClick={() => setEditing(p)}>Edit</Button>
@@ -300,8 +323,9 @@ function Planner({ data, reload, goTo }: TabProps & { goTo: (t: Tab) => void }) 
   return (
     <>
       <div className="notice">
-        Cutroom plans and tracks posts. It does not upload to TikTok, YouTube, Instagram or any other platform. Post each
-        video yourself, then mark it as posted and paste the link here.
+        Cutroom plans and tracks posts. It uploads only to YouTube channels you connect under{' '}
+        <a href="#/settings">Settings → YouTube</a>; their posts fill in the link and views by themselves. Post everything
+        else yourself, then mark it as posted and paste the link here.
       </div>
 
       {needSetup ? (
@@ -419,6 +443,7 @@ function Planner({ data, reload, goTo }: TabProps & { goTo: (t: Tab) => void }) 
                           <div className="row gap-s wrap" style={{ marginTop: 2 }}>
                             {ix.dupeKeys.has(p.video_key) && <span className="pill bad">Possible duplicate</span>}
                             {ix.doubled.has(p.id) && <span className="pill bad">Planned twice for this account</span>}
+                            {p.youtube && <YouTubeBadge yt={p.youtube} />}
                           </div>
                         </td>
                         <td>
@@ -431,7 +456,14 @@ function Planner({ data, reload, goTo }: TabProps & { goTo: (t: Tab) => void }) 
                             {STATUSES.map((s) => <option key={s} value={s}>{cap(s)}</option>)}
                           </select>
                         </td>
-                        <td className="num"><ViewsCell post={p} onSave={(views) => save(p, { views })} /></td>
+                        <td className="num">
+                          <ViewsCell post={p} onSave={(views) => save(p, { views })} />
+                          {p.youtube?.video_id && (p.youtube.likes != null || p.youtube.comments != null) && (
+                            <div className="cell-sub mono" title="Likes and comments from YouTube">
+                              {p.youtube.likes == null ? '–' : fmtNum(p.youtube.likes)} likes · {p.youtube.comments == null ? '–' : fmtNum(p.youtube.comments)} comments
+                            </div>
+                          )}
+                        </td>
                         <td className="num">{p.campaign_id ? fmtMoney(p.earnings) : <span className="faint">–</span>}</td>
                         <td className="actions">{actions(p)}</td>
                       </tr>
@@ -455,7 +487,38 @@ function Planner({ data, reload, goTo }: TabProps & { goTo: (t: Tab) => void }) 
         <DistributeModal data={data} ix={ix} onClose={() => setDistributing(false)}
           onDone={async () => { setDistributing(false); await reload(); }} />
       )}
+      {publishing && (
+        <PublishModal post={publishing} caption={ix.caption(publishing)} onClose={() => { setPublishing(null); reload(); }} />
+      )}
     </>
+  );
+}
+
+function YouTubeBadge({ yt }: { yt: YouTubeRecord }) {
+  const map: Record<string, [string, string]> = {
+    uploading: ['accent', 'Uploading to YouTube'], live: ['good', 'On YouTube'], scheduled: ['info', 'Scheduled on YouTube'],
+    private: ['', 'Private on YouTube'], failed: ['bad', 'YouTube upload failed'], cancelled: ['muted', 'Upload cancelled'],
+  };
+  const [cls, text] = map[yt.state] ?? ['', 'YouTube'];
+  const tip = yt.error || yt.warning || (yt.publish_at ? `Goes public ${new Date(yt.publish_at).toLocaleString()}` : '');
+  return <span className={`pill ${cls}`} title={tip}>{text}</span>;
+}
+
+/** Upload a planned post's export to its account's YouTube channel. */
+function PublishModal({ post, caption, onClose }: { post: Post; caption: Caption; onClose: () => void }) {
+  const [row, setRow] = useState<ExportWithMeta | null | undefined>(undefined);
+  const exportId = post.video_key.replace(/^export:/, '');
+  useEffect(() => {
+    api.get<ExportWithMeta[]>('/api/exports').then((rows) => setRow(rows.find((r) => r.id === exportId) ?? null)).catch(() => setRow(null));
+  }, [exportId]);
+  return (
+    <div className="agency agency-modal">
+      <Modal title="Publish to YouTube" onClose={onClose}>
+        {row === undefined ? <span className="muted">Loading…</span>
+          : row === null ? <div className="notice bad">The export for this post no longer exists. Export the clip again.</div>
+          : <PublishPanel bare exportRow={row} meta={caption} postId={post.id} accountId={post.account_id} scheduled={post.scheduled} />}
+      </Modal>
+    </div>
   );
 }
 
@@ -1067,7 +1130,15 @@ function Accounts({ data, reload }: TabProps) {
                 {data.accounts.map((a) => (
                   <tr key={a.id}>
                     <td><span className="pill">{a.platform}</span></td>
-                    <td style={{ fontWeight: 500 }}>{a.handle}</td>
+                    <td>
+                      <div style={{ fontWeight: 500 }}>{a.handle}</div>
+                      {a.youtube && (
+                        <a href="#/settings" className={`pill ${a.youtube.needs_reconnect ? 'bad' : 'good'}`} style={{ marginTop: 3 }}
+                          title={a.youtube.problem || `Connected to the channel ${a.youtube.title}`}>
+                          {a.youtube.needs_reconnect ? 'YouTube: reconnect in Settings' : 'YouTube connected'}
+                        </a>
+                      )}
+                    </td>
                     <td>{a.label || <span className="faint">–</span>}</td>
                     <td className="mono small">{a.times.length ? a.times.join(', ') : <span className="faint">12:00 (default)</span>}</td>
                     <td className="num">{counts.get(a.id) ?? 0}</td>

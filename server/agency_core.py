@@ -328,3 +328,20 @@ def performance_summary(posts: list[dict], videos: list[dict], n: int = 5) -> di
         median = quarter[mid] if len(quarter) % 2 else (quarter[mid - 1] + quarter[mid]) / 2
     return {"count": len(rows), "top": rows[:k], "bottom": rows[len(rows) - k:][::-1],
             "top_quarter_median_seconds": round(median, 1) if median else None}
+
+
+# ---------------------------------------------------------------- YouTube
+
+YOUTUBE_LIVE = {"public", "unlisted"}
+
+
+def youtube_post_status(privacy: str, current: str = "planned") -> str:
+    """Planner status for a post whose video is on YouTube.
+
+    A public or unlisted video is live, so a planned post becomes posted. A private one (including a scheduled
+    upload waiting for its publish time) stays planned. Later stages the user set by hand (submitted, approved,
+    rejected, paid) are never changed.
+    """
+    if current == "planned" and privacy in YOUTUBE_LIVE:
+        return "posted"
+    return current or "planned"

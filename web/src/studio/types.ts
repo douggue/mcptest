@@ -65,3 +65,29 @@ export type DirectPlan = {
   freezes: { at_seconds: number; seconds: number }[];
   speeds: { from_seconds: number; to_seconds: number; rate: number }[];
 };
+
+/* ---- YouTube posting (server/routers/youtube.py). Tokens never reach the browser. */
+export type YouTubeChannel = {
+  id: string; title: string; handle: string; thumbnail: string; account_id: string; account_handle: string;
+  connected: number; needs_reconnect: boolean; problem: string; can_upload: boolean; checked: number;
+};
+export type YouTubeState = {
+  client_id: string; client_secret_set: boolean; configured: boolean; redirect_url: string;
+  redirect_source: 'saved' | 'env' | 'request' | 'desktop'; server_edition: boolean; channels: YouTubeChannel[];
+  last: { ok: boolean; text: string; at: number; channel_id?: string } | null;
+  notes: { unverified: string; quota: string; testing: string }; stand_in: boolean;
+};
+export type YouTubePrivacy = 'private' | 'unlisted' | 'public';
+/** The `youtube` record on an Agency post that was uploaded (or is uploading) from Cutroom. */
+export type YouTubeRecord = {
+  state: 'uploading' | 'live' | 'scheduled' | 'private' | 'failed' | 'cancelled'; job_id?: string; channel_id: string;
+  video_id?: string; privacy?: string; publish_at?: string; error?: string; warning?: string;
+  likes?: number | null; comments?: number | null; checked?: number; uploaded?: number;
+};
+export type YouTubePost = {
+  id: string; video_key: string; video_title: string; account_id: string; scheduled: string; status: string; url: string;
+  views: number; caption: Meta; youtube: YouTubeRecord;
+};
+export type PublishResult = { post_id: string; video_id: string; url: string; privacy: string; publish_at: string; state: string; warnings: string[] };
+/** An export row as /api/exports returns it; `meta` is the clip's post text when it was rendered. */
+export type ExportWithMeta = ExportRow & { meta?: Meta };

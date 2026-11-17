@@ -46,6 +46,11 @@ DEFAULT_SETTINGS = {
     "flow_enabled": False,            # optional flow-mcp connector (desktop edition only); off unless the user turns it on
     "flow_mcp_path": "",              # folder where flow-mcp is installed (the one containing dist/index.js)
     "flow_out_dir": "",               # flow-mcp's output folder; empty means ~/flow-mcp-out
+    # Posting to YouTube with the owner's own Google Cloud OAuth client (see docs/YOUTUBE.md).
+    "youtube_client_id": "",
+    "youtube_client_secret": "",      # secret: never sent to the browser
+    "youtube_redirect_url": "",       # empty: worked out from how Cutroom is reached (shown in Settings)
+    "youtube_channels": [],           # connected channels with their OAuth tokens: never sent to the browser
     "brand": {
         "name": "",
         "accent": "#ffb224",

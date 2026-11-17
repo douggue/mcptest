@@ -77,7 +77,7 @@ export function Timeline({ spec, plan, frames, frame, selected, onSeek, onSelect
           return (
             <div key={g.id} className={`tl-chip ${g.type === 'broll' ? 'broll' : ''} ${selected === g.id ? 'on' : ''}`}
               style={{ left: pct(from), width: pct(len) }} onPointerDown={(e) => dragChip(e, g.id, from)} title="Drag to move">
-              {g.type === 'broll' ? 'B-roll' : g.primary || g.keywords[0] || g.type}
+              {g.type === 'broll' ? 'B-roll' : g.primary.replace(/\{([^}|]*)(?:\|[^}]*)?\}/g, '$1') || g.keywords[0] || g.type}
             </div>
           );
         })}
