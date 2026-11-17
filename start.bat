@@ -60,6 +60,8 @@ if not exist "%ENVDIR%\Scripts\python.exe" (
 )
 set "VPY=%ENVDIR%\Scripts\python.exe"
 
+rem after an update that changed requirements.txt, install again
+if exist "%ENVDIR%\installed.txt" fc /b requirements.txt "%ENVDIR%\installed.txt" >nul 2>nul || del "%ENVDIR%\installed.txt" >nul 2>nul
 if not exist "%ENVDIR%\installed.txt" (
   echo  [2/4] Installing the Python packages. This downloads a few hundred MB and can take 5-15 minutes.
   echo        You will see the progress below; it is working even when it pauses.
@@ -72,14 +74,15 @@ if not exist "%ENVDIR%\installed.txt" (
     echo    - %%p
     "%VPY%" -m pip install "%%p" >nul 2>nul || echo      [!] Could not install %%p; that feature stays off. Cutroom works without it.
   )
-  echo done> "%ENVDIR%\installed.txt"
+  copy /y requirements.txt "%ENVDIR%\installed.txt" >nul
 ) else (
   echo  [2/4] Python packages already installed.
 )
 
-if not exist web\node_modules (
+node web\stale.cjs install
+if not errorlevel 1 (
   echo.
-  echo  [3/4] Installing the interface ^(first run only, a few minutes^)...
+  echo  [3/4] Installing the interface ^(first run or after an update, a few minutes^)...
   pushd web
   call npm install || (popd & goto fail)
   popd
@@ -87,9 +90,10 @@ if not exist web\node_modules (
   echo  [3/4] Interface packages already installed.
 )
 
-if not exist web\dist\index.html (
+node web\stale.cjs build
+if not errorlevel 1 (
   echo.
-  echo  [4/4] Building the interface...
+  echo  [4/4] Building the interface ^(first run or after an update^)...
   pushd web
   call npm run build || (popd & goto fail)
   popd

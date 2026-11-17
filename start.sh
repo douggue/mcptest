@@ -12,6 +12,7 @@ while read -r pkg _; do
   case "$pkg" in ""|\#*) continue ;; esac
   pip install "$pkg" >/dev/null 2>&1 || echo "Could not install optional $pkg; that feature stays off."
 done < requirements-optional.txt
-[ -d web/node_modules ] || (cd web && npm install)
-[ -f web/dist/index.html ] || (cd web && npm run build)
+# after an update: reinstall when package.json changed, rebuild when the interface code changed
+node web/stale.cjs install && (cd web && npm install)
+node web/stale.cjs build && (cd web && npm run build)
 exec python run.py --open --port "${1:-8000}"
