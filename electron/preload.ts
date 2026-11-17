@@ -78,6 +78,10 @@ const api: EditorAPI = {
   saveRecording: (bytes, name) => ipcRenderer.invoke("save-recording", bytes, name),
   cleanAudio: (jobId, project, clipId, request) => ipcRenderer.invoke("clean-audio", jobId, project, clipId, request),
   cancelAudioCleanup: jobId => ipcRenderer.invoke("cancel-clean-audio", jobId),
+  getBackgroundModel: () => ipcRenderer.invoke("background-model"),
+  downloadBackgroundModel: () => ipcRenderer.invoke("download-background-model"),
+  removeBackground: (jobId, project, clipId) => ipcRenderer.invoke("remove-background", jobId, project, clipId),
+  cancelBackgroundRemoval: jobId => ipcRenderer.invoke("cancel-remove-background", jobId),
   readTextFile: (extensions) =>
     ipcRenderer.invoke("read-text-file", extensions),
   chooseCapcutProject: (mode) =>

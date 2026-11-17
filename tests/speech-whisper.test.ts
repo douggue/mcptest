@@ -39,7 +39,10 @@ describe("whisper.cpp output and models", () => {
   });
   it("keeps a download only when it matches the published checksum", async () => {
     const bytes = fakeModel(), store = path.join(directory, "models");
-    const catalog = { base: { file: "ggml-base.bin", megabytes: 1, sha1: createHash("sha1").update(bytes).digest("hex") }, small: { file: "ggml-small.bin", megabytes: 1, sha1: "0".repeat(40) } };
+    const catalog = {
+      base: { file: "ggml-base.bin", megabytes: 1, algorithm: "sha1" as const, digest: createHash("sha1").update(bytes).digest("hex") },
+      small: { file: "ggml-small.bin", megabytes: 1, algorithm: "sha1" as const, digest: "0".repeat(40) },
+    };
     const requested: string[] = [];
     const fetcher = (async (url: string) => { requested.push(url); return new Response(bytes, { headers: { "content-length": String(bytes.length) } }); }) as unknown as typeof fetch;
     const progress: number[] = [];

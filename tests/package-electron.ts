@@ -83,6 +83,15 @@ try {
     ).getLastWebPreferences(),
   }));
   assert(native.packaged);
+  // The inference runtime for background removal is a native module that must survive packaging.
+  const runtime = await app.evaluate(async () => {
+    try {
+      const loaded = (process as any).mainModule.require("onnxruntime-node");
+      return typeof loaded.InferenceSession?.create === "function" ? "ready" : "incomplete";
+    } catch (error) { return String(error); }
+  });
+  assert.equal(runtime, "ready", "The packaged application must be able to load its inference runtime");
+  assert.deepEqual(await page.evaluate(() => window.editorAPI!.getBackgroundModel()), { ready: false, megabytes: 168 });
   if (windows) {
     // Windows presentation: the editor's bar is the title bar with caption buttons overlaid, an Exit
     // item, no inset gap on the left, room for the caption buttons on the right, Ctrl labels.

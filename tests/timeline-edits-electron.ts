@@ -57,10 +57,10 @@ try{
  await clip(video.id).click({position:{x:35,y:26}});
  await clip(video.id).getByRole('slider',{name:/出点/}).focus();await page.keyboard.press('ArrowLeft');q=await save();assert(q.clips.every(c=>Math.abs(c.duration-(4-1/30))<1e-7));await undo();
  checks.push('separation creates a persistent pair; single click selects both; pointer move previews both; trim and undo preserve synchronization');
- await page.getByRole('button',{name:'锁定音频 1',exact:true}).click();
+ await page.getByRole('button',{name:'锁定Audio 1',exact:true}).click();
  await clip(video.id).click({position:{x:35,y:26}});await page.keyboard.press('Alt+ArrowRight');q=await save();assert(q.clips.every(c=>c.start===0));
  await expect(page.getByRole('button',{name:'解除画声关联',exact:true})).toBeDisabled();
- await page.getByRole('button',{name:'解锁音频 1',exact:true}).click();
+ await page.getByRole('button',{name:'解锁Audio 1',exact:true}).click();
  await page.getByRole('button',{name:'解除画声关联',exact:true}).click();await clip(video.id).click({position:{x:35,y:26}});await page.keyboard.press('Alt+ArrowRight');q=await save();assert(Math.abs(q.clips.find(c=>c.id===video.id)!.start-1/30)<1e-8);assert.equal(q.clips.find(c=>c.id===audio.id)!.start,0);await undo();await undo();
  checks.push('locked partner blocks edits and unlink; unlink allows independent edits and can be undone');
  await seek(1);await add(1,.5,1.5,'insert');q=await save();assert.equal(q.clips.length,5);

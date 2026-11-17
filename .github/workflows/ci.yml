@@ -173,6 +173,22 @@ jobs:
           export REACUT_WHISPER="$(cygpath -w "$GITHUB_WORKSPACE/speech-tools/win32-x64/whisper-cli.exe")"
           export REACUT_SPEECH_MODEL="$(cygpath -w "$GITHUB_WORKSPACE/.test-output/models/ggml-tiny.bin")"
           npx tsx tests/speech-windows.ts
+      - uses: actions/cache@v6
+        with:
+          path: .test-output/vision
+          key: person-model-01eb6a29a5c4d8edb30b56adad9bb3a2a0535338e480724a213e0acfd2d1c73c
+      - name: Real background removal with the person model
+        run: |
+          mkdir -p .test-output/vision
+          if [ ! -f .test-output/vision/u2net_human_seg.onnx ]; then
+            curl --fail --silent --show-error --location --retry 3 -o .test-output/vision/u2net_human_seg.onnx https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net_human_seg.onnx
+          fi
+          echo "01eb6a29a5c4d8edb30b56adad9bb3a2a0535338e480724a213e0acfd2d1c73c *.test-output/vision/u2net_human_seg.onnx" | sha256sum -c -
+          curl --fail --silent --show-error --location --retry 3 -o .test-output/vision/person.jpg https://raw.githubusercontent.com/danielgatis/rembg/main/examples/girl-3.jpg
+          export REACUT_MATTE_MODEL="$(cygpath -w "$GITHUB_WORKSPACE/.test-output/vision/u2net_human_seg.onnx")"
+          export REACUT_MATTE_SAMPLE="$(cygpath -w "$GITHUB_WORKSPACE/.test-output/vision/person.jpg")"
+          npx vitest run tests/backgroundRemoval.test.ts
+          npx tsx tests/background-removal-electron.ts
       - name: Run the installer silently
         shell: pwsh
         run: |

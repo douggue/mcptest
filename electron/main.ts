@@ -47,6 +47,7 @@ import { findHardwareEncoder } from "./hardwareEncoders";
 import { saveRecording } from "./recording";
 import { cleanAudio, cancelAudioCleanup, cancelAudioCleanups } from "./audioCleanup";
 import type { AudioCleanupRequest } from "../src/core/audioCleanup";
+import { backgroundModelInfo, downloadBackgroundModel, removeBackground, cancelBackgroundRemoval, cancelBackgroundRemovals } from "./backgroundRemoval";
 import { resolvePortableDocument, startPortablePackage, cancelPortablePackage, cancelPortablePackages, savePortableDocument } from "./portableProject";
 import { setBundledMediaToolsDirectory } from "./mediaTools";
 import { validateProject } from "../src/core/model";
@@ -641,6 +642,24 @@ function registerIPC() {
     return asset;
   });
   handle("cancel-clean-audio", (jobId: string) => cancelAudioCleanup(jobId));
+  handle("background-model", () => backgroundModelInfo(userFile("vision-models")));
+  handle("download-background-model", () => {
+    const owner = window!.webContents;
+    return downloadBackgroundModel(userFile("vision-models"), progress => {
+      if (!owner.isDestroyed()) owner.send("derivative-progress", { jobId: "background-model", progress, message: "正在下载人像模型" });
+    }, (input, init) => net.fetch(input as string, init));
+  });
+  handle("remove-background", async (jobId: string, input: unknown, clipId: string) => {
+    const project = validateProject(input), owner = window!.webContents;
+    const source = project.assets.find(a => a.id === project.clips.find(c => c.id === clipId)?.assetId);
+    if (!source || !allowedMedia.has(path.resolve(source.path))) throw new Error("素材未经导入授权");
+    const result = await removeBackground(jobId, project, clipId, userFile("derived-media"), userFile("vision-models"), event => {
+      if (!owner.isDestroyed()) owner.send("derivative-progress", event);
+    });
+    authorizeAsset(result.asset);
+    return result;
+  });
+  handle("cancel-remove-background", (jobId: string) => cancelBackgroundRemoval(jobId));
   handle("save-recording", async (bytes: unknown, name: unknown) => {
     if (!(bytes instanceof Uint8Array) || typeof name !== "string") throw new Error("录音无效");
     const asset = await saveRecording(bytes, userFile("recordings"), cacheDir(), name);
@@ -925,6 +944,7 @@ function createWindow() {
     void cancelTemplates();
     void cancelDerivatives();
     void cancelAudioCleanups();
+    void cancelBackgroundRemovals();
     void cancelAllSpeech();
     assistantCancelPending = true;
     assistantRunning?.cancel();
@@ -1110,6 +1130,7 @@ app.on("before-quit", (event) => {
     cancelAllExports(),
     cancelDerivatives(),
     cancelAudioCleanups(),
+    cancelBackgroundRemovals(),
     cancelAllSpeech(),
     cancelPortablePackages(),
     cancelTemplates(),

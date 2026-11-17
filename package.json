@@ -61,6 +61,7 @@
   "dependencies": {
     "@napi-rs/canvas": "^1.0.11",
     "lucide-react": "^0.468.0",
+    "onnxruntime-node": "^1.31.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zustand": "^5.0.0"
@@ -116,7 +117,11 @@
       "extendInfo": {
         "LSUIElement": true,
         "NSMicrophoneUsageDescription": "JGcut records your voice-over when you press Record."
-      }
+      },
+      "files": [
+        "!node_modules/onnxruntime-node/bin/**/win32/**",
+        "!node_modules/onnxruntime-node/bin/**/linux/**"
+      ]
     },
     "win": {
       "target": [
@@ -143,6 +148,11 @@
             "**/*"
           ]
         }
+      ],
+      "files": [
+        "!node_modules/onnxruntime-node/bin/**/darwin/**",
+        "!node_modules/onnxruntime-node/bin/**/linux/**",
+        "!node_modules/onnxruntime-node/bin/**/win32/arm64/**"
       ]
     },
     "nsis": {
@@ -152,10 +162,15 @@
       "target": [
         "AppImage"
       ],
-      "icon": "build/icon.png"
+      "icon": "build/icon.png",
+      "files": [
+        "!node_modules/onnxruntime-node/bin/**/win32/**",
+        "!node_modules/onnxruntime-node/bin/**/darwin/**"
+      ]
     },
     "asarUnpack": [
       "node_modules/@napi-rs/**",
+      "node_modules/onnxruntime-node/**",
       "dist/fonts/**",
       "dist/builtin-assets/**"
     ],

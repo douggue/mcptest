@@ -1,10 +1,9 @@
 import path from 'node:path';
 import os from 'node:os';
 import { spawn } from 'node:child_process';
-import { createWriteStream } from 'node:fs';
-import { once } from 'node:events';
 import { access, copyFile, link, mkdir, mkdtemp, open, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
+import { downloadVerified, type PinnedFile } from './downloads';
 import { importAssets, probeFile, runMediaTool } from './media';
 import { speechSource, validateCues, type SpeechInfo, type SpeechProgress, type SpeechRequest, type SpeechResult, type SpeechEngine, type SpeechModelName, type SpeechSettings, type SpeechVoice } from '../src/core/speech';
 import type { Project } from '../src/core/types';
@@ -122,51 +121,20 @@ export async function ggmlModelBytes(file:string):Promise<number> {
   } finally { await handle.close(); }
 }
 /** Models published for whisper.cpp, with the checksums listed in that project's own documentation. */
-export const WHISPER_MODELS:Record<SpeechModelName,{file:string;megabytes:number;sha1:string}>={
-  base:{file:'ggml-base.bin',megabytes:142,sha1:'465707469ff3a37a2b9b8d8f89f2f99de7299dac'},
-  small:{file:'ggml-small.bin',megabytes:466,sha1:'55356645c2b361a969dfd0ef2c5a50d530afd8d5'},
+export const WHISPER_MODELS:Record<SpeechModelName,PinnedFile>={
+  base:{file:'ggml-base.bin',megabytes:142,algorithm:'sha1',digest:'465707469ff3a37a2b9b8d8f89f2f99de7299dac'},
+  small:{file:'ggml-small.bin',megabytes:466,algorithm:'sha1',digest:'55356645c2b361a969dfd0ef2c5a50d530afd8d5'},
 };
 const WHISPER_MODEL_SOURCE='https://huggingface.co/ggerganov/whisper.cpp/resolve/main/';
 let modelDownload:AbortController|undefined;
-async function sha1File(file:string):Promise<string> {
-  const hash=createHash('sha1'), handle=await open(file,'r');
-  try { for await(const chunk of handle.createReadStream()) hash.update(chunk); } finally { await handle.close(); }
-  return hash.digest('hex');
-}
-/** Download one model, only ever because the user pressed the button. The file is kept only if
- * it matches its published checksum; an interrupted or altered download leaves nothing behind. */
+/** Download one model, only ever because the user pressed the button. */
 export async function downloadWhisperModel(name:SpeechModelName,directory:string,progress:(fraction:number)=>void,fetcher:typeof globalThis.fetch=globalThis.fetch,catalog=WHISPER_MODELS):Promise<string> {
   const model=catalog[name];
   if(!model) throw new Error('Unknown speech model.');
   if(modelDownload) throw new Error('A speech model download is already running.');
   const controller=new AbortController(); modelDownload=controller;
-  const destination=path.join(directory,model.file), partial=destination+'.partial';
-  try {
-    await mkdir(directory,{recursive:true});
-    try { if(await sha1File(destination)===model.sha1) { progress(1); return destination; } } catch { /* Not downloaded yet. */ }
-    controller.signal.throwIfAborted();
-    const response=await fetcher(WHISPER_MODEL_SOURCE+model.file,{signal:controller.signal,redirect:'follow'});
-    if(!response.ok||!response.body) throw new Error(`The speech model download failed (HTTP ${response.status}).`);
-    const total=Number(response.headers.get('content-length'))||model.megabytes*1024*1024;
-    const hash=createHash('sha1'), file=createWriteStream(partial);
-    let received=0;
-    try {
-      for await(const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
-        received+=chunk.length;
-        if(received>2*model.megabytes*1024*1024) throw new Error('The speech model download is larger than expected.');
-        hash.update(chunk);
-        if(!file.write(chunk)) await once(file,'drain');
-        progress(Math.min(.99,received/total));
-      }
-    } finally { await new Promise<void>(resolve=>file.end(()=>resolve())); }
-    if(hash.digest('hex')!==model.sha1) throw new Error('The downloaded speech model failed its integrity check. Try again.');
-    await rename(partial,destination);
-    progress(1);
-    return destination;
-  } catch(error) {
-    await rm(partial,{force:true}).catch(()=>{});
-    throw controller.signal.aborted?new Error('The speech model download was cancelled.'):error;
-  } finally { modelDownload=undefined; }
+  try { return await downloadVerified(WHISPER_MODEL_SOURCE+model.file,directory,model,progress,controller.signal,fetcher); }
+  finally { modelDownload=undefined; }
 }
 /** whisper.cpp's JSON: one entry per caption-sized segment with millisecond offsets. */
 export function parseWhisperOutput(text:string):{start:number;end:number;text:string}[] {

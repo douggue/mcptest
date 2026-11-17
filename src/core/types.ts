@@ -241,6 +241,13 @@ export interface EditorAPI {
   /** Write a noise-reduced and/or loudness-levelled copy of a clip's source; progress arrives as derivative progress. */
   cleanAudio: (jobId: string, project: Project, clipId: string, request: import("./audioCleanup").AudioCleanupRequest) => Promise<MediaAsset>;
   cancelAudioCleanup: (jobId: string) => Promise<void>;
+  /** Whether the person-segmentation model is on this computer, and its download size. */
+  getBackgroundModel: () => Promise<{ ready: boolean; megabytes: number }>;
+  /** Fetch that model on the user's request; progress arrives as derivative progress for job "background-model". */
+  downloadBackgroundModel: () => Promise<{ ready: boolean; megabytes: number }>;
+  /** Cut the person out of a clip; progress arrives as derivative progress. */
+  removeBackground: (jobId: string, project: Project, clipId: string) => Promise<import("./backgroundRemoval").BackgroundRemovalResult>;
+  cancelBackgroundRemoval: (jobId: string) => Promise<void>;
   /** Save a finished microphone take (the recorder's bytes) as a local audio asset. */
   saveRecording: (bytes: Uint8Array, name: string) => Promise<MediaAsset>;
   /** Name of the usable graphics-card encoder, or null when exports are software only. */

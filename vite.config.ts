@@ -24,7 +24,7 @@ export default defineConfig(({ command }) => ({
             rollupOptions: {
               input: "electron/main.ts",
               output: { format: "cjs", entryFileNames: "main.cjs" },
-              external: ["electron", "@napi-rs/canvas"],
+              external: ["electron", "@napi-rs/canvas", "onnxruntime-node"],
             },
           },
         },

@@ -127,7 +127,7 @@ npm run dist:win
 
 On Windows the app starts in English whatever the system language, the editor's top bar doubles as the title bar with the system window buttons at its right end, system text-to-speech uses the installed Windows voices, and speech recognition uses a bundled [whisper.cpp](https://github.com/ggml-org/whisper.cpp) engine with a Whisper model that the captions dialog downloads when you ask for it (or that you choose from disk). The Codex plugin launcher remains macOS-only.
 
-Also in this build: export presets for YouTube, TikTok / Reels / Shorts and Instagram, GIF and sound-only (M4A, WAV) export, graphics-card H.264 encoding on Windows with automatic fallback to software, voice-over recording from the timeline, and one-click noise reduction and loudness levelling for a clip.
+Also in this build: export presets for YouTube, TikTok / Reels / Shorts and Instagram, GIF and sound-only (M4A, WAV) export, graphics-card H.264 encoding on Windows with automatic fallback to software, voice-over recording from the timeline, one-click noise reduction and loudness levelling for a clip, and background removal for people (a person-segmentation model is downloaded when you first ask for it; stills get real transparency, videos get a keyed copy).
 
 The speech engine is cross-compiled like the media tools (`npm run speech:build:win` on Linux x64 or WSL, output in `speech-tools/win32-x64/`).
 

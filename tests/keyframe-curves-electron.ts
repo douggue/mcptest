@@ -242,11 +242,11 @@ try {
   q = await save();
   assert.deepEqual(q.clips[0].keyframes, before);
   await openCurve();
-  await page.getByRole("button", { name: "锁定视频 1", exact: true }).click();
+  await page.getByRole("button", { name: "锁定Video 1", exact: true }).click();
   await expect(
     panel().getByRole("button", { name: "添加当前帧" }),
   ).toBeDisabled();
-  await page.getByRole("button", { name: "解锁视频 1", exact: true }).click();
+  await page.getByRole("button", { name: "解锁Video 1", exact: true }).click();
   q = await save();
   checks.push(
     "clipboard overflow is atomic; paste replaces matching ticks; exact time editing undoes correctly; locked tracks disable editing",

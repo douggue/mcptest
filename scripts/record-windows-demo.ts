@@ -132,7 +132,15 @@ try {
   await pause(600);
 
   await page.locator(".export-button").click();
-  await pause(2000);
+  await pause(1500);
+  // Show the destination presets, then go back to the project's own size for the export itself.
+  await page.getByLabel("Export destination").selectOption("youtube");
+  await pause(1500);
+  await page.screenshot({ path: path.join(output, "export-options.png") });
+  await page.getByLabel("Export destination").selectOption("custom");
+  await page.getByLabel("Export resolution").selectOption({ index: 0 });
+  await page.getByLabel("Export quality").selectOption("standard");
+  await pause(500);
   await page.getByRole("button", { name: "Start export", exact: true }).click();
   await expect(page.getByText("Export complete", { exact: true })).toBeVisible({ timeout: 120000 });
   steps.push("exported the project with the bundled FFmpeg");
@@ -174,7 +182,7 @@ const summary = {
     streams: rendered.streams.map((stream) => `${stream.codec_type}:${stream.codec_name} ${stream.width ?? ""}x${stream.height ?? ""}`),
   },
   files: Object.fromEntries(await Promise.all(
-    ["desktop.mp4", "desktop.png", "window.mp4", "editor.png", "file-menu.png", "about.png", "export-complete.png"]
+    ["desktop.mp4", "desktop.png", "window.mp4", "editor.png", "file-menu.png", "about.png", "export-options.png", "export-complete.png"]
       .map(async (name) => [name, await size(name)] as const),
   )),
   desktopCapture: captureLog.split(/\r?\n/).filter(Boolean).slice(-3),
