@@ -172,3 +172,52 @@ jobs:
           name: ReaCut-Windows
           path: release/ReaCut-*-setup.exe
           if-no-files-found: error
+  windows-demo:
+    # Opt-in with "[windows-demo]" in the pushed commit message: installs the built installer on a
+    # Windows desktop, records a short tour and commits the media under docs/windows to this branch.
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[windows-demo]')
+    needs: package-windows
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: ReaCut-Windows
+          path: release
+      - name: Use a full-size desktop
+        continue-on-error: true
+        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+      - name: Install ReaCut and a desktop recorder
+        run: |
+          $installer = (Get-ChildItem release -Filter 'ReaCut-*-setup.exe' | Select-Object -First 1).FullName
+          Start-Process -FilePath $installer -ArgumentList '/S' -Wait
+          $program = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Depth 1 -Filter ReaCut.exe | Select-Object -First 1
+          if (-not $program) { throw 'The installer did not place ReaCut.exe under the per-user Programs folder.' }
+          $tools = Join-Path $program.DirectoryName 'resources\media-tools'
+          "REACUT_TEST_APP=$($program.DirectoryName)" >> $env:GITHUB_ENV
+          "REACUT_FFMPEG=$tools\ffmpeg.exe" >> $env:GITHUB_ENV
+          "REACUT_FFPROBE=$tools\ffprobe.exe" >> $env:GITHUB_ENV
+          choco install ffmpeg --no-progress -y
+          $recorder = (Get-ChildItem "$env:ChocolateyInstall\lib\ffmpeg" -Recurse -Filter ffmpeg.exe | Select-Object -First 1).FullName
+          "REACUT_DEMO_RECORDER=$recorder" >> $env:GITHUB_ENV
+      - name: Record the tour
+        run: |
+          npm run demo
+          npx tsx scripts/record-windows-demo.ts
+      - name: Commit the recording to this branch
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/windows
+          git commit -m "Record ReaCut running on Windows"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
