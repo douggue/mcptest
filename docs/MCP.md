@@ -35,6 +35,9 @@ you; you do not run it by hand.
   "mcpServers": {
     "cutroom": {
       "command": "C:\\path\\to\\cutroom\\.venv\\Scripts\\python.exe",
+
+> If the Cutroom folder is inside OneDrive or Dropbox, `start.bat` puts the virtualenv in `%LOCALAPPDATA%\Cutroom\venv`, so use `%LOCALAPPDATA%\Cutroom\venv\Scripts\python.exe` (written out in full, e.g. `C:\\Users\\you\\AppData\\Local\\Cutroom\\venv\\Scripts\\python.exe`) as the command instead.
+
       "args": ["-m", "server.mcp_server"],
       "env": { "PYTHONPATH": "C:\\path\\to\\cutroom" }
     }

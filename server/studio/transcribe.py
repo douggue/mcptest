@@ -27,6 +27,16 @@ def _finish(words: list[dict]) -> list[dict]:
     return clean
 
 
+def _samples(wav: Path):
+    """16 kHz mono 16-bit WAV (as written above) as the float32 array Whisper expects."""
+    import wave
+
+    import numpy as np
+    with wave.open(str(wav), "rb") as w:
+        raw = w.readframes(w.getnframes())
+    return np.frombuffer(raw, np.int16).astype(np.float32) / 32768.0
+
+
 def whisper(path: Path, job: Job, model_name: str | None = None, language: str | None = None) -> dict:
     try:
         from faster_whisper import WhisperModel
@@ -44,7 +54,9 @@ def whisper(path: Path, job: Job, model_name: str | None = None, language: str |
         def run(device: str, compute: str) -> dict:
             job.update(0.12, f"Loading speech model ({name}); the first run downloads it")
             model = WhisperModel(name, device=device, compute_type=compute)
-            segments, meta = model.transcribe(str(wav), word_timestamps=True, vad_filter=True, language=language or None)
+            # Hand Whisper the samples rather than the file: reading files itself goes through PyAV, whose newer
+            # versions dropped an option faster-whisper still passes ("unexpected keyword argument 'metadata_errors'").
+            segments, meta = model.transcribe(_samples(wav), word_timestamps=True, vad_filter=True, language=language or None)
             words: list[dict] = []
             for seg in segments:
                 for w in seg.words or []:
@@ -63,8 +75,10 @@ def whisper(path: Path, job: Job, model_name: str | None = None, language: str |
             except Cancelled:
                 raise
             except Exception as e:
-                raise MediaError(f"Transcription failed. The '{name}' speech model is downloaded on first use, "
-                                 f"which needs internet access. Details: {e or first}") from e
+                detail = str(e or first)
+                download = any(k in detail.lower() for k in ("connect", "resolve", "huggingface", "timed out", "ssl", "proxy", "404"))
+                hint = (f" The '{name}' speech model is downloaded on first use, which needs internet access." if download else "")
+                raise MediaError(f"Transcription failed.{hint} Details: {detail}") from e
     finally:
         wav.unlink(missing_ok=True)
 

@@ -38,14 +38,29 @@ where ffmpeg >nul 2>nul || (
 echo  ffmpeg found.
 echo.
 
-rem ---- first run: install ----------------------------------------------------
-if not exist .venv\Scripts\python.exe (
-  echo  [1/4] Creating a private Python environment ^(first run only^)...
-  %PY% -m venv .venv || goto fail
+rem ---- where things go --------------------------------------------------------
+rem OneDrive (and Dropbox) lock each new file while they upload it, which breaks installing thousands of small
+rem files ("WinError 32 ... being used by another process"), and would upload every video Cutroom imports.
+rem Inside such a folder, the Python environment and the videos live in folders that are not synced.
+set "ENVDIR=.venv"
+echo "%~dp0" | findstr /i /c:"\OneDrive" /c:"\Dropbox" >nul && (
+  set "ENVDIR=%LOCALAPPDATA%\Cutroom\venv"
+  if not defined CUTROOM_DATA set "CUTROOM_DATA=%USERPROFILE%\CutroomData"
+  echo  [i] This folder is synced by OneDrive or Dropbox, which gets in the way of installing and would upload
+  echo      every video. So Cutroom keeps its Python environment in %LOCALAPPDATA%\Cutroom\venv
+  echo      and your videos and projects in %USERPROFILE%\CutroomData.
+  echo      Simpler: move this whole folder somewhere not synced, such as C:\Cutroom, and run start.bat there.
+  echo.
 )
-set "VPY=.venv\Scripts\python.exe"
 
-if not exist .venv\installed.txt (
+rem ---- first run: install ----------------------------------------------------
+if not exist "%ENVDIR%\Scripts\python.exe" (
+  echo  [1/4] Creating a private Python environment ^(first run only^)...
+  %PY% -m venv "%ENVDIR%" || goto fail
+)
+set "VPY=%ENVDIR%\Scripts\python.exe"
+
+if not exist "%ENVDIR%\installed.txt" (
   echo  [2/4] Installing the Python packages. This downloads a few hundred MB and can take 5-15 minutes.
   echo        You will see the progress below; it is working even when it pauses.
   echo.
@@ -57,7 +72,7 @@ if not exist .venv\installed.txt (
     echo    - %%p
     "%VPY%" -m pip install "%%p" >nul 2>nul || echo      [!] Could not install %%p; that feature stays off. Cutroom works without it.
   )
-  echo done> .venv\installed.txt
+  echo done> "%ENVDIR%\installed.txt"
 ) else (
   echo  [2/4] Python packages already installed.
 )

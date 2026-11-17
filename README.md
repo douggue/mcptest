@@ -21,7 +21,7 @@ You need three things installed first:
 
 Then:
 
-- **Windows:** double-click `start.bat`
+- **Windows:** double-click `start.bat`. Keep the folder out of OneDrive or Dropbox if you can (for example `C:\Cutroom`): they lock files while uploading them, which breaks the install, and would upload every video. If it is inside one, `start.bat` keeps the Python environment in `%LOCALAPPDATA%\Cutroom\venv` and your videos and projects in `%USERPROFILE%\CutroomData` instead.
 - **macOS / Linux:** run `./start.sh`
 
 The first run installs the dependencies and builds the interface (a few minutes). After that it starts in seconds. Open <http://127.0.0.1:8000>.
