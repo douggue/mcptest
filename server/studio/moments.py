@@ -156,8 +156,10 @@ _MOMENTS_SCHEMA = {
 
 
 def find_moments(words: list[dict], count: int = 6, min_len: float = 20, max_len: float = 60, query: str = "",
-                 brief: str = "", rules: list[str] | None = None) -> dict:
-    """Pick the best self-contained moments. Returns {engine, note, clips:[{in, out, hook_title, reason, score, ...}]}."""
+                 brief: str = "", rules: list[str] | None = None, extra: str = "") -> dict:
+    """Pick the best self-contained moments. Returns {engine, note, clips:[{in, out, hook_title, reason, score, ...}]}.
+
+    `extra` is appended to the request as is (the editor's instructions, past performance; see cliptypes.extra_note)."""
     lines = sentences(words)
     if not lines:
         return {"engine": "none", "note": "The transcript is empty.", "clips": []}
@@ -179,7 +181,7 @@ def find_moments(words: list[dict], count: int = 6, min_len: float = 20, max_len
             + (f"The editor is specifically looking for: {query.strip()}. Only return moments that match; return fewer, "
                "or none, if little matches.\n\n" if query.strip() else "\n\n")
             + "Transcript lines as [index] (start-end) text:\n\n" + listing
-        ) + _style_note(brief, rules)
+        ) + _style_note(brief, rules) + extra
         try:
             data = ai.ask_json(system, user, _MOMENTS_SCHEMA)
             clips = []

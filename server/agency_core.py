@@ -294,3 +294,37 @@ def views_timeline(posts: list[dict]) -> list[dict]:
         current.update(events[day])
         out.append({"date": day, "views": sum(current.values())})
     return out
+
+
+# ---------------------------------------------------------------- what has worked (fed to Find moments)
+
+PERFORMANCE_MIN_POSTS = 5
+
+
+def performance_summary(posts: list[dict], videos: list[dict], n: int = 5) -> dict | None:
+    """Best and worst live posts by views, for steering clip selection. None when fewer than 5 posts have views.
+
+    `videos` are the rows of the Agency video list ({key, title, duration}); a post links to one by video_key.
+    Returns {count, top: [{title, seconds, views}], bottom: [...], top_quarter_median_seconds}.
+    """
+    by_key = {v["key"]: v for v in videos if v.get("key")}
+    rows = []
+    for p in posts:
+        views = num(p.get("views"))
+        if p.get("status") not in VIEW_STATUSES or views <= 0:
+            continue
+        video = by_key.get(p.get("video_key") or "") or {}
+        title = (video.get("title") or p.get("video_title") or (p.get("caption") or {}).get("title") or "Untitled").strip()
+        seconds = num(video.get("duration")) or None
+        rows.append({"title": title, "seconds": round(seconds, 1) if seconds else None, "views": int(views)})
+    if len(rows) < PERFORMANCE_MIN_POSTS:
+        return None
+    rows.sort(key=lambda r: r["views"], reverse=True)
+    k = min(n, len(rows) // 2)
+    quarter = sorted(r["seconds"] for r in rows[:max(1, len(rows) // 4)] if r["seconds"])
+    median = None
+    if quarter:
+        mid = len(quarter) // 2
+        median = quarter[mid] if len(quarter) % 2 else (quarter[mid - 1] + quarter[mid]) / 2
+    return {"count": len(rows), "top": rows[:k], "bottom": rows[len(rows) - k:][::-1],
+            "top_quarter_median_seconds": round(median, 1) if median else None}
