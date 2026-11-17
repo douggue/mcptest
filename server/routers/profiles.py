@@ -39,7 +39,8 @@ def create_profile(body: dict) -> dict:
            "style": copy.deepcopy(base.get("style", {})), "elements": copy.deepcopy(base.get("elements", [])),
            "planner": base.get("planner", "speech"), "summary": base.get("summary", ""), "analysis": None, "note": "",
            # a copy of a built-in style keeps its limits and its steps
-           "limits": copy.deepcopy(base.get("limits")), "workflow": copy.deepcopy(base.get("workflow"))}
+           "limits": copy.deepcopy(base.get("limits")), "workflow": copy.deepcopy(base.get("workflow")),
+           "audio": copy.deepcopy(base.get("audio"))}
     for r in row["rules"]:
         r["source"] = "copied"
     return P.profiles.insert(row)

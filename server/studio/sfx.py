@@ -12,6 +12,7 @@ SR = 44100
 NAMES = {
     "pop": "Warm pop", "whoosh": "Soft whoosh", "click": "Click", "ding": "Ding",
     "riser": "Riser", "thud": "Thud", "swish": "Swish", "glitch": "Glitch", "sparkle": "Sparkle",
+    "camera": "Camera flash (built-in)", "camera-mine": "Camera flash (yours)",
 }
 
 
@@ -73,6 +74,16 @@ def _synth(name: str) -> np.ndarray:
             s = int(i * 0.06 * SR); m = n - s
             out[s:] += np.sin(2 * np.pi * f * t[:m]) * _env(m, 0.001, 0.12) * 0.4
         return out
+    if name == "camera":
+        # a shutter: two sharp clicks a few hundredths apart, a short burst of air, and a faint flash whine
+        n = int(SR * 0.45); t = np.arange(n) / SR; out = np.zeros(n)
+        for at, amp in ((0.0, 1.0), (0.055, 0.7)):
+            s0 = int(at * SR); m = int(SR * 0.03)
+            out[s0:s0 + m] += (_noise(m, 7 + s0) * 0.7 + np.sin(2 * np.pi * 3200 * t[:m]) * 0.3) * _env(m, 0.0003, 0.004) * amp
+        burst = int(SR * 0.12)
+        out[:burst] += _lowpass(_noise(burst, 9), 0.25) * _env(burst, 0.001, 0.03) * 0.5
+        out += np.sin(2 * np.pi * (5200 + 900 * t) * t) * _env(n, 0.02, 0.15) * 0.04
+        return out
     raise KeyError(name)
 
 
@@ -81,6 +92,8 @@ def ensure_sfx() -> Path:
     folder = DATA / "assets" / "sfx"
     folder.mkdir(parents=True, exist_ok=True)
     for name in NAMES:
+        if name.endswith("-mine"):
+            continue   # the person's own sounds are uploaded, never made here
         f = folder / f"{name}.wav"
         if f.exists():
             continue
@@ -92,3 +105,8 @@ def ensure_sfx() -> Path:
         with wave.open(str(f), "wb") as w:
             w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes(pcm.tobytes())
     return folder
+
+
+def camera_name() -> str:
+    """The camera-flash sound to use: the person's own when they have added one, else the built-in one."""
+    return "camera-mine" if (DATA / "assets" / "sfx" / "camera-mine.wav").exists() else "camera"

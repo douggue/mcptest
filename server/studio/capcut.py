@@ -410,7 +410,7 @@ def _build(cc, script, b: _Builder, spec: dict, job: Job) -> None:
     clean = None
     if audio.get("cleanSrc"):
         clean = b.bring(audio["cleanSrc"], "voice-cleaned")
-    muted = bool((audio.get("voiceover") or {}).get("muteOriginal"))
+    muted = bool((audio.get("voiceover") or {}).get("muteOriginal")) or bool((audio.get("music") or {}).get("replaces"))
     voice = 0.0 if muted else float(audio.get("voice", 1.0))
 
     # ---- picture area

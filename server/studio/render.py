@@ -106,6 +106,17 @@ def render_clip(project: dict, clip: dict, job: Job, scale: float = 1.0, crf: in
         out = unique_path(DATA / "exports", safe_name(title, "short"), "mp4")
         tmp_out = work / "out.mp4"
         _run_node(["--spec", str(spec_file), "--out", str(tmp_out), "--scale", str(scale), "--crf", str(crf)], job, render_span)
+        lufs = (spec.get("audio") or {}).get("lufs")
+        if lufs:
+            # The style's loudness target, with a peak limit so nothing clips. The picture is copied untouched.
+            levelled = work / "levelled.mp4"
+            try:
+                ffmpeg(["-i", str(tmp_out), "-map", "0:v:0", "-map", "0:a:0?", "-c:v", "copy",
+                        "-af", f"loudnorm=I={float(lufs):.1f}:TP=-1:LRA=11,aresample=48000", "-c:a", "aac", "-b:a", "192k",
+                        "-movflags", "+faststart", str(levelled)], job, None, (0.97, 0.99), "Evening out the loudness")
+                tmp_out = levelled
+            except MediaError as e:
+                job.update(message=f"Loudness left as rendered: {e}")
         shutil.move(str(tmp_out), str(out))
 
         # 3. Cover frame + bookkeeping.

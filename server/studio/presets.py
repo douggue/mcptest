@@ -12,9 +12,11 @@ def _rules(kind: str, *texts: str) -> list[dict]:
 BUILTIN: list[dict] = [
     {
         "id": "builtin-storyline", "name": "Storyline", "builtin": True, "planner": "story",
+        "audio": {"music": "under", "music_volume": 0.45, "duck": True, "fade_in": 0.08, "fade_out": 0.5, "lufs": -16, "camera_on": ["spotlight"]},
         "limits": {"graphics": ["label", "spotlight"], "label_look": "box", "sfx": False, "emoji": False, "hook": False,
                    "freezes": True, "speeds": True, "min_rate": 0.6, "zooms": False, "tracking": False},
         "workflow": [
+            {"text": "Add your camera-flash sound once (Framing → Audio mixer); it plays on every spotlight", "tool": "frame", "check": "camera"},
             {"text": "Trim the clip to the story: a little before the event to just after the payoff", "tool": "frame", "check": "manual"},
             {"text": "Add your music under the whole video", "tool": "frame", "check": "music"},
             {"text": "Plan the edit: title, captions, freezes and spotlights", "tool": "style", "check": "planned"},
@@ -48,9 +50,11 @@ BUILTIN: list[dict] = [
     },
     {
         "id": "builtin-kindness", "name": "Kindness story", "builtin": True, "planner": "story",
+        "audio": {"music": "replaces", "music_volume": 0.9, "duck": False, "fade_in": 0.08, "fade_out": 0.5, "lufs": -10, "camera_on": ["flash"]},
         "limits": {"graphics": ["label", "circle", "arrow", "flash", "dip", "emoji"], "label_look": "plain", "sfx": False, "emoji": True,
                    "hook": False, "freezes": True, "speeds": True, "min_rate": 0.5, "zooms": False, "tracking": True},
         "workflow": [
+            {"text": "Add your camera-flash sound once (Framing → Audio mixer); it plays on every flash", "tool": "frame", "check": "camera"},
             {"text": "Trim the clip to the story (about 20 to 35 seconds)", "tool": "frame", "check": "length:20-35"},
             {"text": "Add your music; it replaces the original sound. Start it so the drop lands on BUT THEN", "tool": "frame", "check": "music"},
             {"text": "Plan the edit: narration lines, the callout freeze, colour flashes", "tool": "style", "check": "planned"},
@@ -86,9 +90,11 @@ BUILTIN: list[dict] = [
     },
     {
         "id": "builtin-clean", "name": "Clean story", "builtin": True, "planner": "story",
+        "audio": {"music": "replaces", "music_volume": 0.9, "duck": False, "fade_in": 0.08, "fade_out": 0.5, "lufs": -12, "camera_on": ["flash"]},
         "limits": {"graphics": ["label", "nametag", "circle", "arrow", "flash", "emoji"], "label_look": "quoted", "sfx": False, "emoji": True,
                    "hook": False, "freezes": False, "speeds": True, "min_rate": 0.5, "zooms": False, "tracking": True},
         "workflow": [
+            {"text": "Add your camera-flash sound once (Framing → Audio mixer); it plays on every flash", "tool": "frame", "check": "camera"},
             {"text": "Trim the clip to 16 to 22 seconds", "tool": "frame", "check": "length:16-22"},
             {"text": "Add your music; start it so the drop lands on BUT THEN", "tool": "frame", "check": "music"},
             {"text": "Plan the edit: quoted labels, name tag, callouts and colour flashes (no freezes)", "tool": "style", "check": "planned"},
@@ -120,6 +126,7 @@ BUILTIN: list[dict] = [
     },
     {
         "id": "builtin-neon", "name": "Neon story", "builtin": True, "planner": "story",
+        "audio": {"music": "none", "lufs": -12, "camera_on": []},
         "limits": {"graphics": ["label", "nametag", "spotlight", "arrow", "flash"], "label_look": "neon", "sfx": False, "emoji": False,
                    "hook": False, "freezes": True, "speeds": True, "min_rate": 0.5, "zooms": False, "tracking": True},
         "workflow": [
@@ -155,6 +162,7 @@ BUILTIN: list[dict] = [
     },
     {
         "id": "builtin-brand", "name": "Brand ad", "builtin": True, "planner": "speech",
+        "audio": {"music": "none", "lufs": -20, "camera_on": []},
         "limits": {"graphics": [], "sfx": False, "emoji": False, "hook": False, "freezes": False, "speeds": False, "zooms": True, "tracking": True},
         "workflow": [
             {"text": "Put your channel name and picture in the header", "tool": "style", "check": "header"},
@@ -188,6 +196,7 @@ BUILTIN: list[dict] = [
     },
     {
         "id": "builtin-narrated", "name": "Narrated story", "builtin": True, "planner": "speech", "draft": True,
+        "audio": {"music": "under", "music_volume": 0.3, "duck": True, "fade_in": 0.3, "fade_out": 0, "lufs": -10, "camera_on": []},
         "limits": {"graphics": [], "sfx": False, "emoji": False, "hook": False, "freezes": False, "speeds": False, "zooms": True, "tracking": True},
         "workflow": [
             {"text": "Write your script: 60 to 70 words, premise first, no spoilers (the style's rules are under Style)", "tool": "style", "check": "manual"},

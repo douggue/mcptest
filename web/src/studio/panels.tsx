@@ -9,7 +9,7 @@ import { Button, Field, More, Seg, Slider, Toggle, fmtBytes, fmtDur, fmtTime, to
 import type { Ctx } from './Editor';
 import {
   ANIM_LABELS, AnalysedShot, FREE_TYPES, GRAPHIC_LABELS, TEXTLESS, ZONE_LABELS, addCut, addFreeze, addSpeed, applyAnalysis, applyRemix, aspectOf, autoBroll, autoZooms,
-  applyDirect, applyStyle, clamp, faceToX, isFree, newGraphic, outSeconds, paneCount, patchWord, removeFillers, removeShot, restoreWords, round3,
+  applyDirect, applyStyle, withStyleMusic, clamp, faceToX, isFree, newGraphic, outSeconds, paneCount, patchWord, removeFillers, removeShot, restoreWords, round3,
   EditSpec, captionsSrt, setAspect, setLayout, shuffleGraphics, uid, withSegments,
 } from './logic';
 import { GenerateImageButton } from './GenerateButton';
@@ -35,6 +35,86 @@ const Group = ({ title, actions, children, id, more }: { title: string; actions?
     </div>
   );
 };
+
+/* ================================================================ Music start and the drop */
+function MusicStart({ ctx }: { ctx: Ctx }) {
+  const { spec, update } = ctx;
+  const music = spec.audio.music!;
+  const [drop, setDrop] = useState('');
+  const [length, setLength] = useState(0);   // the song's length, read from the file
+  useEffect(() => {
+    const a = new Audio(); a.preload = 'metadata'; a.src = music.src;
+    a.onloadedmetadata = () => {
+      const d = Number.isFinite(a.duration) ? Math.round(a.duration * 1000) / 1000 : 0;
+      setLength(d);
+      // remembered on the clip so the preview can wrap a start past the end of the song (it loops)
+      if (d && spec.audio.music?.length !== d) update((s) => (s.audio.music ? { ...s, audio: { ...s.audio, music: { ...s.audio.music, length: d } } } : s), 'mlen');
+    };
+    return () => { a.onloadedmetadata = null; a.src = ''; };
+  }, [music.src]);
+  const here = ctx.frame / spec.fps;   // seconds into the short at the playhead
+  const setStart = (v: number) => update((s) => ({ ...s, audio: { ...s.audio, music: { ...s.audio.music!, start: Math.max(0, Math.round(v * 100) / 100) } } }), 'mstart');
+  const dropSec = parseFloat(drop.replace(',', '.'));
+  function putDrop() {
+    const start = dropSec - here;
+    if (length && dropSec >= length) { toast(`The song is only ${length.toFixed(1)}s long`, 'bad'); return; }
+    if (start < 0) { toast(`The drop is ${dropSec.toFixed(1)}s into the song, earlier than the playhead (${here.toFixed(1)}s): move the playhead earlier`, 'bad'); return; }
+    setStart(start);
+    toast(`The song now starts at ${start.toFixed(1)}s, so its drop lands at ${fmtTime(here, true)}`, 'good');
+  }
+  return (
+    <div className="col gap-s">
+      <Slider label="Song starts from" min={0} max={Math.max(1, length ? length - 0.5 : 240)} step={0.1} value={music.start || 0} format={(v) => `${v.toFixed(1)}s into the song`} onChange={setStart} />
+      <div className="row gap-s wrap" style={{ alignItems: 'flex-end' }}>
+        <Field label="The drop is at (seconds into the song)">
+          <input type="text" value={drop} inputMode="decimal" placeholder="e.g. 31.5" onChange={(e) => setDrop(e.target.value)} style={{ width: 110 }} />
+        </Field>
+        <Button small disabled={!(dropSec >= 0)} onClick={putDrop} title="Put the playhead on the moment the drop should hit, such as BUT THEN">Drop at the playhead ({fmtTime(here, true)})</Button>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================ The person's own camera-flash sound */
+function CameraSound({ ctx, on }: { ctx: Ctx; on: string[] }) {
+  const { assets, reloadAssets, spec } = ctx;
+  const mine = assets.sfx.find((a) => a.id === 'camera-mine');
+  const [start, setStart] = useState('');
+  const [end, setEnd] = useState('');
+  const [gain, setGain] = useState(1);
+  const file = useRef<HTMLInputElement>(null);
+  const test = (name: string) => { const a = new Audio(`${spec.sfxBase}${name}.wav?${Date.now()}`); a.volume = Math.min(1, spec.audio.fx || 1); a.play().catch(() => {}); };
+  async function send(f: File) {
+    const form = new FormData();
+    form.append('file', f); form.append('start', String(parseFloat(start) || 0)); form.append('end', String(parseFloat(end) || 0)); form.append('gain', String(gain));
+    try { await upload('/api/assets/sfx/camera', form); reloadAssets(); toast('Your camera-flash sound is saved; Plan the edit puts it on every ' + on.join(' and '), 'good'); test('camera-mine'); }
+    catch (e) { toastError(e); }
+  }
+  // Graphics already placed keep whichever camera sound they had; switch them all to the current one.
+  const current = mine ? 'camera-mine' : 'camera';
+  const stale = spec.graphics.filter((g) => on.includes(g.type) && g.sfx !== current).length;
+  return (
+    <div className="card col gap-s">
+      <div className="row between"><b className="small">Camera-flash sound</b><span className="small muted">{mine ? 'Yours' : 'Built-in for now'}</span></div>
+      <span className="small muted">Plays on every {on.join(' and ')} in this style. Add your own recording once; if it is longer, give the seconds where the shutter is.</span>
+      <div className="row gap-s wrap" style={{ alignItems: 'flex-end' }}>
+        <Field label="From (s)"><input type="text" value={start} inputMode="decimal" placeholder="0" onChange={(e) => setStart(e.target.value)} style={{ width: 70 }} /></Field>
+        <Field label="To (s)"><input type="text" value={end} inputMode="decimal" placeholder="end" onChange={(e) => setEnd(e.target.value)} style={{ width: 70 }} /></Field>
+        <Field label={`Louder ×${gain.toFixed(1)}`}><input type="range" min={0.5} max={3} step={0.1} value={gain} onChange={(e) => setGain(+e.target.value)} /></Field>
+      </div>
+      <input ref={file} type="file" accept="audio/*,video/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) send(f); e.target.value = ''; }} />
+      <div className="row gap-s wrap">
+        <Button small icon="upload" onClick={() => file.current?.click()}>{mine ? 'Replace my sound' : 'Add my sound'}</Button>
+        <Button small icon="speaker" onClick={() => test(current)}>Test</Button>
+        {stale > 0 && (
+          <Button small onClick={() => ctx.update((s) => ({ ...s, graphics: s.graphics.map((g) => (on.includes(g.type) ? { ...g, sfx: current } : g)) }))}>
+            Use it on the {stale} {on.join('/')}{stale > 1 ? 's' : ''} already placed
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /* ================================================================ Framing & audio */
 export function FramePanel({ ctx }: { ctx: Ctx }) {
@@ -270,7 +350,9 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
             : <Button small icon="wand" onClick={cleanAudio} disabled={jobs.busy}>Clean up voice</Button>}
         </div>
         <Field label="Music">
-          <select value={music?.src ?? ''} onChange={(e) => update((s) => ({ ...s, audio: { ...s.audio, music: e.target.value ? { src: e.target.value, volume: music?.volume ?? 0.18, duck: music?.duck ?? true, start: 0 } : null } }))}>
+          <select value={music?.src ?? ''} onChange={(e) => update((s) => ({ ...s, audio: { ...s.audio, music: e.target.value
+            ? withStyleMusic({ src: e.target.value, volume: music?.volume ?? 0.18, duck: music?.duck ?? true, start: music?.src === e.target.value ? music.start : 0 }, frameStyle)
+            : null } }))}>
             <option value="">None</option>
             {assets.music.map((a) => <option key={a.url} value={a.url}>{a.label}</option>)}
           </select>
@@ -281,8 +363,19 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
             <Slider label="Music volume" min={0} max={1} step={0.01} value={music.volume} format={(v) => `${Math.round(v * 100)}%`}
               onChange={(v) => update((s) => ({ ...s, audio: { ...s.audio, music: { ...music, volume: v } } }), 'music')} />
             <Toggle checked={music.duck} onChange={(v) => update((s) => ({ ...s, audio: { ...s.audio, music: { ...music, duck: v } } }))} label="Lower music while someone speaks" />
+            <Toggle checked={!!music.replaces} onChange={(v) => update((s) => ({ ...s, audio: { ...s.audio, music: { ...music, replaces: v } } }))} label="Music replaces the original sound" />
+            <MusicStart ctx={ctx} />
+            <More title="Music fades">
+              <Slider label="Fade in" min={0} max={2} step={0.02} value={music.fadeIn ?? 0} format={(v) => `${v.toFixed(2)}s`}
+                onChange={(v) => update((s) => ({ ...s, audio: { ...s.audio, music: { ...music, fadeIn: v } } }), 'mfi')} />
+              <Slider label="Fade out" min={0} max={3} step={0.05} value={music.fadeOut ?? spec.look.fadeOut ?? 0} format={(v) => `${v.toFixed(2)}s`}
+                onChange={(v) => update((s) => ({ ...s, audio: { ...s.audio, music: { ...music, fadeOut: v } } }), 'mfo')} />
+            </More>
           </>
         )}
+        {frameStyle?.audio?.music === 'none' && music && <div className="notice warn small">{frameStyle.name} keeps the original sound with no music.</div>}
+        {(frameStyle?.audio?.camera_on?.length ?? 0) > 0 && <CameraSound ctx={ctx} on={frameStyle!.audio!.camera_on!} />}
+        {spec.audio.lufs != null && <span className="small muted">The export is evened out to {spec.audio.lufs} LUFS loudness ({frameStyle?.name ?? 'the style'}).</span>}
         <Field label="Voiceover">
           <select value={vo?.src ?? ''} onChange={(e) => update((s) => ({ ...s, audio: { ...s.audio, voiceover: e.target.value ? { src: e.target.value, volume: vo?.volume ?? 1, at: vo?.at ?? 0, muteOriginal: vo?.muteOriginal ?? false } : null } }))}>
             <option value="">None</option>

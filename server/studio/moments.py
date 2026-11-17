@@ -534,6 +534,11 @@ def limit_direct(data: dict, limits: dict | None, has_title: bool) -> dict:
             els.insert(0, {"type": "label", "at_seconds": 0.0, "seconds": 2.5, "text": data["title"].strip(), "colour": "", "label_look": look,
                            "position": "upper", "on_subject": False, "animation": "type"})
         data["title"] = ""
+    camera = set(limits.get("camera_on") or [])
+    if camera:
+        from .sfx import camera_name
+        name = camera_name()
+        els = [dict(e, sfx=name) if e["type"] in camera else e for e in els]
     data["elements"] = els
     if not limits.get("freezes", True):
         data["freezes"] = []

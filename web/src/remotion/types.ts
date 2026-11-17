@@ -140,8 +140,10 @@ export type AudioMix = {
   fx: number;      // 0..1
   cleanSrc?: string;      // cleaned-up voice track (replaces the video's own audio)
   cleanOffset?: number;   // source time at which cleanSrc starts
-  music: { src: string; volume: number; duck: boolean; start: number } | null;
+  /** start: seconds into the song at the short's first frame; replaces: the original sound is muted while it plays. */
+  music: { src: string; volume: number; duck: boolean; start: number; fadeIn?: number; fadeOut?: number; replaces?: boolean; length?: number } | null;
   voiceover: { src: string; volume: number; at: number; muteOriginal: boolean } | null; // `at` is seconds into the short
+  lufs?: number;   // loudness the export is evened out to (set by a style), e.g. -16
 };
 
 export type Brand = {

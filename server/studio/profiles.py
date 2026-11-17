@@ -459,7 +459,9 @@ def limits(profile_id: str | None) -> dict | None:
     """What the planners may add for this style (graphic types, sound effects, emoji, a timed opening title,
     freezes, speed changes). None means no limits, as for styles learned from references."""
     p = lookup(profile_id)
-    return dict(p["limits"]) if p and p.get("limits") else None
+    if not p or not p.get("limits"):
+        return None
+    return {**p["limits"], "camera_on": list((p.get("audio") or {}).get("camera_on") or [])}
 
 
 RULE_SYSTEM = """\

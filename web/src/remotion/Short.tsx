@@ -60,7 +60,7 @@ const Pane: React.FC<{
   const left = mode === 'cover' ? -(dw - w) * (x / 100) : (w - dw) / 2;
   const top = mode === 'cover' ? -(dh - h) * (y / 100) : (h - dh) / 2;
   const useClean = !!spec.audio.cleanSrc;
-  const volume = spec.audio.voiceover?.muteOriginal ? 0 : spec.audio.voice;
+  const volume = spec.audio.voiceover?.muteOriginal || spec.audio.music?.replaces ? 0 : spec.audio.voice;
   const video = (
     <OffthreadVideo
       src={spec.src}
@@ -87,7 +87,7 @@ const Panes: React.FC<{ spec: ShortSpec; piece: Piece }> = ({ spec, piece }) => 
   const xs = paneXAt(spec.shots, t);
   const zoom = zoomAt(spec.zooms, t) * driftAt(spec.shots, t, spec.out, spec.look.drift ?? 0);
   const y = shot.y ?? 50;
-  const cleanVolume = spec.audio.voiceover?.muteOriginal ? 0 : spec.audio.voice;
+  const cleanVolume = spec.audio.voiceover?.muteOriginal || spec.audio.music?.replaces ? 0 : spec.audio.voice;
   const clean = spec.audio.cleanSrc && cleanVolume > 0 && !piece.hold && (
     <Audio src={spec.audio.cleanSrc} playbackRate={piece.rate} trimBefore={Math.max(0, Math.round((piece.srcStart - (spec.audio.cleanOffset ?? 0)) * fps))} volume={cleanVolume} />
   );
@@ -438,9 +438,10 @@ export const Short: React.FC<{ spec: ShortSpec }> = ({ spec }) => {
       )}
       {ends < 1 && <AbsoluteFill style={{ background: '#000', opacity: 1 - ends }} />}
       {music?.src && music.volume > 0 && (
-        <Audio src={music.src} loop trimBefore={Math.round((music.start || 0) * fps)}
+        <Audio src={music.src} loop trimBefore={Math.round((music.length ? (music.start || 0) % music.length : music.start || 0) * fps)}
           volume={(f) => music.volume * (envelope ? 1 - 0.72 * (envelope[Math.min(envelope.length - 1, f)] ?? 0) : 1)
-            * (spec.look.fadeOut ? Math.max(0, Math.min(1, (durationInFrames - 1 - f) / Math.max(1, spec.look.fadeOut * fps))) : 1)} />
+            * Math.min(1, f / Math.max(1, (music.fadeIn ?? 0) * fps))
+            * ((music.fadeOut ?? spec.look.fadeOut) ? Math.max(0, Math.min(1, (durationInFrames - 1 - f) / Math.max(1, (music.fadeOut ?? spec.look.fadeOut ?? 0) * fps))) : 1)} />
       )}
       {vo?.src && vo.volume > 0 && (
         <Sequence from={Math.round((vo.at || 0) * fps)}>

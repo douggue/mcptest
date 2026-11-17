@@ -96,6 +96,17 @@ def for_render(spec: dict, offset: float, base_url: str, src_url: str) -> dict:
     if audio.get("cleanSrc"):
         audio["cleanSrc"] = url(audio["cleanSrc"])
         audio["cleanOffset"] = audio.get("cleanOffset", 0) - offset
+    music = audio.get("music")
+    if music and music.get("src") and music.get("start"):
+        # a start past the end of the song wraps round (the song loops), so a short track can never fail the render
+        try:
+            from ..config import media_path
+            from ..media import probe
+            length = probe(media_path(music["src"]))["duration"]
+            if length and music["start"] >= length - 0.05:
+                music["start"] = round(music["start"] % length, 3)
+        except Exception:   # noqa: BLE001 - an unreadable file is reported by the render itself
+            pass
     for key in ("music", "voiceover"):
         if audio.get(key) and audio[key].get("src"):
             audio[key]["src"] = url(audio[key]["src"])

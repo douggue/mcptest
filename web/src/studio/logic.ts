@@ -427,6 +427,20 @@ function mainFace(spec: EditSpec, t: number) {
   return spec.shots[idx]?.faces?.[0];
 }
 
+/** The style's sound on the clip: its loudness target, and how music it already has should play. */
+export function styleAudio(audio: EditSpec['audio'], profile: StyleProfile): EditSpec['audio'] {
+  const a = profile.audio;
+  if (!a) return { ...audio, lufs: undefined };
+  return { ...audio, lufs: a.lufs, music: audio.music ? withStyleMusic(audio.music, profile) : audio.music };
+}
+
+/** Music settings a style asks for (volume, fades, whether it replaces the original sound). */
+export function withStyleMusic(m: NonNullable<EditSpec['audio']['music']>, profile: StyleProfile | undefined): NonNullable<EditSpec['audio']['music']> {
+  const a = profile?.audio;
+  if (!a || a.music === 'none') return m;
+  return { ...m, volume: a.music_volume ?? m.volume, duck: a.duck ?? m.duck, fadeIn: a.fade_in ?? m.fadeIn, fadeOut: a.fade_out ?? m.fadeOut, replaces: a.music === 'replaces' };
+}
+
 const braces = (text: string) => text.replace(/\{([^}|]*)(?:\|#[0-9a-fA-F]{3,8})?\}/g, '$1');
 
 /** Apply a style (built-in or learned): canvas, picture frame, captions, look, brand, and its standing elements. */
@@ -442,6 +456,7 @@ export function applyStyle(spec: EditSpec, profile: StyleProfile, seconds: numbe
     brand: { ...spec.brand, ...(st.brand ?? {}) },
     frame: st.frame ? { ...st.frame } : undefined,
     header: st.header ? { ...st.header, ...(spec.header ?? {}), y: st.header.y } : undefined,
+    audio: styleAudio(spec.audio, profile),
   };
   if (st.header && !spec.header && spec.brand.watermark) next.header = { ...next.header!, handle: spec.brand.watermark, name: spec.brand.watermark.replace(/^@/, ''), avatar: spec.brand.logo };
   const standing: Graphic[] = [];
@@ -471,6 +486,7 @@ export function applyDirect(spec: EditSpec, plan: DirectPlan): EditSpec {
     const at = round3(clamp(spec.in + e.at_seconds, spec.in, spec.out - 0.1));
     const g: Graphic = { ...newGraphic(type, at), duration: e.seconds, origin: 'ai', animation: (e.animation as Anim) || 'pop' };
     if (e.text) g.primary = e.text;
+    if (e.sfx) g.sfx = e.sfx;
     if (/^#[0-9a-fA-F]{6}$/.test(e.colour)) g.color = e.colour;
     if (type === 'label' && e.label_look) g.style = e.label_look as Graphic['style'];
     if (isFree(type) && !['flash', 'dip'].includes(type)) {

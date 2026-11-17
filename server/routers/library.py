@@ -4,11 +4,11 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from .. import jobs
 from ..config import DATA, media_url
-from ..media import MediaError, safe_name, unique_path
+from ..media import MediaError, ffmpeg, safe_name, unique_path
 from ..store import Collection
 from ..studio import extras
 from ..studio.sfx import NAMES as SFX_NAMES, ensure_sfx
@@ -67,6 +67,29 @@ def upload_asset(kind: str, file: UploadFile = File(...)) -> dict:
     with open(out, "wb") as f:
         shutil.copyfileobj(file.file, f)
     return _row(kind, out)
+
+
+@router.post("/assets/sfx/camera")
+def upload_camera(file: UploadFile = File(...), start: float = Form(0.0), end: float = Form(0.0), gain: float = Form(1.0)) -> dict:
+    """The person's own camera-flash sound, which styles play on their flashes or spotlights. Any audio file;
+    `start`/`end` (seconds) cut the part with the shutter out of a longer recording, `gain` makes it louder or softer."""
+    folder = _folder("sfx")
+    ext = Path(file.filename or "f.wav").suffix.lower()
+    if ext not in KINDS["music"] | {".mp4", ".mov", ".webm"}:
+        raise HTTPException(422, "Use an audio file (mp3, wav, m4a, ogg) or a video with the sound in it.")
+    tmp = folder / f"_upload{ext}"
+    with open(tmp, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    gain = max(0.1, min(6.0, float(gain)))
+    cut = ["-ss", f"{max(0.0, start):.3f}"] + (["-to", f"{end:.3f}"] if end > start else [])
+    try:
+        ffmpeg([*cut, "-i", str(tmp), "-vn", "-af", f"volume={gain:.2f},afade=t=in:d=0.004", "-ar", "44100", "-ac", "2",
+                "-c:a", "pcm_s16le", str(folder / "camera-mine.wav")])
+    except MediaError as e:
+        raise HTTPException(422, f"Could not read that sound: {e}")
+    finally:
+        tmp.unlink(missing_ok=True)
+    return _row("sfx", folder / "camera-mine.wav")
 
 
 @router.delete("/assets/{kind}/{name}")

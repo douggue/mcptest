@@ -23,11 +23,12 @@ export function useStyleProfile(id: string): StyleProfile | undefined {
 const TOOL_NAMES: Record<string, string> = { frame: 'Framing', style: 'Style', words: 'Words', motion: 'Motion', post: 'Export' };
 
 /** true / false when the program can tell from the clip; null when the person ticks it. */
-export function stepDone(step: StyleStep, spec: EditSpec, seconds: number): boolean | null {
+export function stepDone(step: StyleStep, spec: EditSpec, seconds: number, sfx: { id: string }[] = []): boolean | null {
   const c = step.check;
   const title = spec.graphics.find((g) => g.origin === 'style' && g.type === 'label' && g.duration > (spec.out - spec.in) * 0.6);
   if (c === 'music') return !!spec.audio.music?.src;
   if (c === 'no-music') return !spec.audio.music?.src;
+  if (c === 'camera') return sfx.some((a) => a.id === 'camera-mine');
   if (c === 'voiceover') return !!spec.audio.voiceover?.src;
   if (c === 'planned') return spec.graphics.some((g) => g.origin === 'ai') || (spec.freezes?.length ?? 0) > 0;
   if (c === 'title') return title ? !!title.primary.trim() && !/YOUR \{TITLE\}/.test(title.primary) : !!spec.hook.text.trim();
@@ -49,7 +50,7 @@ export function StyleSteps({ ctx, tab, openTool }: { ctx: Ctx; tab: string; open
   const steps = style?.workflow ?? [];
   if (!steps.length) return null;
 
-  const done = steps.map((s, i) => stepDone(s, ctx.spec, ctx.seconds) ?? ticks.includes(i));
+  const done = steps.map((s, i) => stepDone(s, ctx.spec, ctx.seconds, ctx.assets.sfx) ?? ticks.includes(i));
   const required = steps.map((s) => s.check !== 'optional');
   const left = done.filter((d, i) => !d && required[i]).length;
   const next = done.findIndex((d, i) => !d && required[i]);
@@ -67,7 +68,7 @@ export function StyleSteps({ ctx, tab, openTool }: { ctx: Ctx; tab: string; open
       </summary>
       <ol>
         {steps.map((s, i) => {
-          const auto = stepDone(s, ctx.spec, ctx.seconds) !== null;
+          const auto = stepDone(s, ctx.spec, ctx.seconds, ctx.assets.sfx) !== null;
           return (
             <li key={i} className={`${done[i] ? 'done' : ''} ${i === next ? 'next' : ''}`}>
               <button className="tick" disabled={auto} onClick={() => toggle(i)}
