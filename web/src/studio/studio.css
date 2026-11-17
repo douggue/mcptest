@@ -157,3 +157,5 @@
 .pill.conf-high { color: var(--good); }
 .pill.conf-medium { color: var(--accent); }
 .pill.conf-low { color: var(--bad); }
+
+.notes-list { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; color: var(--muted); }

@@ -34,6 +34,7 @@ DEFAULT_SETTINGS = {
     "gemini_model": "gemini-4-hydrogen",
     "whisper_model": "small",         # tiny | base | small | medium | large-v3
     "copy_folder": "",                # e.g. your Google Drive desktop folder; finished files are copied here
+    "capcut_folder": "",              # CapCut's projects folder on the computer that runs CapCut
     "pexels_api_key": "",             # optional, for stock b-roll search
     # Generation through Google AI Studio (uses the Gemini key). These are defaults that may need changing:
     # model names change often, so each is free text and the Generate page can load the live list.

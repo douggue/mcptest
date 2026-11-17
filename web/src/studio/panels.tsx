@@ -859,6 +859,21 @@ export function PostPanel({ ctx }: { ctx: Ctx }) {
     } catch (e) { toastError(e); }
   }
 
+  // CapCut project: the same timeline as an editable CapCut draft
+  type CapcutState = { available: boolean; folder: string; saved: string; direct: boolean; server_edition: boolean };
+  type CapcutResult = { where: 'capcut' | 'zip'; name: string; folder: string; file: string; size: number; notes: string[]; tracks: Record<string, number>; seconds: number };
+  const [capcut, setCapcut] = useState<CapcutState | null>(null);
+  const [capcutResult, setCapcutResult] = useState<CapcutResult | null>(null);
+  useEffect(() => { api.get<CapcutState>('/api/capcut/state').then(setCapcut).catch(() => {}); setCapcutResult(null); }, [clip.id]);
+  async function toCapcut() {
+    try {
+      await flush();
+      const r = await jobs.run<CapcutResult>(() => api.post('/api/capcut/export', { project_id: project.id, clip_id: clip.id }));
+      setCapcutResult(r);
+      toast(r.where === 'capcut' ? `Saved to CapCut as "${r.name}"` : 'CapCut project ready to download', 'good');
+    } catch (e) { toastError(e); }
+  }
+
   const caption = [meta.title, meta.description, meta.hashtags.join(' ')].filter(Boolean).join('\n\n');
 
   return (
@@ -891,6 +906,30 @@ export function PostPanel({ ctx }: { ctx: Ctx }) {
         </div>
         <Button variant="primary" icon="download" onClick={render} disabled={jobs.busy}>Export MP4 ({fmtDur(ctx.seconds)})</Button>
         <span className="small muted">Rendering takes roughly two to five times the clip length on a laptop.</span>
+      </Group>
+
+      <Group title="Finish in CapCut">
+        <span className="small muted">
+          Sends this edit to CapCut as a project you can keep editing there: every cut, the framing, captions, titles, music and voice on their own tracks.
+          {capcut?.direct ? ' It is saved straight into CapCut on this computer.' : ' You get a zip to unpack into CapCut\'s projects folder.'}
+        </span>
+        <Button icon="scissors" onClick={toCapcut} disabled={jobs.busy || !capcut?.available}>{capcut?.direct ? 'Send to CapCut' : 'Make CapCut project'}</Button>
+        {capcut && !capcut.available && <div className="notice warn">CapCut export is not installed. Run <span className="mono">pip install pycapcut==0.0.4</span> and restart Cutroom.</div>}
+        {capcut && capcut.available && !capcut.direct && !capcut.saved && (
+          <div className="notice">Tip: save your CapCut projects folder under <a href="#/settings">Settings → Saving</a> so the media links are exact. Without it, CapCut may ask you to relink the media once.</div>
+        )}
+        {capcutResult && (
+          <div className="card col gap-s" style={{ padding: 10 }}>
+            {capcutResult.where === 'capcut'
+              ? <div className="small"><b>Saved.</b> Open (or restart) CapCut and look for “{capcutResult.name}” under Projects.</div>
+              : <div className="col gap-s small">
+                  <a className="btn small primary" href={capcutResult.file} download>Download {capcutResult.name}.zip ({fmtBytes(capcutResult.size)})</a>
+                  <span>Unzip it into {capcutResult.folder ? <span className="mono">{capcutResult.folder}</span> : 'CapCut\'s projects folder'} so the folder “{capcutResult.name}” sits next to your other projects, then restart CapCut.</span>
+                </div>}
+            <div className="small muted mono">{Object.entries(capcutResult.tracks).filter(([k]) => k !== 'length').map(([k, v]) => `${k}: ${v}`).join(' · ')}</div>
+            {capcutResult.notes.length > 0 && <details className="small"><summary>What changes in CapCut ({capcutResult.notes.length})</summary><ul className="notes-list">{capcutResult.notes.map((n, i) => <li key={i}>{n}</li>)}</ul></details>}
+          </div>
+        )}
       </Group>
 
       <Group title={`Exports of this clip (${exportsList.length})`}>
