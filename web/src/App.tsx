@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { api } from './api';
 import Agency from './pages/Agency';
 import Clipper from './pages/Clipper';
+import Generate from './pages/Generate';
 import Home from './pages/Home';
 import Library from './pages/Library';
 import Settings from './pages/Settings';
@@ -14,6 +15,7 @@ const PAGES: Page[] = [
   { id: 'home', label: 'Home', short: 'Home', icon: 'home', group: 'main', el: () => <Home /> },
   { id: 'clipper', label: 'Clipper', short: 'Clipper', icon: 'scissors', group: 'create', el: () => <Clipper /> },
   { id: 'studio', label: 'Shorts studio', short: 'Studio', icon: 'film', group: 'create', el: () => <Studio /> },
+  { id: 'generate', label: 'Generate', short: 'Generate', icon: 'sparkle', group: 'create', el: () => <Generate /> },
   { id: 'library', label: 'Library', short: 'Library', icon: 'folder', group: 'manage', el: () => <Library /> },
   { id: 'agency', label: 'Agency', short: 'Agency', icon: 'chart', group: 'manage', el: () => <Agency /> },
   { id: 'settings', label: 'Settings', short: 'Settings', icon: 'gear', group: 'foot', el: () => <Settings /> },
@@ -135,7 +137,7 @@ export function App() {
       </header>
       <main className="main">{page.el()}</main>
       <nav className="tabbar" aria-label="Main">
-        {PAGES.filter((p) => p.group !== 'foot').map((p) => (
+        {PAGES.filter((p) => p.group !== 'foot' && p.id !== 'generate').map((p) => (
           <button key={p.id} className={p.id === page.id ? 'active' : ''} onClick={() => go(p.id)} aria-current={p.id === page.id ? 'page' : undefined}>
             <Icon name={p.icon} size={20} />
             {p.short}
