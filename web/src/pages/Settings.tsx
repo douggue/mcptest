@@ -76,7 +76,7 @@ export default function Settings() {
 
       <Panel title="AI" actions={health?.ai ? <span className="pill good">Using {health.ai_provider}</span> : <span className="pill muted">No key set</span>}>
         <p className="muted">With a key, the AI picks the moments, scores them, plans graphics, writes hooks and post text, and translates captions. Without one, simpler built-in rules are used and translation is unavailable. Transcripts are sent to the provider you choose.</p>
-        <Field label="Provider" hint="With an API provider, if it has no key the other one is used when it has one.">
+        <Field label="Provider" hint="Claude API key and Gemini: if the chosen one has no key, the other is used when it has one. Claude subscription uses your Claude plan through Claude Code, no key needed.">
           <Seg value={s.ai_provider} onChange={(v) => set({ ai_provider: v })} options={[
             { value: 'anthropic', label: 'Claude API key' }, { value: 'gemini', label: 'Gemini (Google)' },
             { value: 'claude_code', label: 'Claude subscription', title: 'Uses the Claude Code program on this computer, signed in with your own Claude plan: no API key' },
@@ -400,7 +400,7 @@ function ClaudeCodeSettings({ s, set }: { s: SettingsData; set: (p: Partial<Sett
         </Field>
       </div>
       <Field label="Where Claude Code is (optional)" hint="Leave empty to find it automatically. Otherwise the full path to claude.exe.">
-        <input type="text" className="mono" spellCheck={false} placeholder="C:\\Users\\you\\.local\\bin\\claude.exe" value={s.claude_code_path} onChange={(e) => set({ claude_code_path: e.target.value })} />
+        <input type="text" className="mono" spellCheck={false} placeholder="C:\Users\you\.local\bin\claude.exe" value={s.claude_code_path} onChange={(e) => set({ claude_code_path: e.target.value })} />
       </Field>
       <span className="small muted">Every AI request runs through Claude Code with its tools switched off, and counts towards your Claude plan's usage limits like any Claude chat. Watching whole reference videos needs Gemini; with this choice, styles are studied from still frames.</span>
     </div>
