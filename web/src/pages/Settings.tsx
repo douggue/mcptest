@@ -131,8 +131,8 @@ export default function Settings() {
         <Field label="Also copy finished files to this folder" hint="Point this at your Google Drive (or Dropbox, OneDrive) desktop folder and every clip and export syncs to the cloud. Leave empty to skip.">
           <input type="text" placeholder="e.g. G:\My Drive\Clips  or  ~/Google Drive/Clips" value={s.copy_folder} onChange={(e) => set({ copy_folder: e.target.value })} />
         </Field>
-        <Field label="CapCut projects folder" hint="Used by “Finish in CapCut”. In CapCut for Windows it is usually C:\\Users\\(you)\\AppData\\Local\\CapCut\\User Data\\Projects\\com.lveditor.draft. On the same computer Cutroom finds it by itself; fill this in when Cutroom runs on a server.">
-          <input type="text" className="mono" spellCheck={false} placeholder="C:\\Users\\you\\AppData\\Local\\CapCut\\User Data\\Projects\\com.lveditor.draft" value={s.capcut_folder ?? ''} onChange={(e) => set({ capcut_folder: e.target.value })} />
+        <Field label="CapCut projects folder" hint="Used by “Finish in CapCut”. In CapCut for Windows it is usually C:\Users\(you)\AppData\Local\CapCut\User Data\Projects\com.lveditor.draft. On the same computer Cutroom finds it by itself; fill this in when Cutroom runs on a server.">
+          <input type="text" className="mono" spellCheck={false} placeholder="C:\Users\you\AppData\Local\CapCut\User Data\Projects\com.lveditor.draft" value={s.capcut_folder ?? ''} onChange={(e) => set({ capcut_folder: e.target.value })} />
         </Field>
         <Field label="Pexels API key (optional)" hint={s.pexels_api_key_set ? 'A key is set. Type a new one to replace it.' : 'Free at pexels.com/api; enables stock b-roll search in the Library.'}>
           <input type="password" autoComplete="off" placeholder={s.pexels_api_key_set ? '••••••••  (set)' : ''} value={s.pexels_api_key} onChange={(e) => set({ pexels_api_key: e.target.value })} />
