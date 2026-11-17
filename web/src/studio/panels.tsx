@@ -5,7 +5,7 @@ import { api, upload } from '../api';
 import { captionPages, graphicFrames, shotIndexAt, srcTimeAt } from '../remotion/timing';
 import { sourcePoint } from '../remotion/Short';
 import { ASPECTS, Anim, Aspect, CaptionPreset, DEFAULT_FRAME, FONTS, FrameMode, Graphic, GraphicType, LabelStyle, Layout, LookPreset, TRANSITIONS, Transition, Zone } from '../remotion/types';
-import { Button, Field, Seg, Slider, Toggle, fmtBytes, fmtDur, fmtTime, toast, toastError } from '../ui';
+import { Button, Field, More, Seg, Slider, Toggle, fmtBytes, fmtDur, fmtTime, toast, toastError, useSimpleMode } from '../ui';
 import type { Ctx } from './Editor';
 import {
   ANIM_LABELS, AnalysedShot, FREE_TYPES, GRAPHIC_LABELS, TEXTLESS, ZONE_LABELS, addCut, addFreeze, addSpeed, applyAnalysis, applyRemix, aspectOf, autoBroll, autoZooms,
@@ -16,12 +16,24 @@ import { GenerateImageButton } from './GenerateButton';
 import PublishPanel from './PublishPanel';
 import { DirectPlan, ExportRow, StyleProfile, Template } from './types';
 
-const Group = ({ title, actions, children, id }: { title: string; actions?: React.ReactNode; children: React.ReactNode; id?: string }) => (
-  <div className="group" id={id}>
-    <h3><span>{title}</span><span className="row gap-s">{actions}</span></h3>
-    {children}
-  </div>
-);
+/** A section of a tool panel. `more` sections are folded away in simple mode (one click opens them). */
+const Group = ({ title, actions, children, id, more }: { title: string; actions?: React.ReactNode; children: React.ReactNode; id?: string; more?: boolean }) => {
+  const [simple] = useSimpleMode();
+  if (more && simple) {
+    return (
+      <details className="group more-group" id={id}>
+        <summary><h3><span>{title}</span><span className="row gap-s" onClick={(e) => e.preventDefault()}>{actions}</span></h3></summary>
+        <div className="col gap-m">{children}</div>
+      </details>
+    );
+  }
+  return (
+    <div className="group" id={id}>
+      <h3><span>{title}</span><span className="row gap-s">{actions}</span></h3>
+      {children}
+    </div>
+  );
+};
 
 /* ================================================================ Framing & audio */
 export function FramePanel({ ctx }: { ctx: Ctx }) {
@@ -80,9 +92,23 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
   const fm = spec.frame ?? DEFAULT_FRAME;
   const setFrame = (patch: Partial<FrameMode>, key = '') => update((s) => ({ ...s, frame: { ...(s.frame ?? DEFAULT_FRAME), ...patch } }), key);
 
+  const standing = spec.graphics.find((g) => g.origin === 'style' && g.type === 'label' && g.duration > (spec.out - spec.in) * 0.6);
   return (
     <>
-      <Group title={`Opening hook (0:00 – ${fmtTime(spec.hook.duration, true)})`}
+      {standing && (
+        <Group title="Title (on screen the whole video)">
+          <textarea id="title-text" rows={2} value={standing.primary}
+            onChange={(e) => update((s) => ({ ...s, graphics: s.graphics.map((g) => (g.id === standing.id ? { ...g, primary: e.target.value } : g)) }), 'title')} />
+          <span className="small muted">A new line starts the second line. To colour words, put them in curly brackets with a colour: <span className="mono">{'{DORITOS|#fc0000}'}</span>. Drag the title on the video to move it.</span>
+          <div className="row"><Button small icon="sparkle" onClick={hookIdeas} disabled={jobs.busy}>Suggest titles</Button></div>
+          {hooks.length > 0 && (
+            <div className="chips">
+              {hooks.map((h) => <button key={h} className="chip" onClick={() => update((s) => ({ ...s, graphics: s.graphics.map((g) => (g.id === standing.id ? { ...g, primary: h.toUpperCase() } : g)) }))}>{h}</button>)}
+            </div>
+          )}
+        </Group>
+      )}
+      <Group more={!!standing} title={standing ? 'Opening hook (an extra title for the first seconds)' : `Opening title (0:00 – ${fmtTime(spec.hook.duration, true)})`}
         actions={<Toggle checked={spec.hook.visible} onChange={(v) => update((s) => ({ ...s, hook: { ...s.hook, visible: v } }))} label="Visible" />}>
         <input id="hook-text" type="text" placeholder="On-screen title for the first seconds" value={spec.hook.text}
           onChange={(e) => update((s) => ({ ...s, hook: { ...s.hook, text: e.target.value } }), 'hook')} />
@@ -104,6 +130,7 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
           <Toggle checked={splitTwo} onChange={setSplitTwo} label="Split when two faces" />
           <Toggle checked={fitWide} onChange={setFitWide} label="Whole frame when people don't fit" />
         </div>
+        <More title={`${spec.shots.length} camera shot${spec.shots.length === 1 ? '' : 's'}: choose one to change its framing`} open={spec.shots.length <= 3}>
         <div className="chips">
           {spec.shots.map((s, i) => (
             <button key={i} className={'chip' + (i === idx ? ' on' : '')} onClick={() => seekSrc(s.start + 0.02)}>
@@ -112,7 +139,12 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
             </button>
           ))}
         </div>
-        <div className="small muted">Shot #{idx + 1} of {spec.shots.length} is at the playhead.</div>
+        </More>
+        <div className="row gap-s wrap">
+          <Button small icon="plus" onClick={() => update((s) => addCut(s, t))}>Cut at {fmtTime(ctx.frame / spec.fps, true)}</Button>
+          <Button small variant="danger" icon="trash" disabled={idx === 0} aria-label="Remove this cut" title="Merge with the previous shot" onClick={() => update((s) => removeShot(s, idx))}>Remove cut</Button>
+        </div>
+        <More title={`Change the framing of shot #${idx + 1} (the one at the playhead)`} open={spec.shots.length <= 1}>
         <Seg small value={shot.layout} onChange={(v: Layout) => update((s) => setLayout(s, idx, v))} options={[
           { value: 'single', label: 'Single' }, { value: 'split', label: 'Split (2)' }, { value: 'trio', label: 'Trio (3)' },
           { value: 'fit', label: 'Fit + blur', title: 'Show the whole frame over a blurred copy' },
@@ -142,10 +174,6 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
               {TRANSITIONS.map((x) => <option key={x.value} value={x.value} title={x.hint}>{x.label}</option>)}
             </select>
           </Field>
-          <div className="row gap-s" style={{ alignSelf: 'flex-end' }}>
-            <Button small icon="plus" onClick={() => update((s) => addCut(s, t))}>Cut at {fmtTime(ctx.frame / spec.fps, true)}</Button>
-            <Button small variant="danger" icon="trash" disabled={idx === 0} aria-label="Remove this cut" title="Merge with the previous shot" onClick={() => update((s) => removeShot(s, idx))} />
-          </div>
         </div>
         {idx > 0 && shot.transition !== 'cut' && shot.transition !== 'smooth' && (
           <Slider label="Transition length" min={0.15} max={1.2} step={0.05} value={shot.tdur ?? 0.4} format={(v) => `${v.toFixed(2)}s`} onChange={(v) => patchShot({ tdur: v }, 'tdur')} />
@@ -158,9 +186,10 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
           )}
           <Button small onClick={() => analyse(false)} disabled={jobs.busy} title="Keep your cuts; find faces again">Re-center on my cuts</Button>
         </div>
+        </More>
       </Group>
 
-      <Group title="Picture frame">
+      <Group more title="Picture frame">
         <Seg small value={fm.mode} onChange={(v) => setFrame({ mode: v })} options={[{ value: 'full', label: 'Fills the frame' }, { value: 'panel', label: 'In a box' }]} />
         {fm.mode === 'panel' && (
           <>
@@ -212,7 +241,7 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
         {!(spec.freezes?.length || spec.speeds?.length) && <span className="small muted">Hold a moment for a callout, skip through dead time, or slow a reveal.</span>}
       </Group>
 
-      <Group title={`Zooms (${spec.zooms.length})`} actions={<>
+      <Group more title={`Zooms (${spec.zooms.length})`} actions={<>
         <Button small icon="wand" onClick={() => update((s) => autoZooms(s))}>Auto</Button>
         <Button small icon="plus" aria-label="Add zoom at playhead" title="Add at playhead" onClick={() => update((s) => ({ ...s, zooms: [...s.zooms, { id: uid(), at: round3(t), duration: 1.4, scale: 1.14 }].sort((a, b) => a.at - b.at) }))} />
         <Button small variant="ghost" icon="trash" aria-label="Clear zooms" title="Clear all" disabled={!spec.zooms.length} onClick={() => update((s) => ({ ...s, zooms: [] }))} />
@@ -349,7 +378,7 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
     <>
       <StyleChooser ctx={ctx} />
       <div className="notice" style={{ marginTop: 14 }}>Click the captions, hook title, logo or watermark on the video to select it. Drag to move it, or drag its corner to resize.</div>
-      <Group title="Templates" actions={<Button small icon="plus" onClick={saveTemplate}>Save current</Button>}>
+      <Group more title="Templates" actions={<Button small icon="plus" onClick={saveTemplate}>Save current</Button>}>
         {templates.length ? (
           <select value="" onChange={(e) => applyTemplate(e.target.value)} aria-label="Apply a template">
             <option value="">Apply a saved style…</option>
@@ -384,7 +413,7 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
         </div>
       </Group>
 
-      <Group title="Translation">
+      <Group more title="Translation">
         <div className="row">
           <input type="text" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="Language" aria-label="Target language" />
           <Button small icon="sparkle" onClick={translate} disabled={jobs.busy || !language.trim()}>Translate</Button>
@@ -395,7 +424,7 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
         ) : <span className="small muted">Needs the AI (Settings → AI). After translating you can show the translation alone or under the original.</span>}
       </Group>
 
-      <Group title="Look">
+      <Group more title="Look">
         <div className="preset-grid">
           {LOOKS.map((l) => <button key={l.id} className={'preset' + (spec.look.preset === l.id ? ' on' : '')} onClick={() => setLook({ preset: l.id })}>{l.label}</button>)}
         </div>
@@ -417,7 +446,7 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
         </div>
       </Group>
 
-      <Group id="brand-kit" title="Brand kit" actions={moved ? <Button small onClick={resetPositions} title="Put the captions, hook, logo and watermark back in their default places">Reset positions</Button> : null}>
+      <Group more id="brand-kit" title="Brand kit" actions={moved ? <Button small onClick={resetPositions} title="Put the captions, hook, logo and watermark back in their default places">Reset positions</Button> : null}>
         <div className="grid-2">
           <Field label="Title font">
             <select value={spec.brand.font} onChange={(e) => setBrand({ font: e.target.value })}>{FONTS.map((f) => <option key={f}>{f}</option>)}</select>
@@ -462,7 +491,7 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
         <span className="small muted">Defaults for new clips are set under Settings → Brand kit.</span>
       </Group>
 
-      <Group title="Channel header" actions={<Toggle checked={!!spec.header} onChange={(v) => update((s) => ({ ...s, header: v ? { name: s.brand.watermark.replace(/^@/, '') || 'Your channel', handle: s.brand.watermark || '@yourchannel', avatar: s.brand.logo, verified: false, y: 11 } : undefined }))} label="Show" />}>
+      <Group more title="Channel header" actions={<Toggle checked={!!spec.header} onChange={(v) => update((s) => ({ ...s, header: v ? { name: s.brand.watermark.replace(/^@/, '') || 'Your channel', handle: s.brand.watermark || '@yourchannel', avatar: s.brand.logo, verified: false, y: 11 } : undefined }))} label="Show" />}>
         {spec.header ? (
           <>
             <div className="grid-2">
@@ -919,7 +948,7 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
         </Group>
       )}
 
-      <Group title="Auto b-roll">
+      <Group more title="Auto b-roll">
         <Slider label="How often" min={0.5} max={6} step={0.5} value={per30} format={(v) => `${v} per 30s`} onChange={setPer30} />
         <div className="row">
           <Button small icon="image" disabled={!media.length} onClick={() => { let n = 0; update((s) => { const r = autoBroll(s, media as any, per30); n = r.added; return r.spec; }); setTimeout(() => toast(n ? `Placed ${n} b-roll clip${n === 1 ? '' : 's'}` : 'No library file names match words in this clip', n ? 'good' : 'info')); }}>Place from library</Button>
@@ -1036,7 +1065,7 @@ export function PostPanel({ ctx }: { ctx: Ctx }) {
         <span className="small muted">Rendering takes roughly two to five times the clip length on a laptop.</span>
       </Group>
 
-      <Group title="Finish in CapCut">
+      <Group more title="Finish in CapCut">
         <span className="small muted">
           Sends this edit to CapCut as a project you can keep editing there: every cut, the framing, captions, titles, music and voice on their own tracks.
           {capcut?.direct ? ' It is saved straight into CapCut on this computer.' : ' You get a zip to unpack into CapCut\'s projects folder.'}
@@ -1073,7 +1102,9 @@ export function PostPanel({ ctx }: { ctx: Ctx }) {
         ))}
       </Group>
 
-      <PublishPanel key={exportsList[0]?.id ?? 'none'} project={project} clip={clip} meta={meta} exportRow={exportsList[0] ?? null} />
+      <More title="Post to YouTube">
+        <PublishPanel key={exportsList[0]?.id ?? 'none'} project={project} clip={clip} meta={meta} exportRow={exportsList[0] ?? null} />
+      </More>
     </>
   );
 }

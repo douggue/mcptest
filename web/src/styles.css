@@ -298,3 +298,12 @@ td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numer
   .toasts { left: 12px; right: 12px; bottom: 76px; }
   .toast { max-width: none; }
 }
+
+/* simple mode: folded sections */
+.more-fold { border-top: 1px solid var(--line); padding-top: 10px; }
+.more-fold > summary { cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 600; list-style: none; display: flex; align-items: center; gap: 6px; }
+.more-fold > summary::-webkit-details-marker { display: none; }
+.more-fold > summary::before { content: '▸'; font-size: 11px; transition: transform .15s; }
+.more-fold[open] > summary::before { transform: rotate(90deg); }
+.more-fold > summary:hover { color: var(--text); }
+.more-body { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }

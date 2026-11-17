@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { go } from '../App';
 import { api, upload } from '../api';
-import { Button, Empty, Field, Icon, JobBar, Panel, Seg, fmtDur, fmtTime, toast, toastError, useJobRunner } from '../ui';
+import { Button, Empty, Field, Icon, JobBar, More, Panel, Seg, SimpleSwitch, fmtDur, fmtTime, toast, toastError, useJobRunner } from '../ui';
 import { Clip, ClipKind, ExportAllResult, MomentsResult, Project, Score, StyleProfile, Template } from './types';
 
 const KINDS: { value: ClipKind; label: string; hint: string }[] = [
@@ -150,6 +150,7 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
           <h1 className="ellipsis" title={project.name}>{project.name}</h1>
           <p>{fmtDur(project.source.duration)} · {project.source.width}×{project.source.height} · {Math.round(project.source.fps)} fps{online ? <> · <a href={project.origin} target="_blank" rel="noreferrer">source</a></> : null}</p>
         </div>
+        <SimpleSwitch />
       </div>
 
       <div className="project-grid">
@@ -157,6 +158,7 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
       <Panel title="Source video">
           <div className="col gap-l">
             <video ref={videoRef} className="source-video" src={project.source.url} poster={project.source.poster || undefined} controls preload="metadata" />
+            <More title="Make a clip by hand">
             <div className="col">
               <span className="small muted">Mark a clip yourself: play to a spot and set the start and end.</span>
               <div className="grid-2">
@@ -177,6 +179,7 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
                 <Button icon="plus" onClick={addManual}>Create clip ({fmtDur(range.out - range.in)})</Button>
               </div>
             </div>
+            </More>
           </div>
         </Panel>
         </div>
@@ -185,6 +188,7 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
             <div className="row between">
               <span className={'pill ' + (words ? 'good' : 'muted')}>{words ? `${words.toLocaleString()} words · ${project.transcript!.engine}` : 'Not transcribed yet'}</span>
             </div>
+            <More title={words ? 'Transcribe again or import a file' : 'How to transcribe'} open={!words}>
             <Seg value={engine} onChange={setEngine} options={[
               { value: 'whisper', label: 'Whisper (on this computer)' },
               { value: 'youtube', label: 'Captions from the site', title: 'Uses the video\'s own word-timed captions; instant, needs a link import' },
@@ -207,10 +211,22 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
               <Button icon="upload" onClick={() => fileRef.current?.click()}>Import SRT / VTT / JSON</Button>
               <input ref={fileRef} type="file" accept=".srt,.vtt,.json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) importTranscript(f); e.target.value = ''; }} />
             </div>
+            </More>
             <JobBar job={tx.job} />
           </Panel>
 
-          <Panel title={<><span className={'step-num' + (project.clips.length ? ' done' : '')}>2</span>Find moments</>}>
+          <Panel title={<><span className={'step-num' + (project.clips.length ? ' done' : '')}>2</span>Make clips</>}>
+            <Field label="Style" hint={styleId ? 'The clips get this style\'s look, and the AI follows its rules.' : 'Pick the style these clips should have; it sets the look and the AI\'s rules.'}>
+              <select value={styleId ? styleId : templateId ? `tpl:${templateId}` : ''} onChange={(e) => {
+                const v = e.target.value;
+                if (v.startsWith('tpl:')) { setTemplateId(v.slice(4)); setStyleId(''); } else { setStyleId(v); setTemplateId(''); }
+              }}>
+                <option value="">Default look</option>
+                <optgroup label="Built-in styles">{styles.filter((x) => x.builtin).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</optgroup>
+                {styles.filter((x) => !x.builtin).length > 0 && <optgroup label="Your styles">{styles.filter((x) => !x.builtin).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</optgroup>}
+                {templates.length > 0 && <optgroup label="Saved templates">{templates.map((t) => <option key={t.id} value={`tpl:${t.id}`}>{t.name}</option>)}</optgroup>}
+              </select>
+            </Field>
             <Field label="What to make">
               <div className="chips" role="radiogroup" aria-label="What to make">
                 {KINDS.map((k) => (
@@ -230,38 +246,26 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
                 {!preset && <span className="chip on">Custom<small>{minLen}–{maxLen} s</small></span>}
               </div>
             </Field>
+            {kind === 'topic' && (
+              <Field label="Topic">
+                <input type="text" placeholder="e.g. sleep and caffeine" value={query} onChange={(e) => setQuery(e.target.value)} />
+              </Field>
+            )}
+            <More title="More options: how many, exact lengths, a specific part">
             <div className={single ? 'grid-2' : 'grid-3'}>
               {!single && <Field label={kind === 'series' ? 'Most parts' : 'How many'}><input type="number" min={1} max={30} value={count} onChange={(e) => setCount(Number(e.target.value))} /></Field>}
               <Field label="Min seconds"><input type="number" min={5} max={170} value={minLen} onChange={(e) => setMinLen(Number(e.target.value))} /></Field>
               <Field label="Max seconds"><input type="number" min={10} max={180} value={maxLen} onChange={(e) => setMaxLen(Number(e.target.value))} /></Field>
             </div>
-            {kind === 'topic' ? (
-              <Field label="Topic">
-                <input type="text" placeholder="e.g. sleep and caffeine" value={query} onChange={(e) => setQuery(e.target.value)} />
-              </Field>
-            ) : kind !== 'series' && (
+            {kind !== 'topic' && kind !== 'series' && (
               <Field label={single ? 'Focus on something? (optional)' : 'Looking for something specific? (optional)'}>
                 <input type="text" placeholder="e.g. the part about sleep and caffeine" value={query} onChange={(e) => setQuery(e.target.value)} />
               </Field>
             )}
-            <Field label="Instructions (optional)" hint="Anything the AI should keep in mind, in your own words.">
+            </More>
+            <Field label="Anything the AI should know? (optional)" hint="In your own words: what to focus on, what to skip, how it should end.">
               <textarea rows={2} placeholder="e.g. keep it light, skip the intro, end on the tip" value={instructions} onChange={(e) => setInstructions(e.target.value)} />
             </Field>
-            <Field label="Style for new clips" hint="Sets how the clips look and gives the AI that style's rules.">
-              <select value={styleId} onChange={(e) => setStyleId(e.target.value)}>
-                <option value="">Default look</option>
-                {styles.filter((x) => !x.builtin).length > 0 && <optgroup label="Your styles">{styles.filter((x) => !x.builtin).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</optgroup>}
-                <optgroup label="Built-in">{styles.filter((x) => x.builtin).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</optgroup>
-              </select>
-            </Field>
-            {templates.length > 0 && !styleId && (
-              <Field label="Saved template for new clips">
-                <select value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
-                  <option value="">Default style</option>
-                  {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
-              </Field>
-            )}
             <div className="row">
               <Button variant="primary" icon="sparkle" onClick={findMoments} busy={mo.busy} disabled={!words}>
                 {kind === 'series' ? 'Make the series' : kind === 'recap' ? 'Make the recap' : kind === 'trailer' ? 'Make the trailer' : 'Find moments'}
@@ -275,7 +279,7 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
         </div>
       </div>
 
-      <Panel title={`Clips (${project.clips.length})`} pad={false}
+      <Panel title={<><span className="step-num">3</span>{`Edit and export your clips (${project.clips.length})`}</>} pad={false}
         actions={project.clips.length ? <>
           {picked.length > 0 && (
             <>

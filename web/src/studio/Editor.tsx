@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import { Short } from '../remotion/Short';
 import { outFrameOf, srcTimeAt } from '../remotion/timing';
-import { Button, Icon, JobBar, fmtTime, toastError, useJobRunner } from '../ui';
+import { Button, Icon, JobBar, SimpleSwitch, fmtTime, toastError, useJobRunner } from '../ui';
 import { AskBar } from './AskBar';
 import { Picked, StageOverlay } from './StageOverlay';
 import { Timeline } from './Timeline';
@@ -232,7 +232,7 @@ export function Editor({ project, clip, onBack }: { project: Project; clip: Clip
         </nav>
 
         <aside className="tool-panel">
-          <div className="tool-panel-head"><h3>{tool.title}</h3></div>
+          <div className="tool-panel-head row between"><h3>{tool.title}</h3><SimpleSwitch /></div>
           <div className="tool-panel-body">
             <JobBar job={jobs.job} />
             {tab === 'frame' && <FramePanel ctx={ctx} />}

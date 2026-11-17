@@ -170,3 +170,11 @@
 
 .clip-pick { width: 18px; height: 18px; margin-top: 10px; accent-color: var(--accent); flex: none; }
 .clip-card.picked { border-color: var(--accent); }
+
+/* simple mode in the editor: folded sections */
+.more-group > summary { list-style: none; cursor: pointer; }
+.more-group > summary::-webkit-details-marker { display: none; }
+.more-group > summary h3 span:first-child::before { content: '▸ '; color: var(--faint); }
+.more-group[open] > summary h3 span:first-child::before { content: '▾ '; }
+.more-group:not([open]) > summary h3 { color: var(--muted); }
+.more-group[open] > summary { margin-bottom: 12px; }

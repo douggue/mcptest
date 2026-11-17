@@ -272,3 +272,47 @@ export function fmtBytes(n: number): string {
 
 export const fmtNum = (n: number) => new Intl.NumberFormat().format(Math.round(n));
 export const fmtMoney = (n: number) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(n || 0);
+
+/* ---------------------------------------------------------------- simple mode */
+
+const SIMPLE_KEY = 'cutroom.simple';
+const readSimple = () => { try { return localStorage.getItem(SIMPLE_KEY) !== 'off'; } catch { return true; } };
+
+/** Simple mode (the default) folds less-used settings away. One switch for the whole app, remembered on this device. */
+export function useSimpleMode(): [boolean, (v: boolean) => void] {
+  const [on, setOn] = useState(readSimple);
+  useEffect(() => {
+    const sync = () => setOn(readSimple());
+    window.addEventListener('cutroom-simple', sync);
+    window.addEventListener('storage', sync);
+    return () => { window.removeEventListener('cutroom-simple', sync); window.removeEventListener('storage', sync); };
+  }, []);
+  const set = (v: boolean) => {
+    try { localStorage.setItem(SIMPLE_KEY, v ? 'on' : 'off'); } catch { /* private window: this page only */ }
+    setOn(v);
+    window.dispatchEvent(new Event('cutroom-simple'));
+  };
+  return [on, set];
+}
+
+export function SimpleSwitch() {
+  const [simple, setSimple] = useSimpleMode();
+  return (
+    <button type="button" className="btn small ghost simple-switch" onClick={() => setSimple(!simple)}
+      title={simple ? 'Show every setting' : 'Fold less-used settings away'}>
+      {simple ? 'Show all tools' : 'Simple view'}
+    </button>
+  );
+}
+
+/** A section that is open in the full view and folded (but one click away) in simple mode. */
+export function More({ title, children, open }: { title: ReactNode; children: ReactNode; open?: boolean }) {
+  const [simple] = useSimpleMode();
+  if (!simple) return <>{children}</>;
+  return (
+    <details className="more-fold" open={open}>
+      <summary>{title}</summary>
+      <div className="more-body">{children}</div>
+    </details>
+  );
+}
