@@ -15,7 +15,7 @@ from .. import jobs
 from ..config import DATA, media_path
 from ..media import MediaError, safe_name
 from ..store import Collection, new_id
-from ..studio import ai, moments, profiles as styles, render, sources, spec as specs, transcribe, vision
+from ..studio import ai, cliptypes, moments, profiles as styles, render, sources, spec as specs, transcribe, vision
 
 router = APIRouter(prefix="/api/projects", tags=["studio"])
 _locks: dict[str, threading.RLock] = {}
@@ -206,32 +206,62 @@ def export_transcript(pid: str) -> str:
 
 # ---------------------------------------------------------------- clips
 
+def _performance() -> dict | None:
+    """What has done well among the posts tracked in Agency, or None when there are too few with views."""
+    from .. import agency_core
+    from .agency import all_videos
+    return agency_core.performance_summary(Collection("agency_posts").all(), all_videos())
+
+
+@router.get("/{pid}/moments/performance")
+def moments_performance(pid: str) -> dict:
+    """{posts: n} when past views will steer Find moments, {posts: 0} when there are not enough (or no AI to use them)."""
+    load(pid)
+    perf = _performance() if ai.available() else None
+    return {"posts": perf["count"] if perf else 0}
+
+
 @router.post("/{pid}/moments")
 def find_moments(pid: str, body: dict) -> dict:
+    """{kind?: highlights|series|topic|recap|trailer, count, min_len, max_len, query?, instructions?, template_id?, profile_id?}"""
     project = load(pid)
     if not project.get("transcript"):
         raise HTTPException(422, "Transcribe the video first.")
+    kind = body.get("kind") or "highlights"
+    if kind not in cliptypes.KINDS:
+        raise HTTPException(422, f"Unknown clip type: {kind}.")
+    if kind == "topic" and not (body.get("query") or "").strip():
+        raise HTTPException(422, "Type the topic to look for.")
+    min_len, max_len = float(body.get("min_len") or 20), float(body.get("max_len") or 60)
+    if max_len < min_len:
+        raise HTTPException(422, "The longest length must be at least the shortest.")
     template = Collection("templates").get(body["template_id"]) if body.get("template_id") else None
     style = styles.lookup(body.get("profile_id"))
     brief, rules = styles.guidance(body.get("profile_id"))
+    label = {"highlights": "Finding moments", "series": "Planning the series", "topic": "Finding the topic",
+             "recap": "Building the recap", "trailer": "Building the trailer"}[kind]
 
     def work(job: jobs.Job) -> dict:
+        perf = _performance() if ai.available() else None
         job.update(0.1, "Reading the transcript" + (" with AI" if ai.available() else ""))
-        found = moments.find_moments(project["transcript"]["words"], int(body.get("count") or 6),
-                                     float(body.get("min_len") or 20), float(body.get("max_len") or 60),
-                                     body.get("query") or "", brief, rules)
+        found = cliptypes.find(project["transcript"]["words"], kind, int(body.get("count") or 6), min_len, max_len,
+                               body.get("query") or "", body.get("instructions") or "", brief, rules, perf)
         job.update(0.9, "Creating clips")
 
         def add(p: dict) -> None:
             for m in found["clips"]:
                 clip = _new_clip(p, m["in"], m["out"], m["hook_title"], m, (style or {}).get("style") or (template or {}).get("spec"))
+                if m.get("segments"):
+                    cliptypes.apply_ranges(clip["spec"], m["segments"])
+                clip["kind"] = kind
                 if style:
                     clip["profile_id"] = style["id"]
                 p["clips"].append(clip)
         mutate(pid, add)
-        return {"added": len(found["clips"]), "engine": found["engine"], "note": found["note"]}
+        return {"added": len(found["clips"]), "engine": found["engine"], "note": found["note"],
+                "performance_posts": perf["count"] if perf else 0}
 
-    return {"job_id": jobs.submit("moments", "Finding moments", work).id}
+    return {"job_id": jobs.submit("moments", label, work).id}
 
 
 @router.post("/{pid}/clips")
@@ -497,3 +527,52 @@ def render_clip(pid: str, cid: str, body: dict) -> dict:
         return render.render_clip(project, clip, job, scale, int(body.get("crf") or 18), upscale)
 
     return {"job_id": jobs.submit("render", f"Exporting {clip['title']}", work, {"project_id": pid, "clip_id": cid}).id}
+
+
+class _ClipSlice:
+    """One clip's render inside an export-all job: its progress fills its share of the bar, and a cancel of the
+    whole job stops it."""
+
+    def __init__(self, job: jobs.Job, index: int, total: int, title: str):
+        self.job, self.index, self.total, self.title = job, index, total, title
+        self.id = f"{job.id}_{index}"
+
+    @property
+    def cancelled(self) -> bool:
+        return self.job.cancelled
+
+    def update(self, progress: float | None = None, message: str | None = None) -> None:
+        p = None if progress is None else (self.index + max(0.0, min(1.0, progress))) / self.total
+        head = f"Exporting {self.index + 1} of {self.total}"
+        self.job.update(p, f"{head}: {message}" if message else (None if self.job.message.startswith(head) else f"{head}: {self.title}"))
+
+
+@router.post("/{pid}/render-all")
+def render_all(pid: str, body: dict) -> dict:
+    """Render every clip of the project, one after another, in one job. {quality?: '1080'|'720'} ->
+    job -> {exported: [export rows], failed: [{clip_id, title, error}]}"""
+    project = load(pid)
+    ids = [c["id"] for c in sorted(project["clips"], key=lambda c: c["spec"]["in"])]
+    if not ids:
+        raise HTTPException(422, "This project has no clips to export yet.")
+    scale = 2 / 3 if str(body.get("quality", "1080")) == "720" else 1.0
+
+    def work(job: jobs.Job) -> dict:
+        exported, failed = [], []
+        for i, cid in enumerate(ids):
+            current = load(pid)   # pick up edits saved since the export was queued
+            clip = next((c for c in current["clips"] if c["id"] == cid), None)
+            if not clip:
+                continue
+            part = _ClipSlice(job, i, len(ids), clip["title"])
+            part.update(0.0)
+            try:
+                exported.append(render.render_clip(current, clip, part, scale))  # type: ignore[arg-type]
+            except MediaError as e:
+                failed.append({"clip_id": cid, "title": clip["title"], "error": str(e)})
+        if failed and not exported:
+            raise MediaError(f"None of the clips exported. {failed[0]['title']}: {failed[0]['error']}")
+        job.update(1.0, f"Exported {len(exported)} of {len(ids)} clips")
+        return {"exported": exported, "failed": failed}
+
+    return {"job_id": jobs.submit("render", "Exporting all clips", work, {"project_id": pid}).id}

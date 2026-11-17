@@ -3,10 +3,14 @@ import { EditSpec } from './logic';
 
 export type Score = { total: number; hook: number; flow: number; value: number; trend: number };
 export type Meta = { title: string; description: string; hashtags: string[] };
+/** What Find moments makes: standalone highlights, a numbered series, clips on one topic, or one recap / trailer of several pieces. */
+export type ClipKind = 'highlights' | 'series' | 'topic' | 'recap' | 'trailer';
 export type Clip = {
   id: string; title: string; created: number; status: 'draft' | 'approved' | 'posted'; reason: string;
-  score: Score | null; meta: Meta; spec: EditSpec; profile_id?: string;
+  score: Score | null; meta: Meta; spec: EditSpec; profile_id?: string; kind?: ClipKind;
 };
+export type MomentsResult = { added: number; engine: string; note: string; performance_posts: number };
+export type ExportAllResult = { exported: ExportRow[]; failed: { clip_id: string; title: string; error: string }[] };
 export type Source = { url: string; duration: number; width: number; height: number; fps: number; poster: string; size?: number };
 export type Project = {
   id: string; name: string; origin: string; created: number; source: Source;
