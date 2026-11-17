@@ -15,7 +15,7 @@ type SettingsData = {
 export default function Settings() {
   const [s, setS] = useState<SettingsData | null>(null);
   const [logos, setLogos] = useState<Asset[]>([]);
-  const [health, setHealth] = useState<{ ffmpeg: boolean; ai: boolean; ai_provider: string; data: string } | null>(null);
+  const [health, setHealth] = useState<{ ffmpeg: boolean; ai: boolean; ai_provider: string; data: string; auth?: boolean } | null>(null);
   const [geminiModels, setGeminiModels] = useState<{ id: string; label: string }[]>([
     { id: 'gemini-flash-latest', label: 'Gemini Flash (latest; default, works on the free tier)' },
     { id: 'gemini-pro-latest', label: 'Gemini Pro (latest; strongest)' },
@@ -58,7 +58,10 @@ export default function Settings() {
           <h1>Settings</h1>
           <p>Everything is stored on this computer{health ? <> in <span className="mono">{health.data}</span></> : null}.</p>
         </div>
-        <Button variant="primary" icon="check" onClick={save} busy={saving}>Save settings</Button>
+        <div className="row">
+          {health?.auth && <Button onClick={async () => { await api.post('/api/logout').catch(() => {}); window.location.reload(); }}>Sign out</Button>}
+          <Button variant="primary" icon="check" onClick={save} busy={saving}>Save settings</Button>
+        </div>
       </div>
 
       {health && !health.ffmpeg && <div className="notice bad">ffmpeg was not found. Install it and restart Cutroom; nothing can be cut or rendered without it.</div>}

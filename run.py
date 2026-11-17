@@ -13,6 +13,8 @@ if __name__ == "__main__":
     import os
     os.environ["CUTROOM_PORT"] = str(a.port)
     print(f"\n  Cutroom is running at http://{a.host}:{a.port}\n")
+    if a.host not in ("127.0.0.1", "localhost") and not os.environ.get("CUTROOM_PASSWORD"):
+        print("  WARNING: reachable from the network with no password. Set CUTROOM_PASSWORD to require a login.\n")
     if a.open:
         import threading
         import webbrowser

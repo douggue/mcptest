@@ -1,12 +1,16 @@
+# Local use, or a server reached through an SSH tunnel:  docker compose up -d --build
+# For a public server with HTTPS, use docker-compose.server.yml instead (see DEPLOY.md).
 services:
   cutroom:
     build: .
     ports:
-      - "127.0.0.1:8000:8000"   # local only; put a password-protected proxy in front before exposing it
+      - "127.0.0.1:8000:8000"   # this machine only
     volumes:
       - cutroom-data:/data
     environment:
+      - CUTROOM_PASSWORD=${CUTROOM_PASSWORD:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     restart: unless-stopped
 volumes:
   cutroom-data:

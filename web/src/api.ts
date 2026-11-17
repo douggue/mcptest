@@ -20,6 +20,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
+  if (res.status === 401 && path !== '/api/login') window.dispatchEvent(new Event('cutroom:locked'));
   if (!res.ok) {
     let detail = res.statusText;
     try {
@@ -54,6 +55,7 @@ export function upload<T = any>(path: string, form: FormData, onProgress?: (p: n
       } catch {
         /* ignore */
       }
+      if (xhr.status === 401) window.dispatchEvent(new Event('cutroom:locked'));
       if (xhr.status >= 200 && xhr.status < 300) resolve(data as T);
       else reject(new Error(typeof data?.detail === 'string' ? data.detail : xhr.statusText || 'Upload failed'));
     };

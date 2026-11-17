@@ -7,7 +7,7 @@ import Home from './pages/Home';
 import Library from './pages/Library';
 import Settings from './pages/Settings';
 import Studio from './pages/Studio';
-import { Icon, IconName, Toasts } from './ui';
+import { Button, Icon, IconName, Toasts } from './ui';
 
 type Page = { id: string; label: string; short: string; icon: IconName; group: 'main' | 'create' | 'manage' | 'foot'; el: () => JSX.Element };
 const PAGES: Page[] = [
@@ -35,7 +35,42 @@ export const go = (path: string) => {
   window.location.hash = '#/' + path.replace(/^\/+/, '');
 };
 
-export type Health = { ffmpeg: boolean; ai: boolean; ai_provider?: string; data?: string };
+export type Health = { ffmpeg: boolean; ai: boolean; ai_provider?: string; data?: string; auth?: boolean; signed_in?: boolean };
+
+function Login() {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      await api.post('/api/login', { password });
+      window.location.reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not sign in.');
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="login">
+      <form className="login-card" onSubmit={submit}>
+        <div className="brand" style={{ padding: 0 }}><Mark /><span className="brand-name">Cutroom</span></div>
+        <div>
+          <h1>Sign in</h1>
+          <p className="muted" style={{ marginTop: 6 }}>Enter the password set for this server.</p>
+        </div>
+        <label className="field">
+          <span className="field-label">Password</span>
+          <input type="password" autoFocus autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </label>
+        {error && <div className="notice bad" role="alert">{error}</div>}
+        <Button variant="primary" busy={busy} disabled={!password} type="submit">Sign in</Button>
+      </form>
+    </div>
+  );
+}
 
 function Mark() {
   return (
@@ -53,11 +88,20 @@ export function App() {
   const page = PAGES.find((p) => p.id === route[0]) ?? PAGES[0];
   const [health, setHealth] = useState<Health | null>(null);
   const [offline, setOffline] = useState(false);
+  const [locked, setLocked] = useState(false);
   const compact = page.id === 'studio' && route.length >= 3;   // the editor needs the width
 
   useEffect(() => {
-    api.get<Health>('/api/health').then((h) => { setHealth(h); setOffline(false); }).catch(() => setOffline(true));
+    api.get<Health>('/api/health').then((h) => { setHealth(h); setOffline(false); setLocked(!!h.auth && !h.signed_in); }).catch(() => setOffline(true));
   }, [route[0]]);
+  useEffect(() => {
+    const on = () => setLocked(true);
+    window.addEventListener('cutroom:locked', on);
+    return () => window.removeEventListener('cutroom:locked', on);
+  }, []);
+
+  if (locked) return <Login />;
+  if (health === null && !offline) return <div className="app" />;   // wait for the first check, so a locked server never flashes the app
 
   const item = (p: Page) => (
     <button key={p.id} className={'nav-item' + (p.id === page.id ? ' active' : '')} onClick={() => go(p.id)} title={p.label}

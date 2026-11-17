@@ -96,17 +96,16 @@ The web API is documented at <http://127.0.0.1:8000/docs> while the app is runni
 
 Set **Settings → Also copy finished files to this folder** to your Google Drive (or Dropbox, OneDrive) desktop folder. Every clip and export is copied there and syncs to the cloud. There is no direct Drive login.
 
-## Docker
+## Two editions
 
-```bash
-docker compose up --build        # then open http://127.0.0.1:8000
-```
+- **On your computer** (this README): everything, including link downloads and local tools. No login, because it only listens to this machine.
+- **On a server**: the same app behind a password, reachable from anywhere, using the Claude and Gemini APIs. See [DEPLOY.md](DEPLOY.md) for step-by-step setup with Docker and automatic HTTPS.
 
-The compose file binds to localhost only. The app has no login, so do not expose it to the internet without a password-protected proxy in front. Note that video sites often block downloads from datacenter addresses; on a rented server, upload source videos instead.
+Setting `CUTROOM_PASSWORD` before starting turns the login on in either case.
 
 ## Using it from a phone
 
-Start with `python run.py --host 0.0.0.0` and open `http://<your computer's address>:8000` from a phone on the same Wi-Fi. Anyone on that network can then open it, so only do this on a network you trust.
+Start with `python run.py --host 0.0.0.0` and open `http://<your computer's address>:8000` from a phone on the same Wi-Fi. Set `CUTROOM_PASSWORD` first so that others on the network have to sign in.
 
 ## Good to know
 

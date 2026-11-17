@@ -16,7 +16,9 @@ from . import spec as specs
 
 
 def base_url() -> str:
-    return f"http://127.0.0.1:{os.environ.get('CUTROOM_PORT', '8000')}"
+    """Where the renderer fetches media from: this server, through the private path that skips the login."""
+    from ..auth import INTERNAL_PREFIX
+    return f"http://127.0.0.1:{os.environ.get('CUTROOM_PORT', '8000')}{INTERNAL_PREFIX}"
 
 
 def _kill_tree(proc: subprocess.Popen) -> None:

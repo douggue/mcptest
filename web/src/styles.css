@@ -273,6 +273,10 @@ td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numer
 .check-mark { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--line-strong); color: transparent; flex: none; }
 .check-mark.done { background: rgba(70, 211, 154, 0.14); border-color: transparent; color: var(--good); }
 
+/* ---------- login ---------- */
+.login { display: grid; place-items: center; height: 100%; padding: 20px; background: radial-gradient(ellipse at 50% 30%, #17171b 0%, var(--canvas) 65%); }
+.login-card { display: flex; flex-direction: column; gap: 18px; width: min(380px, 100%); padding: 28px; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); }
+
 /* ---------- small screens: bottom tab bar ---------- */
 @media (max-width: 860px) {
   .app, .app.compact { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; }

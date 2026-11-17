@@ -5,12 +5,12 @@ import importlib
 import mimetypes
 import pkgutil
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import jobs
+from . import auth, jobs
 from .config import DATA, WEB, ensure_dirs, get_settings, save_settings
 
 ensure_dirs()
@@ -21,6 +21,7 @@ for _type, _ext in (("application/javascript", ".js"), ("text/css", ".css"), ("i
     mimetypes.add_type(_type, _ext)
 
 app = FastAPI(title="Cutroom", version="0.1.0")
+app.add_middleware(auth.Gate)
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
                    allow_methods=["*"], allow_headers=["*"])
 
@@ -34,16 +35,41 @@ for mod in pkgutil.iter_modules(_routers.__path__):
 
 
 @app.get("/api/health")
-def health() -> dict:
+def health(request: Request) -> dict:
     import shutil
     from .studio import ai
+    locked = auth.enabled() and not auth.valid(request.cookies.get(auth.COOKIE))
+    if locked:   # tell a visitor nothing but that a login is needed
+        return {"ok": True, "auth": True, "signed_in": False}
     return {
         "ok": True,
+        "auth": auth.enabled(),
+        "signed_in": True,
         "ffmpeg": bool(shutil.which("ffmpeg")),
         "ai": ai.available(),
         "ai_provider": ai.provider_label(),
         "data": str(DATA),
     }
+
+
+@app.post("/api/login")
+def login(body: dict, request: Request, response: Response) -> dict:
+    ip = (request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else "?"))
+    if auth.throttled(ip):
+        raise HTTPException(429, "Too many attempts. Wait a few minutes and try again.")
+    token = auth.login(str(body.get("password", "")), ip)
+    if not token:
+        raise HTTPException(401, "That password is not right.")
+    secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    response.set_cookie(auth.COOKIE, token, max_age=auth.SESSION_DAYS * 86400, httponly=True, samesite="lax", secure=secure, path="/")
+    return {"ok": True}
+
+
+@app.post("/api/logout")
+def logout(request: Request, response: Response) -> dict:
+    auth.logout(request.cookies.get(auth.COOKIE))
+    response.delete_cookie(auth.COOKIE, path="/")
+    return {"ok": True}
 
 
 @app.get("/api/jobs")
