@@ -32,7 +32,7 @@ export default function Home() {
 
   const checks = health ? [
     { done: health.ffmpeg, title: 'ffmpeg installed', text: health.ffmpeg ? 'Cutting and rendering are ready.' : 'Install ffmpeg and restart; nothing can be cut without it.', required: true },
-    { done: health.ai, title: 'AI key added', text: health.ai ? `Using ${health.ai_provider}.` : 'Optional. Adds smarter moment picking, hooks and translation.', to: 'settings' },
+    { done: health.ai, title: 'AI set up', text: health.ai ? `Using ${health.ai_provider}.` : 'Optional. Your Claude subscription or an API key adds smarter moment picking, hooks and translation.', to: 'settings' },
     { done: !!folder, title: 'Sync folder set', text: folder ? 'Finished files are copied to your folder.' : 'Optional. Copy every export to Google Drive or Dropbox.', to: 'settings' },
   ] : [];
   const setupOpen = checks.some((c) => !c.done);

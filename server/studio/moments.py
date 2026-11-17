@@ -203,7 +203,7 @@ def find_moments(words: list[dict], count: int = 6, min_len: float = 20, max_len
         except ai.AIUnavailable as e:
             note = f"AI unavailable ({e}); used built-in rules instead."
     else:
-        note = "No AI key set; moments were picked with built-in rules. Add a key in Settings for better picks."
+        note = "No AI set up; moments were picked with built-in rules. Set one up under Settings → AI for better picks."
     return {"engine": "rules", "note": note, "clips": _heuristic_moments(lines, count, min_len, max_len, query)}
 
 
@@ -331,7 +331,7 @@ def remix(words: list[dict], density: float = 1.0, title: str = "", brief: str =
         except ai.AIUnavailable as e:
             note = f"AI unavailable ({e}); used built-in rules instead."
     else:
-        note = "No AI key set; this plan comes from built-in rules."
+        note = "No AI set up; this plan comes from built-in rules."
     return {"engine": "rules", "note": note, **_heuristic_remix(words, density)}
 
 
@@ -373,7 +373,7 @@ def post_meta(words: list[dict], hook: str = "", brief: str = "", rules: list[st
         except ai.AIUnavailable as e:
             note = f"AI unavailable ({e}); used built-in rules instead."
     else:
-        note = "No AI key set; written with built-in rules."
+        note = "No AI set up; written with built-in rules."
     first = sentences([w for w in words if not w.get("removed")])[:1]
     title = hook or (_title_from(first[0]["text"], 9) if first else "Untitled")
     return {"engine": "rules", "note": note, "title": title, "description": (first[0]["text"] if first else "")[:180],
@@ -393,7 +393,7 @@ def hook_ideas(words: list[dict], n: int = 5, brief: str = "", rules: list[str] 
         except ai.AIUnavailable as e:
             note = f"AI unavailable ({e}); used built-in rules instead."
     else:
-        note = "No AI key set; these come from built-in rules."
+        note = "No AI set up; these come from built-in rules."
     lines = sentences([w for w in words if not w.get("removed")])
     kws = keywords(words, 3)
     ideas = [_title_from(l["text"], 7) for l in lines[:2]]

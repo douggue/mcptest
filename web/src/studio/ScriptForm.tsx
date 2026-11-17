@@ -78,9 +78,9 @@ export function ScriptForm({ opts, compact, onCancel }: { opts: GenOptions; comp
 
   return (
     <div className="col gap-l">
-      {!opts.key && <div className="notice warn">The pictures are generated with a Gemini API key. <a href="#/settings">Add one under Settings → AI</a>.</div>}
+      {!opts.key && <div className="notice warn">The pictures are made by Google's image model, so they need a Gemini API key, even when Claude is set up. <a href="#/settings">Add one under Settings → AI</a>.</div>}
       <Seg value={mode} onChange={setMode} options={[{ value: 'topic', label: 'Write it for me' }, { value: 'script', label: 'Use my script' }]} />
-      {needAi && <div className="notice warn">Writing a script needs an AI key (<a href="#/settings">Settings → AI</a>). You can paste your own script instead.</div>}
+      {needAi && <div className="notice warn">Writing a script needs the AI (<a href="#/settings">Settings → AI</a>). You can paste your own script instead.</div>}
       <Field label={mode === 'topic' ? 'Topic' : 'Title (optional)'}>
         <input type="text" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder={mode === 'topic' ? 'e.g. why octopuses have three hearts' : 'Shown as the opening title'} />
       </Field>

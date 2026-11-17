@@ -623,7 +623,7 @@ def write_script(topic: str, script: str, seconds: float, rules: list[str] | Non
     if not topic.strip():
         raise MediaError("Give a topic or paste a script.")
     if not ai.available():
-        raise MediaError("Writing a script from a topic needs an AI key (Settings → AI). You can paste your own script instead.")
+        raise MediaError("Writing a script from a topic needs the AI (Settings → AI). You can paste your own script instead.")
     words = max(40, int(seconds * 2.5))
     try:
         data = ai.ask_json(

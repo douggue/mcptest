@@ -380,7 +380,7 @@ def hooks_clip(pid: str, cid: str) -> dict:
 def direct_clip(pid: str, cid: str) -> dict:
     """Plan a story edit by looking at the clip itself: labels, callouts, freezes and speed changes, in the clip's style."""
     if not ai.available():
-        raise HTTPException(422, "Planning from the picture needs an AI key (Settings → AI): only a model can see what happens in the clip.")
+        raise HTTPException(422, "Planning from the picture needs the AI: only a model can see what happens in the clip. " + ai.setup_hint())
 
     def plan(project: dict, clip: dict, job: jobs.Job) -> dict:
         spec = clip["spec"]
@@ -458,7 +458,7 @@ def ask_clip(pid: str, cid: str, body: dict) -> dict:
     if not isinstance(spec, dict) or "words" not in spec:
         raise HTTPException(422, "Send the clip as it is now.")
     if not ai.available():
-        raise HTTPException(422, "Editing by asking needs an AI key (Settings → AI).")
+        raise HTTPException(422, "Editing by asking needs the AI. " + ai.setup_hint())
     project = load(pid)
     _clip(project, cid)
 
@@ -504,7 +504,7 @@ def translate_clip(pid: str, cid: str, body: dict) -> dict:
     if not language or not lines:
         raise HTTPException(422, "Give a language and the caption lines to translate.")
     if not ai.available():
-        raise HTTPException(422, "Translation needs an AI key (Settings → AI).")
+        raise HTTPException(422, "Translation needs the AI. " + ai.setup_hint())
     return _clip_job(pid, cid, "translate", f"Translating captions to {language}",
                      lambda p, c, j: moments.translate_lines(lines, language))
 

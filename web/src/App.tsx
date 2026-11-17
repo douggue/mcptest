@@ -37,7 +37,7 @@ export const go = (path: string) => {
   window.location.hash = '#/' + path.replace(/^\/+/, '');
 };
 
-export type Health = { ffmpeg: boolean; ai: boolean; ai_provider?: string; data?: string; auth?: boolean; signed_in?: boolean };
+export type Health = { ffmpeg: boolean; ai: boolean; ai_provider?: string; ai_problem?: string; data?: string; auth?: boolean; signed_in?: boolean };
 
 function Login() {
   const [password, setPassword] = useState('');
@@ -115,7 +115,7 @@ export function App() {
   const status = offline ? { cls: 'bad', text: 'Server offline' }
     : health && !health.ffmpeg ? { cls: 'bad', text: 'ffmpeg missing' }
     : health?.ai ? { cls: 'good', text: `AI ready · ${health.ai_provider || 'on'}` }
-    : { cls: '', text: 'AI key not set' };
+    : { cls: '', text: 'AI not set up', title: health?.ai_problem };
 
   return (
     <div className={'app' + (compact ? ' compact' : '')}>
@@ -127,7 +127,7 @@ export function App() {
         <span className="nav-label">Manage</span>
         {PAGES.filter((p) => p.group === 'manage').map(item)}
         <div className="nav-foot">
-          <div className="nav-status" title={status.text}><i className={'dot ' + status.cls} /><span>{status.text}</span></div>
+          <div className="nav-status" title={('title' in status && status.title) || status.text} onClick={() => !health?.ai && go('settings')} style={!health?.ai ? { cursor: 'pointer' } : undefined}><i className={'dot ' + status.cls} /><span>{status.text}</span></div>
           {PAGES.filter((p) => p.group === 'foot').map(item)}
         </div>
       </nav>

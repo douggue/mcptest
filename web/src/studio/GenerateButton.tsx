@@ -41,7 +41,7 @@ export function GenerateImageButton({ prompt, aspect, onDone, small = true, labe
       <Button small={small} icon="sparkle" onClick={() => setOpen(true)} disabled={disabled}>{label}</Button>
       {open && (
         <Modal title="Generate an image" onClose={() => !busy && setOpen(false)}>
-          {!hasKey && <div className="notice warn">This needs a Gemini API key. <a href="#/settings">Add one under Settings → AI</a>.</div>}
+          {!hasKey && <div className="notice warn">Pictures are made by Google's image model, so this needs a Gemini API key, even when Claude is set up. <a href="#/settings">Add one under Settings → AI</a>.</div>}
           <Field label="Describe the picture" hint="Say what is in it, where, and the mood. Ask for no text in the image.">
             <textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} autoFocus />
           </Field>

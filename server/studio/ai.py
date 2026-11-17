@@ -58,6 +58,21 @@ def provider() -> str:
     return next((name for name, key in keys.items() if key), "")
 
 
+def setup_hint() -> str:
+    """Why no AI is in use, in a sentence that says what to do."""
+    chosen = get_settings().get("ai_provider") or "anthropic"
+    if chosen == "claude_code":
+        from .. import auth
+        if auth.enabled():
+            return ("The server edition cannot use your Claude subscription (anyone signed in would be using it). "
+                    "Add a Claude or Gemini API key under Settings → AI.")
+        if not claude_code_exe():
+            return ("Claude subscription is chosen under Settings → AI, but Claude Code was not found on this computer. "
+                    "Install it and sign in by running  claude  once in a terminal, or set where it is in Settings → AI.")
+    return ("No AI is set up yet. Under Settings → AI choose Claude subscription (uses Claude Code on this computer) "
+            "or add a Claude or Gemini API key.")
+
+
 def available() -> bool:
     return bool(provider())
 
@@ -76,7 +91,7 @@ def ask_json(system: str, user: "str | list", schema: dict, max_tokens: int = 32
     """
     which = provider()
     if not which:
-        raise AIUnavailable("No AI key is set (Settings → AI).")
+        raise AIUnavailable(setup_hint())
     if which == "claude_code":
         return _ask_claude_code(system, user, schema, effort)   # already parsed
     text = _ask_gemini(system, user, schema) if which == "gemini" else _ask_claude(system, user, schema, max_tokens, effort)

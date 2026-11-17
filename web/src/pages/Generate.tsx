@@ -245,7 +245,7 @@ export default function Generate() {
         </div>
       </div>
       {opts && !opts.key && (
-        <div className="notice warn">Images, clips, music and Google voices need a Gemini API key. <a href="#/settings">Add one under Settings → AI</a>. The free voices on the Voice tab work without it.</div>
+        <div className="notice warn">Images, video clips, music and Google voices are made by Google's models, so they need a Gemini API key, even when Claude is set up (Claude writes and plans, but does not make pictures, video or sound). <a href="#/settings">Add one under Settings → AI</a>. The free voices on the Voice tab work without it.</div>
       )}
       <div className="tabs-line" role="tablist">
         {TABS.map((x) => <button key={x.value} role="tab" aria-selected={tab === x.value} className={tab === x.value ? 'on' : ''} onClick={() => setTab(x.value)}>{x.label}</button>)}

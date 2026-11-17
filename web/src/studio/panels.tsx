@@ -392,7 +392,7 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
         {cap.translations.length > 0 ? (
           <Seg small value={cap.mode} onChange={(v) => setCap({ mode: v })} options={[
             { value: 'original', label: 'Original' }, { value: 'translated', label: 'Translated' }, { value: 'bilingual', label: 'Both' }]} />
-        ) : <span className="small muted">Needs an AI key. After translating you can show the translation alone or under the original.</span>}
+        ) : <span className="small muted">Needs the AI (Settings → AI). After translating you can show the translation alone or under the original.</span>}
       </Group>
 
       <Group title="Look">

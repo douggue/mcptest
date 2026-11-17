@@ -131,7 +131,7 @@ def describe(spec: dict) -> str:
 def plan(spec: dict, request: str) -> dict:
     """{changes, reply, engine}. Needs an AI key: there is no rule-based way to read a free-text request."""
     if not ai.available():
-        raise ai.AIUnavailable("Editing by asking needs an AI key (Settings → AI).")
+        raise ai.AIUnavailable("Editing by asking needs the AI. " + ai.setup_hint())
     out = ai.ask_json(SYSTEM, f"The clip:\n{describe(spec)}\n\nThe request: {request.strip()}", SCHEMA, max_tokens=8000, effort="medium")
     changes = [c for c in out.get("changes") or [] if isinstance(c, dict) and c.get("op") in {o["properties"]["op"]["enum"][0] for o in OPS}]
     return {"changes": changes, "reply": str(out.get("reply") or "").strip(), "engine": ai.provider()}

@@ -453,7 +453,7 @@ def find(words: list[dict], kind: str = "highlights", count: int = 6, min_len: f
         except (KeyError, TypeError, ValueError, AttributeError):
             note = "The AI's answer did not fit the transcript; used built-in rules instead."
     else:
-        note = f"No AI key set; {LABELS[kind]} made with built-in rules. Add a key in Settings for better picks."
+        note = f"No AI set up; {LABELS[kind]} made with built-in rules. Set one up under Settings → AI for better picks."
     if instructions.strip():
         note += " Instructions are only followed with AI."
     if kind == "series":

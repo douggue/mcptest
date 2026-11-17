@@ -18,7 +18,7 @@ type FlowState = { enabled: boolean; available: boolean; why: string; server_edi
 export default function Settings() {
   const [s, setS] = useState<SettingsData | null>(null);
   const [logos, setLogos] = useState<Asset[]>([]);
-  const [health, setHealth] = useState<{ ffmpeg: boolean; ai: boolean; ai_provider: string; data: string; auth?: boolean } | null>(null);
+  const [health, setHealth] = useState<{ ffmpeg: boolean; ai: boolean; ai_provider: string; ai_problem?: string; data: string; auth?: boolean } | null>(null);
   const [geminiModels, setGeminiModels] = useState<{ id: string; label: string }[]>([
     { id: 'gemini-4-hydrogen', label: 'Gemini 4 Hydrogen (default; fast, works on the free tier)' },
     { id: 'gemini-4-argon', label: 'Gemini 4 Argon (stronger; paid)' },
@@ -48,6 +48,17 @@ export default function Settings() {
     } catch (e) { toastError(e); }
   }
 
+  // the provider takes effect at once: choosing one and forgetting to press Save left the AI off
+  async function chooseProvider(v: SettingsData['ai_provider']) {
+    set({ ai_provider: v });
+    try {
+      await api.put('/api/settings', { ai_provider: v });
+      const h = await api.get<NonNullable<typeof health>>('/api/health');
+      setHealth(h);
+      toast(h.ai ? `Now using ${h.ai_provider}` : 'Saved. ' + (h.ai_problem || ''), h.ai ? 'good' : 'info');
+    } catch (e) { toastError(e); }
+  }
+
   async function save() {
     setSaving(true);
     try {
@@ -74,14 +85,15 @@ export default function Settings() {
 
       {health && !health.ffmpeg && <div className="notice bad">ffmpeg was not found. Install it and restart Cutroom; nothing can be cut or rendered without it.</div>}
 
-      <Panel title="AI" actions={health?.ai ? <span className="pill good">Using {health.ai_provider}</span> : <span className="pill muted">No key set</span>}>
+      <Panel title="AI" actions={health?.ai ? <span className="pill good">Using {health.ai_provider}</span> : <span className="pill muted">Not set up</span>}>
         <p className="muted">With a key, the AI picks the moments, scores them, plans graphics, writes hooks and post text, and translates captions. Without one, simpler built-in rules are used and translation is unavailable. Transcripts are sent to the provider you choose.</p>
         <Field label="Provider" hint="Claude API key and Gemini: if the chosen one has no key, the other is used when it has one. Claude subscription uses your Claude plan through Claude Code, no key needed.">
-          <Seg value={s.ai_provider} onChange={(v) => set({ ai_provider: v })} options={[
+          <Seg value={s.ai_provider} onChange={chooseProvider} options={[
             { value: 'anthropic', label: 'Claude API key' }, { value: 'gemini', label: 'Gemini (Google)' },
             { value: 'claude_code', label: 'Claude subscription', title: 'Uses the Claude Code program on this computer, signed in with your own Claude plan: no API key' },
           ]} />
         </Field>
+        {health && !health.ai && health.ai_problem && <div className="notice warn">{health.ai_problem}</div>}
         {s.ai_provider === 'claude_code' && <ClaudeCodeSettings s={s} set={set} />}
         <div className="grid-2">
           <Field label="Anthropic API key" hint={s.anthropic_api_key_set ? 'A key is set. Type a new one to replace it.' : 'Stored only in your data folder. You can also set ANTHROPIC_API_KEY before starting.'}>

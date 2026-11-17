@@ -418,7 +418,7 @@ def analyse(pid: str, job: Job) -> dict:
         except ai.AIUnavailable as e:
             note = f"The AI step failed ({e}), so this style holds measurements only."
     else:
-        note = "No AI key is set, so this style holds measurements only (shape, frame rate and pacing). Add a key and analyse again for captions, colours and rules."
+        note = "No AI is set up, so this style holds measurements only (shape, frame rate and pacing). Set one up under Settings → AI and study it again for captions, colours and rules."
 
     from ..config import get_settings
     known = {r["text"] for r in profile.get("rules", [])}

@@ -48,6 +48,7 @@ def health(request: Request) -> dict:
         "ffmpeg": bool(shutil.which("ffmpeg")),
         "ai": ai.available(),
         "ai_provider": ai.provider_label(),
+        "ai_problem": "" if ai.available() else ai.setup_hint(),
         "data": str(DATA),
     }
 
