@@ -294,3 +294,20 @@ def views_timeline(posts: list[dict]) -> list[dict]:
         current.update(events[day])
         out.append({"date": day, "views": sum(current.values())})
     return out
+
+
+# ---------------------------------------------------------------- YouTube
+
+YOUTUBE_LIVE = {"public", "unlisted"}
+
+
+def youtube_post_status(privacy: str, current: str = "planned") -> str:
+    """Planner status for a post whose video is on YouTube.
+
+    A public or unlisted video is live, so a planned post becomes posted. A private one (including a scheduled
+    upload waiting for its publish time) stays planned. Later stages the user set by hand (submitted, approved,
+    rejected, paid) are never changed.
+    """
+    if current == "planned" and privacy in YOUTUBE_LIVE:
+        return "posted"
+    return current or "planned"

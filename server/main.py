@@ -90,13 +90,16 @@ def cancel_job(job_id: str) -> dict:
     return {"ok": jobs.cancel(job_id)}
 
 
-SECRETS = ("anthropic_api_key", "gemini_api_key", "pexels_api_key")
+SECRETS = ("anthropic_api_key", "gemini_api_key", "pexels_api_key", "youtube_client_secret")
+HIDDEN = ("youtube_channels",)   # OAuth tokens: managed by /api/youtube, never sent to or taken from the browser
 
 
 @app.get("/api/settings")
 def read_settings() -> dict:
     import os
     s = get_settings()
+    for key in HIDDEN:
+        s.pop(key, None)
     # never send secrets back to the browser; only whether they are set
     for key in SECRETS:
         s[key + "_set"] = bool(s.get(key))
@@ -112,7 +115,7 @@ def write_settings(patch: dict) -> dict:
     for key in SECRETS:
         if key in patch and not patch[key]:
             patch.pop(key)
-    patch = {k: v for k, v in patch.items() if not k.endswith("_set")}
+    patch = {k: v for k, v in patch.items() if not k.endswith("_set") and k not in HIDDEN}
     save_settings(patch)
     return read_settings()
 

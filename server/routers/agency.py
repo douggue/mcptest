@@ -1,6 +1,8 @@
 """Agency: campaigns, accounts, post planner, view tracking, analytics, rule checks, duplicates.
 
-Cutroom never uploads to a platform. Posts here are a plan and a record; the user publishes by hand.
+Posts here are a plan and a record. Most are published by hand; a post on a YouTube channel connected under
+Settings → YouTube can be uploaded from Cutroom (routers/youtube.py), and its views, likes and comments are then read
+from the YouTube API instead of the public page.
 """
 from __future__ import annotations
 
@@ -10,6 +12,7 @@ from fastapi import APIRouter, HTTPException
 
 from .. import agency_core as core
 from .. import jobs
+from ..social import youtube
 from ..store import Collection
 
 router = APIRouter(prefix="/api/agency", tags=["agency"])
@@ -214,9 +217,19 @@ def delete_campaign(campaign_id: str) -> dict:
 
 # ---------------------------------------------------------------- accounts
 
+def _account_out(a: dict, channels: dict[str, dict]) -> dict:
+    """Adds the connected YouTube channel, if any (no tokens: only what the interface shows)."""
+    ch = channels.get(a.get("youtube_channel_id") or "")
+    yt = {"channel_id": ch["id"], "title": ch.get("title", ""), "needs_reconnect": bool(ch.get("needs_reconnect")),
+          "problem": ch.get("problem", ""), "can_upload": ch.get("can_upload", True)} if ch else None
+    return {**a, "youtube": yt}
+
+
 @router.get("/accounts")
 def list_accounts() -> list[dict]:
-    return sorted(accounts.all(), key=lambda r: (r.get("platform", ""), r.get("handle", "").lower()))
+    chans = {c["id"]: c for c in youtube.channels()}
+    rows = sorted(accounts.all(), key=lambda r: (r.get("platform", ""), r.get("handle", "").lower()))
+    return [_account_out(a, chans) for a in rows]
 
 
 @router.post("/accounts")
@@ -332,11 +345,75 @@ def fetch_views(url: str) -> int:
     return int(views)
 
 
-def _refresh(post: dict) -> dict:
+def _refresh_link(post: dict) -> dict:
     views = fetch_views(post["url"])
     row = dict(post)
     _record_views(row, views)
     return posts.update(post["id"], {"views": row["views"], "views_history": row["views_history"]}) or row
+
+
+def _refresh(post: dict) -> dict:
+    """Views for one post: from the YouTube API when its channel is connected, otherwise from the post link."""
+    channel_id = youtube_channel_of(post)
+    api_error: Exception | None = None
+    if channel_id:
+        try:
+            done, failed = refresh_youtube(channel_id, [post])
+            if post["id"] in done:
+                return done[post["id"]]
+            api_error = ValueError(failed.get(post["id"], "YouTube did not report this video"))
+        except youtube.YouTubeError as e:
+            api_error = e
+        if not post.get("url"):
+            raise api_error
+    try:
+        return _refresh_link(post)
+    except Exception:
+        if api_error:   # the API's reason (for example: reconnect the channel) says more than the public page failing
+            raise api_error
+        raise
+
+
+def youtube_channel_of(post: dict) -> str:
+    """The connected channel a post's YouTube video can be read through, or ''."""
+    yt = post.get("youtube") or {}
+    if not yt.get("video_id"):
+        return ""
+    acct = accounts.get(post.get("account_id") or "") or {}
+    for cid in (acct.get("youtube_channel_id"), yt.get("channel_id")):
+        ch = youtube.get_channel(cid) if cid else None
+        if ch and not ch.get("needs_reconnect"):
+            return ch["id"]
+    return ""
+
+
+def refresh_youtube(channel_id: str, rows: list[dict]) -> tuple[dict[str, dict], dict[str, str]]:
+    """Views, likes and comments for posts on one channel: one API call (1 quota unit) per 50 videos.
+
+    Returns ({post_id: updated row}, {post_id: why not}). A scheduled video that has gone public moves its post
+    from planned to posted.
+    """
+    stats = youtube.video_stats(channel_id, [(p.get("youtube") or {}).get("video_id", "") for p in rows])
+    done: dict[str, dict] = {}
+    failed: dict[str, str] = {}
+    for p in rows:
+        yt = dict(p.get("youtube") or {})
+        s = stats.get(yt.get("video_id", ""))
+        if not s:
+            failed[p["id"]] = "YouTube no longer has this video, or it is on another channel"
+            continue
+        row = dict(p)
+        _record_views(row, int(s["views"]))
+        yt.update({"likes": s["likes"], "comments": s["comments"], "privacy": s["privacy"] or yt.get("privacy", ""),
+                   "checked": datetime.now().timestamp()})
+        if s["privacy"] in core.YOUTUBE_LIVE:
+            yt["state"] = "live"
+        if s.get("rejection"):
+            yt["warning"] = f"YouTube reports: {s['rejection']}"
+        patch = {"views": row["views"], "views_history": row["views_history"], "youtube": yt,
+                 "status": core.youtube_post_status(s["privacy"], p.get("status", "planned"))}
+        done[p["id"]] = posts.update(p["id"], patch) or {**p, **patch}
+    return done, failed
 
 
 def _short_error(e: Exception) -> str:
@@ -353,6 +430,8 @@ def refresh_views(post_id: str) -> dict:
         raise HTTPException(422, "Add the post link first, then refresh its views")
     try:
         row = _refresh(post)
+    except youtube.YouTubeError as e:
+        raise HTTPException(422, f"Could not read the YouTube statistics: {e}")
     except Exception as e:  # network, private post, unsupported site, missing count
         raise HTTPException(502, f"Could not read views: {_short_error(e)}. Enter the number by hand instead.")
     return _posts_out([row])[0]
@@ -360,22 +439,47 @@ def refresh_views(post_id: str) -> dict:
 
 @router.post("/posts/refresh-all")
 def refresh_all() -> dict:
-    targets = [p for p in posts.all() if p.get("url") and p.get("status") in core.VIEW_STATUSES]
-    if not targets:
+    """Posts on connected YouTube channels are read through the API, scheduled ones included (to notice when they
+    go live). Everything else, and anything the API cannot answer, is read from the post link as before."""
+    every = posts.all()
+    by_channel: dict[str, list[dict]] = {}
+    for p in every:
+        cid = youtube_channel_of(p)
+        if cid:
+            by_channel.setdefault(cid, []).append(p)
+    api_ids = {p["id"] for rows in by_channel.values() for p in rows}
+    links = [p for p in every if p["id"] not in api_ids and p.get("url") and p.get("status") in core.VIEW_STATUSES]
+    if not api_ids and not links:
         raise HTTPException(422, "No live posts have a link yet")
 
     def work(job: jobs.Job) -> dict:
-        updated, failed = 0, []
-        for i, p in enumerate(targets):
-            job.update(i / len(targets), f"Reading views {i + 1} of {len(targets)}")
+        updated, via_api, failed = 0, 0, []
+        todo = list(links)
+        for i, (cid, rows) in enumerate(by_channel.items()):
+            job.update(i / (len(by_channel) + len(links)), f"Reading YouTube statistics for {len(rows)} video{'s' if len(rows) != 1 else ''}")
             try:
-                _refresh(p)
+                done, bad = refresh_youtube(cid, rows)
+            except youtube.YouTubeError as e:
+                done, bad = {}, {p["id"]: str(e) for p in rows}
+            updated += len(done)
+            via_api += len(done)
+            for p in rows:
+                if p["id"] not in bad:
+                    continue
+                if p.get("url") and p.get("status") in core.VIEW_STATUSES:
+                    todo.append(p)      # fall back to the public page
+                else:
+                    failed.append({"id": p["id"], "url": p.get("url", ""), "error": bad[p["id"]][:240]})
+        for i, p in enumerate(todo):
+            job.update((len(by_channel) + i) / (len(by_channel) + len(todo)), f"Reading views {i + 1} of {len(todo)}")
+            try:
+                _refresh_link(p)
                 updated += 1
             except jobs.Cancelled:
                 raise
             except Exception as e:
                 failed.append({"id": p["id"], "url": p["url"], "error": _short_error(e)})
-        return {"updated": updated, "failed": failed}
+        return {"updated": updated, "failed": failed, "via_api": via_api}
 
     job = jobs.submit("agency-views", "Refresh views", work)
     return {"job_id": job.id}

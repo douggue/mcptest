@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { api } from '../api';
 import { FONTS } from '../remotion/types';
-import { Asset } from '../studio/types';
+import { Asset, YouTubeChannel, YouTubeState } from '../studio/types';
 import { Button, Field, Panel, Seg, Slider, Toggle, toast, toastError } from '../ui';
 
 type Brand = { name: string; accent: string; secondary: string; font: string; logo: string; logoPos: string; logoSize: number; watermark: string };
@@ -11,6 +11,7 @@ type SettingsData = {
   gemini_api_key: string; gemini_api_key_set: boolean; gemini_model: string; whisper_model: string; copy_folder: string; capcut_folder: string;
   pexels_api_key: string; pexels_api_key_set: boolean; tts_voice: string; brand: Brand;
   flow_enabled?: boolean; flow_mcp_path?: string; flow_out_dir?: string;
+  youtube_client_id?: string; youtube_client_secret?: string; youtube_client_secret_set?: boolean; youtube_redirect_url?: string;
 };
 type FlowState = { enabled: boolean; available: boolean; why: string; server_edition: boolean; out_dir: string; out_dir_exists: boolean };
 
@@ -159,6 +160,8 @@ export default function Settings() {
         )}
       </Panel>
 
+      <YouTubeSettings s={s} set={set} onSaved={setS} />
+
       <Panel title="Brand kit">
         <p className="muted">Defaults for every new clip. Each clip can still be changed in the editor, and templates can carry a different brand per channel or client.</p>
         <div className="grid-3">
@@ -189,5 +192,155 @@ export default function Settings() {
         )}
       </Panel>
     </div>
+  );
+}
+
+/* ---------------------------------------------------------------- YouTube */
+
+function YouTubeSettings({ s, set, onSaved }: {
+  s: SettingsData; set: (patch: Partial<SettingsData>) => void; onSaved: (s: SettingsData) => void;
+}) {
+  const [yt, setYt] = useState<YouTubeState | null>(null);
+  const [busy, setBusy] = useState('');
+  const [hideLast, setHideLast] = useState(false);
+  const load = () => api.get<YouTubeState>('/api/youtube/state').then(setYt).catch(() => {});
+  useEffect(() => { load(); }, []);
+
+  // the outcome of a sign-in that just came back from Google
+  const recent = yt?.last && !hideLast && Date.now() / 1000 - yt.last.at < 120 ? yt.last : null;
+  const hasClient = !!(s.youtube_client_id?.trim() && (s.youtube_client_secret || s.youtube_client_secret_set));
+
+  async function connect(c?: YouTubeChannel) {
+    setBusy(c ? `re-${c.id}` : 'connect');
+    try {
+      // save the client ID and secret first, so the sign-in uses what is on screen
+      onSaved(await api.put<SettingsData>('/api/settings', s));
+      const r = await api.post<{ url: string }>('/api/youtube/connect', c?.account_id ? { account_id: c.account_id } : {});
+      window.location.href = r.url;   // Google's consent page; it sends the browser back to Settings
+    } catch (e) {
+      toastError(e);
+      setBusy('');
+    }
+  }
+
+  async function check(c: YouTubeChannel) {
+    setBusy(`check-${c.id}`);
+    try {
+      await api.post(`/api/youtube/channels/${c.id}/check`);
+      toast(`${c.title} is connected`, 'good');
+    } catch (e) { toastError(e); }
+    await load();
+    setBusy('');
+  }
+
+  async function disconnect(c: YouTubeChannel) {
+    if (!window.confirm(`Disconnect ${c.title}? Cutroom forgets its tokens and asks Google to revoke them. Posts already made stay in the Agency planner.`)) return;
+    setBusy(`del-${c.id}`);
+    try {
+      await api.del(`/api/youtube/channels/${c.id}`);
+      toast(`Disconnected ${c.title}`, 'good');
+    } catch (e) { toastError(e); }
+    await load();
+    setBusy('');
+  }
+
+  const copy = (text: string) => navigator.clipboard.writeText(text).then(() => toast('Copied', 'good'), () => toast('Could not copy; select the text instead', 'bad'));
+  const n = yt?.channels.length ?? 0;
+  const broken = yt?.channels.filter((c) => c.needs_reconnect).length ?? 0;
+  const sourceHint = {
+    saved: 'You typed this one below.',
+    env: 'Taken from CUTROOM_PUBLIC_URL (or CUTROOM_DOMAIN).',
+    request: 'The address you opened Cutroom at. If Google is to reach a different address, type it below.',
+    desktop: 'Cutroom on this computer. If you start Cutroom on another port, this changes and Google needs the new one.',
+  }[yt?.redirect_source ?? 'desktop'];
+
+  return (
+    <Panel title="YouTube" actions={broken ? <span className="pill bad">{broken} need{broken === 1 ? 's' : ''} reconnecting</span>
+      : n ? <span className="pill good">{n} channel{n === 1 ? '' : 's'} connected</span> : <span className="pill muted">Not connected</span>}>
+      <p className="muted">
+        Post exported shorts straight to your own YouTube channels, now or at a scheduled time, and read their views, likes and
+        comments back into the Agency planner. Cutroom uses your own Google Cloud OAuth client; there is no Cutroom account in between.
+      </p>
+      {recent && (
+        <div className={'notice ' + (recent.ok ? '' : 'bad')} role="status">
+          {recent.text} <Button small variant="ghost" onClick={() => setHideLast(true)}>Dismiss</Button>
+        </div>
+      )}
+      <details className="small">
+        <summary>How to set it up in Google Cloud (about ten minutes, once)</summary>
+        <ol className="notes-list">
+          <li>In the Google Cloud console, create a project (or pick one) and enable <b>YouTube Data API v3</b> under APIs and services → Library.</li>
+          <li>Under OAuth consent screen (Google Auth platform), choose External, fill in the app name and your email, and add the scopes <span className="mono">youtube.upload</span> and <span className="mono">youtube.readonly</span>. Add your own Google account under Test users.</li>
+          <li>Set the publishing status to <b>In production</b>. While it is Testing, Google ends the connection every 7 days. You do not need Google's verification for your own use; Google shows a “Google hasn't verified this app” warning, where you click Advanced → Go to (your app).</li>
+          <li>Under Clients (Credentials), create an OAuth client ID of type <b>Web application</b> and add the redirect URL below under Authorized redirect URIs. (On this computer a Desktop app client also works.)</li>
+          <li>Paste the client ID and secret here, save, and press Connect channel. To post to a brand channel, pick it when Google asks which account or channel to use. Connect each channel separately.</li>
+        </ol>
+      </details>
+      <div className="notice warn">
+        Google keeps every video uploaded through an app it has not verified (any app created after July 2020) private, until the app
+        passes a YouTube API audit. A personal app normally stays unverified, so expect uploads to arrive as private: make them public
+        in YouTube Studio, or apply for the audit in the Google Cloud console. Scheduled uploads are affected too: they may stay private
+        at their publish time. Each Google Cloud project also gets 10,000 quota units a day and an upload costs about 1,600, so about six uploads a day.
+      </div>
+      <div className="grid-2">
+        <Field label="OAuth client ID">
+          <input type="text" className="mono" spellCheck={false} autoComplete="off" placeholder="1234-abc.apps.googleusercontent.com"
+            value={s.youtube_client_id ?? ''} onChange={(e) => set({ youtube_client_id: e.target.value })} />
+        </Field>
+        <Field label="OAuth client secret" hint={s.youtube_client_secret_set ? 'A secret is set. Type a new one to replace it.' : 'Stored only in your data folder and never shown again.'}>
+          <input type="password" autoComplete="off" placeholder={s.youtube_client_secret_set ? '••••••••  (set)' : 'GOCSPX-…'}
+            value={s.youtube_client_secret ?? ''} onChange={(e) => set({ youtube_client_secret: e.target.value })} />
+        </Field>
+      </div>
+      <div className="field" role="group" aria-label="Redirect URL">
+        <span className="field-label">Redirect URL for Google</span>
+        <div className="row">
+          <input type="text" readOnly className="mono" value={yt?.redirect_url ?? ''} aria-label="Redirect URL" onFocus={(e) => e.target.select()} />
+          <Button small icon="copy" onClick={() => yt && copy(yt.redirect_url)} disabled={!yt}>Copy</Button>
+        </div>
+        <span className="field-hint">Paste this exactly under Authorized redirect URIs on your OAuth client. {sourceHint}</span>
+      </div>
+      <details className="small">
+        <summary>Use a different redirect URL</summary>
+        <Field label="Redirect URL" hint="Only when Cutroom sits behind an address it cannot see, such as a second proxy. It must end in /api/youtube/callback and reach this Cutroom. Save to apply.">
+          <input type="text" className="mono" spellCheck={false} placeholder="https://clips.example.com/api/youtube/callback"
+            value={s.youtube_redirect_url ?? ''} onChange={(e) => set({ youtube_redirect_url: e.target.value })} />
+        </Field>
+      </details>
+      {yt?.server_edition && <span className="small muted">Google sends you back here after you allow access. Stay signed in to Cutroom in this browser while you connect.</span>}
+      {yt?.stand_in && <div className="notice">Google addresses are overridden by environment variables (a test stand-in is in use).</div>}
+
+      <div className="row wrap">
+        <Button variant="primary" icon="plus" busy={busy === 'connect'} disabled={!hasClient || !!busy} onClick={() => connect()}>Connect channel</Button>
+        {!hasClient && <span className="small muted">Paste the client ID and secret first.</span>}
+      </div>
+
+      {n > 0 && (
+        <div className="col gap-s">
+          {yt!.channels.map((c) => (
+            <div key={c.id} className="card col" style={{ padding: 10, gap: 8 }}>
+              <div className="col" style={{ gap: 3, minWidth: 0 }}>
+                <div className="row gap-s wrap">
+                  <b>{c.title}</b>
+                  {c.handle && <span className="small muted">{c.handle}</span>}
+                  {c.needs_reconnect ? <span className="pill bad">Needs reconnecting</span>
+                    : !c.can_upload ? <span className="pill accent">Statistics only</span> : <span className="pill good">Connected</span>}
+                </div>
+                <span className="small muted">
+                  {c.account_handle ? <>Agency account: {c.account_handle}</> : 'Not linked to an Agency account yet'}
+                  {c.connected ? ` · connected ${new Date(c.connected * 1000).toLocaleDateString()}` : ''}
+                </span>
+                {c.problem && <span className="small" style={{ color: c.needs_reconnect ? 'var(--bad)' : 'var(--accent)', whiteSpace: 'normal' }}>{c.problem}</span>}
+              </div>
+              <div className="row gap-s wrap">
+                <Button small onClick={() => check(c)} busy={busy === `check-${c.id}`} disabled={!!busy || c.needs_reconnect}>Check</Button>
+                <Button small variant={c.needs_reconnect ? 'primary' : 'default'} busy={busy === `re-${c.id}`} disabled={!!busy || !hasClient} onClick={() => connect(c)}>Reconnect</Button>
+                <Button small variant="danger" busy={busy === `del-${c.id}`} disabled={!!busy} onClick={() => disconnect(c)}>Disconnect</Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
   );
 }
