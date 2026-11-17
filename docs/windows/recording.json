@@ -1,0 +1,32 @@
+{
+  "recordedAt": "2026-11-17T09:22:39.761Z",
+  "application": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\reacut",
+  "steps": [
+    "opened the demo project passed on the command line",
+    "played the preview",
+    "selected a clip to show its inspector",
+    "opened the File menu with Ctrl shortcuts",
+    "exported the project with the bundled FFmpeg"
+  ],
+  "errors": [],
+  "exportedVideo": {
+    "duration": "9.000000",
+    "streams": [
+      "video:h264 1280x720",
+      "audio:aac x"
+    ]
+  },
+  "files": {
+    "desktop.mp4": 360247,
+    "desktop.png": 284010,
+    "window.mp4": 193224,
+    "editor.png": 239884,
+    "file-menu.png": 237026,
+    "export-complete.png": 266784
+  },
+  "desktopCapture": [
+    "[libx264 @ 000001bc93ed5b80] i8c dc,h,v,p: 71% 20%  6%  2%",
+    "[libx264 @ 000001bc93ed5b80] Weighted P-Frames: Y:0.0% UV:0.0%",
+    "[libx264 @ 000001bc93ed5b80] kb/s:64.49"
+  ]
+}
