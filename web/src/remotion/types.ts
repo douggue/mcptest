@@ -36,16 +36,34 @@ export type Shot = {
   x: number[];                          // horizontal crop position per pane, 0 (left) .. 100 (right)
   y?: number;                           // vertical crop position, default 50
   track?: { t: number; x: number }[];   // optional follow-the-speaker keyframes for pane 0
-  transition: 'cut' | 'smooth';
+  transition: Transition;                // how this shot arrives
+  tdur?: number;                         // transition length in seconds (default 0.4)
   faces?: Face[];                       // detection result kept so layouts can be re-applied
 };
+
+/** How a shot arrives. 'smooth' slides the crop; the rest are picture transitions played around the cut. */
+export type Transition = 'cut' | 'smooth' | 'fade' | 'slide' | 'push' | 'zoom' | 'whip' | 'spin' | 'blur' | 'flash' | 'dip' | 'glitch';
+export const TRANSITIONS: { value: Transition; label: string; hint: string }[] = [
+  { value: 'cut', label: 'Hard cut', hint: 'No effect' },
+  { value: 'smooth', label: 'Smooth pan', hint: 'The crop glides to its new position' },
+  { value: 'fade', label: 'Cross-fade', hint: 'The new shot fades in over the last frame of the old one' },
+  { value: 'slide', label: 'Slide over', hint: 'The new shot slides in from the right' },
+  { value: 'push', label: 'Push', hint: 'The new shot pushes the old one off to the left' },
+  { value: 'zoom', label: 'Zoom through', hint: 'Punches in through a blur into the new shot' },
+  { value: 'whip', label: 'Whip pan', hint: 'A fast sideways smear between the shots' },
+  { value: 'spin', label: 'Spin', hint: 'A quick twist through a blur' },
+  { value: 'blur', label: 'Blur', hint: 'Out of focus, then back in' },
+  { value: 'flash', label: 'Flash', hint: 'A white flash on the cut' },
+  { value: 'dip', label: 'Dip to black', hint: 'Fades down to black and back up' },
+  { value: 'glitch', label: 'Glitch', hint: 'A few frames of digital jitter' },
+];
 
 export type Zoom = { id: string; at: number; duration: number; scale: number };
 
 export type GraphicType =
   | 'keyword' | 'cascade' | 'gauge' | 'counter' | 'lowerthird' | 'steps' | 'broll' | 'emoji'
   // free elements: placed anywhere, not tied to speech
-  | 'label' | 'nametag' | 'circle' | 'arrow' | 'spotlight' | 'flash' | 'dip' | 'heart';
+  | 'label' | 'nametag' | 'circle' | 'arrow' | 'spotlight' | 'flash' | 'dip' | 'heart' | 'image' | 'blurbox';
 export type LabelStyle = 'neon' | 'plain' | 'box' | 'quoted' | 'outline';
 export type Zone = 'full' | 'top' | 'center' | 'bottom' | 'overlay' | 'free';   // free = measured from the frame centre
 export type Anim = 'pop' | 'slam' | 'fade' | 'slide' | 'glitch' | 'type';
@@ -68,6 +86,7 @@ export type Graphic = {
   color?: string;      // label / circle / arrow / flash colour
   style?: LabelStyle;  // label look
   rotate?: number;     // degrees (arrow)
+  ratio?: number;      // height / width of a blur box
   tag?: string;        // small speaker tag above a boxed label, e.g. "Cyclist:"
   origin?: 'style' | 'ai';   // who placed it, so re-applying a style or re-planning replaces only its own
   mediaType?: 'image' | 'video' | 'gif';
@@ -103,6 +122,12 @@ export type LookPreset = 'none' | 'punchy' | 'warm' | 'cool' | 'cinematic' | 'vi
 export type Look = {
   preset: LookPreset; bw: boolean; vignette: boolean; progressBar: boolean;
   brightness?: number; contrast?: number; saturation?: number;   // fine tuning, 1 = unchanged
+  grain?: number;        // film grain strength, 0..1
+  bars?: number;         // letterbox bars, each as % of the frame height (0 = none)
+  drift?: number;        // slow push-in across each shot: extra scale reached by the end (0.08 = 8%)
+  fadeIn?: number;       // seconds the picture takes to come up from black at the start
+  fadeOut?: number;      // seconds the picture and music take to go down at the end
+  flip?: boolean;        // mirror the picture left to right
 };
 
 export type AudioMix = {

@@ -3,13 +3,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api, upload } from '../api';
 import { captionPages, shotIndexAt, srcTimeAt } from '../remotion/timing';
-import { ASPECTS, Anim, Aspect, CaptionPreset, DEFAULT_FRAME, FONTS, FrameMode, Graphic, GraphicType, LabelStyle, Layout, LookPreset, Zone } from '../remotion/types';
+import { ASPECTS, Anim, Aspect, CaptionPreset, DEFAULT_FRAME, FONTS, FrameMode, Graphic, GraphicType, LabelStyle, Layout, LookPreset, TRANSITIONS, Transition, Zone } from '../remotion/types';
 import { Button, Field, Seg, Slider, Toggle, fmtBytes, fmtDur, fmtTime, toast, toastError } from '../ui';
 import type { Ctx } from './Editor';
 import {
   ANIM_LABELS, AnalysedShot, FREE_TYPES, GRAPHIC_LABELS, TEXTLESS, ZONE_LABELS, addCut, addFreeze, addSpeed, applyAnalysis, applyRemix, aspectOf, autoBroll, autoZooms,
   applyDirect, applyStyle, clamp, faceToX, isFree, newGraphic, outSeconds, paneCount, patchWord, removeFillers, removeShot, restoreWords, round3,
-  setAspect, setLayout, shuffleGraphics, uid, withSegments,
+  captionsSrt, setAspect, setLayout, shuffleGraphics, uid, withSegments,
 } from './logic';
 import { GenerateImageButton } from './GenerateButton';
 import { DirectPlan, ExportRow, StyleProfile, Template } from './types';
@@ -133,13 +133,27 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
           <Slider label="Height" min={0} max={100} value={shot.y ?? 50} format={(v) => `${Math.round(v)}%`} onChange={(v) => patchShot({ y: v }, 'y')} />
         )}
         <div className="row between wrap">
-          <Seg small value={shot.transition} onChange={(v) => patchShot({ transition: v })} options={[{ value: 'cut', label: 'Hard cut' }, { value: 'smooth', label: 'Smooth pan' }]} />
-          <div className="row gap-s">
+          <Field label={idx === 0 ? 'Transition (the first shot has none)' : `How shot #${idx + 1} arrives`} grow>
+            <select value={shot.transition} disabled={idx === 0} aria-label="Transition" onChange={(e) => patchShot({ transition: e.target.value as Transition })}>
+              {TRANSITIONS.map((x) => <option key={x.value} value={x.value} title={x.hint}>{x.label}</option>)}
+            </select>
+          </Field>
+          <div className="row gap-s" style={{ alignSelf: 'flex-end' }}>
             <Button small icon="plus" onClick={() => update((s) => addCut(s, t))}>Cut at {fmtTime(ctx.frame / spec.fps, true)}</Button>
             <Button small variant="danger" icon="trash" disabled={idx === 0} aria-label="Remove this cut" title="Merge with the previous shot" onClick={() => update((s) => removeShot(s, idx))} />
           </div>
         </div>
-        <div className="row"><Button small onClick={() => analyse(false)} disabled={jobs.busy} title="Keep your cuts; find faces again">Re-center on my cuts</Button></div>
+        {idx > 0 && shot.transition !== 'cut' && shot.transition !== 'smooth' && (
+          <Slider label="Transition length" min={0.15} max={1.2} step={0.05} value={shot.tdur ?? 0.4} format={(v) => `${v.toFixed(2)}s`} onChange={(v) => patchShot({ tdur: v }, 'tdur')} />
+        )}
+        <div className="small muted">{TRANSITIONS.find((x) => x.value === shot.transition)?.hint}. Transitions play where a shot starts; use “Cut at” to add one anywhere.</div>
+        <div className="row wrap">
+          {spec.shots.length > 1 && idx > 0 && (
+            <Button small icon="copy" title="Give every shot this transition and length"
+              onClick={() => update((s) => ({ ...s, shots: s.shots.map((x, i) => (i === 0 ? x : { ...x, transition: shot.transition, tdur: shot.tdur })) }))}>Use on every shot</Button>
+          )}
+          <Button small onClick={() => analyse(false)} disabled={jobs.busy} title="Keep your cuts; find faces again">Re-center on my cuts</Button>
+        </div>
       </Group>
 
       <Group title="Picture frame">
@@ -380,10 +394,18 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
           <Toggle checked={spec.look.bw} onChange={(v) => setLook({ bw: v })} label="Black & white" />
           <Toggle checked={spec.look.vignette} onChange={(v) => setLook({ vignette: v })} label="Vignette" />
           <Toggle checked={spec.look.progressBar} onChange={(v) => setLook({ progressBar: v })} label="Progress bar" />
+          <Toggle checked={!!spec.look.flip} onChange={(v) => setLook({ flip: v })} label="Mirror" />
         </div>
         <Slider label="Brightness" min={0.7} max={1.4} step={0.01} value={spec.look.brightness ?? 1} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, brightness: v } }), 'lb')} />
         <Slider label="Contrast" min={0.7} max={1.4} step={0.01} value={spec.look.contrast ?? 1} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, contrast: v } }), 'lc')} />
         <Slider label="Saturation" min={0} max={1.8} step={0.01} value={spec.look.saturation ?? 1} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, saturation: v } }), 'ls')} />
+        <Slider label="Film grain" min={0} max={1} step={0.05} value={spec.look.grain ?? 0} format={(v) => (v ? `${Math.round(v * 100)}%` : 'Off')} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, grain: v || undefined } }), 'lg')} />
+        <Slider label="Cinema bars" min={0} max={18} step={1} value={spec.look.bars ?? 0} format={(v) => (v ? `${v}% top and bottom` : 'Off')} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, bars: v || undefined } }), 'lbars')} />
+        <Slider label="Slow push-in" min={0} max={0.25} step={0.01} value={spec.look.drift ?? 0} format={(v) => (v ? `${Math.round(v * 100)}% over each shot` : 'Off')} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, drift: v || undefined } }), 'ldrift')} />
+        <div className="grid-2">
+          <Slider label="Fade in at the start" min={0} max={2} step={0.1} value={spec.look.fadeIn ?? 0} format={(v) => (v ? `${v.toFixed(1)}s` : 'Off')} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, fadeIn: v || undefined } }), 'lfi')} />
+          <Slider label="Fade out at the end" min={0} max={2} step={0.1} value={spec.look.fadeOut ?? 0} format={(v) => (v ? `${v.toFixed(1)}s` : 'Off')} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, fadeOut: v || undefined } }), 'lfo')} />
+        </div>
       </Group>
 
       <Group id="brand-kit" title="Brand kit" actions={moved ? <Button small onClick={resetPositions} title="Put the captions, hook, logo and watermark back in their default places">Reset positions</Button> : null}>
@@ -719,7 +741,10 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
       </Group>
 
       {g && (
-        <Group title="Selected graphic" actions={<Button small variant="danger" icon="trash" aria-label="Delete graphic" onClick={() => { update((s) => ({ ...s, graphics: s.graphics.filter((x) => x.id !== g.id) })); select(null); }} />}>
+        <Group title="Selected graphic" actions={<>
+          <Button small icon="copy" title="Make a copy just after this one" onClick={() => { const copy = { ...g, id: uid(), at: round3(Math.min(spec.out - 0.2, g.at + g.duration)), dx: (g.dx ?? 0) + 3, dy: (g.dy ?? 0) + 3 }; update((s) => ({ ...s, graphics: [...s.graphics, copy].sort((a, b) => a.at - b.at) })); select(copy.id); }}>Duplicate</Button>
+          <Button small variant="danger" icon="trash" aria-label="Delete graphic" onClick={() => { update((s) => ({ ...s, graphics: s.graphics.filter((x) => x.id !== g.id) })); select(null); }} />
+        </>}>
           <Field label="Type">
             <select value={g.type} onChange={(e) => patch({ type: e.target.value as GraphicType })}>
               {(Object.keys(GRAPHIC_LABELS) as GraphicType[]).map((k) => <option key={k} value={k}>{GRAPHIC_LABELS[k]}</option>)}
@@ -785,6 +810,26 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
             </>
           )}
           {g.type === 'nametag' && <Field label="Text"><input id="graphic-text" type="text" value={g.primary} onChange={(e) => patch({ primary: e.target.value }, 'gprim')} /></Field>}
+          {g.type === 'blurbox' && (
+            <>
+              <Field label="Cover with">
+                <Seg small value={g.style === 'box' ? 'box' : 'plain'} onChange={(v) => patch({ style: v as LabelStyle })} options={[{ value: 'plain', label: 'Blur' }, { value: 'box', label: 'Black box' }]} />
+              </Field>
+              <Slider label="Shape" min={0.2} max={2.5} step={0.05} value={g.ratio ?? 0.6} format={(v) => (v < 0.9 ? 'Wide' : v > 1.1 ? 'Tall' : 'Square')} onChange={(v) => patch({ ratio: v }, 'gratio')} />
+              <span className="small muted">The box stays where you put it. If the face or plate moves, add another box later in the clip.</span>
+            </>
+          )}
+          {g.type === 'image' && (
+            assets.brand.length + media.filter((a) => a.type !== 'video').length === 0 ? <span className="small muted">Add images under Library → Logos or Library → B-roll first.</span> : (
+              <div className="media-grid">
+                {[...assets.brand, ...media.filter((a) => a.type !== 'video')].map((a) => (
+                  <button key={a.url} className={'media-pick' + (g.src === a.url ? ' on' : '')} onClick={() => patch({ src: a.url, mediaType: 'image' })} title={a.name}>
+                    <img src={a.url} alt="" loading="lazy" /><span>{a.label}</span>
+                  </button>
+                ))}
+              </div>
+            )
+          )}
           {g.type === 'heart' && <Field label="Line under the heart (optional)"><input type="text" value={g.headline} onChange={(e) => patch({ headline: e.target.value }, 'ghead')} /></Field>}
           {!TEXTLESS.includes(g.type) && !isFree(g.type) && (
             <div className="grid-2">
@@ -836,6 +881,13 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
 export function PostPanel({ ctx }: { ctx: Ctx }) {
   const { spec, update, jobs, flush, project, clip, meta, setMeta, title, setTitle, status, setStatus } = ctx;
   const [quality, setQuality] = useState<'1080' | '720'>('1080');
+  const [upscale, setUpscale] = useState(false);
+  type UpState = { available: boolean; gpu: boolean; cpus: number; provider: string; model_downloaded: boolean };
+  const [up, setUp] = useState<UpState | null>(null);
+  useEffect(() => { api.get<UpState>('/api/upscale/state').then(setUp).catch(() => {}); }, []);
+  const lowRes = Math.min(spec.srcW, spec.srcH) < 1080;
+  // measured: about 1.2 s a frame for 720p on four CPU cores; a graphics card is many times faster
+  const upMinutes = Math.max(1, Math.round((ctx.seconds * spec.fps * (up?.gpu ? 0.15 : 1.2 * 4 / Math.max(1, up?.cpus ?? 4))) / 60));
   const [exportsList, setExports] = useState<ExportRow[]>([]);
   const base = `/api/projects/${project.id}/clips/${clip.id}`;
   const load = () => api.get<ExportRow[]>('/api/exports').then((rows) => setExports(rows.filter((r) => r.clip_id === clip.id))).catch(() => {});
@@ -853,7 +905,7 @@ export function PostPanel({ ctx }: { ctx: Ctx }) {
   async function render() {
     try {
       await flush();
-      const row = await jobs.run<ExportRow>(() => api.post(`${base}/render`, { quality }));
+      const row = await jobs.run<ExportRow>(() => api.post(`${base}/render`, { quality, upscale }));
       toast(`Exported ${row.title}${row.copied_to ? ' and copied to your folder' : ''}`, 'good');
       load();
     } catch (e) { toastError(e); }
@@ -904,7 +956,15 @@ export function PostPanel({ ctx }: { ctx: Ctx }) {
             <Seg small value={quality} onChange={setQuality} options={[{ value: '1080', label: '1080p' }, { value: '720', label: '720p' }]} />
           </Field>
         </div>
+        <div className="col gap-s">
+          <Toggle checked={upscale} onChange={setUpscale} label={`AI upscale the footage${lowRes ? ' (recommended: the source is ' + Math.min(spec.srcW, spec.srcH) + 'p)' : ''}`} />
+          {upscale && (up?.available === false
+            ? <span className="small" style={{ color: 'var(--bad)' }}>Needs two packages: <span className="mono">pip install onnx onnxruntime</span>, then restart Cutroom.</span>
+            : <span className="small muted">Sharpens low-resolution footage (CCTV, dashcam, old phones) with Real-ESRGAN before the short is made. Slow: roughly {upMinutes} min for this clip on {up?.gpu ? `the graphics card (${up.provider})` : `${up?.cpus ?? 4} processor cores`}.{up && !up.model_downloaded ? ' The first time also downloads a 5 MB model.' : ''}</span>)}
+        </div>
         <Button variant="primary" icon="download" onClick={render} disabled={jobs.busy}>Export MP4 ({fmtDur(ctx.seconds)})</Button>
+        <Button small icon="download" title="Subtitle file timed to the finished short, for YouTube and other sites that accept one"
+          onClick={() => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([captionsSrt(spec)], { type: 'application/x-subrip' })); a.download = `${(title || 'captions').replace(/[\\/:*?"<>|]+/g, ' ').trim()}.srt`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }}>Download captions (.srt)</Button>
         <span className="small muted">Rendering takes roughly two to five times the clip length on a laptop.</span>
       </Group>
 

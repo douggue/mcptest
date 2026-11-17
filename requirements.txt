@@ -12,3 +12,5 @@ faster-whisper>=1.0
 edge-tts>=6.1
 mcp>=1.9                # only for the optional flow-mcp connector (desktop edition)
 pycapcut==0.0.4          # CapCut project export (the API changes in 0.1, so this is pinned)
+onnx>=1.16                # AI upscaling (Real-ESRGAN, run without PyTorch)
+onnxruntime>=1.18

@@ -388,8 +388,13 @@ def render_clip(pid: str, cid: str, body: dict) -> dict:
     project = load(pid)
     clip = _clip(project, cid)
     scale = 2 / 3 if str(body.get("quality", "1080")) == "720" else 1.0
+    upscale = body.get("upscale") is True
+    if upscale:
+        from ..studio import upscale as ai_upscale
+        if not ai_upscale.available():
+            raise HTTPException(422, "AI upscaling needs two packages: pip install onnx onnxruntime, then restart Cutroom.")
 
     def work(job: jobs.Job) -> dict:
-        return render.render_clip(project, clip, job, scale, int(body.get("crf") or 18))
+        return render.render_clip(project, clip, job, scale, int(body.get("crf") or 18), upscale)
 
     return {"job_id": jobs.submit("render", f"Exporting {clip['title']}", work, {"project_id": pid, "clip_id": cid}).id}

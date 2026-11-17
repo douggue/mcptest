@@ -48,7 +48,10 @@ For development, run `python run.py` and, in another terminal, `cd web && npm ru
 | Whisper transcription | A one-time model download on first use |
 | AI moment picking, scores, remix, hooks, post text | A Claude (Anthropic) or Gemini (Google) API key (Settings → AI). Without one, simpler built-in rules are used |
 | Caption translation | A Claude or Gemini API key |
-| Voiceover from a script | Internet (uses the `edge-tts` voice service) |
+| Voiceover from a script | Internet (uses the `edge-tts` voice service), or a Gemini key for Google voices |
+| Generating images, clips (Gemini Omni 1.2 Flash), voices and music | A Gemini key; billed by Google per use |
+| AI upscale | `pip install onnx onnxruntime`, and a one-time 5 MB download |
+| CapCut project export | `pip install pycapcut==0.0.4` (included in requirements) |
 | Stock b-roll search | A free Pexels API key (Settings) |
 | Refreshing view counts in Agency | Internet |
 
@@ -66,11 +69,15 @@ Paste a link or drop a file, set the range with the slider or the time boxes, ch
 2. **Transcribe** it with Whisper, with the site's own captions, or by importing an SRT, VTT or JSON file.
 3. **Find moments.** Each gets a hook title, a reason and a 0–100 score built from hook, flow, value and trend. You can also describe what you are looking for, or mark a clip by hand.
 4. **Edit** each clip:
-   - *Framing* – detect camera cuts, centre the speaker in each shot, follow movement, split for two or three people, or fit the whole frame over a blur. Zooms, opening hook, audio mixer, voice clean-up, music with ducking, voiceover.
-   - *Style* – six caption styles, fonts, colours, emojis, translation, colour looks, brand kit, reusable templates.
+   - *Framing* – detect camera cuts, centre the speaker in each shot, follow movement, split for two or three people, or fit the whole frame over a blur. Twelve transitions between shots (cross-fade, slide, push, zoom, whip pan, spin, blur, flash, dip to black, glitch, smooth pan, hard cut) with adjustable length. Zooms, freezes, speed changes, opening hook, audio mixer, voice clean-up, music with ducking, voiceover.
+   - *Style* – caption styles, fonts, colours, emojis, translation, colour looks with brightness, contrast and saturation, film grain, cinema bars, slow push-in, fade in and out, mirror, brand kit, reusable templates and learned styles.
    - *Words* – remove silences and filler words, or click any word to cut, rewrite or emphasise it.
-   - *Motion* – keyword pops, cascades, gauges, counters, lower thirds, step lists, emoji bursts and b-roll, each with placement, animation and sound. "AI remix" plans them for you.
-   - *Export* – post title, description and hashtags; 9:16, 4:5, 1:1 or 16:9; 30 or 60 fps; 1080p or 720p.
+   - *Motion* – keyword pops, cascades, gauges, counters, lower thirds, step lists, emoji bursts, b-roll, text labels, name tags, circles, arrows, spotlights, image stickers and blur boxes (to hide a face or number plate), each with placement, animation and sound, and a Duplicate button. "AI remix" plans them for you.
+   - *Export* – post title, description and hashtags; 9:16, 4:5, 3:4, 1:1 or 16:9; 30 or 60 fps; 1080p or 720p; optional **AI upscale** for low-resolution footage; captions as an `.srt` file; or **Finish in CapCut** (below).
+
+**AI upscale.** Sharpens CCTV, dashcam and old phone footage with Real-ESRGAN before the short is made (needs `pip install onnx onnxruntime`; a 5 MB model downloads on first use). It is slow on a processor: about 1.2 seconds per frame on four cores, so roughly 15 to 20 minutes for a 30-second short. A graphics card is much faster.
+
+**Finish in CapCut.** Sends the edit to CapCut as a project you can keep editing: every cut and speed change, freeze frames, framing (tracking and punch-ins as keyframes), split screens, b-roll, logo, captions, title, text graphics, watermark, voice, voiceover, music and sound effects, each on its own track. On the same computer it is saved straight into CapCut; otherwise you download a zip to unpack into CapCut's projects folder. Effects CapCut cannot import (animated cards, circles, arrows, the word-by-word caption highlight, colour looks) are listed after the export. This uses the open-source `pycapcut` library and has not yet been opened in CapCut by us; tell us if a project does not open.
 
 **Editing on the video:** click the captions, hook title, logo, watermark or a motion graphic in the preview to select it, drag to move it, and drag its corner to resize it. Double-click a title to edit its text. Positions snap to the centre line, and Style → Brand kit has a button to reset them.
 

@@ -70,7 +70,7 @@ def _run_node(args: list[str], job: Job, span: tuple[float, float]) -> None:
         raise MediaError("Render failed: " + reported[:400])
 
 
-def render_clip(project: dict, clip: dict, job: Job, scale: float = 1.0, crf: int = 18) -> dict:
+def render_clip(project: dict, clip: dict, job: Job, scale: float = 1.0, crf: int = 18, upscale: bool = False) -> dict:
     """Render one clip and record it in the exports collection. Returns the export row."""
     spec = clip["spec"]
     source = media_path(spec["src"])
@@ -78,13 +78,25 @@ def render_clip(project: dict, clip: dict, job: Job, scale: float = 1.0, crf: in
     work.mkdir(parents=True, exist_ok=True)
     try:
         # 1. A trimmed, quick-to-seek copy of just this clip's range, so the renderer never touches the full source.
-        offset = max(0.0, spec["in"] - 0.5)
-        length = spec["out"] - offset + 0.5
+        # Only the part that survives the edit is needed; with upscaling that saves minutes per second cut away.
+        from .capcut import kept_segments
+        kept = kept_segments(spec)
+        offset = max(0.0, kept[0]["start"] - 0.5)
+        length = kept[-1]["end"] - offset + 0.5
         proxy = work / "source.mp4"
         ffmpeg(["-ss", f"{offset:.3f}", "-t", f"{length:.3f}", "-i", str(source), "-map", "0:v:0", "-map", "0:a:0?",
                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "14", "-g", "15", "-pix_fmt", "yuv420p",
                 "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(proxy)],
-               job, length, (0.0, 0.12), "Preparing source")
+               job, length, (0.0, 0.03 if upscale else 0.12), "Preparing source")
+        render_span = (0.12, 0.97)
+        if upscale:
+            # Sharpen low-resolution footage before the short is laid out. The renderer places video by its shape,
+            # so a source twice the size needs nothing else. Upscaling dominates the time, so it gets most of the bar.
+            from . import upscale as ai_upscale
+            sharper = work / "source_upscaled.mp4"
+            ai_upscale.upscale_video(proxy, sharper, job, (0.03, 0.8))
+            proxy = sharper
+            render_span = (0.8, 0.98)
         render_spec = specs.for_render(spec, offset, base_url(), base_url() + media_url(proxy))
         spec_file = work / "spec.json"
         spec_file.write_text(json.dumps(render_spec), "utf-8")
@@ -93,7 +105,7 @@ def render_clip(project: dict, clip: dict, job: Job, scale: float = 1.0, crf: in
         title = clip.get("title") or project["name"]
         out = unique_path(DATA / "exports", safe_name(title, "short"), "mp4")
         tmp_out = work / "out.mp4"
-        _run_node(["--spec", str(spec_file), "--out", str(tmp_out), "--scale", str(scale), "--crf", str(crf)], job, (0.12, 0.97))
+        _run_node(["--spec", str(spec_file), "--out", str(tmp_out), "--scale", str(scale), "--crf", str(crf)], job, render_span)
         shutil.move(str(tmp_out), str(out))
 
         # 3. Cover frame + bookkeeping.

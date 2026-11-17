@@ -274,6 +274,11 @@ const Body: React.FC<Ctx> = ({ g, brand, u, frames }) => {
         </svg>
       );
     }
+    case 'image': {
+      const w = 380 * u;
+      if (!g.src) return <div style={{ width: w, height: w * 0.6, border: `${4 * u}px dashed rgba(255,255,255,.7)`, borderRadius: 16 * u, display: 'grid', placeItems: 'center', color: '#fff', fontFamily: family, fontSize: 30 * u, background: 'rgba(0,0,0,.35)' }}>Choose an image</div>;
+      return <Img src={g.src} style={{ width: w, height: 'auto', display: 'block', filter: `drop-shadow(0 ${6 * u}px ${14 * u}px rgba(0,0,0,.45))` }} />;
+    }
     case 'heart': {
       const w = 230 * u;
       const t = frame / fps;
@@ -330,6 +335,19 @@ export const GraphicLayer: React.FC<Ctx> = (ctx) => {
   if (g.type === 'dip') {   // dip to black and back
     const p = frame / Math.max(1, frames - 1);
     return <AbsoluteFill style={{ background: '#000', opacity: p < 0.55 ? interpolate(p, [0, 0.55], [0, 1]) : interpolate(p, [0.55, 1], [1, 0]) }} />;
+  }
+  if (g.type === 'blurbox') {   // hides whatever is under it: a face, a number plate, a screen
+    // drawn without an entry animation: a blur only works on what is behind it while nothing above it is fading
+    const w = 320 * (width / 1080) * (g.scale ?? 1), h = w * (g.ratio ?? 0.6);
+    const cx = width / 2 + ((g.dx ?? 0) / 100) * width, cy = height / 2 + ((g.dy ?? 0) / 100) * height;
+    const solid = g.style === 'box';
+    return (
+      <div data-el={`graphic:${g.id}`} style={{
+        position: 'absolute', left: cx - w / 2, top: cy - h / 2, width: w, height: h, borderRadius: Math.min(w, h) * 0.12,
+        background: solid ? '#000' : 'rgba(128,128,128,.1)', backdropFilter: solid ? undefined : `blur(${Math.max(14, w * 0.09)}px)`,
+        WebkitBackdropFilter: solid ? undefined : `blur(${Math.max(14, w * 0.09)}px)`,
+      }} />
+    );
   }
   if (g.type === 'spotlight') {   // everything outside a soft ellipse dims
     const ramp = Math.min(interpolate(frame, [0, fps * 0.12], [0, 1], { extrapolateRight: 'clamp' }), interpolate(frame, [frames - fps * 0.12, frames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }));

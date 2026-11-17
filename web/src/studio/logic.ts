@@ -1,5 +1,5 @@
 // Pure editing operations on a ShortSpec. No React, no network.
-import { Piece, buildPlan, outFrameOf, srcTimeAt, totalFrames } from '../remotion/timing';
+import { Piece, buildPlan, captionPages as pagesOf, outFrameOf, srcTimeAt, totalFrames } from '../remotion/timing';
 import { ASPECTS, Anim, Aspect, Face, Freeze, Graphic, GraphicType, Layout, Segment, ShortSpec, Shot, Speed, Word, Zone } from '../remotion/types';
 
 export type EditSpec = ShortSpec & {
@@ -189,15 +189,16 @@ export function autoZooms(spec: EditSpec): EditSpec {
 /* ---------- motion ---------- */
 export const GRAPHIC_LABELS: Record<GraphicType, string> = {
   label: 'Text label', nametag: 'Name tag', circle: 'Circle callout', arrow: 'Arrow', spotlight: 'Spotlight', flash: 'Flash', dip: 'Dip to black', heart: 'Heart ending',
+  image: 'Image or sticker', blurbox: 'Blur box (hide a face or plate)',
   keyword: 'Keyword pop', cascade: 'Keyword cascade', gauge: 'Radial gauge', counter: 'Number counter',
   lowerthird: 'Lower third', steps: 'Step list', broll: 'B-roll', emoji: 'Emoji burst',
 };
 export const ZONE_LABELS: Record<Zone, string> = { free: 'Free', full: 'Full', top: 'Top', center: 'Center', bottom: 'Bottom', overlay: 'Overlay' };
 export const ANIM_LABELS: Record<Anim, string> = { pop: 'Spring pop', slam: 'Slam', fade: 'Fade', slide: 'Slide up', glitch: 'Glitch flash', type: 'Wipe in' };
 /** Placed anywhere on the frame; no zone, and for the last three no text at all. */
-export const FREE_TYPES: GraphicType[] = ['label', 'nametag', 'circle', 'arrow', 'spotlight', 'flash', 'dip', 'heart'];
+export const FREE_TYPES: GraphicType[] = ['label', 'nametag', 'circle', 'arrow', 'spotlight', 'image', 'blurbox', 'flash', 'dip', 'heart'];
 export const isFree = (t: GraphicType) => FREE_TYPES.includes(t);
-export const TEXTLESS: GraphicType[] = ['circle', 'arrow', 'spotlight', 'flash', 'dip', 'broll'];
+export const TEXTLESS: GraphicType[] = ['circle', 'arrow', 'spotlight', 'flash', 'dip', 'broll', 'image', 'blurbox'];
 
 export function newGraphic(type: GraphicType, at: number): Graphic {
   if (isFree(type)) {
@@ -210,6 +211,8 @@ export function newGraphic(type: GraphicType, at: number): Graphic {
       case 'spotlight': return { ...base, duration: 1, primary: '', animation: 'fade', sfx: '' };
       case 'flash': return { ...base, duration: 0.25, primary: '', color: '#ffffff', animation: 'fade' };
       case 'dip': return { ...base, duration: 0.25, primary: '', animation: 'fade' };
+      case 'image': return { ...base, duration: 3, primary: '' };
+      case 'blurbox': return { ...base, duration: 3, primary: '', animation: 'fade', ratio: 0.6, style: 'plain' };
       default: return { ...base, duration: 2.2, primary: '', sfx: 'thud' };   // heart
     }
   }
@@ -310,6 +313,30 @@ export function recentre(next: EditSpec): EditSpec {
 
 /** Caption lines as the composition groups them, for translation. */
 export { captionPages } from '../remotion/timing';
+
+/** The captions as an .srt file timed to the finished short, for uploading alongside the video. */
+export function captionsSrt(spec: ShortSpec): string {
+  const plan = buildPlan(spec);
+  const total = totalFrames(plan);
+  const stamp = (frame: number) => {
+    const ms = Math.round((frame / spec.fps) * 1000);
+    const two = (n: number) => String(n).padStart(2, '0');
+    return `${two(Math.floor(ms / 3600000))}:${two(Math.floor(ms / 60000) % 60)}:${two(Math.floor(ms / 1000) % 60)},${String(ms % 1000).padStart(3, '0')}`;
+  };
+  const pages = pagesOf(spec.words, spec.captions.maxWords);
+  const out: string[] = [];
+  let last = 0;
+  pages.forEach((pg, i) => {
+    const next = pages[i + 1];
+    const from = Math.max(last, outFrameOf(plan, pg.start, spec.fps));
+    const to = Math.min(total, outFrameOf(plan, next ? Math.min(next.start, pg.end + 0.5) : pg.end + 0.5, spec.fps));
+    if (to <= from) return;
+    const text = pg.words.map((w) => w.text.trim()).join(' ');
+    out.push(`${out.length + 1}\n${stamp(from)} --> ${stamp(to)}\n${spec.captions.uppercase ? text.toUpperCase() : text}\n`);
+    last = to;
+  });
+  return out.join('\n');
+}
 
 /* ---------- freezes and speed ---------- */
 export function addFreeze(spec: EditSpec, at: number, duration = 1): EditSpec {

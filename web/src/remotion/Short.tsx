@@ -4,7 +4,7 @@ import { AbsoluteFill, Audio, Freeze, Img, OffthreadVideo, Sequence, continueRen
 import { CaptionLayer } from './Captions';
 import { GraphicLayer } from './Graphics';
 import { fontStack, fontWeight, fontsReady } from './fonts';
-import { Piece, buildPlan, graphicFrames, paneXAt, speechEnvelope, srcTimeAt, totalFrames, zoomAt } from './timing';
+import { Cut, Piece, buildPlan, driftAt, graphicFrames, paneXAt, speechEnvelope, srcTimeAt, totalFrames, transitionCuts, zoomAt } from './timing';
 import { DEFAULT_FRAME, Look, ShortSpec, Shot } from './types';
 
 const LOOKS: Record<Look['preset'], string> = {
@@ -62,7 +62,7 @@ const Panes: React.FC<{ spec: ShortSpec; piece: Piece }> = ({ spec, piece }) => 
   const t = piece.hold ? piece.srcStart : piece.srcStart + (frame / fps) * piece.rate;
   const shot: Shot = spec.shots[piece.shot] ?? { start: 0, layout: 'single', x: [50], transition: 'cut' };
   const xs = paneXAt(spec.shots, t);
-  const zoom = zoomAt(spec.zooms, t);
+  const zoom = zoomAt(spec.zooms, t) * driftAt(spec.shots, t, spec.out, spec.look.drift ?? 0);
   const y = shot.y ?? 50;
   const cleanVolume = spec.audio.voiceover?.muteOriginal ? 0 : spec.audio.voice;
   const clean = spec.audio.cleanSrc && cleanVolume > 0 && !piece.hold && (
@@ -173,13 +173,78 @@ const HeaderLayer: React.FC<{ spec: ShortSpec; u: number }> = ({ spec, u }) => {
   );
 };
 
+/* ---------------------------------------------------------------- transitions between shots */
+
+type Fx = { style: React.CSSProperties; under?: { cut: Cut; style: React.CSSProperties }; wash?: { color: string; opacity: number } };
+const smooth = (p: number) => (p <= 0 ? 0 : p >= 1 ? 1 : p * p * (3 - 2 * p));
+const noise = (n: number) => { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x); };   // repeatable per frame
+
+/** What a transition does to the picture at this frame, or null when none is playing. */
+function transitionFx(cuts: Cut[], frame: number, u: number): Fx | null {
+  for (const c of cuts) {
+    const d = frame - c.frame;
+    if (c.type === 'fade' || c.type === 'slide' || c.type === 'push') {
+      // the new shot arrives over the old shot's last frame, so nothing that was cut out is ever shown
+      if (d < 0 || d >= c.frames) continue;
+      const p = smooth((d + 1) / (c.frames + 1));
+      if (c.type === 'fade') return { style: { opacity: p }, under: { cut: c, style: {} } };
+      if (c.type === 'slide') return { style: { transform: `translateX(${(1 - p) * 100}%)`, boxShadow: `${-40 * u}px 0 ${90 * u}px rgba(0,0,0,.6)` }, under: { cut: c, style: { filter: `brightness(${1 - 0.4 * p})` } } };
+      return { style: { transform: `translateX(${(1 - p) * 100}%)` }, under: { cut: c, style: { transform: `translateX(${-p * 100}%)` } } };
+    }
+    // the rest build up on the outgoing shot, peak on the cut and settle on the incoming one
+    const half = Math.max(1, Math.round(c.frames / 2));
+    if (d < -half || d >= half) continue;
+    const k = d < 0 ? (d + half + 1) / (half + 1) : 1 - d / half;
+    const kk = k * k;
+    const dir = d < 0 ? -1 : 1;
+    switch (c.type) {
+      case 'zoom': return { style: { transform: `scale(${1 + 0.6 * kk})`, filter: `blur(${14 * kk * u}px)` } };
+      case 'whip': return { style: { transform: `translateX(${dir * 22 * kk}%) scale(${1 + 0.5 * kk}, ${1 + 0.12 * kk})`, filter: `blur(${12 * kk * u}px)` } };
+      case 'spin': return { style: { transform: `rotate(${-dir * 14 * kk}deg) scale(${1 + 0.55 * kk})`, filter: `blur(${9 * kk * u}px)` } };
+      case 'blur': return { style: { transform: `scale(${1 + 0.08 * k})`, filter: `blur(${26 * kk * u}px)` } };
+      case 'flash': return { style: {}, wash: { color: '#fff', opacity: Math.pow(k, 1.5) } };
+      case 'dip': return { style: {}, wash: { color: '#000', opacity: smooth(k) } };
+      case 'glitch': {
+        const a = noise(frame), b = noise(frame + 31), g = noise(frame + 67);
+        return { style: { transform: `translateX(${(a * 2 - 1) * 5 * k}%) skewX(${(b * 2 - 1) * 8 * k}deg) scale(${1 + 0.12 * k})`, filter: `hue-rotate(${g * 120 * k}deg) saturate(${1 + 1.6 * k}) contrast(${1 + 0.3 * k})` } };
+      }
+      default: return null;
+    }
+  }
+  return null;
+}
+
+/** Film grain: a small noise field stretched over the frame, redrawn every frame. */
+const Grain: React.FC<{ amount: number }> = ({ amount }) => {
+  const frame = useCurrentFrame();
+  const { width, height } = useVideoConfig();
+  const w = Math.ceil(width / 3), h = Math.ceil(height / 3);
+  return (
+    <AbsoluteFill style={{ opacity: Math.min(1, amount) * 0.55, mixBlendMode: 'overlay', pointerEvents: 'none' }}>
+      <svg width={w} height={h} style={{ width: '100%', height: '100%' }} preserveAspectRatio="none" viewBox={`0 0 ${w} ${h}`}>
+        <filter id="cutroom-grain" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves={2} seed={frame % 61} />
+          <feColorMatrix type="saturate" values="0" />
+        </filter>
+        <rect width={w} height={h} filter="url(#cutroom-grain)" />
+      </svg>
+    </AbsoluteFill>
+  );
+};
+
 const FULL_FRAME = new Set(['spotlight', 'flash', 'dip']);
 
 export const Short: React.FC<{ spec: ShortSpec }> = ({ spec }) => {
   const frame = useCurrentFrame();
   const { fps, width, durationInFrames } = useVideoConfig();
   const u = width / 1080;
-  const plan = useMemo(() => buildPlan(spec), [spec.segments, spec.shots, spec.in, spec.out, spec.fps]);
+  const plan = useMemo(() => buildPlan(spec), [spec.segments, spec.shots, spec.freezes, spec.speeds, spec.in, spec.out, spec.fps]);
+  const cuts = useMemo(() => transitionCuts(plan, spec.shots, fps), [plan, spec.shots, fps]);
+  const fx = transitionFx(cuts, frame, u);
+  // fades at the two ends of the short: 1 = fully visible
+  const fadeIn = spec.look.fadeIn ? Math.min(1, frame / Math.max(1, spec.look.fadeIn * fps)) : 1;
+  const fadeOut = spec.look.fadeOut ? Math.min(1, (durationInFrames - 1 - frame) / Math.max(1, spec.look.fadeOut * fps)) : 1;
+  const ends = Math.max(0, Math.min(fadeIn, fadeOut));
   const t = srcTimeAt(plan, frame, fps);
   const envelope = useMemo(() => (spec.audio.music?.duck ? speechEnvelope(plan, spec.words, fps) : null), [plan, spec.words, fps, spec.audio.music?.duck]);
 
@@ -203,11 +268,23 @@ export const Short: React.FC<{ spec: ShortSpec }> = ({ spec }) => {
   return (
     <AbsoluteFill style={{ background: '#000' }}>
       <AbsoluteFill style={{ filter: lookFilter(spec.look) }}>
-        {plan.map((piece) => (
-          <Sequence key={`${piece.from}-${piece.srcStart}`} from={piece.from} durationInFrames={piece.frames} premountFor={fps}>
-            <Panes spec={spec} piece={piece} />
+        {cuts.filter((c) => c.type === 'fade' || c.type === 'slide' || c.type === 'push').map((c) => (
+          // the outgoing shot's last frame, held underneath while the new shot arrives
+          <Sequence key={`under-${c.frame}`} from={c.frame} durationInFrames={c.frames} premountFor={fps}>
+            <AbsoluteFill style={{ ...(fx?.under?.cut === c ? fx.under.style : {}), ...(spec.look.flip ? { transform: `${(fx?.under?.cut === c && fx.under.style.transform) || ''} scaleX(-1)` } : {}) }}>
+              <Panes spec={spec} piece={{ srcStart: c.prevTime, srcEnd: c.prevTime, from: c.frame, frames: c.frames, shot: c.prevShot, rate: 1, hold: true }} />
+            </AbsoluteFill>
           </Sequence>
         ))}
+        <AbsoluteFill style={fx?.style}>
+          <AbsoluteFill style={spec.look.flip ? { transform: 'scaleX(-1)' } : undefined}>
+          {plan.map((piece) => (
+            <Sequence key={`${piece.from}-${piece.srcStart}`} from={piece.from} durationInFrames={piece.frames} premountFor={fps}>
+              <Panes spec={spec} piece={piece} />
+            </Sequence>
+          ))}
+          </AbsoluteFill>
+        </AbsoluteFill>
         {broll.map((g) => {
           const { from, frames } = graphicFrames(plan, g, fps);
           return (
@@ -217,7 +294,15 @@ export const Short: React.FC<{ spec: ShortSpec }> = ({ spec }) => {
           );
         })}
       </AbsoluteFill>
+      {fx?.wash && <AbsoluteFill style={{ background: fx.wash.color, opacity: fx.wash.opacity }} />}
       {spec.look.vignette && <AbsoluteFill style={{ background: 'radial-gradient(ellipse at center, rgba(0,0,0,0) 52%, rgba(0,0,0,.62) 100%)' }} />}
+      {(spec.look.grain ?? 0) > 0 && <Grain amount={spec.look.grain!} />}
+      {(spec.look.bars ?? 0) > 0 && (
+        <>
+          <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: `${spec.look.bars}%`, background: '#000' }} />
+          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: `${spec.look.bars}%`, background: '#000' }} />
+        </>
+      )}
       {effects.filter((g) => g.type === 'spotlight').map((g) => {
         const { from, frames } = graphicFrames(plan, g, fps);
         return (
@@ -249,9 +334,11 @@ export const Short: React.FC<{ spec: ShortSpec }> = ({ spec }) => {
       {spec.look.progressBar && (
         <div style={{ position: 'absolute', left: 0, bottom: 0, height: 10 * u, width: `${(frame / Math.max(1, durationInFrames - 1)) * 100}%`, background: spec.brand.accent }} />
       )}
+      {ends < 1 && <AbsoluteFill style={{ background: '#000', opacity: 1 - ends }} />}
       {music?.src && music.volume > 0 && (
         <Audio src={music.src} loop trimBefore={Math.round((music.start || 0) * fps)}
-          volume={(f) => music.volume * (envelope ? 1 - 0.72 * (envelope[Math.min(envelope.length - 1, f)] ?? 0) : 1)} />
+          volume={(f) => music.volume * (envelope ? 1 - 0.72 * (envelope[Math.min(envelope.length - 1, f)] ?? 0) : 1)
+            * (spec.look.fadeOut ? Math.max(0, Math.min(1, (durationInFrames - 1 - f) / Math.max(1, spec.look.fadeOut * fps))) : 1)} />
       )}
       {vo?.src && vo.volume > 0 && (
         <Sequence from={Math.round((vo.at || 0) * fps)}>

@@ -1,5 +1,5 @@
 // Pure timing maths shared by the composition and the editor.
-import { Freeze, Graphic, Segment, ShortSpec, Shot, Speed, Word, Zoom } from './types';
+import { Freeze, Graphic, Segment, ShortSpec, Shot, Speed, Transition, Word, Zoom } from './types';
 
 /** One uninterrupted run of the short: a stretch of source video at some speed, or a held (frozen) frame. */
 export type Piece = { srcStart: number; srcEnd: number; from: number; frames: number; shot: number; rate: number; hold: boolean };
@@ -133,6 +133,35 @@ export function zoomAt(zooms: Zoom[], t: number): number {
     scale = Math.max(scale, 1 + (z.scale - 1) * p);
   }
   return scale;
+}
+
+/** A picture transition placed on the output timeline: the cut's frame, its length, and what was on screen just before. */
+export type Cut = { frame: number; frames: number; type: Transition; shot: number; prevTime: number; prevShot: number };
+
+/** Every shot that arrives with a picture transition, placed on the output frame grid. */
+export function transitionCuts(plan: Piece[], shots: Shot[], fps: number): Cut[] {
+  const total = totalFrames(plan);
+  const cuts: Cut[] = [];
+  for (let i = 1; i < shots.length; i++) {
+    const type = shots[i].transition;
+    if (!type || type === 'cut' || type === 'smooth') continue;
+    const frame = outFrameOf(plan, shots[i].start, fps);
+    if (frame <= 0 || frame >= total) continue;                       // the shot starts outside the short
+    if (cuts.length && cuts[cuts.length - 1].frame === frame) cuts.pop();   // two shots landing on one frame: the later one wins
+    const frames = Math.max(2, Math.min(Math.round((shots[i].tdur ?? 0.4) * fps), Math.round(fps * 1.5)));
+    const prevTime = srcTimeAt(plan, frame - 1, fps);
+    cuts.push({ frame, frames, type, shot: i, prevTime, prevShot: shotIndexAt(shots, prevTime) });
+  }
+  return cuts;
+}
+
+/** Slow push-in: extra scale at a source time, growing across the shot it belongs to. */
+export function driftAt(shots: Shot[], t: number, end: number, amount: number): number {
+  if (!amount || !shots.length) return 1;
+  const i = shotIndexAt(shots, t);
+  const a = shots[i].start;
+  const b = i + 1 < shots.length ? shots[i + 1].start : end;
+  return 1 + amount * Math.max(0, Math.min(1, (t - a) / Math.max(0.5, b - a)));
 }
 
 export type Page = { words: Word[]; start: number; end: number };
