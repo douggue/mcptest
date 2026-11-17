@@ -14,6 +14,7 @@ import {
 } from './logic';
 import { GenerateImageButton } from './GenerateButton';
 import PublishPanel from './PublishPanel';
+import { useStyleProfile } from './StyleSteps';
 import { DirectPlan, ExportRow, StyleProfile, Template } from './types';
 
 /** A section of a tool panel. `more` sections are folded away in simple mode (one click opens them). */
@@ -39,6 +40,9 @@ const Group = ({ title, actions, children, id, more }: { title: string; actions?
 export function FramePanel({ ctx }: { ctx: Ctx }) {
   const { spec, update, t, project, clip, jobs, flush, seekSrc, assets } = ctx;
   const [follow, setFollow] = useState(false);
+  const frameStyle = useStyleProfile(ctx.profileId);
+  const noTracking = frameStyle?.limits?.tracking === false;
+  const styleName = frameStyle?.name ?? '';
   const [splitTwo, setSplitTwo] = useState(false);
   const [fitWide, setFitWide] = useState(true);
   const [hooks, setHooks] = useState<string[]>([]);
@@ -126,7 +130,9 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
 
       <Group title="Camera" actions={<Button small variant="primary" icon="wand" onClick={() => analyse(true)} disabled={jobs.busy}>Center speaker</Button>}>
         <div className="row wrap">
-          <Toggle checked={follow} onChange={setFollow} label="Follow movement" />
+          {noTracking
+            ? <span className="small muted" title="This style keeps the camera still">Follow movement: off in {styleName}</span>
+            : <Toggle checked={follow} onChange={setFollow} label="Follow movement" />}
           <Toggle checked={splitTwo} onChange={setSplitTwo} label="Split when two faces" />
           <Toggle checked={fitWide} onChange={setFitWide} label="Whole frame when people don't fit" />
         </div>

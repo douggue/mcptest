@@ -37,7 +37,9 @@ def create_profile(body: dict) -> dict:
     base = presets.get(body.get("from", "")) or P.profiles.get(body.get("from", "")) or {}
     row = {"name": name, "references": [], "rules": copy.deepcopy(base.get("rules", [])), "brief": base.get("brief", ""),
            "style": copy.deepcopy(base.get("style", {})), "elements": copy.deepcopy(base.get("elements", [])),
-           "planner": base.get("planner", "speech"), "summary": base.get("summary", ""), "analysis": None, "note": ""}
+           "planner": base.get("planner", "speech"), "summary": base.get("summary", ""), "analysis": None, "note": "",
+           # a copy of a built-in style keeps its limits and its steps
+           "limits": copy.deepcopy(base.get("limits")), "workflow": copy.deepcopy(base.get("workflow"))}
     for r in row["rules"]:
         r["source"] = "copied"
     return P.profiles.insert(row)

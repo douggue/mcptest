@@ -455,6 +455,13 @@ def guidance(profile_id: str | None) -> tuple[str, list[str]]:
     return p.get("brief", ""), [r["text"] for r in p.get("rules", []) if r.get("on", True)]
 
 
+def limits(profile_id: str | None) -> dict | None:
+    """What the planners may add for this style (graphic types, sound effects, emoji, a timed opening title,
+    freezes, speed changes). None means no limits, as for styles learned from references."""
+    p = lookup(profile_id)
+    return dict(p["limits"]) if p and p.get("limits") else None
+
+
 RULE_SYSTEM = """\
 You turn a creator's correction into one standing rule for their editing style. They have just fixed something in a \
 video the program made, or told it what it got wrong. Write the rule as a single plain instruction that would prevent \

@@ -1,3 +1,4 @@
+import { StyleSteps } from './StyleSteps';
 import { Player, PlayerRef } from '@remotion/player';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -235,6 +236,7 @@ export function Editor({ project, clip, onBack }: { project: Project; clip: Clip
           <div className="tool-panel-head row between"><h3>{tool.title}</h3><SimpleSwitch /></div>
           <div className="tool-panel-body">
             <JobBar job={jobs.job} />
+            <StyleSteps ctx={ctx} tab={tab} openTool={(id) => setTab(id as ToolId)} />
             {tab === 'frame' && <FramePanel ctx={ctx} />}
             {tab === 'style' && <StylePanel ctx={ctx} />}
             {tab === 'words' && <WordsPanel ctx={ctx} />}

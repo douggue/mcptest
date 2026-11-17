@@ -294,8 +294,48 @@ def _style_note(brief: str, rules: list[str] | None) -> str:
     return out
 
 
-def remix(words: list[dict], density: float = 1.0, title: str = "", brief: str = "", rules: list[str] | None = None) -> dict:
-    """Editing plan for one clip. `density` scales how many graphics to add (0.3 sparse .. 2 busy)."""
+def remix(words: list[dict], density: float = 1.0, title: str = "", brief: str = "", rules: list[str] | None = None,
+          limits: dict | None = None) -> dict:
+    """Editing plan for one clip. `density` scales how many graphics to add (0.3 sparse .. 2 busy).
+    `limits` (from the style) removes what the style does not allow, whatever the AI or the fallback suggested."""
+    return limit_remix(_remix(words, density, title, brief, rules, limits), limits)
+
+
+def limit_remix(plan: dict, limits: dict | None) -> dict:
+    if not limits:
+        return plan
+    allowed = set(limits.get("graphics") or [])
+    plan = dict(plan)
+    plan["graphics"] = [dict(g, sfx=g.get("sfx", "") if limits.get("sfx", True) else "") for g in plan.get("graphics") or [] if g.get("type") in allowed]
+    if not limits.get("emoji", True):
+        plan["emojis"] = []
+    if not limits.get("zooms", True):
+        plan["zooms"] = []
+    if not limits.get("hook", True):
+        plan["hook"] = ""
+    return plan
+
+
+def _limits_note(limits: dict | None) -> str:
+    if not limits:
+        return ""
+    parts = []
+    g = limits.get("graphics")
+    parts.append("Graphics allowed in this style: " + (", ".join(g) if g else "none") + ".")
+    if not limits.get("sfx", True):
+        parts.append("Use no sound effects (sfx empty).")
+    if not limits.get("emoji", True):
+        parts.append("Use no emoji.")
+    if not limits.get("freezes", True):
+        parts.append("Use no freeze-frames.")
+    if not limits.get("speeds", True):
+        parts.append("Use no speed changes.")
+    elif limits.get("min_rate"):
+        parts.append(f"Never slow below {limits['min_rate']}x.")
+    return "\n\nLimits of this style, which override everything else: " + " ".join(parts)
+
+
+def _remix(words: list[dict], density: float, title: str, brief: str, rules: list[str] | None, limits: dict | None) -> dict:
     live = [w for w in words if not w.get("removed")]
     if not live:
         return {"engine": "none", "note": "No words in this clip.", "hook": "", "emphasis_word_ids": [], "emojis": [], "zooms": [], "graphics": []}
@@ -320,7 +360,7 @@ def remix(words: list[dict], density: float = 1.0, title: str = "", brief: str =
             "where they add meaning. Also write a hook of at most eight words to show for the first seconds.\n\n"
             "Transcript as id|word:\n" + listing
         )
-        user += _style_note(brief, rules)
+        user += _style_note(brief, rules) + _limits_note(limits)
         try:
             data = ai.ask_json(system, user, _REMIX_SCHEMA, max_tokens=16000)
             ids = {w["id"] for w in live}
@@ -459,12 +499,13 @@ Write only what the footage shows. Do not invent names, relationships or events;
 written to fit the story, keep it short and note that it is written, not heard."""
 
 
-def direct(frames: list[tuple[float, bytes]], words: list[dict], duration: float, brief: str, rules: list[str] | None, title: str = "") -> dict:
+def direct(frames: list[tuple[float, bytes]], words: list[dict], duration: float, brief: str, rules: list[str] | None, title: str = "",
+           limits: dict | None = None, has_title: bool = False) -> dict:
     """A story edit planned from the picture. Needs an AI key: there is no rule-based way to see what happens."""
     said = " ".join(f"[{w['start']:.1f}s] {w['text']}" if i % 6 == 0 else w["text"] for i, w in enumerate(words) if not w.get("removed")) or "(no speech)"
     parts: list = [
         f"The clip is {duration:.1f} seconds long" + (f"; working title: {title}" if title else "") + ".\n\nTranscript, with times in seconds from the start of the clip:\n" + said
-        + _style_note(brief, rules) + "\n\nFrames follow, each introduced by its time."]
+        + _style_note(brief, rules) + _limits_note(limits) + "\n\nFrames follow, each introduced by its time."]
     for t, jpeg in frames:
         parts.append(f"Frame at {t:.1f}s:")
         parts.append({"image": jpeg})
@@ -476,4 +517,28 @@ def direct(frames: list[tuple[float, bytes]], words: list[dict], duration: float
     data["speeds"] = [{"from_seconds": clamp(x["from_seconds"], 0, duration), "to_seconds": clamp(x["to_seconds"], 0, duration), "rate": clamp(x["rate"], 0.4, 4)}
                       for x in data["speeds"] if x["to_seconds"] - x["from_seconds"] > 0.2]
     data["hashtags"] = [h if h.startswith("#") else "#" + h for h in data["hashtags"]][:8]
-    return {"engine": "ai", **data}
+    return {"engine": "ai", **limit_direct(data, limits, has_title)}
+
+
+def limit_direct(data: dict, limits: dict | None, has_title: bool) -> dict:
+    """Keep a story plan inside its style's limits. A style without a timed opening title gets the title as its
+    first label instead (unless the style shows a title all video, which takes the title itself)."""
+    if not limits:
+        return data
+    data = dict(data)
+    allowed = set(limits.get("graphics") or [])
+    look = limits.get("label_look", "")
+    els = [dict(e, label_look=e.get("label_look") or look) if e["type"] == "label" else e for e in data["elements"] if e["type"] in allowed]
+    if not limits.get("hook", True) and not has_title and data.get("title", "").strip():
+        if "label" in allowed and not any(e["type"] == "label" and e["at_seconds"] < 0.3 for e in els):
+            els.insert(0, {"type": "label", "at_seconds": 0.0, "seconds": 2.5, "text": data["title"].strip(), "colour": "", "label_look": look,
+                           "position": "upper", "on_subject": False, "animation": "type"})
+        data["title"] = ""
+    data["elements"] = els
+    if not limits.get("freezes", True):
+        data["freezes"] = []
+    if not limits.get("speeds", True):
+        data["speeds"] = []
+    elif limits.get("min_rate"):
+        data["speeds"] = [dict(x, rate=max(x["rate"], limits["min_rate"])) for x in data["speeds"]]
+    return data

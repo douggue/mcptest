@@ -12,6 +12,16 @@ def _rules(kind: str, *texts: str) -> list[dict]:
 BUILTIN: list[dict] = [
     {
         "id": "builtin-storyline", "name": "Storyline", "builtin": True, "planner": "story",
+        "limits": {"graphics": ["label", "spotlight"], "label_look": "box", "sfx": False, "emoji": False, "hook": False,
+                   "freezes": True, "speeds": True, "min_rate": 0.6, "zooms": False, "tracking": False},
+        "workflow": [
+            {"text": "Trim the clip to the story: a little before the event to just after the payoff", "tool": "frame", "check": "manual"},
+            {"text": "Add your music under the whole video", "tool": "frame", "check": "music"},
+            {"text": "Plan the edit: title, captions, freezes and spotlights", "tool": "style", "check": "planned"},
+            {"text": "Check each spotlight is on a freeze, on the right person, after the key event", "tool": "motion", "check": "manual"},
+            {"text": "Check the title: a claim with one key word in green", "tool": "frame", "check": "title"},
+            {"text": "Export with Upscale on", "tool": "post", "check": "exported"},
+        ],
         "summary": "Security-camera, dashcam and phone clips: a square picture over a blurred copy, a title that stays up, boxed captions with speaker tags, and freeze-frame spotlights on the key moments.",
         "style": {
             "width": 1080, "height": 1920, "fps": 30,
@@ -38,6 +48,16 @@ BUILTIN: list[dict] = [
     },
     {
         "id": "builtin-kindness", "name": "Kindness story", "builtin": True, "planner": "story",
+        "limits": {"graphics": ["label", "circle", "arrow", "flash", "dip", "emoji"], "label_look": "plain", "sfx": False, "emoji": True,
+                   "hook": False, "freezes": True, "speeds": True, "min_rate": 0.5, "zooms": False, "tracking": True},
+        "workflow": [
+            {"text": "Trim the clip to the story (about 20 to 35 seconds)", "tool": "frame", "check": "length:20-35"},
+            {"text": "Add your music; it replaces the original sound. Start it so the drop lands on BUT THEN", "tool": "frame", "check": "music"},
+            {"text": "Plan the edit: narration lines, the callout freeze, colour flashes", "tool": "style", "check": "planned"},
+            {"text": "Check the circle and arrow are on the person during the freeze", "tool": "motion", "check": "manual"},
+            {"text": "Write the moral line under the heart at the end", "tool": "motion", "check": "manual"},
+            {"text": "Export", "tool": "post", "check": "exported"},
+        ],
         "summary": "A 3:4 story with a twist: typed narration lines, a freeze with a red circle and arrow, colour flashes on the turns, and a heart at the end.",
         "style": {
             "width": 1080, "height": 1440, "fps": 60,
@@ -66,6 +86,15 @@ BUILTIN: list[dict] = [
     },
     {
         "id": "builtin-clean", "name": "Clean story", "builtin": True, "planner": "story",
+        "limits": {"graphics": ["label", "nametag", "circle", "arrow", "flash", "emoji"], "label_look": "quoted", "sfx": False, "emoji": True,
+                   "hook": False, "freezes": False, "speeds": True, "min_rate": 0.5, "zooms": False, "tracking": True},
+        "workflow": [
+            {"text": "Trim the clip to 16 to 22 seconds", "tool": "frame", "check": "length:16-22"},
+            {"text": "Add your music; start it so the drop lands on BUT THEN", "tool": "frame", "check": "music"},
+            {"text": "Plan the edit: quoted labels, name tag, callouts and colour flashes (no freezes)", "tool": "style", "check": "planned"},
+            {"text": "Check no label covers a face, and the circles and arrows sit on the subject", "tool": "motion", "check": "manual"},
+            {"text": "Export", "tool": "post", "check": "exported"},
+        ],
         "summary": "A brighter 3:4 story told in short quoted neon labels, with a name tag, glowing callouts on moving footage and colour flashes on the beats. No freezes.",
         "style": {
             "width": 1080, "height": 1440, "fps": 60,
@@ -91,6 +120,15 @@ BUILTIN: list[dict] = [
     },
     {
         "id": "builtin-neon", "name": "Neon story", "builtin": True, "planner": "story",
+        "limits": {"graphics": ["label", "nametag", "spotlight", "arrow", "flash"], "label_look": "neon", "sfx": False, "emoji": False,
+                   "hook": False, "freezes": True, "speeds": True, "min_rate": 0.5, "zooms": False, "tracking": True},
+        "workflow": [
+            {"text": "Trim the clip to 14 to 27 seconds", "tool": "frame", "check": "length:14-27"},
+            {"text": "Keep the original sound: no music", "tool": "frame", "check": "no-music"},
+            {"text": "Plan the edit: neon story lines, the early spotlight and name tag, the twist freeze", "tool": "style", "check": "planned"},
+            {"text": "Check the spotlight, name tag and arrow are on the right person", "tool": "motion", "check": "manual"},
+            {"text": "Export", "tool": "post", "check": "exported"},
+        ],
         "summary": "A caption-only 3:4 story in multi-colour neon text: a spotlight and name tag early, a freeze on the twist with an arrow, and a heart at the end. Original sound, no music.",
         "style": {
             "width": 1080, "height": 1440, "fps": 30,
@@ -117,6 +155,15 @@ BUILTIN: list[dict] = [
     },
     {
         "id": "builtin-brand", "name": "Brand ad", "builtin": True, "planner": "speech",
+        "limits": {"graphics": [], "sfx": False, "emoji": False, "hook": False, "freezes": False, "speeds": False, "zooms": True, "tracking": True},
+        "workflow": [
+            {"text": "Put your channel name and picture in the header", "tool": "style", "check": "header"},
+            {"text": "Write the two-line title with the brand name in colour", "tool": "frame", "check": "title"},
+            {"text": "Trim dark frames at the start; keep the brand's end card", "tool": "frame", "check": "manual"},
+            {"text": "Check the captions: one colour per speaker, X2 for repeats, brand names spelled right", "tool": "words", "check": "manual"},
+            {"text": "Optional: Plan the edit to add punch-ins on the product", "tool": "style", "check": "optional"},
+            {"text": "Export", "tool": "post", "check": "exported"},
+        ],
         "summary": "Turns a landscape TV advert into a short: channel header, a two-line multi-colour title that stays up, the ad in a very rounded box on black, and one or two word captions coloured per speaker.",
         "style": {
             "width": 1080, "height": 1920, "fps": 60,
@@ -141,6 +188,14 @@ BUILTIN: list[dict] = [
     },
     {
         "id": "builtin-narrated", "name": "Narrated story", "builtin": True, "planner": "speech", "draft": True,
+        "limits": {"graphics": [], "sfx": False, "emoji": False, "hook": False, "freezes": False, "speeds": False, "zooms": True, "tracking": True},
+        "workflow": [
+            {"text": "Write your script: 60 to 70 words, premise first, no spoilers (the style's rules are under Style)", "tool": "style", "check": "manual"},
+            {"text": "Record your voiceover and add it under Framing → Audio", "tool": "frame", "check": "voiceover"},
+            {"text": "Check the captions match what you say", "tool": "words", "check": "manual"},
+            {"text": "Leave 1.5 to 4 seconds after the punchline with no narration", "tool": "frame", "check": "manual"},
+            {"text": "Export", "tool": "post", "check": "exported"},
+        ],
         "summary": "A narrated 9:16 story with your own voiceover: glowing serif captions in the centre, a new shot every couple of seconds, and dips between shots. Your skill marks this style's edit as not yet approved; only its script rules are.",
         "style": {
             "width": 1080, "height": 1920, "fps": 60,

@@ -58,7 +58,12 @@ export type StyleProfile = {
   style: Partial<EditSpec>; elements?: StyleElement[]; rules: StyleRule[]; brief: string;
   references?: { name: string; file: string; url: string; width?: number; height?: number; duration?: number; cuts?: number; shot_seconds?: number }[];
   analysis?: StyleAnalysis | null; note?: string; engine?: string; analysed?: number;
+  /** What the planners may add in this style (built-in styles only; none means no limits). */
+  limits?: { graphics: string[]; label_look?: string; sfx: boolean; emoji: boolean; hook: boolean; freezes: boolean; speeds: boolean; min_rate?: number; zooms: boolean; tracking: boolean };
+  /** The style's own steps, shown as a checklist in the editor. */
+  workflow?: StyleStep[];
 };
+export type StyleStep = { text: string; tool: '' | 'frame' | 'style' | 'words' | 'motion' | 'post'; check: string };
 export type DirectPlan = {
   title: string; post_title: string; description: string; hashtags: string[]; notes: string[];
   elements: { type: string; at_seconds: number; seconds: number; text: string; colour: string; label_look: string; position: string; on_subject: boolean; animation: string }[];

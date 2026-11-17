@@ -178,3 +178,17 @@
 .more-group[open] > summary h3 span:first-child::before { content: '▾ '; }
 .more-group:not([open]) > summary h3 { color: var(--muted); }
 .more-group[open] > summary { margin-bottom: 12px; }
+
+/* the chosen style's own steps, above every tool panel */
+.style-steps { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 12px; background: var(--panel-2, rgba(255,255,255,.03)); }
+.style-steps summary { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; cursor: pointer; list-style: none; }
+.style-steps summary::-webkit-details-marker { display: none; }
+.style-steps ol { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.style-steps li { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; line-height: 1.35; }
+.style-steps li.done span { color: var(--muted); text-decoration: line-through; }
+.style-steps li.next span { font-weight: 600; }
+.style-steps .tick { flex: none; width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--line-strong, #555); background: transparent; color: #111;
+  display: grid; place-items: center; cursor: pointer; padding: 0; margin-top: 1px; }
+.style-steps li.done .tick { background: var(--accent); border-color: var(--accent); }
+.style-steps .tick:disabled { cursor: default; opacity: .85; }
+.style-steps .link { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; white-space: nowrap; }

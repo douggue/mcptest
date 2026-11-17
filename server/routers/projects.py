@@ -361,7 +361,8 @@ def _clip_job(pid: str, cid: str, kind: str, title: str, fn) -> dict:
 @router.post("/{pid}/clips/{cid}/remix")
 def remix_clip(pid: str, cid: str, body: dict) -> dict:
     return _clip_job(pid, cid, "remix", "Planning the edit",
-                     lambda p, c, j: moments.remix(c["spec"]["words"], float(body.get("density") or 1.0), c["title"], *styles.guidance(c.get("profile_id"))))
+                     lambda p, c, j: moments.remix(c["spec"]["words"], float(body.get("density") or 1.0), c["title"], *styles.guidance(c.get("profile_id")),
+                                                 limits=styles.limits(c.get("profile_id"))))
 
 
 @router.post("/{pid}/clips/{cid}/meta")
@@ -393,7 +394,8 @@ def direct_clip(pid: str, cid: str) -> dict:
         words = [{**w, "start": w["start"] - t_in, "end": w["end"] - t_in} for w in spec["words"]]
         brief, rules = styles.guidance(clip.get("profile_id"))
         job.update(0.45, f"Planning the edit with {ai.provider_label()}")
-        return moments.direct(frames, words, duration, brief, rules, clip["title"])
+        has_title = any(g.get("origin") == "style" and g.get("type") == "label" and g.get("duration", 0) > duration * 0.6 for g in spec.get("graphics") or [])
+        return moments.direct(frames, words, duration, brief, rules, clip["title"], limits=styles.limits(clip.get("profile_id")), has_title=has_title)
 
     return _clip_job(pid, cid, "direct", "Planning the edit from the picture", plan)
 

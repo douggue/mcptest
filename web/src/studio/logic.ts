@@ -280,12 +280,17 @@ export function applyRemix(spec: EditSpec, plan: RemixPlan, keep: { hook: boolea
   const emoji = new Map(plan.emojis.map((e) => [e.word_id, e.emoji]));
   // b-roll, the style's standing elements and anything placed by hand are kept; earlier AI placements are replaced
   const broll = spec.graphics.filter((g) => g.type === 'broll' || g.origin === 'style' || (isFree(g.type) && g.origin !== 'ai'));
+  // a style whose title stays up all video gets no second, timed title; an untouched placeholder title takes the hook
+  const titleEl = spec.graphics.find((g) => g.origin === 'style' && g.type === 'label' && g.duration > (spec.out - spec.in) * 0.6);
+  const hook = titleEl || !plan.hook || (keep.hook && spec.hook.text) ? spec.hook : { ...spec.hook, text: plan.hook, visible: true };
+  const graphicsKept = titleEl && plan.hook && /YOUR \{TITLE\}/.test(titleEl.primary)
+    ? broll.map((g) => (g === titleEl ? { ...g, primary: plan.hook } : g)) : broll;
   return {
     ...spec,
-    hook: keep.hook && spec.hook.text ? spec.hook : { ...spec.hook, text: plan.hook || spec.hook.text, visible: true },
+    hook,
     words: spec.words.map((w) => ({ ...w, emphasis: emph.has(w.id), emoji: emoji.get(w.id) })),
     zooms: plan.zooms.filter((z) => at.has(z.word_id)).map((z) => ({ id: uid(), at: round3(Math.max(spec.in, at.get(z.word_id)! - 0.1)), duration: clamp(z.seconds, 0.6, 3), scale: 1.14 })),
-    graphics: [...broll, ...plan.graphics.filter((g) => at.has(g.word_id)).map((g) => ({
+    graphics: [...graphicsKept, ...plan.graphics.filter((g) => at.has(g.word_id)).map((g) => ({
       id: uid(), type: g.type, zone: g.zone, at: round3(at.get(g.word_id)!), duration: clamp(g.seconds, 1, 6),
       animation: g.animation, sfx: g.sfx, primary: g.primary, headline: g.headline, keywords: g.keywords, origin: 'ai' as const,
     }))].sort((a, b) => a.at - b.at),

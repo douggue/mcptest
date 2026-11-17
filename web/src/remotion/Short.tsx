@@ -412,6 +412,15 @@ export const Short: React.FC<{ spec: ShortSpec }> = ({ spec }) => {
           </Sequence>
         );
       })}
+      {/* flashes and dips wash the picture, never the text over it */}
+      {effects.filter((g) => g.type !== 'spotlight').map((g) => {
+        const { from, frames } = graphicFrames(plan, g, fps);
+        return (
+          <Sequence key={g.id} from={from} durationInFrames={frames}>
+            <GraphicLayer g={g} brand={spec.brand} u={u} frames={frames} fxVolume={spec.audio.fx} sfxBase={spec.sfxBase} />
+          </Sequence>
+        );
+      })}
       {!coveredByGraphic && <CaptionLayer spec={spec.captions} words={spec.words} t={t} u={u} from={spec.in} />}
       {overlays.map((g) => {
         const { from, frames } = graphicFrames(plan, g, fps);
@@ -423,14 +432,6 @@ export const Short: React.FC<{ spec: ShortSpec }> = ({ spec }) => {
       })}
       <HookTitle spec={spec} u={u} />
       <HeaderLayer spec={spec} u={u} />
-      {effects.filter((g) => g.type !== 'spotlight').map((g) => {
-        const { from, frames } = graphicFrames(plan, g, fps);
-        return (
-          <Sequence key={g.id} from={from} durationInFrames={frames}>
-            <GraphicLayer g={g} brand={spec.brand} u={u} frames={frames} fxVolume={spec.audio.fx} sfxBase={spec.sfxBase} />
-          </Sequence>
-        );
-      })}
       <BrandLayer spec={spec} u={u} />
       {spec.look.progressBar && (
         <div style={{ position: 'absolute', left: 0, bottom: 0, height: 10 * u, width: `${(frame / Math.max(1, durationInFrames - 1)) * 100}%`, background: spec.brand.accent }} />
