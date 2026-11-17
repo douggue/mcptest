@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-11-17T10:00:55.244Z",
+  "recordedAt": "2026-11-17T16:28:55.306Z",
   "application": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\jgcut",
   "steps": [
     "opened the demo project passed on the command line",
@@ -18,17 +18,17 @@
     ]
   },
   "files": {
-    "desktop.mp4": 409249,
-    "desktop.png": 290580,
-    "window.mp4": 265582,
-    "editor.png": 236700,
-    "file-menu.png": 231770,
-    "about.png": 253121,
-    "export-complete.png": 270154
+    "desktop.mp4": 401447,
+    "desktop.png": 298373,
+    "window.mp4": 271021,
+    "editor.png": 240905,
+    "file-menu.png": 235930,
+    "about.png": 260174,
+    "export-complete.png": 277576
   },
   "desktopCapture": [
-    "[libx264 @ 00000206b5287240] i8c dc,h,v,p: 73% 19%  6%  2%",
-    "[libx264 @ 00000206b5287240] Weighted P-Frames: Y:0.0% UV:0.0%",
-    "[libx264 @ 00000206b5287240] kb/s:68.46"
+    "[libx264 @ 0000024906fc38c0] i8c dc,h,v,p: 72% 20%  6%  2%",
+    "[libx264 @ 0000024906fc38c0] Weighted P-Frames: Y:0.0% UV:0.0%",
+    "[libx264 @ 0000024906fc38c0] kb/s:68.11"
   ]
 }
