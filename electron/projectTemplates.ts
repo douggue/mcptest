@@ -11,6 +11,8 @@ import path from "node:path";
 import {
   collectPortableProject,
   resolvePortableDocument,
+  PORTABLE_PROJECT_FILE,
+  PORTABLE_README_FILE,
 } from "./portableProject";
 import {
   validateTemplate,
@@ -19,9 +21,10 @@ import {
 } from "../src/core/projectTemplates";
 
 const originalAssetLicense =
-  '该许可仅适用于 ReaCut 自主模板配方和内置原创图形，不改变用户导入媒体的许可；字体文件不随模板包分发。\n\nMIT License\n\nCopyright (c) 2026 ReaCut contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the "Software"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n';
+  'This license covers only the original template recipes and built-in original graphics of the application. It does not change the license of media you import, and font files are not distributed with template bundles.\n\nMIT License\n\nCopyright (c) 2026 ReaCut contributors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the "Software"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n';
 
-export const TEMPLATE_FILE = "模板.reacut-template";
+export const TEMPLATE_FILE = "template.jgcut-template";
+export const TEMPLATE_LICENSE_FILE = "JGcut-original-assets-license.txt";
 export function checkTemplateCover(cover: string) {
   if (!cover) return;
   const b = Buffer.from(cover.split(",")[1] ?? "", "base64");
@@ -66,7 +69,7 @@ export async function writeTemplate(
   try {
     folder = await collectPortableProject(t.project, parent, signal, progress);
     const portable = JSON.parse(
-      await readFile(path.join(folder, "项目.reacut"), "utf8"),
+      await readFile(path.join(folder, PORTABLE_PROJECT_FILE), "utf8"),
     );
     if (signal.aborted) throw new Error("已取消模板操作");
     await writeFile(
@@ -75,11 +78,11 @@ export async function writeTemplate(
       { mode: 0o600 },
     );
     await writeFile(
-      path.join(folder, "使用说明.txt"),
-      "用 ReaCut 的“文件 → 工程模板 → 导入模板包”选择 模板.reacut-template。请保留完整文件夹和 media 子目录。\n项目.reacut 可作为普通素材包打开；它与模板定义互不自动同步。模板含媒体副本，不包含字体文件。\n",
+      path.join(folder, PORTABLE_README_FILE),
+      `In JGcut choose File → Project templates → Import template bundle and select ${TEMPLATE_FILE}. Keep the whole folder and its media subfolder.\n${PORTABLE_PROJECT_FILE} can be opened as an ordinary media package; it and the template definition do not sync with each other. The template includes copies of media, not font files.\n`,
     );
     await writeFile(
-      path.join(folder, "ReaCut-原创资源许可.txt"),
+      path.join(folder, TEMPLATE_LICENSE_FILE),
       originalAssetLicense,
       { mode: 0o600 },
     );

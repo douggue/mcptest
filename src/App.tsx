@@ -650,7 +650,7 @@ export default function App() {
         url = URL.createObjectURL(blob),
         a = document.createElement("a");
       a.href = url;
-      a.download = s.project.name + ".reacut";
+      a.download = s.project.name + ".jgcut";
       a.click();
       URL.revokeObjectURL(url);
       notify(ui("已下载项目 JSON。浏览器素材链接不支持跨会话恢复。", "Project JSON downloaded. Browser media links cannot be restored across sessions."));
@@ -1067,10 +1067,9 @@ export default function App() {
       <header className="titlebar">
         <div className="brand">
           <span className="brand-icon">
-            <img src="./icons/reacut.png" alt="" />
+            <img src="./icons/jgcut.png" alt="" />
           </span>
-          <strong>ReaCut</strong>
-          <span className="brand-cn">映刻</span>
+          <strong>JGcut</strong>
         </div>
         <div className="titlebar-menus">
           <div className="file-menu-container">
@@ -1465,15 +1464,15 @@ export default function App() {
         </ModalShell>
       )}
       {modal === "about" && (
-        <ModalShell title={ui("关于 ReaCut", "About ReaCut")} onClose={() => setModal(null)}>
+        <ModalShell title={ui("关于 JGcut", "About JGcut")} onClose={() => setModal(null)}>
           <div className="about-body">
             <div className="about-logo">
-              <img src="./icons/reacut.png" width="58" height="58" alt={ui("ReaCut 图标", "ReaCut icon")} />
+              <img src="./icons/jgcut.png" width="58" height="58" alt={ui("JGcut 图标", "JGcut icon")} />
             </div>
-            <h2>ReaCut · 映刻</h2>
+            <h2>JGcut</h2>
             <span>{appVersion} {ui("· 独立开源桌面视频编辑器", " · Independent open-source desktop video editor")}</span>
             <p>
-              {ui("利用 REA 研究可观察的剪辑流程，以独立代码实现离线编辑。核心源码采用 MIT 许可证。macOS 与 Windows 安装包内置 FFmpeg / FFprobe 与 x264（GPL-2.0-or-later），对应源码、构建脚本及许可文件位于应用资源的 media-tools 目录。", "ReaCut uses REA to study observable editing workflows and independently implements offline editing. Core source code is MIT licensed. The macOS and Windows apps bundle FFmpeg / FFprobe and x264 (GPL-2.0-or-later); corresponding source, build scripts and licenses are in the application resources' media-tools directory.")}</p>
+              {ui("利用 REA 研究可观察的剪辑流程，以独立代码实现离线编辑。核心源码采用 MIT 许可证。macOS 与 Windows 安装包内置 FFmpeg / FFprobe 与 x264（GPL-2.0-or-later），对应源码、构建脚本及许可文件位于应用资源的 media-tools 目录。", "JGcut uses REA to study observable editing workflows and independently implements offline editing. Core source code is MIT licensed. The macOS and Windows apps bundle FFmpeg / FFprobe and x264 (GPL-2.0-or-later); corresponding source, build scripts and licenses are in the application resources' media-tools directory.")}</p>
             <p className="muted">
               {ui("非剪映官方产品。不包含剪映的专有代码、库或素材。", "Not an official CapCut product. Contains no proprietary CapCut code, libraries or assets.")}</p>
           </div>

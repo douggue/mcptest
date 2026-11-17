@@ -9,7 +9,7 @@ const root=process.cwd(),output=path.join(root,'.test-output/workspace-electron'
 const p=createProject('三栏布局验收');const clip=createClip(undefined,p.tracks[0].id,0,30);clip.text!.text='熟悉的剪辑空间';p.clips=[clip];
 const file=path.join(output,'layout.reacut');await writeFile(file,JSON.stringify(p));
 const packaged=process.env.REACUT_TEST_APP,env=Object.fromEntries(Object.entries(process.env).filter((e):e is [string,string]=>e[1]!==undefined));env.REACUT_USER_DATA=path.join(output,'user-data');delete env.ELECTRON_RUN_AS_NODE;delete env.VITE_DEV_SERVER_URL;if(packaged){env.PATH='';delete env.REACUT_FFMPEG;delete env.REACUT_FFPROBE;}
-const launch=()=>electron.launch({...packaged?{executablePath:path.join(path.resolve(packaged),'Contents/MacOS/ReaCut'),args:[file],cwd:output}:{args:[path.join(root,'dist-electron/main.cjs'),file]},env});
+const launch=()=>electron.launch({...packaged?{executablePath:path.join(path.resolve(packaged),'Contents/MacOS/JGcut'),args:[file],cwd:output}:{args:[path.join(root,'dist-electron/main.cjs'),file]},env});
 let app=await launch(),page=await firstChineseWindow(app);const errors:string[]=[],checks:string[]=[];page.on('pageerror',e=>errors.push(e.message));
 const geometry=()=>page.locator('.editor-workspace').evaluate(el=>{const panels=Array.from(el.children).filter(c=>!c.classList.contains('workspace-divider'));return {left:panels[0].getBoundingClientRect().width,center:panels[1].getBoundingClientRect().width,right:panels[2].getBoundingClientRect().width,total:el.getBoundingClientRect().width,document:document.documentElement.scrollWidth,window:window.innerWidth};});
 try{

@@ -20,18 +20,18 @@ def command():
     if not configured and config.is_file():
         configured = json.loads(config.read_text()).get('app')
     candidates = [Path(configured).expanduser()] if configured else [
-        Path('/Applications/ReaCut.app'), Path.home() / 'Applications/ReaCut.app']
+        Path('/Applications/JGcut.app'), Path.home() / 'Applications/JGcut.app']
     for candidate in candidates:
-        binary = candidate / 'Contents/MacOS/ReaCut' if candidate.suffix == '.app' else candidate
+        binary = candidate / 'Contents/MacOS/JGcut' if candidate.suffix == '.app' else candidate
         if binary.is_file() and os.access(binary, os.X_OK):
             if candidate.suffix == '.app':
                 import plistlib
                 with (candidate / 'Contents/Info.plist').open('rb') as f:
                     version = plistlib.load(f).get('CFBundleShortVersionString', '0')
                 if tuple(int(v) for v in version.split('.')[:2]) < (0, 5):
-                    raise RuntimeError('ReaCut 0.5.0 or newer is required. Install the matching DMG first.')
+                    raise RuntimeError('JGcut 0.5.0 or newer is required. Install the matching DMG first.')
             return [str(binary), '--reacut-plugin']
-    raise RuntimeError('Install ReaCut 0.5.0+ in /Applications, or run install-plugin.sh --app /absolute/path/ReaCut.app.')
+    raise RuntimeError('Install JGcut 0.5.0+ in /Applications, or run install-plugin.sh --app /absolute/path/JGcut.app.')
 
 
 def editor_html():
@@ -148,7 +148,7 @@ class Proxy:
                 version = '2025-11-25'
             self.result(request, {'protocolVersion': version, 'capabilities': {'tools': {}, 'resources': {}},
                 'serverInfo': {'name': 'reacut', 'version': self.metadata['version']},
-                'instructions': 'Use reacut_open to open the editor. Discovery does not start ReaCut. Read state before edits. Import only user-selected media.'})
+                'instructions': 'Use reacut_open to open the editor. Discovery does not start JGcut. Read state before edits. Import only user-selected media.'})
         elif method == 'ping':
             self.result(request, {})
         elif method == 'tools/list':
@@ -225,5 +225,5 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as error:
-        print(f'ReaCut plugin: {error}', file=sys.stderr)
+        print(f'JGcut plugin: {error}', file=sys.stderr)
         sys.exit(1)

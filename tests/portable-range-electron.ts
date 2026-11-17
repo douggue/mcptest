@@ -19,7 +19,7 @@ const appPath=process.env.REACUT_TEST_APP;
 const env=Object.fromEntries(Object.entries(process.env).filter((e):e is [string,string]=>e[1]!==undefined));
 env.REACUT_USER_DATA=path.join(output,'user-data');delete env.ELECTRON_RUN_AS_NODE;delete env.VITE_DEV_SERVER_URL;
 if(appPath){env.PATH='';delete env.REACUT_FFMPEG;delete env.REACUT_FFPROBE;}
-const app=await electron.launch({...appPath?{executablePath:path.join(path.resolve(appPath),'Contents/MacOS/ReaCut'),args:[projectFile],cwd:output}:{args:[path.join(root,'dist-electron/main.cjs'),projectFile]},env});
+const app=await electron.launch({...appPath?{executablePath:path.join(path.resolve(appPath),'Contents/MacOS/JGcut'),args:[projectFile],cwd:output}:{args:[path.join(root,'dist-electron/main.cjs'),projectFile]},env});
 const page=await firstChineseWindow(app),errors:string[]=[],checks:string[]=[];page.on('pageerror',e=>errors.push(e.message));
 try {
  await app.evaluate(({dialog},paths)=>{
@@ -39,19 +39,19 @@ try {
  await pack.getByRole('button',{name:'完成',exact:true}).click();
  const names=await readdir(packages);assert.equal(names.length,1);const folder=path.join(packages,names[0]);
  assert.equal((await readdir(path.join(folder,'media'))).length,2,'shared audio/video source copied only once');
- const packed=JSON.parse(await readFile(path.join(folder,'项目.reacut'),'utf8'));assert.equal(packed.format,'reacut-portable');
+ const packed=JSON.parse(await readFile(path.join(folder,'project.jgcut'),'utf8'));assert.equal(packed.format,'reacut-portable');
  assert(!JSON.stringify(packed).includes(originals));checks.push('UI collects portable project; shared references deduplicate; source paths and proxy caches omitted');
  const moved=path.join(output,'搬移后的完整项目');await rename(folder,moved);await rename(originals,path.join(output,'originals-unavailable'));
- await app.evaluate(({dialog},file)=>{(dialog as any).showOpenDialog=async()=>({canceled:false,filePaths:[file]});},path.join(moved,'项目.reacut'));
+ await app.evaluate(({dialog},file)=>{(dialog as any).showOpenDialog=async()=>({canceled:false,filePaths:[file]});},path.join(moved,'project.jgcut'));
  await page.getByRole('button',{name:'文件菜单'}).click();await page.getByRole('button',{name:/^打开项目/}).click();
- await expect.poll(()=>page.evaluate(async()=>{const p=await window.editorAPI!.getRecentProjects();return p[0]?.path;}),{timeout:20000}).toBe(path.join(moved,'项目.reacut'));
+ await expect.poll(()=>page.evaluate(async()=>{const p=await window.editorAPI!.getRecentProjects();return p[0]?.path;}),{timeout:20000}).toBe(path.join(moved,'project.jgcut'));
  await expect(page.locator('.tl-clip')).toHaveCount(1);
  await expect.poll(()=>page.evaluate(()=>{const c=document.querySelector<HTMLCanvasElement>('.player-panel canvas')!;return c.getContext('2d')!.getImageData(c.width/2,c.height/2,1,1).data[0];}),{timeout:15000}).toBeGreaterThan(180);
  checks.push('after moving entire folder and making original sources unavailable, UI opens and decodes collected video');
  await page.locator('.project-title input').fill('搬移后继续编辑');await page.locator('.project-title input').blur();
  await page.getByRole('button',{name:'保存项目',exact:true}).click();
- await expect.poll(async()=>JSON.parse(await readFile(path.join(moved,'项目.reacut'),'utf8')).project?.name,{timeout:15000}).toBe('搬移后继续编辑');
- const saved=JSON.parse(await readFile(path.join(moved,'项目.reacut'),'utf8'));assert.equal(saved.format,'reacut-portable');assert(saved.project.assets.every((a:any)=>a.path.startsWith('media/')));
+ await expect.poll(async()=>JSON.parse(await readFile(path.join(moved,'project.jgcut'),'utf8')).project?.name,{timeout:15000}).toBe('搬移后继续编辑');
+ const saved=JSON.parse(await readFile(path.join(moved,'project.jgcut'),'utf8'));assert.equal(saved.format,'reacut-portable');assert(saved.project.assets.every((a:any)=>a.path.startsWith('media/')));
  checks.push('normal Save preserves portable relative references after editing');
  await page.getByRole('button',{name:'导出',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'导出视频'});await dialog.getByRole('combobox',{name:'导出范围',exact:true}).selectOption('custom');
@@ -71,7 +71,7 @@ try {
  await page.getByRole('button',{name:'文件菜单'}).click();await page.getByRole('button',{name:/^打开项目/}).click();
  await expect(page.locator('[data-asset-id].is-missing')).toHaveCount(1);
  await page.locator('.project-title input').fill('素材丢失仍可保存');await page.locator('.project-title input').blur();await page.getByRole('button',{name:'保存项目',exact:true}).click();
- await expect.poll(async()=>JSON.parse(await readFile(path.join(moved,'项目.reacut'),'utf8')).project?.name).toBe('素材丢失仍可保存');
+ await expect.poll(async()=>JSON.parse(await readFile(path.join(moved,'project.jgcut'),'utf8')).project?.name).toBe('素材丢失仍可保存');
  checks.push('actual reopened package can save other edits with a missing media reference retained for relinking');
  assert.deepEqual(errors,[]);
  await writeFile(path.join(output,'evidence.json'),JSON.stringify({at:new Date().toISOString(),packaged:!!appPath,checks,duration:Number(metadata.format.duration),pixel:[...frame.subarray(at,at+3)],errors},null,2));

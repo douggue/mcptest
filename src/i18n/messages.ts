@@ -265,7 +265,7 @@ const field = (value: string) => Object.hasOwn(fields, value) ? fields[value] : 
 
 type Pattern = [RegExp, (...groups: string[]) => string];
 const patterns: Pattern[] = [
-  [/^项目 (.+) 无效$/s, name => `Invalid project ${name}.`],
+  [/^项目 (.+) 无效$/s, name => `Invalid project ${label(name)}.`],
   [/^“(.+)”所在轨道已锁定$/s, name => `The track containing “${name}” is locked.`],
   [/^轨道“(.+)”已锁定，请先解锁$/s, name => `Track “${name}” is locked. Unlock it first.`],
   [/^字幕“(.*)”太短：入场和出场后须留至少一帧停留，未修改任何字幕$/s, text => `Caption “${text}” is too short: leave at least one hold frame after entrance and exit. No captions were changed.`],
@@ -303,10 +303,104 @@ const patterns: Pattern[] = [
   [/^找不到素材“(.+)”，请重新链接后保存$/s, name => `Asset “${name}” was not found. Relink it before saving.`],
   [/^正在收集素材 (\d+) \/ (\d+)$/, (current, total) => `Collecting media ${current} / ${total}`],
   [/^倒放分段 (\d+)\/(\d+)$/, (current, total) => `Reversing segment ${current}/${total}`],
-  [/^正在连接 (Codex|Claude Code)…$/, provider => `Connecting to ${provider}…`],
-  [/^所选 (Codex|Claude Code) 不是可执行文件（Windows 请选择原生 .exe）$/, provider => `The selected ${provider} file is not executable (choose a native .exe on Windows).`],
-  [/^未找到 (Codex|Claude Code)。请先安装并在终端登录，或选择 CLI 可执行文件$/, provider => `${provider} was not found. Install it and sign in in a terminal, or select its CLI executable.`],
+  [/^正在连接 (Codex(?: CLI)?|Claude Code)…$/, provider => `Connecting to ${provider}…`],
+  [/^所选 (Codex(?: CLI)?|Claude Code) 不是可执行文件（Windows 请选择原生 .exe）$/, provider => `The selected ${provider} file is not executable (choose a native .exe on Windows).`],
+  [/^未找到 (Codex(?: CLI)?|Claude Code)。请先安装并在终端登录，或选择 CLI 可执行文件$/, provider => `${provider} was not found. Install it and sign in in a terminal, or select its CLI executable.`],
 ];
+
+// Labels that validation and assistant summaries splice into their messages.
+Object.assign(fields, {
+  "内容": "content", "版本（仅支持版本 1）": "version (only version 1 is supported)", "名称": "name", "帧率": "frame rate",
+  "背景颜色": "background color", "素材列表": "asset list", "轨道列表": "track list", "片段列表": "clip list", "重复 ID": "duplicate ID",
+  "素材": "asset", "素材名称": "asset name", "素材路径": "asset path", "素材 URL": "asset URL", "素材类型": "asset type",
+  "素材时长": "asset duration", "素材帧率": "asset frame rate", "素材音频标记": "asset audio flag", "素材丢失标记": "asset missing flag",
+  "素材缩略图": "asset thumbnail", "素材预览 URL": "asset preview URL", "素材预览错误": "asset preview error", "音频波形": "audio waveform",
+  "音频波形值": "audio waveform value", "轨道": "track", "轨道名称": "track name", "轨道类型": "track type", "片段": "clip",
+  "片段名称": "clip name", "画声关联 ID": "linked audio/video ID", "片段轨道 ID": "clip track ID", "片段轨道引用": "clip track reference",
+  "片段素材 ID": "clip asset ID", "片段素材引用": "clip asset reference", "片段起点": "clip start", "片段时长": "clip duration",
+  "源素材起点": "source start", "速度": "speed", "时间线时长（最长 24 小时）": "timeline duration (24 hours at most)", "音量": "volume",
+  "片段静音": "clip mute", "变换": "transform", "缩放": "scale", "透明度": "opacity", "水平翻转": "horizontal flip", "垂直翻转": "vertical flip",
+  "裁剪": "crop", "裁剪 X": "crop X", "裁剪 Y": "crop Y", "裁剪宽度": "crop width", "裁剪高度": "crop height", "裁剪超出素材": "crop beyond the media",
+  "色度抠像": "chroma key", "色度抠像开关": "chroma key switch", "抠像颜色": "key color", "抠像相似度": "key similarity", "抠像过渡": "key smoothness",
+  "形状蒙版": "shape mask", "蒙版形状": "mask shape", "蒙版宽度": "mask width", "蒙版高度": "mask height", "蒙版羽化": "mask feather",
+  "蒙版反转": "mask inversion", "颜色调整": "color adjustments", "亮度": "brightness", "对比度": "contrast", "饱和度": "saturation",
+  "色温": "temperature", "模糊": "blur", "文字片段引用": "text clip reference", "文字样式": "text style", "文字内容": "text content",
+  "字号": "font size", "字体": "font", "文字颜色": "text color", "文字背景": "text background", "文字描边": "text outline",
+  "描边宽度": "outline width", "文字对齐": "text alignment", "粗体": "bold", "片段轨道与素材类型": "clip track and asset type",
+  "片段超出源素材时长": "clip beyond its source duration", "关键帧列表": "keyframe list", "关键帧": "keyframe", "关键帧 ID": "keyframe ID",
+  "重复关键帧 ID": "duplicate keyframe ID", "关键帧插值窗口": "keyframe interpolation window", "插值窗口起点": "interpolation window start",
+  "插值窗口终点": "interpolation window end", "关键帧属性": "keyframe property", "关键帧插值": "keyframe interpolation", "关键帧值": "keyframe value",
+  "颜色": "color", "片段 ID": "clip ID", "操作": "action", "起点": "start", "终点": "end", "时长": "duration", "位置": "position",
+  "素材 ID": "asset ID", "轨道 ID": "track ID", "项目名称": "project name", "画布尺寸": "canvas size", "分割时间": "split time",
+  "裁剪时间": "trim time", "淡化时长": "fade duration", "旋转": "rotation",
+  "剪映时间线清单": "The CapCut timeline manifest", "剪映时间线布局": "The CapCut timeline layout",
+});
+const composedLabels: [RegExp, (value: string) => string][] = [
+  [/^素材 (.+)$/, value => `asset ${label(value)}`], [/^轨道 (.+)$/, value => `track ${label(value)}`],
+  [/^(.+) 偏移$/, value => `${label(value)} offset`], [/^(.+) 原始时长$/, value => `${label(value)} original duration`],
+  [/^(.+) 淡入$/, value => `${label(value)} fade in`], [/^(.+) 淡出$/, value => `${label(value)} fade out`],
+];
+function label(value: string): string {
+  if (Object.hasOwn(fields, value)) return fields[value];
+  for (const [pattern, translate] of composedLabels) { const match = pattern.exec(value); if (match) return translate(match[1]); }
+  return value;
+}
+Object.assign(messages, {
+  "剪映草稿需要 JSON 对象": "The CapCut draft must be a JSON object.",
+  "剪映草稿需要文本输入": "The CapCut draft must be text.",
+  "剪映草稿超过 20 MiB 读取限制": "The CapCut draft exceeds the 20 MiB read limit.",
+  "剪映草稿是不透明载体，格式未知或长度不足": "The CapCut draft is an opaque container with an unknown format or insufficient length.",
+  "剪映草稿是不透明载体，嵌入 ASCII 格式无法识别": "The CapCut draft is an opaque container whose embedded ASCII format is not recognized.",
+  "剪映草稿是不透明载体，Base64 格式无法识别": "The CapCut draft is an opaque container whose Base64 format is not recognized.",
+  "剪映草稿是不透明载体，Base64 载体不完整或不规范": "The CapCut draft is an opaque container whose Base64 payload is incomplete or malformed.",
+  "剪映草稿认证失败，文件可能损坏，或此剪映版本的草稿格式尚不支持": "The CapCut draft failed authentication. The file may be damaged, or this CapCut version's draft format is not supported yet.",
+  "剪映草稿解码后的文本不是有效 UTF-8": "The decoded CapCut draft text is not valid UTF-8.",
+  "剪映草稿是不透明载荷，请在桌面客户端中通过剪映草稿导入功能打开。": "The CapCut draft is an opaque payload. Open it in the desktop app through CapCut draft import.",
+  "项目已变化，请重新读取状态后再编辑": "The project has changed. Read its state again before editing.",
+  "用户正在拖动或调整参数，请稍后重试": "The user is dragging or adjusting a value. Try again shortly.",
+  "无效播放位置": "Invalid playback position.", "不支持的编辑器操作": "Unsupported editor action.", "不支持的插件操作": "Unsupported plugin action.",
+  "操作失败": "The operation failed.", "示例视频验证失败": "The demo video failed verification.",
+  "颜色必须使用十六进制格式": "Colors must use hexadecimal notation.", "编辑建议格式无效": "Invalid edit proposal format.",
+  "每次编辑建议须包含 1–40 项修改": "Each edit proposal must contain 1–40 changes.",
+  "建议引用的片段不存在，请重新生成": "The proposal refers to a clip that does not exist. Generate it again.",
+  "助手提出了不支持的操作或字段": "The assistant proposed an unsupported action or field.",
+  "建议引用的素材不存在或已丢失": "The proposal refers to media that does not exist or is missing.",
+  "目标轨道不存在": "The target track does not exist.", "目标轨道已锁定或类型不兼容": "The target track is locked or has an incompatible type.",
+  "片段时长超出素材范围": "The clip duration exceeds the media.", "项目修改为空": "The project change is empty.",
+  "画布尺寸必须为整数": "Canvas dimensions must be whole numbers.", "不支持该帧率": "This frame rate is not supported.",
+  "关联片段所在轨道已锁定": "The track of the linked clip is locked.", "分割点须位于片段内部": "The split point must be inside the clip.",
+  "分割点未形成有效片段，请重新选择片段内部的帧边界": "The split point does not produce valid clips. Choose a frame boundary inside the clip.",
+  "裁剪边缘无效": "Invalid trim edge.", "裁剪时间须位于当前片段范围内": "The trim time must be within the current clip.",
+  "目标轨道不可用或类型不兼容": "The target track is unavailable or has an incompatible type.",
+  "该片段已有音量关键帧，请先在属性面板调整或移除对应关键帧，再生成音量建议": "This clip already has volume keyframes. Adjust or remove them in the inspector before generating a volume proposal.",
+  "静音参数无效": "Invalid mute setting.", "该片段不是文字": "This clip is not text.", "画面修改为空": "The picture change is empty.",
+  "所修改的画面属性已有关键帧，请先在属性面板调整或移除对应关键帧，再生成建议": "The picture properties being changed already have keyframes. Adjust or remove them in the inspector before generating a proposal.",
+});
+const assistantActions: Record<string, string> = {
+  "添加文字": "Add text", "添加素材片段": "Add media clip", "裁剪片段": "Trim clip", "分割片段": "Split clip", "删除片段": "Delete clip",
+  "移动片段": "Move clip", "调整速度": "Change speed", "调整音量": "Change volume", "修改文字": "Edit text", "调整画面": "Adjust picture",
+  "调整淡入淡出": "Adjust fades", "调整项目": "Change project",
+};
+// Summaries mix fixed wording with clip, track and project names, which stay as the user wrote them.
+const assistantWording: [RegExp, string][] = [
+  [/画面淡入 (\S+) · 淡出 (\S+) · 声音淡入 (\S+) · 淡出 (\S+)/g, "video fade in $1 · fade out $2 · audio fade in $3 · fade out $4"],
+  [/字号 (\d+(?:\.\d+)?)/g, "font size $1"], [/位置 \(/g, "position ("], [/轨道“([^”]*)”/g, "track “$1”"], [/名称“([^”]*)”/g, "name “$1”"],
+  [/画布 (\d+×\d+)/g, "canvas $1"], [/背景 (#[\da-fA-F]+)/g, "background $1"], [/（含关联画声）/g, " (with linked audio/video)"],
+  [/起点 ([\d.]+s)/g, "start $1"], [/终点 ([\d.]+s)/g, "end $1"], [/ · 取消静音/g, " · unmuted"], [/ · 静音/g, " · muted"],
+  [/缩放 /g, "scale "], [/旋转 /g, "rotation "], [/透明度 /g, "opacity "], [/\[本地内容\]/g, "[local content]"], [/助手文字/g, "Assistant text"],
+];
+patterns.push(
+  [new RegExp(`^(${Object.keys(assistantActions).join("|")})：([\\s\\S]*)$`), (action, rest) =>
+    `${assistantActions[action]}: ${assistantWording.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), rest)}`],
+  [/^所选 (ffmpeg|ffprobe) 不可用，请在设置中重新选择可执行文件。$/, tool => `The selected ${tool} is unavailable. Choose the executable again in Settings.`],
+  [/^内置 (ffmpeg|ffprobe) 缺失或不可执行，请重新安装完整应用。$/, tool => `The bundled ${tool} is missing or cannot run. Reinstall the complete application.`],
+  [/^找不到 (ffmpeg|ffprobe)。开发环境请安装 FFmpeg，或在设置中选择可执行文件。$/, tool => `${tool} was not found. Install FFmpeg, or choose the executable in Settings.`],
+  [/^(.+)不是可读取的 JSON$/, name => `${label(name)} is not readable JSON.`],
+  [/^(.+)超过读取大小限制$/, name => `${label(name)} exceeds the read size limit.`],
+  [/^(.+)需要 JSON 对象$/, name => `${label(name)} must be a JSON object.`],
+  [/^(.+) 超出支持范围$/, name => `${label(name)} is outside the supported range.`],
+  [/^(.+) 无效$/, name => `${label(name)} is invalid.`],
+);
 
 /** Translate diagnostics at display time so switching languages also updates errors. */
 export function localizeMessage(message: string, language: Language = useLanguageStore.getState().language): string {

@@ -1,4 +1,4 @@
-/** Original ReaCut assets. Files are generated locally by scripts/generate-assets.ts. */
+/** Original JGcut assets. Files are generated locally by scripts/generate-assets.ts. */
 export type BuiltinAssetCategory = "stickers" | "backgrounds" | "titles" | "sounds";
 export interface BuiltinAsset {
   id: string;

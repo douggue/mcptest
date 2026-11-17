@@ -47,7 +47,7 @@ try {
           filePaths:
             options.title === "导入素材"
               ? [p.video, p.audio, p.image]
-              : options.title === "打开 ReaCut 项目"
+              : options.title === "打开 JGcut 项目"
                 ? [p.saved]
                 : [p.subtitles],
         };

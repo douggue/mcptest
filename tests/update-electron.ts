@@ -23,7 +23,7 @@ async function launch(): Promise<{ app: ElectronApplication; page: Page; errors:
   env.REACUT_USER_DATA = path.join(output, `profile-${++sequence}`);
   delete env.ELECTRON_RUN_AS_NODE; delete env.VITE_DEV_SERVER_URL;
   const app = await electron.launch({
-    ...(bundle ? { executablePath: path.join(bundle, 'Contents/MacOS/ReaCut'), args: [], cwd: output } : { args: [root], cwd: root }),
+    ...(bundle ? { executablePath: path.join(bundle, 'Contents/MacOS/JGcut'), args: [], cwd: output } : { args: [root], cwd: root }),
     env, timeout: 45000,
   });
   try {

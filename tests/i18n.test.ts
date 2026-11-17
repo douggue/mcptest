@@ -91,12 +91,13 @@ describe("first launch locale selection", () => {
     expect(detectLanguage(["fr-FR"])).toBe("en");
     expect(detectLanguage([])).toBe("en");
   });
-  it("keeps an explicit preference ahead of the OS language", () => {
+  it("starts in English whatever the OS language, until a language is chosen", () => {
     vi.spyOn(navigator, "languages", "get").mockReturnValue(["zh-CN"]);
-    remember("en");
     expect(read()).toBe("en");
-    localStorage.clear();
+    remember("zh-CN");
     expect(read()).toBe("zh-CN");
+    localStorage.clear();
+    expect(read()).toBe("en");
     vi.restoreAllMocks();
   });
   it("switches even when storage is unavailable and ignores invalid values", () => {

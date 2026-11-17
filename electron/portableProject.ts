@@ -6,6 +6,9 @@ import path from "node:path";
 import type { ExportProgress, Project } from "../src/core/types";
 import { validateProject } from "../src/core/model";
 
+/** Fixed, ASCII names inside a collected package so it reads the same on every system. */
+export const PORTABLE_PROJECT_FILE = "project.jgcut";
+export const PORTABLE_README_FILE = "README.txt";
 export interface PortableDocument { format: "reacut-portable"; version: 1; project: Project }
 const savedCopies = new Map<string, { size: number; mtime: number; relative: string }>();
 const tasks = new Map<string, { controller: AbortController; done: Promise<void> }>();
@@ -76,12 +79,12 @@ export async function collectPortableProject(input: Project, parent: string, sig
     abort(signal);
     project.assets = project.assets.map(asset => ({ id: asset.id, name: asset.name, kind: asset.kind, path: assetPaths.get(asset.id)!, url: assetPaths.get(asset.id)!, duration: asset.duration, width: asset.width, height: asset.height, fps: asset.fps, hasAudio: asset.hasAudio }));
     const document: PortableDocument = { format: "reacut-portable", version: 1, project };
-    await writeFile(path.join(temporary, "项目.reacut"), JSON.stringify(document, null, 2), { mode: 0o600 });
+    await writeFile(path.join(temporary, PORTABLE_PROJECT_FILE), JSON.stringify(document, null, 2), { mode: 0o600 });
     await writeFile(path.join(temporary, "manifest.json"), JSON.stringify({ format: "reacut-media-manifest", version: 1, files: manifest }, null, 2), { mode: 0o600 });
-    await writeFile(path.join(temporary, "使用说明.txt"), "请移动整个文件夹，保留 media 子目录。用 ReaCut 打开 项目.reacut 即可继续编辑。\n这是工程与原始素材的副本，不会改变原项目。字体仍以目标电脑及应用内置字体为准。\nmanifest.json 记录首次收集时的文件校验值；后续编辑保存不会更新这份历史清单。\n");
+    await writeFile(path.join(temporary, PORTABLE_README_FILE), `Move the whole folder and keep its media subfolder. Open ${PORTABLE_PROJECT_FILE} in JGcut to continue editing.\nThis is a copy of the project and its original media; the original project is not changed. Fonts still come from the target computer and the fonts built into the app.\nmanifest.json records file checksums from the first collection; saving later edits does not update that historical list.\n`);
     abort(signal);
-    const name = project.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").slice(0, 60).replace(/[. ]+$/, "") || "ReaCut项目";
-    const destination = path.join(parent, `${name}-素材包-${randomUUID().slice(0, 8)}`);
+    const name = project.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").slice(0, 60).replace(/[. ]+$/, "") || "JGcut project";
+    const destination = path.join(parent, `${name}-media-package-${randomUUID().slice(0, 8)}`);
     await rename(temporary, destination);
     return destination;
   } catch (error) { await rm(temporary, { recursive: true, force: true }); throw error; }

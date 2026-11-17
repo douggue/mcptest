@@ -17,7 +17,7 @@ const work = path.join(root, ".test-output", "windows-demo");
 const demo = path.join(root, ".demo", "demo.reacut");
 const exported = path.join(work, "exported-demo.mp4");
 const desktopVideo = path.join(output, "desktop.mp4");
-await stat(path.join(bundle, "ReaCut.exe"));
+await stat(path.join(bundle, "JGcut.exe"));
 await stat(demo);
 await rm(work, { recursive: true, force: true });
 await rm(output, { recursive: true, force: true });
@@ -56,7 +56,7 @@ const env: Record<string, string> = Object.fromEntries(
 env.REACUT_USER_DATA = path.join(work, "user-data");
 for (const name of ["ELECTRON_RUN_AS_NODE", "VITE_DEV_SERVER_URL", "REACUT_FFMPEG", "REACUT_FFPROBE"]) delete env[name];
 const app = await electron.launch({
-  executablePath: path.join(bundle, "ReaCut.exe"),
+  executablePath: path.join(bundle, "JGcut.exe"),
   args: [demo],
   cwd: work,
   env,
@@ -121,6 +121,16 @@ try {
   await page.mouse.click(ruler.x + 200, ruler.y + 15);
   await pause(800);
 
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send("menu-action", "about"));
+  await expect(page.getByRole("dialog")).toBeVisible();
+  steps.push("opened About");
+  await pause(2500);
+  await page.screenshot({ path: path.join(output, "about.png") });
+  await page.keyboard.press("Escape");
+  if (await page.getByRole("dialog").count()) await page.getByRole("dialog").locator("button").first().click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await pause(600);
+
   await page.locator(".export-button").click();
   await pause(2000);
   await page.getByRole("button", { name: "Start export", exact: true }).click();
@@ -164,7 +174,7 @@ const summary = {
     streams: rendered.streams.map((stream) => `${stream.codec_type}:${stream.codec_name} ${stream.width ?? ""}x${stream.height ?? ""}`),
   },
   files: Object.fromEntries(await Promise.all(
-    ["desktop.mp4", "desktop.png", "window.mp4", "editor.png", "file-menu.png", "export-complete.png"]
+    ["desktop.mp4", "desktop.png", "window.mp4", "editor.png", "file-menu.png", "about.png", "export-complete.png"]
       .map(async (name) => [name, await size(name)] as const),
   )),
   desktopCapture: captureLog.split(/\r?\n/).filter(Boolean).slice(-3),

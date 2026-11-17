@@ -12,7 +12,7 @@ await cp('.agents/plugins/marketplace.json', `${stage}/.agents/plugins/marketpla
 await cp('docs/CODEX_PLUGIN.md', `${stage}/README.md`);
 await mkdir(`${stage}/screenshots`, { recursive: true });
 await cp('docs/screenshots/codex-plugin-local-host.jpg', `${stage}/screenshots/codex-plugin-local-host.jpg`);
-const zip = `release/ReaCut-plugin-${version}.zip`;
+const zip = `release/JGcut-plugin-${version}.zip`;
 await rm(zip, { force: true });
 const result = spawnSync('/usr/bin/ditto', ['-c','-k','--sequesterRsrc','--keepParent',stage,zip], { stdio: 'inherit' });
 if (result.status !== 0) throw new Error('Plugin ZIP failed');

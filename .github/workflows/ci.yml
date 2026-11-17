@@ -89,10 +89,10 @@ jobs:
       - run: npm run dist:mac:installer
       - uses: actions/upload-artifact@v7
         with:
-          name: ReaCut-macOS
+          name: JGcut-macOS
           path: |
-            release/ReaCut*.dmg
-            release/ReaCut*mac.zip
+            release/JGcut*.dmg
+            release/JGcut*mac.zip
   media-tools-windows:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -149,13 +149,13 @@ jobs:
       - name: Run the installer silently
         shell: pwsh
         run: |
-          $installer = (Get-ChildItem release -Filter 'ReaCut-*-setup.exe' | Select-Object -First 1).FullName
+          $installer = (Get-ChildItem release -Filter 'JGcut-*-setup.exe' | Select-Object -First 1).FullName
           Start-Process -FilePath $installer -ArgumentList '/S' -Wait
-          $program = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Depth 1 -Filter ReaCut.exe | Select-Object -First 1
-          if (-not $program) { throw 'The installer did not place ReaCut.exe under the per-user Programs folder.' }
-          $association = (Get-ItemProperty 'HKCU:\Software\Classes\.reacut').'(default)'
-          if (-not $association) { throw 'The installer did not register .reacut projects.' }
-          Write-Host "Installed to $($program.DirectoryName); .reacut opens with $association"
+          $program = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Depth 1 -Filter JGcut.exe | Select-Object -First 1
+          if (-not $program) { throw 'The installer did not place JGcut.exe under the per-user Programs folder.' }
+          $association = (Get-ItemProperty 'HKCU:\Software\Classes\.jgcut').'(default)'
+          if (-not $association) { throw 'The installer did not register .jgcut projects.' }
+          Write-Host "Installed to $($program.DirectoryName); .jgcut opens with $association"
           "REACUT_TEST_APP=$($program.DirectoryName)" >> $env:GITHUB_ENV
       - name: Installed application check (Windows)
         run: |
@@ -169,8 +169,8 @@ jobs:
           path: .test-output/package-electron/
       - uses: actions/upload-artifact@v7
         with:
-          name: ReaCut-Windows
-          path: release/ReaCut-*-setup.exe
+          name: JGcut-Windows
+          path: release/JGcut-*-setup.exe
           if-no-files-found: error
   windows-demo:
     # Opt-in with "[windows-demo]" in the pushed commit message: installs the built installer on a
@@ -190,17 +190,17 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v8
         with:
-          name: ReaCut-Windows
+          name: JGcut-Windows
           path: release
       - name: Use a full-size desktop
         continue-on-error: true
         run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
-      - name: Install ReaCut and a desktop recorder
+      - name: Install JGcut and a desktop recorder
         run: |
-          $installer = (Get-ChildItem release -Filter 'ReaCut-*-setup.exe' | Select-Object -First 1).FullName
+          $installer = (Get-ChildItem release -Filter 'JGcut-*-setup.exe' | Select-Object -First 1).FullName
           Start-Process -FilePath $installer -ArgumentList '/S' -Wait
-          $program = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Depth 1 -Filter ReaCut.exe | Select-Object -First 1
-          if (-not $program) { throw 'The installer did not place ReaCut.exe under the per-user Programs folder.' }
+          $program = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Depth 1 -Filter JGcut.exe | Select-Object -First 1
+          if (-not $program) { throw 'The installer did not place JGcut.exe under the per-user Programs folder.' }
           $tools = Join-Path $program.DirectoryName 'resources\media-tools'
           "REACUT_TEST_APP=$($program.DirectoryName)" >> $env:GITHUB_ENV
           "REACUT_FFMPEG=$tools\ffmpeg.exe" >> $env:GITHUB_ENV
@@ -219,5 +219,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/windows
-          git commit -m "Record ReaCut running on Windows"
+          git commit -m "Record JGcut running on Windows"
           git push origin "HEAD:${GITHUB_REF_NAME}"

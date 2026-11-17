@@ -9,5 +9,5 @@ const protocolBuild = await build({ entryPoints: ['electron/pluginProtocol.ts'],
 const protocol = await import(`data:text/javascript;base64,${Buffer.from(protocolBuild.outputFiles[0].text).toString('base64')}`);
 const { version } = JSON.parse(await readFile('plugin/plugin.json', 'utf8'));
 await writeFile('plugin/protocol.json', JSON.stringify({ version, tools: protocol.pluginTools,
-  resource: { uri: protocol.PLUGIN_URI, name: 'ReaCut', mimeType: 'text/html;profile=mcp-app', _meta: protocol.uiMeta } }, null, 2) + '\n');
-console.log('Built self-contained ReaCut MCP App.');
+  resource: { uri: protocol.PLUGIN_URI, name: 'JGcut', mimeType: 'text/html;profile=mcp-app', _meta: protocol.uiMeta } }, null, 2) + '\n');
+console.log('Built self-contained JGcut MCP App.');

@@ -13,7 +13,7 @@ const out=path.resolve('.test-output/derivatives-electron');await rm(out,{recurs
 const colors:number[][]=[];
 for(let i=0;i<72;i++){
  const c=createCanvas(320,180),ctx=c.getContext('2d'),rgb=[16+32*(i%8),16+32*(Math.floor(i/8)%8),48+32*Math.floor(i/64)];colors.push(rgb);
- ctx.fillStyle=`rgb(${rgb.join(',')})`;ctx.fillRect(0,0,320,180);ctx.fillStyle='white';ctx.font='bold 48px sans-serif';ctx.fillText(String(i).padStart(2,'0'),125,90);ctx.font='14px sans-serif';ctx.fillText('ReaCut original frame test',60,125);
+ ctx.fillStyle=`rgb(${rgb.join(',')})`;ctx.fillRect(0,0,320,180);ctx.fillStyle='white';ctx.font='bold 48px sans-serif';ctx.fillText(String(i).padStart(2,'0'),125,90);ctx.font='14px sans-serif';ctx.fillText('JGcut original frame test',60,125);
  await writeFile(path.join(out,'frames',`${String(i).padStart(3,'0')}.png`),c.toBuffer('image/png'));
 }
 const source=path.join(out,'numbered-frames.mp4');

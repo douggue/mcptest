@@ -17,11 +17,11 @@ const env = Object.fromEntries(Object.entries(process.env).filter((entry): entry
 env.REACUT_USER_DATA = path.join(output, "user-data"); delete env.ELECTRON_RUN_AS_NODE; delete env.VITE_DEV_SERVER_URL;
 const packaged = process.env.REACUT_TEST_APP;
 if (packaged) { env.PATH = ""; delete env.REACUT_FFMPEG; delete env.REACUT_FFPROBE; }
-const app = await electron.launch({ ...(packaged ? { executablePath: path.join(path.resolve(packaged), "Contents/MacOS/ReaCut"), args: [], cwd: output } : { args: [path.join(root, "dist-electron/main.cjs")] }), env });
+const app = await electron.launch({ ...(packaged ? { executablePath: path.join(path.resolve(packaged), "Contents/MacOS/JGcut"), args: [], cwd: output } : { args: [path.join(root, "dist-electron/main.cjs")] }), env });
 let page: Page | undefined; const errors: string[] = [], checks: string[] = [];
 try {
   await app.evaluate(({ dialog }, files) => {
-    (dialog as any).showOpenDialog = async (...args: any[]) => ({ canceled: false, filePaths: [args.at(-1).title === "打开 ReaCut 项目" ? files.original : files.subtitles] });
+    (dialog as any).showOpenDialog = async (...args: any[]) => ({ canceled: false, filePaths: [args.at(-1).title === "打开 JGcut 项目" ? files.original : files.subtitles] });
     (dialog as any).showSaveDialog = async (...args: any[]) => ({ canceled: false, filePath: args.at(-1).defaultPath?.endsWith(".srt") ? files.exported : files.saved });
     (dialog as any).showMessageBox = async () => ({ response: 2 });
   }, { original, subtitles, saved, exported });

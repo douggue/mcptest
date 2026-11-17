@@ -240,7 +240,7 @@ describe("portable templates", () => {
     const raw = await readFile(path.join(folder, TEMPLATE_FILE), "utf8");
     expect(raw).not.toContain(root);
     expect(
-      await readFile(path.join(folder, "ReaCut-原创资源许可.txt"), "utf8"),
+      await readFile(path.join(folder, "JGcut-original-assets-license.txt"), "utf8"),
     ).toContain("Copyright (c) 2026 ReaCut contributors");
     const moved = path.join(root, "moved");
     await rename(folder, moved);

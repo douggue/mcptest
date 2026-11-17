@@ -17,6 +17,8 @@ await server.listen();
 const chrome="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const browser=await chromium.launch({headless:true,...(existsSync(chrome)?{executablePath:chrome}:{})});
 const page=await browser.newPage({locale: "zh-CN", viewport:{width:700,height:900}}),errors:string[]=[];
+// The app starts in English; these checks assert Chinese labels, so choose that language explicitly.
+await page.addInitScript(() => localStorage.setItem("reacut-ui-language-v1", JSON.stringify("zh-CN")));
 page.on("pageerror",error=>errors.push(error.message));
 try {
  await page.goto("http://127.0.0.1:5187/assets-qa");

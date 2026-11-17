@@ -22,12 +22,12 @@ let native:{packaged:boolean;version:string;path:string}|undefined;
 if(bundle){delete env.REACUT_FFMPEG;delete env.REACUT_FFPROBE;env.PATH=path.join(out,'empty-path');await mkdir(env.PATH);}
 let launches=0;
 async function launch(){
- app=await electron.launch({...(bundle?{executablePath:path.join(bundle,'Contents/MacOS/ReaCut'),args:[saved]}:{args:[path.resolve('dist-electron/main.cjs'),saved]}),env});
+ app=await electron.launch({...(bundle?{executablePath:path.join(bundle,'Contents/MacOS/JGcut'),args:[saved]}:{args:[path.resolve('dist-electron/main.cjs'),saved]}),env});
  native=await app.evaluate(({app})=>({packaged:app.isPackaged,version:app.getVersion(),path:app.getAppPath()}));if(bundle){assert(native.packaged);assert(native.path.startsWith(bundle));assert.equal(native.version,JSON.parse(await readFile('package.json','utf8')).version);}
  page=await firstChineseWindow(app);page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(/^https?:/.test(r.url()))network.push(r.url());});
  await app.evaluate(({dialog,BrowserWindow},files)=>{
   BrowserWindow.getAllWindows()[0].setSize(1470,900);
-  (dialog as any).showOpenDialog=async(...args:any[])=>({canceled:false,filePaths:[args.at(-1).title.includes('Python')?files.python:args.at(-1).title.includes('model folder')?files.model:args.at(-1).title==='打开 ReaCut 项目'?files.saved:files.source]});
+  (dialog as any).showOpenDialog=async(...args:any[])=>({canceled:false,filePaths:[args.at(-1).title.includes('Python')?files.python:args.at(-1).title.includes('model folder')?files.model:args.at(-1).title==='打开 JGcut 项目'?files.saved:files.source]});
   (dialog as any).showSaveDialog=async(...args:any[])=>({canceled:false,filePath:args.at(-1).defaultPath?.endsWith('.srt')?files.srt:args.at(-1).title?.includes('导出')?files.exported:files.saved});
   (dialog as any).showMessageBox=async()=>({response:2});
  },{python,model,source,saved,exported,srt});

@@ -48,7 +48,7 @@ const app = await electron.launch({
     ? {
         executablePath: path.join(
           path.resolve(packaged),
-          "Contents/MacOS/ReaCut",
+          "Contents/MacOS/JGcut",
         ),
         args: [source],
         cwd: output,

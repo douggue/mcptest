@@ -42,7 +42,7 @@ it("retains PATH discovery for source development", async () => {
   expect(await resolveMediaTool("ffmpeg", { platform, env: { PATH: system } })).toBe(path.join(system, file("ffmpeg")));
 });
 it("resolves the .exe tools shipped by the Windows installer ahead of PATH", async () => {
-  const windows = path.join(directory, "ReaCut", "resources", "media-tools");
+  const windows = path.join(directory, "JGcut", "resources", "media-tools");
   await mkdir(windows, { recursive: true });
   for (const tool of ["ffmpeg.exe", "ffprobe.exe"]) await writeFile(path.join(windows, tool), "");
   for (const name of ["ffmpeg", "ffprobe"] as const)

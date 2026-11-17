@@ -63,7 +63,7 @@ const pluginMode = process.argv.includes("--reacut-plugin");
 // A connected MCP server is a background app until its desktop window is shown.
 if (process.platform === "darwin") app.setActivationPolicy(pluginMode ? "accessory" : "regular");
 if (pluginMode && !process.env.REACUT_USER_DATA)
-  app.setPath("userData", path.join(app.getPath("appData"), "ReaCut-Plugin", "sessions", randomUUID()));
+  app.setPath("userData", path.join(app.getPath("appData"), "JGcut-Plugin", "sessions", randomUUID()));
 // macOS and Windows installers ship their own FFmpeg/FFprobe next to the app resources.
 if (app.isPackaged && (process.platform === "darwin" || process.platform === "win32"))
   setBundledMediaToolsDirectory(path.join(process.resourcesPath, "media-tools"));
@@ -104,7 +104,7 @@ function cleanAssistantMessages(value: unknown): AssistantMessage[] {
   return messages;
 }
 const projectArgument = (argv: string[]) =>
-  argv.find((argument) => path.isAbsolute(argument) && /\.reacut$/i.test(argument));
+  argv.find((argument) => path.isAbsolute(argument) && /\.(?:jgcut|reacut)$/i.test(argument));
 let pendingProject = projectArgument(process.argv);
 app.on("open-file", (event, file) => {
   event.preventDefault();
@@ -335,7 +335,7 @@ function registerIPC() {
     await writeTemplate(t,root,signal,progress);
   }));
   handle("template-import", (jobId: string) => templateTask(jobId, async (signal,progress) => {
-    const selected=await dialog.showOpenDialog(window!,{title:nativeUI("导入模板包", "Import template bundle"),properties:["openFile"],filters:[{name:nativeUI("ReaCut 模板", "ReaCut template"),extensions:["reacut-template"]}]});
+    const selected=await dialog.showOpenDialog(window!,{title:nativeUI("导入模板包", "Import template bundle"),properties:["openFile"],filters:[{name:nativeUI("JGcut 模板", "JGcut template"),extensions:["jgcut-template","reacut-template"]}]});
     if(selected.canceled || !selected.filePaths[0]) return false;
     if(signal.aborted) throw new Error("已取消模板导入");
     const t=await readTemplate(selected.filePaths[0]);
@@ -518,9 +518,9 @@ function registerIPC() {
   });
   handle("open-project", async () => {
     const result = await dialog.showOpenDialog(window!, {
-      title: nativeUI("打开 ReaCut 项目", "Open ReaCut project"),
+      title: nativeUI("打开 JGcut 项目", "Open JGcut project"),
       properties: ["openFile"],
-      filters: [{ name: nativeUI("ReaCut 项目", "ReaCut project"), extensions: ["reacut", "json"] }],
+      filters: [{ name: nativeUI("JGcut 项目", "JGcut project"), extensions: ["jgcut", "reacut", "json"] }],
     });
     if (result.canceled) return null;
     const file = result.filePaths[0],
@@ -545,8 +545,8 @@ function registerIPC() {
     if (!file) {
       const result = await dialog.showSaveDialog(window!, {
         title: nativeUI("保存项目", "Save project"),
-        defaultPath: project.name + ".reacut",
-        filters: [{ name: nativeUI("ReaCut 项目", "ReaCut project"), extensions: ["reacut"] }],
+        defaultPath: project.name + ".jgcut",
+        filters: [{ name: nativeUI("JGcut 项目", "JGcut project"), extensions: ["jgcut"] }],
       });
       if (result.canceled || !result.filePath) return null;
       file = result.filePath;
@@ -827,7 +827,7 @@ function createWindow() {
     show: !pluginMode,
     minWidth: 1060,
     minHeight: 680,
-    title: "ReaCut · 映刻",
+    title: "JGcut",
     backgroundColor: "#141518",
     // Windows keeps its native frame; the menu bar appears with Alt because the editor
     // draws its own menus. Other platforms keep the inset title bar options.
@@ -901,14 +901,14 @@ function updateApplicationMenu() {
     ...(process.platform === "darwin"
       ? [
           {
-            label: "ReaCut",
+            label: "JGcut",
             submenu: [
-              { label: nativeUI("关于 ReaCut", "About ReaCut"), role: "about" as const },
+              { label: nativeUI("关于 JGcut", "About JGcut"), role: "about" as const },
               { type: "separator" as const },
               { label: nativeUI("服务", "Services"), role: "services" as const },
               { type: "separator" as const },
-              { label: nativeUI("隐藏 ReaCut", "Hide ReaCut"), role: "hide" as const },
-              { label: nativeUI("退出 ReaCut", "Quit ReaCut"), role: "quit" as const },
+              { label: nativeUI("隐藏 JGcut", "Hide JGcut"), role: "hide" as const },
+              { label: nativeUI("退出 JGcut", "Quit JGcut"), role: "quit" as const },
             ],
           },
         ]
@@ -1000,7 +1000,7 @@ function updateApplicationMenu() {
         { label: nativeUI("设置 / Settings…", "Settings…"), accelerator: "CmdOrCtrl+,", click: () => menuAction("settings") },
         { label: nativeUI("检查更新…", "Check for Updates…"), click: () => menuAction("check-for-updates") },
         { label: nativeUI("快捷键", "Shortcuts"), click: () => menuAction("shortcuts") },
-        { label: nativeUI("关于 ReaCut", "About ReaCut"), click: () => menuAction("about") },
+        { label: nativeUI("关于 JGcut", "About JGcut"), click: () => menuAction("about") },
       ],
     },
   ];
@@ -1044,7 +1044,7 @@ void app.whenReady().then(async () => {
   if (process.platform === "win32") nativeTheme.themeSource = "dark";
   protocol.handle("reacut-media", serveMedia);
   registerIPC();
-  uiLanguage = app.getLocale().toLowerCase().startsWith("zh") ? "zh-CN" : "en";
+  uiLanguage = "en";
   updateApplicationMenu();
   createWindow();
   app.on("activate", () => {

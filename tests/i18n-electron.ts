@@ -13,7 +13,7 @@ delete env.ELECTRON_RUN_AS_NODE;
 delete env.VITE_DEV_SERVER_URL;
 const bundle = process.env.REACUT_TEST_APP ? path.resolve(process.env.REACUT_TEST_APP) : undefined;
 const launch = () => electron.launch({
-  ...(bundle ? { executablePath: path.join(bundle, 'Contents/MacOS/ReaCut'), args: [], cwd: output }
+  ...(bundle ? { executablePath: path.join(bundle, 'Contents/MacOS/JGcut'), args: [], cwd: output }
     : { args: [path.resolve('dist-electron/main.cjs')] }),
   env,
 });

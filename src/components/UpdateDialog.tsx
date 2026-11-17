@@ -71,13 +71,13 @@ export default function UpdateDialog({ onClose, autoCheck = false }: { onClose()
         <div role="status" aria-live="polite">
           {busy ? <p>{ui('正在检查 GitHub…', 'Checking GitHub…')}</p> : result?.status === 'available' ? <p className="update-success">{ui('有新版本：', 'New version available: ')}{result.release?.version}</p> : result?.status === 'up-to-date' ? <p>{ui('当前预览频道没有比此版本更新的版本。', 'No newer version was found in the Preview channel.')}</p> : null}
         </div>
-        {!available && <p role="alert" className="inline-warning">{ui('请在 ReaCut 桌面应用中检查更新。浏览器预览不支持此功能。', 'Check for updates in the ReaCut desktop app. This feature is unavailable in the browser preview.')}</p>}
+        {!available && <p role="alert" className="inline-warning">{ui('请在 JGcut 桌面应用中检查更新。浏览器预览不支持此功能。', 'Check for updates in the JGcut desktop app. This feature is unavailable in the browser preview.')}</p>}
         {!busy && result?.status === 'error' && <p role="alert" className="inline-warning">{errors[result.error ?? 'server'] ?? errors.server}</p>}
         {!busy && result?.status === 'available' && !result.release?.hasDownload && <p className="inline-warning">{ui('此版本没有适用于本机系统和架构的 DMG。可查看发布页；请勿安装不匹配的安装包。', 'No compatible DMG is available for this system and architecture. You can view the release page; do not install an incompatible package.')}</p>}
         {!busy && result?.release && <div className="update-notes"><h3>{ui('发布说明（原文）', 'Release notes (original text)')}</h3><pre>{result.release.notes || ui('此版本未提供发布说明。', 'No release notes were provided.')}</pre></div>}
         {openFailed && <p role="alert" className="inline-warning">{ui('无法打开已验证的发布链接。请重新检查更新后再试。', 'Could not open the verified release link. Check for updates and try again.')}</p>}
         <p className="muted small">{ui('仅在你点击检查更新时请求 GitHub；GitHub 会收到普通网络请求（包括 IP 地址）。不会上传项目、媒体或令牌，也没有后台轮询或遥测。短时间内重复检查会复用 30 秒内的结果。', 'GitHub is contacted only when you request a check and receives an ordinary network request, including your IP address. No projects, media or tokens are uploaded; there is no background polling or telemetry. Repeated checks reuse results for 30 seconds.')}</p>
-        <p className="muted small">{ui('链接将在浏览器中打开。此预览版为临时签名，未经 Apple 公证。下载后先保存项目并退出 ReaCut，再手动替换应用；不会自动安装。', 'Links open in your browser. This preview is ad-hoc signed and not Apple-notarized. After downloading, save your project and quit ReaCut before manually replacing the app. Nothing is installed automatically.')}</p>
+        <p className="muted small">{ui('链接将在浏览器中打开。此预览版为临时签名，未经 Apple 公证。下载后先保存项目并退出 JGcut，再手动替换应用；不会自动安装。', 'Links open in your browser. This preview is ad-hoc signed and not Apple-notarized. After downloading, save your project and quit JGcut before manually replacing the app. Nothing is installed automatically.')}</p>
       </div>
       <footer>
         <button onClick={onClose}>{ui('关闭', 'Close')}</button>

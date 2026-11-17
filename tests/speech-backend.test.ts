@@ -35,7 +35,7 @@ describe('speech worker boundaries',()=>{
   const voice=(await speechVoices()).find(v=>v.locale.startsWith('en_'));
   if(!voice) return context.skip();
   const dir=await mkdtemp(path.join(os.tmpdir(),'reacut-speech-test-'));
-  try{const result=await generateSpeech(randomUUID(),createProject(),{mode:'tts',text:'ReaCut speaks on Windows.',voice:voice.name,rate:180},{},dir,()=>{});
+  try{const result=await generateSpeech(randomUUID(),createProject(),{mode:'tts',text:'JGcut speaks on Windows.',voice:voice.name,rate:180},{},dir,()=>{});
    expect(result.mode).toBe('tts');
    if(result.mode==='tts'){expect(result.asset.kind).toBe('audio');expect(result.asset.duration).toBeGreaterThan(.5);expect(path.dirname(result.asset.path)).toBe(dir);}
    expect((await readdir(dir)).filter(name=>name.startsWith('.speech-'))).toEqual([]);

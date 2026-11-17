@@ -1,3 +1,5 @@
+> **JGcut** is this repository's build of the editor: the application, installer and project files carry the JGcut name and a JG logo, the interface starts in English, and the Windows installer is built here. It is based on [ReaCut](https://github.com/Xiangyu-CAS/rea-capcut) (MIT); the text below is the upstream ReaCut documentation.
+
 <p align="center">
   <img src="public/icons/reacut.png" width="96" height="96" alt="ReaCut icon" />
 </p>
@@ -121,9 +123,9 @@ npm ci
 npm run dist:win
 ```
 
-`release/ReaCut-<version>-x64-setup.exe` installs per user without administrator rights and registers `.reacut` projects. The installer is not code-signed, so Windows SmartScreen asks for confirmation on first launch. The `media-tools-windows` and `package-windows` jobs in [CI](.github/workflows/ci.yml) run these steps, install silently and drive the installed application through a demo export; the installer is attached to each run as the `ReaCut-Windows` artifact.
+`release/JGcut-<version>-x64-setup.exe` installs per user without administrator rights and registers `.jgcut` projects (existing `.reacut` projects still open). The installer is not code-signed, so Windows SmartScreen asks for confirmation on first launch. The `media-tools-windows` and `package-windows` jobs in [CI](.github/workflows/ci.yml) run these steps, install silently and drive the installed application through a demo export; the installer is attached to each run as the `JGcut-Windows` artifact.
 
-Windows differences: the native title bar is kept (press Alt for the menu bar), system text-to-speech uses the installed Windows voices, and MLX speech recognition and the Codex plugin launcher remain macOS-only.
+On Windows the app starts in English whatever the system language, and the native title bar is kept (press Alt for the menu bar), system text-to-speech uses the installed Windows voices, and MLX speech recognition and the Codex plugin launcher remain macOS-only.
 
 ## Projects and data
 

@@ -111,7 +111,7 @@ try {
         const file =
           options.title === "导入素材"
             ? files.source
-            : options.title === "打开 ReaCut 项目"
+            : options.title === "打开 JGcut 项目"
               ? files.saved
               : files.replacement;
         return { canceled: false, filePaths: [file] };

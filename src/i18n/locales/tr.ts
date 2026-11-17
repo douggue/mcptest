@@ -75,7 +75,7 @@ export const tr: Record<TranslationKey, string> = {
   "settings.title": "Ayarlar ve son projeler",
   "settings.language": "Dil",
   "settings.language.description": "Arayüz dilini seçin",
-  "settings.language.zh-CN": "简体中文",
+  "settings.language.zh-CN": "Çince (Basitleştirilmiş)",
   "settings.language.en": "English",
   "settings.language.tr": "Türkçe",
   "settings.engine": "Yerel işleme motoru",

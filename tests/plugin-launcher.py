@@ -19,8 +19,8 @@ class LazyLauncher(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='reacut-launcher-test-')
         self.root = Path(self.temp.name)
-        self.bundle = self.root / 'ReaCut.app'
-        executable = self.bundle / 'Contents/MacOS/ReaCut'
+        self.bundle = self.root / 'JGcut.app'
+        executable = self.bundle / 'Contents/MacOS/JGcut'
         executable.parent.mkdir(parents=True)
         (self.bundle / 'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleShortVersionString': '0.5.1'}))
         self.starts = self.root / 'starts'
@@ -103,7 +103,7 @@ Path(os.environ['STARTS']+'.closed').write_text('flushed')
         self.assertFalse(self.starts.exists())
 
     def test_missing_app_does_not_break_discovery(self):
-        (self.bundle / 'Contents/MacOS/ReaCut').unlink()
+        (self.bundle / 'Contents/MacOS/JGcut').unlink()
         self.assertEqual(len(self.rpc('tools/list')['result']['tools']),9)
         self.assertIn('error',self.rpc('tools/call',{'name':'reacut_open'}))
         self.assertFalse(self.starts.exists())

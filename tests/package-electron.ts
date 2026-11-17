@@ -14,14 +14,14 @@ const bundle = path.resolve(
   process.env.REACUT_TEST_APP ??
     (windows
       ? path.join(root, "release", "win-unpacked")
-      : path.join(root, "release", "mac-arm64", "ReaCut.app")),
+      : path.join(root, "release", "mac-arm64", "JGcut.app")),
 );
 const resources = windows
   ? path.join(bundle, "resources")
   : path.join(bundle, "Contents", "Resources");
 const executable = windows
-    ? path.join(bundle, "ReaCut.exe")
-    : path.join(bundle, "Contents", "MacOS", "ReaCut"),
+    ? path.join(bundle, "JGcut.exe")
+    : path.join(bundle, "Contents", "MacOS", "JGcut"),
   demo = path.join(root, ".demo", "demo.reacut"),
   exported = path.join(output, "packaged-demo.mp4");
 await stat(executable);

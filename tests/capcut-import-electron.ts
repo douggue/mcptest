@@ -104,7 +104,7 @@ delete env.VITE_DEV_SERVER_URL;
 const packagedApp = process.env.REACUT_TEST_APP;
 const app = await electron.launch({
   ...(packagedApp ? {
-    executablePath: path.join(path.resolve(packagedApp), "Contents", "MacOS", "ReaCut"),
+    executablePath: path.join(path.resolve(packagedApp), "Contents", "MacOS", "JGcut"),
     args: [], cwd: output,
   } : { args: [path.join(root, "dist-electron", "main.cjs")] }),
   env,

@@ -15,8 +15,8 @@ export function isLanguage(value: unknown): value is Language {
   );
 }
 
-/** Use the OS/browser preference on first launch, not a Chinese-only default.
- * An explicit saved choice always wins, including on subsequent launches. */
+/** Map system locales onto supported languages. The app itself always starts in English;
+ * another language applies only once it has been chosen in Settings. */
 export function detectLanguage(languages: readonly string[] = typeof navigator === "undefined" ? [] : navigator.languages?.length ? navigator.languages : [navigator.language]): Language {
   for (const locale of languages) {
     const code = locale.toLowerCase().split(/[-_]/)[0];
@@ -30,9 +30,9 @@ export function detectLanguage(languages: readonly string[] = typeof navigator =
 export function read(): Language {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
-    return isLanguage(value) ? value : detectLanguage();
+    return isLanguage(value) ? value : DEFAULT_LANGUAGE;
   } catch {
-    return detectLanguage();
+    return DEFAULT_LANGUAGE;
   }
 }
 

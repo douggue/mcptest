@@ -1,5 +1,5 @@
 {
-  "name": "reacut",
+  "name": "jgcut",
   "version": "0.7.1",
   "private": true,
   "description": "An open source offline desktop video editor informed by REA research",
@@ -82,8 +82,8 @@
     "vitest": "^5.0.4"
   },
   "build": {
-    "appId": "org.reacut.editor",
-    "productName": "ReaCut",
+    "appId": "org.jgcut.editor",
+    "productName": "JGcut",
     "files": [
       "dist/**",
       "dist-electron/**",
@@ -137,7 +137,7 @@
       ]
     },
     "nsis": {
-      "artifactName": "ReaCut-${version}-${arch}-setup.exe"
+      "artifactName": "JGcut-${version}-${arch}-setup.exe"
     },
     "linux": {
       "target": [
@@ -152,8 +152,13 @@
     ],
     "fileAssociations": [
       {
+        "ext": "jgcut",
+        "name": "JGcut Project",
+        "role": "Editor"
+      },
+      {
         "ext": "reacut",
-        "name": "ReaCut Project",
+        "name": "JGcut Project",
         "role": "Editor"
       }
     ],

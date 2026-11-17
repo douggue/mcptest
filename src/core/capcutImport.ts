@@ -306,7 +306,7 @@ export function importCapcutDraft(
         clip.text!.text = text;
         clip.name = text.slice(0, 30) || "文字";
         warn(
-          "文字内容已保留；剪映字体、花字、样式和排版未映射，使用 ReaCut 默认样式。",
+          "文字内容已保留；剪映字体、花字、样式和排版未映射，使用 JGcut 默认样式。",
         );
       }
       if (segment.reverse === true) warn("倒放未支持，该片段按正向播放。");
@@ -363,7 +363,7 @@ export function importCapcutDraft(
     clip.transform.x = bounded((position.x * project.width) / 2, -1e9, 1e9, 0);
     clip.transform.y = bounded((-position.y * project.height) / 2, -1e9, 1e9, 0);
   }
-  // Native higher track_render_index is drawn above lower values. ReaCut's
+  // Native higher track_render_index is drawn above lower values. JGcut's
   // first track is the top layer; source array order is the fallback.
   project.tracks.sort((a, b) => trackLayers.get(b.id)! - trackLayers.get(a.id)!);
   if (!project.tracks.length) project.tracks = [createTrack("video")];

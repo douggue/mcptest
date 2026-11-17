@@ -3,7 +3,7 @@
   "tools": [
     {
       "name": "reacut_open",
-      "description": "Open or reuse the full ReaCut editor in the Codex side panel. The editor runs locally; no account or API key required.",
+      "description": "Open or reuse the full JGcut editor in the Codex side panel. The editor runs locally; no account or API key required.",
       "inputSchema": {
         "type": "object",
         "properties": {},
@@ -147,7 +147,7 @@
     },
     {
       "name": "reacut_screenshot",
-      "description": "Observe the current ReaCut editor image. Only captures this dedicated editor, never other apps.",
+      "description": "Observe the current JGcut editor image. Only captures this dedicated editor, never other apps.",
       "inputSchema": {
         "type": "object",
         "properties": {},
@@ -277,7 +277,7 @@
   ],
   "resource": {
     "uri": "ui://reacut/editor-v1.html",
-    "name": "ReaCut",
+    "name": "JGcut",
     "mimeType": "text/html;profile=mcp-app",
     "_meta": {
       "ui": {

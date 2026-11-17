@@ -31,7 +31,7 @@ const rpc = (method: string, params: object = {}) => new Promise<any>((resolve, 
 const call = (name: string, args: object = {}) => rpc('tools/call', { name, arguments: args });
 const checks: string[] = [];
 try {
-  const init = await rpc('initialize', { protocolVersion: '2025-11-25', clientInfo: { name: 'ReaCut test', version: '1' }, capabilities: {} });
+  const init = await rpc('initialize', { protocolVersion: '2025-11-25', clientInfo: { name: 'JGcut test', version: '1' }, capabilities: {} });
   assert.equal(init.serverInfo.name, 'reacut');
   const tools = (await rpc('tools/list')).tools;
   assert.equal(tools.length, 9);

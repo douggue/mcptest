@@ -54,6 +54,8 @@ const browser = await chromium.launch({
   ...(existsSync(chrome) ? { executablePath: chrome } : {}),
 });
 const page = await browser.newPage({locale: "zh-CN",  viewport: { width: 1250, height: 850 } });
+// The app starts in English; these checks assert Chinese labels, so choose that language explicitly.
+await page.addInitScript(() => localStorage.setItem("reacut-ui-language-v1", JSON.stringify("zh-CN")));
 const errors: string[] = [];
 page.on("pageerror", (error) => errors.push(error.message));
 const state = () => page.evaluate(() => (window as any).qa.getState());

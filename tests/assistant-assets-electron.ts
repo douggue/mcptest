@@ -16,7 +16,7 @@ const exported = path.join(output, "原创素材与助手.mp4");
 const saved = path.join(output, "原创素材与助手.reacut"), fixture = path.join(output, "synthetic CLI.cjs"), invocations = path.join(output, "invocations.jsonl");
 await writeFile(fixture, `#!${process.execPath}
 const fs=require('node:fs');const args=process.argv.slice(2);
-if(args.includes('--version')){console.log('ReaCut synthetic fixture 1.0');process.exit(0)}
+if(args.includes('--version')){console.log('JGcut synthetic fixture 1.0');process.exit(0)}
 if(args.includes('--help')){console.log('--ignore-user-config --ephemeral --output-schema --sandbox --tools --strict-mcp-config --setting-sources --no-session-persistence --json-schema');process.exit(0)}
 let prompt='';process.stdin.setEncoding('utf8');process.stdin.on('data',d=>prompt+=d);process.stdin.on('end',()=>{
 const current=prompt.split('本次用户请求：').at(-1);fs.appendFileSync(${JSON.stringify(invocations)},JSON.stringify({args,cwd:process.cwd(),prompt,current,pid:process.pid})+'\\n');
@@ -32,7 +32,7 @@ const env = Object.fromEntries(Object.entries(process.env).filter((entry): entry
 env.REACUT_USER_DATA = path.join(output,"user-data");
 delete env.ELECTRON_RUN_AS_NODE; delete env.VITE_DEV_SERVER_URL; delete env.REACUT_FFMPEG; delete env.REACUT_FFPROBE;
 if(packaged) env.PATH="";
-const app = await electron.launch({...(packaged ? { executablePath:path.join(path.resolve(packaged),"Contents/MacOS/ReaCut"),args:[],cwd:output } : {args:[path.join(root,"dist-electron/main.cjs")]}),env});
+const app = await electron.launch({...(packaged ? { executablePath:path.join(path.resolve(packaged),"Contents/MacOS/JGcut"),args:[],cwd:output } : {args:[path.join(root,"dist-electron/main.cjs")]}),env});
 let page: Page | undefined;
 const errors: string[] = [], failedMedia: string[] = [], checks: string[] = [];
 try {
@@ -100,7 +100,7 @@ try {
  await page.getByRole("button",{name:"剪辑助手",exact:true}).click();
  const panel=page.getByRole("complementary",{name:"剪辑助手"});
  await panel.getByRole("button",{name:"选择 CLI",exact:true}).click();
- await expect(panel.locator(".assistant-provider-status")).toContainText("ReaCut synthetic fixture 1.0",{timeout:20000});
+ await expect(panel.locator(".assistant-provider-status")).toContainText("JGcut synthetic fixture 1.0",{timeout:20000});
  const send=async(message:string)=>{await panel.getByRole("textbox",{name:"助手消息"}).fill(message);await panel.getByRole("button",{name:"发送",exact:true}).click();};
  await send("CASE_CODEX 添加片头与背景");
  await expect(panel.getByRole("button",{name:"应用 2 项修改",exact:true})).toBeEnabled({timeout:20000});
@@ -119,7 +119,7 @@ try {
  checks.push("project-scoped chat history survives panel reopen");
  await panel.getByRole("combobox",{name:"助手后端"}).selectOption("claude");
  await panel.getByRole("button",{name:"选择 CLI",exact:true}).click();
- await expect(panel.locator(".assistant-provider-status")).toContainText("ReaCut synthetic fixture 1.0",{timeout:20000});
+ await expect(panel.locator(".assistant-provider-status")).toContainText("JGcut synthetic fixture 1.0",{timeout:20000});
  await send("CASE_CLAUDE 添加片头与背景");
  await expect(panel.getByRole("button",{name:"应用 2 项修改",exact:true})).toBeEnabled({timeout:20000});
  await expect(panel.locator(".assistant-message.assistant").last()).toContainText("Claude 合成回复");

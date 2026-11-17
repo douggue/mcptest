@@ -41,7 +41,7 @@ const server = createServer(async (req, res) => {
   res.setHeader('Content-Type', req.url === base + 'host.js' ? 'text/javascript' : 'text/html');
   if (req.url === base + 'widget') res.end(await readFile('dist/plugin.html', 'utf8'));
   else if (req.url === base + 'host.js') res.end(js);
-  else if (req.url === base) res.end('<!doctype html><meta charset="utf-8"><title>ReaCut MCP App — 本地验证宿主</title><style>body{margin:0;background:#111;color:white;font:12px system-ui}p{margin:0;padding:6px}iframe{border:0;width:100%;height:calc(100vh - 28px)}</style><p>本地 MCP Apps 验证宿主 · 真实编辑器 · 非 Codex 宿主验收</p><iframe title="ReaCut MCP App"></iframe><script type="module" src="host.js"></script>');
+  else if (req.url === base) res.end('<!doctype html><meta charset="utf-8"><title>JGcut MCP App — 本地验证宿主</title><style>body{margin:0;background:#111;color:white;font:12px system-ui}p{margin:0;padding:6px}iframe{border:0;width:100%;height:calc(100vh - 28px)}</style><p>本地 MCP Apps 验证宿主 · 真实编辑器 · 非 Codex 宿主验收</p><iframe title="JGcut MCP App"></iframe><script type="module" src="host.js"></script>');
   else res.writeHead(404).end();
 });
 server.listen(0, '127.0.0.1', async () => { origin = `http://127.0.0.1:${(server.address() as any).port}`; const url = origin + base; await writeFile(path.join(output, 'url.txt'), url); console.log(url); });

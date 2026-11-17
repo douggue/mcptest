@@ -65,7 +65,7 @@ describe('local reverse/freeze real media',()=>{
   const p=project(),a=await deriveMedia(randomUUID(),p,p.clips[0].id,reverse,path.join(dir,'derived'),()=>{});
   const q=applyDerivative(p,p.clips[0].id,reverse,a).project;
   const folder=await collectPortableProject(q,dir,new AbortController().signal,()=>{});
-  const file=path.join(folder,'项目.reacut');const document=JSON.parse(await readFile(file,'utf8'));
+  const file=path.join(folder,'project.jgcut');const document=JSON.parse(await readFile(file,'utf8'));
   const loaded=await resolvePortableDocument(document,file);
   const resolvedFolder=await realpath(folder);expect(loaded.assets.every(a=>a.path.startsWith(resolvedFolder + path.sep))).toBe(true);
   const derived=loaded.assets.find(item=>item.id===a.id)!;
