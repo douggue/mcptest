@@ -589,7 +589,7 @@ function registerIPC() {
     if (!["mp4", "mov", "gif", "m4a", "wav"].includes(format)) throw new Error("无效导出格式");
     const kind = format === "gif" ? nativeUI(" 动图", " animation") : format === "m4a" || format === "wav" ? nativeUI(" 音频", " audio") : nativeUI(" 视频", " video");
     const result = await dialog.showSaveDialog(window!, {
-      title: nativeUI("导出", "Export"),
+      title: format === "gif" ? nativeUI("导出动图", "Export animation") : format === "m4a" || format === "wav" ? nativeUI("导出音频", "Export audio") : nativeUI("导出视频", "Export video"),
       defaultPath: name + "." + format,
       filters: [{ name: format.toUpperCase() + kind, extensions: [format] }],
     });
