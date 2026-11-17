@@ -120,10 +120,38 @@ def write_settings(patch: dict) -> dict:
     return read_settings()
 
 
+@app.get("/api/ai/claude-code")
+def claude_code_status() -> dict:
+    """Is Claude Code installed and signed in on this computer? Server edition: it is not offered."""
+    from .studio import ai
+    if auth.enabled():
+        return {"installed": False, "version": "", "logged_in": False, "method": "", "server_edition": True,
+                "why": "The server edition uses API keys. Claude Code with your subscription is for Cutroom on your own computer."}
+    return {**ai.claude_code_status(), "server_edition": False}
+
+
+@app.post("/api/ai/test")
+def ai_test() -> dict:
+    """A tiny request through the chosen provider, to check the setup works."""
+    import time as _t
+    from .studio import ai
+    started = _t.time()
+    try:
+        out = ai.ask_json("Answer in the requested format.", "Reply with ok set to true and a three-word greeting.",
+                          {"type": "object", "additionalProperties": False, "required": ["ok", "greeting"],
+                           "properties": {"ok": {"type": "boolean"}, "greeting": {"type": "string"}}}, max_tokens=200, effort="low")
+    except ai.AIUnavailable as e:
+        raise HTTPException(422, str(e))
+    return {"ok": bool(out.get("ok")), "greeting": out.get("greeting", ""), "provider": ai.provider_label(),
+            "seconds": round(_t.time() - started, 1)}
+
+
 @app.get("/api/ai/models")
 def ai_models(provider: str = "anthropic") -> list[dict]:
     """Model choices for Settings. Gemini's come live from Google when a key is set."""
     from .studio import ai
+    if provider == "claude_code":
+        return ai.CLAUDE_CODE_MODELS
     if provider != "gemini":
         return ai.CLAUDE_MODELS
     try:

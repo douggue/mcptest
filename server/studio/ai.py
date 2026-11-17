@@ -28,15 +28,32 @@ GEMINI_MODELS = [
 GEMINI_DEFAULT = GEMINI_MODELS[0]["id"]
 
 
+# Claude through the Claude Code program on this computer, signed in with the owner's own subscription.
+# Aliases always mean the newest model of that kind; any full model name can be typed in Settings instead.
+CLAUDE_CODE_MODELS = [
+    {"id": "opus", "label": "Opus (newest; default)"},
+    {"id": "sonnet", "label": "Sonnet (newest; faster)"},
+    {"id": "haiku", "label": "Haiku (newest; fastest, lightest on your usage)"},
+    {"id": "fable", "label": "Fable (newest; if your plan includes it)"},
+]
+
+
 class AIUnavailable(RuntimeError):
     """No key configured, or the request could not be completed."""
 
 
 def provider() -> str:
-    """The provider to use: the one chosen in Settings if it has a key, otherwise whichever does. '' if neither."""
+    """The provider to use: the one chosen in Settings if it is ready, otherwise whichever API has a key. '' if none.
+
+    Claude Code is only used when chosen: it runs on the owner's subscription, which they should opt into."""
     keys = {"anthropic": anthropic_key(), "gemini": gemini_key()}
     chosen = get_settings().get("ai_provider") or "anthropic"
-    if keys.get(chosen):
+    if chosen == "claude_code":
+        from .. import auth
+        # never on the server edition: everyone signed in would be spending the owner's subscription
+        if not auth.enabled() and claude_code_exe():
+            return "claude_code"
+    elif keys.get(chosen):
         return chosen
     return next((name for name, key in keys.items() if key), "")
 
@@ -46,7 +63,7 @@ def available() -> bool:
 
 
 def provider_label() -> str:
-    return {"anthropic": "Claude", "gemini": "Gemini"}.get(provider(), "")
+    return {"anthropic": "Claude", "gemini": "Gemini", "claude_code": "Claude (your subscription)"}.get(provider(), "")
 
 
 def ask_json(system: str, user: "str | list", schema: dict, max_tokens: int = 32000, effort: str = "medium") -> dict:
@@ -60,6 +77,8 @@ def ask_json(system: str, user: "str | list", schema: dict, max_tokens: int = 32
     which = provider()
     if not which:
         raise AIUnavailable("No AI key is set (Settings → AI).")
+    if which == "claude_code":
+        return _ask_claude_code(system, user, schema, effort)   # already parsed
     text = _ask_gemini(system, user, schema) if which == "gemini" else _ask_claude(system, user, schema, max_tokens, effort)
     try:
         return json.loads(text)
@@ -257,3 +276,134 @@ def gemini_models() -> list[dict]:
     except Exception as e:
         raise _gemini_error(e, "") from e
     return sorted(found, key=lambda m: m["id"])
+
+
+# ---------------------------------------------------------------- Claude Code (the owner's subscription)
+
+def claude_code_exe() -> list[str] | None:
+    """The command that runs Claude Code here, or None when it is not installed.
+
+    Windows: the native installer gives claude.exe; an npm install gives a claude.cmd shim, which cannot be run
+    without a shell (and a shell would mangle the JSON arguments), so its JavaScript entry point is run with node."""
+    import os
+    import shutil
+    from pathlib import Path
+    custom = (get_settings().get("claude_code_path") or "").strip().strip('"')
+    found = custom if custom and Path(custom).exists() else (shutil.which("claude.exe") or shutil.which("claude"))
+    if not found:
+        home = Path.home()
+        for guess in (home / ".local" / "bin" / "claude.exe", home / ".local" / "bin" / "claude", home / ".claude" / "local" / "claude"):
+            if guess.exists():
+                found = str(guess)
+                break
+    if not found:
+        return None
+    if found.lower().endswith((".cmd", ".bat")):
+        script = Path(found).parent / "node_modules" / "@anthropic-ai" / "claude-code" / "cli.js"
+        node = shutil.which("node")
+        if script.exists() and node:
+            return [node, str(script)]
+        return None
+    return [found] if os.access(found, os.X_OK) or os.name == "nt" else None
+
+
+def _claude_code_env() -> dict:
+    """The environment for Claude Code: without API keys, so the subscription login is what gets used
+    (in print mode Claude Code would otherwise bill an ANTHROPIC_API_KEY it finds, without asking)."""
+    import os
+    env = dict(os.environ)
+    for k in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL"):
+        env.pop(k, None)
+    return env
+
+
+def claude_code_status() -> dict:
+    """{installed, version, logged_in, method, why} for Settings."""
+    import subprocess
+    exe = claude_code_exe()
+    if not exe:
+        return {"installed": False, "version": "", "logged_in": False, "method": "",
+                "why": "Claude Code was not found. Install it (https://claude.com/claude-code), sign in once by running "
+                       "claude in a terminal, or set its location below."}
+    out = {"installed": True, "version": "", "logged_in": False, "method": "", "why": ""}
+    try:
+        v = subprocess.run(exe + ["--version"], capture_output=True, text=True, timeout=30, env=_claude_code_env())
+        out["version"] = (v.stdout or "").strip().split(" ")[0]
+        a = subprocess.run(exe + ["auth", "status"], capture_output=True, text=True, timeout=30, env=_claude_code_env())
+        info = json.loads(a.stdout or "{}")
+        out["logged_in"] = bool(info.get("loggedIn"))
+        out["method"] = info.get("authMethod") or ""
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError) as e:
+        out["why"] = f"Claude Code is installed but did not answer ({e})."
+        return out
+    if not out["logged_in"]:
+        out["why"] = "Claude Code is not signed in. Open a terminal, run  claude  and sign in with your Claude account."
+    return out
+
+
+def _ask_claude_code(system: str, user: "str | list", schema: dict, effort: str) -> dict:
+    """One structured answer from Claude Code in print mode: tools off, customisations off (--safe-mode),
+    nothing saved, run from an empty folder. Text and pictures go in on stdin as one stream-json user message."""
+    import base64
+    import subprocess
+    import tempfile
+    exe = claude_code_exe()
+    if not exe:
+        raise AIUnavailable("Claude Code was not found on this computer (Settings → AI).")
+    s = get_settings()
+    model = (s.get("claude_code_model") or "opus").strip()
+    effort = (s.get("claude_code_effort") or effort or "").strip()
+    if isinstance(user, str):
+        content = [{"type": "text", "text": user}]
+    else:
+        content = []
+        for part in user:
+            if isinstance(part, str):
+                content.append({"type": "text", "text": part})
+            elif "image" in part:
+                content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                                             "data": base64.standard_b64encode(part["image"]).decode("ascii")}})
+            # whole videos: only Gemini watches them; the stills carry the picture here
+    message = json.dumps({"type": "user", "message": {"role": "user", "content": content}, "parent_tool_use_id": None})
+    from ..config import DATA
+    work = DATA / "tmp" / "claude-code"
+    work.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=work) as tmp:
+        prompt_file = f"{tmp}/system.txt"
+        with open(prompt_file, "w", encoding="utf-8") as f:
+            f.write(system)
+        cmd = exe + ["-p", "--safe-mode", "--tools", "", "--no-session-persistence",
+                     "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
+                     "--model", model, "--system-prompt-file", prompt_file,
+                     "--json-schema", json.dumps(schema, separators=(",", ":")), "--max-turns", "6"]
+        if effort in ("low", "medium", "high", "xhigh", "max"):
+            cmd += ["--effort", effort]
+        try:
+            run = subprocess.run(cmd, input=message + "\n", capture_output=True, text=True, encoding="utf-8",
+                                 timeout=1800, cwd=tmp, env=_claude_code_env())
+        except subprocess.TimeoutExpired as e:
+            raise AIUnavailable("Claude Code took more than 30 minutes and was stopped.") from e
+        except OSError as e:
+            raise AIUnavailable(f"Claude Code could not be started: {e}") from e
+    result = None
+    for line in (run.stdout or "").splitlines():
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if item.get("type") == "result":
+            result = item
+    if result is None:
+        detail = (run.stderr or run.stdout or "").strip().splitlines()
+        raise AIUnavailable("Claude Code gave no answer" + (f": {detail[-1][:300]}" if detail else "."))
+    if result.get("is_error") or result.get("structured_output") is None:
+        why = " ".join(result.get("errors") or []) or str(result.get("result") or result.get("subtype") or "")
+        low = why.lower()
+        if "login" in low or "log in" in low or "auth" in low or "credential" in low:
+            raise AIUnavailable("Claude Code is not signed in. Open a terminal, run  claude  and sign in, then try again.")
+        if "limit" in low or "usage" in low or "rate" in low:
+            raise AIUnavailable(f"Your Claude plan's usage limit was reached: {why[:200]}")
+        if "model" in low and ("not" in low or "invalid" in low):
+            raise AIUnavailable(f"Claude Code does not accept the model '{model}'. Pick another under Settings → AI.")
+        raise AIUnavailable(f"Claude Code could not answer: {why[:300] or 'unknown reason'}")
+    return result["structured_output"]

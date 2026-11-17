@@ -27,7 +27,10 @@ SUBDIRS = [
 ]
 
 DEFAULT_SETTINGS = {
-    "ai_provider": "anthropic",       # anthropic | gemini  (whichever has a key is used if this one has none)
+    "ai_provider": "anthropic",       # anthropic | gemini | claude_code (whichever API has a key is used if this one is not ready)
+    "claude_code_model": "opus",      # with claude_code: an alias (opus, sonnet, haiku, fable) or a full model name
+    "claude_code_effort": "",         # with claude_code: low | medium | high | xhigh | max; '' lets each feature choose
+    "claude_code_path": "",           # with claude_code: where claude(.exe) is, when it is not on PATH
     "anthropic_api_key": "",          # falls back to ANTHROPIC_API_KEY in the environment
     "ai_model": "claude-opus-5-5",
     "gemini_api_key": "",             # falls back to GEMINI_API_KEY / GOOGLE_API_KEY in the environment

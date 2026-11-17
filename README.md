@@ -59,6 +59,8 @@ For development, run `python run.py` and, in another terminal, `cd web && npm ru
 
 Settings → AI lets you pick **Claude** or **Gemini** and paste a key for either or both. Gemini keys are free to create in Google AI Studio and the Flash models work on the free tier. The Gemini model defaults to `gemini-flash-latest`; after saving a key, **Load list** fetches the models your key can actually use. You can also set `ANTHROPIC_API_KEY` or `GEMINI_API_KEY` in the environment instead of saving keys.
 
+
+**Claude subscription (no API key).** If Claude Code is installed on this computer and signed in with your Claude account, choose *Claude subscription* under Settings → AI. Cutroom then sends every AI request through Claude Code, with its tools switched off, and it counts towards your plan's usage limits like any Claude chat. Pick the model (Opus, Sonnet, Haiku, Fable, or any model name) and the effort there, and press Test. Install Claude Code from https://claude.com/claude-code, then run `claude` once in a terminal to sign in. This is for Cutroom on your own computer only; the password-protected server edition never uses it. Watching whole reference videos still needs Gemini; with this choice, styles are studied from still frames.
 ## Clipper
 
 Paste a link or drop a file, set the range with the slider or the time boxes, choose format, quality, shape and cut mode, and save. You can queue several ranges from one video, or paste several links to cut with the same settings. For links, only the selected section is downloaded. Saved clips can be sent to the studio.

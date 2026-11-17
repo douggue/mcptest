@@ -7,8 +7,8 @@ import { Button, Field, Panel, Seg, Slider, Toggle, toast, toastError } from '..
 
 type Brand = { name: string; accent: string; secondary: string; font: string; logo: string; logoPos: string; logoSize: number; watermark: string };
 type SettingsData = {
-  ai_provider: 'anthropic' | 'gemini'; anthropic_api_key: string; anthropic_api_key_set: boolean; ai_model: string;
-  gemini_api_key: string; gemini_api_key_set: boolean; gemini_model: string; whisper_model: string; copy_folder: string; capcut_folder: string;
+  ai_provider: 'anthropic' | 'gemini' | 'claude_code'; anthropic_api_key: string; anthropic_api_key_set: boolean; ai_model: string;
+  gemini_api_key: string; gemini_api_key_set: boolean; gemini_model: string; claude_code_model: string; claude_code_effort: string; claude_code_path: string; whisper_model: string; copy_folder: string; capcut_folder: string;
   pexels_api_key: string; pexels_api_key_set: boolean; tts_voice: string; brand: Brand;
   flow_enabled?: boolean; flow_mcp_path?: string; flow_out_dir?: string;
   youtube_client_id?: string; youtube_client_secret?: string; youtube_client_secret_set?: boolean; youtube_redirect_url?: string;
@@ -76,9 +76,13 @@ export default function Settings() {
 
       <Panel title="AI" actions={health?.ai ? <span className="pill good">Using {health.ai_provider}</span> : <span className="pill muted">No key set</span>}>
         <p className="muted">With a key, the AI picks the moments, scores them, plans graphics, writes hooks and post text, and translates captions. Without one, simpler built-in rules are used and translation is unavailable. Transcripts are sent to the provider you choose.</p>
-        <Field label="Provider" hint="If the chosen provider has no key, the other one is used when it has one.">
-          <Seg value={s.ai_provider} onChange={(v) => set({ ai_provider: v })} options={[{ value: 'anthropic', label: 'Claude (Anthropic)' }, { value: 'gemini', label: 'Gemini (Google)' }]} />
+        <Field label="Provider" hint="With an API provider, if it has no key the other one is used when it has one.">
+          <Seg value={s.ai_provider} onChange={(v) => set({ ai_provider: v })} options={[
+            { value: 'anthropic', label: 'Claude API key' }, { value: 'gemini', label: 'Gemini (Google)' },
+            { value: 'claude_code', label: 'Claude subscription', title: 'Uses the Claude Code program on this computer, signed in with your own Claude plan: no API key' },
+          ]} />
         </Field>
+        {s.ai_provider === 'claude_code' && <ClaudeCodeSettings s={s} set={set} />}
         <div className="grid-2">
           <Field label="Anthropic API key" hint={s.anthropic_api_key_set ? 'A key is set. Type a new one to replace it.' : 'Stored only in your data folder. You can also set ANTHROPIC_API_KEY before starting.'}>
             <input type="password" autoComplete="off" placeholder={s.anthropic_api_key_set ? '••••••••  (set)' : 'sk-ant-…'} value={s.anthropic_api_key} onChange={(e) => set({ anthropic_api_key: e.target.value })} />
@@ -342,5 +346,63 @@ function YouTubeSettings({ s, set, onSaved }: {
         </div>
       )}
     </Panel>
+  );
+}
+
+type CC = { installed: boolean; version: string; logged_in: boolean; method: string; why: string; server_edition: boolean };
+const CC_MODELS = [
+  { id: 'opus', label: 'Opus (newest; default)' }, { id: 'sonnet', label: 'Sonnet (newest; faster)' },
+  { id: 'haiku', label: 'Haiku (newest; fastest, lightest on your usage)' }, { id: 'fable', label: 'Fable (newest; if your plan includes it)' },
+];
+
+/** Claude through the Claude Code program on this computer, with the owner's own subscription. */
+function ClaudeCodeSettings({ s, set }: { s: SettingsData; set: (p: Partial<SettingsData>) => void }) {
+  const [cc, setCc] = useState<CC | null>(null);
+  const [testing, setTesting] = useState(false);
+  const check = () => api.get<CC>('/api/ai/claude-code').then(setCc).catch(() => setCc(null));
+  useEffect(() => { check(); }, []);
+  const custom = !CC_MODELS.some((m) => m.id === s.claude_code_model);
+  async function test() {
+    setTesting(true);
+    try {
+      await api.put('/api/settings', { ai_provider: 'claude_code', claude_code_model: s.claude_code_model, claude_code_effort: s.claude_code_effort, claude_code_path: s.claude_code_path });
+      const r = await api.post<{ greeting: string; seconds: number }>('/api/ai/test');
+      toast(`Claude answered in ${r.seconds}s: “${r.greeting}”`, 'good');
+    } catch (e) { toastError(e); }
+    setTesting(false);
+  }
+  return (
+    <div className="card col gap-s" style={{ padding: 12 }}>
+      <div className="row between wrap">
+        <span className="small">
+          {!cc ? 'Checking Claude Code…'
+            : cc.installed && cc.logged_in ? <><span className="pill good">Ready</span> Claude Code {cc.version}, signed in{cc.method === 'claude.ai' ? ' with your Claude account' : ''}.</>
+              : <span style={{ color: 'var(--bad)' }}>{cc.why}</span>}
+        </span>
+        <div className="row gap-s">
+          <Button small onClick={check}>Check again</Button>
+          <Button small variant="primary" icon="sparkle" onClick={test} busy={testing} disabled={!cc?.installed || !cc.logged_in}>Test</Button>
+        </div>
+      </div>
+      <div className="grid-2">
+        <Field label="Model" hint="Opus gives the best results; Haiku uses the least of your plan. Or type any model name.">
+          <select value={custom ? '__custom' : s.claude_code_model} onChange={(e) => set({ claude_code_model: e.target.value === '__custom' ? '' : e.target.value })}>
+            {CC_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+            <option value="__custom">Another model (type its name)…</option>
+          </select>
+          {custom && <input type="text" className="mono" spellCheck={false} placeholder="e.g. claude-sonnet-5-5" value={s.claude_code_model} onChange={(e) => set({ claude_code_model: e.target.value.trim() })} style={{ marginTop: 6 }} />}
+        </Field>
+        <Field label="Effort" hint="How long Claude thinks. Automatic lets each feature choose (more for studying styles, less for hashtags).">
+          <select value={s.claude_code_effort} onChange={(e) => set({ claude_code_effort: e.target.value })}>
+            <option value="">Automatic</option><option value="low">Low (fastest)</option><option value="medium">Medium</option>
+            <option value="high">High</option><option value="xhigh">Extra high</option><option value="max">Maximum (slowest)</option>
+          </select>
+        </Field>
+      </div>
+      <Field label="Where Claude Code is (optional)" hint="Leave empty to find it automatically. Otherwise the full path to claude.exe.">
+        <input type="text" className="mono" spellCheck={false} placeholder="C:\\Users\\you\\.local\\bin\\claude.exe" value={s.claude_code_path} onChange={(e) => set({ claude_code_path: e.target.value })} />
+      </Field>
+      <span className="small muted">Every AI request runs through Claude Code with its tools switched off, and counts towards your Claude plan's usage limits like any Claude chat. Watching whole reference videos needs Gemini; with this choice, styles are studied from still frames.</span>
+    </div>
   );
 }
