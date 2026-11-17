@@ -35,7 +35,12 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Install FFmpeg (Windows)
         if: runner.os == 'Windows'
-        run: choco install ffmpeg --no-progress -y
+        # Chocolatey puts launcher shims on PATH; a shim outlives a cancelled child, so use the real programs.
+        run: |
+          choco install ffmpeg --no-progress -y
+          $tools = (Get-ChildItem "$env:ChocolateyInstall\lib\ffmpeg" -Recurse -Filter ffmpeg.exe | Select-Object -First 1).DirectoryName
+          "REACUT_FFMPEG=$tools\ffmpeg.exe" >> $env:GITHUB_ENV
+          "REACUT_FFPROBE=$tools\ffprobe.exe" >> $env:GITHUB_ENV
       - run: npm run check
       - name: Browser localization (Linux)
         if: runner.os == 'Linux'

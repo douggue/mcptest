@@ -50,7 +50,8 @@ async function run(provider: AssistantProvider, prompt: string, timeoutMs = 5000
   return events;
 }
 
-describe("assistant CLI isolation and protocol", () => {
+// The stand-in CLI is a "#!" script, which Windows cannot start; there the product only accepts native .exe files.
+describe.skipIf(process.platform === "win32")("assistant CLI isolation and protocol", () => {
   it("discovers explicitly selected executables, including spaces", async () => {
     const providers = await discoverAssistantProviders({ codex: fixture, claude: fixture });
     expect(providers.map(p => p.available)).toEqual([true, true]);
