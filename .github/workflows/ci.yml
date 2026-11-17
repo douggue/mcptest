@@ -103,6 +103,13 @@ jobs:
           node-version: "24"
       - name: Install the mingw-w64 cross toolchain
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 nasm pkg-config make
+      # The recipe re-verifies a restored build against its manifest and rebuilds if anything differs.
+      - uses: actions/cache@v6
+        with:
+          path: |
+            media-tools/win32-x64
+            .media-build/downloads
+          key: media-tools-win32-x64-${{ hashFiles('scripts/build-media-tools-win.mjs') }}
       - name: Cross-compile pinned shipped media tools (Windows x64)
         run: npm run media:build:win
       - uses: actions/upload-artifact@v7
