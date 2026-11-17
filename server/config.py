@@ -35,7 +35,16 @@ DEFAULT_SETTINGS = {
     "whisper_model": "small",         # tiny | base | small | medium | large-v3
     "copy_folder": "",                # e.g. your Google Drive desktop folder; finished files are copied here
     "pexels_api_key": "",             # optional, for stock b-roll search
+    # Generation through Google AI Studio (uses the Gemini key). These are defaults that may need changing:
+    # model names change often, so each is free text and the Generate page can load the live list.
+    "gen_image_model": "gemini-3.1-flash-image",
+    "gen_video_model": "veo-3.1-generate-preview",
+    "gen_tts_model": "gemini-3.8-flash-lite-tts",
+    "gen_tts_voice": "Puck",
     "tts_voice": "en-US-GuyNeural",
+    "flow_enabled": False,            # optional flow-mcp connector (desktop edition only); off unless the user turns it on
+    "flow_mcp_path": "",              # folder where flow-mcp is installed (the one containing dist/index.js)
+    "flow_out_dir": "",               # flow-mcp's output folder; empty means ~/flow-mcp-out
     "brand": {
         "name": "",
         "accent": "#ffb224",

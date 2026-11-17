@@ -10,9 +10,21 @@ export type Word = {
   removed?: boolean;   // cut out of the short (silence/filler/text edit)
   emphasis?: boolean;  // highlighted in captions, candidate for zooms
   emoji?: string;      // shown above the caption line
+  color?: string;      // overrides the caption colour for this word (per-speaker colours)
 };
 
 export type Segment = { start: number; end: number }; // a kept range of the source
+export type Freeze = { id: string; at: number; duration: number };               // hold the picture at a source time
+export type Speed = { id: string; start: number; end: number; rate: number };    // play a source range faster or slower
+export type FrameMode = {
+  mode: 'full' | 'panel';       // panel = the video sits in a box on a background
+  shape: 'square' | 'rounded' | 'squircle';
+  width: number;                // % of frame width
+  aspect: number;               // box width / height
+  y: number;                    // box centre, % of frame height
+  bg: 'blur' | 'black';
+};
+export type Header = { name: string; handle: string; avatar: string; verified: boolean; y: number };
 
 export type Layout = 'single' | 'split' | 'trio' | 'fit';
 
@@ -30,8 +42,12 @@ export type Shot = {
 
 export type Zoom = { id: string; at: number; duration: number; scale: number };
 
-export type GraphicType = 'keyword' | 'cascade' | 'gauge' | 'counter' | 'lowerthird' | 'steps' | 'broll' | 'emoji';
-export type Zone = 'full' | 'top' | 'center' | 'bottom' | 'overlay';
+export type GraphicType =
+  | 'keyword' | 'cascade' | 'gauge' | 'counter' | 'lowerthird' | 'steps' | 'broll' | 'emoji'
+  // free elements: placed anywhere, not tied to speech
+  | 'label' | 'nametag' | 'circle' | 'arrow' | 'spotlight' | 'flash' | 'dip' | 'heart';
+export type LabelStyle = 'neon' | 'plain' | 'box' | 'quoted' | 'outline';
+export type Zone = 'full' | 'top' | 'center' | 'bottom' | 'overlay' | 'free';   // free = measured from the frame centre
 export type Anim = 'pop' | 'slam' | 'fade' | 'slide' | 'glitch' | 'type';
 
 export type Graphic = {
@@ -49,6 +65,11 @@ export type Graphic = {
   dx?: number;         // moved from its zone's default spot, % of frame width / height
   dy?: number;
   scale?: number;      // resized, 1 = default
+  color?: string;      // label / circle / arrow / flash colour
+  style?: LabelStyle;  // label look
+  rotate?: number;     // degrees (arrow)
+  tag?: string;        // small speaker tag above a boxed label, e.g. "Cyclist:"
+  origin?: 'style' | 'ai';   // who placed it, so re-applying a style or re-planning replaces only its own
   mediaType?: 'image' | 'video' | 'gif';
 };
 
@@ -59,7 +80,7 @@ export type Hook = {
   scale?: number;  // 1 = default size
 };
 
-export type CaptionPreset = 'boldpop' | 'karaoke' | 'tape' | 'clean' | 'neon' | 'typeon';
+export type CaptionPreset = 'boldpop' | 'karaoke' | 'tape' | 'clean' | 'neon' | 'typeon' | 'shadow' | 'box' | 'glow';
 
 export type Captions = {
   visible: boolean;
@@ -70,6 +91,7 @@ export type Captions = {
   highlight: string;
   position: number;      // % from the top of the frame
   x?: number;            // centre, % of frame width (default 50)
+  lead?: number;         // seconds a caption appears before its word (default 0.04)
   uppercase: boolean;
   maxWords: number;
   emoji: boolean;
@@ -78,7 +100,10 @@ export type Captions = {
 };
 
 export type LookPreset = 'none' | 'punchy' | 'warm' | 'cool' | 'cinematic' | 'vintage';
-export type Look = { preset: LookPreset; bw: boolean; vignette: boolean; progressBar: boolean };
+export type Look = {
+  preset: LookPreset; bw: boolean; vignette: boolean; progressBar: boolean;
+  brightness?: number; contrast?: number; saturation?: number;   // fine tuning, 1 = unchanged
+};
 
 export type AudioMix = {
   voice: number;   // 0..1
@@ -116,6 +141,10 @@ export type ShortSpec = {
   in: number;
   out: number;
   segments: Segment[];
+  freezes?: Freeze[];
+  speeds?: Speed[];
+  frame?: FrameMode;
+  header?: Header;
   words: Word[];
   shots: Shot[];
   zooms: Zoom[];
@@ -131,9 +160,12 @@ export type ShortSpec = {
 export const ASPECTS = {
   '9:16': { width: 1080, height: 1920 },
   '4:5': { width: 1080, height: 1350 },
+  '3:4': { width: 1080, height: 1440 },
   '1:1': { width: 1080, height: 1080 },
   '16:9': { width: 1920, height: 1080 },
 } as const;
 export type Aspect = keyof typeof ASPECTS;
 
-export const FONTS = ['Anton', 'Archivo Black', 'Bebas Neue', 'Montserrat', 'Inter', 'JetBrains Mono'] as const;
+export const FONTS = ['Anton', 'Archivo Black', 'Bebas Neue', 'Montserrat', 'Poppins', 'Cinzel', 'Inter', 'JetBrains Mono'] as const;
+
+export const DEFAULT_FRAME: FrameMode = { mode: 'full', shape: 'rounded', width: 100, aspect: 1, y: 50, bg: 'blur' };

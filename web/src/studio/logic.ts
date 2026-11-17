@@ -1,6 +1,6 @@
 // Pure editing operations on a ShortSpec. No React, no network.
 import { Piece, buildPlan, outFrameOf, srcTimeAt, totalFrames } from '../remotion/timing';
-import { ASPECTS, Anim, Aspect, Face, Graphic, GraphicType, Layout, Segment, ShortSpec, Shot, Word, Zone } from '../remotion/types';
+import { ASPECTS, Anim, Aspect, Face, Freeze, Graphic, GraphicType, Layout, Segment, ShortSpec, Shot, Speed, Word, Zone } from '../remotion/types';
 
 export type EditSpec = ShortSpec & {
   /** Editor-only settings the composition ignores. */
@@ -109,8 +109,12 @@ export function paneCount(layout: Layout): number {
 /** Crop position (0..100) that centres a face at `cx` (0..1 of the source) in one pane of this layout. */
 export function faceToX(cx: number, spec: ShortSpec, layout: Layout): number {
   const n = paneCount(layout);
-  const landscape = spec.width > spec.height;
-  const paneAspect = landscape ? spec.width / n / spec.height : spec.width / (spec.height / n);
+  // the picture area is the whole frame, or the panel box when the video sits in one
+  const panel = spec.frame?.mode === 'panel';
+  const bw = panel ? (spec.width * spec.frame!.width) / 100 : spec.width;
+  const bh = panel ? Math.min(spec.height, bw / spec.frame!.aspect) : spec.height;
+  const landscape = bw > bh;
+  const paneAspect = landscape ? bw / n / bh : bw / (bh / n);
   const visible = paneAspect / (spec.srcW / spec.srcH);   // share of the source width a pane shows
   if (visible >= 1) return 50;
   return Math.round(clamp((cx - visible / 2) / (1 - visible), 0, 1) * 1000) / 10;
@@ -184,13 +188,31 @@ export function autoZooms(spec: EditSpec): EditSpec {
 
 /* ---------- motion ---------- */
 export const GRAPHIC_LABELS: Record<GraphicType, string> = {
+  label: 'Text label', nametag: 'Name tag', circle: 'Circle callout', arrow: 'Arrow', spotlight: 'Spotlight', flash: 'Flash', dip: 'Dip to black', heart: 'Heart ending',
   keyword: 'Keyword pop', cascade: 'Keyword cascade', gauge: 'Radial gauge', counter: 'Number counter',
   lowerthird: 'Lower third', steps: 'Step list', broll: 'B-roll', emoji: 'Emoji burst',
 };
-export const ZONE_LABELS: Record<Zone, string> = { full: 'Full', top: 'Top', center: 'Center', bottom: 'Bottom', overlay: 'Overlay' };
+export const ZONE_LABELS: Record<Zone, string> = { free: 'Free', full: 'Full', top: 'Top', center: 'Center', bottom: 'Bottom', overlay: 'Overlay' };
 export const ANIM_LABELS: Record<Anim, string> = { pop: 'Spring pop', slam: 'Slam', fade: 'Fade', slide: 'Slide up', glitch: 'Glitch flash', type: 'Wipe in' };
+/** Placed anywhere on the frame; no zone, and for the last three no text at all. */
+export const FREE_TYPES: GraphicType[] = ['label', 'nametag', 'circle', 'arrow', 'spotlight', 'flash', 'dip', 'heart'];
+export const isFree = (t: GraphicType) => FREE_TYPES.includes(t);
+export const TEXTLESS: GraphicType[] = ['circle', 'arrow', 'spotlight', 'flash', 'dip', 'broll'];
 
 export function newGraphic(type: GraphicType, at: number): Graphic {
+  if (isFree(type)) {
+    const base = { id: uid(), type, zone: 'free' as Zone, at: round3(at), headline: '', keywords: [], animation: 'pop' as Anim, sfx: '' };
+    switch (type) {
+      case 'label': return { ...base, duration: 2, primary: 'YOUR {TEXT}', style: 'neon', color: '#fade0a', dy: 10 };
+      case 'nametag': return { ...base, duration: 2.5, primary: 'HIS SON', color: '#2bf3ee', dy: -22 };
+      case 'circle': return { ...base, duration: 1.4, primary: '', color: '#d2050a' };
+      case 'arrow': return { ...base, duration: 1.4, primary: '', color: '#e01016', rotate: 0, dx: 18, dy: -6 };
+      case 'spotlight': return { ...base, duration: 1, primary: '', animation: 'fade', sfx: '' };
+      case 'flash': return { ...base, duration: 0.25, primary: '', color: '#ffffff', animation: 'fade' };
+      case 'dip': return { ...base, duration: 0.25, primary: '', animation: 'fade' };
+      default: return { ...base, duration: 2.2, primary: '', sfx: 'thud' };   // heart
+    }
+  }
   const zone: Zone = type === 'cascade' || type === 'steps' || type === 'broll' ? 'full' : type === 'lowerthird' ? 'bottom' : type === 'keyword' ? 'top' : 'center';
   return {
     id: uid(), type, zone, at: round3(at), duration: type === 'cascade' || type === 'steps' ? 3 : 2.2,
@@ -210,7 +232,8 @@ export function applyRemix(spec: EditSpec, plan: RemixPlan, keep: { hook: boolea
   const at = new Map(spec.words.map((w) => [w.id, w.start]));
   const emph = new Set(plan.emphasis_word_ids);
   const emoji = new Map(plan.emojis.map((e) => [e.word_id, e.emoji]));
-  const broll = spec.graphics.filter((g) => g.type === 'broll');   // b-roll is chosen by the user; a remix leaves it alone
+  // b-roll, the style's standing elements and anything placed by hand are kept; earlier AI placements are replaced
+  const broll = spec.graphics.filter((g) => g.type === 'broll' || g.origin === 'style' || (isFree(g.type) && g.origin !== 'ai'));
   return {
     ...spec,
     hook: keep.hook && spec.hook.text ? spec.hook : { ...spec.hook, text: plan.hook || spec.hook.text, visible: true },
@@ -218,7 +241,7 @@ export function applyRemix(spec: EditSpec, plan: RemixPlan, keep: { hook: boolea
     zooms: plan.zooms.filter((z) => at.has(z.word_id)).map((z) => ({ id: uid(), at: round3(Math.max(spec.in, at.get(z.word_id)! - 0.1)), duration: clamp(z.seconds, 0.6, 3), scale: 1.14 })),
     graphics: [...broll, ...plan.graphics.filter((g) => at.has(g.word_id)).map((g) => ({
       id: uid(), type: g.type, zone: g.zone, at: round3(at.get(g.word_id)!), duration: clamp(g.seconds, 1, 6),
-      animation: g.animation, sfx: g.sfx, primary: g.primary, headline: g.headline, keywords: g.keywords,
+      animation: g.animation, sfx: g.sfx, primary: g.primary, headline: g.headline, keywords: g.keywords, origin: 'ai' as const,
     }))].sort((a, b) => a.at - b.at),
   };
 }
@@ -229,7 +252,7 @@ export function shuffleGraphics(spec: EditSpec): EditSpec {
   return {
     ...spec,
     graphics: spec.graphics.map((g) => {
-      if (g.type === 'broll') return g;
+      if (g.type === 'broll' || isFree(g.type)) return g;
       const zones: Zone[] = g.type === 'lowerthird' ? ['bottom', 'top'] : g.type === 'cascade' || g.type === 'steps' ? ['full', 'top'] : ['top', 'center', 'overlay', 'full'];
       return { ...g, zone: pick(zones), animation: pick(['pop', 'slam', 'fade', 'slide', 'glitch', 'type'] as const), sfx: pick(['pop', 'whoosh', 'click', 'ding', 'thud', 'swish', 'sparkle']) };
     }),
@@ -269,8 +292,11 @@ export function aspectOf(spec: ShortSpec): Aspect {
 
 export function setAspect(spec: EditSpec, aspect: Aspect): EditSpec {
   const { width, height } = ASPECTS[aspect];
-  const next = { ...spec, width, height };
-  // crop positions depend on the pane shape, so re-centre shots that have a known face
+  return recentre({ ...spec, width, height });
+}
+
+/** Crop positions depend on the picture's shape, so after it changes re-centre the shots whose faces are known. */
+export function recentre(next: EditSpec): EditSpec {
   return {
     ...next,
     shots: next.shots.map((s) => {
@@ -284,3 +310,114 @@ export function setAspect(spec: EditSpec, aspect: Aspect): EditSpec {
 
 /** Caption lines as the composition groups them, for translation. */
 export { captionPages } from '../remotion/timing';
+
+/* ---------- freezes and speed ---------- */
+export function addFreeze(spec: EditSpec, at: number, duration = 1): EditSpec {
+  const t = round3(clamp(at, spec.in, spec.out));
+  if ((spec.freezes ?? []).some((f) => Math.abs(f.at - t) < 0.05)) return spec;
+  const f: Freeze = { id: uid(), at: t, duration };
+  return { ...spec, freezes: [...(spec.freezes ?? []), f].sort((a, b) => a.at - b.at) };
+}
+
+export function addSpeed(spec: EditSpec, start: number, length: number, rate: number): EditSpec {
+  const s0 = round3(clamp(start, spec.in, spec.out - 0.2));
+  const e0 = round3(clamp(start + length, s0 + 0.2, spec.out));
+  const others = (spec.speeds ?? []).filter((x) => x.end <= s0 || x.start >= e0);   // a new range replaces what it overlaps
+  const sp: Speed = { id: uid(), start: s0, end: e0, rate };
+  return { ...spec, speeds: [...others, sp].sort((a, b) => a.start - b.start) };
+}
+
+/* ---------- styles ---------- */
+import type { DirectPlan, StyleProfile } from './types';
+
+/** Where a point of the source picture (0..1) lands on the frame, as % offsets from the frame centre. */
+export function sourceToFrame(spec: EditSpec, t: number, cx: number, cy: number): { dx: number; dy: number; scale: number } {
+  const idx = spec.shots.reduce((acc, s, i) => (s.start <= t + 1e-6 ? i : acc), 0);
+  const shot = spec.shots[idx];
+  if (!shot || shot.layout !== 'single') return { dx: 0, dy: -5, scale: 1 };
+  const panel = spec.frame?.mode === 'panel';
+  const bw = panel ? (spec.width * spec.frame!.width) / 100 : spec.width;
+  const bh = panel ? Math.min(spec.height, bw / spec.frame!.aspect) : spec.height;
+  const boxLeft = (spec.width - bw) / 2;
+  const boxTop = panel ? clamp((spec.height * spec.frame!.y) / 100 - bh / 2, 0, spec.height - bh) : 0;
+  const k = Math.max(bw / spec.srcW, bh / spec.srcH);
+  const dw = spec.srcW * k, dh = spec.srcH * k;
+  const px = boxLeft - (dw - bw) * ((shot.x[0] ?? 50) / 100) + cx * dw;
+  const py = boxTop - (dh - bh) * ((shot.y ?? 50) / 100) + cy * dh;
+  return { dx: round3(clamp((px / spec.width - 0.5) * 100, -46, 46)), dy: round3(clamp((py / spec.height - 0.5) * 100, -46, 46)), scale: k };
+}
+
+function mainFace(spec: EditSpec, t: number) {
+  const idx = spec.shots.reduce((acc, s, i) => (s.start <= t + 1e-6 ? i : acc), 0);
+  return spec.shots[idx]?.faces?.[0];
+}
+
+const braces = (text: string) => text.replace(/\{([^}|]*)(?:\|#[0-9a-fA-F]{3,8})?\}/g, '$1');
+
+/** Apply a style (built-in or learned): canvas, picture frame, captions, look, brand, and its standing elements. */
+export function applyStyle(spec: EditSpec, profile: StyleProfile, seconds: number): EditSpec {
+  const st = profile.style ?? {};
+  let next: EditSpec = {
+    ...spec,
+    width: st.width ?? spec.width, height: st.height ?? spec.height, fps: st.fps ?? spec.fps,
+    captions: { ...spec.captions, ...(st.captions ?? {}), translations: spec.captions.translations },
+    look: { ...spec.look, brightness: 1, contrast: 1, saturation: 1, ...(st.look ?? {}) },
+    brand: { ...spec.brand, ...(st.brand ?? {}) },
+    frame: st.frame ? { ...st.frame } : spec.frame,
+    header: st.header ? { ...st.header, ...(spec.header ?? {}), y: st.header.y } : spec.header && !st.frame ? spec.header : st.frame?.mode === 'panel' ? spec.header : undefined,
+  };
+  if (st.header && !spec.header && spec.brand.watermark) next.header = { ...next.header!, handle: spec.brand.watermark, name: spec.brand.watermark.replace(/^@/, ''), avatar: spec.brand.logo };
+  const standing: Graphic[] = [];
+  let hookShown = spec.hook.visible;
+  for (const el of profile.elements ?? []) {
+    const duration = el.duration === 'all' ? Math.max(1, seconds) : el.duration;
+    const at = el.at === 'start' ? spec.in : el.at === 'end' ? Math.max(spec.in, spec.out - duration - 0.05) : clamp(spec.in + el.at, spec.in, spec.out);
+    const isTitle = el.text === 'title';
+    if (isTitle) hookShown = false;   // the standing title replaces the timed hook
+    standing.push({
+      ...newGraphic(el.type as GraphicType, at), duration, origin: 'style',
+      primary: isTitle ? (spec.hook.text || 'YOUR {TITLE}') : el.text, color: el.color, style: el.style as Graphic['style'],
+      dx: el.dx ?? 0, dy: el.dy ?? 0, scale: el.scale ?? 1, animation: (el.animation as Anim) ?? 'pop', sfx: '',
+    });
+  }
+  next = { ...next, hook: { ...next.hook, visible: hookShown }, graphics: [...spec.graphics.filter((g) => g.origin !== 'style'), ...standing].sort((a, b) => a.at - b.at) };
+  return withSegments(recentre(next));
+}
+
+const DY: Record<string, number> = { top: -38, upper: -22, middle: 0, lower: 18, bottom: 32 };
+
+/** Apply a plan made by looking at the clip: story labels, callouts, freezes and speed changes. */
+export function applyDirect(spec: EditSpec, plan: DirectPlan): EditSpec {
+  const placed: Graphic[] = [];
+  for (const e of plan.elements) {
+    const type = e.type as GraphicType;
+    const at = round3(clamp(spec.in + e.at_seconds, spec.in, spec.out - 0.1));
+    const g: Graphic = { ...newGraphic(type, at), duration: e.seconds, origin: 'ai', animation: (e.animation as Anim) || 'pop' };
+    if (e.text) g.primary = e.text;
+    if (/^#[0-9a-fA-F]{6}$/.test(e.colour)) g.color = e.colour;
+    if (type === 'label' && e.label_look) g.style = e.label_look as Graphic['style'];
+    if (isFree(type) && !['flash', 'dip'].includes(type)) {
+      const face = e.on_subject ? mainFace(spec, at) : undefined;
+      if (face) {
+        const p = sourceToFrame(spec, at, face.cx, face.cy);
+        const faceH = ((face.w * spec.srcW * p.scale) / spec.height) * 100;   // face size as % of frame height
+        g.dx = p.dx + (type === 'arrow' ? 16 : 0);
+        g.dy = p.dy + (type === 'nametag' ? -faceH * 1.25 : type === 'arrow' ? -faceH * 0.5 : type === 'label' ? faceH * 1.3 : 0);
+      } else {
+        g.dx = 0;
+        g.dy = type === 'label' || type === 'nametag' ? (DY[e.position] ?? 18) : -5;
+      }
+    }
+    placed.push(g);
+  }
+  const titleEl = spec.graphics.find((g) => g.origin === 'style' && g.type === 'label' && g.duration > (spec.out - spec.in) * 0.6);
+  const kept = spec.graphics.filter((g) => g.origin !== 'ai').map((g) => (g === titleEl && plan.title ? { ...g, primary: plan.title } : g));
+  return withSegments({
+    ...spec,
+    hook: titleEl || !plan.title ? spec.hook : { ...spec.hook, text: braces(plan.title).replace(/\n/g, ' '), visible: true },
+    graphics: [...kept, ...placed].sort((a, b) => a.at - b.at),
+    freezes: plan.freezes.map((f) => ({ id: uid(), at: round3(clamp(spec.in + f.at_seconds, spec.in, spec.out)), duration: f.seconds })),
+    speeds: plan.speeds.map((x) => ({ id: uid(), start: round3(clamp(spec.in + x.from_seconds, spec.in, spec.out)), end: round3(clamp(spec.in + x.to_seconds, spec.in, spec.out)), rate: x.rate }))
+      .filter((x) => x.end - x.start > 0.2),
+  });
+}

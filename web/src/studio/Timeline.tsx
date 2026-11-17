@@ -60,11 +60,11 @@ export function Timeline({ spec, plan, frames, frame, selected, onSeek, onSelect
       <span className="tl-lab">Video</span>
       <div className="tl-row video" onPointerDown={scrub}>
         {plan.map((p, i) => {
-          const jump = i > 0 && Math.abs(plan[i - 1].srcEnd - p.srcStart) > 0.05;
+          const jump = i > 0 && !p.hold && !plan[i - 1].hold && Math.abs(plan[i - 1].srcEnd - p.srcStart) > 0.05;
           return (
-            <div key={i} className={'tl-piece' + (p.shot % 2 ? ' alt' : '') + (jump ? ' jump' : '')} style={{ left: pct(p.from), width: pct(p.frames) }}
-              title={jump ? 'A pause or word was cut here' : undefined}>
-              {(i === 0 || plan[i - 1].shot !== p.shot) && `Shot ${p.shot + 1}`}
+            <div key={i} className={'tl-piece' + (p.shot % 2 ? ' alt' : '') + (jump ? ' jump' : '') + (p.hold ? ' hold' : '') + (p.rate !== 1 ? ' speed' : '')} style={{ left: pct(p.from), width: pct(p.frames) }}
+              title={p.hold ? 'Frozen frame' : p.rate !== 1 ? `Playing at ${p.rate}×` : jump ? 'A pause or word was cut here' : undefined}>
+              {p.hold ? 'Freeze' : p.rate !== 1 ? `${p.rate}×` : (i === 0 || plan[i - 1].shot !== p.shot) && `Shot ${p.shot + 1}`}
             </div>
           );
         })}

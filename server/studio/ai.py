@@ -46,8 +46,13 @@ def provider_label() -> str:
     return {"anthropic": "Claude", "gemini": "Gemini"}.get(provider(), "")
 
 
-def ask_json(system: str, user: str, schema: dict, max_tokens: int = 32000, effort: str = "medium") -> dict:
-    """One structured request. Returns the parsed object or raises AIUnavailable with a readable reason."""
+def ask_json(system: str, user: "str | list", schema: dict, max_tokens: int = 32000, effort: str = "medium") -> dict:
+    """One structured request. Returns the parsed object or raises AIUnavailable with a readable reason.
+
+    `user` is text, or an ordered list of parts for requests with pictures: plain strings,
+    `{"image": <jpeg bytes>}` items and `{"video": <path>}` items, in the order the model should read them.
+    Whole videos are only sent to Gemini, which can watch them; Claude gets the stills, so always include stills too.
+    """
     which = provider()
     if not which:
         raise AIUnavailable("No AI key is set (Settings → AI).")
@@ -60,7 +65,23 @@ def ask_json(system: str, user: str, schema: dict, max_tokens: int = 32000, effo
 
 # ---------------------------------------------------------------- Claude
 
-def _ask_claude(system: str, user: str, schema: dict, max_tokens: int, effort: str) -> str:
+def _claude_content(user: "str | list"):
+    if isinstance(user, str):
+        return user
+    import base64
+    blocks = []
+    for part in user:
+        if isinstance(part, str):
+            blocks.append({"type": "text", "text": part})
+        elif "video" in part:
+            continue   # stills carry the picture for Claude
+        else:
+            blocks.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                                         "data": base64.standard_b64encode(part["image"]).decode("ascii")}})
+    return blocks
+
+
+def _ask_claude(system: str, user: "str | list", schema: dict, max_tokens: int, effort: str) -> str:
     try:
         import anthropic
     except ImportError as e:  # pragma: no cover
@@ -72,7 +93,7 @@ def _ask_claude(system: str, user: str, schema: dict, max_tokens: int, effort: s
         model=model,
         max_tokens=max_tokens,
         system=system,
-        messages=[{"role": "user", "content": user}],
+        messages=[{"role": "user", "content": _claude_content(user)}],
         output_config={"effort": effort, "format": {"type": "json_schema", "schema": schema}},
     )
     betas: list[str] = []
@@ -133,9 +154,21 @@ def _gemini_error(e: Exception, model: str) -> AIUnavailable:
     return AIUnavailable("Could not reach the Gemini API.")
 
 
-def _ask_gemini(system: str, user: str, schema: dict) -> str:
+def _ask_gemini(system: str, user: "str | list", schema: dict) -> str:
     client = _gemini_client()
     from google.genai import errors, types
+    if not isinstance(user, str):
+        parts = []
+        for p in user:
+            if isinstance(p, str):
+                parts.append(p)
+            elif "video" in p:
+                uploaded = _gemini_upload(client, p["video"])
+                if uploaded is not None:
+                    parts.append(uploaded)
+            else:
+                parts.append(types.Part.from_bytes(data=p["image"], mime_type="image/jpeg"))
+        user = parts
     model = get_settings().get("gemini_model") or "gemini-flash-latest"
     try:
         response = client.models.generate_content(
@@ -167,6 +200,26 @@ def _ask_gemini(system: str, user: str, schema: dict) -> str:
     if not text:
         raise AIUnavailable("The AI returned an empty answer.")
     return text
+
+
+def _gemini_upload(client, path, wait_seconds: float = 180.0):
+    """Upload a video for Gemini to watch and wait until it is ready. Returns None if that does not work out
+    (the request then goes ahead with the stills alone)."""
+    import time
+    try:
+        f = client.files.upload(file=str(path))
+        deadline = time.time() + wait_seconds
+        while getattr(f.state, "name", str(f.state)) == "PROCESSING" and time.time() < deadline:
+            time.sleep(2)
+            f = client.files.get(name=f.name)
+        return f if getattr(f.state, "name", str(f.state)) == "ACTIVE" else None
+    except Exception:
+        return None
+
+
+def watches_video() -> bool:
+    """True when the active provider can be given whole videos, not just stills."""
+    return provider() == "gemini"
 
 
 def gemini_models() -> list[dict]:

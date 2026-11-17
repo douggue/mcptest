@@ -3,14 +3,16 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { FONTS } from '../remotion/types';
 import { Asset } from '../studio/types';
-import { Button, Field, Panel, Seg, Slider, toast, toastError } from '../ui';
+import { Button, Field, Panel, Seg, Slider, Toggle, toast, toastError } from '../ui';
 
 type Brand = { name: string; accent: string; secondary: string; font: string; logo: string; logoPos: string; logoSize: number; watermark: string };
 type SettingsData = {
   ai_provider: 'anthropic' | 'gemini'; anthropic_api_key: string; anthropic_api_key_set: boolean; ai_model: string;
   gemini_api_key: string; gemini_api_key_set: boolean; gemini_model: string; whisper_model: string; copy_folder: string;
   pexels_api_key: string; pexels_api_key_set: boolean; tts_voice: string; brand: Brand;
+  flow_enabled?: boolean; flow_mcp_path?: string; flow_out_dir?: string;
 };
+type FlowState = { enabled: boolean; available: boolean; why: string; server_edition: boolean; out_dir: string; out_dir_exists: boolean };
 
 export default function Settings() {
   const [s, setS] = useState<SettingsData | null>(null);
@@ -22,11 +24,13 @@ export default function Settings() {
     { id: 'gemini-flash-lite-latest', label: 'Gemini Flash-Lite (latest; cheapest)' },
   ]);
   const [saving, setSaving] = useState(false);
+  const [flow, setFlow] = useState<FlowState | null>(null);
 
   useEffect(() => {
     api.get<SettingsData>('/api/settings').then(setS).catch(toastError);
     api.get<Asset[]>('/api/assets/brand').then(setLogos).catch(() => {});
     api.get('/api/health').then(setHealth).catch(() => {});
+    api.get<FlowState>('/api/flow/state').then(setFlow).catch(() => {});
   }, []);
   if (!s) return <div className="page"><h1>Settings</h1></div>;
 
@@ -46,6 +50,7 @@ export default function Settings() {
     try {
       setS(await api.put<SettingsData>('/api/settings', s));
       api.get('/api/health').then(setHealth).catch(() => {});
+      api.get<FlowState>('/api/flow/state').then(setFlow).catch(() => {});
       toast('Settings saved', 'good');
     } catch (e) { toastError(e); }
     setSaving(false);
@@ -122,6 +127,31 @@ export default function Settings() {
         <Field label="Pexels API key (optional)" hint={s.pexels_api_key_set ? 'A key is set. Type a new one to replace it.' : 'Free at pexels.com/api; enables stock b-roll search in the Library.'}>
           <input type="password" autoComplete="off" placeholder={s.pexels_api_key_set ? '••••••••  (set)' : ''} value={s.pexels_api_key} onChange={(e) => set({ pexels_api_key: e.target.value })} />
         </Field>
+      </Panel>
+
+      <Panel title="Google Flow (flow-mcp)" actions={flow?.server_edition ? <span className="pill muted">Desktop only</span>
+        : flow?.available ? <span className="pill good">Ready</span> : s.flow_enabled ? <span className="pill accent">Needs setup</span> : <span className="pill muted">Off</span>}>
+        <p className="muted">An optional connector for generating stills, clips and narration with Google Flow, using your own Flow credits. It relies on flow-mcp, a separate program you install yourself, which works by controlling a Chrome window signed in to your Google account.</p>
+        <div className="notice warn">flow-mcp automates Flow's website. Its own documentation says this may be against Google's terms of service and can stop working whenever Google changes the site. Use it on your own account, at your own risk. Cutroom only passes your requests to flow-mcp, at flow-mcp's own pace.</div>
+        {flow?.server_edition ? (
+          <div className="notice">Not available on the server edition: flow-mcp needs a visible Chrome window on your own computer. Use the Generate page's API options here instead.</div>
+        ) : (
+          <>
+            <Toggle checked={!!s.flow_enabled} onChange={(v) => set({ flow_enabled: v })} label="Turn on the Flow connector" />
+            {s.flow_enabled && (
+              <>
+                <Field label="flow-mcp folder" hint="The folder you cloned flow-mcp into, the one that contains dist/index.js after 'npm run build'. Installing it is described in the flow-mcp README (github.com/GTAI-1/flow-mcp): clone, npm install, npm run build, then npm run login to sign in once.">
+                  <input type="text" placeholder="e.g. C:\Users\you\flow-mcp  or  ~/flow-mcp" value={s.flow_mcp_path ?? ''} onChange={(e) => set({ flow_mcp_path: e.target.value })} />
+                </Field>
+                <Field label="Flow output folder" hint="Where flow-mcp saves what it makes. Leave empty for its default, the flow-mcp-out folder in your home folder. Cutroom can import new files from here even when flow-mcp is not running.">
+                  <input type="text" placeholder="Default: flow-mcp-out in your home folder" value={s.flow_out_dir ?? ''} onChange={(e) => set({ flow_out_dir: e.target.value })} />
+                </Field>
+                {flow && flow.enabled && !flow.available && flow.why && <div className="notice">{flow.why}</div>}
+                <span className="small muted">Save, then open Generate → Flow. It needs Chrome, a display that stays awake, and the Flow window left open.</span>
+              </>
+            )}
+          </>
+        )}
       </Panel>
 
       <Panel title="Brand kit">

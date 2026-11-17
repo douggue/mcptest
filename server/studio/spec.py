@@ -5,10 +5,10 @@ import copy
 
 from ..config import get_settings
 
-ASPECTS = {"9:16": (1080, 1920), "4:5": (1080, 1350), "1:1": (1080, 1080), "16:9": (1920, 1080)}
+ASPECTS = {"9:16": (1080, 1920), "3:4": (1080, 1440), "4:5": (1080, 1350), "1:1": (1080, 1080), "16:9": (1920, 1080)}
 
 # What a template may carry from one clip to the next.
-TEMPLATE_KEYS = ("captions", "look", "brand", "width", "height", "fps")
+TEMPLATE_KEYS = ("captions", "look", "brand", "width", "height", "fps", "frame", "header")
 
 
 def default_spec(project: dict, t_in: float, t_out: float, hook: str = "", template: dict | None = None) -> dict:

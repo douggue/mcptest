@@ -15,7 +15,7 @@ from .. import jobs
 from ..config import DATA, media_path
 from ..media import MediaError, safe_name
 from ..store import Collection, new_id
-from ..studio import ai, moments, render, sources, spec as specs, transcribe, vision
+from ..studio import ai, moments, profiles as styles, render, sources, spec as specs, transcribe, vision
 
 router = APIRouter(prefix="/api/projects", tags=["studio"])
 _locks: dict[str, threading.RLock] = {}
@@ -212,17 +212,22 @@ def find_moments(pid: str, body: dict) -> dict:
     if not project.get("transcript"):
         raise HTTPException(422, "Transcribe the video first.")
     template = Collection("templates").get(body["template_id"]) if body.get("template_id") else None
+    style = styles.lookup(body.get("profile_id"))
+    brief, rules = styles.guidance(body.get("profile_id"))
 
     def work(job: jobs.Job) -> dict:
         job.update(0.1, "Reading the transcript" + (" with AI" if ai.available() else ""))
         found = moments.find_moments(project["transcript"]["words"], int(body.get("count") or 6),
                                      float(body.get("min_len") or 20), float(body.get("max_len") or 60),
-                                     body.get("query") or "")
+                                     body.get("query") or "", brief, rules)
         job.update(0.9, "Creating clips")
 
         def add(p: dict) -> None:
             for m in found["clips"]:
-                p["clips"].append(_new_clip(p, m["in"], m["out"], m["hook_title"], m, (template or {}).get("spec")))
+                clip = _new_clip(p, m["in"], m["out"], m["hook_title"], m, (style or {}).get("style") or (template or {}).get("spec"))
+                if style:
+                    clip["profile_id"] = style["id"]
+                p["clips"].append(clip)
         mutate(pid, add)
         return {"added": len(found["clips"]), "engine": found["engine"], "note": found["note"]}
 
@@ -250,7 +255,7 @@ def add_clip(pid: str, body: dict) -> dict:
 def save_clip(pid: str, cid: str, body: dict) -> dict:
     def apply(p: dict) -> None:
         clip = _clip(p, cid)
-        for key in ("spec", "title", "meta", "status"):
+        for key in ("spec", "title", "meta", "status", "profile_id"):
             if key in body:
                 clip[key] = body[key]
     return {"ok": True, "updated": mutate(pid, apply)["updated"]}
@@ -322,18 +327,41 @@ def _clip_job(pid: str, cid: str, kind: str, title: str, fn) -> dict:
 @router.post("/{pid}/clips/{cid}/remix")
 def remix_clip(pid: str, cid: str, body: dict) -> dict:
     return _clip_job(pid, cid, "remix", "Planning the edit",
-                     lambda p, c, j: moments.remix(c["spec"]["words"], float(body.get("density") or 1.0), c["title"]))
+                     lambda p, c, j: moments.remix(c["spec"]["words"], float(body.get("density") or 1.0), c["title"], *styles.guidance(c.get("profile_id"))))
 
 
 @router.post("/{pid}/clips/{cid}/meta")
 def meta_clip(pid: str, cid: str) -> dict:
     return _clip_job(pid, cid, "meta", "Writing title and description",
-                     lambda p, c, j: moments.post_meta(c["spec"]["words"], c["spec"]["hook"]["text"]))
+                     lambda p, c, j: moments.post_meta(c["spec"]["words"], c["spec"]["hook"]["text"], *styles.guidance(c.get("profile_id"))))
 
 
 @router.post("/{pid}/clips/{cid}/hooks")
 def hooks_clip(pid: str, cid: str) -> dict:
-    return _clip_job(pid, cid, "hooks", "Writing hook ideas", lambda p, c, j: moments.hook_ideas(c["spec"]["words"]))
+    return _clip_job(pid, cid, "hooks", "Writing hook ideas",
+                     lambda p, c, j: moments.hook_ideas(c["spec"]["words"], 5, *styles.guidance(c.get("profile_id"))))
+
+
+@router.post("/{pid}/clips/{cid}/direct")
+def direct_clip(pid: str, cid: str) -> dict:
+    """Plan a story edit by looking at the clip itself: labels, callouts, freezes and speed changes, in the clip's style."""
+    if not ai.available():
+        raise HTTPException(422, "Planning from the picture needs an AI key (Settings → AI): only a model can see what happens in the clip.")
+
+    def plan(project: dict, clip: dict, job: jobs.Job) -> dict:
+        spec = clip["spec"]
+        t_in, t_out = spec["in"], spec["out"]
+        duration = t_out - t_in
+        n = int(max(6, min(24, duration / 1.5)))
+        src = sources.source_path(project)
+        job.update(0.2, "Looking at the clip")
+        frames = [(t - t_in, jpeg) for t, jpeg in styles._frames(src, duration, n, start=t_in)]
+        words = [{**w, "start": w["start"] - t_in, "end": w["end"] - t_in} for w in spec["words"]]
+        brief, rules = styles.guidance(clip.get("profile_id"))
+        job.update(0.45, f"Planning the edit with {ai.provider_label()}")
+        return moments.direct(frames, words, duration, brief, rules, clip["title"])
+
+    return _clip_job(pid, cid, "direct", "Planning the edit from the picture", plan)
 
 
 @router.post("/{pid}/clips/{cid}/translate")

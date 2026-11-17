@@ -7,7 +7,7 @@ import { EditSpec, clamp } from './logic';
 export type Picked = string | null;   // 'captions' | 'hook' | 'logo' | 'watermark' | 'graphic:<id>'
 type Box = { x: number; y: number; w: number; h: number };
 
-const LABEL: Record<string, string> = { captions: 'Captions', hook: 'Hook title', logo: 'Logo', watermark: 'Watermark', graphic: 'Graphic' };
+const LABEL: Record<string, string> = { captions: 'Captions', hook: 'Hook title', logo: 'Logo', watermark: 'Watermark', graphic: 'Element', header: 'Channel header' };
 const kindOf = (key: string) => key.split(':')[0];
 const round1 = (v: number) => Math.round(v * 10) / 10;
 
@@ -63,6 +63,10 @@ export function StageOverlay({ spec, update, width, height, playing, onToggle, p
     const k = live ? 'el-' + key : '';
     const kind = kindOf(key);
     const snap = (v: number) => (Math.abs(v - 50) < 1.2 ? 50 : v);
+    if (kind === 'header') {
+      if (ratio === null) update((s) => (s.header ? { ...s, header: { ...s.header, y: round1(clamp(start.y + dyp, 3, 97)) } } : s), k);
+      return;
+    }
     if (ratio !== null) {
       if (kind === 'captions') update((s) => ({ ...s, captions: { ...s.captions, size: Math.round(clamp(start.size * ratio, 30, 220)) } }), k);
       else if (kind === 'hook') update((s) => ({ ...s, hook: { ...s.hook, scale: Math.round(clamp(start.size * ratio, 0.4, 3) * 100) / 100 } }), k);
@@ -92,6 +96,7 @@ export function StageOverlay({ spec, update, width, height, playing, onToggle, p
     if (kind === 'hook') return { x: spec.hook.x ?? 50, y: spec.hook.y ?? 11, size: spec.hook.scale ?? 1 };
     if (kind === 'logo') return { x: spec.brand.logoX ?? cx, y: spec.brand.logoY ?? cy, size: spec.brand.logoSize };
     if (kind === 'watermark') return { x: spec.brand.watermarkX ?? 50, y: spec.brand.watermarkY ?? 97.6, size: spec.brand.watermarkSize ?? 28 };
+    if (kind === 'header') return { x: 50, y: spec.header?.y ?? 11, size: 1 };
     const g = spec.graphics.find((q) => `graphic:${q.id}` === key);
     return { x: g?.dx ?? 0, y: g?.dy ?? 0, size: g?.scale ?? 1 };
   }

@@ -10,3 +10,4 @@ google-genai>=1.0       # Gemini as an alternative AI provider
 # Optional (install for local speech-to-text / text-to-speech):
 faster-whisper>=1.0
 edge-tts>=6.1
+mcp>=1.9                # only for the optional flow-mcp connector (desktop edition)

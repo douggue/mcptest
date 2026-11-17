@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 
 import { go } from '../App';
 import { api, upload } from '../api';
-import { Button, Empty, Field, JobBar, Modal, fmtDur, toastError, useJobRunner } from '../ui';
+import { Button, Empty, Field, JobBar, Modal, Seg, fmtDur, toastError, useJobRunner } from '../ui';
+import { ScriptForm, useGenOptions } from './ScriptForm';
 import { ProjectSummary } from './types';
 
 export function Projects() {
   const [list, setList] = useState<ProjectSummary[] | null>(null);
   const [open, setOpen] = useState(false);
+  const [start, setStart] = useState<'import' | 'script'>('import');
+  const { opts } = useGenOptions();
   const [url, setUrl] = useState('');
   const [quality, setQuality] = useState('1080');
   const [uploading, setUploading] = useState<number | null>(null);
@@ -88,28 +91,38 @@ export function Projects() {
 
       {open && (
         <Modal title="New project" onClose={() => setOpen(false)}>
-          <p className="muted" style={{ marginTop: -6 }}>Start from a file on this computer or a link. The video is brought in once and kept in your data folder.</p>
-          <div className={'drop' + (over ? ' over' : '')} onClick={() => fileRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
-            onDrop={(e) => { e.preventDefault(); setOver(false); const f = e.dataTransfer.files[0]; if (f) fromFile(f); }}>
-            {uploading !== null ? `Uploading ${Math.round(uploading * 100)}%` : <><strong style={{ color: 'var(--text)' }}>Drop a video here</strong><br />or click to choose a file</>}
-          </div>
-          <input ref={fileRef} type="file" accept="video/*,.mkv" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) fromFile(f); e.target.value = ''; }} />
-          <div className="row" style={{ gap: 12 }}><span className="grow" style={{ height: 1, background: 'var(--line)' }} /><span className="small faint">or</span><span className="grow" style={{ height: 1, background: 'var(--line)' }} /></div>
-          <Field label="Video link" hint="Higher quality gives sharper vertical crops, and a bigger download.">
-            <input type="url" placeholder="https://www.youtube.com/watch?v=…" value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fromUrl()} autoFocus />
-          </Field>
-          <div className="row">
-            <select value={quality} onChange={(e) => setQuality(e.target.value)} style={{ width: 120 }} aria-label="Quality">
-              <option value="720">720p</option>
-              <option value="1080">1080p</option>
-              <option value="1440">1440p</option>
-              <option value="2160">4K</option>
-            </select>
-            <span className="spacer" />
-            <Button onClick={() => setOpen(false)}>Cancel</Button>
-            <Button variant="primary" icon="download" onClick={fromUrl} disabled={!url.trim()}>Import link</Button>
-          </div>
+          <Seg value={start} onChange={setStart} options={[
+            { value: 'import', label: 'Bring in a video' },
+            { value: 'script', label: 'Generate from a script', title: 'A narrated video made from generated pictures' },
+          ]} />
+          {start === 'script' ? (
+            opts ? <ScriptForm opts={opts} compact onCancel={() => setOpen(false)} /> : <span className="muted">Loading…</span>
+          ) : (
+            <>
+              <p className="muted" style={{ marginTop: -6 }}>Start from a file on this computer or a link. The video is brought in once and kept in your data folder.</p>
+              <div className={'drop' + (over ? ' over' : '')} onClick={() => fileRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
+                onDrop={(e) => { e.preventDefault(); setOver(false); const f = e.dataTransfer.files[0]; if (f) fromFile(f); }}>
+                {uploading !== null ? `Uploading ${Math.round(uploading * 100)}%` : <><strong style={{ color: 'var(--text)' }}>Drop a video here</strong><br />or click to choose a file</>}
+              </div>
+              <input ref={fileRef} type="file" accept="video/*,.mkv" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) fromFile(f); e.target.value = ''; }} />
+              <div className="row" style={{ gap: 12 }}><span className="grow" style={{ height: 1, background: 'var(--line)' }} /><span className="small faint">or</span><span className="grow" style={{ height: 1, background: 'var(--line)' }} /></div>
+              <Field label="Video link" hint="Higher quality gives sharper vertical crops, and a bigger download.">
+                <input type="url" placeholder="https://www.youtube.com/watch?v=…" value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fromUrl()} autoFocus />
+              </Field>
+              <div className="row">
+                <select value={quality} onChange={(e) => setQuality(e.target.value)} style={{ width: 120 }} aria-label="Quality">
+                  <option value="720">720p</option>
+                  <option value="1080">1080p</option>
+                  <option value="1440">1440p</option>
+                  <option value="2160">4K</option>
+                </select>
+                <span className="spacer" />
+                <Button onClick={() => setOpen(false)}>Cancel</Button>
+                <Button variant="primary" icon="download" onClick={fromUrl} disabled={!url.trim()}>Import link</Button>
+              </div>
+            </>
+          )}
         </Modal>
       )}
     </div>

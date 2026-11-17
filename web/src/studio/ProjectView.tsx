@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { go } from '../App';
 import { api, upload } from '../api';
 import { Button, Empty, Field, Icon, JobBar, Panel, Seg, fmtDur, fmtTime, toast, toastError, useJobRunner } from '../ui';
-import { Clip, Project, Score, Template } from './types';
+import { Clip, Project, Score, StyleProfile, Template } from './types';
 
 export function ScoreRing({ score }: { score: Score | null }) {
   if (!score) return <div className="score" style={{ ['--v' as any]: 0 }} title="Not scored"><span>–</span></div>;
@@ -34,6 +34,8 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
   const [query, setQuery] = useState('');
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templateId, setTemplateId] = useState('');
+  const [styles, setStyles] = useState<StyleProfile[]>([]);
+  const [styleId, setStyleId] = useState('');
   const [note, setNote] = useState('');
   const [range, setRange] = useState({ in: 0, out: Math.min(30, project.source.duration) });
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -43,7 +45,10 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
   const ex = useJobRunner();
   const words = project.transcript?.words.length ?? 0;
 
-  useEffect(() => { api.get<Template[]>('/api/templates').then(setTemplates).catch(() => {}); }, []);
+  useEffect(() => {
+    api.get<Template[]>('/api/templates').then(setTemplates).catch(() => {});
+    api.get<StyleProfile[]>('/api/profiles').then(setStyles).catch(() => {});
+  }, []);
 
   async function transcribe() {
     try {
@@ -67,7 +72,7 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
   async function findMoments() {
     try {
       const r = await mo.run<{ added: number; note: string; engine: string }>(() =>
-        api.post(`/api/projects/${project.id}/moments`, { count, min_len: minLen, max_len: maxLen, query, template_id: templateId || undefined }));
+        api.post(`/api/projects/${project.id}/moments`, { count, min_len: minLen, max_len: maxLen, query, template_id: templateId || undefined, profile_id: styleId || undefined }));
       setNote(r.note);
       toast(r.added ? `Found ${r.added} moment${r.added === 1 ? '' : 's'}` : 'No matching moments found', r.added ? 'good' : 'info');
       await reload();
@@ -174,8 +179,15 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
             <Field label="Looking for something specific? (optional)">
               <input type="text" placeholder="e.g. the part about sleep and caffeine" value={query} onChange={(e) => setQuery(e.target.value)} />
             </Field>
-            {templates.length > 0 && (
-              <Field label="Style template for new clips">
+            <Field label="Style for new clips" hint="Sets how the clips look and gives the AI that style's rules.">
+              <select value={styleId} onChange={(e) => setStyleId(e.target.value)}>
+                <option value="">Default look</option>
+                {styles.filter((x) => !x.builtin).length > 0 && <optgroup label="Your styles">{styles.filter((x) => !x.builtin).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</optgroup>}
+                <optgroup label="Built-in">{styles.filter((x) => x.builtin).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</optgroup>
+              </select>
+            </Field>
+            {templates.length > 0 && !styleId && (
+              <Field label="Saved template for new clips">
                 <select value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
                   <option value="">Default style</option>
                   {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}

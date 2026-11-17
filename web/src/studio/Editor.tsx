@@ -26,6 +26,7 @@ export type Ctx = {
   selected: string | null; select: (id: string | null) => void;
   meta: Meta; setMeta: (m: Meta) => void; title: string; setTitle: (t: string) => void;
   status: Clip['status']; setStatus: (s: Clip['status']) => void;
+  profileId: string; setProfileId: (id: string) => void;
 };
 
 const TOOLS = [
@@ -48,6 +49,7 @@ export function Editor({ project, clip, onBack }: { project: Project; clip: Clip
   const [meta, setMeta] = useState<Meta>(clip.meta);
   const [title, setTitle] = useState(clip.title);
   const [status, setStatus] = useState<Clip['status']>(clip.status);
+  const [profileId, setProfileId] = useState(clip.profile_id ?? '');
   const [saved, setSaved] = useState(true);
   const [assets, setAssets] = useState<Record<AssetKind, Asset[]>>({ music: [], broll: [], sfx: [], brand: [], voice: [] });
   const [stage, setStage] = useState({ w: 270, h: 480 });
@@ -71,8 +73,8 @@ export function Editor({ project, clip, onBack }: { project: Project; clip: Clip
   const redo = () => setHist((h) => (h.future.length ? { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1), key: '', at: 0 } : h));
 
   /* ---- autosave ---- */
-  const latest = useRef({ spec, meta, title, status });
-  latest.current = { spec, meta, title, status };
+  const latest = useRef({ spec, meta, title, status, profile_id: profileId });
+  latest.current = { spec, meta, title, status, profile_id: profileId };
   const dirty = useRef(false);
   const first = useRef(true);
   const save = useCallback(async () => {
@@ -89,7 +91,7 @@ export function Editor({ project, clip, onBack }: { project: Project; clip: Clip
     setSaved(false);
     const id = setTimeout(save, 700);
     return () => clearTimeout(id);
-  }, [spec, meta, title, status, save]);
+  }, [spec, meta, title, status, profileId, save]);
   useEffect(() => () => { save(); }, [save]);
   useEffect(() => {
     // closing the tab inside the autosave delay must not lose the last edit
@@ -187,7 +189,7 @@ export function Editor({ project, clip, onBack }: { project: Project; clip: Clip
   const ctx: Ctx = {
     project, clip, spec, update, frame, t, plan, frames, seconds, seek, seekSrc,
     flush: async () => { dirty.current = true; await save(); }, jobs, assets, reloadAssets,
-    selected, select: (id) => { setSelected(id); if (id) setTab('motion'); }, meta, setMeta, title, setTitle, status, setStatus,
+    selected, select: (id) => { setSelected(id); if (id) setTab('motion'); }, meta, setMeta, title, setTitle, status, setStatus, profileId, setProfileId,
   };
 
   const tool = TOOLS.find((x) => x.id === tab)!;

@@ -155,7 +155,8 @@ _MOMENTS_SCHEMA = {
 }
 
 
-def find_moments(words: list[dict], count: int = 6, min_len: float = 20, max_len: float = 60, query: str = "") -> dict:
+def find_moments(words: list[dict], count: int = 6, min_len: float = 20, max_len: float = 60, query: str = "",
+                 brief: str = "", rules: list[str] | None = None) -> dict:
     """Pick the best self-contained moments. Returns {engine, note, clips:[{in, out, hook_title, reason, score, ...}]}."""
     lines = sentences(words)
     if not lines:
@@ -178,7 +179,7 @@ def find_moments(words: list[dict], count: int = 6, min_len: float = 20, max_len
             + (f"The editor is specifically looking for: {query.strip()}. Only return moments that match; return fewer, "
                "or none, if little matches.\n\n" if query.strip() else "\n\n")
             + "Transcript lines as [index] (start-end) text:\n\n" + listing
-        )
+        ) + _style_note(brief, rules)
         try:
             data = ai.ask_json(system, user, _MOMENTS_SCHEMA)
             clips = []
@@ -279,7 +280,19 @@ def _heuristic_remix(words: list[dict], density: float) -> dict:
             "zooms": zooms, "graphics": graphics}
 
 
-def remix(words: list[dict], density: float = 1.0, title: str = "") -> dict:
+def _style_note(brief: str, rules: list[str] | None) -> str:
+    """The person's style, appended to a request so every answer follows it."""
+    if not brief and not rules:
+        return ""
+    out = "\n\nThis video is being made in a particular house style. Follow it over the general guidance above where they differ."
+    if brief:
+        out += f"\nThe style: {brief}"
+    if rules:
+        out += "\nStanding rules:\n" + "\n".join(f"- {r}" for r in rules)
+    return out
+
+
+def remix(words: list[dict], density: float = 1.0, title: str = "", brief: str = "", rules: list[str] | None = None) -> dict:
     """Editing plan for one clip. `density` scales how many graphics to add (0.3 sparse .. 2 busy)."""
     live = [w for w in words if not w.get("removed")]
     if not live:
@@ -305,6 +318,7 @@ def remix(words: list[dict], density: float = 1.0, title: str = "") -> dict:
             "where they add meaning. Also write a hook of at most eight words to show for the first seconds.\n\n"
             "Transcript as id|word:\n" + listing
         )
+        user += _style_note(brief, rules)
         try:
             data = ai.ask_json(system, user, _REMIX_SCHEMA, max_tokens=16000)
             ids = {w["id"] for w in live}
@@ -342,7 +356,7 @@ def _text(words: list[dict]) -> str:
     return " ".join(w["text"] for w in words if not w.get("removed"))
 
 
-def post_meta(words: list[dict], hook: str = "") -> dict:
+def post_meta(words: list[dict], hook: str = "", brief: str = "", rules: list[str] | None = None) -> dict:
     text = _text(words)
     if ai.available():
         try:
@@ -350,7 +364,7 @@ def post_meta(words: list[dict], hook: str = "") -> dict:
                 "You write the post text for a short-form video: a title under 70 characters that earns the click "
                 "without lying about the content, a one or two sentence description, and 4-6 hashtags mixing broad and "
                 "specific. Plain language, no emoji spam.",
-                (f"On-screen hook: {hook}\n\n" if hook else "") + "Transcript of the short:\n" + text,
+                (f"On-screen hook: {hook}\n\n" if hook else "") + "Transcript of the short:\n" + text + _style_note(brief, rules),
                 _META_SCHEMA, max_tokens=4000, effort="low")
             data["hashtags"] = [h if h.startswith("#") else "#" + h for h in data["hashtags"]][:8]
             return {"engine": "ai", "note": "", **data}
@@ -364,7 +378,7 @@ def post_meta(words: list[dict], hook: str = "") -> dict:
             "hashtags": ["#" + k for k in keywords(words, 4)] + ["#shorts"]}
 
 
-def hook_ideas(words: list[dict], n: int = 5) -> dict:
+def hook_ideas(words: list[dict], n: int = 5, brief: str = "", rules: list[str] | None = None) -> dict:
     text = _text(words)
     if ai.available():
         try:
@@ -372,7 +386,7 @@ def hook_ideas(words: list[dict], n: int = 5) -> dict:
                 "You write on-screen hook titles for short-form video: at most eight words, shown for the first two "
                 "seconds, that open a curiosity gap the clip actually closes. Vary the angle between options "
                 "(a question, a bold claim, a number, a confession).",
-                f"Write {n} options for this clip:\n{text}", _HOOKS_SCHEMA, max_tokens=4000, effort="low")
+                f"Write {n} options for this clip:\n{text}" + _style_note(brief, rules), _HOOKS_SCHEMA, max_tokens=4000, effort="low")
             return {"engine": "ai", "note": "", "hooks": [h.strip() for h in data["hooks"]][:n]}
         except ai.AIUnavailable as e:
             note = f"AI unavailable ({e}); used built-in rules instead."
@@ -395,3 +409,68 @@ def translate_lines(lines: list[dict], language: str) -> dict:
     by_index = {x["index"]: x["text"] for x in data["lines"]}
     return {"engine": "ai", "lines": [{"start": l["start"], "end": l["end"], "text": by_index.get(i, l["text"])}
                                       for i, l in enumerate(lines)]}
+
+
+# ---------------------------------------------------------------- director: plans a story edit by looking at the picture
+
+DIRECT_TYPES = ["label", "nametag", "circle", "arrow", "spotlight", "flash", "dip", "heart", "emoji", "keyword", "counter", "lowerthird"]
+_DIRECT_SCHEMA = {
+    "type": "object", "additionalProperties": False,
+    "required": ["title", "elements", "freezes", "speeds", "post_title", "description", "hashtags", "notes"],
+    "properties": {
+        "title": {"type": "string", "description": "The on-screen title or hook. Mark words to colour with {curly brackets}; use a line break for a second row."},
+        "elements": {"type": "array", "items": {
+            "type": "object", "additionalProperties": False,
+            "required": ["type", "at_seconds", "seconds", "text", "colour", "label_look", "position", "on_subject", "animation"],
+            "properties": {
+                "type": {"type": "string", "enum": DIRECT_TYPES},
+                "at_seconds": {"type": "number", "description": "When it appears, in seconds from the start of the clip."},
+                "seconds": {"type": "number", "description": "How long it stays."},
+                "text": {"type": "string", "description": "Its text, with {curly brackets} around words to colour. Empty for circle, arrow, spotlight, flash, dip."},
+                "colour": {"type": "string", "description": "#rrggbb, or empty for the style's default."},
+                "label_look": {"type": "string", "enum": ["", "neon", "quoted", "plain", "box", "outline"]},
+                "position": {"type": "string", "enum": ["top", "upper", "middle", "lower", "bottom"], "description": "Where a text element sits in the frame."},
+                "on_subject": {"type": "boolean", "description": "True to place it on the main person or object (circle, arrow, spotlight, nametag)."},
+                "animation": {"type": "string", "enum": ["pop", "fade", "type", "slam", "slide"]},
+            }}},
+        "freezes": {"type": "array", "items": {"type": "object", "additionalProperties": False, "required": ["at_seconds", "seconds"],
+                                                "properties": {"at_seconds": {"type": "number"}, "seconds": {"type": "number"}}}},
+        "speeds": {"type": "array", "items": {"type": "object", "additionalProperties": False, "required": ["from_seconds", "to_seconds", "rate"],
+                                               "properties": {"from_seconds": {"type": "number"}, "to_seconds": {"type": "number"}, "rate": {"type": "number"}}}},
+        "post_title": {"type": "string"}, "description": {"type": "string"},
+        "hashtags": {"type": "array", "items": {"type": "string"}},
+        "notes": {"type": "array", "items": {"type": "string"}, "description": "Anything the editor should check by eye, such as an assumed relationship or a placement you could not judge."},
+    },
+}
+
+DIRECT_SYSTEM = """\
+You are directing the edit of a short video from raw footage, for an editing program that will place what you ask for. \
+You are shown still frames from the clip with their times, and the transcript if anyone speaks. Work out what happens, \
+find the beats of the story, and plan the on-screen text and effects that tell it in the given style.
+
+Everything is timed in seconds from the start of the clip. Text elements stay readable only if they do not overlap in \
+time unless the style calls for it, and nothing should sit on a face. You cannot place things precisely from stills, so \
+for anything that must sit on a person or object set on_subject and the program will put it on the main subject; the \
+editor will adjust by hand. Say in notes what you were unsure of.
+
+Write only what the footage shows. Do not invent names, relationships or events; where the style calls for dialogue \
+written to fit the story, keep it short and note that it is written, not heard."""
+
+
+def direct(frames: list[tuple[float, bytes]], words: list[dict], duration: float, brief: str, rules: list[str] | None, title: str = "") -> dict:
+    """A story edit planned from the picture. Needs an AI key: there is no rule-based way to see what happens."""
+    said = " ".join(f"[{w['start']:.1f}s] {w['text']}" if i % 6 == 0 else w["text"] for i, w in enumerate(words) if not w.get("removed")) or "(no speech)"
+    parts: list = [
+        f"The clip is {duration:.1f} seconds long" + (f"; working title: {title}" if title else "") + ".\n\nTranscript, with times in seconds from the start of the clip:\n" + said
+        + _style_note(brief, rules) + "\n\nFrames follow, each introduced by its time."]
+    for t, jpeg in frames:
+        parts.append(f"Frame at {t:.1f}s:")
+        parts.append({"image": jpeg})
+    data = ai.ask_json(DIRECT_SYSTEM, parts, _DIRECT_SCHEMA, max_tokens=16000, effort="high")
+    clamp = lambda v, lo, hi: max(lo, min(hi, float(v)))
+    data["elements"] = [{**e, "at_seconds": clamp(e["at_seconds"], 0, max(0, duration - 0.2)), "seconds": clamp(e["seconds"], 0.15, duration)} for e in data["elements"]]
+    data["freezes"] = [{"at_seconds": clamp(f["at_seconds"], 0, duration), "seconds": clamp(f["seconds"], 0.3, 4)} for f in data["freezes"]]
+    data["speeds"] = [{"from_seconds": clamp(x["from_seconds"], 0, duration), "to_seconds": clamp(x["to_seconds"], 0, duration), "rate": clamp(x["rate"], 0.4, 4)}
+                      for x in data["speeds"] if x["to_seconds"] - x["from_seconds"] > 0.2]
+    data["hashtags"] = [h if h.startswith("#") else "#" + h for h in data["hashtags"]][:8]
+    return {"engine": "ai", **data}

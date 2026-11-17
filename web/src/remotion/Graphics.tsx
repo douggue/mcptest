@@ -1,6 +1,6 @@
 import { Gif } from '@remotion/gif';
 import React from 'react';
-import { Audio, Img, OffthreadVideo, interpolate, random, spring, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Audio, Img, OffthreadVideo, interpolate, random, spring, useCurrentFrame, useVideoConfig } from 'remotion';
 
 import { EMOJI_STACK, fontStack, fontWeight } from './fonts';
 import { Brand, Graphic } from './types';
@@ -15,6 +15,21 @@ export function parseValue(text: string): { prefix: string; value: number; suffi
   const value = Number(num);
   if (!isFinite(value)) return null;
   return { prefix: m[1], value, suffix: m[3], decimals: (num.split('.')[1] || '').length };
+}
+
+/** "WOULD YOU HAVE {STOPPED?}" → plain and marked runs. `{text|#ff0}` gives that run its own colour. */
+export function splitMarkup(text: string): { text: string; mark: boolean; color?: string }[] {
+  const out: { text: string; mark: boolean; color?: string }[] = [];
+  const re = /\{([^}|]*)(?:\|(#[0-9a-fA-F]{3,8}))?\}/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    if (m.index > last) out.push({ text: text.slice(last, m.index), mark: false });
+    out.push({ text: m[1], mark: true, color: m[2] });
+    last = re.lastIndex;
+  }
+  if (last < text.length) out.push({ text: text.slice(last), mark: false });
+  return out.length ? out : [{ text, mark: false }];
 }
 
 function useEnter(g: Graphic, frames: number) {
@@ -67,6 +82,8 @@ const zoneBox = (g: Graphic): { box: React.CSSProperties; backdrop: string | nul
       return { box: { left: 0, right: 0, bottom: 0, height: '34%', justifyContent: 'center' }, backdrop: g.type === 'broll' ? null : 'linear-gradient(rgba(9,9,12,0), rgba(9,9,12,.75) 30%, rgba(9,9,12,.92))' };
     case 'center':
       return { box: { left: 0, right: 0, top: '30%', height: '40%', justifyContent: 'center' }, backdrop: null };
+    case 'free':
+      return { box: { inset: 0, justifyContent: 'center' }, backdrop: null };
     case 'overlay':
     default:
       return { box: { left: 0, right: 0, top: '14%', height: '34%', justifyContent: 'center' }, backdrop: null };
@@ -195,6 +212,92 @@ const Body: React.FC<Ctx> = ({ g, brand, u, frames }) => {
         </div>
       );
     }
+    case 'label': {
+      const color = g.color ?? brand.accent;
+      const look = g.style ?? 'neon';
+      const size = 64 * u;
+      const parts = splitMarkup(g.primary);
+      const marked = parts.some((q) => q.mark);
+      const glow = (c: string) => `0 0 ${6 * u}px ${c}, 0 0 ${18 * u}px color-mix(in srgb, ${c} 55%, transparent), 0 ${3 * u}px ${8 * u}px rgba(0,0,0,.75)`;
+      const soft = `0 ${3 * u}px ${10 * u}px rgba(0,0,0,.85), 0 0 ${4 * u}px rgba(0,0,0,.7)`;
+      const text = parts.map((q, i) => {
+        const c = q.color ?? color;
+        const tinted = marked ? q.mark : look !== 'plain' && look !== 'box';
+        const st: React.CSSProperties = look === 'outline' && tinted
+          ? { color: 'transparent', WebkitTextStroke: `${3 * u}px ${c}` }
+          : tinted
+            ? { color: c, textShadow: look === 'box' ? undefined : glow(c), WebkitTextStroke: look === 'neon' ? `${2 * u}px color-mix(in srgb, ${c} 38%, #000)` : undefined, paintOrder: 'stroke fill' }
+            : { color: '#fff', textShadow: look === 'box' ? undefined : soft };
+        return <span key={i} style={st}>{q.text}</span>;
+      });
+      const base: React.CSSProperties = {
+        fontFamily: family, fontWeight: weight, fontStyle: look === 'quoted' ? 'italic' : 'normal', fontSize: size, lineHeight: 1.12,
+        textTransform: 'uppercase', textAlign: 'center', whiteSpace: 'pre-line', maxWidth: 940 * u, letterSpacing: look === 'neon' ? '0.03em' : undefined,
+      };
+      if (look === 'box') {
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            {g.tag && <div style={{ background: '#000', color, fontFamily: family, fontWeight: weight, fontSize: 34 * u, padding: `${8 * u}px ${16 * u}px ${2 * u}px` }}>{g.tag}</div>}
+            <div style={{ ...base, textTransform: 'none', textAlign: 'left', background: '#000', padding: `${20 * u}px ${26 * u}px`, fontSize: 60 * u }}>{text}</div>
+          </div>
+        );
+      }
+      return (
+        <div style={base}>
+          {look === 'quoted' && <span style={{ color: '#fff', textShadow: soft }}>“</span>}
+          {text}
+          {look === 'quoted' && <span style={{ color: '#fff', textShadow: soft }}>”</span>}
+        </div>
+      );
+    }
+    case 'nametag': {
+      const color = g.color ?? brand.accent;
+      const shadowed = `0 0 ${6 * u}px ${color}, 0 0 ${16 * u}px color-mix(in srgb, ${color} 55%, transparent), 0 ${3 * u}px ${8 * u}px rgba(0,0,0,.8)`;
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 * u, color, textShadow: shadowed }}>
+          <div style={{ fontFamily: family, fontWeight: weight, fontStyle: 'italic', fontSize: 42 * u, textTransform: 'uppercase', whiteSpace: 'nowrap', lineHeight: 1.1 }}>{g.primary}</div>
+          <div style={{ fontSize: 30 * u, lineHeight: 0.9 }}>▼</div>
+        </div>
+      );
+    }
+    case 'circle': {
+      const d = 300 * u;
+      const color = g.color ?? '#d2050a';
+      return <div style={{ width: d, height: d, borderRadius: '50%', border: `${11 * u}px solid ${color}`, boxShadow: `0 0 ${14 * u}px color-mix(in srgb, ${color} 60%, transparent), inset 0 0 ${10 * u}px color-mix(in srgb, ${color} 40%, transparent)` }} />;
+    }
+    case 'arrow': {
+      const w = 300 * u;
+      const color = g.color ?? '#e01016';
+      return (
+        <svg width={w} height={w * 0.72} viewBox="0 0 300 216" style={{ transform: `rotate(${g.rotate ?? 0}deg)`, filter: `drop-shadow(0 ${4 * u}px ${8 * u}px rgba(0,0,0,.55))`, overflow: 'visible' }}>
+          <path d="M18 150 C 70 40, 170 20, 232 70 L 250 44 L 284 134 L 190 128 L 210 100 C 160 66, 100 84, 62 172 Z" fill={color} stroke="#fff" strokeWidth="10" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+    case 'heart': {
+      const w = 230 * u;
+      const t = frame / fps;
+      const pop = t < 0.16 ? interpolate(t, [0, 0.16], [0, 1.12]) : t < 0.3 ? interpolate(t, [0.16, 0.3], [1.12, 1]) : 1;
+      const echo = interpolate(t, [0, 0.75], [0, 1], { extrapolateRight: 'clamp' });
+      const bob = Math.sin((t / 1.4) * Math.PI * 2) * 7 * u;
+      const breathe = 1 + Math.sin((t / 1.1) * Math.PI * 2) * 0.0175;
+      const heart = (op: number) => (
+        <svg width={w} height={w * 0.92} viewBox="0 0 100 92" style={{ opacity: op, overflow: 'visible' }}>
+          <defs>
+            <radialGradient id={`hg${g.id}`} cx="38%" cy="30%" r="75%"><stop offset="0%" stopColor="#ff6b6b" /><stop offset="55%" stopColor="#e3121c" /><stop offset="100%" stopColor="#9c0810" /></radialGradient>
+          </defs>
+          <path d="M50 86 C 18 62, 4 44, 4 27 C 4 12, 15 3, 28 3 C 38 3, 46 9, 50 17 C 54 9, 62 3, 72 3 C 85 3, 96 12, 96 27 C 96 44, 82 62, 50 86 Z" fill={`url(#hg${g.id})`} stroke="#fff" strokeWidth="6" strokeLinejoin="round" />
+          <ellipse cx="28" cy="22" rx="11" ry="7" fill="rgba(255,255,255,.75)" transform="rotate(-28 28 22)" />
+        </svg>
+      );
+      return (
+        <div style={{ position: 'relative', display: 'grid', placeItems: 'center', transform: `translateY(${bob}px) scale(${pop * breathe})`, filter: `drop-shadow(0 ${8 * u}px ${14 * u}px rgba(0,0,0,.5))` }}>
+          <div style={{ position: 'absolute', transform: `scale(${1 + echo * 4.6})` }}>{heart(0.8 * (1 - echo))}</div>
+          {heart(1)}
+          {g.headline && <div style={{ ...small, color: '#fff', marginTop: 14 * u, position: 'absolute', top: '100%', whiteSpace: 'nowrap' }}>{g.headline}</div>}
+        </div>
+      );
+    }
     case 'keyword':
     default:
       return (
@@ -215,6 +318,32 @@ export const GraphicLayer: React.FC<Ctx> = (ctx) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const moved = `translate(${((g.dx ?? 0) / 100) * width}px, ${((g.dy ?? 0) / 100) * height}px) scale(${g.scale ?? 1})`;
+  if (g.type === 'flash') {   // a white or coloured flash that decays
+    const p = Math.max(0, 1 - frame / frames);
+    return (
+      <>
+        {g.sfx && fxVolume > 0 && <Audio src={`${sfxBase}${g.sfx}.wav`} volume={fxVolume} />}
+        <AbsoluteFill style={{ background: g.color ?? '#fff', opacity: (g.scale ?? 0.9) * Math.pow(p, 1.6) }} />
+      </>
+    );
+  }
+  if (g.type === 'dip') {   // dip to black and back
+    const p = frame / Math.max(1, frames - 1);
+    return <AbsoluteFill style={{ background: '#000', opacity: p < 0.55 ? interpolate(p, [0, 0.55], [0, 1]) : interpolate(p, [0.55, 1], [1, 0]) }} />;
+  }
+  if (g.type === 'spotlight') {   // everything outside a soft ellipse dims
+    const ramp = Math.min(interpolate(frame, [0, fps * 0.12], [0, 1], { extrapolateRight: 'clamp' }), interpolate(frame, [frames - fps * 0.12, frames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }));
+    const sc = g.scale ?? 1;
+    const rx = (width * 0.3) * sc, ry = (width * 0.27) * sc;
+    const cx = width / 2 + ((g.dx ?? 0) / 100) * width, cy = height / 2 + ((g.dy ?? 0) / 100) * height;
+    return (
+      <>
+        {g.sfx && fxVolume > 0 && <Audio src={`${sfxBase}${g.sfx}.wav`} volume={fxVolume} />}
+        <AbsoluteFill style={{ background: `radial-gradient(ellipse ${rx * 1.35}px ${ry * 1.35}px at ${cx}px ${cy}px, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 62%, rgba(0,0,0,${0.7 * ramp}) 100%)` }} />
+        <div data-el={`graphic:${g.id}`} style={{ position: 'absolute', left: cx - rx, top: cy - ry, width: rx * 2, height: ry * 2, borderRadius: '50%' }} />
+      </>
+    );
+  }
   const backIn = interpolate(frame, [0, fps * 0.18], [0, 1], { extrapolateRight: 'clamp' })
     * interpolate(frame, [frames - fps * 0.2, frames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   return (

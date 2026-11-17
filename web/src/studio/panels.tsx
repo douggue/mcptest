@@ -3,15 +3,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api, upload } from '../api';
 import { captionPages, shotIndexAt, srcTimeAt } from '../remotion/timing';
-import { ASPECTS, Anim, Aspect, CaptionPreset, FONTS, Graphic, GraphicType, Layout, LookPreset, Zone } from '../remotion/types';
+import { ASPECTS, Anim, Aspect, CaptionPreset, DEFAULT_FRAME, FONTS, FrameMode, Graphic, GraphicType, LabelStyle, Layout, LookPreset, Zone } from '../remotion/types';
 import { Button, Field, Seg, Slider, Toggle, fmtBytes, fmtDur, fmtTime, toast, toastError } from '../ui';
 import type { Ctx } from './Editor';
 import {
-  ANIM_LABELS, AnalysedShot, GRAPHIC_LABELS, ZONE_LABELS, addCut, applyAnalysis, applyRemix, aspectOf, autoBroll, autoZooms,
-  clamp, faceToX, newGraphic, outSeconds, paneCount, patchWord, removeFillers, removeShot, restoreWords, round3,
+  ANIM_LABELS, AnalysedShot, FREE_TYPES, GRAPHIC_LABELS, TEXTLESS, ZONE_LABELS, addCut, addFreeze, addSpeed, applyAnalysis, applyRemix, aspectOf, autoBroll, autoZooms,
+  applyDirect, applyStyle, clamp, faceToX, isFree, newGraphic, outSeconds, paneCount, patchWord, removeFillers, removeShot, restoreWords, round3,
   setAspect, setLayout, shuffleGraphics, uid, withSegments,
 } from './logic';
-import { ExportRow, Template } from './types';
+import { GenerateImageButton } from './GenerateButton';
+import { DirectPlan, ExportRow, StyleProfile, Template } from './types';
 
 const Group = ({ title, actions, children, id }: { title: string; actions?: React.ReactNode; children: React.ReactNode; id?: string }) => (
   <div className="group" id={id}>
@@ -73,6 +74,8 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
 
   const music = spec.audio.music;
   const vo = spec.audio.voiceover;
+  const fm = spec.frame ?? DEFAULT_FRAME;
+  const setFrame = (patch: Partial<FrameMode>, key = '') => update((s) => ({ ...s, frame: { ...(s.frame ?? DEFAULT_FRAME), ...patch } }), key);
 
   return (
     <>
@@ -139,6 +142,54 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
         <div className="row"><Button small onClick={() => analyse(false)} disabled={jobs.busy} title="Keep your cuts; find faces again">Re-center on my cuts</Button></div>
       </Group>
 
+      <Group title="Picture frame">
+        <Seg small value={fm.mode} onChange={(v) => setFrame({ mode: v })} options={[{ value: 'full', label: 'Fills the frame' }, { value: 'panel', label: 'In a box' }]} />
+        {fm.mode === 'panel' && (
+          <>
+            <div className="grid-2">
+              <Field label="Corners">
+                <select value={fm.shape} onChange={(e) => setFrame({ shape: e.target.value as FrameMode['shape'] })}>
+                  <option value="square">Square</option><option value="rounded">Rounded</option><option value="squircle">Very rounded</option>
+                </select>
+              </Field>
+              <Field label="Behind it">
+                <select value={fm.bg} onChange={(e) => setFrame({ bg: e.target.value as FrameMode['bg'] })}>
+                  <option value="blur">Blurred video</option><option value="black">Black</option>
+                </select>
+              </Field>
+            </div>
+            <Slider label="Box width" min={50} max={100} value={fm.width} format={(v) => `${Math.round(v)}%`} onChange={(v) => setFrame({ width: v }, 'fw')} />
+            <Slider label="Box shape" min={0.6} max={1.8} step={0.01} value={fm.aspect} format={(v) => (Math.abs(v - 1) < 0.02 ? 'Square' : v < 1 ? 'Tall' : 'Wide')} onChange={(v) => setFrame({ aspect: v }, 'fa')} />
+            <Slider label="Box height on screen" min={20} max={80} value={fm.y} format={(v) => `${Math.round(v)}%`} onChange={(v) => setFrame({ y: v }, 'fy')} />
+          </>
+        )}
+      </Group>
+
+      <Group title="Speed and freezes">
+        <div className="row wrap">
+          <Button small icon="pause" onClick={() => update((s) => addFreeze(s, t, 1))} title="Hold the picture at the playhead">Freeze here</Button>
+          <Button small icon="next" onClick={() => update((s) => addSpeed(s, t, 2, 2.5))} title="Speed up the next two seconds">Fast-forward from here</Button>
+          <Button small onClick={() => update((s) => addSpeed(s, t, 1.5, 0.6))} title="Slow the next second and a half">Slow motion</Button>
+        </div>
+        {(spec.freezes ?? []).map((f) => (
+          <div key={f.id} className="asset-row">
+            <button className="chip" onClick={() => seekSrc(f.at)}><small>Freeze</small>{fmtTime(outSeconds(spec, ctx.plan, f.at), true)}</button>
+            <div className="grow"><Slider min={0.3} max={4} step={0.1} value={f.duration} format={(v) => `${v.toFixed(1)}s`} label="Holds for"
+              onChange={(v) => update((s) => ({ ...s, freezes: (s.freezes ?? []).map((x) => (x.id === f.id ? { ...x, duration: v } : x)) }), 'fz' + f.id)} /></div>
+            <Button small variant="ghost" icon="trash" aria-label="Remove freeze" onClick={() => update((s) => ({ ...s, freezes: (s.freezes ?? []).filter((x) => x.id !== f.id) }))} />
+          </div>
+        ))}
+        {(spec.speeds ?? []).map((sp) => (
+          <div key={sp.id} className="asset-row">
+            <button className="chip" onClick={() => seekSrc(sp.start)}><small>{sp.rate >= 1 ? 'Fast' : 'Slow'} · {(sp.end - sp.start).toFixed(1)}s of video</small>{fmtTime(outSeconds(spec, ctx.plan, sp.start), true)}</button>
+            <div className="grow"><Slider min={0.4} max={4} step={0.1} value={sp.rate} format={(v) => `${v.toFixed(1)}×`} label="Speed"
+              onChange={(v) => update((s) => ({ ...s, speeds: (s.speeds ?? []).map((x) => (x.id === sp.id ? { ...x, rate: v } : x)) }), 'sp' + sp.id)} /></div>
+            <Button small variant="ghost" icon="trash" aria-label="Remove speed change" onClick={() => update((s) => ({ ...s, speeds: (s.speeds ?? []).filter((x) => x.id !== sp.id) }))} />
+          </div>
+        ))}
+        {!(spec.freezes?.length || spec.speeds?.length) && <span className="small muted">Hold a moment for a callout, skip through dead time, or slow a reveal.</span>}
+      </Group>
+
       <Group title={`Zooms (${spec.zooms.length})`} actions={<>
         <Button small icon="wand" onClick={() => update((s) => autoZooms(s))}>Auto</Button>
         <Button small icon="plus" aria-label="Add zoom at playhead" title="Add at playhead" onClick={() => update((s) => ({ ...s, zooms: [...s.zooms, { id: uid(), at: round3(t), duration: 1.4, scale: 1.14 }].sort((a, b) => a.at - b.at) }))} />
@@ -203,6 +254,7 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
 const PRESETS: { id: CaptionPreset; label: string }[] = [
   { id: 'boldpop', label: 'Bold pop' }, { id: 'karaoke', label: 'Karaoke' }, { id: 'tape', label: 'Label tape' },
   { id: 'clean', label: 'Clean' }, { id: 'neon', label: 'Neon glow' }, { id: 'typeon', label: 'Type-on' },
+  { id: 'shadow', label: 'Soft shadow' }, { id: 'box', label: 'Black box' }, { id: 'glow', label: 'Colour haze' },
 ];
 const LOOKS: { id: LookPreset; label: string }[] = [
   { id: 'none', label: 'Original' }, { id: 'punchy', label: 'Punchy' }, { id: 'warm', label: 'Warm' },
@@ -218,6 +270,7 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
   const setLook = (patch: Partial<typeof spec.look>) => update((s) => ({ ...s, look: { ...s.look, ...patch } }));
   const setBrand = (patch: Partial<typeof spec.brand>, key = '') => update((s) => ({ ...s, brand: { ...s.brand, ...patch } }), key);
   const loadTemplates = () => api.get<Template[]>('/api/templates').then(setTemplates).catch(() => {});
+  const setHeader = (patch: Partial<NonNullable<typeof spec.header>>, key = '') => update((s) => (s.header ? { ...s, header: { ...s.header, ...patch } } : s), key);
   const logoRef = useRef<HTMLInputElement>(null);
   const moved = spec.captions.x !== undefined || spec.hook.x !== undefined || spec.hook.y !== undefined || spec.brand.logoX !== undefined
     || spec.brand.watermarkX !== undefined || spec.brand.watermarkY !== undefined;
@@ -272,6 +325,7 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
 
   return (
     <>
+      <StyleChooser ctx={ctx} />
       <div className="notice" style={{ marginTop: 14 }}>Click the captions, hook title, logo or watermark on the video to select it. Drag to move it, or drag its corner to resize.</div>
       <Group title="Templates" actions={<Button small icon="plus" onClick={saveTemplate}>Save current</Button>}>
         {templates.length ? (
@@ -300,6 +354,7 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
         <Slider label="Size" min={44} max={140} value={cap.size} onChange={(v) => setCap({ size: v }, 'capsize')} />
         <Slider label="Vertical position" min={12} max={92} value={cap.position} format={(v) => `${Math.round(v)}%`} onChange={(v) => setCap({ position: v }, 'cappos')} />
         <Slider label="Words per line" min={1} max={7} value={cap.maxWords} onChange={(v) => setCap({ maxWords: v }, 'capwords')} />
+        <Slider label="Appears early by" min={0} max={0.3} step={0.01} value={cap.lead ?? 0.04} format={(v) => `${Math.round(v * 1000)} ms`} onChange={(v) => setCap({ lead: v }, 'caplead')} />
         <div className="row wrap">
           <Toggle checked={cap.uppercase} onChange={(v) => setCap({ uppercase: v })} label="Uppercase" />
           <Toggle checked={cap.emoji} onChange={(v) => setCap({ emoji: v })} label="Emojis" />
@@ -326,6 +381,9 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
           <Toggle checked={spec.look.vignette} onChange={(v) => setLook({ vignette: v })} label="Vignette" />
           <Toggle checked={spec.look.progressBar} onChange={(v) => setLook({ progressBar: v })} label="Progress bar" />
         </div>
+        <Slider label="Brightness" min={0.7} max={1.4} step={0.01} value={spec.look.brightness ?? 1} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, brightness: v } }), 'lb')} />
+        <Slider label="Contrast" min={0.7} max={1.4} step={0.01} value={spec.look.contrast ?? 1} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, contrast: v } }), 'lc')} />
+        <Slider label="Saturation" min={0} max={1.8} step={0.01} value={spec.look.saturation ?? 1} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, saturation: v } }), 'ls')} />
       </Group>
 
       <Group id="brand-kit" title="Brand kit" actions={moved ? <Button small onClick={resetPositions} title="Put the captions, hook, logo and watermark back in their default places">Reset positions</Button> : null}>
@@ -372,7 +430,161 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
         )}
         <span className="small muted">Defaults for new clips are set under Settings → Brand kit.</span>
       </Group>
+
+      <Group title="Channel header" actions={<Toggle checked={!!spec.header} onChange={(v) => update((s) => ({ ...s, header: v ? { name: s.brand.watermark.replace(/^@/, '') || 'Your channel', handle: s.brand.watermark || '@yourchannel', avatar: s.brand.logo, verified: false, y: 11 } : undefined }))} label="Show" />}>
+        {spec.header ? (
+          <>
+            <div className="grid-2">
+              <Field label="Name"><input type="text" value={spec.header.name} onChange={(e) => setHeader({ name: e.target.value }, 'hn')} /></Field>
+              <Field label="Handle"><input type="text" value={spec.header.handle} onChange={(e) => setHeader({ handle: e.target.value }, 'hh')} /></Field>
+            </div>
+            <Field label="Picture">
+              <select value={spec.header.avatar} onChange={(e) => setHeader({ avatar: e.target.value })}>
+                <option value="">None</option>
+                {assets.brand.map((a) => <option key={a.url} value={a.url}>{a.label}</option>)}
+              </select>
+            </Field>
+            <Slider label="Height on screen" min={4} max={40} value={spec.header.y} format={(v) => `${Math.round(v)}%`} onChange={(v) => setHeader({ y: v }, 'hy')} />
+            <Toggle checked={spec.header.verified} onChange={(v) => setHeader({ verified: v })} label="Show a tick badge" />
+          </>
+        ) : <span className="small muted">A profile picture, name and handle above the video, for the boxed layouts.</span>}
+      </Group>
     </>
+  );
+}
+
+/* ================================================================ Styles: apply, plan, teach */
+type Change = { path: string[]; label: string; from: string; to: string; value: unknown };
+
+function StyleChooser({ ctx }: { ctx: Ctx }) {
+  const { spec, update, jobs, flush, project, clip, profileId, setProfileId, seconds, setMeta, meta } = ctx;
+  const [styles, setStyles] = useState<StyleProfile[]>([]);
+  const [note, setNote] = useState('');
+  const [changes, setChanges] = useState<Change[] | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [planNotes, setPlanNotes] = useState<string[]>([]);
+  const load = () => api.get<StyleProfile[]>('/api/profiles').then(setStyles).catch(() => {});
+  useEffect(() => { load(); }, []);
+  const style = styles.find((x) => x.id === profileId);
+  const base = `/api/projects/${project.id}/clips/${clip.id}`;
+
+  function choose(id: string) {
+    setProfileId(id);
+    setChanges(null);
+    const st = styles.find((x) => x.id === id);
+    if (!st) return;
+    update((s) => applyStyle(s, st, seconds));
+    toast(`Applied "${st.name}"`, 'good');
+  }
+
+  async function plan() {
+    if (!style) return;
+    try {
+      await flush();
+      if (style.planner === 'story') {
+        const r = await jobs.run<DirectPlan>(() => api.post(`${base}/direct`));
+        update((s) => applyDirect(s, r));
+        setPlanNotes(r.notes);
+        if (r.post_title) setMeta({ title: r.post_title, description: r.description || meta.description, hashtags: r.hashtags.length ? r.hashtags : meta.hashtags });
+        toast(`Placed ${r.elements.length} elements${r.freezes.length ? `, ${r.freezes.length} freezes` : ''}; check their positions on the video`, 'good');
+      } else {
+        const r = await jobs.run<any>(() => api.post(`${base}/remix`, { density: 1 }));
+        update((s) => applyRemix(s, r, { hook: true }));
+        toast(r.note || `Added ${r.graphics.length} graphics and ${r.zooms.length} zooms`, r.note ? 'info' : 'good');
+      }
+    } catch (e) { toastError(e); }
+  }
+
+  async function duplicate() {
+    if (!style) return;
+    const name = prompt('Name your copy of this style:', `My ${style.name.toLowerCase()}`);
+    if (!name?.trim()) return;
+    try {
+      const mine = await api.post<StyleProfile>('/api/profiles', { name: name.trim(), from: style.id });
+      await load();
+      setProfileId(mine.id);
+      toast('Copied. Corrections you teach will now be remembered.', 'good');
+    } catch (e) { toastError(e); }
+  }
+
+  async function teach() {
+    if (!style || !note.trim()) return;
+    try {
+      const updated = await api.post<StyleProfile>(`/api/profiles/${style.id}/feedback`, { note });
+      const added = updated.rules[updated.rules.length - 1];
+      setNote('');
+      load();
+      toast(`New rule: ${added.text}`, 'good');
+    } catch (e) { toastError(e); }
+  }
+
+  async function compare() {
+    if (!style) return;
+    try {
+      const diff = await api.post<Change[]>(`/api/profiles/${style.id}/differences`, { spec });
+      setChanges(diff);
+      setPicked(new Set(diff.map((d) => d.path.join('.'))));
+      if (!diff.length) toast('This clip already matches the style', 'info');
+    } catch (e) { toastError(e); }
+  }
+
+  async function accept() {
+    if (!style || !changes) return;
+    try {
+      await api.post(`/api/profiles/${style.id}/accept`, { changes: changes.filter((c) => picked.has(c.path.join('.'))) });
+      setChanges(null);
+      load();
+      toast('Saved as this style\'s new defaults', 'good');
+    } catch (e) { toastError(e); }
+  }
+
+  const mine = styles.filter((x) => !x.builtin);
+  const builtin = styles.filter((x) => x.builtin);
+  return (
+    <Group id="style" title="Style" actions={style ? <Button small variant="primary" icon="sparkle" onClick={plan} disabled={jobs.busy} title={style.planner === 'story' ? 'The AI looks at the clip and places labels, callouts, freezes and speed changes' : 'The AI plans graphics, zooms and emphasis from the transcript'}>Plan the edit</Button> : null}>
+      <select value={profileId} onChange={(e) => choose(e.target.value)} aria-label="Style">
+        <option value="">No style</option>
+        {mine.length > 0 && <optgroup label="Your styles">{mine.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</optgroup>}
+        <optgroup label="Built-in">{builtin.map((x) => <option key={x.id} value={x.id}>{x.name}{x.draft ? ' (draft)' : ''}</option>)}</optgroup>
+      </select>
+      {style ? <span className="small muted">{style.summary || style.brief}</span>
+        : <span className="small muted">A style sets the shape, captions, colours and standing elements, and gives the AI its rules. Make your own from reference videos under Library → Styles.</span>}
+      {planNotes.length > 0 && <div className="notice warn"><b>Check by eye:</b> {planNotes.join(' ')}</div>}
+      {style?.builtin && (
+        <div className="row between">
+          <span className="small muted">Built-in styles are fixed.</span>
+          <Button small icon="copy" onClick={duplicate}>Copy to teach it</Button>
+        </div>
+      )}
+      {style && !style.builtin && (
+        <>
+          <Field label="Teach this style" hint="Say what it got wrong or what you always want. It becomes a rule the AI follows on every future video in this style.">
+            <textarea rows={2} value={note} placeholder="e.g. never put a label over someone's face" onChange={(e) => setNote(e.target.value)} />
+          </Field>
+          <div className="row wrap">
+            <Button small icon="plus" onClick={teach} disabled={!note.trim()}>Add as a rule</Button>
+            <Button small onClick={compare} title="Compare this clip's captions, colours and positions with the style">Save my changes to the style</Button>
+            <span className="small muted">{style.rules.filter((r) => r.on).length} rules</span>
+          </div>
+          {changes && changes.length > 0 && (
+            <div className="card">
+              <span className="small muted">You changed these in this clip. Tick the ones that should become the style's defaults.</span>
+              {changes.map((c) => {
+                const key = c.path.join('.');
+                return (
+                  <label key={key} className="row small" style={{ cursor: 'pointer' }}>
+                    <input type="checkbox" checked={picked.has(key)} onChange={(e) => setPicked((p) => { const n = new Set(p); e.target.checked ? n.add(key) : n.delete(key); return n; })} />
+                    <span className="grow">{c.label}</span>
+                    <span className="mono muted">{c.from} → {c.to}</span>
+                  </label>
+                );
+              })}
+              <div className="row"><Button small variant="primary" onClick={accept} disabled={!picked.size}>Update the style</Button><Button small variant="ghost" onClick={() => setChanges(null)}>Cancel</Button></div>
+            </div>
+          )}
+        </>
+      )}
+    </Group>
   );
 }
 
@@ -440,6 +652,11 @@ export function WordsPanel({ ctx }: { ctx: Ctx }) {
   );
 }
 
+/** The words spoken around a moment, as a starting prompt for a generated picture. */
+function nearbyText(spec: Ctx['spec'], at: number): string {
+  return spec.words.filter((w) => !w.removed && w.start >= at - 2 && w.start <= at + 4).map((w) => w.text).join(' ');
+}
+
 /* ================================================================ Motion graphics */
 export function MotionPanel({ ctx }: { ctx: Ctx }) {
   const { spec, update, t, jobs, flush, project, clip, assets, selected, select, plan } = ctx;
@@ -491,7 +708,12 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
         <Field label="Add at playhead">
           <select value="" onChange={(e) => e.target.value && add(e.target.value as GraphicType)} aria-label="Add a motion graphic">
             <option value="">Choose a type…</option>
-            {(Object.keys(GRAPHIC_LABELS) as GraphicType[]).map((k) => <option key={k} value={k}>{GRAPHIC_LABELS[k]}</option>)}
+            <optgroup label="Place anywhere">
+              {FREE_TYPES.map((k) => <option key={k} value={k}>{GRAPHIC_LABELS[k]}</option>)}
+            </optgroup>
+            <optgroup label="Animated cards">
+              {(Object.keys(GRAPHIC_LABELS) as GraphicType[]).filter((k) => !isFree(k)).map((k) => <option key={k} value={k}>{GRAPHIC_LABELS[k]}</option>)}
+            </optgroup>
           </select>
         </Field>
       </Group>
@@ -503,9 +725,28 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
               {(Object.keys(GRAPHIC_LABELS) as GraphicType[]).map((k) => <option key={k} value={k}>{GRAPHIC_LABELS[k]}</option>)}
             </select>
           </Field>
-          <Field label="Placement">
-            <Seg small value={g.zone} onChange={(v: Zone) => patch({ zone: v })} options={(Object.keys(ZONE_LABELS) as Zone[]).map((z) => ({ value: z, label: ZONE_LABELS[z] }))} />
-          </Field>
+          {isFree(g.type) ? (
+            !['flash', 'dip'].includes(g.type) && <span className="small muted">Drag it on the video to place it; drag its corner to resize.</span>
+          ) : (
+            <Field label="Placement">
+              <Seg small value={g.zone} onChange={(v: Zone) => patch({ zone: v })} options={(Object.keys(ZONE_LABELS) as Zone[]).filter((z) => z !== 'free').map((z) => ({ value: z, label: ZONE_LABELS[z] }))} />
+            </Field>
+          )}
+          {['label', 'nametag', 'circle', 'arrow', 'flash'].includes(g.type) && (
+            <div className="row wrap">
+              <Field label="Colour"><input type="color" value={g.color ?? '#ffffff'} onChange={(e) => patch({ color: e.target.value }, 'gcol')} /></Field>
+              {g.type === 'label' && (
+                <Field label="Look" grow>
+                  <select value={g.style ?? 'neon'} onChange={(e) => patch({ style: e.target.value as LabelStyle })}>
+                    <option value="neon">Neon</option><option value="quoted">In quotes</option><option value="plain">White with shadow</option>
+                    <option value="box">Black box</option><option value="outline">Outline only</option>
+                  </select>
+                </Field>
+              )}
+              {g.type === 'arrow' && <div className="grow"><Slider label="Direction" min={-180} max={180} step={5} value={g.rotate ?? 0} format={(v) => `${v}°`} onChange={(v) => patch({ rotate: v }, 'grot')} /></div>}
+              {g.type === 'flash' && <div className="grow"><Slider label="Strength" min={0.2} max={1} step={0.05} value={g.scale ?? 0.9} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => patch({ scale: v }, 'gstr')} /></div>}
+            </div>
+          )}
           <div className="grid-3">
             <Field label="Start (s)">
               <input type="number" step={0.1} min={0} value={Number(outSeconds(spec, plan, g.at).toFixed(2))}
@@ -515,7 +756,7 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
               <input type="number" step={0.1} min={0.4} max={15} value={g.duration} onChange={(e) => patch({ duration: clamp(Number(e.target.value) || 1, 0.4, 15) }, 'gdur')} />
             </Field>
             <Field label="Animation">
-              <select value={g.animation} onChange={(e) => patch({ animation: e.target.value as Anim })}>
+              <select value={g.animation} disabled={['flash', 'dip', 'spotlight', 'heart'].includes(g.type)} onChange={(e) => patch({ animation: e.target.value as Anim })}>
                 {(Object.keys(ANIM_LABELS) as Anim[]).map((a) => <option key={a} value={a}>{ANIM_LABELS[a]}</option>)}
               </select>
             </Field>
@@ -529,13 +770,23 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
               <Button small icon="speaker" onClick={() => testSfx(g.sfx)} disabled={!g.sfx}>Test</Button>
             </div>
           </Field>
-          {g.type !== 'broll' && (g.dx || g.dy || (g.scale ?? 1) !== 1) && (
+          {g.type !== 'broll' && g.type !== 'flash' && (g.dx || g.dy || (g.scale ?? 1) !== 1) && (
             <div className="row between">
               <span className="small muted">Moved or resized on the video</span>
               <Button small onClick={() => patch({ dx: undefined, dy: undefined, scale: undefined })}>Reset</Button>
             </div>
           )}
-          {g.type !== 'broll' && (
+          {g.type === 'label' && (
+            <>
+              <Field label="Text" hint="Put words in {curly brackets} to colour them; the rest stays white. A new line starts a new row.">
+                <textarea id="graphic-text" rows={2} value={g.primary} onChange={(e) => patch({ primary: e.target.value }, 'gprim')} />
+              </Field>
+              {g.style === 'box' && <Field label="Speaker tag (optional)"><input type="text" value={g.tag ?? ''} placeholder="Cyclist:" onChange={(e) => patch({ tag: e.target.value || undefined }, 'gtag')} /></Field>}
+            </>
+          )}
+          {g.type === 'nametag' && <Field label="Text"><input id="graphic-text" type="text" value={g.primary} onChange={(e) => patch({ primary: e.target.value }, 'gprim')} /></Field>}
+          {g.type === 'heart' && <Field label="Line under the heart (optional)"><input type="text" value={g.headline} onChange={(e) => patch({ headline: e.target.value }, 'ghead')} /></Field>}
+          {!TEXTLESS.includes(g.type) && !isFree(g.type) && (
             <div className="grid-2">
               <Field label={g.type === 'gauge' || g.type === 'counter' ? 'Value' : g.type === 'emoji' ? 'Emoji' : 'Main word'}>
                 <input id="graphic-text" type="text" value={g.primary} placeholder="e.g. 3 MONTHS" onChange={(e) => patch({ primary: e.target.value }, 'gprim')} />
@@ -551,7 +802,11 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
           {g.type === 'broll' && (
             <>
               <Field label="Caption chip (optional)"><input type="text" value={g.headline} onChange={(e) => patch({ headline: e.target.value }, 'ghead')} /></Field>
-              {media.length === 0 ? <span className="small muted">Add images, GIFs or video under Library → B-roll.</span> : (
+              <div className="row">
+                <GenerateImageButton prompt={nearbyText(spec, g.at)} aspect={aspectOf(spec)} onDone={(a) => { ctx.reloadAssets(); patch({ src: a.url, mediaType: a.type as Graphic['mediaType'] }); }} />
+                <span className="small muted">Makes a picture for this moment with Google's image model.</span>
+              </div>
+              {media.length === 0 ? <span className="small muted">Or add images, GIFs or video under Library → B-roll.</span> : (
                 <div className="media-grid">
                   {media.map((a) => (
                     <button key={a.url} className={'media-pick' + (g.src === a.url ? ' on' : '')} onClick={() => patch({ src: a.url, mediaType: a.type as Graphic['mediaType'] })} title={a.name}>
