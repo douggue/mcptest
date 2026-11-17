@@ -45,6 +45,15 @@ function ScoreTiles({ score }: { score: Score }) {
 const keptSeconds = (c: Clip) => (c.spec.segments?.length ? c.spec.segments.reduce((t, s) => t + Math.max(0, s.end - s.start), 0) : c.spec.out - c.spec.in);
 
 export function ProjectView({ project, reload }: { project: Project; reload: () => Promise<void> }) {
+  const [picked, setPicked] = useState<string[]>([]);
+  async function mergePicked() {
+    try {
+      const clip = await api.post<{ id: string; title: string }>(`/api/projects/${project.id}/clips/merge`, { ids: picked });
+      setPicked([]);
+      await reload();
+      toast(`Merged into "${clip.title}"`, 'good');
+    } catch (e) { toastError(e); }
+  }
   const online = project.origin.startsWith('http');
   const [engine, setEngine] = useState<'whisper' | 'youtube'>('whisper');
   const [model, setModel] = useState('');
@@ -268,6 +277,14 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
 
       <Panel title={`Clips (${project.clips.length})`} pad={false}
         actions={project.clips.length ? <>
+          {picked.length > 0 && (
+            <>
+              <span className="small muted">{picked.length} selected</span>
+              <Button small icon="plus" disabled={picked.length < 2} onClick={mergePicked}
+                title="One new clip playing the selected clips one after another, in the order they come in the video. The clips stay as they are.">Merge into one clip</Button>
+              <Button small variant="ghost" onClick={() => setPicked([])}>Clear</Button>
+            </>
+          )}
           <Seg small value={quality} onChange={setQuality} options={[{ value: '1080', label: '1080p' }, { value: '720', label: '720p' }]} />
           <Button small icon="download" onClick={exportAll} busy={ex.busy}>Export all clips</Button>
         </> : null}>
@@ -275,8 +292,10 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
         {sorted.length === 0 ? <Empty icon="sparkle" title="No clips yet">Find moments automatically, or mark one yourself above.</Empty> : (
           <div className="panel-body grid-auto" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
             {sorted.map((c) => (
-              <div key={c.id} className="card clip-card">
+              <div key={c.id} className={'card clip-card' + (picked.includes(c.id) ? ' picked' : '')}>
                 <div className="row top">
+                  <input type="checkbox" className="clip-pick" checked={picked.includes(c.id)} aria-label={`Select ${c.title}`}
+                    title="Select to merge" onChange={(e) => setPicked((x) => (e.target.checked ? [...x, c.id] : x.filter((i) => i !== c.id)))} />
                   <ScoreRing score={c.score} />
                   <div className="grow">
                     <h4>{c.title}</h4>
