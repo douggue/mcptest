@@ -162,8 +162,8 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
           <>
             <div className="grid-2">
               <Field label="Corners">
-                <select value={fm.shape} onChange={(e) => setFrame({ shape: e.target.value as FrameMode['shape'] })}>
-                  <option value="square">Square</option><option value="rounded">Rounded</option><option value="squircle">Very rounded</option>
+                <select value={fm.shape} onChange={(e) => setFrame({ shape: e.target.value as FrameMode['shape'], corner: undefined })}>
+                  <option value="square">Square</option><option value="rounded">Rounded</option><option value="squircle">Squircle (phone-icon corners)</option>
                 </select>
               </Field>
               <Field label="Behind it">
@@ -172,6 +172,10 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
                 </select>
               </Field>
             </div>
+            {fm.shape !== 'square' && (
+              <Slider label="Corner size" min={0} max={50} step={0.5} value={fm.corner ?? (fm.shape === 'squircle' ? 20.6 : 6)}
+                format={(v) => `${v.toFixed(1)}%`} onChange={(v) => setFrame({ corner: v }, 'corner')} />
+            )}
             <Slider label="Box width" min={50} max={100} value={fm.width} format={(v) => `${Math.round(v)}%`} onChange={(v) => setFrame({ width: v }, 'fw')} />
             <Slider label="Box shape" min={0.6} max={1.8} step={0.01} value={fm.aspect} format={(v) => (Math.abs(v - 1) < 0.02 ? 'Square' : v < 1 ? 'Tall' : 'Wide')} onChange={(v) => setFrame({ aspect: v }, 'fa')} />
             <Slider label="Box height on screen" min={20} max={80} value={fm.y} format={(v) => `${Math.round(v)}%`} onChange={(v) => setFrame({ y: v }, 'fy')} />
@@ -371,6 +375,7 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
         <Slider label="Appears early by" min={0} max={0.3} step={0.01} value={cap.lead ?? 0.04} format={(v) => `${Math.round(v * 1000)} ms`} onChange={(v) => setCap({ lead: v }, 'caplead')} />
         <div className="row wrap">
           <Toggle checked={cap.uppercase} onChange={(v) => setCap({ uppercase: v })} label="Uppercase" />
+          <Toggle checked={!!cap.noPunct} onChange={(v) => setCap({ noPunct: v })} label="No full stops or commas" />
           <Toggle checked={cap.emoji} onChange={(v) => setCap({ emoji: v })} label="Emojis" />
         </div>
       </Group>
@@ -764,7 +769,7 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
                 <Field label="Look" grow>
                   <select value={g.style ?? 'neon'} onChange={(e) => patch({ style: e.target.value as LabelStyle })}>
                     <option value="neon">Neon</option><option value="quoted">In quotes</option><option value="plain">White with shadow</option>
-                    <option value="box">Black box</option><option value="outline">Outline only</option>
+                    <option value="box">Black box</option><option value="outline">Outline only</option><option value="flat">Flat title (pure colours)</option>
                   </select>
                 </Field>
               )}

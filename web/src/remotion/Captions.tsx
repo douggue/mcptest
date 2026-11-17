@@ -34,7 +34,10 @@ export const CaptionLayer: React.FC<{ spec: CaptionsSpec; words: Word[]; t: numb
     width: 'max-content', maxWidth: '88%',
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: size * 0.18, textAlign: 'center',
   };
-  const tr = (s: string) => (spec.uppercase ? s.toUpperCase() : s);
+  const tr = (s: string) => {
+    const t = spec.noPunct ? s.replace(/[.,;:…]+/g, '') : s;
+    return spec.uppercase ? t.toUpperCase() : t;
+  };
   const since = page ? Math.max(0, t - page.start) : 0;
   const enter = spring({ frame: since * fps, fps, config: { damping: 14, stiffness: 220, mass: 0.6 } });
 

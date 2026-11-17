@@ -19,6 +19,7 @@ export type Speed = { id: string; start: number; end: number; rate: number };   
 export type FrameMode = {
   mode: 'full' | 'panel';       // panel = the video sits in a box on a background
   shape: 'square' | 'rounded' | 'squircle';
+  corner?: number;              // corner size, % of the box width (defaults: rounded 6, squircle 20.6)
   width: number;                // % of frame width
   aspect: number;               // box width / height
   y: number;                    // box centre, % of frame height
@@ -64,7 +65,7 @@ export type GraphicType =
   | 'keyword' | 'cascade' | 'gauge' | 'counter' | 'lowerthird' | 'steps' | 'broll' | 'emoji'
   // free elements: placed anywhere, not tied to speech
   | 'label' | 'nametag' | 'circle' | 'arrow' | 'spotlight' | 'flash' | 'dip' | 'heart' | 'image' | 'blurbox';
-export type LabelStyle = 'neon' | 'plain' | 'box' | 'quoted' | 'outline';
+export type LabelStyle = 'neon' | 'plain' | 'box' | 'quoted' | 'outline' | 'flat';
 export type Zone = 'full' | 'top' | 'center' | 'bottom' | 'overlay' | 'free';   // free = measured from the frame centre
 export type Anim = 'pop' | 'slam' | 'fade' | 'slide' | 'glitch' | 'type';
 
@@ -112,6 +113,7 @@ export type Captions = {
   x?: number;            // centre, % of frame width (default 50)
   lead?: number;         // seconds a caption appears before its word (default 0.04)
   uppercase: boolean;
+  noPunct?: boolean;     // drop full stops, commas and the like; keep ? ! and apostrophes
   maxWords: number;
   emoji: boolean;
   mode: 'original' | 'translated' | 'bilingual';

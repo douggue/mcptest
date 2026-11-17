@@ -428,7 +428,7 @@ _DIRECT_SCHEMA = {
                 "seconds": {"type": "number", "description": "How long it stays."},
                 "text": {"type": "string", "description": "Its text, with {curly brackets} around words to colour. Empty for circle, arrow, spotlight, flash, dip."},
                 "colour": {"type": "string", "description": "#rrggbb, or empty for the style's default."},
-                "label_look": {"type": "string", "enum": ["", "neon", "quoted", "plain", "box", "outline"]},
+                "label_look": {"type": "string", "enum": ["", "neon", "quoted", "plain", "box", "outline", "flat"]},
                 "position": {"type": "string", "enum": ["top", "upper", "middle", "lower", "bottom"], "description": "Where a text element sits in the frame."},
                 "on_subject": {"type": "boolean", "description": "True to place it on the main person or object (circle, arrow, spotlight, nametag)."},
                 "animation": {"type": "string", "enum": ["pop", "fade", "type", "slam", "slide"]},

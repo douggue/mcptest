@@ -223,6 +223,7 @@ const Body: React.FC<Ctx> = ({ g, brand, u, frames }) => {
       const text = parts.map((q, i) => {
         const c = q.color ?? color;
         const tinted = marked ? q.mark : look !== 'plain' && look !== 'box';
+        if (look === 'flat') return <span key={i} style={{ color: q.mark ? c : '#fff' }}>{q.text}</span>;   // pure colours, nothing behind them
         const st: React.CSSProperties = look === 'outline' && tinted
           ? { color: 'transparent', WebkitTextStroke: `${3 * u}px ${c}` }
           : tinted
@@ -231,7 +232,7 @@ const Body: React.FC<Ctx> = ({ g, brand, u, frames }) => {
         return <span key={i} style={st}>{q.text}</span>;
       });
       const base: React.CSSProperties = {
-        fontFamily: family, fontWeight: weight, fontStyle: look === 'quoted' ? 'italic' : 'normal', fontSize: size, lineHeight: 1.12,
+        fontFamily: family, fontWeight: weight, fontStyle: look === 'quoted' ? 'italic' : 'normal', fontSize: size, lineHeight: look === 'flat' ? 1.32 : 1.12,
         textTransform: 'uppercase', textAlign: 'center', whiteSpace: 'pre-line', maxWidth: 940 * u, letterSpacing: look === 'neon' ? '0.03em' : undefined,
       };
       if (look === 'box') {
@@ -349,15 +350,22 @@ export const GraphicLayer: React.FC<Ctx> = (ctx) => {
       }} />
     );
   }
-  if (g.type === 'spotlight') {   // everything outside a soft ellipse dims
-    const ramp = Math.min(interpolate(frame, [0, fps * 0.12], [0, 1], { extrapolateRight: 'clamp' }), interpolate(frame, [frames - fps * 0.12, frames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }));
+  if (g.type === 'spotlight') {
+    // Measured from the reference highlight: the surround dims to about a third of its brightness with its colour kept,
+    // the spot (about 210 x 185 px on a 1080-wide frame) is the untouched picture with a soft feathered edge, and the dim
+    // ramps in and out over a tenth of a second.
+    const edge = fps * 0.1;
+    const ramp = Math.min(interpolate(frame, [0, edge], [0, 1], { extrapolateRight: 'clamp' }),
+      interpolate(frame, [frames - edge, frames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }));
     const sc = g.scale ?? 1;
-    const rx = (width * 0.3) * sc, ry = (width * 0.27) * sc;
+    const rx = width * 0.0972 * sc, ry = width * 0.0856 * sc;
+    const feather = 1.3;   // the gradient runs past the spot's edge by 30% of its size
     const cx = width / 2 + ((g.dx ?? 0) / 100) * width, cy = height / 2 + ((g.dy ?? 0) / 100) * height;
+    const dim = `rgba(0,0,0,${(0.68 * ramp).toFixed(3)})`;
     return (
       <>
         {g.sfx && fxVolume > 0 && <Audio src={`${sfxBase}${g.sfx}.wav`} volume={fxVolume} />}
-        <AbsoluteFill style={{ background: `radial-gradient(ellipse ${rx * 1.35}px ${ry * 1.35}px at ${cx}px ${cy}px, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 62%, rgba(0,0,0,${0.7 * ramp}) 100%)` }} />
+        <AbsoluteFill style={{ background: `radial-gradient(ellipse ${rx * feather}px ${ry * feather}px at ${cx}px ${cy}px, rgba(0,0,0,0) 0%, rgba(0,0,0,0) ${(100 / feather).toFixed(1)}%, ${dim} 100%)` }} />
         <div data-el={`graphic:${g.id}`} style={{ position: 'absolute', left: cx - rx, top: cy - ry, width: rx * 2, height: ry * 2, borderRadius: '50%' }} />
       </>
     );

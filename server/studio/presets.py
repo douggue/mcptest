@@ -122,12 +122,12 @@ BUILTIN: list[dict] = [
             "width": 1080, "height": 1920, "fps": 60,
             "frame": {"mode": "panel", "shape": "squircle", "width": 90, "aspect": 0.957, "y": 55.6, "bg": "black"},
             "captions": {"visible": True, "preset": "shadow", "font": "Poppins", "size": 58, "color": "#ffffff", "highlight": "#fafe04",
-                         "position": 67, "uppercase": True, "maxWords": 2, "emoji": False, "lead": 0.15},
+                         "position": 67, "uppercase": True, "noPunct": True, "maxWords": 2, "emoji": False, "lead": 0.15},
             "look": {"preset": "none", "bw": False, "vignette": False, "progressBar": False, "saturation": 1.12, "contrast": 1.02},
             "brand": {"font": "Poppins", "accent": "#fafe04"},
             "header": {"name": "Your channel", "handle": "@yourchannel", "avatar": "", "verified": True, "y": 11},
         },
-        "elements": [{"type": "label", "style": "plain", "color": "#fafe04", "text": "title", "at": "start", "duration": "all", "dy": -27, "scale": 0.97, "animation": "fade"}],
+        "elements": [{"type": "label", "style": "flat", "color": "#fafe04", "text": "title", "at": "start", "duration": "all", "dy": -26.7, "scale": 0.97, "animation": "fade"}],
         "brief": ("The advert plays in the box with its own sound; add no music or sound effects. The title is two lines in capitals, on screen unchanged for the whole video, "
                   "white with two or three phrases in colour (the brand name is always one of them): yellow #fafe04, cyan #04fafd, green #07fc1b, red #fc0000, magenta #fc63ec, orange #f7a534. "
                   "Captions are one or two words, popping in slightly before each word, one colour per speaker; the voice-over slogan is white. "

@@ -25,6 +25,29 @@ export function lookFilter(look: Look): string {
   return [LOOKS[look.preset] ?? '', ...fine, look.bw ? 'grayscale(1) contrast(1.12)' : ''].filter(Boolean).join(' ') || 'none';
 }
 
+/**
+ * A superellipse-cornered box (the "squircle" of phone icons), as CSS clip-path. Each corner follows
+ * ((c-d)/c)^4 + ((c-i)/c)^4 = 1, which matches the measured edge of the reference panels; a circular
+ * border-radius is visibly rounder at the start of the curve.
+ */
+export function squirclePath(w: number, h: number, c: number): string {
+  const n = 18, pts: string[] = [];
+  const arc = (cx: number, cy: number, sx: number, sy: number, reverse: boolean) => {
+    const seg: string[] = [];
+    for (let k = 0; k <= n; k++) {
+      const t = (k / n) * (Math.PI / 2);
+      const x = Math.sqrt(Math.cos(t)), y = Math.sqrt(Math.sin(t));
+      seg.push(`${(cx + sx * c * x).toFixed(2)} ${(cy + sy * c * y).toFixed(2)}`);
+    }
+    pts.push(...(reverse ? seg.reverse() : seg));
+  };
+  arc(c, c, -1, -1, false);              // top-left: (0, c) ... (c, 0)
+  arc(w - c, c, 1, -1, true);            // top-right: (w-c, 0) ... (w, c)
+  arc(w - c, h - c, 1, 1, false);        // bottom-right: (w, h-c) ... (w-c, h)
+  arc(c, h - c, -1, 1, true);            // bottom-left: (c, h) ... (0, h-c)
+  return `path('M ${pts.join(' L ')} Z')`;
+}
+
 /** One crop of the source video filling a w×h box. */
 const Pane: React.FC<{
   spec: ShortSpec; piece: Piece; w: number; h: number; x: number; y: number; zoom: number; audible: boolean; mode: 'cover' | 'contain' | 'blur';
@@ -74,7 +97,9 @@ const Panes: React.FC<{ spec: ShortSpec; piece: Piece }> = ({ spec, piece }) => 
   const panel = fm.mode === 'panel';
   const bw = panel ? Math.round((width * fm.width) / 100) : width;
   const bh = panel ? Math.min(height, Math.round(bw / fm.aspect)) : height;
-  const radius = !panel ? 0 : fm.shape === 'square' ? 0 : fm.shape === 'squircle' ? bw * 0.19 : bw * 0.06;
+  const corner = Math.min(bw / 2, bh / 2, (bw * (fm.corner ?? (fm.shape === 'squircle' ? 20.6 : 6))) / 100);
+  const radius = !panel || fm.shape !== 'rounded' ? 0 : corner;
+  const squircle = panel && fm.shape === 'squircle' && corner > 0.5 ? squirclePath(bw, bh, corner) : undefined;
   const boxTop = panel ? Math.max(0, Math.min(height - bh, (height * fm.y) / 100 - bh / 2)) : 0;
 
   let inner: React.ReactNode;
@@ -104,7 +129,7 @@ const Panes: React.FC<{ spec: ShortSpec; piece: Piece }> = ({ spec, piece }) => 
     <AbsoluteFill style={{ background: '#000' }}>
       {clean}
       {fm.bg === 'blur' && <AbsoluteFill><Pane spec={spec} piece={piece} w={width} h={height} x={50} y={50} zoom={1} audible={false} mode="blur" /></AbsoluteFill>}
-      <div style={{ position: 'absolute', left: (width - bw) / 2, top: boxTop, width: bw, height: bh, borderRadius: radius, overflow: 'hidden' }}>{inner}</div>
+      <div style={{ position: 'absolute', left: (width - bw) / 2, top: boxTop, width: bw, height: bh, borderRadius: radius, overflow: 'hidden', clipPath: squircle }}>{inner}</div>
     </AbsoluteFill>
   );
 };
