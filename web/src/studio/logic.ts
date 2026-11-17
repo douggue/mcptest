@@ -360,11 +360,13 @@ export function applyStyle(spec: EditSpec, profile: StyleProfile, seconds: numbe
   let next: EditSpec = {
     ...spec,
     width: st.width ?? spec.width, height: st.height ?? spec.height, fps: st.fps ?? spec.fps,
-    captions: { ...spec.captions, ...(st.captions ?? {}), translations: spec.captions.translations },
+    // A style owns the caption timing, the picture frame and the channel header, so whatever the previous style set
+    // for them is cleared first; otherwise switching styles would leave the old one's box or header behind.
+    captions: { ...spec.captions, lead: undefined, ...(st.captions ?? {}), translations: spec.captions.translations },
     look: { ...spec.look, brightness: 1, contrast: 1, saturation: 1, ...(st.look ?? {}) },
     brand: { ...spec.brand, ...(st.brand ?? {}) },
-    frame: st.frame ? { ...st.frame } : spec.frame,
-    header: st.header ? { ...st.header, ...(spec.header ?? {}), y: st.header.y } : spec.header && !st.frame ? spec.header : st.frame?.mode === 'panel' ? spec.header : undefined,
+    frame: st.frame ? { ...st.frame } : undefined,
+    header: st.header ? { ...st.header, ...(spec.header ?? {}), y: st.header.y } : undefined,
   };
   if (st.header && !spec.header && spec.brand.watermark) next.header = { ...next.header!, handle: spec.brand.watermark, name: spec.brand.watermark.replace(/^@/, ''), avatar: spec.brand.logo };
   const standing: Graphic[] = [];

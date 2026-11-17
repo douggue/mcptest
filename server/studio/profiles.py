@@ -17,8 +17,8 @@ from ..store import Collection
 from . import ai, vision
 
 profiles = Collection("profiles")
-FRAMES_PER_REFERENCE = 8
-MAX_FRAMES = 40
+FRAMES_PER_REFERENCE = 14   # four across the opening, the rest spread over the video, plus the last moment
+MAX_FRAMES = 60
 
 # What the editor can draw. The model picks from these so its answer can be applied directly.
 CAPTION_LOOKS = {
@@ -38,26 +38,91 @@ ELEMENTS = ["label", "nametag", "circle", "arrow", "spotlight", "flash", "dip", 
 
 ANALYSIS_SYSTEM = """\
 You are studying reference videos so that an editing program can reproduce their style on new footage. \
-The person who uploaded them wants their own videos to feel like these: the same kind of framing, captions, on-screen \
-text, effects and pacing, with their own content and branding.
+The person who uploaded them wants their own videos to feel like these: the same framing, captions, on-screen text, \
+effects, pacing and way of writing, with their own content and branding. Your report is the only description of the \
+style the program and its AI writer will ever have, so anything you leave out is lost. Be specific and concrete: \
+measured positions, exact colours, counted words, timed beats. "Bold captions at the bottom" is not enough; \
+"white heavy condensed capitals, about 8% of the frame width tall, centred 70% down, two or three words at a time, \
+the spoken word turning yellow" is.
 
-The style will be rebuilt with a fixed set of tools, listed in the request. Describe what you see in terms of those \
-tools, choosing the closest match, so the answer can be applied without interpretation. When a reference does something \
-those tools cannot do, do not force it into the nearest tool; list it under cannot_reproduce so the person knows.
+What you are given: still frames with timestamps, sampled more densely over the first three seconds because the \
+opening matters most, plus measurements the program took itself (size, length, how often the picture cuts). When the \
+full videos are attached as well, the request says so.
 
-You are given still frames with their timestamps, plus measurements the program took itself (size, length, how often \
-the picture cuts). Stills cannot show motion, sound or exact timing, so use the measurements for pacing and say what \
-you could not determine under unsure. Do not guess at music, voice or sound effects.
+Work through each reference in this order, then compare them.
 
-When several references are given, the style is what they have in common. Report the shared choices as the style, and \
-put anything that differs between references under varies. One unusual reference should not change the style.
+1. Format and framing. The canvas shape. Whether the picture fills the frame or sits in a box, and what is behind the \
+box. How large the main subject is in the frame (wide, medium, close) and where they sit. Whether the framing changes \
+between shots, punches in, or follows the subject (compare the subject's size and position across frames).
 
-Read the on-screen text closely: it shows how this creator writes. Turn it into writing rules a writer could follow \
-(how the opening line works, how long lines are, capitalisation, punctuation, emoji, how the ending lands). Quote short \
-examples only to illustrate a rule. Describe the references' logos, watermarks and channel names only as "a logo in \
-the top-left corner" and the like; never copy another channel's name or branding into the style.
+2. The opening. Exactly what is on screen in the first frame and how it changes over the first three seconds: the \
+hook text, any callout, flash or freeze. This is what stops a viewer scrolling, so describe it precisely.
 
-Write every rule as a plain instruction that would still make sense to someone who never saw the references."""
+3. On-screen text, one kind at a time. A style usually has several kinds of text that look different: a title, \
+running captions, story labels, name tags, callout labels, a watermark. For each kind you see, describe the lettering \
+(serif or sans, condensed or wide, weight, italic, capitals), its height as a share of the frame width, its fill \
+colour, every accent colour and what that colour is used for, any outline, shadow, glow or box behind it, where it \
+sits (how far down the frame, and left, centre or right), how many lines and words it holds, and how long one piece \
+of text stays up (estimate from which frames it appears in). If consecutive frames show text arriving letter by \
+letter, word by word, or all at once, say which.
+
+4. Colour. The overall grade compared with ordinary footage: brighter or darker, more or less contrast and \
+saturation, warm or cool. Any black-and-white passages, vignette, or frames washed in a single colour (a tint \
+flash), and what each tint seems to mark.
+
+5. Effects and graphics. Circles, arrows, spotlights that dim the surroundings, emoji, progress bars, borders, \
+split screens, picture-in-picture, cutaway images. Two frames that are identical apart from the overlays suggest a \
+freeze-frame. For each effect say when in the video it is used and for how long, as far as the frames show.
+
+6. Structure and pacing. The beats of the story with rough times: how it opens, how tension builds, where the turn \
+or payoff lands, how it ends, and whether there is an end card or closing animation. How long the videos run. Use \
+the cut measurements for rhythm, and count how often the text changes.
+
+7. Branding. Where a logo, watermark or channel header sits, how large and how opaque. Describe placement only; \
+never copy another channel's name, handle or logo into the style.
+
+8. Sound, only when the full videos are attached: music and its mood, sound effects and what triggers them, whether \
+there is a narrator or only the original audio. From stills alone, say you cannot tell.
+
+9. The writing. Read every piece of on-screen text. Work out how this creator writes: how the hook is phrased, how \
+long lines are, capitals, punctuation, emoji, whether actions are marked (for example in asterisks), how the story \
+is told (narrator, labels, dialogue), and how the ending lands. Quote a few short lines as examples.
+
+Then compare the references. The style is what they have in common. Report shared choices as the style, list what \
+differs between them under varies, and do not let one unusual reference change the style.
+
+The style will be rebuilt with a fixed set of tools, listed in the request. Where the report asks for a choice from \
+those tools, pick the closest and keep your own precise description alongside it. When a reference does something the \
+tools cannot do, do not force it into the nearest tool: list it under cannot_reproduce so the person knows.
+
+Stills cannot show motion, sound or exact timing. Say what you could not determine under unsure, and rate your \
+confidence in each area honestly. A report that admits what it could not see is more useful than a confident guess.
+
+Write every rule as a plain instruction that would still make sense to someone who never saw the references, and \
+make each one specific enough to check a finished video against."""
+
+
+WATCHING = """\
+The full videos are attached as well, in reference order, with their sound. You see them at {fps} frames a second, so \
+anything shorter than {gap} may fall between frames; the numbered stills further down are exact frames and are sharper, \
+so read small text and colours from the stills and take motion, timing and sound from the videos.
+
+Watch each video from start to finish before writing anything, then use it for what stills cannot show:
+
+- Timing. Give the moment each thing happens in seconds from the start: when the hook text appears and leaves, when \
+each caption or label changes, when every effect starts and how long it lasts. Fill in the timeline with these.
+- Text animation. How each kind of text arrives and leaves: cut, fade, pop with overshoot, slide, typed letter by \
+letter, or word by word in time with the voice. Whether the word being spoken changes colour or size.
+- Transitions. How one shot becomes the next: hard cut, flash to white or a colour, dip to black, blur, zoom, whip, \
+slide. Whether the picture is ever frozen, slowed down or sped up, and at what point in the story.
+- Camera and crop. Whether the frame slowly pushes in, punches in on a beat, shakes, or follows the subject.
+- Voice. Whether anyone speaks; whether it is the original sound, a narrator added afterwards, or a synthetic voice; \
+the narrator's tone and pace (count roughly how many words are spoken in ten seconds); whether captions repeat the \
+speech word for word or tell the story in different words.
+- Music. Genre, mood and tempo, when it starts, where it rises, drops or cuts out, how loud it is against the voice.
+- Sound effects. Each kind you hear (whoosh, pop, camera shutter, ding, riser, bass hit), and what on screen it lands on.
+
+With the videos you can judge sound and motion, so do not list them under unsure unless a video failed to play."""
 
 
 def _analysis_request(refs: list[dict]) -> str:
@@ -76,33 +141,69 @@ Tools the editor has:
 
 Canvas shapes: 9:16, 3:4, 4:5, 1:1, 16:9.
 Picture: fills the frame, or sits in a box ("panel") with square, rounded or very rounded corners over a blurred copy \
-of the video or over black. A shot can also be split into two or three stacked crops.
+of the video or over black. A shot can also be split into two or three stacked crops, and the crop can follow a face.
 Caption looks (for words that follow speech or narration):
 {looks}
 Fonts: {", ".join(FONTS)}.
 Elements that can be placed anywhere and timed freely: label (free text; neon, in quotes, white with shadow, black \
-box, or outline only), nametag (short text with a pointer under it), circle, arrow, spotlight (dims everything outside \
-an ellipse), flash (white or coloured), dip (to black), heart (ending animation), emoji.
+box, or outline only; words can be coloured individually), nametag (short text with a pointer under it), circle, \
+arrow, spotlight (dims everything outside an ellipse), flash (white or any colour), dip (to black), heart (ending \
+animation), emoji.
 Timing: freeze (hold a frame), speed_change (fast-forward or slow motion), zoom punch-ins, hard cuts.
 Animated cards: keyword, counter, lowerthird, steps, broll (cutaway image or clip).
 Always-on: progress_bar, logo, watermark, channel_header (profile picture, name and handle above a boxed video).
 Colour: brightness, contrast and saturation adjustments, black and white, vignette.
+Sound: background music that lowers under speech, sound effects on graphics, a voiceover track.
 
-Give colours as #rrggbb. Give positions as a percentage down the frame (0 is the top edge, 100 the bottom)."""
+Give colours as #rrggbb. Give vertical positions as a percentage down the frame (0 is the top edge, 100 the bottom). \
+Give text height as a percentage of the frame width. Give times in seconds from the start of the video."""
 
+
+_TEXT_ROLE = {
+    "type": "object", "additionalProperties": False,
+    "required": ["role", "lettering", "nearest_font", "uppercase", "italic", "height_pct", "colour", "accents", "outline", "shadow_or_glow",
+                 "box", "position", "align", "lines", "words_per_line", "arrives", "stays_seconds", "used_for"],
+    "properties": {
+        "role": {"type": "string", "enum": ["title", "captions", "story_label", "name_tag", "callout_label", "dialogue", "watermark", "other"]},
+        "lettering": {"type": "string", "description": "The letterforms in words: serif or sans, condensed or wide, weight, any distinctive feature."},
+        "nearest_font": {"type": "string", "enum": FONTS},
+        "uppercase": {"type": "boolean"}, "italic": {"type": "boolean"},
+        "height_pct": {"type": "number", "description": "Capital-letter height as a percentage of the frame width."},
+        "colour": {"type": "string", "description": "Main fill colour, #rrggbb."},
+        "accents": {"type": "array", "items": {"type": "object", "additionalProperties": False, "required": ["colour", "used_for"],
+                                                "properties": {"colour": {"type": "string"}, "used_for": {"type": "string"}}}},
+        "outline": {"type": "string", "description": "Colour and rough thickness, or 'none'."},
+        "shadow_or_glow": {"type": "string", "description": "What sits behind the letters, or 'none'."},
+        "box": {"type": "string", "description": "Any shape behind the text (colour, corners), or 'none'."},
+        "position": {"type": "number"}, "align": {"type": "string", "enum": ["left", "centre", "right", "beside_subject"]},
+        "lines": {"type": "integer"}, "words_per_line": {"type": "integer"},
+        "arrives": {"type": "string", "enum": ["all_at_once", "word_by_word", "letter_by_letter", "pops", "fades", "unknown"]},
+        "stays_seconds": {"type": "number", "description": "Roughly how long one piece of this text stays up; 0 if it stays for the whole video."},
+        "used_for": {"type": "string", "description": "What this kind of text carries in the story, in one sentence."},
+    },
+}
 
 ANALYSIS_SCHEMA = {
     "type": "object", "additionalProperties": False,
-    "required": ["summary", "canvas", "picture", "captions", "title", "elements", "colour", "pacing", "writing_rules",
-                 "editing_rules", "brief", "varies", "cannot_reproduce", "unsure"],
+    "required": ["summary", "canvas", "picture", "framing", "opening", "text_styles", "captions", "title", "palette", "elements", "colour",
+                 "structure", "timeline", "transitions", "ending", "pacing", "branding", "sound", "writing_rules", "editing_rules", "example_lines", "brief",
+                 "per_reference", "varies", "cannot_reproduce", "unsure", "confidence"],
     "properties": {
-        "summary": {"type": "string", "description": "Two or three plain sentences describing the style."},
+        "summary": {"type": "string", "description": "Three or four plain sentences describing the style as a whole."},
         "canvas": {"type": "string", "enum": ["9:16", "3:4", "4:5", "1:1", "16:9"]},
-        "picture": {"type": "object", "additionalProperties": False, "required": ["mode", "corners", "background", "box_position"],
+        "picture": {"type": "object", "additionalProperties": False, "required": ["mode", "corners", "background", "box_position", "box_width"],
                     "properties": {"mode": {"type": "string", "enum": ["full", "panel"]},
                                    "corners": {"type": "string", "enum": ["square", "rounded", "squircle"]},
                                    "background": {"type": "string", "enum": ["blur", "black"]},
-                                   "box_position": {"type": "number", "description": "Centre of the box, % down the frame; 50 when the picture fills the frame."}}},
+                                   "box_position": {"type": "number", "description": "Centre of the box, % down the frame; 50 when the picture fills the frame."},
+                                   "box_width": {"type": "number", "description": "Box width as % of the frame width; 100 when the picture fills the frame."}}},
+        "framing": {"type": "object", "additionalProperties": False, "required": ["subject_size", "subject_position", "movement", "note"],
+                    "properties": {"subject_size": {"type": "string", "enum": ["wide", "medium", "close", "mixed"]},
+                                   "subject_position": {"type": "string"},
+                                   "movement": {"type": "string", "enum": ["static", "follows_subject", "punch_ins", "constant_slow_zoom", "mixed", "unknown"]},
+                                   "note": {"type": "string"}}},
+        "opening": {"type": "string", "description": "What is on screen in the first frame and how the first three seconds unfold."},
+        "text_styles": {"type": "array", "items": _TEXT_ROLE, "description": "One entry for each kind of on-screen text the style uses."},
         "captions": {"type": "object", "additionalProperties": False,
                      "required": ["present", "carry", "look", "font", "uppercase", "colour", "highlight", "position", "size", "words_per_line"],
                      "properties": {"present": {"type": "boolean"},
@@ -120,22 +221,54 @@ ANALYSIS_SCHEMA = {
                                  "position": {"type": "number"},
                                  "colours": {"type": "array", "items": {"type": "string"}},
                                  "note": {"type": "string", "description": "How the title is written and styled, in one sentence."}}},
-        "elements": {"type": "array", "items": {"type": "object", "additionalProperties": False, "required": ["type", "how"],
+        "palette": {"type": "array", "description": "Every recurring colour in text and effects, and what it signals.",
+                    "items": {"type": "object", "additionalProperties": False, "required": ["colour", "meaning"],
+                              "properties": {"colour": {"type": "string"}, "meaning": {"type": "string"}}}},
+        "elements": {"type": "array", "items": {"type": "object", "additionalProperties": False, "required": ["type", "how", "when", "seconds"],
                                                  "properties": {"type": {"type": "string", "enum": ELEMENTS},
-                                                                "how": {"type": "string", "description": "When and how this style uses it, in one sentence."}}}},
-        "colour": {"type": "object", "additionalProperties": False, "required": ["brightness", "contrast", "saturation", "black_and_white", "vignette"],
+                                                                "how": {"type": "string", "description": "What it looks like and what it is used for in this style."},
+                                                                "when": {"type": "string", "description": "Where in the video it appears, e.g. 'about 1.5s in, on the main person' or 'on each scene change'."},
+                                                                "seconds": {"type": "number", "description": "Roughly how long it lasts each time."}}}},
+        "colour": {"type": "object", "additionalProperties": False, "required": ["brightness", "contrast", "saturation", "black_and_white", "vignette", "note"],
                    "properties": {"brightness": {"type": "number", "description": "1 is unchanged; 0.7 to 1.4."},
                                   "contrast": {"type": "number"}, "saturation": {"type": "number"},
-                                  "black_and_white": {"type": "boolean"}, "vignette": {"type": "boolean"}}},
-        "pacing": {"type": "string", "description": "One or two sentences on rhythm, from the measurements and how often the text changes."},
-        "writing_rules": {"type": "array", "items": {"type": "string"}},
-        "editing_rules": {"type": "array", "items": {"type": "string"}},
-        "brief": {"type": "string", "description": "One paragraph an editor could follow to make a new video in this style."},
+                                  "black_and_white": {"type": "boolean"}, "vignette": {"type": "boolean"},
+                                  "note": {"type": "string", "description": "Warmth, tint flashes and anything else about the colour."}}},
+        "structure": {"type": "array", "description": "The beats a typical video in this style goes through, in order.",
+                      "items": {"type": "object", "additionalProperties": False, "required": ["beat", "from_seconds", "to_seconds", "on_screen"],
+                                "properties": {"beat": {"type": "string"}, "from_seconds": {"type": "number"}, "to_seconds": {"type": "number"},
+                                               "on_screen": {"type": "string", "description": "What the viewer sees and reads during this beat."}}}},
+        "timeline": {"type": "array", "description": "Up to forty dated events from the references, in order: text appearing or changing, effects, freezes, speed changes, cuts that matter, music and sound cues.",
+                     "items": {"type": "object", "additionalProperties": False, "required": ["reference", "at_seconds", "kind", "what"],
+                               "properties": {"reference": {"type": "integer"}, "at_seconds": {"type": "number"},
+                                              "kind": {"type": "string", "enum": ["text", "effect", "cut", "freeze", "speed", "zoom", "sound", "music", "voice", "other"]},
+                                              "what": {"type": "string"}}}},
+        "transitions": {"type": "string", "description": "How shots change and how text and graphics arrive and leave. 'Cannot tell from stills' if no video was attached."},
+        "ending": {"type": "string", "description": "How the videos end: last text, closing animation, how abruptly."},
+        "pacing": {"type": "string", "description": "Rhythm: typical length, how often the picture cuts and the text changes, any speed changes."},
+        "branding": {"type": "string", "description": "Where logos, watermarks or a channel header sit, their size and opacity. Placement only, no names."},
+        "sound": {"type": "object", "additionalProperties": False, "required": ["music", "effects", "voice", "words_per_minute", "captions_match_speech"],
+                  "properties": {"music": {"type": "string", "description": "Genre, mood, tempo, where it rises or drops, level against the voice."},
+                                 "effects": {"type": "string", "description": "Each kind of sound effect and what on screen it lands on."},
+                                 "voice": {"type": "string", "description": "Original sound, added narrator or synthetic voice; tone and pace."},
+                                 "words_per_minute": {"type": "number", "description": "Speaking pace; 0 if nobody speaks or it cannot be heard."},
+                                 "captions_match_speech": {"type": "string", "enum": ["word_for_word", "paraphrase", "different_story", "no_speech", "unknown"]}}},
+        "writing_rules": {"type": "array", "items": {"type": "string"}, "description": "Six to twelve rules about wording."},
+        "editing_rules": {"type": "array", "items": {"type": "string"}, "description": "Six to twelve rules about how the edit is built."},
+        "example_lines": {"type": "array", "items": {"type": "string"}, "description": "Up to six short on-screen lines quoted from the references."},
+        "brief": {"type": "string", "description": "Two paragraphs an editor could follow to make a new video in this style, start to finish."},
+        "per_reference": {"type": "array", "items": {"type": "object", "additionalProperties": False, "required": ["reference", "notes"],
+                                                      "properties": {"reference": {"type": "integer"}, "notes": {"type": "string"}}}},
         "varies": {"type": "array", "items": {"type": "string"}},
         "cannot_reproduce": {"type": "array", "items": {"type": "string"}},
         "unsure": {"type": "array", "items": {"type": "string"}},
+        "confidence": {"type": "object", "additionalProperties": False, "required": ["layout", "text", "colour", "effects", "pacing", "writing"],
+                       "properties": {k: {"type": "string", "enum": ["low", "medium", "high"]} for k in ("layout", "text", "colour", "effects", "pacing", "writing")}},
     },
 }
+
+
+FRAME_BUDGET = 600   # video frames Gemini is asked to look at across all references
 
 
 def folder(pid: str) -> Path:
@@ -146,11 +279,25 @@ def _frames(video: Path, duration: float, n: int, start: float = 0.0) -> list[tu
     """n JPEG stills spread across `duration` seconds from `start`, with their source times."""
     out = []
     for i in range(n):
-        t = start + duration * (i + 0.5) / n
+        t = start + duration * (i + 0.5) / n   # with duration 0 this is exactly `start`
         r = subprocess.run([need("ffmpeg"), "-hide_banner", "-loglevel", "error", "-ss", f"{t:.2f}", "-i", str(video), "-frames:v", "1",
                             "-vf", "scale='min(768,iw)':-2", "-q:v", "4", "-f", "image2pipe", "-vcodec", "mjpeg", "-"], capture_output=True)
         if r.returncode == 0 and r.stdout:
             out.append((t, r.stdout))
+    return out
+
+
+def _study_frames(video: Path, duration: float, n: int) -> list[tuple[float, bytes]]:
+    """Stills for style analysis: the first frame and the opening seconds in close-up, the body evenly, and the ending."""
+    opening = [t for t in (0.1, 1.0, 2.0, 3.0) if t < duration * 0.5]
+    tail = [max(0.0, duration - 0.4)]
+    body_n = max(2, n - len(opening) - len(tail))
+    body = [3.5 + (duration - 4.5) * (i + 0.5) / body_n for i in range(body_n)] if duration > 6 else [duration * (i + 0.5) / body_n for i in range(body_n)]
+    out = []
+    for t in sorted(set(round(x, 2) for x in opening + body + tail)):
+        got = _frames(video, 0.0, 1, start=t)
+        if got:
+            out.append((t, got[0][1]))
     return out
 
 
@@ -168,29 +315,68 @@ def nearest_aspect(w: int, h: int) -> str:
     return min(options, key=lambda k: abs(options[k] - w / max(1, h)))
 
 
-def style_from(analysis: dict | None, refs: list[dict], brand: dict) -> dict:
-    """The part of a profile the editor applies to a clip (same shape as a template)."""
+def style_from(analysis: dict | None, refs: list[dict], brand: dict) -> tuple[dict, list[dict], str]:
+    """From a report: (the style the editor applies, standing elements, which planner suits it)."""
     from .spec import ASPECTS
     first = refs[0] if refs else {"width": 1080, "height": 1920, "fps": 30}
     aspect = (analysis or {}).get("canvas") or nearest_aspect(first["width"], first["height"])
     w, h = ASPECTS[aspect]
     style: dict = {"width": w, "height": h, "fps": 60 if first["fps"] > 45 else 30}
     if not analysis:
-        return style
+        return style, [], "speech"
     c, pic, col = analysis["captions"], analysis["picture"], analysis["colour"]
     clamp = lambda v, lo, hi: max(lo, min(hi, float(v)))
     hexc = lambda v, d: v if re.fullmatch(r"#[0-9a-fA-F]{6}", str(v or "")) else d
-    style["captions"] = {"visible": bool(c["present"]) and c["carry"] in ("speech", "narration"), "preset": c["look"], "font": c["font"],
-                         "uppercase": bool(c["uppercase"]), "color": hexc(c["colour"], "#ffffff"), "highlight": hexc(c["highlight"], brand["accent"]),
-                         "position": clamp(c["position"], 8, 92), "size": {"small": 64, "medium": 84, "large": 108}[c["size"]],
-                         "maxWords": int(clamp(c["words_per_line"], 1, 7))}
-    style["look"] = {"preset": "none", "bw": bool(col["black_and_white"]), "vignette": bool(col["vignette"]), "progressBar": any(e["type"] == "progress_bar" for e in analysis["elements"]),
+    roles = {t["role"]: t for t in analysis.get("text_styles", [])}
+    cap_text = roles.get("captions") or roles.get("story_label")
+    # caption size in the editor is in px at a 1080-wide frame, roughly 1.45x the capital height
+    size = clamp(cap_text["height_pct"] * 10.8 * 1.45, 40, 150) if cap_text and cap_text["height_pct"] > 0 else {"small": 64, "medium": 84, "large": 108}[c["size"]]
+    spoken = bool(c["present"]) and c["carry"] in ("speech", "narration")
+    style["captions"] = {"visible": spoken, "preset": c["look"], "font": c["font"], "uppercase": bool(c["uppercase"]),
+                         "color": hexc(c["colour"], "#ffffff"), "highlight": hexc(c["highlight"], brand["accent"]),
+                         "position": clamp(c["position"], 8, 92), "size": round(size), "maxWords": int(clamp(c["words_per_line"], 1, 7))}
+    style["look"] = {"preset": "none", "bw": bool(col["black_and_white"]), "vignette": bool(col["vignette"]),
+                     "progressBar": any(e["type"] == "progress_bar" for e in analysis["elements"]),
                      "brightness": clamp(col["brightness"], 0.7, 1.4), "contrast": clamp(col["contrast"], 0.7, 1.4), "saturation": clamp(col["saturation"], 0, 1.8)}
     if pic["mode"] == "panel":
-        style["frame"] = {"mode": "panel", "shape": pic["corners"], "width": 100 if pic["corners"] == "square" else 90, "aspect": 1.0,
+        style["frame"] = {"mode": "panel", "shape": pic["corners"], "width": clamp(pic.get("box_width") or 90, 50, 100), "aspect": 1.0,
                           "y": clamp(pic["box_position"], 25, 75), "bg": pic["background"]}
-    style["brand"] = {"font": c["font"]}
-    return style
+    style["brand"] = {"font": (roles.get("title") or {}).get("nearest_font") or c["font"], "accent": hexc(c["highlight"], brand["accent"])}
+    mark = roles.get("watermark")
+    if mark:
+        style["brand"]["watermarkY"] = clamp(mark["position"], 3, 98)
+    elements: list[dict] = []
+    title = analysis["title"]
+    if title["present"] and title["stays_all_video"]:
+        colour = hexc((title["colours"] or [None])[-1], style["brand"]["accent"])
+        elements.append({"type": "label", "style": "plain", "color": colour, "text": "title", "at": "start", "duration": "all",
+                         "dy": round(clamp(title["position"], 4, 96) - 50, 1), "scale": 1.0, "animation": "fade"})
+    if any(e["type"] == "heart" for e in analysis["elements"]):
+        elements.append({"type": "heart", "text": "", "at": "end", "duration": 2.2, "dy": -4})
+    return style, elements, "speech" if spoken else "story"
+
+
+def _brief(analysis: dict) -> str:
+    """The brief the AI planners get: the model's own two paragraphs plus the timed specifics from the report."""
+    parts = [analysis["brief"].strip()]
+    if analysis.get("opening"):
+        parts.append("Opening: " + analysis["opening"].strip())
+    timed = [f"{e['type'].replace('_', ' ')} ({e['when']}; about {e['seconds']:g}s): {e['how']}" for e in analysis["elements"] if e.get("when")]
+    if timed:
+        parts.append("Elements and when to use them: " + " | ".join(timed))
+    if analysis.get("palette"):
+        parts.append("Colours: " + "; ".join(f"{p['colour']} for {p['meaning']}" for p in analysis["palette"]))
+    if analysis.get("structure"):
+        parts.append("Beats: " + " -> ".join(f"{b['beat']} ({b['from_seconds']:g}-{b['to_seconds']:g}s)" for b in analysis["structure"]))
+    if analysis.get("transitions") and "cannot tell" not in analysis["transitions"].lower():
+        parts.append("Transitions: " + analysis["transitions"].strip())
+    if analysis.get("ending"):
+        parts.append("Ending: " + analysis["ending"].strip())
+    sound = analysis.get("sound") or {}
+    heard = [f"{k}: {sound[k].strip()}" for k in ("music", "effects", "voice") if sound.get(k) and "cannot" not in sound[k].lower()]
+    if heard:
+        parts.append("Sound: " + "; ".join(heard))
+    return "\n".join(parts)
 
 
 def analyse(pid: str, job: Job) -> dict:
@@ -209,21 +395,26 @@ def analyse(pid: str, job: Job) -> dict:
 
     analysis, note = None, ""
     if ai.available():
-        per = max(3, min(FRAMES_PER_REFERENCE, MAX_FRAMES // len(files)))
+        per = max(6, min(FRAMES_PER_REFERENCE, MAX_FRAMES // len(files)))
         parts: list = [_analysis_request(refs)]
         if ai.watches_video():
             # Gemini can watch the references themselves, which adds motion, timing and sound to what the stills show.
-            parts.append("The full videos are attached as well, in reference order. Use them for motion, timing and "
-                         "sound; with them you may describe music, voice and sound effects, and need not list those as unsure.")
-            parts += [{"video": f} for f in files if f.stat().st_size < 200 * 1024 * 1024]
+            # It looks at one frame a second by default; short-form edits change faster than that, so ask for more
+            # while keeping the whole request to about FRAME_BUDGET frames.
+            small = [(f, r) for f, r in zip(files, refs) if f.stat().st_size < 200 * 1024 * 1024]
+            total = sum(r["duration"] for _, r in small) or 1.0
+            fps = max(1.0, min(4.0, round(FRAME_BUDGET / total * 2) / 2))
+            if small:
+                parts.append(WATCHING.format(fps=f"{fps:g}", gap="a second" if fps <= 1 else f"1/{fps:g} of a second"))
+                parts += [{"video": f, "fps": fps if fps > 1 else None} for f, _ in small]
         for i, (f, r) in enumerate(zip(files, refs)):
             job.update(0.45 + 0.15 * i / len(files), "Picking frames to study")
-            for t, jpeg in _frames(f, r["duration"], per):
+            for t, jpeg in _study_frames(f, r["duration"], per):
                 parts.append(f"Reference {i + 1}, frame at {t:.1f}s:")
                 parts.append({"image": jpeg})
         job.update(0.62, f"Studying the style with {ai.provider_label()}")
         try:
-            analysis = ai.ask_json(ANALYSIS_SYSTEM, parts, ANALYSIS_SCHEMA, max_tokens=16000, effort="high")
+            analysis = ai.ask_json(ANALYSIS_SYSTEM, parts, ANALYSIS_SCHEMA, max_tokens=32000, effort="high")
         except ai.AIUnavailable as e:
             note = f"The AI step failed ({e}), so this style holds measurements only."
     else:
@@ -239,9 +430,12 @@ def analyse(pid: str, job: Job) -> dict:
                     learned.append({"id": f"r{int(time.time() * 1000) % 10**9}{len(learned)}", "kind": kind, "text": text.strip(), "source": "references", "on": True})
     # rules the person wrote or approved are kept; rules from an earlier analysis are replaced
     kept = [r for r in profile.get("rules", []) if r.get("source") != "references"]
+    style, elements, planner = style_from(analysis, refs, get_settings()["brand"])
     patch = {"references": [{k: r[k] for k in ("name", "file", "url", "width", "height", "fps", "duration", "cuts", "shot_seconds")} for r in refs],
-             "analysis": analysis, "note": note, "style": style_from(analysis, refs, get_settings()["brand"]),
-             "rules": kept + learned, "brief": (analysis or {}).get("brief", ""), "analysed": time.time(), "engine": ai.provider_label() if analysis else ""}
+             "analysis": analysis, "note": note, "style": style, "elements": elements, "planner": planner,
+             "summary": (analysis or {}).get("summary", profile.get("summary", "")),
+             "rules": kept + learned, "brief": _brief(analysis) if analysis else profile.get("brief", ""),
+             "analysed": time.time(), "engine": ai.provider_label() if analysis else ""}
     return profiles.update(pid, patch)
 
 
@@ -314,10 +508,13 @@ def differences(profile: dict, spec: dict) -> list[dict]:
     """What the person changed in a clip compared with the profile's style: candidates to make the new default."""
     style = profile.get("style") or {}
     out = []
+    dragged = {("captions", "x"), ("captions", "lead"), ("brand", "logoX"), ("brand", "logoY"), ("brand", "watermarkY"), ("hook", "y"), ("hook", "scale")}
     for path, label, show in _LEARN:
         now, was = _get(spec, path), _get(style, path)
         if now is None or now == was:
             continue
+        if was is None and path not in dragged:
+            continue   # the style never set this, so a difference says nothing about the person's taste
         if isinstance(now, float) and isinstance(was, (int, float)) and abs(now - was) < 0.011:
             continue
         out.append({"path": list(path), "label": label, "from": show(was) if was is not None else "not set", "to": show(now), "value": now})

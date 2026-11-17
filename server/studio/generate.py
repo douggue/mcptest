@@ -21,32 +21,37 @@ from . import ai
 
 ASPECT_SIZES = {"9:16": (1080, 1920), "16:9": (1920, 1080), "1:1": (1080, 1080), "4:5": (1080, 1350), "3:4": (1080, 1440)}
 # Shapes the image models accept through generate_content; anything else is mapped to the nearest.
-IMAGE_ASPECTS = ("1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9")
-SETTING_KEYS = ("gen_image_model", "gen_video_model", "gen_tts_model", "gen_tts_voice")
+IMAGE_ASPECTS = ("1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9")
+SETTING_KEYS = ("gen_image_model", "gen_tts_model", "gen_tts_voice", "gen_music_model")
+VIDEO_MODEL = "gemini-omni-1.2-flash"   # the only video model Cutroom uses
 
-# Suggestions only. Google renames and retires models often and none of these could be checked against the live
-# service, so every model is free text in Settings and "Load list" asks Google what the key can really use.
+# Names taken from Google's own cookbook (github.com/google-gemini/cookbook). Google renames and retires models often,
+# so every model is free text in Settings and "Load list" asks Google what the key can really use.
 KNOWN_MODELS = {
     "image": [
-        {"id": "gemini-3.1-flash-image", "label": "Gemini 3.1 Flash Image"},
-        {"id": "gemini-nano-banana-2.1", "label": "Gemini Nano Banana 2.1"},
-        {"id": "gemini-3-pro-image-preview", "label": "Gemini 3 Pro Image (preview)"},
-        {"id": "gemini-3-pro-image", "label": "Gemini 3 Pro Image"},
+        {"id": "gemini-3.1-flash-lite-image", "label": "Nano Banana 2 Lite (fastest, cheapest, has a free tier)"},
+        {"id": "gemini-3.1-flash-image", "label": "Nano Banana 2 (general purpose, up to 4K)"},
+        {"id": "gemini-nano-banana-2.1", "label": "Nano Banana 2.1 (higher fidelity)"},
+        {"id": "gemini-3-pro-image-preview", "label": "Nano Banana Pro (best text in images, 4K)"},
     ],
     "video": [
-        {"id": "veo-3.1-generate-preview", "label": "Veo 3.1 (preview)"},
-        {"id": "gemini-omni-1.2-flash", "label": "Gemini Omni 1.2 Flash"},
-        {"id": "gemini-omni-1.1-flash", "label": "Gemini Omni 1.1 Flash"},
+        {"id": "gemini-omni-1.2-flash", "label": "Gemini Omni 1.2 Flash (3 to 15 s, with sound)"},
     ],
     "tts": [
-        {"id": "gemini-3.8-flash-lite-tts", "label": "Gemini 3.8 Flash Lite TTS"},
         {"id": "gemini-3.8-flash-tts", "label": "Gemini 3.8 Flash TTS"},
-        {"id": "gemini-3.1-flash-tts-preview", "label": "Gemini 3.1 Flash TTS (preview)"},
+        {"id": "gemini-3.8-flash-lite-tts", "label": "Gemini 3.8 Flash Lite TTS (cheaper)"},
+    ],
+    "music": [
+        {"id": "lyria-3-clip-preview", "label": "Lyria 3 Clip (30-second clips and loops)"},
+        {"id": "lyria-3.5", "label": "Lyria 3.5 (full songs up to 3 minutes)"},
+        {"id": "lyria-3-pro-preview", "label": "Lyria 3 Pro (full songs)"},
     ],
 }
-# Prebuilt voice names; the field is free text, so any voice Google adds can be typed in.
-KNOWN_VOICES = ["Puck", "Charon", "Kore", "Fenrir", "Aoede", "Zephyr", "Leda", "Orus"]
+# Some of the thirty prebuilt voices; the field is free text, so any other can be typed in.
+KNOWN_VOICES = ["Kore", "Puck", "Charon", "Aoede", "Fenrir", "Enceladus", "Zephyr", "Leda", "Orus"]
 EDGE_VOICES = ["en-US-GuyNeural", "en-US-JennyNeural", "en-US-AriaNeural", "en-GB-RyanNeural", "en-GB-SoniaNeural"]
+# Clip lengths Omni accepts, from Google's documentation.
+OMNI_SECONDS = (3, 15)
 
 _DECLINED = {"SAFETY", "IMAGE_SAFETY", "PROHIBITED_CONTENT", "IMAGE_PROHIBITED_CONTENT", "BLOCKLIST", "SPII",
              "RECITATION", "IMAGE_RECITATION", "LANGUAGE"}
@@ -159,7 +164,7 @@ def _row(kind: str, path: Path) -> dict:
 def _image_aspect(aspect: str) -> str:
     if aspect in IMAGE_ASPECTS:
         return aspect
-    return {"4:5": "3:4", "5:4": "4:3"}.get(aspect, "1:1")
+    return "1:1"
 
 
 # ---------------------------------------------------------------- images
@@ -186,8 +191,9 @@ def image_bytes(prompt: str, aspect: str, model: str | None = None) -> tuple[byt
         if not _can_fall_back(first):
             raise _error(first, model) from first
         try:   # some models only answer through the newer Interactions endpoint
-            it = client.interactions.create(model=model, input=prompt, response_format={"type": "image", "aspect_ratio": aspect})
-            if it.status != "completed":
+            it = client.interactions.create(model=model, input=prompt, response_modalities=["image"],
+                                            response_format={"type": "image", "aspect_ratio": _image_aspect(aspect)})
+            if it.status not in (None, "completed"):
                 raise _interaction_failed(it)
             return _content_bytes(it.output_image, model)
         except MediaError:
@@ -199,7 +205,7 @@ def image_bytes(prompt: str, aspect: str, model: str | None = None) -> tuple[byt
 def _imagen(client, model: str, prompt: str, aspect: str) -> tuple[bytes, str]:
     """Imagen's own endpoint, kept only for someone who types an Imagen model name."""
     from google.genai import types
-    shape = aspect if aspect in ("1:1", "3:4", "4:3", "9:16", "16:9") else _image_aspect(aspect)
+    shape = aspect if aspect in ("1:1", "3:4", "4:3", "9:16", "16:9") else {"4:5": "3:4", "5:4": "4:3"}.get(aspect, "1:1")
     try:
         import warnings
         with warnings.catch_warnings():
@@ -254,43 +260,65 @@ def _chunks(text: str, limit: int = 2400) -> list[str]:
     return out
 
 
+def _save_audio(data: bytes, mime: str, dest: Path, rate: int = 24000) -> Path:
+    """Write returned audio next to `dest` with the right suffix. Complete WAV files start with RIFF; bare samples
+    (audio/L16) are wrapped so players can open them."""
+    mime = (mime or "").lower()
+    if data[:4] == b"RIFF":
+        out = dest.with_suffix(".wav")
+    elif data[:3] == b"ID3" or "mp3" in mime or "mpeg" in mime:
+        out = dest.with_suffix(".mp3")
+    elif data[:4] == b"OggS" or "ogg" in mime or "opus" in mime:
+        out = dest.with_suffix(".ogg")
+    elif data[:4] == b"fLaC" or "flac" in mime:
+        out = dest.with_suffix(".flac")
+    elif "l16" in mime or "pcm" in mime or not mime:
+        m = re.search(r"rate=(\d+)", mime)
+        out = dest.with_suffix(".wav")
+        _wav(data, int(m.group(1)) if m else rate, out)
+        return out
+    else:
+        out = dest.with_suffix(".m4a" if "mp4" in mime or "aac" in mime else ".wav")
+    out.write_bytes(data)
+    return out
+
+
 def _gemini_speech(text: str, dest: Path, voice: str, style: str, model: str) -> Path:
-    """Speak one chunk into `dest` (suffix is set from what comes back). Returns the file written."""
+    """Speak one chunk into `dest` (suffix is set from what comes back). Returns the file written.
+
+    The 3.8 speech models read `text` aloud exactly as written, so the delivery ("calm and warm", an accent, a pace)
+    travels separately as speech_metadata; putting it in the text would make the voice read the instruction out.
+    """
     client = _client()
     from google.genai import types
-    prompt = f"{style.strip().rstrip(':')}: {text}" if style and style.strip() else text
+    style = (style or "").strip()
+    turn: dict = {"type": "text", "text": text}
+    if style:
+        turn["annotations"] = [{"type": "speech_metadata", "style": style}]
     try:
-        response = client.models.generate_content(
-            model=model, contents=prompt,
-            config=types.GenerateContentConfig(
-                response_modalities=["AUDIO"],
-                speech_config=types.SpeechConfig(voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)))))
-        data, mime = _inline(response, "audio/")
+        it = client.interactions.create(model=model, input=[turn], response_format={"type": "audio"},
+                                        generation_config={"speech_config": [{"voice": voice}]})
+        if it.status not in (None, "completed"):
+            raise _interaction_failed(it)
+        data, mime = _content_bytes(it.output_audio, model)
     except MediaError:
         raise
     except Exception as first:
         if not _can_fall_back(first):
             raise _error(first, model) from first
-        try:
-            it = client.interactions.create(model=model, input=prompt, response_format={"type": "audio", "mime_type": "audio/wav"},
-                                            generation_config={"speech_config": {"voice": voice}})
-            if it.status != "completed":
-                raise _interaction_failed(it)
-            data, mime = _content_bytes(it.output_audio, model)
+        try:   # older speech models answer through generate_content and take the delivery as a prefix
+            response = client.models.generate_content(
+                model=model, contents=f"{style.rstrip(':')}: {text}" if style and "3.8" not in model else text,
+                config=types.GenerateContentConfig(
+                    response_modalities=["AUDIO"],
+                    speech_config=types.SpeechConfig(voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)))))
+            data, mime = _inline(response, "audio/")
         except MediaError:
             raise
         except Exception:
             raise _error(first, model) from first
-    mime = mime.lower()
-    if "l16" in mime or "pcm" in mime:   # raw samples: wrap them so players can open the file
-        m = re.search(r"rate=(\d+)", mime)
-        out = dest.with_suffix(".wav")
-        _wav(data, int(m.group(1)) if m else 24000, out)
-        return out
-    out = dest.with_suffix(".mp3" if "mp3" in mime or "mpeg" in mime else ".ogg" if "ogg" in mime else ".wav")
-    out.write_bytes(data)
-    return out
+    return _save_audio(data, mime, dest)
 
 
 def _edge_speech(text: str, dest: Path, voice: str) -> Path:
@@ -354,6 +382,39 @@ def speech(text: str, job: Job, provider: str = "gemini", voice: str | None = No
     return row
 
 
+# ---------------------------------------------------------------- music
+
+def music(prompt: str, job: Job, model: str | None = None, instrumental: bool = True) -> dict:
+    """A generated music track, saved to the Library's music. Lyria writes lyrics too unless told not to."""
+    prompt = (prompt or "").strip()
+    if not prompt:
+        raise MediaError("Describe the music first.")
+    client = _client()
+    model = model or get_settings().get("gen_music_model") or KNOWN_MODELS["music"][0]["id"]
+    ask = f"{prompt.rstrip('.')}. Instrumental only, no vocals." if instrumental and "instrumental" not in prompt.lower() else prompt
+    job.update(0.1, "Asking Google for music (this can take a minute)")
+    try:
+        it = client.interactions.create(model=model, input=ask, response_modalities=["audio", "text"])
+    except Exception as e:
+        raise _error(e, model) from e
+    if it.status not in (None, "completed"):
+        raise _interaction_failed(it)
+    data, mime = _content_bytes(it.output_audio, model)
+    job.update(0.9, "Saving the track")
+    work = DATA / "tmp" / f"music_{job.id}"
+    work.mkdir(parents=True, exist_ok=True)
+    try:
+        made = _save_audio(data, mime, work / "track", rate=48000)
+        out = unique_path(DATA / "assets" / "music", safe_name(prompt[:48], "music"), made.suffix.lstrip("."))
+        shutil.move(str(made), str(out))
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    row = _row("music", out)
+    row["duration"] = probe(out)["duration"]
+    row["lyrics"] = "" if instrumental else (it.output_text or "")
+    return row
+
+
 # ---------------------------------------------------------------- video
 
 def _video_aspect(aspect: str) -> str:
@@ -382,58 +443,12 @@ def _wait(job: Job, started: float, cancel) -> None:
 POLL_FAST, POLL_SLOW = 5.0, 10.0
 
 
-def _video_operation(client, model: str, prompt: str, shape: str, seconds: float | None, image: tuple[bytes, str] | None,
-                     job: Job) -> bytes | None:
-    """Veo's long-running operation. Returns None when this SDK does not offer it for an AI Studio key."""
-    from google.genai import types
-    cfg: dict = {"aspect_ratio": shape}
-    if seconds:
-        cfg["duration_seconds"] = int(round(float(seconds)))
-    source = types.GenerateVideosSource(
-        prompt=prompt or None, image=types.Image(image_bytes=image[0], mime_type=image[1]) if image else None)
-    try:
-        op = client.models.generate_videos(model=model, source=source, config=types.GenerateVideosConfig(**cfg))
-    except ValueError as e:
-        if "only supported" in str(e):
-            return None
-        raise MediaError(str(e)) from e
-    except Exception as e:
-        raise _error(e, model) from e
-    started = time.time()
-    while not op.done:
-        _wait(job, started, lambda: None)
-        try:
-            op = client.operations.get(op)
-        except Exception as e:
-            raise _error(e, model) from e
-    if op.error:
-        detail = op.error.get("message") if isinstance(op.error, dict) else getattr(op.error, "message", "")
-        raise MediaError(f"Generation failed: {detail}" if detail else "Generation failed at Google.")
-    result = op.result or op.response
-    videos = (result.generated_videos if result else None) or []
-    if not videos or videos[0].video is None:
-        if result is not None and (result.rai_media_filtered_count or result.rai_media_filtered_reasons):
-            raise MediaError("Google declined this prompt. Try rewording it.")
-        raise MediaError("The model finished but returned no clip.")
-    clip = videos[0].video
-    if clip.video_bytes:
-        return bytes(clip.video_bytes)
-    job.update(0.93, "Downloading the clip")
-    try:
-        data = client.files.download(file=clip)
-    except Exception as e:
-        if clip.uri:
-            return _download(clip.uri, model)
-        raise _error(e, model) from e
-    return bytes(data or clip.video_bytes or b"")
-
-
 def _video_interaction(client, model: str, prompt: str, shape: str, seconds: float | None, image: tuple[bytes, str] | None,
                        job: Job) -> bytes:
     """The Interactions endpoint, run in the background on Google's side and polled until it is done."""
     fmt: dict = {"type": "video", "aspect_ratio": shape}
     if seconds:
-        fmt["duration"] = f"{int(round(float(seconds)))}s"
+        fmt["duration"] = f"{max(OMNI_SECONDS[0], min(OMNI_SECONDS[1], int(round(float(seconds)))))}s"
     payload: object = prompt
     if image:
         payload = [{"type": "image", "data": base64.b64encode(image[0]).decode(), "mime_type": image[1]}]
@@ -456,14 +471,12 @@ def _video_interaction(client, model: str, prompt: str, shape: str, seconds: flo
     return _content_bytes(it.output_video, model)[0]
 
 
-def video(prompt: str, aspect: str, seconds: float | None, job: Job, model: str | None = None,
-          image_url: str | None = None) -> dict:
-    """A short generated clip (usually about eight seconds). Takes minutes; progress is elapsed time, not a percentage."""
+def video(prompt: str, aspect: str, seconds: float | None, job: Job, image_url: str | None = None) -> dict:
+    """A short clip from Gemini Omni 1.2 Flash (3 to 15 seconds, with sound). Takes minutes; progress is elapsed time, not a percentage."""
     prompt = (prompt or "").strip()
     if not prompt and not image_url:
         raise MediaError("Describe the clip first.")
     client = _client()
-    model = model or get_settings().get("gen_video_model") or KNOWN_MODELS["video"][0]["id"]
     shape = _video_aspect(aspect)
     image = None
     if image_url:
@@ -472,11 +485,7 @@ def video(prompt: str, aspect: str, seconds: float | None, job: Job, model: str 
             raise MediaError("The starting image no longer exists.")
         image = (src.read_bytes(), {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}.get(src.suffix.lower(), "image/png"))
     job.update(0.03, "Sending the request to Google")
-    data = None
-    if model.lower().startswith("veo"):
-        data = _video_operation(client, model, prompt, shape, seconds, image, job)
-    if data is None:   # not a Veo model, or this SDK only offers video through the Interactions endpoint
-        data = _video_interaction(client, model, prompt, shape, seconds, image, job)
+    data = _video_interaction(client, VIDEO_MODEL, prompt, shape, seconds, image, job)
     if not data:
         raise MediaError("The model finished but the clip was empty.")
     out = unique_path(DATA / "assets" / "broll", safe_name(prompt[:48] or "clip", "clip"), "mp4")
@@ -490,12 +499,14 @@ def video(prompt: str, aspect: str, seconds: float | None, job: Job, model: str 
 
 def _classify(name: str) -> str | None:
     n = name.lower()
-    if any(x in n for x in ("embedding", "live", "robotics", "computer-use", "transcribe", "lyria", "aqa", "gemma")):
+    if any(x in n for x in ("embedding", "live", "robotics", "computer-use", "transcribe", "realtime", "aqa", "gemma")):
         return None
+    if "lyria" in n:
+        return "music"
     if "tts" in n:
         return "tts"
     if "veo" in n or "omni" in n:
-        return "video"
+        return None   # video is fixed to Gemini Omni 1.2 Flash
     if n.startswith("imagen"):
         return None   # Imagen's own endpoint is not available with an AI Studio key in this SDK
     if "image" in n or "banana" in n:
@@ -529,7 +540,7 @@ def options(live: bool = False) -> dict:
                     voices.append(label)
         except Exception:
             note = "Voices could not be listed, so only the built-in suggestions are shown."
-    for kind, key in (("image", "gen_image_model"), ("video", "gen_video_model"), ("tts", "gen_tts_model")):
+    for kind, key in (("image", "gen_image_model"), ("tts", "gen_tts_model"), ("music", "gen_music_model")):
         if s.get(key) and all(m["id"] != s[key] for m in models[kind]):
             models[kind].insert(0, {"id": s[key], "label": s[key]})
     if s.get("gen_tts_voice") and s["gen_tts_voice"] not in voices:

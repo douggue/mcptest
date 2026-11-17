@@ -31,16 +31,16 @@ DEFAULT_SETTINGS = {
     "anthropic_api_key": "",          # falls back to ANTHROPIC_API_KEY in the environment
     "ai_model": "claude-opus-5-5",
     "gemini_api_key": "",             # falls back to GEMINI_API_KEY / GOOGLE_API_KEY in the environment
-    "gemini_model": "gemini-flash-latest",
+    "gemini_model": "gemini-4-hydrogen",
     "whisper_model": "small",         # tiny | base | small | medium | large-v3
     "copy_folder": "",                # e.g. your Google Drive desktop folder; finished files are copied here
     "pexels_api_key": "",             # optional, for stock b-roll search
     # Generation through Google AI Studio (uses the Gemini key). These are defaults that may need changing:
     # model names change often, so each is free text and the Generate page can load the live list.
-    "gen_image_model": "gemini-3.1-flash-image",
-    "gen_video_model": "veo-3.1-generate-preview",
-    "gen_tts_model": "gemini-3.8-flash-lite-tts",
-    "gen_tts_voice": "Puck",
+    "gen_image_model": "gemini-3.1-flash-lite-image",
+    "gen_tts_model": "gemini-3.8-flash-tts",
+    "gen_tts_voice": "Kore",
+    "gen_music_model": "lyria-3-clip-preview",
     "tts_voice": "en-US-GuyNeural",
     "flow_enabled": False,            # optional flow-mcp connector (desktop edition only); off unless the user turns it on
     "flow_mcp_path": "",              # folder where flow-mcp is installed (the one containing dist/index.js)

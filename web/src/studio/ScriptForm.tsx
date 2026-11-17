@@ -8,8 +8,8 @@ import { Button, Field, JobBar, Seg, Slider, toast, toastError, useJobRunner } f
 
 export type GenOptions = {
   key: boolean; ai: boolean; live: boolean; note: string;
-  settings: { gen_image_model: string; gen_video_model: string; gen_tts_model: string; gen_tts_voice: string };
-  edge_voice: string; models: Record<'image' | 'video' | 'tts', { id: string; label: string }[]>;
+  settings: { gen_image_model: string; gen_tts_model: string; gen_tts_voice: string; gen_music_model: string };
+  edge_voice: string; models: Record<'image' | 'video' | 'tts' | 'music', { id: string; label: string }[]>;
   voices: string[]; edge_voices: string[]; aspects: Record<string, [number, number]>;
 };
 

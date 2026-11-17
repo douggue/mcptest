@@ -140,3 +140,20 @@
 .el-handle { position: absolute; right: -7px; bottom: -7px; width: 13px; height: 13px; border-radius: 3px; background: #fff; border: 2px solid var(--accent); pointer-events: auto; cursor: nwse-resize; }
 .guide-v { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--accent); pointer-events: none; }
 .stage-hint { text-align: center; font-size: 12px; color: var(--faint); margin-top: -4px; }
+
+/* style report */
+.style-report { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+.report-section { display: flex; flex-direction: column; gap: 6px; }
+.report-section h4 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.report-section > summary { cursor: pointer; }
+.report-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.report-card { display: flex; flex-direction: column; gap: 4px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--surface-2); }
+.swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, .25); flex: none; }
+.report-beats { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.report-quote { padding-left: 10px; border-left: 2px solid var(--accent); }
+.report-table { width: auto; border-collapse: collapse; font-size: 12.5px; margin-top: 6px; }
+.report-table td:last-child { width: 100%; }
+.report-table td { padding: 3px 8px 3px 0; vertical-align: top; }
+.pill.conf-high { color: var(--good); }
+.pill.conf-medium { color: var(--accent); }
+.pill.conf-low { color: var(--bad); }

@@ -54,7 +54,7 @@ def make_image(body: dict) -> dict:
 
 @router.post("/video")
 def make_video(body: dict) -> dict:
-    """{prompt, aspect?, seconds?, model?, image_url?, confirm: true} -> job -> library row (+ note)"""
+    """{prompt, aspect?, seconds?, image_url?, confirm: true} -> job -> library row (+ note). Always Gemini Omni 1.2 Flash."""
     if body.get("confirm") is not True:
         raise HTTPException(422, "Video generation is billed by Google per clip. Confirm before starting.")
     prompt = _text(body, "prompt", 4000)
@@ -67,11 +67,10 @@ def make_video(body: dict) -> dict:
         seconds = float(seconds) if seconds not in (None, "", 0) else None
     except (TypeError, ValueError):
         raise HTTPException(422, "Length must be a number of seconds.")
-    if seconds is not None and not 1 <= seconds <= 60:
-        raise HTTPException(422, "Length must be between 1 and 60 seconds.")
-    model = _text(body, "model", 120) or None
+    if seconds is not None and not 3 <= seconds <= 15:
+        raise HTTPException(422, "Length must be between 3 and 15 seconds.")
     return {"job_id": jobs.submit("gen-video", "Generating clip",
-                                  lambda job: generate.video(prompt, aspect, seconds, job, model, image_url)).id}
+                                  lambda job: generate.video(prompt, aspect, seconds, job, image_url)).id}
 
 
 @router.post("/speech")
@@ -84,6 +83,17 @@ def make_speech(body: dict) -> dict:
     voice, style, model = _text(body, "voice", 80) or None, _text(body, "style", 300) or None, _text(body, "model", 120) or None
     return {"job_id": jobs.submit("gen-speech", "Generating voiceover",
                                   lambda job: generate.speech(text, job, provider, voice, style, model)).id}
+
+
+@router.post("/music")
+def make_music(body: dict) -> dict:
+    """{prompt, instrumental?: true, model?} -> job -> library row in music (+ duration, lyrics)"""
+    prompt = _text(body, "prompt", 4000)
+    if not prompt:
+        raise HTTPException(422, "Describe the music first.")
+    model = _text(body, "model", 120) or None
+    instrumental = body.get("instrumental") is not False
+    return {"job_id": jobs.submit("gen-music", "Generating music", lambda job: generate.music(prompt, job, model, instrumental)).id}
 
 
 @router.post("/from-script")

@@ -468,6 +468,7 @@ def direct(frames: list[tuple[float, bytes]], words: list[dict], duration: float
         parts.append({"image": jpeg})
     data = ai.ask_json(DIRECT_SYSTEM, parts, _DIRECT_SCHEMA, max_tokens=16000, effort="high")
     clamp = lambda v, lo, hi: max(lo, min(hi, float(v)))
+    data["elements"] = [e for e in data["elements"] if e.get("type") in DIRECT_TYPES and e["at_seconds"] < duration]
     data["elements"] = [{**e, "at_seconds": clamp(e["at_seconds"], 0, max(0, duration - 0.2)), "seconds": clamp(e["seconds"], 0.15, duration)} for e in data["elements"]]
     data["freezes"] = [{"at_seconds": clamp(f["at_seconds"], 0, duration), "seconds": clamp(f["seconds"], 0.3, 4)} for f in data["freezes"]]
     data["speeds"] = [{"from_seconds": clamp(x["from_seconds"], 0, duration), "to_seconds": clamp(x["to_seconds"], 0, duration), "rate": clamp(x["rate"], 0.4, 4)}

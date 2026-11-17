@@ -9,3 +9,4 @@
 .confirm-row input { margin-top: 2px; accent-color: var(--accent); width: 15px; height: 15px; flex: none; }
 @media (max-width: 980px) { .gen-grid { grid-template-columns: minmax(0, 1fr); } }
 .narrow-panel { max-width: 780px; }
+.gen-lyrics { white-space: pre-wrap; font: inherit; margin: 6px 0 0; max-height: 160px; overflow: auto; }

@@ -28,9 +28,26 @@ export type StyleElement = {
   type: string; style?: string; color?: string; text: string; at: 'start' | 'end' | number; duration: 'all' | number;
   dx?: number; dy?: number; scale?: number; animation?: string;
 };
+export type StyleTextRole = {
+  role: string; lettering: string; nearest_font: string; uppercase: boolean; italic: boolean; height_pct: number; colour: string;
+  accents: { colour: string; used_for: string }[]; outline: string; shadow_or_glow: string; box: string; position: number; align: string;
+  lines: number; words_per_line: number; arrives: string; stays_seconds: number; used_for: string;
+};
+/** The AI's report on a set of references. Older reports lack the newer sections, so most are optional. */
 export type StyleAnalysis = {
   summary: string; pacing: string; varies: string[]; cannot_reproduce: string[]; unsure: string[];
-  elements: { type: string; how: string }[]; title: { present: boolean; note: string };
+  elements: { type: string; how: string; when?: string; seconds?: number }[]; title: { present: boolean; note: string };
+  canvas?: string; opening?: string; ending?: string; transitions?: string; branding?: string;
+  picture?: { mode: string; corners: string; background: string; box_position: number; box_width: number };
+  framing?: { subject_size: string; subject_position: string; movement: string; note: string };
+  text_styles?: StyleTextRole[];
+  palette?: { colour: string; meaning: string }[];
+  colour?: { brightness: number; contrast: number; saturation: number; black_and_white: boolean; vignette: boolean; note: string };
+  structure?: { beat: string; from_seconds: number; to_seconds: number; on_screen: string }[];
+  timeline?: { reference: number; at_seconds: number; kind: string; what: string }[];
+  sound?: { music: string; effects: string; voice: string; words_per_minute?: number; captions_match_speech?: string };
+  example_lines?: string[]; per_reference?: { reference: number; notes: string }[];
+  confidence?: Record<string, 'low' | 'medium' | 'high'>;
 };
 export type StyleProfile = {
   id: string; name: string; builtin?: boolean; draft?: boolean; summary?: string; planner: 'speech' | 'story';

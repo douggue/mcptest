@@ -6,16 +6,16 @@ import { useState } from 'react';
 
 import { api } from '../api';
 import { ASPECTS, GenOptions, ScriptForm, VoiceFields, useGenOptions } from '../studio/ScriptForm';
-import { Button, Empty, Field, JobBar, Panel, Seg, fmtBytes, fmtDur, toast, toastError, useJobRunner } from '../ui';
+import { Button, Empty, Field, JobBar, Panel, Seg, Toggle, fmtBytes, fmtDur, toast, toastError, useJobRunner } from '../ui';
 
-type Row = { name: string; label: string; url: string; size: number; type: 'image' | 'video' | 'gif' | 'audio'; id: string; note?: string; duration?: number };
-type Kind = 'image' | 'video' | 'tts';
-type Tab = 'image' | 'video' | 'voice' | 'script' | 'flow';
+type Row = { name: string; label: string; url: string; size: number; type: 'image' | 'video' | 'gif' | 'audio'; id: string; note?: string; duration?: number; lyrics?: string };
+type Kind = 'image' | 'tts' | 'music';
+type Tab = 'image' | 'video' | 'voice' | 'music' | 'script' | 'flow';
 const TABS: { value: Tab; label: string }[] = [
-  { value: 'image', label: 'Image' }, { value: 'video', label: 'Video' }, { value: 'voice', label: 'Voice' }, { value: 'script', label: 'From a script' },
+  { value: 'image', label: 'Image' }, { value: 'video', label: 'Video' }, { value: 'voice', label: 'Voice' }, { value: 'music', label: 'Music' }, { value: 'script', label: 'From a script' },
   { value: 'flow', label: 'Google Flow' },
 ];
-const SETTING: Record<Kind, 'gen_image_model' | 'gen_video_model' | 'gen_tts_model'> = { image: 'gen_image_model', video: 'gen_video_model', tts: 'gen_tts_model' };
+const SETTING: Record<Kind, 'gen_image_model' | 'gen_tts_model' | 'gen_music_model'> = { image: 'gen_image_model', tts: 'gen_tts_model', music: 'gen_music_model' };
 
 /**
  * Model choice for one kind of generation. Free text, because Google renames and retires models often: the value
@@ -55,7 +55,7 @@ function ModelPicker({ kind, opts, setOpts }: { kind: Kind; opts: GenOptions; se
       </div>
       <datalist id={listId}>{opts.models[kind].map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</datalist>
       <span className="field-hint">
-        {opts.live ? 'Showing the models Google lists for your key.' : 'This is a default that may need changing: model names change often.'} If a model is refused, press Load list and pick another, or type its name.
+        {opts.live ? 'Showing the models Google lists for your key.' : 'Suggestions come from Google\'s documentation; names change over time.'} If a model is refused, press Load list and pick another, or type its name.
       </span>
     </div>
   );
@@ -74,6 +74,7 @@ function Results({ rows, where }: { rows: Row[]; where: string }) {
             <a href={r.url} download>Download</a>
           </div>
           {r.note && <div className="small muted">{r.note}</div>}
+          {r.lyrics && <details className="small muted"><summary>Lyrics</summary><pre className="gen-lyrics">{r.lyrics}</pre></details>}
         </div>
       ))}
     </div>
@@ -97,7 +98,7 @@ function ImageTab({ opts, setOpts }: { opts: GenOptions; setOpts: (o: GenOptions
         <Field label="Describe the picture" hint="Say what is in it, where, and the mood. Ask for no text in the image.">
           <textarea rows={4} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g. a paper cup of coffee on a bedside table at night, warm lamp light, shallow focus" />
         </Field>
-        <Field label="Shape" hint={aspect === '4:5' ? 'Image models have no 4:5, so this is made 3:4 and cropped when placed.' : undefined}>
+        <Field label="Shape" >
           <Seg small value={aspect} onChange={setAspect} options={ASPECTS} />
         </Field>
         <ModelPicker kind="image" opts={opts} setOpts={setOpts} />
@@ -112,7 +113,7 @@ function ImageTab({ opts, setOpts }: { opts: GenOptions; setOpts: (o: GenOptions
   );
 }
 
-function VideoTab({ opts, setOpts }: { opts: GenOptions; setOpts: (o: GenOptions) => void }) {
+function VideoTab({ opts }: { opts: GenOptions }) {
   const [prompt, setPrompt] = useState('');
   const [aspect, setAspect] = useState('9:16');
   const [seconds, setSeconds] = useState('');
@@ -133,17 +134,17 @@ function VideoTab({ opts, setOpts }: { opts: GenOptions; setOpts: (o: GenOptions
           <textarea rows={4} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g. slow push-in on steam rising from a coffee cup, morning window light" />
         </Field>
         <div className="grid-2">
-          <Field label="Shape" hint="Video models make 9:16 or 16:9.">
+          <Field label="Shape">
             <Seg small value={aspect} onChange={setAspect} options={[{ value: '9:16', label: '9:16' }, { value: '16:9', label: '16:9' }]} />
           </Field>
-          <Field label="Length" hint="Clips are short, usually about eight seconds.">
+          <Field label="Length">
             <select value={seconds} onChange={(e) => setSeconds(e.target.value)}>
-              <option value="">Model default</option>
-              {[4, 6, 8].map((s) => <option key={s} value={s}>{s} seconds</option>)}
+              <option value="">10 seconds (default)</option>
+              {[3, 5, 8, 12, 15].map((s) => <option key={s} value={s}>{s} seconds</option>)}
             </select>
           </Field>
         </div>
-        <ModelPicker kind="video" opts={opts} setOpts={setOpts} />
+        <div className="field"><span className="field-label">Model</span><span className="small">Gemini Omni 1.2 Flash <span className="muted">· 3 to 15 seconds, with sound</span></span></div>
         <label className="confirm-row">
           <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
           <span>I understand this clip is billed by Google per use, costs much more than an image, and can take several minutes.</span>
@@ -184,7 +185,7 @@ function VoiceTab({ opts, setOpts }: { opts: GenOptions; setOpts: (o: GenOptions
         <VoiceFields opts={opts} provider={provider} setProvider={setProvider} voice={voice} setVoice={setVoice} />
         {provider === 'gemini' && (
           <>
-            <Field label="How to say it (optional)">
+            <Field label="How to say it (optional)" hint="Tone, pace or accent. In the narration itself you can write <short pause>, <long pause>, <laugh> or <sigh>.">
               <input type="text" value={style} onChange={(e) => setStyle(e.target.value)} placeholder="e.g. warm, unhurried documentary narrator" />
             </Field>
             <ModelPicker kind="tts" opts={opts} setOpts={setOpts} />
@@ -201,6 +202,36 @@ function VoiceTab({ opts, setOpts }: { opts: GenOptions; setOpts: (o: GenOptions
   );
 }
 
+function MusicTab({ opts, setOpts }: { opts: GenOptions; setOpts: (o: GenOptions) => void }) {
+  const [prompt, setPrompt] = useState('');
+  const [instrumental, setInstrumental] = useState(true);
+  const [rows, setRows] = useState<Row[]>([]);
+  const { job, run, busy } = useJobRunner();
+  async function make() {
+    try {
+      const row = await run<Row>(() => api.post('/api/generate/music', { prompt: prompt.trim(), instrumental }));
+      setRows((r) => [row, ...r]);
+    } catch (e) { toastError(e); }
+  }
+  return (
+    <div className="gen-grid">
+      <Panel title="New track">
+        <Field label="Describe the music" hint="Say the genre, mood, instruments, tempo (for example 90 BPM) and length.">
+          <textarea rows={4} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="e.g. 30 seconds of tense, slow cinematic strings with a soft piano, building towards the end" />
+        </Field>
+        <Toggle label="Instrumental only (no singing)" checked={instrumental} onChange={setInstrumental} />
+        <ModelPicker kind="music" opts={opts} setOpts={setOpts} />
+        <div className="notice">Each track is billed by Google to your AI Studio account. The Clip model makes 30-second pieces; the full models make songs up to three minutes.</div>
+        <JobBar job={job} />
+        <div className="row"><Button variant="primary" icon="sparkle" onClick={make} busy={busy} disabled={!prompt.trim() || !opts.key}>Generate music</Button></div>
+      </Panel>
+      <Panel title="Results" actions={<a className="btn small ghost" href="#/library">Library → Music</a>}>
+        <Results rows={rows} where="Library → Music" />
+      </Panel>
+    </div>
+  );
+}
+
 export default function Generate() {
   const [tab, setTab] = useState<Tab>('image');
   const { opts, setOpts } = useGenOptions();
@@ -210,11 +241,11 @@ export default function Generate() {
       <div className="page-head">
         <div>
           <h1>Generate</h1>
-          <p>Make images, clips and voiceovers with Google's models, or a whole narrated video from a script. Everything is saved to your Library.</p>
+          <p>Make images, clips, voiceovers and music with Google's models, or a whole narrated video from a script. Everything is saved to your Library.</p>
         </div>
       </div>
       {opts && !opts.key && (
-        <div className="notice warn">Images, clips and Google voices need a Gemini API key. <a href="#/settings">Add one under Settings → AI</a>. The free voices on the Voice tab work without it.</div>
+        <div className="notice warn">Images, clips, music and Google voices need a Gemini API key. <a href="#/settings">Add one under Settings → AI</a>. The free voices on the Voice tab work without it.</div>
       )}
       <div className="tabs-line" role="tablist">
         {TABS.map((x) => <button key={x.value} role="tab" aria-selected={tab === x.value} className={tab === x.value ? 'on' : ''} onClick={() => setTab(x.value)}>{x.label}</button>)}
@@ -222,8 +253,9 @@ export default function Generate() {
       {!opts ? <Empty icon="sparkle" title="Loading…" /> : (
         <>
           {tab === 'image' && <ImageTab opts={opts} setOpts={setOpts} />}
-          {tab === 'video' && <VideoTab opts={opts} setOpts={setOpts} />}
+          {tab === 'video' && <VideoTab opts={opts} />}
           {tab === 'voice' && <VoiceTab opts={opts} setOpts={setOpts} />}
+          {tab === 'music' && <MusicTab opts={opts} setOpts={setOpts} />}
           {tab === 'script' && (
             <Panel title="Video from a script" className="narrow-panel">
               <p className="muted">Cutroom writes or takes a script, records the narration, generates a picture for each scene, and joins them into a video. It opens in the editor with captions, ready for music, graphics and export.</p>

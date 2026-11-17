@@ -17,12 +17,15 @@ CLAUDE_MODELS = [
     {"id": "claude-haiku-5-5", "label": "Claude Haiku 5.5"},
     {"id": "claude-fable-5-2", "label": "Claude Fable 5.2"},
 ]
-# "-latest" names follow Google's current model, so they keep working as versions are retired.
+# Names and descriptions are taken from Google's own cookbook; "Load list" in Settings asks Google what a key can use.
 GEMINI_MODELS = [
-    {"id": "gemini-flash-latest", "label": "Gemini Flash (latest; default, works on the free tier)"},
-    {"id": "gemini-pro-latest", "label": "Gemini Pro (latest; strongest)"},
-    {"id": "gemini-flash-lite-latest", "label": "Gemini Flash-Lite (latest; cheapest)"},
+    {"id": "gemini-4-hydrogen", "label": "Gemini 4 Hydrogen (default; fast, works on the free tier)"},
+    {"id": "gemini-4-argon", "label": "Gemini 4 Argon (stronger; paid)"},
+    {"id": "gemini-4-carbon", "label": "Gemini 4 Carbon (strongest; paid)"},
+    {"id": "gemini-3.8-flash", "label": "Gemini 3.8 Flash"},
+    {"id": "gemini-3.5-flash-lite", "label": "Gemini 3.5 Flash-Lite (cheapest)"},
 ]
+GEMINI_DEFAULT = GEMINI_MODELS[0]["id"]
 
 
 class AIUnavailable(RuntimeError):
@@ -50,7 +53,8 @@ def ask_json(system: str, user: "str | list", schema: dict, max_tokens: int = 32
     """One structured request. Returns the parsed object or raises AIUnavailable with a readable reason.
 
     `user` is text, or an ordered list of parts for requests with pictures: plain strings,
-    `{"image": <jpeg bytes>}` items and `{"video": <path>}` items, in the order the model should read them.
+    `{"image": <jpeg bytes>}` items and `{"video": <path>, "fps": <optional frames a second>}` items, in the order
+    the model should read them.
     Whole videos are only sent to Gemini, which can watch them; Claude gets the stills, so always include stills too.
     """
     which = provider()
@@ -157,6 +161,7 @@ def _gemini_error(e: Exception, model: str) -> AIUnavailable:
 def _ask_gemini(system: str, user: "str | list", schema: dict) -> str:
     client = _gemini_client()
     from google.genai import errors, types
+    detailed = False
     if not isinstance(user, str):
         parts = []
         for p in user:
@@ -164,22 +169,34 @@ def _ask_gemini(system: str, user: "str | list", schema: dict) -> str:
                 parts.append(p)
             elif "video" in p:
                 uploaded = _gemini_upload(client, p["video"])
-                if uploaded is not None:
-                    parts.append(uploaded)
+                if uploaded is None:
+                    continue
+                part = types.Part.from_uri(file_uri=uploaded.uri, mime_type=uploaded.mime_type or "video/mp4")
+                if p.get("fps"):
+                    # Gemini looks at one frame a second unless told otherwise, which misses fast cuts and captions.
+                    part.video_metadata = types.VideoMetadata(fps=float(p["fps"]))
+                    detailed = True
+                parts.append(part)
             else:
                 parts.append(types.Part.from_bytes(data=p["image"], mime_type="image/jpeg"))
         user = parts
-    model = get_settings().get("gemini_model") or "gemini-flash-latest"
+    model = get_settings().get("gemini_model") or GEMINI_DEFAULT
+    config = types.GenerateContentConfig(system_instruction=system, response_mime_type="application/json",
+                                         response_json_schema=schema)
+
+    def send():
+        return client.models.generate_content(model=model, contents=user, config=config)
+
     try:
-        response = client.models.generate_content(
-            model=model,
-            contents=user,
-            config=types.GenerateContentConfig(
-                system_instruction=system,
-                response_mime_type="application/json",
-                response_json_schema=schema,
-            ),
-        )
+        try:
+            response = send()
+        except errors.APIError as e:
+            if not (detailed and getattr(e, "code", None) == 400):
+                raise
+            for part in user:   # this model does not take a frame rate: ask again at the default one
+                if getattr(part, "video_metadata", None) is not None:
+                    part.video_metadata = None
+            response = send()
     except errors.APIError as e:
         raise _gemini_error(e, model) from e
     except Exception as e:   # connection and timeout errors come from the HTTP layer

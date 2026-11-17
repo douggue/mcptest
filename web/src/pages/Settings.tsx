@@ -19,9 +19,11 @@ export default function Settings() {
   const [logos, setLogos] = useState<Asset[]>([]);
   const [health, setHealth] = useState<{ ffmpeg: boolean; ai: boolean; ai_provider: string; data: string; auth?: boolean } | null>(null);
   const [geminiModels, setGeminiModels] = useState<{ id: string; label: string }[]>([
-    { id: 'gemini-flash-latest', label: 'Gemini Flash (latest; default, works on the free tier)' },
-    { id: 'gemini-pro-latest', label: 'Gemini Pro (latest; strongest)' },
-    { id: 'gemini-flash-lite-latest', label: 'Gemini Flash-Lite (latest; cheapest)' },
+    { id: 'gemini-4-hydrogen', label: 'Gemini 4 Hydrogen (default; fast, works on the free tier)' },
+    { id: 'gemini-4-argon', label: 'Gemini 4 Argon (stronger; paid)' },
+    { id: 'gemini-4-carbon', label: 'Gemini 4 Carbon (strongest; paid)' },
+    { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash' },
+    { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite (cheapest)' },
   ]);
   const [saving, setSaving] = useState(false);
   const [flow, setFlow] = useState<FlowState | null>(null);
