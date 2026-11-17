@@ -9,7 +9,7 @@ const outline = (px: number, color = '#000') =>
   ({ WebkitTextStroke: `${px}px ${color}`, paintOrder: 'stroke fill' }) as React.CSSProperties;
 
 /** Captions for source time `t`. `u` is the frame-width unit (1 at 1080px wide). */
-export const CaptionLayer: React.FC<{ spec: CaptionsSpec; words: Word[]; t: number; u: number }> = ({ spec, words, t, u }) => {
+export const CaptionLayer: React.FC<{ spec: CaptionsSpec; words: Word[]; t: number; u: number; from?: number }> = ({ spec, words, t, u, from }) => {
   const { fps } = useVideoConfig();
   const pages = useMemo(() => captionPages(words, spec.maxWords), [words, spec.maxWords]);
   if (!spec.visible) return null;
@@ -18,7 +18,9 @@ export const CaptionLayer: React.FC<{ spec: CaptionsSpec; words: Word[]; t: numb
   let page = null as (typeof pages)[number] | null;
   for (let i = 0; i < pages.length; i++) {
     const next = pages[i + 1];
-    if (t >= pages[i].start - lead && t < (next ? Math.min(next.start - lead, pages[i].end + 0.5) : pages[i].end + 0.5)) {
+    // a first line that starts within 0.3 s of the clip is shown from the very first frame, which becomes the thumbnail
+    const begin = i === 0 && from !== undefined && pages[0].start - lead - from < 0.3 ? -Infinity : pages[i].start - lead;
+    if (t >= begin && t < (next ? Math.min(next.start - lead, pages[i].end + 0.5) : pages[i].end + 0.5)) {
       page = pages[i];
       break;
     }

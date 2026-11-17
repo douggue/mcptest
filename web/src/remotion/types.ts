@@ -67,7 +67,7 @@ export type GraphicType =
   | 'label' | 'nametag' | 'circle' | 'arrow' | 'spotlight' | 'flash' | 'dip' | 'heart' | 'image' | 'blurbox';
 export type LabelStyle = 'neon' | 'plain' | 'box' | 'quoted' | 'outline' | 'flat';
 export type Zone = 'full' | 'top' | 'center' | 'bottom' | 'overlay' | 'free';   // free = measured from the frame centre
-export type Anim = 'pop' | 'slam' | 'fade' | 'slide' | 'glitch' | 'type';
+export type Anim = 'pop' | 'slam' | 'fade' | 'slide' | 'glitch' | 'type' | 'none';
 
 export type Graphic = {
   id: string;

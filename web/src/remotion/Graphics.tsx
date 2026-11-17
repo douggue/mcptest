@@ -62,6 +62,8 @@ function useEnter(g: Graphic, frames: number) {
       };
       break;
     }
+    case 'none':   // on screen from its first frame to its last, e.g. a title that stays up the whole video
+      return { style: {}, frame, fps, s };
     case 'type':
       style = { clipPath: `inset(0 ${interpolate(frame, [0, fps * 0.5], [100, 0], { extrapolateRight: 'clamp' })}% 0 0)` };
       break;

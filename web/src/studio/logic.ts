@@ -194,7 +194,7 @@ export const GRAPHIC_LABELS: Record<GraphicType, string> = {
   lowerthird: 'Lower third', steps: 'Step list', broll: 'B-roll', emoji: 'Emoji burst',
 };
 export const ZONE_LABELS: Record<Zone, string> = { free: 'Free', full: 'Full', top: 'Top', center: 'Center', bottom: 'Bottom', overlay: 'Overlay' };
-export const ANIM_LABELS: Record<Anim, string> = { pop: 'Spring pop', slam: 'Slam', fade: 'Fade', slide: 'Slide up', glitch: 'Glitch flash', type: 'Wipe in' };
+export const ANIM_LABELS: Record<Anim, string> = { pop: 'Spring pop', slam: 'Slam', fade: 'Fade', slide: 'Slide up', glitch: 'Glitch flash', type: 'Wipe in', none: 'None (already there)' };
 /** Placed anywhere on the frame; no zone, and for the last three no text at all. */
 export const FREE_TYPES: GraphicType[] = ['label', 'nametag', 'circle', 'arrow', 'spotlight', 'image', 'blurbox', 'flash', 'dip', 'heart'];
 export const isFree = (t: GraphicType) => FREE_TYPES.includes(t);

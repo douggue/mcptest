@@ -412,7 +412,7 @@ export const Short: React.FC<{ spec: ShortSpec }> = ({ spec }) => {
           </Sequence>
         );
       })}
-      {!coveredByGraphic && <CaptionLayer spec={spec.captions} words={spec.words} t={t} u={u} />}
+      {!coveredByGraphic && <CaptionLayer spec={spec.captions} words={spec.words} t={t} u={u} from={spec.in} />}
       {overlays.map((g) => {
         const { from, frames } = graphicFrames(plan, g, fps);
         return (

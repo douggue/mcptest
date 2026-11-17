@@ -127,7 +127,7 @@ BUILTIN: list[dict] = [
             "brand": {"font": "Poppins", "accent": "#fafe04"},
             "header": {"name": "Your channel", "handle": "@yourchannel", "avatar": "", "verified": True, "y": 11},
         },
-        "elements": [{"type": "label", "style": "flat", "color": "#fafe04", "text": "title", "at": "start", "duration": "all", "dy": -26.7, "scale": 0.97, "animation": "fade"}],
+        "elements": [{"type": "label", "style": "flat", "color": "#fafe04", "text": "title", "at": "start", "duration": "all", "dy": -26.7, "scale": 0.97, "animation": "none"}],
         "brief": ("The advert plays in the box with its own sound; add no music or sound effects. The title is two lines in capitals, on screen unchanged for the whole video, "
                   "white with two or three phrases in colour (the brand name is always one of them): yellow #fafe04, cyan #04fafd, green #07fc1b, red #fc0000, magenta #fc63ec, orange #f7a534. "
                   "Captions are one or two words, popping in slightly before each word, one colour per speaker; the voice-over slogan is white. "
