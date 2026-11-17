@@ -1,5 +1,5 @@
 {
-  "recordedAt": "2026-11-17T16:28:55.306Z",
+  "recordedAt": "2026-11-17T17:45:45.875Z",
   "application": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\jgcut",
   "steps": [
     "opened the demo project passed on the command line",
@@ -7,6 +7,8 @@
     "selected a clip to show its inspector",
     "opened the File menu with Ctrl shortcuts",
     "opened About",
+    "recorded a voice-over onto the timeline",
+    "cleaned up the take's audio",
     "exported the project with the bundled FFmpeg"
   ],
   "errors": [],
@@ -18,17 +20,20 @@
     ]
   },
   "files": {
-    "desktop.mp4": 401447,
-    "desktop.png": 298373,
-    "window.mp4": 271021,
-    "editor.png": 240905,
-    "file-menu.png": 235930,
-    "about.png": 260174,
-    "export-complete.png": 277576
+    "desktop.mp4": 515449,
+    "desktop.png": 297829,
+    "window.mp4": 381380,
+    "editor.png": 247778,
+    "file-menu.png": 242562,
+    "about.png": 260467,
+    "voice-over.png": 276699,
+    "background-removed.png": 0,
+    "export-options.png": 277349,
+    "export-complete.png": 279439
   },
   "desktopCapture": [
-    "[libx264 @ 0000024906fc38c0] i8c dc,h,v,p: 72% 20%  6%  2%",
-    "[libx264 @ 0000024906fc38c0] Weighted P-Frames: Y:0.0% UV:0.0%",
-    "[libx264 @ 0000024906fc38c0] kb/s:68.11"
+    "[libx264 @ 0000027ebd735940] i8c dc,h,v,p: 70% 22%  6%  2%",
+    "[libx264 @ 0000027ebd735940] Weighted P-Frames: Y:0.0% UV:0.0%",
+    "[libx264 @ 0000027ebd735940] kb/s:67.78"
   ]
 }
