@@ -118,7 +118,7 @@ npm ci
 npm run dist:win
 ```
 
-`release/ReaCut-<version>-x64-setup.exe` 按当前用户安装，不需要管理员权限，并关联 `.reacut` 工程。安装包未做代码签名，首次运行时 Windows SmartScreen 会要求确认。[CI](.github/workflows/ci.yml) 的 `media-tools-windows` 与 `package-windows` 任务执行上述步骤并启动打包后的应用，安装包作为 `ReaCut-Windows` 产物附在每次运行中。
+`release/ReaCut-<version>-x64-setup.exe` 按当前用户安装，不需要管理员权限，并关联 `.reacut` 工程。安装包未做代码签名，首次运行时 Windows SmartScreen 会要求确认。[CI](.github/workflows/ci.yml) 的 `media-tools-windows` 与 `package-windows` 任务执行上述步骤、静默安装，并用安装后的应用完成示例导出，安装包作为 `ReaCut-Windows` 产物附在每次运行中。
 
 Windows 上的差异：保留系统标题栏（按 Alt 显示菜单栏）；系统朗读使用已安装的 Windows 声音；MLX 语音识别与 Codex 插件启动器仍仅支持 macOS。
 

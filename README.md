@@ -121,7 +121,7 @@ npm ci
 npm run dist:win
 ```
 
-`release/ReaCut-<version>-x64-setup.exe` installs per user without administrator rights and registers `.reacut` projects. The installer is not code-signed, so Windows SmartScreen asks for confirmation on first launch. The `media-tools-windows` and `package-windows` jobs in [CI](.github/workflows/ci.yml) run these steps and launch the packaged application; the installer is attached to each run as the `ReaCut-Windows` artifact.
+`release/ReaCut-<version>-x64-setup.exe` installs per user without administrator rights and registers `.reacut` projects. The installer is not code-signed, so Windows SmartScreen asks for confirmation on first launch. The `media-tools-windows` and `package-windows` jobs in [CI](.github/workflows/ci.yml) run these steps, install silently and drive the installed application through a demo export; the installer is attached to each run as the `ReaCut-Windows` artifact.
 
 Windows differences: the native title bar is kept (press Alt for the menu bar), system text-to-speech uses the installed Windows voices, and MLX speech recognition and the Codex plugin launcher remain macOS-only.
 

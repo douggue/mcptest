@@ -83,6 +83,24 @@ try {
     ).getLastWebPreferences(),
   }));
   assert(native.packaged);
+  if (windows) {
+    // Windows presentation: native frame with a hidden menu bar, an Exit item, no inset gap, Ctrl labels.
+    const chrome = await app.evaluate(({ BrowserWindow, Menu }) => ({
+      menuBarAutoHide: BrowserWindow.getAllWindows()[0].isMenuBarAutoHide(),
+      exitItem:
+        Menu.getApplicationMenu()?.items[0].submenu?.items.some(
+          (item) => String(item.role).toLowerCase() === "quit",
+        ) ?? false,
+    }));
+    assert.deepEqual(chrome, { menuBarAutoHide: true, exitItem: true });
+    assert.equal(
+      await page.evaluate(
+        () => getComputedStyle(document.querySelector(".titlebar")!).paddingLeft,
+      ),
+      "8px",
+    );
+    await expect(page.locator('button[title$="Ctrl+S"]')).toHaveCount(1);
+  }
   if (process.platform === 'darwin') assert.equal(native.dockVisible, true, 'Desktop launch must show its Dock icon');
   assert(native.path.startsWith(bundle));
   assert.equal(native.security.sandbox, true);

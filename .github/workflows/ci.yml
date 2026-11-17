@@ -146,7 +146,18 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run dist:win
-      - name: Packaged application check (Windows)
+      - name: Run the installer silently
+        shell: pwsh
+        run: |
+          $installer = (Get-ChildItem release -Filter 'ReaCut-*-setup.exe' | Select-Object -First 1).FullName
+          Start-Process -FilePath $installer -ArgumentList '/S' -Wait
+          $program = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Depth 1 -Filter ReaCut.exe | Select-Object -First 1
+          if (-not $program) { throw 'The installer did not place ReaCut.exe under the per-user Programs folder.' }
+          $association = (Get-ItemProperty 'HKCU:\Software\Classes\.reacut').'(default)'
+          if (-not $association) { throw 'The installer did not register .reacut projects.' }
+          Write-Host "Installed to $($program.DirectoryName); .reacut opens with $association"
+          "REACUT_TEST_APP=$($program.DirectoryName)" >> $env:GITHUB_ENV
+      - name: Installed application check (Windows)
         run: |
           npm run demo
           npx tsx tests/package-electron.ts

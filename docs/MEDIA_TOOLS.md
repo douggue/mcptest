@@ -33,6 +33,6 @@ npm run media:build:win
 
 配置与 macOS 一致：`--enable-gpl --enable-libx264`、未启用 `nonfree`、关闭网络协议；线程使用 Windows 原生线程，不启用 VideoToolbox / AudioToolbox。脚本校验源码 SHA-256，并检查可执行文件只导入 Windows 系统 DLL；可执行文件静态包含所用 mingw-w64 工具链的 C 运行时启动代码与 GCC 支持库。输出位于忽略的 `media-tools/win32-x64/`，同样带有 `manifest.json`、`sources/` 与 `licenses/`。
 
-在 Windows 主机上打包时，`npm run dist:win` 只校验已复制进来的 `media-tools/win32-x64/`，不会在 Windows 上编译；在 Linux x64 上打包时会自动运行上述脚本。CI 的 `media-tools-windows` 任务构建工具，`package-windows` 任务用它们运行单元测试、打包并启动安装后的应用。
+在 Windows 主机上打包时，`npm run dist:win` 只校验已复制进来的 `media-tools/win32-x64/`，不会在 Windows 上编译；在 Linux x64 上打包时会自动运行上述脚本。CI 的 `media-tools-windows` 任务构建工具，`package-windows` 任务用它们运行单元测试、打包、静默安装，并用安装后的应用完成示例导出。
 
 源码开发仍可使用系统安装的工具；Linux 安装包尚未集成对应平台媒体工具。不要将某一平台的验证外推至其他平台。
