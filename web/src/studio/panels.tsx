@@ -693,7 +693,6 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
   const g = spec.graphics.find((x) => x.id === selected) ?? null;
   const patch = (p: Partial<Graphic>, key = '') => g && update((s) => ({ ...s, graphics: s.graphics.map((x) => (x.id === g.id ? { ...x, ...p } : x)) }), key);
   const media = useMemo(() => assets.broll.filter((a) => a.type !== 'audio'), [assets.broll]);
-  const [follow, setFollow] = useState(false);
   const [fitNote, setFitNote] = useState('');
   useEffect(() => setFitNote(''), [selected]);
 
@@ -707,15 +706,13 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
     const toSrc = (px: number, py: number): [number, number] => [(px - ax) / (bx - ax), (py - ay) / (by - ay)];
     const [x0, y0] = toSrc(cx - rx * 1.15, cy - ry * 1.15), [x1, y1] = toSrc(cx + rx * 1.15, cy + ry * 1.15);
     const box = [Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)].map((v) => clamp(v, 0, 1));
-    const { from, frames } = graphicFrames(plan, g, spec.fps);
-    const until = srcTimeAt(plan, from + frames - 1, spec.fps);
     try {
       await flush();
-      const r = await jobs.run<{ keys: { t: number; pts: [number, number][] }[]; found: string }>(() =>
-        api.post(`/api/projects/${project.id}/clips/${clip.id}/subject`, { t: g.at, box, find, until: follow && until - g.at > 0.2 ? until : undefined }));
+      const r = await jobs.run<{ keys: { t: number; pts: [number, number][] }[]; found: string; how: string }>(() =>
+        api.post(`/api/projects/${project.id}/clips/${clip.id}/subject`, { t: g.at, box, find }));
       patch({ outline: r.keys, dx: 0, dy: 0, scale: 1 });
       setFitNote(r.found === 'none' ? 'No person found near the spot, so it traced whatever is under the spot.'
-        : r.keys.length > 1 ? `Following it: ${r.keys.length} outlines over ${(r.keys[r.keys.length - 1].t - r.keys[0].t).toFixed(1)}s of video.` : '');
+        : r.how === 'colour' ? 'No person under the spot, so it outlined the object by its colour.' : '');
     } catch (e) { toastError(e); }
   }
 
@@ -851,11 +848,10 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
                 <Button small icon="users" onClick={() => fitSpot(true)} disabled={jobs.busy} title="Finds the person nearest the spot and lights their outline">Find the person</Button>
                 <Button small icon="wand" onClick={() => fitSpot(false)} disabled={jobs.busy} title="Traces the person or object inside the oval">Trace what's under the spot</Button>
               </div>
-              <Toggle checked={follow} onChange={setFollow} label="Follow it while it moves" />
               <span className="small muted">
                 {g.outline?.length
-                  ? (fitNote || 'The light follows the outline. To fit again, choose Oval, drag the oval over the subject and trace again.')
-                  : 'Drag the oval over the person or object first. "Follow" only matters when the spotlight is on moving video, not a freeze.'}
+                  ? (fitNote || 'Only the body is lit, as it is in this frame. Put the spotlight on a freeze so it stays on them. To fit again, choose Oval, move it and trace again.')
+                  : 'Put the spotlight on a freeze, drag the oval over the person (or object) and press a button.'}
               </span>
               <Slider label={g.outline?.length ? 'Margin around it' : 'Size'} min={0.3} max={4} step={0.05} value={g.scale ?? 1} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => patch({ scale: v }, 'gscale')} />
               {!g.outline?.length && <Slider label="Shape" min={0.4} max={2.5} step={0.02} value={g.ratio ?? 0.881} format={(v) => (v < 0.95 ? 'Wide' : v > 1.05 ? 'Tall' : 'Round')} onChange={(v) => patch({ ratio: v }, 'gratio')} />}

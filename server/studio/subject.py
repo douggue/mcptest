@@ -1,16 +1,14 @@
-"""Finding a person or object in a frame and tracing its outline, for spotlights that wrap the subject itself.
+"""Finding a person or object in a still frame and tracing its outline, for spotlights that light the subject itself.
 
-Everything runs on the processor with OpenCV, with no model to download:
   - "Find the person": faces (the same detector the framing uses) and OpenCV's built-in people detector, picking the
-    one nearest where the spot was placed. A face is grown into a head-and-shoulders box.
-  - The outline: GrabCut, started from that box (or from the box the person drew), which separates the subject from
-    its background by colour. The largest piece is kept and smoothed.
-  - Following: the outline is traced once, then moved with the subject: the subject's own pixels (not the background)
-    are searched for in each next sampled frame. Fine for a person walking or a car driving. The shape itself does not
-    change, so the margin slider covers arms and legs; following stops at a cut or when the subject is lost.
+    one nearest where the spot was placed.
+  - The body: PP-HumanSeg, a 6 MB person-segmentation model from the OpenCV model zoo (Apache 2.0), run by OpenCV on a
+    crop around the person so small figures in wide shots are as clear as close-ups. Only the piece of body joined to
+    the person found is kept. Downloaded once; nothing else to install.
+  - Anything that is not a person (a car, a dog), or when the model cannot be had: GrabCut, which separates the
+    subject inside the spot from its background by colour.
 
-Outlines are returned in source coordinates (0..1 of the source frame), each resampled to the same number of points
-starting from the top, so the interface can blend between two outlines smoothly.
+Outlines are returned in source coordinates (0..1 of the source frame), resampled to a fixed number of points.
 """
 from __future__ import annotations
 
@@ -18,13 +16,76 @@ from pathlib import Path
 
 import numpy as np
 
+import urllib.request
+
+from ..config import DATA
 from ..media import MediaError
 from .vision import FaceFinder, _grab
 
-POINTS = 72        # points per outline, the same for every outline so they can be blended
-WORK_WIDTH = 640   # frames are traced at this width; finer gains little and GrabCut slows sharply with size
-FOLLOW_FPS = 6     # outlines per second when following
-MAX_FOLLOW = 20.0  # seconds; longer runs take minutes and drift
+POINTS = 96        # points per outline
+WORK_WIDTH = 640   # GrabCut works at this width; finer gains little and it slows sharply with size
+SEG_URL = ("https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/human_segmentation_pphumanseg/"
+           "human_segmentation_pphumanseg_2023mar.onnx")
+SEG_SIZE = 192     # the model's input size
+_seg_net = None
+
+
+def _segmenter():
+    """The person-segmentation network, downloading it the first time. None if it cannot be had (offline)."""
+    global _seg_net
+    if _seg_net is not None:
+        return _seg_net
+    import cv2
+    model = DATA / "cache" / "human_segmentation_pphumanseg_2023mar.onnx"
+    if not model.exists():
+        try:
+            model.parent.mkdir(parents=True, exist_ok=True)
+            with urllib.request.urlopen(SEG_URL, timeout=30) as r:
+                data = r.read()
+            if len(data) < 1_000_000:   # an error page, not the model
+                return None
+            tmp = model.with_suffix(".part")
+            tmp.write_bytes(data)
+            tmp.replace(model)
+        except Exception:
+            return None
+    try:
+        _seg_net = cv2.dnn.readNet(str(model))
+    except Exception:
+        return None
+    return _seg_net
+
+
+def _segment(frame: np.ndarray, net, x0: int, y0: int, x1: int, y1: int) -> np.ndarray:
+    """The model's person mask for one crop, placed in a full-frame 0/255 mask."""
+    import cv2
+    h, w = frame.shape[:2]
+    x = cv2.resize(frame[y0:y1, x0:x1], (SEG_SIZE, SEG_SIZE), interpolation=cv2.INTER_AREA)[:, :, ::-1].astype(np.float32) / 255.0
+    net.setInput(((x - 0.5) / 0.5).transpose(2, 0, 1)[None])
+    out = net.forward()[0]
+    soft = cv2.resize((out[1] - out[0]).astype(np.float32), (x1 - x0, y1 - y0), interpolation=cv2.INTER_CUBIC)
+    mask = np.zeros((h, w), np.uint8)
+    mask[y0:y1, x0:x1] = (soft > 0).astype(np.uint8) * 255
+    return mask
+
+
+def person_mask(frame: np.ndarray, box: tuple[float, float, float, float]) -> np.ndarray | None:
+    """Where a person is, inside `box` (0..1), as a full-frame 0/255 mask; None without the model.
+
+    The model sees a small fixed-size picture, so a generous first look finds the body and a second, tight look around
+    it traces the edges at the best detail."""
+    net = _segmenter()
+    if net is None:
+        return None
+    h, w = frame.shape[:2]
+    bw, bh = (box[2] - box[0]) * w, (box[3] - box[1]) * h
+    first = _segment(frame, net, *_clip_box((box[0] * w - bw * 0.1, box[1] * h - bh * 0.05, box[2] * w + bw * 0.1, box[3] * h + bh * 0.05), w, h))
+    ys, xs = np.nonzero(first)
+    if len(xs) < 50:
+        return first
+    fx0, fx1, fy0, fy1 = xs.min(), xs.max(), ys.min(), ys.max()
+    pw, ph = (fx1 - fx0) * 0.12 + 4, (fy1 - fy0) * 0.08 + 4
+    return _segment(frame, net, *_clip_box((fx0 - pw, fy0 - ph, fx1 + pw, fy1 + ph), w, h))
 
 
 def _open(path: Path):
@@ -75,7 +136,7 @@ def find_person(frame: np.ndarray, near: tuple[float, float]):
     # the head to the chest, widened to any detected body that the face belongs to.
     people = []
     for cx, cy, fw, fh in FaceFinder().find(frame):
-        box = (cx - fw * 1.8, cy - fh * 0.9, cx + fw * 1.8, cy + fh * 3.6)
+        box = (cx - fw * 2.4, cy - fh * 1.0, cx + fw * 2.4, cy + fh * 7.5)   # head to feet: a standing adult is about 7.5 heads tall
         for b in bodies:
             if b[0] <= cx <= b[2] and b[1] <= cy <= b[1] + (b[3] - b[1]) * 0.4:
                 box = (min(box[0], b[0]), min(box[1], b[1]), max(box[2], b[2]), max(box[3], b[3]))
@@ -155,76 +216,60 @@ def trace(frame: np.ndarray, box: tuple[float, float, float, float], anchor=None
     return [[round(float(x), 4), round(float(y), 4)] for x, y in pts], own
 
 
-def _move(prev: np.ndarray, nxt: np.ndarray, pts: list[list[float]]) -> tuple[float, float] | None:
-    """How far the subject inside outline `pts` (0..1) moved between two frames, as (dx, dy) in 0..1, or None when it
-    was lost. Only the subject's own pixels are compared, so a busy or static background cannot pull the match."""
+def _contour_of(mask: np.ndarray, anchor, box) -> np.ndarray | None:
+    """The piece of `mask` that belongs to the subject: the one touching the anchor (a face), else the largest."""
     import cv2
-    a, b = _small(prev), _small(nxt)
-    h, w = a.shape[:2]
-    poly = (np.asarray(pts) * [w, h]).astype(np.int32)
-    x0, y0, x1, y1 = _clip_box((poly[:, 0].min(), poly[:, 1].min(), poly[:, 0].max(), poly[:, 1].max()), w, h)
-    pw, ph = x1 - x0, y1 - y0
-    mask = np.zeros((ph, pw), np.uint8)
-    cv2.fillPoly(mask, [poly - [x0, y0]], 255)
-    if mask.sum() < 255 * 50:
+    h, w = mask.shape
+    k = max(3, int(min(h, w) * 0.006)) | 1
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
+    found, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    if not found:
         return None
-    patch = a[y0:y1, x0:x1]
-    # search around the old place; between two samples a subject rarely moves further than half its own size
-    sx0, sy0 = max(0, x0 - pw // 2 - 8), max(0, y0 - ph // 2 - 8)
-    sx1, sy1 = min(w, x1 + pw // 2 + 8), min(h, y1 + ph // 2 + 8)
-    area = b[sy0:sy1, sx0:sx1]
-    if area.shape[0] < ph or area.shape[1] < pw:
-        return None
-    score = cv2.matchTemplate(area, patch, cv2.TM_CCORR_NORMED, mask=cv2.merge([mask, mask, mask]))
-    score = np.nan_to_num(score, nan=0.0)
-    _, best, _, (mx, my) = cv2.minMaxLoc(score)
-    if best < 0.9:   # lost it (it left the frame, was covered, or the shot changed)
-        return None
-    return (sx0 + mx - x0) / w, (sy0 + my - y0) / h
+    if anchor is not None:
+        ax, ay = (anchor[0] + anchor[2]) / 2 * w, (anchor[1] + anchor[3]) / 2 * h
+        hits = [c for c in found if cv2.pointPolygonTest(c, (float(ax), float(ay)), True) > -max(4, (anchor[2] - anchor[0]) * w)]
+        if hits:
+            return max(hits, key=cv2.contourArea)
+    best = max(found, key=cv2.contourArea)
+    area = (box[2] - box[0]) * w * (box[3] - box[1]) * h
+    return best if cv2.contourArea(best) > 0.04 * area else None
 
 
-def outline(source: Path, t: float, box: tuple[float, float, float, float], find: bool = False,
-            until: float | None = None, job=None) -> dict:
-    """Outline(s) of the subject at source time `t`.
+def outline(source: Path, t: float, box: tuple[float, float, float, float], find: bool = False, job=None) -> dict:
+    """The outline of the subject in the frame at source time `t`.
 
-    box: (x0, y0, x1, y1) in 0..1 of the source frame: where the spot was placed. With find=True the nearest person
-    to its centre is used instead of the box itself. With `until` later than t, the subject is followed to that time.
-    Returns {keys: [{t, pts}], box, found: 'person' | 'box' | 'none'}."""
+    box: (x0, y0, x1, y1) in 0..1 of the source frame: where the spot was placed. With find=True the person nearest
+    its centre is used. Returns {keys: [{t, pts}], box, found: 'person' | 'box' | 'none', how: 'body' | 'colour'}."""
     cap = _open(source)
     try:
         frame = _grab(cap, t)
-        if frame is None:
-            raise MediaError("Cannot read the frame at that moment.")
-        how, anchor = "box", None
-        if find:
-            person = find_person(frame, ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2))
-            if person is None:
-                how = "none"
-            else:
-                (box, anchor), how = person, "person"
-        box = tuple(max(0.0, min(1.0, v)) for v in box)   # type: ignore[assignment]
-        pts, own = trace(frame, box, anchor)
-        keys = [{"t": round(t, 3), "pts": pts}]
-        lost = False
-        if until is not None and until - t > 0.2:
-            end = min(until, t + MAX_FOLLOW)
-            steps = max(1, int((end - t) * FOLLOW_FPS))
-            prev = frame
-            for i in range(1, steps + 1):
-                if job is not None:
-                    job.update(0.1 + 0.85 * i / steps, f"Following the subject ({i} of {steps})")
-                at = t + (end - t) * i / steps
-                nxt = _grab(cap, at)
-                if nxt is None:
-                    break
-                shift = _move(prev, nxt, pts)
-                if shift is None:   # stop rather than guess; the last outline holds from here on
-                    lost = True
-                    break
-                pts = [[round(min(1.0, max(0.0, x + shift[0])), 4), round(min(1.0, max(0.0, y + shift[1])), 4)] for x, y in pts]
-                keys.append({"t": round(at, 3), "pts": pts})
-                prev = nxt
-        return {"keys": keys, "box": list(own), "found": how,
-                "lost_at": keys[-1]["t"] if lost else None}
     finally:
         cap.release()
+    if frame is None:
+        raise MediaError("Cannot read the frame at that moment.")
+    found, anchor = "box", None
+    if find:
+        person = find_person(frame, ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2))
+        if person is None:
+            found = "none"
+        else:
+            (box, anchor), found = person, "person"
+    box = tuple(max(0.0, min(1.0, v)) for v in box)   # type: ignore[assignment]
+    if job is not None:
+        job.update(0.4, "Cutting out the body")
+    h, w = frame.shape[:2]
+    contour, how = None, "body"
+    mask = person_mask(frame, box)
+    if mask is not None:
+        contour = _contour_of(mask, anchor, box)
+    if contour is None:   # not a person (or no model): separate whatever is in the spot by colour
+        pts, own = trace(frame, box, anchor)
+        how = "colour"
+    else:
+        pts_arr = _resample(contour.astype(np.float64))
+        pts_arr[:, 0] /= w
+        pts_arr[:, 1] /= h
+        pts_arr = np.clip(pts_arr, 0, 1)
+        pts = [[round(float(x), 4), round(float(y), 4)] for x, y in pts_arr]
+        own = (float(pts_arr[:, 0].min()), float(pts_arr[:, 1].min()), float(pts_arr[:, 0].max()), float(pts_arr[:, 1].max()))
+    return {"keys": [{"t": round(t, 3), "pts": pts}], "box": list(own), "found": found, "how": how}
