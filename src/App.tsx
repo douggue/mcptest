@@ -70,6 +70,7 @@ import { useUITranslation, translateUI, useTranslation, useLanguageStore, type L
 import { createEditorProject } from "./editor/localizedDefaults";
 import { localizeMessage } from "./i18n/messages";
 import { isWindows, keys } from "./platform";
+import { exportPresetOptions, type ExportPresetId } from "./core/exportPresets";
 import "./styles.css";
 type Modal = "updates" | "templates" | "reverse" | "freeze" | "package" | "export" | "settings" | "shortcuts" | "about" | "capcut" | null;
 type PendingCapcutImport = {
@@ -150,6 +151,9 @@ function ExportDialog({
     [progress, setProgress] = useState<ExportProgress | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [preset, setPreset] = useState<ExportPresetId | "custom">("custom");
+  const soundOnly = options.format === "m4a" || options.format === "wav";
+  const presetFits = preset === "custom" || exportPresetOptions(project, preset).fits;
   const [scope, setScope] = useState("all");
   const [rangeStart, setRangeStart] = useState("0"), [rangeEnd, setRangeEnd] = useState(String(projectDuration(project)));
   const selectedRange = selectedClipRange(project, selectedIds);
@@ -255,14 +259,34 @@ function ExportDialog({
         </label>
         {scope === "custom" && <div className="export-fields"><label>{ui("起点（秒）", "Start (seconds)")}<input aria-label={ui("区间起点", "Range start")} type="number" min="0" step={1 / project.fps} disabled={exporting} value={rangeStart} onChange={e => setRangeStart(e.target.value)} /></label><label>{ui("终点（秒）", "End (seconds)")}<input aria-label={ui("区间终点", "Range end")} type="number" min="0" step={1 / project.fps} disabled={exporting} value={rangeEnd} onChange={e => setRangeEnd(e.target.value)} /></label></div>}
         {scope === "selected" && selectedRange && <p className="field-hint">{selectedRange.start.toFixed(3)}–{selectedRange.end.toFixed(3)} {ui("秒，包含该区间内所有可见画面和声音。", " seconds, including all visible video and sound in this range.")}</p>}
+        <label className="stacked-label">{ui("用途", "Destination")}<select
+          aria-label={ui("导出用途", "Export destination")}
+          disabled={exporting}
+          value={preset}
+          onChange={(e) => {
+            const id = e.target.value as ExportPresetId | "custom";
+            setPreset(id);
+            if (id === "custom") return;
+            job.current = null;
+            const { fits: _fits, ...settings } = exportPresetOptions(project, id);
+            setOptions((p) => ({ ...p, ...settings, path: p.format === settings.format ? p.path : "" }));
+          }}
+        >
+          <option value="custom">{ui("自定义", "Custom")}</option>
+          <option value="youtube">{ui("YouTube · 1080p 高画质", "YouTube · 1080p, high quality")}</option>
+          <option value="vertical">{ui("TikTok / Reels / Shorts · 竖屏 1080p", "TikTok / Reels / Shorts · vertical 1080p")}</option>
+          <option value="feed">{ui("Instagram 动态 · 方形或 4:5", "Instagram feed · square or 4:5")}</option>
+        </select></label>
+        {!presetFits && <p className="field-hint">{ui(`当前画布为 ${project.width}×${project.height}，与该用途的画面比例不同。导出会保持画布比例；如需铺满，请先在项目属性中更改画面比例。`, `Your canvas is ${project.width}×${project.height}, which is a different shape from this destination. The export keeps the canvas shape; change the aspect ratio in Project properties first to fill the screen.`)}</p>}
         <div className="export-fields">
           <label>
             {ui("分辨率", "Resolution")}<select
               aria-label={ui("导出分辨率", "Export resolution")}
-              disabled={exporting}
+              disabled={exporting || soundOnly}
               value={`${options.width}:${options.height}`}
               onChange={(e) => {
                 const [width, height] = e.target.value.split(":").map(Number);
+                setPreset("custom");
                 setOptions((p) => ({ ...p, width, height }));
               }}
             >
@@ -271,6 +295,10 @@ function ExportDialog({
               >
                 {ui("原始 ·", "Original · ")}{project.width}×{project.height}
               </option>
+              {![project.width + (project.width % 2), ...[720, 1080, 1440, 2160].map((height) => Math.round((height * project.width) / project.height / 2) * 2)]
+                .some((width, index) => `${width}:${index ? [720, 1080, 1440, 2160][index - 1] : project.height + (project.height % 2)}` === `${options.width}:${options.height}`) && (
+                <option value={`${options.width}:${options.height}`}>{options.width}×{options.height}</option>
+              )}
               {[720, 1080, 1440, 2160].map((height) => {
                 const width =
                   Math.round((height * project.width) / project.height / 2) * 2;
@@ -286,10 +314,11 @@ function ExportDialog({
             {ui("帧率", "Frame rate")}<select
               aria-label={ui("导出帧率", "Export frame rate")}
               value={options.fps}
-              disabled={exporting}
-              onChange={(e) =>
-                setOptions((p) => ({ ...p, fps: Number(e.target.value) }))
-              }
+              disabled={exporting || soundOnly}
+              onChange={(e) => {
+                setPreset("custom");
+                setOptions((p) => ({ ...p, fps: Number(e.target.value) }));
+              }}
             >
               {[24, 25, 30, 50, 60].map((fps) => (
                 <option key={fps}>{fps}</option>
@@ -299,14 +328,15 @@ function ExportDialog({
           <label>
             {ui("画质", "Quality")}<select
               aria-label={ui("导出画质", "Export quality")}
-              disabled={exporting}
+              disabled={exporting || options.format === "gif" || options.format === "wav"}
               value={options.quality}
-              onChange={(e) =>
+              onChange={(e) => {
+                setPreset("custom");
                 setOptions((p) => ({
                   ...p,
                   quality: e.target.value as ExportOptions["quality"],
-                }))
-              }
+                }));
+              }}
             >
               <option value="draft">{ui("草稿 · 更快", "Draft · Faster")}</option>
               <option value="standard">{ui("标准 · 推荐", "Standard · Recommended")}</option>
@@ -322,16 +352,20 @@ function ExportDialog({
                 job.current = null;
                 setOptions((p) => ({
                   ...p,
-                  format: e.target.value as "mp4" | "mov",
+                  format: e.target.value as ExportOptions["format"],
                   path: "",
                 }));
               }}
             >
               <option value="mp4">MP4 · H.264 / AAC</option>
               <option value="mov">MOV · H.264 / AAC</option>
+              <option value="gif">{ui("GIF · 动图（无声音）", "GIF · Animation (no sound)")}</option>
+              <option value="m4a">{ui("M4A · 仅声音（AAC）", "M4A · Sound only (AAC)")}</option>
+              <option value="wav">{ui("WAV · 仅声音（无压缩）", "WAV · Sound only (uncompressed)")}</option>
             </select>
           </label>
         </div>
+        {options.format === "gif" && <p className="field-hint">{ui("GIF 没有声音，帧率最高 25，文件增长很快。建议选择较小的分辨率和较短的区间。", "A GIF has no sound, plays at 25 frames a second at most, and grows quickly. A small resolution and a short range work best.")}</p>}
         <p className="field-hint">
           {ui("导出原始素材和所有可见画面轨道，按音频设置混音。无需登录或上传。", "Renders original media and all visible video tracks, with audio mixed using your settings. No sign-in or upload required.")}</p>
         {progress && (

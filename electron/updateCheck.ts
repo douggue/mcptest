@@ -1,6 +1,7 @@
 import type { UpdateCheckResult, UpdateError, UpdateOpenTarget } from "../src/core/updateTypes";
 
-const REPOSITORY = "Xiangyu-CAS/rea-capcut";
+// Releases of this build. Change it here if the repository moves.
+const REPOSITORY = "douggue/mcptest";
 export const UPDATE_API = `https://api.github.com/repos/${REPOSITORY}/releases?per_page=100`;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const MAX_NOTES = 16000;
@@ -57,7 +58,8 @@ function selectRelease(data: unknown, platform: string, arch: string): SelectedR
     const page = verifiedURL(item.html_url, [...REPOSITORY.split("/"), "releases", "tag", tag]);
     if (!page) continue;
     const version = tag.replace(/^v/, "");
-    const expectedName = platform === "darwin" && (arch === "arm64" || arch === "x64") ? `ReaCut-${version}-${arch}.dmg` : undefined;
+    const expectedName = platform === "darwin" && (arch === "arm64" || arch === "x64") ? `JGcut-${version}-${arch}.dmg`
+      : platform === "win32" && arch === "x64" ? `JGcut-${version}-x64-setup.exe` : undefined;
     let download: string | undefined;
     if (expectedName && Array.isArray(item.assets)) {
       for (const asset of item.assets) {

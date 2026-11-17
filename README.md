@@ -125,7 +125,9 @@ npm run dist:win
 
 `release/JGcut-<version>-x64-setup.exe` installs per user without administrator rights and registers `.jgcut` projects (existing `.reacut` projects still open). The installer is not code-signed, so Windows SmartScreen asks for confirmation on first launch. The `media-tools-windows` and `package-windows` jobs in [CI](.github/workflows/ci.yml) run these steps, install silently and drive the installed application through a demo export; the installer is attached to each run as the `JGcut-Windows` artifact.
 
-On Windows the app starts in English whatever the system language, and the native title bar is kept (press Alt for the menu bar), system text-to-speech uses the installed Windows voices, and MLX speech recognition and the Codex plugin launcher remain macOS-only.
+On Windows the app starts in English whatever the system language, the editor's top bar doubles as the title bar with the system window buttons at its right end, system text-to-speech uses the installed Windows voices, and MLX speech recognition and the Codex plugin launcher remain macOS-only.
+
+**Releases and updates.** Pushing a tag that matches the version in `package.json` (for example `v0.7.2`) runs [the Windows release workflow](.github/workflows/release-windows.yml), which builds and checks the installer and publishes it as a GitHub release. Help → Check for Updates in the app reads this repository's releases. To code-sign the installer, add the repository secrets `WINDOWS_CERTIFICATE` (a base64-encoded `.pfx`) and `WINDOWS_CERTIFICATE_PASSWORD`; without them the installer is unsigned.
 
 ## Projects and data
 

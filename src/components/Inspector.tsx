@@ -208,6 +208,7 @@ export default function Inspector({
                 "1920:1080",
                 "1080:1920",
                 "1080:1080",
+                "1080:1350",
                 "1440:1080",
                 "2560:1440",
                 "3840:2160",
@@ -218,6 +219,7 @@ export default function Inspector({
               <option value="1920:1080">{ui("16:9 · 横屏", "16:9 · Landscape")}</option>
               <option value="1080:1920">{ui("9:16 · 竖屏", "9:16 · Portrait")}</option>
               <option value="1080:1080">{ui("1:1 · 方形", "1:1 · Square")}</option>
+              <option value="1080:1350">{ui("4:5 · 竖版动态", "4:5 · Feed post")}</option>
               <option value="1440:1080">{ui("4:3 · 经典", "4:3 · Classic")}</option>
               <option value="2560:1440">16:9 · 2K</option>
               <option value="3840:2160">16:9 · 4K</option>

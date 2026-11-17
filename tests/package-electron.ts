@@ -84,21 +84,26 @@ try {
   }));
   assert(native.packaged);
   if (windows) {
-    // Windows presentation: native frame with a hidden menu bar, an Exit item, no inset gap, Ctrl labels.
-    const chrome = await app.evaluate(({ BrowserWindow, Menu }) => ({
-      menuBarAutoHide: BrowserWindow.getAllWindows()[0].isMenuBarAutoHide(),
+    // Windows presentation: the editor's bar is the title bar with caption buttons overlaid, an Exit
+    // item, no inset gap on the left, room for the caption buttons on the right, Ctrl labels.
+    const chrome = await app.evaluate(({ Menu }) => ({
       exitItem:
         Menu.getApplicationMenu()?.items[0].submenu?.items.some(
           (item) => String(item.role).toLowerCase() === "quit",
         ) ?? false,
     }));
-    assert.deepEqual(chrome, { menuBarAutoHide: true, exitItem: true });
+    assert.deepEqual(chrome, { exitItem: true });
     assert.equal(
       await page.evaluate(
         () => getComputedStyle(document.querySelector(".titlebar")!).paddingLeft,
       ),
       "8px",
     );
+    const captionRoom = await page.evaluate(() => ({
+      padding: parseFloat(getComputedStyle(document.querySelector(".titlebar")!).paddingRight),
+      overlap: document.querySelector(".titlebar-actions")!.getBoundingClientRect().right > innerWidth - 100,
+    }));
+    assert(captionRoom.padding >= 100 && !captionRoom.overlap, "Top bar controls must stay clear of the caption buttons");
     await expect(page.locator('button[title$="Ctrl+S"]')).toHaveCount(1);
   }
   if (process.platform === 'darwin') assert.equal(native.dockVisible, true, 'Desktop launch must show its Dock icon');

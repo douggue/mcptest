@@ -95,8 +95,8 @@ function tempoFilters(speed: number): string[] {
 
 function validate(project: Project, options: ExportOptions): number {
   if (!project.clips.length) throw new Error("时间线为空，请添加素材再导出。");
-  if (!["mp4", "mov"].includes(options.format))
-    throw new Error("导出格式必须为 MP4 或 MOV。");
+  if (!["mp4", "mov", "gif", "m4a", "wav"].includes(options.format))
+    throw new Error("不支持的导出格式。");
   if (!["draft", "standard", "high"].includes(options.quality))
     throw new Error("未知导出质量。");
   for (const [value, name] of [
@@ -397,6 +397,17 @@ export async function createExportArguments(
 ): Promise<string[]> {
   const duration = validate(project, options);
   const range = resolveExportRange(project, options);
+  const audioOnly = options.format === "m4a" || options.format === "wav";
+  const gif = options.format === "gif";
+  // Sound-only output still walks the picture graph; a thumbnail-sized canvas keeps that cheap.
+  if (audioOnly) options = { ...options, width: 64, height: 36 };
+  // GIF frame delays are whole hundredths of a second, so high frame rates cannot be represented.
+  const frameRate = gif ? Math.min(options.fps, 25) : options.fps;
+  const pictureOutput = audioOnly
+    ? "nullsink"
+    : gif
+      ? `fps=${number(frameRate)},split[gifframes][gifsample];[gifsample]palettegen=stats_mode=diff[gifpalette];[gifframes][gifpalette]paletteuse=dither=bayer:bayer_scale=5[vout]`
+      : "format=yuv420p[vout]";
   const args = [
     "-hide_banner",
     "-y",
@@ -651,49 +662,52 @@ export async function createExportArguments(
       }
     }
   }
-  graph.push(`[base${layer}]${options.range ? `trim=start=${number(range.start)}:end=${number(range.end)},setpts=PTS-STARTPTS,` : ""}format=yuv420p[vout]`);
+  graph.push(`[base${layer}]${options.range ? `trim=start=${number(range.start)}:end=${number(range.end)},setpts=PTS-STARTPTS,` : ""}${pictureOutput}`);
   if (audios.length)
     graph.push(
       `${audios.join("")}amix=inputs=${audios.length}:duration=longest:dropout_transition=0:normalize=0,apad,atrim=duration=${number(duration)},alimiter=limit=1:level=false${options.range ? `,atrim=start=${number(range.start)}:end=${number(range.end)},asetpts=PTS-STARTPTS` : ""}[aout]`,
     );
-  args.push("-filter_complex", graph.join(";"), "-map", "[vout]");
-  if (audios.length)
+  if (audioOnly && !audios.length) throw new Error("时间线没有可导出的声音。");
+  if (gif && audios.length) graph.push("[aout]anullsink");
+  args.push("-filter_complex", graph.join(";"));
+  if (!audioOnly) args.push("-map", "[vout]");
+  if (audios.length && !gif)
     args.push(
       "-map",
       "[aout]",
-      "-c:a",
-      "aac",
-      "-b:a",
-      options.quality === "draft" ? "128k" : "192k",
+      ...(options.format === "wav"
+        ? ["-c:a", "pcm_s16le"]
+        : ["-c:a", "aac", "-b:a", options.quality === "draft" ? "128k" : "192k"]),
     );
+  if (gif) args.push("-loop", "0");
+  else if (!audioOnly)
+    args.push(
+      "-c:v",
+      "libx264",
+      "-preset",
+      options.quality === "draft"
+        ? "ultrafast"
+        : options.quality === "high"
+          ? "slow"
+          : "medium",
+      "-crf",
+      options.quality === "draft"
+        ? "28"
+        : options.quality === "high"
+          ? "17"
+          : "22",
+      "-pix_fmt",
+      "yuv420p",
+    );
+  if (!audioOnly) args.push("-r", number(frameRate));
+  args.push("-t", number(range.duration));
+  if (!gif && options.format !== "wav") args.push("-movflags", "+faststart");
   args.push(
-    "-c:v",
-    "libx264",
-    "-preset",
-    options.quality === "draft"
-      ? "ultrafast"
-      : options.quality === "high"
-        ? "slow"
-        : "medium",
-    "-crf",
-    options.quality === "draft"
-      ? "28"
-      : options.quality === "high"
-        ? "17"
-        : "22",
-    "-pix_fmt",
-    "yuv420p",
-    "-r",
-    number(options.fps),
-    "-t",
-    number(range.duration),
-    "-movflags",
-    "+faststart",
     "-progress",
     "pipe:1",
     "-nostats",
     "-f",
-    options.format,
+    options.format === "m4a" ? "ipod" : options.format,
     output,
   );
   return args;

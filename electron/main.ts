@@ -586,11 +586,12 @@ function registerIPC() {
     }
   });
   handle("choose-export-path", async (name: string, format: string) => {
-    if (!["mp4", "mov"].includes(format)) throw new Error("无效导出格式");
+    if (!["mp4", "mov", "gif", "m4a", "wav"].includes(format)) throw new Error("无效导出格式");
+    const kind = format === "gif" ? nativeUI(" 动图", " animation") : format === "m4a" || format === "wav" ? nativeUI(" 音频", " audio") : nativeUI(" 视频", " video");
     const result = await dialog.showSaveDialog(window!, {
-      title: nativeUI("导出视频", "Export video"),
+      title: nativeUI("导出", "Export"),
       defaultPath: name + "." + format,
-      filters: [{ name: format.toUpperCase() + nativeUI(" 视频", " video"), extensions: [format] }],
+      filters: [{ name: format.toUpperCase() + kind, extensions: [format] }],
     });
     if (result.canceled || !result.filePath) return null;
     outputPaths.add(result.filePath);
@@ -829,10 +830,10 @@ function createWindow() {
     minHeight: 680,
     title: "JGcut",
     backgroundColor: "#141518",
-    // Windows keeps its native frame; the menu bar appears with Alt because the editor
-    // draws its own menus. Other platforms keep the inset title bar options.
+    // Windows: the editor's own top bar is the title bar, with the system's minimise, maximise
+    // and close buttons overlaid at its right end. Other platforms keep the inset title bar options.
     ...(process.platform === "win32"
-      ? { autoHideMenuBar: true }
+      ? { titleBarStyle: "hidden" as const, titleBarOverlay: { color: "#151515", symbolColor: "#d5d9e0", height: 44 } }
       : { titleBarStyle: "hiddenInset" as const, trafficLightPosition: { x: 16, y: 17 } }),
     webPreferences: {
       preload: path.join(directory, "preload.cjs"),

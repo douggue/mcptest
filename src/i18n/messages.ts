@@ -162,6 +162,8 @@ const messages: Record<string, string> = {
   "处理完成": "Processing complete",
   "时间线为空，请添加素材再导出。": "The timeline is empty. Add media before exporting.",
   "导出格式必须为 MP4 或 MOV。": "Export format must be MP4 or MOV.",
+  "不支持的导出格式。": "Unsupported export format.",
+  "时间线没有可导出的声音。": "The timeline has no sound to export.",
   "未知导出质量。": "Unknown export quality.",
   "帧率必须为 1–120。": "Frame rate must be between 1 and 120.",
   "工程画布尺寸无效。": "Invalid project canvas dimensions.",

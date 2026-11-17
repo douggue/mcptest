@@ -1039,6 +1039,30 @@ describe("real local media and FFmpeg export", () => {
     await expect(access(path.join(directory, "invalid.mp4"))).rejects.toThrow();
   }, 60_000);
 
+  it("exports GIF without sound, and sound-only M4A and WAV", async () => {
+    const p = project([
+      clip(assets[0], "video", { duration: 1 }),
+      clip(assets[1], "audio", { duration: 1 }),
+    ]);
+    const gif = settings("animation.gif", { format: "gif", fps: 30 });
+    await render(p, gif);
+    const animation = await probeFile(gif.path);
+    expect(animation.streams.map((s) => s.codec_type)).toEqual(["video"]);
+    expect(animation.streams[0]).toMatchObject({ codec_name: "gif", width: 160, height: 90 });
+    // GIF timing cannot hold 30 frames a second; the exporter caps it at 25.
+    expect(animation.streams[0].avg_frame_rate).toBe("25/1");
+    for (const [format, codec] of [["m4a", "aac"], ["wav", "pcm_s16le"]] as const) {
+      const options = settings(`sound.${format}`, { format });
+      await render(p, options);
+      const probe = await probeFile(options.path);
+      expect(probe.streams.map((s) => s.codec_type)).toEqual(["audio"]);
+      expect(probe.streams[0].codec_name).toBe(codec);
+      expect(Number(probe.format.duration)).toBeCloseTo(1, 1);
+    }
+    await expect(
+      render(project([clip(assets[2], "overlay", { duration: 1 })]), settings("silent.wav", { format: "wav" })),
+    ).rejects.toThrow("没有可导出的声音");
+  }, 60_000);
   it("reports asynchronous preparation errors and cancels a running FFmpeg child without replacing an existing file", async () => {
     const brokenAsset = {
       ...assets[0],

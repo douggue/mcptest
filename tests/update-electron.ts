@@ -10,8 +10,8 @@ import { version } from '../package.json';
 
 const root = process.cwd();
 const output = path.resolve('.test-output/update-electron');
-const apiURL = 'https://api.github.com/repos/Xiangyu-CAS/rea-capcut/releases?per_page=100';
-const repo = 'https://github.com/Xiangyu-CAS/rea-capcut';
+const apiURL = 'https://api.github.com/repos/douggue/mcptest/releases?per_page=100';
+const repo = 'https://github.com/douggue/mcptest';
 const future = '999.0.0';
 const bundle = process.env.REACUT_TEST_APP ? path.resolve(process.env.REACUT_TEST_APP) : undefined;
 await rm(output, { recursive: true, force: true });
@@ -40,7 +40,7 @@ async function launch(): Promise<{ app: ElectronApplication; page: Page; errors:
   } catch (error) { await app.close(); throw error; }
 }
 function release(tag: string, arch: string, withAsset = true) {
-  const name = `ReaCut-${tag}-${arch}.dmg`;
+  const name = `JGcut-${tag}-${arch}.dmg`;
   return { tag_name: `v${tag}`, draft: false, prerelease: true, html_url: `${repo}/releases/tag/v${tag}`,
     body: '<script>window.__unsafeRelease = true</script>\n[Untrusted link](https://example.invalid/)\nPreview notes',
     assets: withAsset ? [{ name, state: 'uploaded', size: 12345, browser_download_url: `${repo}/releases/download/v${tag}/${name}` }] : [],
@@ -101,7 +101,7 @@ async function checkRequests(app: ElectronApplication, expected = 1) {
     await page.getByRole('button', { name: 'GitHub release page', exact: true }).click();
     await page.getByRole('button', { name: 'Download compatible DMG', exact: true }).click();
     expect(await app.evaluate(() => (globalThis as any).__updateOpens)).toEqual([
-      `${repo}/releases/tag/v${future}`, `${repo}/releases/download/v${future}/ReaCut-${future}-${arch}.dmg`,
+      `${repo}/releases/tag/v${future}`, `${repo}/releases/download/v${future}/JGcut-${future}-${arch}.dmg`,
     ]);
     expect(await page.evaluate(async () => {
       try { await window.editorAPI!.openUpdateTarget('https://example.invalid/' as never); return false; }

@@ -1,0 +1,95 @@
+name: Release (Windows)
+# Pushing a version tag such as v0.7.2 builds the Windows installer and publishes it as a
+# GitHub release, which is what "Check for Updates" in the app looks at. The tag must match
+# the version in package.json. Set the repository secrets WINDOWS_CERTIFICATE (a base64 .pfx)
+# and WINDOWS_CERTIFICATE_PASSWORD to have the installer code-signed; without them it is unsigned.
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  media-tools-windows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Install the mingw-w64 cross toolchain
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 nasm pkg-config make
+      - uses: actions/cache@v6
+        with:
+          path: |
+            media-tools/win32-x64
+            .media-build/downloads
+          key: media-tools-win32-x64-${{ hashFiles('scripts/build-media-tools-win.mjs') }}
+      - run: npm run media:build:win
+      - uses: actions/upload-artifact@v7
+        with:
+          name: media-tools-win32-x64
+          path: media-tools/win32-x64
+          if-no-files-found: error
+  release:
+    needs: media-tools-windows
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Refuse a tag that does not match the application version
+        run: test "${GITHUB_REF_NAME#v}" = "$(node -p "require('./package.json').version")"
+      - run: npm ci
+      - run: node node_modules/electron/install.js
+      - uses: actions/download-artifact@v8
+        with:
+          name: media-tools-win32-x64
+          path: media-tools/win32-x64
+      - name: Build the installer
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -n "$WINDOWS_CERTIFICATE" ]; then
+            export CSC_LINK="$WINDOWS_CERTIFICATE" CSC_KEY_PASSWORD="$WINDOWS_CERTIFICATE_PASSWORD"
+            echo "Signing with the configured certificate."
+          else
+            echo "No certificate configured: the installer will be unsigned."
+          fi
+          npm run dist:win
+      - name: Run the installer silently
+        shell: pwsh
+        run: |
+          $installer = (Get-ChildItem release -Filter 'JGcut-*-setup.exe' | Select-Object -First 1).FullName
+          Start-Process -FilePath $installer -ArgumentList '/S' -Wait
+          $program = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Depth 1 -Filter JGcut.exe | Select-Object -First 1
+          if (-not $program) { throw 'The installer did not place JGcut.exe under the per-user Programs folder.' }
+          $tools = Join-Path $program.DirectoryName 'resources\media-tools'
+          "REACUT_TEST_APP=$($program.DirectoryName)" >> $env:GITHUB_ENV
+          "REACUT_FFMPEG=$tools\ffmpeg.exe" >> $env:GITHUB_ENV
+          "REACUT_FFPROBE=$tools\ffprobe.exe" >> $env:GITHUB_ENV
+      - name: Installed application check
+        run: |
+          npm run demo
+          npx tsx tests/package-electron.ts
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          # The corresponding source of the bundled GPL media tools travels with every release.
+          tar -czf "release/JGcut-$version-media-tool-sources.tar.gz" -C media-tools/win32-x64 sources licenses manifest.json
+          gh release create "$GITHUB_REF_NAME" "release/JGcut-$version-x64-setup.exe" "release/JGcut-$version-media-tool-sources.tar.gz" \
+            --repo "$GITHUB_REPOSITORY" --title "JGcut $version" --generate-notes

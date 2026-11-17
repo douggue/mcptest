@@ -136,7 +136,8 @@ export interface ExportOptions {
   height: number;
   fps: number;
   quality: "draft" | "standard" | "high";
-  format: "mp4" | "mov";
+  /** gif has no sound; m4a and wav carry the mixed sound only. */
+  format: "mp4" | "mov" | "gif" | "m4a" | "wav";
 }
 export interface ExportProgress {
   jobId: string;
@@ -225,7 +226,7 @@ export interface EditorAPI {
   ) => Promise<{ project: Project; path: string }>;
   chooseExportPath: (
     name: string,
-    format: "mp4" | "mov",
+    format: ExportOptions["format"],
   ) => Promise<string | null>;
   exportProject: (
     project: Project,

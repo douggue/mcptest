@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { compareVersions, createUpdateService, UPDATE_API } from "../electron/updateCheck";
 
-const repo = "https://github.com/Xiangyu-CAS/rea-capcut";
+const repo = "https://github.com/douggue/mcptest";
 function release(version = "0.8.0", changes: Record<string, unknown> = {}) {
-  const name = `ReaCut-${version}-arm64.dmg`;
+  const name = `JGcut-${version}-arm64.dmg`;
   return { tag_name: `v${version}`, draft: false, prerelease: true, html_url: `${repo}/releases/tag/v${version}`, body: "Release notes", assets: [{ name, state: "uploaded", size: 100, browser_download_url: `${repo}/releases/download/v${version}/${name}` }], ...changes };
 }
 function setup(data: unknown = [release()], overrides: Partial<Parameters<typeof createUpdateService>[0]> = {}) {
@@ -34,7 +34,7 @@ describe("manual preview update service", () => {
     expect(service.fetch).toHaveBeenCalledWith(UPDATE_API, expect.objectContaining({ redirect: "error", credentials: "omit", method: "GET" }));
     expect(service.openExternal).not.toHaveBeenCalled();
     expect(await service.open("download")).toBe(true);
-    expect(service.openExternal).toHaveBeenCalledWith(`${repo}/releases/download/v0.8.0/ReaCut-0.8.0-arm64.dmg`);
+    expect(service.openExternal).toHaveBeenCalledWith(`${repo}/releases/download/v0.8.0/JGcut-0.8.0-arm64.dmg`);
   });
   it("orders by semver rather than response order or publish date and filters drafts", async () => {
     const service = setup([release("0.7.1"), release("9.0.0", { draft: true }), release("0.9.0"), release("0.8.0")]);
@@ -61,18 +61,28 @@ describe("manual preview update service", () => {
     expect(await service.open("release")).toBe(true);
   });
   it("matches an explicitly x64 desktop DMG for Intel", async () => {
-    const service = setup([release("0.8.0", { assets: [{ name: "ReaCut-0.8.0-x64.dmg", state: "uploaded", size: 1, browser_download_url: `${repo}/releases/download/v0.8.0/ReaCut-0.8.0-x64.dmg` }] })], { arch: "x64" });
+    const service = setup([release("0.8.0", { assets: [{ name: "JGcut-0.8.0-x64.dmg", state: "uploaded", size: 1, browser_download_url: `${repo}/releases/download/v0.8.0/JGcut-0.8.0-x64.dmg` }] })], { arch: "x64" });
     expect((await service.check()).release?.hasDownload).toBe(true);
   });
-  it.each(["ReaCut-plugin-0.8.0.zip", "ReaCut-0.8.0-arm64.zip", "ReaCut-0.8.0.dmg", "ReaCut-0.7.0-arm64.dmg"])("rejects incompatible asset %s", async name => {
+  it("offers the x64 installer on Windows and opens only that verified download", async () => {
+    const name = "JGcut-0.8.0-x64-setup.exe";
+    const assets = [{ name, state: "uploaded", size: 1, browser_download_url: `${repo}/releases/download/v0.8.0/${name}` }];
+    const service = setup([release("0.8.0", { assets })], { platform: "win32", arch: "x64" });
+    expect((await service.check()).release?.hasDownload).toBe(true);
+    expect(await service.open("download")).toBe(true);
+    expect(service.openExternal).toHaveBeenCalledWith(`${repo}/releases/download/v0.8.0/${name}`);
+    const arm = setup([release("0.8.0", { assets })], { platform: "win32", arch: "arm64" });
+    expect((await arm.check()).release?.hasDownload).toBe(false);
+  });
+  it.each(["JGcut-plugin-0.8.0.zip", "JGcut-0.8.0-arm64.zip", "JGcut-0.8.0.dmg", "JGcut-0.7.0-arm64.dmg"])("rejects incompatible asset %s", async name => {
     const service = setup([release("0.8.0", { assets: [{ name, state: "uploaded", size: 1, browser_download_url: `${repo}/releases/download/v0.8.0/${name}` }] })]);
     expect((await service.check()).release?.hasDownload).toBe(false);
   });
   it.each([
     "https://evil.test/releases/tag/v0.8.0", `${repo}/releases/tag/v0.8.0?redirect=evil`,
-    `${repo}/releases/tag/v0.8.0#evil`, "http://github.com/Xiangyu-CAS/rea-capcut/releases/tag/v0.8.0",
-    "https://github.com@evil.test/Xiangyu-CAS/rea-capcut/releases/tag/v0.8.0",
-    "https://user:password@github.com/Xiangyu-CAS/rea-capcut/releases/tag/v0.8.0",
+    `${repo}/releases/tag/v0.8.0#evil`, "http://github.com/douggue/mcptest/releases/tag/v0.8.0",
+    "https://github.com@evil.test/douggue/mcptest/releases/tag/v0.8.0",
+    "https://user:password@github.com/douggue/mcptest/releases/tag/v0.8.0",
     "https://github.com/other/repo/releases/tag/v0.8.0", `${repo}/releases/tag/v0.9.0`,
   ])("rejects untrusted release source %s", async html_url => {
     const service = setup([release("0.8.0", { html_url })]);
@@ -81,7 +91,7 @@ describe("manual preview update service", () => {
   });
   it("rejects untrusted asset source and ignores renderer-controlled arbitrary URLs", async () => {
     const input = release();
-    input.assets[0].browser_download_url = "https://evil.test/ReaCut-0.8.0-arm64.dmg";
+    input.assets[0].browser_download_url = "https://evil.test/JGcut-0.8.0-arm64.dmg";
     const service = setup([input]);
     expect((await service.check()).release?.hasDownload).toBe(false);
     expect(await service.open("https://evil.test" as "release")).toBe(false);

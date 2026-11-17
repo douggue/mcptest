@@ -171,6 +171,10 @@ h3:first-child {
 .platform-windows .titlebar {
   padding-left: 8px;
 }
+/* Keep the top bar's own controls clear of the overlaid minimise / maximise / close buttons. */
+.windows-caption-overlay .titlebar {
+  padding-right: calc(100vw - env(titlebar-area-width, calc(100vw - 138px)) + 8px);
+}
 .titlebar button,
 .titlebar input,
 .titlebar-menus {
