@@ -29,7 +29,8 @@ export const CaptionLayer: React.FC<{ spec: CaptionsSpec; words: Word[]; t: numb
   const family = fontStack(spec.font);
   const weight = fontWeight(spec.font);
   const wrap: React.CSSProperties = {
-    position: 'absolute', left: '6%', right: '6%', top: `${spec.position}%`, transform: 'translateY(-50%)',
+    position: 'absolute', left: `${spec.x ?? 50}%`, top: `${spec.position}%`, transform: 'translate(-50%, -50%)',
+    width: 'max-content', maxWidth: '88%',
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: size * 0.18, textAlign: 'center',
   };
   const tr = (s: string) => (spec.uppercase ? s.toUpperCase() : s);
@@ -42,8 +43,8 @@ export const CaptionLayer: React.FC<{ spec: CaptionsSpec; words: Word[]; t: numb
       lineHeight: 1.15, textShadow: `0 ${3 * u}px ${10 * u}px rgba(0,0,0,.85)`, ...outline(6 * u),
     }}>{translation.text}</div>
   );
-  if (spec.mode === 'translated') return <div style={wrap}>{translated}</div>;
-  if (!page) return <div style={wrap}>{translated}</div>;
+  if (spec.mode === 'translated') return <div style={wrap} data-el="captions">{translated}</div>;
+  if (!page) return <div style={wrap} data-el="captions">{translated}</div>;
 
   const emojiWord = spec.emoji ? page.words.find((w) => w.emoji) : undefined;
   const emoji = emojiWord && (
@@ -127,7 +128,7 @@ export const CaptionLayer: React.FC<{ spec: CaptionsSpec; words: Word[]; t: numb
   }
 
   return (
-    <div style={wrap}>
+    <div style={wrap} data-el="captions">
       {emoji}
       {body}
       {spec.mode === 'bilingual' && translated}

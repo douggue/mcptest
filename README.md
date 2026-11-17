@@ -72,7 +72,9 @@ Paste a link or drop a file, set the range with the slider or the time boxes, ch
    - *Motion* – keyword pops, cascades, gauges, counters, lower thirds, step lists, emoji bursts and b-roll, each with placement, animation and sound. "AI remix" plans them for you.
    - *Export* – post title, description and hashtags; 9:16, 4:5, 1:1 or 16:9; 30 or 60 fps; 1080p or 720p.
 
-Shortcuts in the editor: Space plays, ←/→ step a frame (Shift for a second), Ctrl+Z / Ctrl+Shift+Z undo and redo.
+**Editing on the video:** click the captions, hook title, logo, watermark or a motion graphic in the preview to select it, drag to move it, and drag its corner to resize it. Double-click a title to edit its text. Positions snap to the centre line, and Style → Brand kit has a button to reset them.
+
+Shortcuts in the editor: Space plays, ←/→ step a frame (Shift for a second), Ctrl+Z / Ctrl+Shift+Z undo and redo, Delete removes the selected graphic, Esc clears the selection.
 
 ## Agency
 

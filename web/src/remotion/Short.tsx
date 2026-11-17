@@ -92,9 +92,9 @@ const HookTitle: React.FC<{ spec: ShortSpec; u: number }> = ({ spec, u }) => {
   const exit = interpolate(frame, [total - fps * 0.25, total], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const words = spec.hook.text.trim().split(/\s+/);
   const accentFrom = Math.max(1, words.length - (words.length > 4 ? 2 : 1));
-  const size = 96 * u * Math.min(1, 26 / Math.max(14, spec.hook.text.length)) + 22 * u;
+  const size = (96 * u * Math.min(1, 26 / Math.max(14, spec.hook.text.length)) + 22 * u) * (spec.hook.scale ?? 1);
   return (
-    <div style={{ position: 'absolute', left: '7%', right: '7%', top: '11%', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: size * 0.24, rowGap: size * 0.04, opacity: exit, transform: `scale(${interpolate(enter, [0, 1], [0.7, 1])})` }}>
+    <div data-el="hook" style={{ position: 'absolute', left: `${spec.hook.x ?? 50}%`, top: `${spec.hook.y ?? 11}%`, width: 'max-content', maxWidth: '86%', display: 'flex', flexWrap: 'wrap', justifyContent: 'center', columnGap: size * 0.24, rowGap: size * 0.04, opacity: exit, transform: `translateX(-50%) scale(${interpolate(enter, [0, 1], [0.7, 1])})` }}>
       {words.map((w, i) => (
         <span key={i} style={{
           fontFamily: fontStack(spec.brand.font), fontWeight: fontWeight(spec.brand.font), fontSize: size, lineHeight: 1.04, textTransform: 'uppercase',
@@ -109,15 +109,19 @@ const HookTitle: React.FC<{ spec: ShortSpec; u: number }> = ({ spec, u }) => {
 const BrandLayer: React.FC<{ spec: ShortSpec; u: number }> = ({ spec, u }) => {
   const { brand } = spec;
   const pad = 44 * u;
-  const pos: React.CSSProperties = {
-    [brand.logoPos.startsWith('top') ? 'top' : 'bottom']: pad,
-    [brand.logoPos.endsWith('left') ? 'left' : 'right']: pad,
-  };
+  const free = brand.logoX !== undefined && brand.logoY !== undefined;
+  const pos: React.CSSProperties = free
+    ? { left: `${brand.logoX}%`, top: `${brand.logoY}%`, transform: 'translate(-50%, -50%)' }
+    : { [brand.logoPos.startsWith('top') ? 'top' : 'bottom']: pad, [brand.logoPos.endsWith('left') ? 'left' : 'right']: pad };
   return (
     <>
-      {brand.logo && <Img src={brand.logo} style={{ position: 'absolute', width: `${brand.logoSize}%`, height: 'auto', ...pos }} />}
+      {brand.logo && <Img data-el="logo" src={brand.logo} style={{ position: 'absolute', width: `${brand.logoSize}%`, height: 'auto', opacity: brand.logoOpacity ?? 1, ...pos }} />}
       {brand.watermark && (
-        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 26 * u, textAlign: 'center', fontFamily: fontStack('Inter'), fontWeight: 600, fontSize: 28 * u, color: 'rgba(255,255,255,.62)', textShadow: '0 1px 4px rgba(0,0,0,.7)', letterSpacing: '0.04em' }}>{brand.watermark}</div>
+        <div data-el="watermark" style={{
+          position: 'absolute', left: `${brand.watermarkX ?? 50}%`, top: `${brand.watermarkY ?? 97.6}%`, transform: 'translate(-50%, -50%)', whiteSpace: 'nowrap',
+          fontFamily: fontStack('Inter'), fontWeight: 600, fontSize: (brand.watermarkSize ?? 28) * u, color: '#fff', opacity: brand.watermarkOpacity ?? 0.62,
+          textShadow: '0 1px 4px rgba(0,0,0,.7)', letterSpacing: '0.04em',
+        }}>{brand.watermark}</div>
       )}
     </>
   );

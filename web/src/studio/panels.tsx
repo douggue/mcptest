@@ -1,7 +1,7 @@
 // The editor's side panels. Each receives the shared editor context.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { api } from '../api';
+import { api, upload } from '../api';
 import { captionPages, shotIndexAt, srcTimeAt } from '../remotion/timing';
 import { ASPECTS, Anim, Aspect, CaptionPreset, FONTS, Graphic, GraphicType, Layout, LookPreset, Zone } from '../remotion/types';
 import { Button, Field, Seg, Slider, Toggle, fmtBytes, fmtDur, fmtTime, toast, toastError } from '../ui';
@@ -13,8 +13,8 @@ import {
 } from './logic';
 import { ExportRow, Template } from './types';
 
-const Group = ({ title, actions, children }: { title: string; actions?: React.ReactNode; children: React.ReactNode }) => (
-  <div className="group">
+const Group = ({ title, actions, children, id }: { title: string; actions?: React.ReactNode; children: React.ReactNode; id?: string }) => (
+  <div className="group" id={id}>
     <h3><span>{title}</span><span className="row gap-s">{actions}</span></h3>
     {children}
   </div>
@@ -78,10 +78,12 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
     <>
       <Group title={`Opening hook (0:00 – ${fmtTime(spec.hook.duration, true)})`}
         actions={<Toggle checked={spec.hook.visible} onChange={(v) => update((s) => ({ ...s, hook: { ...s.hook, visible: v } }))} label="Visible" />}>
-        <input type="text" placeholder="On-screen title for the first seconds" value={spec.hook.text}
+        <input id="hook-text" type="text" placeholder="On-screen title for the first seconds" value={spec.hook.text}
           onChange={(e) => update((s) => ({ ...s, hook: { ...s.hook, text: e.target.value } }), 'hook')} />
         <Slider label="Stays for" min={1} max={6} step={0.1} value={spec.hook.duration} format={(v) => `${v.toFixed(1)}s`}
           onChange={(v) => update((s) => ({ ...s, hook: { ...s.hook, duration: v } }), 'hookdur')} />
+        <Slider label="Size" min={0.4} max={2.5} step={0.05} value={spec.hook.scale ?? 1} format={(v) => `${Math.round(v * 100)}%`}
+          onChange={(v) => update((s) => ({ ...s, hook: { ...s.hook, scale: v } }), 'hookscale')} />
         <div className="row"><Button small icon="sparkle" onClick={hookIdeas} disabled={jobs.busy}>Suggest hooks</Button></div>
         {hooks.length > 0 && (
           <div className="chips">
@@ -216,6 +218,24 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
   const setLook = (patch: Partial<typeof spec.look>) => update((s) => ({ ...s, look: { ...s.look, ...patch } }));
   const setBrand = (patch: Partial<typeof spec.brand>, key = '') => update((s) => ({ ...s, brand: { ...s.brand, ...patch } }), key);
   const loadTemplates = () => api.get<Template[]>('/api/templates').then(setTemplates).catch(() => {});
+  const logoRef = useRef<HTMLInputElement>(null);
+  const moved = spec.captions.x !== undefined || spec.hook.x !== undefined || spec.hook.y !== undefined || spec.brand.logoX !== undefined
+    || spec.brand.watermarkX !== undefined || spec.brand.watermarkY !== undefined;
+  const resetPositions = () => update((s) => ({
+    ...s, captions: { ...s.captions, x: undefined }, hook: { ...s.hook, x: undefined, y: undefined },
+    brand: { ...s.brand, logoX: undefined, logoY: undefined, watermarkX: undefined, watermarkY: undefined },
+  }));
+
+  async function uploadLogo(file: File) {
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const row = await upload<{ url: string }>('/api/assets/brand', form);
+      ctx.reloadAssets();
+      setBrand({ logo: row.url });
+      toast('Logo added; drag it on the video to place it', 'good');
+    } catch (e) { toastError(e); }
+  }
   useEffect(() => { loadTemplates(); }, []);
 
   async function translate() {
@@ -252,6 +272,7 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
 
   return (
     <>
+      <div className="notice" style={{ marginTop: 14 }}>Click the captions, hook title, logo or watermark on the video to select it. Drag to move it, or drag its corner to resize.</div>
       <Group title="Templates" actions={<Button small icon="plus" onClick={saveTemplate}>Save current</Button>}>
         {templates.length ? (
           <select value="" onChange={(e) => applyTemplate(e.target.value)} aria-label="Apply a template">
@@ -261,7 +282,7 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
         ) : <span className="small muted">Save this clip's captions, look and brand to reuse on other clips.</span>}
       </Group>
 
-      <Group title="Subtitles" actions={<Toggle checked={cap.visible} onChange={(v) => setCap({ visible: v })} label="Visible" />}>
+      <Group id="subtitles" title="Subtitles" actions={<Toggle checked={cap.visible} onChange={(v) => setCap({ visible: v })} label="Visible" />}>
         <div className="preset-grid">
           {PRESETS.map((p) => <button key={p.id} className={'preset' + (cap.preset === p.id ? ' on' : '')} onClick={() => setCap({ preset: p.id })}>{p.label}</button>)}
         </div>
@@ -307,7 +328,7 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
         </div>
       </Group>
 
-      <Group title="Brand kit">
+      <Group id="brand-kit" title="Brand kit" actions={moved ? <Button small onClick={resetPositions} title="Put the captions, hook, logo and watermark back in their default places">Reset positions</Button> : null}>
         <div className="grid-2">
           <Field label="Title font">
             <select value={spec.brand.font} onChange={(e) => setBrand({ font: e.target.value })}>{FONTS.map((f) => <option key={f}>{f}</option>)}</select>
@@ -320,22 +341,35 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
           </Field>
         </div>
         <Field label="Logo">
-          <select value={spec.brand.logo} onChange={(e) => setBrand({ logo: e.target.value })}>
-            <option value="">None</option>
-            {assets.brand.map((a) => <option key={a.url} value={a.url}>{a.label}</option>)}
-          </select>
+          <div className="row">
+            <select value={spec.brand.logo} onChange={(e) => setBrand({ logo: e.target.value })} aria-label="Logo">
+              <option value="">None</option>
+              {assets.brand.map((a) => <option key={a.url} value={a.url}>{a.label}</option>)}
+            </select>
+            <Button small icon="upload" onClick={() => logoRef.current?.click()}>Upload</Button>
+            <input ref={logoRef} type="file" accept=".png,.jpg,.jpeg,.webp,.svg" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = ''; }} />
+          </div>
         </Field>
         {spec.brand.logo && (
           <>
-            <Seg small value={spec.brand.logoPos} onChange={(v) => setBrand({ logoPos: v })} options={[
-              { value: 'top-left', label: 'Top left' }, { value: 'top-right', label: 'Top right' },
-              { value: 'bottom-left', label: 'Bottom left' }, { value: 'bottom-right', label: 'Bottom right' }]} />
-            <Slider label="Logo size" min={5} max={40} value={spec.brand.logoSize} format={(v) => `${v}%`} onChange={(v) => setBrand({ logoSize: v }, 'logosize')} />
+            <Field label="Corner">
+              <Seg small value={spec.brand.logoX === undefined ? spec.brand.logoPos : ('' as any)} onChange={(v) => setBrand({ logoPos: v, logoX: undefined, logoY: undefined })} options={[
+                { value: 'top-left', label: 'Top left' }, { value: 'top-right', label: 'Top right' },
+                { value: 'bottom-left', label: 'Bottom left' }, { value: 'bottom-right', label: 'Bottom right' }]} />
+            </Field>
+            <Slider label="Logo size" min={3} max={60} value={spec.brand.logoSize} format={(v) => `${Math.round(v)}%`} onChange={(v) => setBrand({ logoSize: v }, 'logosize')} />
+            <Slider label="Logo opacity" min={0.1} max={1} step={0.05} value={spec.brand.logoOpacity ?? 1} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => setBrand({ logoOpacity: v }, 'logoop')} />
           </>
         )}
         <Field label="Watermark text">
-          <input type="text" placeholder="@yourchannel" value={spec.brand.watermark} onChange={(e) => setBrand({ watermark: e.target.value }, 'wm')} />
+          <input id="watermark-text" type="text" placeholder="@yourchannel" value={spec.brand.watermark} onChange={(e) => setBrand({ watermark: e.target.value }, 'wm')} />
         </Field>
+        {spec.brand.watermark && (
+          <>
+            <Slider label="Watermark size" min={14} max={120} value={spec.brand.watermarkSize ?? 28} onChange={(v) => setBrand({ watermarkSize: v }, 'wmsize')} />
+            <Slider label="Watermark opacity" min={0.1} max={1} step={0.05} value={spec.brand.watermarkOpacity ?? 0.62} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => setBrand({ watermarkOpacity: v }, 'wmop')} />
+          </>
+        )}
         <span className="small muted">Defaults for new clips are set under Settings → Brand kit.</span>
       </Group>
     </>
@@ -495,10 +529,16 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
               <Button small icon="speaker" onClick={() => testSfx(g.sfx)} disabled={!g.sfx}>Test</Button>
             </div>
           </Field>
+          {g.type !== 'broll' && (g.dx || g.dy || (g.scale ?? 1) !== 1) && (
+            <div className="row between">
+              <span className="small muted">Moved or resized on the video</span>
+              <Button small onClick={() => patch({ dx: undefined, dy: undefined, scale: undefined })}>Reset</Button>
+            </div>
+          )}
           {g.type !== 'broll' && (
             <div className="grid-2">
               <Field label={g.type === 'gauge' || g.type === 'counter' ? 'Value' : g.type === 'emoji' ? 'Emoji' : 'Main word'}>
-                <input type="text" value={g.primary} placeholder="e.g. 3 MONTHS" onChange={(e) => patch({ primary: e.target.value }, 'gprim')} />
+                <input id="graphic-text" type="text" value={g.primary} placeholder="e.g. 3 MONTHS" onChange={(e) => patch({ primary: e.target.value }, 'gprim')} />
               </Field>
               <Field label="Headline"><input type="text" value={g.headline} placeholder="Short supporting line" onChange={(e) => patch({ headline: e.target.value }, 'ghead')} /></Field>
             </div>

@@ -5,6 +5,7 @@ import { api } from '../api';
 import { Short } from '../remotion/Short';
 import { outFrameOf, srcTimeAt } from '../remotion/timing';
 import { Button, Icon, JobBar, fmtTime, toastError, useJobRunner } from '../ui';
+import { Picked, StageOverlay } from './StageOverlay';
 import { Timeline } from './Timeline';
 import { EditSpec, clamp, planOf, retime, round3, withSegments } from './logic';
 import { FramePanel, MotionPanel, PostPanel, StylePanel, WordsPanel } from './panels';
@@ -43,6 +44,7 @@ export function Editor({ project, clip, onBack }: { project: Project; clip: Clip
   const [frame, setFrame] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  const [picked, setPicked] = useState<Picked>(null);   // element selected on the preview
   const [meta, setMeta] = useState<Meta>(clip.meta);
   const [title, setTitle] = useState(clip.title);
   const [status, setStatus] = useState<Clip['status']>(clip.status);
@@ -148,6 +150,12 @@ export function Editor({ project, clip, onBack }: { project: Project; clip: Clip
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (e.code === 'Space') { e.preventDefault(); toggle(); }
+      else if (e.key === 'Escape') setPicked(null);
+      else if ((e.key === 'Delete' || e.key === 'Backspace') && picked?.startsWith('graphic:')) {
+        const id = picked.slice(8);
+        update((s) => ({ ...s, graphics: s.graphics.filter((g) => g.id !== id) }));
+        setPicked(null); setSelected(null);
+      }
       else if (e.key === 'ArrowLeft') seek(frame - (e.shiftKey ? spec.fps : 1));
       else if (e.key === 'ArrowRight') seek(frame + (e.shiftKey ? spec.fps : 1));
       else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
@@ -183,6 +191,18 @@ export function Editor({ project, clip, onBack }: { project: Project; clip: Clip
   };
 
   const tool = TOOLS.find((x) => x.id === tab)!;
+
+  function openFor(key: string, focus: boolean) {
+    const kind = key.split(':')[0];
+    if (kind === 'graphic') { setSelected(key.slice(8)); setTab('motion'); }
+    else setTab(kind === 'hook' ? 'frame' : kind === 'captions' && focus ? 'words' : 'style');
+    const field = kind === 'hook' ? 'hook-text' : kind === 'watermark' ? 'watermark-text' : kind === 'graphic' ? 'graphic-text' : '';
+    setTimeout(() => {
+      const el = document.getElementById(kind === 'logo' ? 'brand-kit' : kind === 'captions' ? 'subtitles' : field || 'x');
+      if (focus && field) (document.getElementById(field) as HTMLInputElement | null)?.focus();
+      else el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 60);
+  }
 
   return (
     <div className="editor">
@@ -222,10 +242,12 @@ export function Editor({ project, clip, onBack }: { project: Project; clip: Clip
 
         <section className="editor-center">
           <div className="stage" ref={stageRef}>
-            <div className="stage-frame" style={{ width: stage.w, height: stage.h }} onClick={toggle}>
+            <div className="stage-frame" style={{ width: stage.w, height: stage.h }}>
               <Player ref={player} component={Short} inputProps={{ spec }} durationInFrames={frames} fps={spec.fps}
                 compositionWidth={spec.width} compositionHeight={spec.height} style={{ width: stage.w, height: stage.h }}
                 controls={false} clickToPlay={false} spaceKeyToPlayOrPause={false} acknowledgeRemotionLicense />
+              <StageOverlay spec={spec} update={update} width={stage.w} height={stage.h} playing={playing} onToggle={toggle}
+                picked={picked} onPick={(key) => { setPicked(key); if (key?.startsWith('graphic:')) setSelected(key.slice(8)); }} onOpen={openFor} />
             </div>
           </div>
           <div className="deck">

@@ -46,10 +46,18 @@ export type Graphic = {
   headline: string;    // small supporting line
   keywords: string[];  // for cascade / steps
   src?: string;        // media for b-roll
+  dx?: number;         // moved from its zone's default spot, % of frame width / height
+  dy?: number;
+  scale?: number;      // resized, 1 = default
   mediaType?: 'image' | 'video' | 'gif';
 };
 
-export type Hook = { text: string; visible: boolean; duration: number };
+export type Hook = {
+  text: string; visible: boolean; duration: number;
+  x?: number;      // centre, % of frame width (default 50)
+  y?: number;      // top edge, % of frame height (default 11)
+  scale?: number;  // 1 = default size
+};
 
 export type CaptionPreset = 'boldpop' | 'karaoke' | 'tape' | 'clean' | 'neon' | 'typeon';
 
@@ -61,6 +69,7 @@ export type Captions = {
   color: string;
   highlight: string;
   position: number;      // % from the top of the frame
+  x?: number;            // centre, % of frame width (default 50)
   uppercase: boolean;
   maxWords: number;
   emoji: boolean;
@@ -87,7 +96,14 @@ export type Brand = {
   logo: string;
   logoPos: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
   logoSize: number;   // % of frame width
+  logoX?: number;     // free position of the logo's centre, % of frame; overrides logoPos when set
+  logoY?: number;
+  logoOpacity?: number;
   watermark: string;
+  watermarkX?: number;        // centre, % of frame (default 50 / 97.6)
+  watermarkY?: number;
+  watermarkSize?: number;     // px at a 1080-wide frame (default 28)
+  watermarkOpacity?: number;  // default 0.62
 };
 
 export type ShortSpec = {

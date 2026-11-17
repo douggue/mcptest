@@ -213,17 +213,24 @@ export const GraphicLayer: React.FC<Ctx> = (ctx) => {
   const { style } = useEnter(g, frames);
   const { box, backdrop } = zoneBox(g);
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, width, height } = useVideoConfig();
+  const moved = `translate(${((g.dx ?? 0) / 100) * width}px, ${((g.dy ?? 0) / 100) * height}px) scale(${g.scale ?? 1})`;
   const backIn = interpolate(frame, [0, fps * 0.18], [0, 1], { extrapolateRight: 'clamp' })
     * interpolate(frame, [frames - fps * 0.2, frames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   return (
     <>
       {g.sfx && fxVolume > 0 && <Audio src={`${sfxBase}${g.sfx}.wav`} volume={fxVolume} />}
-      <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden', ...box }}>
+      <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: g.type === 'broll' ? 'hidden' : 'visible', ...box }}>
         {backdrop && <div style={{ position: 'absolute', inset: 0, background: backdrop, opacity: backIn }} />}
-        <div style={{ position: g.type === 'broll' ? 'absolute' : 'relative', inset: g.type === 'broll' ? 0 : undefined, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', ...style }}>
-          <Body {...ctx} />
-        </div>
+        {g.type === 'broll' ? (
+          <div style={{ position: 'absolute', inset: 0, ...style }}><Body {...ctx} /></div>
+        ) : (
+          <div data-el={`graphic:${g.id}`} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', transform: moved }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', ...style }}>
+              <Body {...ctx} />
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
