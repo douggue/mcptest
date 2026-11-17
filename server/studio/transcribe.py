@@ -76,7 +76,7 @@ def whisper(path: Path, job: Job, model_name: str | None = None, language: str |
                 raise
             except Exception as e:
                 detail = str(e or first)
-                download = any(k in detail.lower() for k in ("connect", "resolve", "huggingface", "timed out", "ssl", "proxy", "404"))
+                download = any(k in detail.lower() for k in ("connect", "resolve", "huggingface", "timed out", "ssl", "proxy", "404", "403", "forbidden"))
                 hint = (f" The '{name}' speech model is downloaded on first use, which needs internet access." if download else "")
                 raise MediaError(f"Transcription failed.{hint} Details: {detail}") from e
     finally:

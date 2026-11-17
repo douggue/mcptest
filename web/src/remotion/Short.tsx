@@ -22,8 +22,25 @@ export function lookFilter(look: Look): string {
     look.contrast && look.contrast !== 1 ? `contrast(${look.contrast})` : '',
     look.saturation && look.saturation !== 1 ? `saturate(${look.saturation})` : '',
   ];
-  return [LOOKS[look.preset] ?? '', ...fine, look.bw ? 'grayscale(1) contrast(1.12)' : ''].filter(Boolean).join(' ') || 'none';
+  return [LOOKS[look.preset] ?? '', ...fine, look.bw ? 'grayscale(1) contrast(1.12)' : '', needsSvgLook(look) ? 'url(#cutroom-look)' : ''].filter(Boolean).join(' ') || 'none';
 }
+
+const needsSvgLook = (look: Look) => !!(look.sharpen || look.warmth);
+
+/** Sharpening and warmth, which CSS filters cannot do: an SVG filter the picture refers to as url(#cutroom-look). */
+const LookSvg: React.FC<{ look: Look }> = ({ look }) => {
+  if (!needsSvgLook(look)) return null;
+  const w = Math.max(-1, Math.min(1, look.warmth ?? 0));
+  const k = 0.45 * Math.max(0, Math.min(1, look.sharpen ?? 0));
+  return (
+    <svg width={0} height={0} style={{ position: 'absolute' }} aria-hidden>
+      <filter id="cutroom-look" colorInterpolationFilters="sRGB">
+        <feColorMatrix type="matrix" values={`${1 + 0.1 * w} 0 0 0 0  0 ${1 + 0.02 * w} 0 0 0  0 0 ${1 - 0.12 * w} 0 0  0 0 0 1 0`} result="warm" />
+        {k > 0 && <feConvolveMatrix in="warm" order="3" preserveAlpha kernelMatrix={`0 ${-k} 0 ${-k} ${1 + 4 * k} ${-k} 0 ${-k} 0`} />}
+      </filter>
+    </svg>
+  );
+};
 
 /**
  * A superellipse-cornered box (the "squircle" of phone icons), as CSS clip-path. Each corner follows
@@ -67,7 +84,7 @@ const Pane: React.FC<{
       trimBefore={Math.round(piece.srcStart * fps)}
       playbackRate={piece.hold ? 1 : piece.rate}
       muted={piece.hold || !audible || useClean || volume <= 0}
-      volume={volume}
+      volume={spec.audio.voiceover?.alternate ? (f: number) => volume * narratorGap(spec, (piece.from + f) / fps) : volume}
       pauseWhenBuffering
       style={{ position: 'absolute', left, top, width: dw, height: dh, maxWidth: 'none', objectFit: 'fill', filter: mode === 'blur' ? 'blur(34px) brightness(0.55)' : undefined }}
     />
@@ -89,7 +106,8 @@ const Panes: React.FC<{ spec: ShortSpec; piece: Piece }> = ({ spec, piece }) => 
   const y = shot.y ?? 50;
   const cleanVolume = spec.audio.voiceover?.muteOriginal || spec.audio.music?.replaces ? 0 : spec.audio.voice;
   const clean = spec.audio.cleanSrc && cleanVolume > 0 && !piece.hold && (
-    <Audio src={spec.audio.cleanSrc} playbackRate={piece.rate} trimBefore={Math.max(0, Math.round((piece.srcStart - (spec.audio.cleanOffset ?? 0)) * fps))} volume={cleanVolume} />
+    <Audio src={spec.audio.cleanSrc} playbackRate={piece.rate} trimBefore={Math.max(0, Math.round((piece.srcStart - (spec.audio.cleanOffset ?? 0)) * fps))}
+      volume={spec.audio.voiceover?.alternate ? (f: number) => cleanVolume * narratorGap(spec, (piece.from + f) / fps) : cleanVolume} />
   );
 
   // The picture area: the whole frame, or a box on a background ("panel").
@@ -157,8 +175,10 @@ const HookTitle: React.FC<{ spec: ShortSpec; u: number }> = ({ spec, u }) => {
   );
 };
 
-const BrandLayer: React.FC<{ spec: ShortSpec; u: number }> = ({ spec, u }) => {
+/** The logo and the watermark. `under`: only a watermark the style draws beneath the colour flashes. */
+const BrandLayer: React.FC<{ spec: ShortSpec; u: number; under?: boolean }> = ({ spec, u, under }) => {
   const { brand } = spec;
+  const showMark = !!brand.watermark && !!brand.watermarkUnder === !!under;
   const pad = 44 * u;
   const free = brand.logoX !== undefined && brand.logoY !== undefined;
   const pos: React.CSSProperties = free
@@ -166,12 +186,15 @@ const BrandLayer: React.FC<{ spec: ShortSpec; u: number }> = ({ spec, u }) => {
     : { [brand.logoPos.startsWith('top') ? 'top' : 'bottom']: pad, [brand.logoPos.endsWith('left') ? 'left' : 'right']: pad };
   return (
     <>
-      {brand.logo && <Img data-el="logo" src={brand.logo} style={{ position: 'absolute', width: `${brand.logoSize}%`, height: 'auto', opacity: brand.logoOpacity ?? 1, ...pos }} />}
-      {brand.watermark && (
+      {!under && brand.logo && <Img data-el="logo" src={brand.logo} style={{ position: 'absolute', width: `${brand.logoSize}%`, height: 'auto', opacity: brand.logoOpacity ?? 1, ...pos }} />}
+      {showMark && (
         <div data-el="watermark" style={{
           position: 'absolute', left: `${brand.watermarkX ?? 50}%`, top: `${brand.watermarkY ?? 97.6}%`, transform: 'translate(-50%, -50%)', whiteSpace: 'nowrap',
-          fontFamily: fontStack('Inter'), fontWeight: 600, fontSize: (brand.watermarkSize ?? 28) * u, color: '#fff', opacity: brand.watermarkOpacity ?? 0.62,
-          textShadow: '0 1px 4px rgba(0,0,0,.7)', letterSpacing: '0.04em',
+          fontFamily: fontStack(brand.watermarkFont ?? 'Inter'), fontWeight: brand.watermarkWeight ?? (brand.watermarkFont ? fontWeight(brand.watermarkFont) : 600),
+          fontStyle: brand.watermarkItalic ? 'italic' : undefined, fontSize: (brand.watermarkSize ?? 28) * u, opacity: brand.watermarkOpacity ?? 0.62, letterSpacing: '0.04em',
+          ...(brand.watermarkGradient
+            ? { backgroundImage: `linear-gradient(${brand.watermarkGradient})`, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.6))' }
+            : { color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,.7)' }),
         }}>{brand.watermark}</div>
       )}
     </>
@@ -301,6 +324,8 @@ function transitionFx(cuts: Cut[], frame: number, u: number): Fx | null {
     switch (c.type) {
       case 'zoom': return { style: { transform: `scale(${1 + 0.6 * kk})`, filter: `blur(${14 * kk * u}px)` } };
       case 'whip': return { style: { transform: `translateX(${dir * 22 * kk}%) scale(${1 + 0.5 * kk}, ${1 + 0.12 * kk})`, filter: `blur(${12 * kk * u}px)` } };
+      case 'whipup': return { style: { transform: `translateY(${-dir * 22 * kk}%) scale(${1 + 0.12 * kk}, ${1 + 0.5 * kk})`, filter: `blur(${12 * kk * u}px)` } };
+      case 'dipblur': return { style: { filter: `blur(${18 * kk * u}px)`, transform: `scale(${1 + 0.05 * k})` }, wash: { color: '#000', opacity: 0.75 * smooth(k) } };
       case 'spin': return { style: { transform: `rotate(${-dir * 14 * kk}deg) scale(${1 + 0.55 * kk})`, filter: `blur(${9 * kk * u}px)` } };
       case 'blur': return { style: { transform: `scale(${1 + 0.08 * k})`, filter: `blur(${26 * kk * u}px)` } };
       case 'flash': return { style: {}, wash: { color: '#fff', opacity: Math.pow(k, 1.5) } };
@@ -335,6 +360,47 @@ const Grain: React.FC<{ amount: number }> = ({ amount }) => {
 
 const FULL_FRAME = new Set(['spotlight', 'flash', 'dip']);
 
+/** The voiceover's words on the short's own clock, when the captions follow the voiceover; null otherwise. */
+export function voiceWords(spec: ShortSpec) {
+  const vo = spec.audio.voiceover;
+  if (spec.captions.source !== 'voiceover' || !vo?.words?.length) return null;
+  return vo.words.map((w) => ({ ...w, start: w.start + (vo.at || 0), end: w.end + (vo.at || 0) }));
+}
+
+/** 0 while the narrator speaks (with a little room either side), 1 otherwise: the clip's sound takes turns with them. */
+function narratorGap(spec: ShortSpec, seconds: number): number {
+  const vo = spec.audio.voiceover;
+  if (!vo?.alternate || !vo.words?.length) return 1;
+  const s = seconds - (vo.at || 0);
+  for (const w of vo.words) {
+    if (s < w.start - 0.3) break;
+    if (s <= w.end + 0.3) {
+      const into = Math.min(s - (w.start - 0.3), (w.end + 0.3) - s);
+      return Math.max(0, 1 - into / 0.15);   // a 0.15 s ramp, not a click
+    }
+  }
+  return 1;
+}
+
+/** Where a followed subject is at source time t, by its path (linear between points, held at the ends). */
+function pathAt(path: { t: number; x: number; y: number }[], t: number): [number, number] {
+  if (t <= path[0].t) return [path[0].x, path[0].y];
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1], b = path[i];
+    if (t <= b.t) { const k = (t - a.t) / Math.max(1e-6, b.t - a.t); return [a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k]; }
+  }
+  const z = path[path.length - 1];
+  return [z.x, z.y];
+}
+
+/** A graphic that follows a subject: moved by however far the subject has moved on screen since the graphic appeared. */
+function followed(spec: ShortSpec, g: Graphic, t: number): Graphic {
+  if (!g.follow?.length) return g;
+  const [ax, ay] = sourcePoint(spec, g.at, ...pathAt(g.follow, g.at));
+  const [nx, ny] = sourcePoint(spec, t, ...pathAt(g.follow, t));
+  return { ...g, dx: (g.dx ?? 0) + ((nx - ax) / spec.width) * 100, dy: (g.dy ?? 0) + ((ny - ay) / spec.height) * 100 };
+}
+
 export const Short: React.FC<{ spec: ShortSpec }> = ({ spec }) => {
   const frame = useCurrentFrame();
   const { fps, width, durationInFrames } = useVideoConfig();
@@ -365,9 +431,11 @@ export const Short: React.FC<{ spec: ShortSpec }> = ({ spec }) => {
   });
   const music = spec.audio.music;
   const vo = spec.audio.voiceover;
+  const voWords = useMemo(() => voiceWords(spec), [spec.captions.source, spec.audio.voiceover?.words, spec.audio.voiceover?.at]);
 
   return (
     <AbsoluteFill style={{ background: '#000' }}>
+      <LookSvg look={spec.look} />
       <AbsoluteFill style={{ filter: lookFilter(spec.look) }}>
         {cuts.filter((c) => c.type === 'fade' || c.type === 'slide' || c.type === 'push').map((c) => (
           // the outgoing shot's last frame, held underneath while the new shot arrives
@@ -408,10 +476,11 @@ export const Short: React.FC<{ spec: ShortSpec }> = ({ spec }) => {
         const { from, frames } = graphicFrames(plan, g, fps);
         return (
           <Sequence key={g.id} from={from} durationInFrames={frames}>
-            {g.outline?.length ? <OutlineSpot spec={spec} plan={plan} g={g} from={from} frames={frames} u={u} /> : <GraphicLayer g={g} brand={spec.brand} u={u} frames={frames} fxVolume={spec.audio.fx} sfxBase={spec.sfxBase} />}
+            {g.outline?.length ? <OutlineSpot spec={spec} plan={plan} g={g} from={from} frames={frames} u={u} /> : <GraphicLayer g={followed(spec, g, t)} brand={spec.brand} u={u} frames={frames} fxVolume={spec.audio.fx} sfxBase={spec.sfxBase} />}
           </Sequence>
         );
       })}
+      <BrandLayer spec={spec} u={u} under />
       {/* flashes and dips wash the picture, never the text over it */}
       {effects.filter((g) => g.type !== 'spotlight').map((g) => {
         const { from, frames } = graphicFrames(plan, g, fps);
@@ -421,12 +490,14 @@ export const Short: React.FC<{ spec: ShortSpec }> = ({ spec }) => {
           </Sequence>
         );
       })}
-      {!coveredByGraphic && <CaptionLayer spec={spec.captions} words={spec.words} t={t} u={u} from={spec.in} />}
+      {!coveredByGraphic && (voWords
+        ? <CaptionLayer spec={spec.captions} words={voWords} t={frame / fps} u={u} from={0} />
+        : <CaptionLayer spec={spec.captions} words={spec.words} t={t} u={u} from={spec.in} />)}
       {overlays.map((g) => {
         const { from, frames } = graphicFrames(plan, g, fps);
         return (
           <Sequence key={g.id} from={from} durationInFrames={frames}>
-            <GraphicLayer g={g} brand={spec.brand} u={u} frames={frames} fxVolume={spec.audio.fx} sfxBase={spec.sfxBase} />
+            <GraphicLayer g={followed(spec, g, t)} brand={spec.brand} u={u} frames={frames} fxVolume={spec.audio.fx} sfxBase={spec.sfxBase} />
           </Sequence>
         );
       })}

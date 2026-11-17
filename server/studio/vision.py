@@ -17,16 +17,77 @@ _YUNET_URL = ("https://raw.githubusercontent.com/opencv/opencv_zoo/main/models/f
 
 
 def detect_cuts(path: Path, start: float, end: float, threshold: float = 12.0) -> list[float]:
-    """Hard cuts between `start` and `end` (source seconds), from ffmpeg's scene-change detector."""
+    """Hard cuts between `start` and `end` (source seconds). ffmpeg's scene-change detector first; when it finds
+    nothing or fails, PySceneDetect (if installed) and then a frame-by-frame colour comparison have a go, so a soft
+    or dark cut that one method misses is still found."""
+    try:
+        cuts = _scdet_cuts(path, start, end, threshold)
+    except Exception:   # noqa: BLE001 - fall through to the backups
+        cuts = []
+    if cuts or end - start < 1.5:
+        return cuts
+    for backup in (_pyscenedetect_cuts, _histogram_cuts):
+        try:
+            found = backup(path, start, end)
+        except Exception:   # noqa: BLE001 - a backup that cannot run is skipped
+            continue
+        if found:
+            return found
+    return []
+
+
+def _keep(cuts: list[float], start: float, end: float) -> list[float]:
+    out: list[float] = []
+    for t in sorted(cuts):
+        if start + 0.4 < t < end - 0.4 and (not out or t - out[-1] > 0.5):
+            out.append(round(t, 3))
+    return out
+
+
+def _pyscenedetect_cuts(path: Path, start: float, end: float) -> list[float]:
+    from scenedetect import ContentDetector, detect   # optional: pip install scenedetect
+    scenes = detect(str(path), ContentDetector(threshold=27.0), start_time=start, end_time=end)
+    return _keep([a.get_seconds() for a, _ in scenes[1:]], start, end)
+
+
+def _histogram_cuts(path: Path, start: float, end: float) -> list[float]:
+    """Every frame's colour histogram against the previous one; a cut is a jump well above the clip's usual change."""
+    import cv2
+    cap = cv2.VideoCapture(str(path))
+    try:
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        cap.set(cv2.CAP_PROP_POS_MSEC, start * 1000.0)
+        prev, diffs, times = None, [], []
+        n = 0
+        while True:
+            ok, frame = cap.read()
+            t = start + n / fps
+            n += 1
+            if not ok or t > end:
+                break
+            small = cv2.resize(frame, (160, 90))
+            hsv = cv2.cvtColor(small, cv2.COLOR_BGR2HSV)
+            h = cv2.calcHist([hsv], [0, 1, 2], None, [16, 8, 8], [0, 180, 0, 256, 0, 256])
+            cv2.normalize(h, h)
+            if prev is not None:
+                diffs.append(1.0 - float(cv2.compareHist(prev, h, cv2.HISTCMP_CORREL)))
+                times.append(t)
+            prev = h
+    finally:
+        cap.release()
+    if len(diffs) < 3:
+        return []
+    usual = float(np.median(diffs))
+    return _keep([t for t, d in zip(times, diffs) if d > max(0.35, usual * 6)], start, end)
+
+
+def _scdet_cuts(path: Path, start: float, end: float, threshold: float) -> list[float]:
     cmd = [need("ffmpeg"), "-hide_banner", "-loglevel", "info", "-ss", f"{start:.3f}", "-t", f"{max(0.1, end - start):.3f}",
            "-i", str(path), "-an", "-vf", f"scale=320:-2,scdet=threshold={threshold}", "-f", "null", "-"]
     out = subprocess.run(cmd, capture_output=True, text=True)
-    cuts = []
-    for m in re.finditer(r"lavfi\.scd\.time:\s*([\d.]+)", out.stderr):
-        t = start + float(m.group(1))
-        if start + 0.4 < t < end - 0.4 and (not cuts or t - cuts[-1] > 0.5):
-            cuts.append(round(t, 3))
-    return cuts
+    if out.returncode != 0:
+        raise RuntimeError(out.stderr[-200:])
+    return _keep([start + float(m.group(1)) for m in re.finditer(r"lavfi\.scd\.time:\s*([\d.]+)", out.stderr)], start, end)
 
 
 class FaceFinder:

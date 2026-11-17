@@ -14,7 +14,7 @@ CAPTION_LOOKS = ["boldpop", "karaoke", "tape", "clean", "neon", "typeon", "shado
 FONTS = ["Anton", "Archivo Black", "Bebas Neue", "Montserrat", "Poppins", "Cinzel", "Inter", "JetBrains Mono"]
 LOOKS = ["none", "punchy", "warm", "cool", "cinematic", "vintage"]
 ASPECTS = ["9:16", "4:5", "3:4", "1:1", "16:9"]
-TRANSITIONS = ["cut", "smooth", "fade", "slide", "push", "zoom", "whip", "spin", "blur", "flash", "dip", "glitch"]
+TRANSITIONS = ["cut", "smooth", "fade", "slide", "push", "zoom", "whip", "whipup", "spin", "blur", "flash", "dip", "dipblur", "glitch"]
 GRAPHICS = ["label", "nametag", "circle", "arrow", "spotlight", "flash", "dip", "heart", "emoji", "keyword", "counter",
             "lowerthird", "blurbox"]
 LABEL_LOOKS = ["", "neon", "quoted", "plain", "box", "outline", "flat"]

@@ -64,16 +64,17 @@ export type StyleProfile = {
   copied_from?: string;
   analysis?: StyleAnalysis | null; note?: string; engine?: string; analysed?: number;
   /** What the planners may add in this style (built-in styles only; none means no limits). */
-  limits?: { graphics: string[]; label_look?: string; sfx: boolean; emoji: boolean; hook: boolean; freezes: boolean; speeds: boolean; min_rate?: number; zooms: boolean; tracking: boolean };
+  limits?: { graphics: string[]; label_look?: string; sfx: boolean; emoji: boolean; hook: boolean; freezes: boolean; speeds: boolean; min_rate?: number; zooms: boolean; tracking: boolean; smooth60?: boolean; upscale?: boolean };
   /** The style's own steps, shown as a checklist in the editor. */
   workflow?: StyleStep[];
   /** The style's sound: what music does, its fades, the export loudness, and which graphics play the camera-flash sound. */
-  audio?: { music: 'under' | 'replaces' | 'none'; music_volume?: number; duck?: boolean; fade_in?: number; fade_out?: number; lufs?: number; camera_on?: string[] };
+  audio?: { music: 'under' | 'replaces' | 'none'; music_volume?: number; duck?: boolean; fade_in?: number; fade_out?: number; lufs?: number; camera_on?: string[]; vo_alternate?: boolean };
 };
 export type StyleStep = { text: string; tool: '' | 'frame' | 'style' | 'words' | 'motion' | 'post'; check: string };
 export type DirectPlan = {
   title: string; post_title: string; description: string; hashtags: string[]; notes: string[];
-  elements: { type: string; at_seconds: number; seconds: number; text: string; colour: string; label_look: string; position: string; on_subject: boolean; animation: string; sfx?: string }[];
+  elements: { type: string; at_seconds: number; seconds: number; text: string; colour: string; label_look: string; position: string; on_subject: boolean; animation: string; sfx?: string;
+    exit?: number; exit_blur?: boolean; type_clicks?: boolean; dim?: number; ramp?: number; scale?: number; weight?: number }[];
   freezes: { at_seconds: number; seconds: number }[];
   speeds: { from_seconds: number; to_seconds: number; rate: number }[];
 };

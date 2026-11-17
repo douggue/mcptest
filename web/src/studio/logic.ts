@@ -1,10 +1,12 @@
 // Pure editing operations on a ShortSpec. No React, no network.
 import { Piece, buildPlan, captionPages as pagesOf, outFrameOf, srcTimeAt, totalFrames } from '../remotion/timing';
-import { ASPECTS, Anim, Aspect, Face, Freeze, Graphic, GraphicType, Layout, Segment, ShortSpec, Shot, Speed, Word, Zone } from '../remotion/types';
+import { ASPECTS, Anim, Aspect, Face, Freeze, Graphic, GraphicType, Layout, Segment, ShortSpec, Shot, Speed, Transition, Word, Zone } from '../remotion/types';
 
 export type EditSpec = ShortSpec & {
   /** Editor-only settings the composition ignores. */
   edit?: { silence: number };   // remove pauses longer than this many seconds; 0 = keep pauses
+  /** The style's transition for new cuts (e.g. Narrated story's dip and defocus); cuts found later get it too. */
+  styleTransition?: { type: Transition; seconds: number };
 };
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
@@ -182,7 +184,7 @@ export function applyAnalysis(spec: EditSpec, shots: AnalysedShot[], opts: { spl
     else x = prev?.layout === layout ? prev.x : Array.from({ length: n }, (_, k) => (n === 1 ? 50 : Math.round((100 * (k + 0.5)) / n)));
     const moves = s.track.length > 1 && Math.max(...s.track.map((k) => k.cx)) - Math.min(...s.track.map((k) => k.cx)) > 0.04;
     return {
-      start: round3(s.start), layout, x, y: sameCuts ? prev.y : undefined, transition: sameCuts ? prev.transition : 'cut', faces,
+      start: round3(s.start), layout, x, y: sameCuts ? prev.y : undefined, transition: sameCuts ? prev.transition : (spec.styleTransition?.type ?? 'cut'), tdur: sameCuts ? prev.tdur : spec.styleTransition?.seconds, faces,
       track: opts.follow && layout === 'single' && moves ? s.track.map((k) => ({ t: k.t, x: faceToX(k.cx, spec, layout) })) : undefined,
     };
   });
@@ -237,7 +239,7 @@ export const GRAPHIC_LABELS: Record<GraphicType, string> = {
   lowerthird: 'Lower third', steps: 'Step list', broll: 'B-roll', emoji: 'Emoji burst',
 };
 export const ZONE_LABELS: Record<Zone, string> = { free: 'Free', full: 'Full', top: 'Top', center: 'Center', bottom: 'Bottom', overlay: 'Overlay' };
-export const ANIM_LABELS: Record<Anim, string> = { pop: 'Spring pop', slam: 'Slam', fade: 'Fade', slide: 'Slide up', glitch: 'Glitch flash', type: 'Wipe in', none: 'None (already there)' };
+export const ANIM_LABELS: Record<Anim, string> = { pop: 'Spring pop', slam: 'Slam', fade: 'Fade', slide: 'Slide up', glitch: 'Glitch flash', type: 'Type on (letter by letter)', words: 'Word by word', none: 'None (already there)' };
 /** Placed anywhere on the frame; no zone, and for the last three no text at all. */
 export const FREE_TYPES: GraphicType[] = ['label', 'nametag', 'circle', 'arrow', 'spotlight', 'image', 'blurbox', 'flash', 'dip', 'heart'];
 export const isFree = (t: GraphicType) => FREE_TYPES.includes(t);
@@ -441,6 +443,16 @@ export function withStyleMusic(m: NonNullable<EditSpec['audio']['music']>, profi
   return { ...m, volume: a.music_volume ?? m.volume, duck: a.duck ?? m.duck, fadeIn: a.fade_in ?? m.fadeIn, fadeOut: a.fade_out ?? m.fadeOut, replaces: a.music === 'replaces' };
 }
 
+/** New wording for timed words: the same number of words keeps every timing; otherwise the new words share the
+ *  old words' time span evenly, in order. Used to correct a transcribed voiceover. */
+export function retext(words: Word[], text: string): Word[] {
+  const toks = text.split(/\s+/).filter(Boolean);
+  if (!words.length || !toks.length) return words;
+  if (toks.length === words.length) return words.map((w, i) => ({ ...w, text: toks[i] }));
+  const a = words[0].start, b = words[words.length - 1].end, step = (b - a) / toks.length;
+  return toks.map((t, i) => ({ id: i, text: t, start: round3(a + i * step), end: round3(a + (i + 1) * step - 0.02) }));
+}
+
 const braces = (text: string) => text.replace(/\{([^}|]*)(?:\|#[0-9a-fA-F]{3,8})?\}/g, '$1');
 
 /** Apply a style (built-in or learned): canvas, picture frame, captions, look, brand, and its standing elements. */
@@ -451,13 +463,17 @@ export function applyStyle(spec: EditSpec, profile: StyleProfile, seconds: numbe
     width: st.width ?? spec.width, height: st.height ?? spec.height, fps: st.fps ?? spec.fps,
     // A style owns the caption timing, the picture frame and the channel header, so whatever the previous style set
     // for them is cleared first; otherwise switching styles would leave the old one's box or header behind.
-    captions: { ...spec.captions, lead: undefined, ...(st.captions ?? {}), translations: spec.captions.translations },
-    look: { ...spec.look, brightness: 1, contrast: 1, saturation: 1, ...(st.look ?? {}) },
-    brand: { ...spec.brand, ...(st.brand ?? {}) },
+    captions: { ...spec.captions, lead: undefined, weight: undefined, source: undefined, ...(st.captions ?? {}), translations: spec.captions.translations },
+    look: { ...spec.look, brightness: 1, contrast: 1, saturation: 1, sharpen: 0, warmth: 0, drift: 0, ...(st.look ?? {}) },
+    // the watermark's look belongs to the style; the text itself (the channel name) stays
+    brand: { ...spec.brand, watermarkFont: undefined, watermarkWeight: undefined, watermarkItalic: undefined, watermarkGradient: undefined, watermarkUnder: undefined, ...(st.brand ?? {}) },
     frame: st.frame ? { ...st.frame } : undefined,
     header: st.header ? { ...st.header, ...(spec.header ?? {}), y: st.header.y } : undefined,
     audio: styleAudio(spec.audio, profile),
+    styleTransition: (profile as { style?: { transition?: EditSpec['styleTransition'] } }).style?.transition,
   };
+  const tr = next.styleTransition;
+  if (tr) next.shots = next.shots.map((x, i) => (i === 0 ? x : { ...x, transition: tr.type, tdur: tr.seconds }));
   if (st.header && !spec.header && spec.brand.watermark) next.header = { ...next.header!, handle: spec.brand.watermark, name: spec.brand.watermark.replace(/^@/, ''), avatar: spec.brand.logo };
   const standing: Graphic[] = [];
   let hookShown = spec.hook.visible;
@@ -487,6 +503,14 @@ export function applyDirect(spec: EditSpec, plan: DirectPlan): EditSpec {
     const g: Graphic = { ...newGraphic(type, at), duration: e.seconds, origin: 'ai', animation: (e.animation as Anim) || 'pop' };
     if (e.text) g.primary = e.text;
     if (e.sfx) g.sfx = e.sfx;
+    // the style's own animation settings (server/studio/moments.py _style_element)
+    if (e.exit) g.exit = e.exit;
+    if (e.exit_blur) g.exitBlur = true;
+    if (e.type_clicks) g.typeClicks = true;
+    if (e.dim != null) g.dim = e.dim;
+    if (e.ramp != null) g.ramp = e.ramp;
+    if (e.scale != null) g.scale = e.scale;
+    if (e.weight) g.weight = e.weight;
     if (/^#[0-9a-fA-F]{6}$/.test(e.colour)) g.color = e.colour;
     if (type === 'label' && e.label_look) g.style = e.label_look as Graphic['style'];
     if (isFree(type) && !['flash', 'dip'].includes(type)) {

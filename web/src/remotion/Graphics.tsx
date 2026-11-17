@@ -1,6 +1,6 @@
 import { Gif } from '@remotion/gif';
 import React from 'react';
-import { AbsoluteFill, Audio, Img, OffthreadVideo, interpolate, random, spring, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Audio, Img, OffthreadVideo, Sequence, interpolate, random, spring, useCurrentFrame, useVideoConfig } from 'remotion';
 
 import { EMOJI_STACK, fontStack, fontWeight } from './fonts';
 import { Brand, Graphic } from './types';
@@ -32,11 +32,42 @@ export function splitMarkup(text: string): { text: string; mark: boolean; color?
   return out.length ? out : [{ text, mark: false }];
 }
 
+/** How much of a typed or word-by-word text is showing: the number of characters, or Infinity for all of it. */
+const WORD_STEP = 0.2;   // seconds between words appearing
+export function typeSeconds(len: number) { return Math.min(1.2, Math.max(0.45, 0.025 * len)); }   // a line types in 0.45-1.2 s
+export function revealed(g: Graphic, frame: number, fps: number): number {
+  const text = splitMarkup(g.primary).map((q) => q.text).join('');
+  if (g.animation === 'type') return Math.floor((frame / fps / typeSeconds(text.length)) * text.length) + 1;
+  if (g.animation === 'words') {
+    const k = Math.floor(frame / (fps * WORD_STEP)) + 1;   // words showing
+    const re = /\S+/g; let m: RegExpExecArray | null; let n = 0; let end = 0;
+    while ((m = re.exec(text)) && n < k) { end = m.index + m[0].length; n++; }
+    return n >= k ? end : Infinity;
+  }
+  return Infinity;
+}
+
+/** Text runs cut at `shown` characters: the rest is kept in place, invisible, so centred lines never shift. */
+export function cutRuns<T extends { text: string }>(parts: T[], shown: number): (T & { hidden?: boolean })[] {
+  if (!isFinite(shown)) return parts;
+  const out: (T & { hidden?: boolean })[] = [];
+  let left = shown;
+  for (const q of parts) {
+    if (left >= q.text.length) { out.push(q); left -= q.text.length; continue; }
+    if (left > 0) out.push({ ...q, text: q.text.slice(0, left) });
+    out.push({ ...q, text: q.text.slice(Math.max(0, left)), hidden: true });
+    left = 0;
+  }
+  return out;
+}
+
 function useEnter(g: Graphic, frames: number) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const s = spring({ frame, fps, config: { damping: 12, stiffness: 190, mass: 0.7 } });
-  const exit = interpolate(frame, [frames - Math.round(fps * 0.22), frames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const exitFrames = Math.max(1, Math.round(fps * (g.exit ?? 0.22)));
+  const exit = interpolate(frame, [frames - exitFrames, frames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const exitBlur = g.exitBlur && exit < 1 ? `blur(${(1 - exit) * 18}px)` : undefined;
   let style: React.CSSProperties = {};
   switch (g.animation) {
     case 'slam': {
@@ -64,14 +95,15 @@ function useEnter(g: Graphic, frames: number) {
     }
     case 'none':   // on screen from its first frame to its last, e.g. a title that stays up the whole video
       return { style: {}, frame, fps, s };
-    case 'type':
-      style = { clipPath: `inset(0 ${interpolate(frame, [0, fps * 0.5], [100, 0], { extrapolateRight: 'clamp' })}% 0 0)` };
+    case 'type':    // letters appear one by one (the text itself is cut in Body)
+    case 'words':   // words appear one by one
+      style = {};
       break;
     case 'pop':
     default:
       style = { transform: `scale(${interpolate(s, [0, 1], [0.55, 1])})`, opacity: Math.min(1, s * 1.8) };
   }
-  return { style: { ...style, opacity: (Number(style.opacity ?? 1)) * exit }, frame, fps, s };
+  return { style: { ...style, opacity: (Number(style.opacity ?? 1)) * exit, filter: [style.filter, exitBlur].filter(Boolean).join(' ') || undefined }, frame, fps, s };
 }
 
 const zoneBox = (g: Graphic): { box: React.CSSProperties; backdrop: string | null } => {
@@ -97,7 +129,7 @@ const shadow = (u: number) => `0 ${4 * u}px ${18 * u}px rgba(0,0,0,.75)`;
 const Body: React.FC<Ctx> = ({ g, brand, u, frames }) => {
   const { frame, fps } = useEnter(g, frames);
   const family = fontStack(brand.font);
-  const weight = fontWeight(brand.font);
+  const weight = g.weight ?? fontWeight(brand.font);
   const small: React.CSSProperties = {
     fontFamily: fontStack('Inter'), fontWeight: 800, fontSize: 34 * u, letterSpacing: '0.14em', textTransform: 'uppercase',
     color: brand.accent, textShadow: shadow(u),
@@ -218,13 +250,15 @@ const Body: React.FC<Ctx> = ({ g, brand, u, frames }) => {
       const color = g.color ?? brand.accent;
       const look = g.style ?? 'neon';
       const size = 64 * u;
-      const parts = splitMarkup(g.primary);
-      const marked = parts.some((q) => q.mark);
+      const all = splitMarkup(g.primary);
+      const marked = all.some((q) => q.mark);
+      const parts = cutRuns(all, revealed(g, frame, fps));
       const glow = (c: string) => `0 0 ${6 * u}px ${c}, 0 0 ${18 * u}px color-mix(in srgb, ${c} 55%, transparent), 0 ${3 * u}px ${8 * u}px rgba(0,0,0,.75)`;
       const soft = `0 ${3 * u}px ${10 * u}px rgba(0,0,0,.85), 0 0 ${4 * u}px rgba(0,0,0,.7)`;
       const text = parts.map((q, i) => {
         const c = q.color ?? color;
         const tinted = marked ? q.mark : look !== 'plain' && look !== 'box';
+        if (q.hidden) return <span key={i} style={{ opacity: 0 }}>{q.text}</span>;   // still to type: holds its place
         if (look === 'flat') return <span key={i} style={{ color: q.mark ? c : '#fff' }}>{q.text}</span>;   // pure colours, nothing behind them
         const st: React.CSSProperties = look === 'outline' && tinted
           ? { color: 'transparent', WebkitTextStroke: `${3 * u}px ${c}` }
@@ -258,7 +292,9 @@ const Body: React.FC<Ctx> = ({ g, brand, u, frames }) => {
       const shadowed = `0 0 ${6 * u}px ${color}, 0 0 ${16 * u}px color-mix(in srgb, ${color} 55%, transparent), 0 ${3 * u}px ${8 * u}px rgba(0,0,0,.8)`;
       return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 * u, color, textShadow: shadowed }}>
-          <div style={{ fontFamily: family, fontWeight: weight, fontStyle: 'italic', fontSize: 42 * u, textTransform: 'uppercase', whiteSpace: 'nowrap', lineHeight: 1.1 }}>{g.primary}</div>
+          <div style={{ fontFamily: family, fontWeight: weight, fontStyle: 'italic', fontSize: 42 * u, textTransform: 'uppercase', whiteSpace: 'nowrap', lineHeight: 1.1 }}>
+            {cutRuns([{ text: g.primary }], revealed(g, frame, fps)).map((q, i) => <span key={i} style={q.hidden ? { opacity: 0 } : undefined}>{q.text}</span>)}
+          </div>
           <div style={{ fontSize: 30 * u, lineHeight: 0.9 }}>▼</div>
         </div>
       );
@@ -356,7 +392,7 @@ export const GraphicLayer: React.FC<Ctx> = (ctx) => {
     // Measured from the reference highlight: the surround dims to about a third of its brightness with its colour kept,
     // the spot (about 210 x 185 px on a 1080-wide frame) is the untouched picture with a soft feathered edge, and the dim
     // ramps in and out over a tenth of a second.
-    const edge = fps * 0.1;
+    const edge = Math.max(1, fps * (g.ramp ?? 0.1));
     const ramp = Math.min(interpolate(frame, [0, edge], [0, 1], { extrapolateRight: 'clamp' }),
       interpolate(frame, [frames - edge, frames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }));
     const sc = g.scale ?? 1;
@@ -372,11 +408,16 @@ export const GraphicLayer: React.FC<Ctx> = (ctx) => {
       </>
     );
   }
+  const letters = splitMarkup(g.primary).map((q) => q.text).join('');
+  const clicks = g.typeClicks && g.animation === 'type' && fxVolume > 0 && letters.trim()
+    ? [...letters].map((ch, i) => (ch.trim() ? Math.round((i / letters.length) * typeSeconds(letters.length) * fps) : -1)).filter((f) => f >= 0).slice(0, 60)
+    : [];
   const backIn = interpolate(frame, [0, fps * 0.18], [0, 1], { extrapolateRight: 'clamp' })
     * interpolate(frame, [frames - fps * 0.2, frames], [1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   return (
     <>
       {g.sfx && fxVolume > 0 && <Audio src={`${sfxBase}${g.sfx}.wav`} volume={fxVolume} />}
+      {clicks.map((f, i) => <Sequence key={i} from={f} durationInFrames={Math.max(2, Math.round(fps * 0.06))}><Audio src={`${sfxBase}click.wav`} volume={fxVolume * 0.35} /></Sequence>)}
       <div style={{ position: 'absolute', display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: g.type === 'broll' ? 'hidden' : 'visible', ...box }}>
         {backdrop && <div style={{ position: 'absolute', inset: 0, background: backdrop, opacity: backIn }} />}
         {g.type === 'broll' ? (

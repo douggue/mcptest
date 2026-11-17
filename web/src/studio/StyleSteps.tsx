@@ -30,6 +30,7 @@ export function stepDone(step: StyleStep, spec: EditSpec, seconds: number, sfx: 
   if (c === 'no-music') return !spec.audio.music?.src;
   if (c === 'camera') return sfx.some((a) => a.id === 'camera-mine');
   if (c === 'voiceover') return !!spec.audio.voiceover?.src;
+  if (c === 'vo-captions') return !!spec.audio.voiceover?.words?.length && spec.captions.source === 'voiceover';
   if (c === 'planned') return spec.graphics.some((g) => g.origin === 'ai') || (spec.freezes?.length ?? 0) > 0;
   if (c === 'title') return title ? !!title.primary.trim() && !/YOUR \{TITLE\}/.test(title.primary) : !!spec.hook.text.trim();
   if (c === 'header') return !!spec.header?.name && spec.header.name !== 'Your channel';

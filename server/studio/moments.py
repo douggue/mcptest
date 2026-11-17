@@ -528,6 +528,30 @@ def direct(frames: list[tuple[float, bytes]], words: list[dict], duration: float
     return {"engine": "ai", **limit_direct(data, limits, has_title)}
 
 
+def _style_element(e: dict, limits: dict) -> dict:
+    """How the style animates an element: labels typing on or arriving word by word, how fast things leave, typing
+    clicks, the spotlight's dimming, the length of flashes and the size of emoji."""
+    e = dict(e)
+    if e["type"] in ("label", "nametag"):
+        if limits.get("label_weight"):
+            e["weight"] = limits["label_weight"]
+        if limits.get("label_animation"):
+            e["animation"] = limits["label_animation"]
+        if limits.get("type_clicks") and e.get("animation") == "type":
+            e["type_clicks"] = True
+    if e["type"] in ("label", "nametag", "circle", "arrow", "emoji") and limits.get("exit"):
+        e["exit"] = limits["exit"]
+        if limits.get("exit_blur"):
+            e["exit_blur"] = True
+    if e["type"] == "spotlight" and limits.get("spotlight"):
+        e.update({k: v for k, v in limits["spotlight"].items() if k in ("dim", "ramp")})
+    if e["type"] == "flash" and limits.get("flash_seconds"):
+        e["seconds"] = limits["flash_seconds"]
+    if e["type"] == "emoji" and limits.get("emoji_scale"):
+        e["scale"] = limits["emoji_scale"]
+    return e
+
+
 def limit_direct(data: dict, limits: dict | None, has_title: bool) -> dict:
     """Keep a story plan inside its style's limits. A style without a timed opening title gets the title as its
     first label instead (unless the style shows a title all video, which takes the title itself)."""
@@ -542,6 +566,7 @@ def limit_direct(data: dict, limits: dict | None, has_title: bool) -> dict:
             els.insert(0, {"type": "label", "at_seconds": 0.0, "seconds": 2.5, "text": data["title"].strip(), "colour": "", "label_look": look,
                            "position": "upper", "on_subject": False, "animation": "type"})
         data["title"] = ""
+    els = [_style_element(e, limits) for e in els]
     camera = set(limits.get("camera_on") or [])
     if camera:
         from .sfx import camera_name

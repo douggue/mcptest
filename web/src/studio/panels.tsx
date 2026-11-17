@@ -4,12 +4,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, upload } from '../api';
 import { captionPages, graphicFrames, shotIndexAt, srcTimeAt } from '../remotion/timing';
 import { sourcePoint } from '../remotion/Short';
-import { ASPECTS, Anim, Aspect, CaptionPreset, DEFAULT_FRAME, FONTS, FrameMode, Graphic, GraphicType, LabelStyle, Layout, LookPreset, TRANSITIONS, Transition, Zone } from '../remotion/types';
+import { ASPECTS, Anim, Aspect, CaptionPreset, DEFAULT_FRAME, FONTS, FrameMode, Graphic, GraphicType, LabelStyle, Layout, LookPreset, TRANSITIONS, Transition, Word, Zone } from '../remotion/types';
 import { Button, Field, More, Seg, Slider, Toggle, fmtBytes, fmtDur, fmtTime, toast, toastError, useSimpleMode } from '../ui';
 import type { Ctx } from './Editor';
 import {
   ANIM_LABELS, AnalysedShot, FREE_TYPES, GRAPHIC_LABELS, TEXTLESS, ZONE_LABELS, addCut, addFreeze, addSpeed, applyAnalysis, applyRemix, aspectOf, autoBroll, autoZooms,
-  applyDirect, applyStyle, withStyleMusic, clamp, faceToX, isFree, newGraphic, outSeconds, paneCount, patchWord, removeFillers, removeShot, restoreWords, round3,
+  applyDirect, applyStyle, withStyleMusic, retext, clamp, faceToX, isFree, newGraphic, outSeconds, paneCount, patchWord, removeFillers, removeShot, restoreWords, round3,
   EditSpec, captionsSrt, setAspect, setLayout, shuffleGraphics, uid, withSegments,
 } from './logic';
 import { GenerateImageButton } from './GenerateButton';
@@ -35,6 +35,41 @@ const Group = ({ title, actions, children, id, more }: { title: string; actions?
     </div>
   );
 };
+
+/* ================================================================ Captions from the voiceover */
+function VoiceoverCaptions({ ctx }: { ctx: Ctx }) {
+  const { spec, update, jobs, flush, project, clip } = ctx;
+  const vo = spec.audio.voiceover!;
+  const words = vo.words ?? [];
+  const text = words.map((w) => w.text).join(' ');
+  const setVo = (patch: Partial<NonNullable<typeof vo>>, key?: string) =>
+    update((s) => (s.audio.voiceover ? { ...s, audio: { ...s.audio, voiceover: { ...s.audio.voiceover, ...patch } } } : s), key);
+  async function make() {
+    try {
+      await flush();
+      const r = await jobs.run<{ words: Word[] }>(() => api.post(`/api/projects/${project.id}/clips/${clip.id}/voiceover-words`, { src: vo.src }));
+      update((s) => ({ ...s, captions: { ...s.captions, source: 'voiceover', visible: true },
+        audio: { ...s.audio, voiceover: s.audio.voiceover ? { ...s.audio.voiceover, words: r.words } : null } }));
+      toast(`The captions now show the voiceover (${r.words.length} words). Check the wording below.`, 'good');
+    } catch (e) { toastError(e); }
+  }
+  return (
+    <div className="card col gap-s">
+      <div className="row between"><b className="small">Captions from the voiceover</b>
+        <Button small icon="wand" onClick={make} disabled={jobs.busy}>{words.length ? 'Transcribe again' : 'Make captions from it'}</Button></div>
+      {words.length > 0 ? (
+        <>
+          <Seg small value={spec.captions.source ?? 'speech'} onChange={(v: 'speech' | 'voiceover') => update((s) => ({ ...s, captions: { ...s.captions, source: v } }))}
+            options={[{ value: 'voiceover', label: 'Captions: voiceover' }, { value: 'speech', label: 'Captions: clip speech' }]} />
+          <Field label="What the voiceover says (fix any misheard word; the timing is kept)">
+            <textarea rows={3} defaultValue={text} key={text} onBlur={(e) => e.target.value.trim() !== text && setVo({ words: retext(words, e.target.value) })} />
+          </Field>
+          <Toggle checked={!!vo.alternate} onChange={(v) => setVo({ alternate: v })} label="The clip's sound pauses while the narrator speaks" />
+        </>
+      ) : <span className="small muted">Transcribes your recording (on this computer, with Whisper) so the captions show what the narrator says, word by word.</span>}
+    </div>
+  );
+}
 
 /* ================================================================ Music start and the drop */
 function MusicStart({ ctx }: { ctx: Ctx }) {
@@ -377,7 +412,7 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
         {(frameStyle?.audio?.camera_on?.length ?? 0) > 0 && <CameraSound ctx={ctx} on={frameStyle!.audio!.camera_on!} />}
         {spec.audio.lufs != null && <span className="small muted">The export is evened out to {spec.audio.lufs} LUFS loudness ({frameStyle?.name ?? 'the style'}).</span>}
         <Field label="Voiceover">
-          <select value={vo?.src ?? ''} onChange={(e) => update((s) => ({ ...s, audio: { ...s.audio, voiceover: e.target.value ? { src: e.target.value, volume: vo?.volume ?? 1, at: vo?.at ?? 0, muteOriginal: vo?.muteOriginal ?? false } : null } }))}>
+          <select value={vo?.src ?? ''} onChange={(e) => update((s) => ({ ...s, audio: { ...s.audio, voiceover: e.target.value ? { src: e.target.value, volume: vo?.volume ?? 1, at: vo?.at ?? 0, muteOriginal: vo?.muteOriginal ?? false, alternate: vo?.alternate ?? !!frameStyle?.audio?.vo_alternate, words: vo?.src === e.target.value ? vo.words : undefined } : null } }))}>
             <option value="">None</option>
             {assets.voice.map((a) => <option key={a.url} value={a.url}>{a.label}</option>)}
           </select>
@@ -389,6 +424,7 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
             <Slider label="Starts at" min={0} max={Math.max(1, ctx.seconds)} step={0.1} value={vo.at} format={(v) => `${v.toFixed(1)}s`}
               onChange={(v) => update((s) => ({ ...s, audio: { ...s.audio, voiceover: { ...vo, at: v } } }), 'voat')} />
             <Toggle checked={vo.muteOriginal} onChange={(v) => update((s) => ({ ...s, audio: { ...s.audio, voiceover: { ...vo, muteOriginal: v } } }))} label="Mute the original voice" />
+            <VoiceoverCaptions ctx={ctx} />
           </>
         )}
         <Field label="Generate a voiceover from a script" hint="Uses an online voice service; needs internet.">
@@ -536,6 +572,8 @@ export function StylePanel({ ctx }: { ctx: Ctx }) {
         <Slider label="Brightness" min={0.7} max={1.4} step={0.01} value={spec.look.brightness ?? 1} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, brightness: v } }), 'lb')} />
         <Slider label="Contrast" min={0.7} max={1.4} step={0.01} value={spec.look.contrast ?? 1} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, contrast: v } }), 'lc')} />
         <Slider label="Saturation" min={0} max={1.8} step={0.01} value={spec.look.saturation ?? 1} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, saturation: v } }), 'ls')} />
+        <Slider label="Sharpen" min={0} max={1} step={0.05} value={spec.look.sharpen ?? 0} format={(v) => (v ? `${Math.round(v * 100)}%` : 'off')} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, sharpen: v } }), 'lsh')} />
+        <Slider label="Warmth" min={-1} max={1} step={0.05} value={spec.look.warmth ?? 0} format={(v) => (v > 0 ? `warmer ${Math.round(v * 100)}` : v < 0 ? `cooler ${Math.round(-v * 100)}` : 'neutral')} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, warmth: v } }), 'lw')} />
         <Slider label="Film grain" min={0} max={1} step={0.05} value={spec.look.grain ?? 0} format={(v) => (v ? `${Math.round(v * 100)}%` : 'Off')} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, grain: v || undefined } }), 'lg')} />
         <Slider label="Cinema bars" min={0} max={18} step={1} value={spec.look.bars ?? 0} format={(v) => (v ? `${v}% top and bottom` : 'Off')} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, bars: v || undefined } }), 'lbars')} />
         <Slider label="Slow push-in" min={0} max={0.25} step={0.01} value={spec.look.drift ?? 0} format={(v) => (v ? `${Math.round(v * 100)}% over each shot` : 'Off')} onChange={(v) => update((s) => ({ ...s, look: { ...s.look, drift: v || undefined } }), 'ldrift')} />
@@ -851,6 +889,27 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
     } catch (e) { toastError(e); }
   }
 
+  /** Follow the person or object under the selected graphic for as long as it is on screen. */
+  async function followSubject() {
+    if (!g) return;
+    const [ax, ay] = sourcePoint(spec, g.at, 0, 0), [bx, by] = sourcePoint(spec, g.at, 1, 1);
+    // where the graphic sits on the canvas; a name tag and an arrow point at someone just below them
+    const cx = spec.width / 2 + ((g.dx ?? 0) / 100) * spec.width;
+    const cy = spec.height / 2 + ((g.dy ?? 0) / 100) * spec.height + (g.type === 'nametag' ? spec.height * 0.09 : g.type === 'arrow' ? spec.height * 0.05 : 0);
+    const half = (g.type === 'spotlight' ? spec.width * 0.1 * (g.scale ?? 1) : spec.width * 0.12);
+    const toSrc = (px: number, py: number): [number, number] => [(px - ax) / (bx - ax), (py - ay) / (by - ay)];
+    const [x0, y0] = toSrc(cx - half, cy - half), [x1, y1] = toSrc(cx + half, cy + half);
+    const box = [Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)].map((v) => clamp(v, 0, 1));
+    try {
+      await flush();
+      const r = await jobs.run<{ path: { t: number; x: number; y: number }[]; lost: number | null }>(() =>
+        api.post(`/api/projects/${project.id}/clips/${clip.id}/follow`, { t0: g.at, t1: g.at + g.duration, box }));
+      // the renderer moves the graphic by however far the subject moves from where it was at the start
+      patch({ follow: r.path });
+      toast(r.lost != null ? `Followed until ${fmtTime(r.lost - spec.in, true)}, where it lost the subject; check the end by eye` : 'It now follows the subject', r.lost != null ? 'info' : 'good');
+    } catch (e) { toastError(e); }
+  }
+
   async function remix() {
     try {
       await flush();
@@ -1015,6 +1074,15 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
               </div>
             )
           )}
+          {['label', 'nametag', 'circle', 'arrow', 'emoji', 'spotlight', 'heart'].includes(g.type) && !g.outline?.length && (
+            <div className="row between wrap">
+              <span className="small muted">{g.follow?.length ? `Follows the subject (${g.follow.length} points)` : 'Stays where it is placed'}</span>
+              <div className="row gap-s">
+                <Button small icon="users" onClick={followSubject} disabled={jobs.busy} title="Track the person or object under it while it is on screen, and move with them">{g.follow?.length ? 'Follow again' : 'Follow the person'}</Button>
+                {g.follow?.length ? <Button small onClick={() => patch({ follow: undefined })}>Stop following</Button> : null}
+              </div>
+            </div>
+          )}
           {g.type === 'heart' && <Field label="Line under the heart (optional)"><input type="text" value={g.headline} onChange={(e) => patch({ headline: e.target.value }, 'ghead')} /></Field>}
           {!TEXTLESS.includes(g.type) && !isFree(g.type) && (
             <div className="grid-2">
@@ -1066,7 +1134,11 @@ export function MotionPanel({ ctx }: { ctx: Ctx }) {
 export function PostPanel({ ctx }: { ctx: Ctx }) {
   const { spec, update, jobs, flush, project, clip, meta, setMeta, title, setTitle, status, setStatus } = ctx;
   const [quality, setQuality] = useState<'1080' | '720'>('1080');
-  const [upscale, setUpscale] = useState(false);
+  const exportStyle = useStyleProfile(ctx.profileId);
+  const [upscalePick, setUpscale] = useState<boolean | null>(null);   // null: the style decides (Storyline upscales)
+  const upscale = upscalePick ?? !!exportStyle?.limits?.upscale;
+  const [smooth, setSmooth] = useState<boolean | null>(null);   // null: the style decides
+  const smoothOn = smooth ?? !!exportStyle?.limits?.smooth60;
   const [splitting, setSplitting] = useState(false);
   async function splitHere() {
     setSplitting(true);
@@ -1101,7 +1173,7 @@ export function PostPanel({ ctx }: { ctx: Ctx }) {
   async function render() {
     try {
       await flush();
-      const row = await jobs.run<ExportRow>(() => api.post(`${base}/render`, { quality, upscale }));
+      const row = await jobs.run<ExportRow>(() => api.post(`${base}/render`, { quality, upscale: upscale && up?.available !== false, smooth: smoothOn && spec.fps >= 50 }));
       toast(`Exported ${row.title}${row.copied_to ? ' and copied to your folder' : ''}`, 'good');
       load();
     } catch (e) { toastError(e); }
@@ -1162,6 +1234,12 @@ export function PostPanel({ ctx }: { ctx: Ctx }) {
             ? <span className="small" style={{ color: 'var(--bad)' }}>Needs two packages: <span className="mono">pip install onnx onnxruntime</span>, then restart Cutroom.</span>
             : <span className="small muted">Sharpens low-resolution footage (CCTV, dashcam, old phones) with Real-ESRGAN before the short is made. Slow: roughly {upMinutes} min for this clip on {up?.gpu ? `the graphics card (${up.provider})` : `${up?.cpus ?? 4} processor cores`}.{up && !up.model_downloaded ? ' The first time also downloads a 5 MB model.' : ''}</span>)}
         </div>
+        {spec.fps >= 50 && (
+          <div className="col gap-s">
+            <Toggle checked={smoothOn} onChange={setSmooth} label="Smooth 60 fps (make the in-between frames)" />
+            {smoothOn && <span className="small muted">For footage filmed at 24-30 fps: new frames are made from the motion instead of showing each frame twice. Slow: it can take several minutes per 10 seconds of video, more on a slow computer. Fast action can smear. Footage already filmed at 50-60 fps is left as it is.</span>}
+          </div>
+        )}
         <Button variant="primary" icon="download" onClick={render} disabled={jobs.busy}>Export MP4 ({fmtDur(ctx.seconds)})</Button>
         <Button small icon="download" title="Subtitle file timed to the finished short, for YouTube and other sites that accept one"
           onClick={() => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([captionsSrt(spec)], { type: 'application/x-subrip' })); a.download = `${(title || 'captions').replace(/[\\/:*?"<>|]+/g, ' ').trim()}.srt`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }}>Download captions (.srt)</Button>

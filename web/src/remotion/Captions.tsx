@@ -30,7 +30,7 @@ export const CaptionLayer: React.FC<{ spec: CaptionsSpec; words: Word[]; t: numb
 
   const size = spec.size * u;
   const family = fontStack(spec.font);
-  const weight = fontWeight(spec.font);
+  const weight = spec.weight ?? fontWeight(spec.font);
   const wrap: React.CSSProperties = {
     position: 'absolute', left: `${spec.x ?? 50}%`, top: `${spec.position}%`, transform: 'translate(-50%, -50%)',
     width: 'max-content', maxWidth: '88%',

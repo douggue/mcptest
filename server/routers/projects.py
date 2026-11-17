@@ -501,6 +501,47 @@ def subject_outline(pid: str, cid: str, body: dict) -> dict:
     return {"job_id": jobs.submit("subject", "Fitting the spotlight", work, {"project_id": pid, "clip_id": cid}).id}
 
 
+@router.post("/{pid}/clips/{cid}/voiceover-words")
+def voiceover_words(pid: str, cid: str, body: dict) -> dict:
+    """{src} -> job -> {words}: the voiceover transcribed (times from its own start), so the captions can show it."""
+    project = load(pid)
+    _clip(project, cid)
+    src = str(body.get("src") or "")
+    try:
+        path = media_path(src)
+    except Exception:
+        path = None
+    if not path or not path.is_file():
+        raise HTTPException(422, "Choose the voiceover first.")
+
+    def work(job: jobs.Job) -> dict:
+        out = transcribe.whisper(path, job, language=body.get("language") or None)
+        return {"words": out["words"], "engine": out.get("engine", "")}
+
+    return {"job_id": jobs.submit("transcribe", "Transcribing the voiceover", work, {"project_id": pid, "clip_id": cid}).id}
+
+
+@router.post("/{pid}/clips/{cid}/follow")
+def follow_subject(pid: str, cid: str, body: dict) -> dict:
+    """{t0, t1, box: [x0, y0, x1, y1] (0..1 of the source at t0)} -> job -> {path: [{t, x, y}], lost}: the subject's
+    centre over time, so a graphic placed on it can follow it."""
+    try:
+        t0, t1 = float(body["t0"]), float(body["t1"])
+        box = tuple(float(v) for v in body["box"])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(422, "Send when the graphic starts and ends, and the box to follow.")
+    if len(box) != 4 or t1 <= t0:
+        raise HTTPException(422, "The box needs four numbers and the end must come after the start.")
+    project = load(pid)
+    _clip(project, cid)
+
+    def work(job: jobs.Job) -> dict:
+        from ..studio import follow
+        return follow.track(sources.source_path(project), t0, min(t1, t0 + 60), box, job)   # type: ignore[arg-type]
+
+    return {"job_id": jobs.submit("follow", "Following the subject", work, {"project_id": pid, "clip_id": cid}).id}
+
+
 @router.post("/{pid}/clips/{cid}/translate")
 def translate_clip(pid: str, cid: str, body: dict) -> dict:
     language = (body.get("language") or "").strip()
@@ -532,7 +573,7 @@ def render_clip(pid: str, cid: str, body: dict) -> dict:
             raise HTTPException(422, "AI upscaling needs two packages: pip install onnx onnxruntime, then restart Cutroom.")
 
     def work(job: jobs.Job) -> dict:
-        return render.render_clip(project, clip, job, scale, int(body.get("crf") or 18), upscale)
+        return render.render_clip(project, clip, job, scale, int(body.get("crf") or 18), upscale, body.get("smooth") is True)
 
     return {"job_id": jobs.submit("render", f"Exporting {clip['title']}", work, {"project_id": pid, "clip_id": cid}).id}
 

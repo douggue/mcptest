@@ -43,7 +43,7 @@ export type Shot = {
 };
 
 /** How a shot arrives. 'smooth' slides the crop; the rest are picture transitions played around the cut. */
-export type Transition = 'cut' | 'smooth' | 'fade' | 'slide' | 'push' | 'zoom' | 'whip' | 'spin' | 'blur' | 'flash' | 'dip' | 'glitch';
+export type Transition = 'cut' | 'smooth' | 'fade' | 'slide' | 'push' | 'zoom' | 'whip' | 'whipup' | 'spin' | 'blur' | 'flash' | 'dip' | 'dipblur' | 'glitch';
 export const TRANSITIONS: { value: Transition; label: string; hint: string }[] = [
   { value: 'cut', label: 'Hard cut', hint: 'No effect' },
   { value: 'smooth', label: 'Smooth pan', hint: 'The crop glides to its new position' },
@@ -52,10 +52,12 @@ export const TRANSITIONS: { value: Transition; label: string; hint: string }[] =
   { value: 'push', label: 'Push', hint: 'The new shot pushes the old one off to the left' },
   { value: 'zoom', label: 'Zoom through', hint: 'Punches in through a blur into the new shot' },
   { value: 'whip', label: 'Whip pan', hint: 'A fast sideways smear between the shots' },
+  { value: 'whipup', label: 'Whip up', hint: 'A fast vertical smear between the shots' },
   { value: 'spin', label: 'Spin', hint: 'A quick twist through a blur' },
   { value: 'blur', label: 'Blur', hint: 'Out of focus, then back in' },
   { value: 'flash', label: 'Flash', hint: 'A white flash on the cut' },
   { value: 'dip', label: 'Dip to black', hint: 'Fades down to black and back up' },
+  { value: 'dipblur', label: 'Dip and defocus', hint: 'Darkens and goes out of focus, then comes back on the new shot' },
   { value: 'glitch', label: 'Glitch', hint: 'A few frames of digital jitter' },
 ];
 
@@ -67,7 +69,7 @@ export type GraphicType =
   | 'label' | 'nametag' | 'circle' | 'arrow' | 'spotlight' | 'flash' | 'dip' | 'heart' | 'image' | 'blurbox';
 export type LabelStyle = 'neon' | 'plain' | 'box' | 'quoted' | 'outline' | 'flat';
 export type Zone = 'full' | 'top' | 'center' | 'bottom' | 'overlay' | 'free';   // free = measured from the frame centre
-export type Anim = 'pop' | 'slam' | 'fade' | 'slide' | 'glitch' | 'type' | 'none';
+export type Anim = 'pop' | 'slam' | 'fade' | 'slide' | 'glitch' | 'type' | 'words' | 'none';
 
 export type Graphic = {
   id: string;
@@ -89,11 +91,17 @@ export type Graphic = {
   rotate?: number;     // degrees (arrow)
   ratio?: number;      // height / width of a blur box or a spotlight
   dim?: number;        // spotlight: how dark the surround goes, 0..1 (default 0.68)
+  ramp?: number;       // spotlight: seconds the dimming takes to come in and go out (default 0.1)
   soft?: number;       // spotlight: edge softness, the fade's width as a share of the spot (default 0.3)
   outline?: { t: number; pts: [number, number][] }[];   // spotlight fitted to a subject: its outline over time, source time and 0..1 of the source frame
   tag?: string;        // small speaker tag above a boxed label, e.g. "Cyclist:"
   origin?: 'style' | 'ai';   // who placed it, so re-applying a style or re-planning replaces only its own
   mediaType?: 'image' | 'video' | 'gif';
+  exit?: number;       // seconds it takes to leave (default 0.22)
+  exitBlur?: boolean;  // leaves by blurring out as well as fading
+  typeClicks?: boolean;   // a soft click for each letter while it types on
+  follow?: { t: number; x: number; y: number }[];
+  weight?: number;     // font weight of its text (default: the brand font's boldest)   // the subject it sits on, over time: source time and 0..1 of the source frame
 };
 
 export type Hook = {
@@ -120,6 +128,8 @@ export type Captions = {
   maxWords: number;
   emoji: boolean;
   mode: 'original' | 'translated' | 'bilingual';
+  source?: 'speech' | 'voiceover';
+  weight?: number;   // font weight (default: the font's boldest)   // what the captions show: the clip's own speech (default) or the voiceover
   translations: { start: number; end: number; text: string }[];
 };
 
@@ -133,6 +143,8 @@ export type Look = {
   fadeIn?: number;       // seconds the picture takes to come up from black at the start
   fadeOut?: number;      // seconds the picture and music take to go down at the end
   flip?: boolean;        // mirror the picture left to right
+  sharpen?: number;      // 0..1, crisper edges (an unsharp kernel)
+  warmth?: number;       // -1..1, cooler (blue) to warmer (red-orange)
 };
 
 export type AudioMix = {
@@ -142,7 +154,8 @@ export type AudioMix = {
   cleanOffset?: number;   // source time at which cleanSrc starts
   /** start: seconds into the song at the short's first frame; replaces: the original sound is muted while it plays. */
   music: { src: string; volume: number; duck: boolean; start: number; fadeIn?: number; fadeOut?: number; replaces?: boolean; length?: number } | null;
-  voiceover: { src: string; volume: number; at: number; muteOriginal: boolean } | null; // `at` is seconds into the short
+  /** words: the voiceover transcribed, timed from the voiceover's own start; alternate: the clip's sound pauses while the narrator speaks. */
+  voiceover: { src: string; volume: number; at: number; muteOriginal: boolean; words?: Word[]; alternate?: boolean } | null; // `at` is seconds into the short
   lufs?: number;   // loudness the export is evened out to (set by a style), e.g. -16
 };
 
@@ -161,6 +174,11 @@ export type Brand = {
   watermarkY?: number;
   watermarkSize?: number;     // px at a 1080-wide frame (default 28)
   watermarkOpacity?: number;  // default 0.62
+  watermarkFont?: string;     // default Inter
+  watermarkWeight?: number;
+  watermarkItalic?: boolean;
+  watermarkGradient?: string; // two colours, top to bottom: "#ffffff,#ffd84d"
+  watermarkUnder?: boolean;   // drawn under the colour flashes instead of over everything
 };
 
 export type ShortSpec = {
