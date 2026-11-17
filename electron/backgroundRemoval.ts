@@ -176,7 +176,7 @@ export function removeBackground(jobId: string, p: Project, clipId: string, dire
         await rename(result, destination);
       }
       report(0.97, "导入处理后的素材");
-      const [cut] = await importAssets([destination], path.join(directory, "thumbnails"), signal);
+      const [cut] = await importAssets([destination], path.join(path.dirname(directory), "thumbnails"), signal);
       signal.throwIfAborted();
       cut.id = randomUUID();
       cut.name = `${asset.name} · Cut out`;

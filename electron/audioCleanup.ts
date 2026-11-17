@@ -95,7 +95,7 @@ export function cleanAudio(jobId: string, p: Project, clipId: string, request: A
         await rename(result, destination);
       }
       report(0.95, "导入处理后的素材");
-      const [cleaned] = await importAssets([destination], path.join(directory, "thumbnails"), signal);
+      const [cleaned] = await importAssets([destination], path.join(path.dirname(directory), "thumbnails"), signal);
       signal.throwIfAborted();
       if (asset.kind === "audio") { cleaned.kind = "audio"; cleaned.width = 0; cleaned.height = 0; cleaned.thumbnail = undefined; }
       cleaned.id = randomUUID();

@@ -6,7 +6,7 @@ import { _electron as electron, expect } from "@playwright/test";
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { probeFile } from "../electron/media";
+import { probeFile, runMediaTool } from "../electron/media";
 
 if (process.platform !== "win32") throw new Error("This recording runs on Windows.");
 const root = process.cwd();
@@ -32,6 +32,7 @@ function run(args: string[]): Promise<number | null> {
   });
 }
 // The whole desktop, so the native window frame and taskbar are part of the picture.
+const captureStarted = Date.now();
 let capture: ChildProcess | undefined;
 let captureLog = "";
 if (recorder) {
@@ -57,7 +58,8 @@ env.REACUT_USER_DATA = path.join(work, "user-data");
 for (const name of ["ELECTRON_RUN_AS_NODE", "VITE_DEV_SERVER_URL", "REACUT_FFMPEG", "REACUT_FFPROBE"]) delete env[name];
 const app = await electron.launch({
   executablePath: path.join(bundle, "JGcut.exe"),
-  args: [demo],
+  // Chromium's built-in simulated microphone stands in for a real one in the voice-over step.
+  args: [demo, "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
   cwd: work,
   env,
   timeout: 45000,
@@ -66,6 +68,14 @@ const page = await app.firstWindow();
 const errors: string[] = [];
 page.on("pageerror", (error) => errors.push(error.message));
 const steps: string[] = [];
+// Background removal needs the person model and a photo of a person. Both are optional, and CI
+// leaves them out: the recording is committed to the repository, and it should not carry a
+// photograph of a real person that the project does not own.
+const personModel = process.env.REACUT_MATTE_MODEL, personPhoto = process.env.REACUT_MATTE_SAMPLE;
+const person = path.join(work, "presenter.mp4");
+if (personModel && personPhoto)
+  await runMediaTool("ffmpeg", ["-v", "error", "-y", "-loop", "1", "-i", personPhoto, "-vf", "scale=640:-2,format=yuv420p", "-r", "12", "-t", "2", "-c:v", "libx264", person], 120_000);
+let desktopStillAt = 9;
 // A second recording of the editor alone, assembled from page captures, in case the desktop cannot be grabbed.
 const frames = path.join(work, "frames");
 await mkdir(frames, { recursive: true });
@@ -131,6 +141,57 @@ try {
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await pause(600);
 
+  // Voice-over: record a few seconds from the playhead, then stop; the take lands on its own track.
+  const clipsBefore = await page.locator(".tl-clip").count();
+  await page.mouse.click(ruler.x + 60, ruler.y + 15);
+  await page.getByRole("button", { name: "Record voice-over", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Stop recording", exact: true })).toBeVisible({ timeout: 15000 });
+  await pause(3200);
+  await page.getByRole("button", { name: "Stop recording", exact: true }).click();
+  await expect(page.locator(".tl-clip")).toHaveCount(clipsBefore + 1, { timeout: 30000 });
+  steps.push("recorded a voice-over onto the timeline");
+  await pause(2000);
+  await page.screenshot({ path: path.join(output, "voice-over.png") });
+
+  // Clean up the sound of the take that was just recorded.
+  await page.getByRole("button", { name: "Clean up audio", exact: true }).click();
+  const cleanup = page.getByRole("dialog", { name: "Clean up audio", exact: true });
+  await pause(1500);
+  await cleanup.getByRole("button", { name: "Clean up", exact: true }).click();
+  await expect(cleanup).toHaveCount(0, { timeout: 120000 });
+  steps.push("cleaned up the take's audio");
+  await pause(1500);
+
+  if (personModel && personPhoto) {
+    // Bring in a clip of a person and cut them out so the scene behind shows through.
+    await app.evaluate(({ dialog }, file) => { (dialog as any).showOpenDialog = async () => ({ canceled: false, filePaths: [file] }); }, person);
+    await page.locator("button").filter({ hasText: /^Media$/ }).first().click();
+    await page.locator(".media-import").click();
+    const presenter = page.locator(".media-item").filter({ hasText: "presenter" });
+    await expect(presenter).toHaveCount(1, { timeout: 30000 });
+    await page.mouse.click(ruler.x + 60, ruler.y + 15);
+    await presenter.dblclick();
+    await pause(1200);
+    await page.locator(".tl-clip").filter({ hasText: "presenter" }).first().click();
+    await pause(800);
+    await page.getByRole("button", { name: "Remove background", exact: true }).click();
+    const cutout = page.getByRole("dialog", { name: "Remove background", exact: true });
+    const begin = cutout.getByRole("button", { name: "Remove background", exact: true });
+    await expect(begin).toBeEnabled({ timeout: 15000 });
+    await pause(1500);
+    await begin.click();
+    await expect(cutout).toHaveCount(0, { timeout: 300000 });
+    // The clip sits at the end of the video track: jump there and step back into it.
+    await page.locator(".tl-clip").filter({ hasText: "presenter" }).first().click();
+    await page.keyboard.press("End");
+    for (let frame = 0; frame < 10; frame++) await page.keyboard.press("ArrowLeft");
+    steps.push("removed the background behind a person");
+    await pause(3000);
+    desktopStillAt = (Date.now() - captureStarted) / 1000 - 1.5;
+    await page.screenshot({ path: path.join(output, "background-removed.png") });
+    await pause(1000);
+  }
+
   await page.locator(".export-button").click();
   await pause(1500);
   // Show the destination presets, then go back to the project's own size for the export itself.
@@ -166,7 +227,7 @@ try {
     await run(["-y", "-framerate", (frameCount / seconds).toFixed(3), "-i", path.join(frames, "frame-%05d.jpg"),
       "-vf", "scale=1280:-2,fps=15", "-c:v", "libx264", "-preset", "veryfast", "-crf", "28",
       "-pix_fmt", "yuv420p", "-movflags", "+faststart", path.join(output, "window.mp4")]);
-    await run(["-y", "-ss", "9", "-i", desktopVideo, "-frames:v", "1", path.join(output, "desktop.png")]);
+    await run(["-y", "-ss", desktopStillAt.toFixed(2), "-i", desktopVideo, "-frames:v", "1", path.join(output, "desktop.png")]);
   }
 }
 process.env.REACUT_FFPROBE = path.join(bundle, "resources", "media-tools", "ffprobe.exe");
@@ -182,7 +243,7 @@ const summary = {
     streams: rendered.streams.map((stream) => `${stream.codec_type}:${stream.codec_name} ${stream.width ?? ""}x${stream.height ?? ""}`),
   },
   files: Object.fromEntries(await Promise.all(
-    ["desktop.mp4", "desktop.png", "window.mp4", "editor.png", "file-menu.png", "about.png", "export-options.png", "export-complete.png"]
+    ["desktop.mp4", "desktop.png", "window.mp4", "editor.png", "file-menu.png", "about.png", "voice-over.png", "background-removed.png", "export-options.png", "export-complete.png"]
       .map(async (name) => [name, await size(name)] as const),
   )),
   desktopCapture: captureLog.split(/\r?\n/).filter(Boolean).slice(-3),
