@@ -2,6 +2,7 @@ import UpdateDialog from "./components/UpdateDialog";
 import TemplateDialog from "./components/TemplateDialog";
 import SpeechDialog from "./components/SpeechDialog";
 import DerivativeDialog from "./components/DerivativeDialog";
+import AudioCleanupDialog from "./components/AudioCleanupDialog";
 import { version as appVersion } from "../package.json";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -74,7 +75,7 @@ import { exportPresetOptions, type ExportPresetId } from "./core/exportPresets";
 import { addRecording } from "./core/recording";
 import { startVoiceRecording, type VoiceRecording } from "./editor/voiceRecorder";
 import "./styles.css";
-type Modal = "updates" | "templates" | "reverse" | "freeze" | "package" | "export" | "settings" | "shortcuts" | "about" | "capcut" | null;
+type Modal = "updates" | "templates" | "reverse" | "freeze" | "cleanup" | "package" | "export" | "settings" | "shortcuts" | "about" | "capcut" | null;
 type PendingCapcutImport = {
   selection: CapcutImportSelection;
   capturedProject: Project;
@@ -879,7 +880,7 @@ export default function App() {
       if (target.closest("input,textarea,select,[contenteditable=true]"))
         return;
       if (modal || speechMode || recover) {
-        if (e.key === "Escape" && modal !== "templates" && modal !== "export" && modal !== "package" && modal !== "reverse" && modal !== "freeze") {
+        if (e.key === "Escape" && modal !== "templates" && modal !== "export" && modal !== "package" && modal !== "reverse" && modal !== "freeze" && modal !== "cleanup") {
           setModal(null);
         }
         return;
@@ -1447,6 +1448,8 @@ export default function App() {
             <button disabled={activeTrack?.locked} onClick={() => { s.setPlaying(false); setModal("reverse"); }}>{ui("倒放", "Reverse")}</button>
             <button disabled={activeTrack?.locked} onClick={() => { s.setPlaying(false); setModal("freeze"); }}>{ui("定格", "Freeze frame")}</button>
           </>}
+          {active && (() => { const source = s.project.assets.find(a => a.id === active.assetId); return source?.kind === "audio" || (source?.kind === "video" && source.hasAudio); })() &&
+            <button disabled={activeTrack?.locked} onClick={() => { s.setPlaying(false); setModal("cleanup"); }}>{ui("清理声音", "Clean up audio")}</button>}
           {active?.linkId && <button onClick={() => { s.unlinkSelected(); }} disabled={s.project.clips.some(c => c.linkId === active.linkId && s.project.tracks.find(t => t.id === c.trackId)?.locked)}>{ui("解除画声关联", "Unlink video and audio")}</button>}
           {active?.assetId &&
             s.project.assets.find((a) => a.id === active.assetId)?.kind === "video" &&
@@ -1480,6 +1483,7 @@ export default function App() {
       )}
       {speechMode && <SpeechDialog mode={speechMode} onClose={() => setSpeechMode(null)} />}
       {(modal === "reverse" || modal === "freeze") && <DerivativeDialog mode={modal} onClose={() => setModal(null)} />}
+      {modal === "cleanup" && <AudioCleanupDialog onClose={() => setModal(null)} />}
       {modal === "templates" && <TemplateDialog onClose={() => setModal(null)} onCreate={(base, replaced) => {
         if (!confirmReplace()) return false;
         const store=useEditorStore.getState(); store.setProject(base); store.commit(replaced);

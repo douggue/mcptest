@@ -2,7 +2,7 @@ import { createUpdateService } from "./updateCheck";
 import { listTemplates, libraryTemplate, readTemplate, writeTemplate } from "./projectTemplates";
 import { validateTemplate } from "../src/core/projectTemplates";
 import { TEMPLATE_EXAMPLES, buildTemplateExample } from "../src/core/templateExamples";
-import { speechInfo, generateSpeech, cancelSpeech, cancelAllSpeech, cleanSpeechTemporaries } from "./speech";
+import { speechInfo, generateSpeech, cancelSpeech, cancelAllSpeech, cleanSpeechTemporaries, speechEngine, setBundledSpeechToolsDirectory, downloadWhisperModel } from "./speech";
 import { speechSource, type SpeechSettings, type SpeechRequest } from "../src/core/speech";
 import { deriveMedia, cancelDerivative, cancelDerivatives } from "./derivatives";
 import {
@@ -12,6 +12,7 @@ import {
   ipcMain,
   Menu,
   nativeTheme,
+  net,
   protocol,
   shell,
 } from "electron";
@@ -44,6 +45,8 @@ import {
 import { startExport, cancelExport, cancelAllExports } from "./export";
 import { findHardwareEncoder } from "./hardwareEncoders";
 import { saveRecording } from "./recording";
+import { cleanAudio, cancelAudioCleanup, cancelAudioCleanups } from "./audioCleanup";
+import type { AudioCleanupRequest } from "../src/core/audioCleanup";
 import { resolvePortableDocument, startPortablePackage, cancelPortablePackage, cancelPortablePackages, savePortableDocument } from "./portableProject";
 import { setBundledMediaToolsDirectory } from "./mediaTools";
 import { validateProject } from "../src/core/model";
@@ -69,6 +72,9 @@ if (pluginMode && !process.env.REACUT_USER_DATA)
 // macOS and Windows installers ship their own FFmpeg/FFprobe next to the app resources.
 if (app.isPackaged && (process.platform === "darwin" || process.platform === "win32"))
   setBundledMediaToolsDirectory(path.join(process.resourcesPath, "media-tools"));
+// The Windows installer also ships the speech recognition engine; its models are fetched on request.
+if (app.isPackaged && process.platform === "win32")
+  setBundledSpeechToolsDirectory(path.join(process.resourcesPath, "speech-tools"));
 if (process.env.REACUT_USER_DATA)
   app.setPath("userData", path.resolve(process.env.REACUT_USER_DATA));
 protocol.registerSchemesAsPrivileged([
@@ -354,14 +360,27 @@ function registerIPC() {
   handle("speech-info", () => speechInfo(speechSettings));
   handle("speech-choose-dependency", async (kind: unknown) => {
     if (kind !== "python" && kind !== "model") throw new Error("Invalid dependency kind");
-    const result = await dialog.showOpenDialog(window!, {
-      title: kind === "python" ? "Select local Python with mlx-whisper" : "Select local MLX Whisper model folder",
-      properties: kind === "python" ? ["openFile"] : ["openDirectory"],
-    });
+    const modelFile = kind === "model" && speechEngine() === "whisper-cpp";
+    const result = await dialog.showOpenDialog(window!, modelFile
+      ? { title: "Select a Whisper speech model (ggml .bin)", properties: ["openFile"], filters: [{ name: "Whisper model", extensions: ["bin"] }] }
+      : {
+          title: kind === "python" ? "Select local Python with mlx-whisper" : "Select local MLX Whisper model folder",
+          properties: kind === "python" ? ["openFile"] : ["openDirectory"],
+        });
     if (!result.canceled && result.filePaths[0]) {
       speechSettings = { ...speechSettings, [kind]: result.filePaths[0] };
       await atomicWrite(userFile("speech-settings.json"), JSON.stringify(speechSettings));
     }
+    return speechInfo(speechSettings);
+  });
+  handle("speech-download-model", async (name: unknown) => {
+    if (name !== "base" && name !== "small") throw new Error("Unknown speech model.");
+    const owner = window!.webContents;
+    const model = await downloadWhisperModel(name, userFile("speech-models"), progress => {
+      if (!owner.isDestroyed()) owner.send("speech-progress", { jobId: "model-download", stage: "prepare", progress });
+    }, (input, init) => net.fetch(input as string, init));
+    speechSettings = { ...speechSettings, model };
+    await atomicWrite(userFile("speech-settings.json"), JSON.stringify(speechSettings));
     return speechInfo(speechSettings);
   });
   handle("speech-generate", async (jobId: string, input: unknown, request: SpeechRequest) => {
@@ -611,6 +630,17 @@ function registerIPC() {
   });
   handle("cancel-export", (jobId: string) => cancelExport(jobId));
   handle("hardware-encoder", async () => (await findHardwareEncoder()) ?? null);
+  handle("clean-audio", async (jobId: string, input: unknown, clipId: string, request: AudioCleanupRequest) => {
+    const project = validateProject(input), owner = window!.webContents;
+    const source = project.assets.find(a => a.id === project.clips.find(c => c.id === clipId)?.assetId);
+    if (!source || !allowedMedia.has(path.resolve(source.path))) throw new Error("素材未经导入授权");
+    const asset = await cleanAudio(jobId, project, clipId, request, userFile("derived-media"), event => {
+      if (!owner.isDestroyed()) owner.send("derivative-progress", event);
+    });
+    authorizeAsset(asset);
+    return asset;
+  });
+  handle("cancel-clean-audio", (jobId: string) => cancelAudioCleanup(jobId));
   handle("save-recording", async (bytes: unknown, name: unknown) => {
     if (!(bytes instanceof Uint8Array) || typeof name !== "string") throw new Error("录音无效");
     const asset = await saveRecording(bytes, userFile("recordings"), cacheDir(), name);
@@ -894,6 +924,7 @@ function createWindow() {
     void cancelPortablePackages();
     void cancelTemplates();
     void cancelDerivatives();
+    void cancelAudioCleanups();
     void cancelAllSpeech();
     assistantCancelPending = true;
     assistantRunning?.cancel();
@@ -1078,6 +1109,7 @@ app.on("before-quit", (event) => {
     (async () => { assistantCancelPending = true; await assistantStartDone; const running = assistantRunning; running?.cancel(); await running?.done; await assistantHistoryWrites.catch(() => {}); })(),
     cancelAllExports(),
     cancelDerivatives(),
+    cancelAudioCleanups(),
     cancelAllSpeech(),
     cancelPortablePackages(),
     cancelTemplates(),

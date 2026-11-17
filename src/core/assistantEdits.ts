@@ -68,7 +68,7 @@ export function previewAssistantEdits(input: Project, actions: unknown): Assista
     if (type === "addText") {
       const content = text(action.text, "文字内容");
       let track = project.tracks.find(t => t.kind === "text" && !t.locked);
-      if (!track) { track = createTrack("text", "助手文字"); project.tracks.unshift(track); }
+      if (!track) { track = createTrack("text", "Assistant text"); project.tracks.unshift(track); }
       const clip = createClip(undefined, track.id, number(action.start, "起点"), project.fps);
       clip.duration = Math.max(1 / project.fps, snapToFrame(number(action.duration, "时长", 1 / project.fps), project.fps));
       clip.name = content.slice(0, 80); clip.text!.text = content;

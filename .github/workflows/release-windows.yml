@@ -21,7 +21,7 @@ jobs:
         with:
           node-version: "24"
       - name: Install the mingw-w64 cross toolchain
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 nasm pkg-config make
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 nasm pkg-config make cmake
       - uses: actions/cache@v6
         with:
           path: |
@@ -33,6 +33,16 @@ jobs:
         with:
           name: media-tools-win32-x64
           path: media-tools/win32-x64
+          if-no-files-found: error
+      - uses: actions/cache@v6
+        with:
+          path: speech-tools/win32-x64
+          key: speech-tools-win32-x64-${{ hashFiles('scripts/build-speech-tools-win.mjs') }}
+      - run: npm run speech:build:win
+      - uses: actions/upload-artifact@v7
+        with:
+          name: speech-tools-win32-x64
+          path: speech-tools/win32-x64
           if-no-files-found: error
   release:
     needs: media-tools-windows
@@ -57,6 +67,10 @@ jobs:
         with:
           name: media-tools-win32-x64
           path: media-tools/win32-x64
+      - uses: actions/download-artifact@v8
+        with:
+          name: speech-tools-win32-x64
+          path: speech-tools/win32-x64
       - name: Build the installer
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}

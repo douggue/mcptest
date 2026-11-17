@@ -102,7 +102,7 @@ jobs:
         with:
           node-version: "24"
       - name: Install the mingw-w64 cross toolchain
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 nasm pkg-config make
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 nasm pkg-config make cmake
       # The recipe re-verifies a restored build against its manifest and rebuilds if anything differs.
       - uses: actions/cache@v6
         with:
@@ -116,6 +116,17 @@ jobs:
         with:
           name: media-tools-win32-x64
           path: media-tools/win32-x64
+          if-no-files-found: error
+      - uses: actions/cache@v6
+        with:
+          path: speech-tools/win32-x64
+          key: speech-tools-win32-x64-${{ hashFiles('scripts/build-speech-tools-win.mjs') }}
+      - name: Cross-compile the pinned speech recognition engine (Windows x64)
+        run: npm run speech:build:win
+      - uses: actions/upload-artifact@v7
+        with:
+          name: speech-tools-win32-x64
+          path: speech-tools/win32-x64
           if-no-files-found: error
   package-windows:
     needs: media-tools-windows
@@ -136,6 +147,10 @@ jobs:
         with:
           name: media-tools-win32-x64
           path: media-tools/win32-x64
+      - uses: actions/download-artifact@v8
+        with:
+          name: speech-tools-win32-x64
+          path: speech-tools/win32-x64
       - name: Use the shipped media tools for tests
         run: |
           tools="$(cygpath -w "$GITHUB_WORKSPACE/media-tools/win32-x64")"
@@ -148,6 +163,16 @@ jobs:
       - run: npm run dist:win
       - name: Voice-over recording with a simulated microphone
         run: npx tsx tests/recording-electron.ts
+      - name: Audio clean-up through the application
+        run: npx tsx tests/audio-cleanup-electron.ts
+      - name: Real speech recognition with the bundled engine
+        run: |
+          mkdir -p .test-output/models
+          curl --fail --silent --show-error --location --retry 3 -o .test-output/models/ggml-tiny.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
+          echo "bd577a113a864445d4c299885e0cb97d4ba92b5f *.test-output/models/ggml-tiny.bin" | sha1sum -c -
+          export REACUT_WHISPER="$(cygpath -w "$GITHUB_WORKSPACE/speech-tools/win32-x64/whisper-cli.exe")"
+          export REACUT_SPEECH_MODEL="$(cygpath -w "$GITHUB_WORKSPACE/.test-output/models/ggml-tiny.bin")"
+          npx tsx tests/speech-windows.ts
       - name: Run the installer silently
         shell: pwsh
         run: |

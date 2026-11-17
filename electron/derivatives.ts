@@ -104,7 +104,7 @@ export function deriveMedia(jobId: string, p: Project, clipId: string, request: 
       report(.95, cached ? '复用已生成素材' : '载入衍生素材');
       const [derived] = await importAssets([destination], path.join(path.dirname(directory), 'thumbnails'), signal);
       signal.throwIfAborted();
-      derived.name = asset.name + (request.mode === 'reverse' ? ' · 倒放' : ' · 定格');
+      derived.name = asset.name + (request.mode === 'reverse' ? ' · Reversed' : ' · Freeze frame');
       report(1, '处理完成');
       return derived;
     } catch (error) { if (signal.aborted) throw new Error('已取消处理'); throw error; }

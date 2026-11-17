@@ -192,6 +192,8 @@ export interface EditorAPI {
   onTemplateProgress: (callback: (event: DerivativeProgress) => void) => () => void;
   getSpeechInfo: () => Promise<SpeechInfo>;
   chooseSpeechDependency: (kind: "python" | "model") => Promise<SpeechInfo>;
+  /** Fetch a speech model on the user's request; progress arrives as speech progress for job "model-download". */
+  downloadSpeechModel: (name: import("./speech").SpeechModelName) => Promise<SpeechInfo>;
   generateSpeech: (jobId: string, project: Project, request: SpeechRequest) => Promise<SpeechResult>;
   cancelSpeech: (jobId: string) => Promise<void>;
   onSpeechProgress: (callback: (event: SpeechProgress) => void) => () => void;
@@ -236,6 +238,9 @@ export interface EditorAPI {
   ) => Promise<{ jobId: string }>;
   cancelExport: (jobId: string) => Promise<void>;
   onExportProgress: (callback: (event: ExportProgress) => void) => () => void;
+  /** Write a noise-reduced and/or loudness-levelled copy of a clip's source; progress arrives as derivative progress. */
+  cleanAudio: (jobId: string, project: Project, clipId: string, request: import("./audioCleanup").AudioCleanupRequest) => Promise<MediaAsset>;
+  cancelAudioCleanup: (jobId: string) => Promise<void>;
   /** Save a finished microphone take (the recorder's bytes) as a local audio asset. */
   saveRecording: (bytes: Uint8Array, name: string) => Promise<MediaAsset>;
   /** Name of the usable graphics-card encoder, or null when exports are software only. */

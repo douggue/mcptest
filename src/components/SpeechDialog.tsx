@@ -3,9 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useEditorStore } from '../editor/store';
 import { applySpeech, speechSource, type SpeechInfo, type SpeechLanguage, type SpeechProgress, type SpeechRequest } from '../core/speech';
 import { useTranslation } from '../i18n/useTranslation';
+import { useUITranslation } from '../i18n';
 
 export default function SpeechDialog({mode,onClose}:{mode:'asr'|'tts';onClose:()=>void}) {
-  const {t,language:uiLanguage}=useTranslation(),project=useEditorStore(s=>s.project);
+  const {t,language:uiLanguage}=useTranslation(),ui=useUITranslation(),project=useEditorStore(s=>s.project);
+  const [download,setDownload]=useState<number|null>(null);const downloading=useRef(false);
   const [source,setSource]=useState(()=>{
     const s=useEditorStore.getState(),clip=s.project.clips.find(c=>c.id===s.selectedIds[0]&&s.project.assets.some(a=>a.id===c.assetId&&a.hasAudio));
     return clip ? `clip:${clip.id}` : `asset:${s.project.assets.find(a=>a.hasAudio)?.id??''}`;
@@ -18,12 +20,13 @@ export default function SpeechDialog({mode,onClose}:{mode:'asr'|'tts';onClose:()
   useEffect(()=>{
     alive.current=true;
     void window.editorAPI?.getSpeechInfo().then(value=>{if(alive.current) setInfo(value);}).catch(fail).finally(()=>{if(alive.current)setChecking(false);});
-    const off=window.editorAPI?.onSpeechProgress(e=>{if(e.jobId===running.current)setProgress(e);});
-    return ()=>{alive.current=false;off?.();if(running.current)void window.editorAPI?.cancelSpeech(running.current);};
+    const off=window.editorAPI?.onSpeechProgress(e=>{if(e.jobId===running.current)setProgress(e);if(e.jobId==='model-download'&&alive.current)setDownload(e.progress??0);});
+    return ()=>{alive.current=false;off?.();if(running.current)void window.editorAPI?.cancelSpeech(running.current);if(downloading.current)void window.editorAPI?.cancelSpeech('model-download');};
   },[]);
   const voices=info?.voices.filter(v=>v.locale.startsWith(language==='zh'?'zh_':'en_'))??[];
   useEffect(()=>{setVoice(voices.find(v=>v.name===(language==='zh'?'Tingting':'Samantha'))?.name??voices[0]?.name??'');},[info,language]);
   const choose=async(kind:'python'|'model')=>{setChecking(true);setError('');try{setInfo(await window.editorAPI!.chooseSpeechDependency(kind));}catch(e){fail(e);}finally{setChecking(false);}};
+  const downloadModel=async(name:'base'|'small')=>{setChecking(true);setError('');setDownload(0);downloading.current=true;try{setInfo(await window.editorAPI!.downloadSpeechModel(name));}catch(e){fail(e);}finally{downloading.current=false;if(alive.current){setDownload(null);setChecking(false);}}};
   const importMedia=async()=>{
     setChecking(true);setError('');const before=useEditorStore.getState().project;
     try{const assets=await window.editorAPI!.importMedia();if(useEditorStore.getState().project!==before)throw new Error(t('speech.stale'));useEditorStore.getState().addAssets(assets);const first=assets.find(a=>a.hasAudio);if(first)setSource(`asset:${first.id}`);}catch(e){fail(e);}finally{setChecking(false);}
@@ -54,18 +57,25 @@ export default function SpeechDialog({mode,onClose}:{mode:'asr'|'tts';onClose:()
         </select></label>
         <button disabled={busy||checking} onClick={()=>void importMedia()}>{t('speech.import')}</button>
         <p className="muted small">{t('speech.alignment')}</p>
-        <details><summary>{t('speech.dependencies')}</summary>
+        {info?.engine==='whisper-cpp'?<details open={!info.ready}><summary>{ui('语音模型','Speech model')}</summary>
+          <p className="small" style={{overflowWrap:'anywhere'}}>{ui('当前模型：','Current model: ')}{info.model??ui('未选择','none')} {info.modelBytes?`(${(info.modelBytes/1024/1024).toFixed(0)} MiB)`:''}</p>
+          <button disabled={busy||checking} onClick={()=>void downloadModel('base')}>{ui('下载语音模型（142 MiB）','Download speech model (142 MiB)')}</button>{' '}
+          <button disabled={busy||checking} onClick={()=>void downloadModel('small')}>{ui('下载更准确的模型（466 MiB）','Download the more accurate model (466 MiB)')}</button>{' '}
+          <button disabled={busy||checking} onClick={()=>void choose('model')}>{ui('选择模型文件…','Choose a model file…')}</button>
+          {download!==null&&<div className="export-progress"><p>{ui('正在下载语音模型…','Downloading the speech model…')}</p><progress max={1} value={download}/><p>{Math.round(download*100)}%</p><button onClick={()=>void window.editorAPI?.cancelSpeech('model-download')}>{ui('取消下载','Cancel download')}</button></div>}
+          <p>{ui('识别在本机使用 Whisper 模型完成，支持多种语言。模型只在你点击下载时从 Hugging Face 获取一次并校验完整性；也可以选择已有的 ggml .bin 文件。','Recognition runs on this computer with a Whisper model and understands many languages. A model is fetched from Hugging Face only when you press Download, once, and is checked for integrity. You can also choose a ggml .bin file you already have.')}</p>
+        </details>:<details><summary>{t('speech.dependencies')}</summary>
           <p className="small" style={{overflowWrap:'anywhere'}}>Python: {info?.python??'—'}<br/>MLX Whisper: {info?.model??'—'} {info?.modelBytes?`(${(info.modelBytes/1024/1024).toFixed(1)} MiB)`:''}</p>
           <button disabled={busy||checking} onClick={()=>void choose('python')}>{t('speech.python')}</button>{' '}
           <button disabled={busy||checking} onClick={()=>void choose('model')}>{t('speech.model')}</button>
           <p>{t('speech.setup')}</p>
-        </details>
+        </details>}
         {info&&!info.ready&&<p role="alert" className="inline-warning">{localizeMessage(info.error ?? "")}</p>}
       </>:<>
         <label>{t('speech.text')}<textarea aria-label={t('speech.text')} disabled={busy} maxLength={10000} rows={4} value={text} onChange={e=>setText(e.target.value)} style={{width:'100%'}}/></label>
       </>}
       <label>{t('speech.language')} <select aria-label={t('speech.language')} disabled={busy} value={language} onChange={e=>setLanguage(e.target.value as SpeechLanguage)}>
-        {mode==='asr'&&<option value="auto">{t('speech.auto')}</option>}<option value="zh">中文</option><option value="en">English</option>
+        {mode==='asr'&&<option value="auto">{t('speech.auto')}</option>}<option value="zh">{uiLanguage==='zh-CN'?'中文':'Chinese'}</option><option value="en">English</option>
       </select></label>
       {mode==='tts'&&<>
         <label>{t('speech.voice')} <select aria-label={t('speech.voice')} value={voice} disabled={busy} onChange={e=>setVoice(e.target.value)}>{voices.map(v=><option key={v.name} value={v.name}>{v.name} ({v.locale})</option>)}</select></label>

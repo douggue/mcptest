@@ -36,18 +36,18 @@ export function applyDerivative(p: Project, clipId: string, r: DerivativeRequest
   if (r.mode === 'reverse') {
     const ids = new Set(plan.members.map(c => c.id));
     const audio = plan.members.some(c => p.assets.find(a => a.id === c.assetId)?.kind === 'audio')
-      ? { ...asset, id: id(), kind: 'audio' as const, name: asset.name + ' · 音频', width: 0, height: 0, thumbnail: undefined } : undefined;
+      ? { ...asset, id: id(), kind: 'audio' as const, name: asset.name + ' · Audio', width: 0, height: 0, thumbnail: undefined } : undefined;
     if (audio) next.assets.push(audio);
     next.clips = next.clips.map(c => !ids.has(c.id) ? c : { ...c,
       assetId: p.assets.find(a => a.id === c.assetId)?.kind === 'audio' ? audio!.id : asset.id,
-      name: c.name + ' · 倒放', sourceIn: 0, speed: 1, muted: r.audio === 'mute' || c.muted,
+      name: c.name + ' · Reversed', sourceIn: 0, speed: 1, muted: r.audio === 'mute' || c.muted,
     });
     return { project: validateProject(next), clipId };
   }
   const placed = placeAsset(next, asset.id, plan.clip.trackId, plan.time, { sourceIn: 0, duration: r.duration }, 'insert');
   const evaluated = evaluateKeyframes(plan.clip, plan.time - plan.clip.start);
   placed.project.clips = placed.project.clips.map(c => c.id !== placed.clipId ? c : {
-    ...c, name: plan.clip.name + ' · 定格', transform: clone(evaluated.transform), adjustments: clone(evaluated.adjustments),
+    ...c, name: plan.clip.name + ' · Freeze frame', transform: clone(evaluated.transform), adjustments: clone(evaluated.adjustments),
     crop: clone(evaluated.crop), mask: clone(evaluated.mask), chromaKey: clone(evaluated.chromaKey),
   });
   return { ...placed, project: validateProject(placed.project) };

@@ -304,7 +304,7 @@ export function importCapcutDraft(
           continue;
         }
         clip.text!.text = text;
-        clip.name = text.slice(0, 30) || "文字";
+        clip.name = text.slice(0, 30) || "Text";
         warn(
           "文字内容已保留；剪映字体、花字、样式和排版未映射，使用 JGcut 默认样式。",
         );

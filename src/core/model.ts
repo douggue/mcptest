@@ -34,9 +34,9 @@ export function createProject(name = "未命名项目"): Project {
     background: "#101015",
     assets: [],
     tracks: [
-      createTrack("text", "文字"),
-      createTrack("video", "视频 1"),
-      createTrack("audio", "音频 1"),
+      createTrack("text", "Text"),
+      createTrack("video", "Video 1"),
+      createTrack("audio", "Audio 1"),
     ],
     clips: [],
     createdAt: now,
@@ -65,7 +65,7 @@ export function createClip(
     id: id(),
     trackId,
     assetId: asset?.id,
-    name: asset?.name ?? "默认文本",
+    name: asset?.name ?? "Default text",
     start: snapToFrame(Math.max(0, start), fps),
     duration:
       asset?.kind === "image" || !asset ? 5 : Math.max(1 / fps, asset.duration),

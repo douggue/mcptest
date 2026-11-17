@@ -4,7 +4,10 @@ import type { Subtitle } from './subtitles';
 export type SpeechLanguage = 'auto' | 'zh' | 'en';
 export interface SpeechSettings { python?: string; model?: string }
 export interface SpeechVoice { name: string; locale: string }
-export interface SpeechInfo extends SpeechSettings { modelBytes?: number; ready: boolean; error?: string; voices: SpeechVoice[] }
+/** `mlx` is Apple Silicon's Python worker with a model folder; `whisper-cpp` is the bundled engine with one model file. */
+export type SpeechEngine = 'mlx' | 'whisper-cpp';
+export type SpeechModelName = 'base' | 'small';
+export interface SpeechInfo extends SpeechSettings { engine?: SpeechEngine; modelBytes?: number; ready: boolean; error?: string; voices: SpeechVoice[] }
 export type SpeechRequest = { mode: 'asr'; source: string; language: SpeechLanguage } | { mode: 'tts'; text: string; voice: string; rate: number };
 export interface SpeechProgress { jobId: string; stage: 'prepare' | 'recognize' | 'synthesize' | 'import' | 'complete'; progress?: number }
 export type SpeechResult = { mode: 'asr'; cues: Subtitle[] } | { mode: 'tts'; asset: MediaAsset };

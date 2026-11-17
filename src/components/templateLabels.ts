@@ -49,8 +49,8 @@ export function localizeBuiltinTemplate(
   const result = structuredClone(template);
   const label = (value: string) => phrases[value] ?? common[value] ?? value;
   result.name = label(result.name);
-  const copyName = template.name + " · 副本";
-  result.project.name = result.project.name === copyName
+  const copyNames = [template.name + " · Copy", template.name + " · 副本"];
+  result.project.name = copyNames.includes(result.project.name)
     ? result.name + " · Copy"
     : label(result.project.name);
   result.project.tracks.forEach(track => { track.name = label(track.name); });

@@ -128,7 +128,7 @@ export function instantiateTemplate(input: ProjectTemplate): ProjectTemplate {
       p.clips.filter((c) => c.linkId).map((c) => [c.linkId!, id()]),
     );
   p.id = id();
-  p.name = t.name + " · 副本";
+  p.name = t.name + " · Copy";
   p.createdAt = p.updatedAt = new Date().toISOString();
   p.assets.forEach((a) => {
     a.id = assets.get(a.id)!;

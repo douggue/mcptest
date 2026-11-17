@@ -24,6 +24,8 @@ const page = await app.firstWindow(), errors: string[] = [];
 page.on("pageerror", (error) => errors.push(error.message));
 try {
   await page.waitForSelector(".app-shell");
+  // The take leaves the project unsaved; answer the close prompt with "Don't save".
+  await app.evaluate(({ dialog }) => { (dialog as any).showMessageBox = async () => ({ response: 2 }); });
   await expect(page.locator(".tl-clip")).toHaveCount(0);
   await page.getByRole("button", { name: "Record voice-over", exact: true }).click();
   const stop = page.getByRole("button", { name: "Stop recording", exact: true });

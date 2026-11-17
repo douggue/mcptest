@@ -37,6 +37,7 @@
     "test:capcut": "npm run build && tsx tests/capcut-import-electron.ts",
     "media:build": "node scripts/build-media-tools.mjs",
     "media:build:win": "node scripts/build-media-tools-win.mjs",
+    "speech:build:win": "node scripts/build-speech-tools-win.mjs",
     "assets": "tsx scripts/generate-assets.ts",
     "test:subtitles": "npm run build && tsx tests/subtitle-electron.ts",
     "test:portable": "npm run build && tsx tests/portable-range-electron.ts",
@@ -131,6 +132,13 @@
         {
           "from": "media-tools/win32-${arch}",
           "to": "media-tools",
+          "filter": [
+            "**/*"
+          ]
+        },
+        {
+          "from": "speech-tools/win32-${arch}",
+          "to": "speech-tools",
           "filter": [
             "**/*"
           ]

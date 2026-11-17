@@ -125,7 +125,11 @@ npm run dist:win
 
 `release/JGcut-<version>-x64-setup.exe` installs per user without administrator rights and registers `.jgcut` projects (existing `.reacut` projects still open). The installer is not code-signed, so Windows SmartScreen asks for confirmation on first launch. The `media-tools-windows` and `package-windows` jobs in [CI](.github/workflows/ci.yml) run these steps, install silently and drive the installed application through a demo export; the installer is attached to each run as the `JGcut-Windows` artifact.
 
-On Windows the app starts in English whatever the system language, the editor's top bar doubles as the title bar with the system window buttons at its right end, system text-to-speech uses the installed Windows voices, and MLX speech recognition and the Codex plugin launcher remain macOS-only.
+On Windows the app starts in English whatever the system language, the editor's top bar doubles as the title bar with the system window buttons at its right end, system text-to-speech uses the installed Windows voices, and speech recognition uses a bundled [whisper.cpp](https://github.com/ggml-org/whisper.cpp) engine with a Whisper model that the captions dialog downloads when you ask for it (or that you choose from disk). The Codex plugin launcher remains macOS-only.
+
+Also in this build: export presets for YouTube, TikTok / Reels / Shorts and Instagram, GIF and sound-only (M4A, WAV) export, graphics-card H.264 encoding on Windows with automatic fallback to software, voice-over recording from the timeline, and one-click noise reduction and loudness levelling for a clip.
+
+The speech engine is cross-compiled like the media tools (`npm run speech:build:win` on Linux x64 or WSL, output in `speech-tools/win32-x64/`).
 
 **Releases and updates.** Pushing a tag that matches the version in `package.json` (for example `v0.7.2`) runs [the Windows release workflow](.github/workflows/release-windows.yml), which builds and checks the installer and publishes it as a GitHub release. Help → Check for Updates in the app reads this repository's releases. To code-sign the installer, add the repository secrets `WINDOWS_CERTIFICATE` (a base64-encoded `.pfx`) and `WINDOWS_CERTIFICATE_PASSWORD`; without them the installer is unsigned.
 

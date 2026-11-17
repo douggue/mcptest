@@ -18,6 +18,7 @@ const api: EditorAPI = {
   },
   getSpeechInfo: () => ipcRenderer.invoke("speech-info"),
   chooseSpeechDependency: kind => ipcRenderer.invoke("speech-choose-dependency", kind),
+  downloadSpeechModel: name => ipcRenderer.invoke("speech-download-model", name),
   generateSpeech: (jobId, project, request) => ipcRenderer.invoke("speech-generate", jobId, project, request),
   cancelSpeech: jobId => ipcRenderer.invoke("speech-cancel", jobId),
   onSpeechProgress: callback => {
@@ -75,6 +76,8 @@ const api: EditorAPI = {
   getSystemInfo: () => ipcRenderer.invoke("system-info"),
   getHardwareEncoder: () => ipcRenderer.invoke("hardware-encoder"),
   saveRecording: (bytes, name) => ipcRenderer.invoke("save-recording", bytes, name),
+  cleanAudio: (jobId, project, clipId, request) => ipcRenderer.invoke("clean-audio", jobId, project, clipId, request),
+  cancelAudioCleanup: jobId => ipcRenderer.invoke("cancel-clean-audio", jobId),
   readTextFile: (extensions) =>
     ipcRenderer.invoke("read-text-file", extensions),
   chooseCapcutProject: (mode) =>

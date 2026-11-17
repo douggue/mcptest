@@ -14,7 +14,8 @@ exports.default = async context => {
     if (architecture !== 'x64') throw new Error('Bundled Windows media tools are only built for x64.');
     // The recipe cross-compiles on Linux; a Windows packaging host verifies tools copied from such a build.
     if (process.platform === 'linux' && process.arch === 'x64')
-      execFileSync(process.execPath, [path.join(project, 'scripts/build-media-tools-win.mjs')], { stdio: 'inherit' });
+      for (const script of ['build-media-tools-win.mjs', 'build-speech-tools-win.mjs'])
+        execFileSync(process.execPath, [path.join(project, 'scripts', script)], { stdio: 'inherit' });
     const directory = path.join(project, 'media-tools', 'win32-x64');
     try {
       const manifest = JSON.parse(fs.readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
@@ -26,6 +27,15 @@ exports.default = async context => {
       for (const source of manifest.sources) fs.accessSync(path.join(directory, 'sources', source.file));
     } catch (error) {
       throw new Error(`Bundled Windows media tools are missing or damaged (${error.message}). Run "npm run media:build:win" on Linux x64 or WSL and copy media-tools/win32-x64 into this checkout.`);
+    }
+    const speech = path.join(project, 'speech-tools', 'win32-x64');
+    try {
+      const manifest = JSON.parse(fs.readFileSync(path.join(speech, 'manifest.json'), 'utf8'));
+      if (manifest.target !== 'win32-x64' || manifest.tool.name !== 'whisper-cli.exe') throw new Error('unexpected manifest');
+      if (createHash('sha256').update(fs.readFileSync(path.join(speech, manifest.tool.name))).digest('hex') !== manifest.tool.buildSHA256)
+        throw new Error(`${manifest.tool.name} does not match its manifest`);
+    } catch (error) {
+      throw new Error(`The bundled Windows speech engine is missing or damaged (${error.message}). Run "npm run speech:build:win" on Linux x64 or WSL and copy speech-tools/win32-x64 into this checkout.`);
     }
   }
 };

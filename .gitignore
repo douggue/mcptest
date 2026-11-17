@@ -19,3 +19,4 @@ media-tools/
 
 __pycache__/
 *.pyc
+speech-tools/

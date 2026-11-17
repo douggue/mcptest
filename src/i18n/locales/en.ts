@@ -3,7 +3,7 @@ import type { TranslationKey } from "./zh-CN";
 export const en: Record<TranslationKey, string> = {
   "speech.asr": "Recognize speech",
   "speech.tts": "Text to speech",
-  "speech.offline": "Processing stays on this computer. No media or text upload, no automatic model download.",
+  "speech.offline": "Processing stays on this computer. No media or text is uploaded, and a speech model is downloaded only when you ask for one.",
   "speech.source": "Speech source",
   "speech.selectSource": "Select video or audio",
   "speech.import": "Choose local media…",
