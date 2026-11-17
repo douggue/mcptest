@@ -1,11 +1,12 @@
 {
-  "recordedAt": "2026-11-17T09:22:39.761Z",
-  "application": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\reacut",
+  "recordedAt": "2026-11-17T10:00:55.244Z",
+  "application": "C:\\Users\\runneradmin\\AppData\\Local\\Programs\\jgcut",
   "steps": [
     "opened the demo project passed on the command line",
     "played the preview",
     "selected a clip to show its inspector",
     "opened the File menu with Ctrl shortcuts",
+    "opened About",
     "exported the project with the bundled FFmpeg"
   ],
   "errors": [],
@@ -17,16 +18,17 @@
     ]
   },
   "files": {
-    "desktop.mp4": 360247,
-    "desktop.png": 284010,
-    "window.mp4": 193224,
-    "editor.png": 239884,
-    "file-menu.png": 237026,
-    "export-complete.png": 266784
+    "desktop.mp4": 409249,
+    "desktop.png": 290580,
+    "window.mp4": 265582,
+    "editor.png": 236700,
+    "file-menu.png": 231770,
+    "about.png": 253121,
+    "export-complete.png": 270154
   },
   "desktopCapture": [
-    "[libx264 @ 000001bc93ed5b80] i8c dc,h,v,p: 71% 20%  6%  2%",
-    "[libx264 @ 000001bc93ed5b80] Weighted P-Frames: Y:0.0% UV:0.0%",
-    "[libx264 @ 000001bc93ed5b80] kb/s:64.49"
+    "[libx264 @ 00000206b5287240] i8c dc,h,v,p: 73% 19%  6%  2%",
+    "[libx264 @ 00000206b5287240] Weighted P-Frames: Y:0.0% UV:0.0%",
+    "[libx264 @ 00000206b5287240] kb/s:68.46"
   ]
 }
