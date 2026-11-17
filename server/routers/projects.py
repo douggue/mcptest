@@ -364,6 +364,34 @@ def direct_clip(pid: str, cid: str) -> dict:
     return _clip_job(pid, cid, "direct", "Planning the edit from the picture", plan)
 
 
+@router.post("/{pid}/clips/{cid}/ask")
+def ask_clip(pid: str, cid: str, body: dict) -> dict:
+    """{request, spec} -> job -> {changes: [...], reply, engine}: a plain-language edit turned into typed changes that the
+    editor applies (as one undoable step). The spec is the editor's current one, so unsaved changes are seen too."""
+    request = str(body.get("request") or "").strip()
+    spec = body.get("spec")
+    if not request:
+        raise HTTPException(422, "Say what to change.")
+    if len(request) > 2000:
+        raise HTTPException(422, "That request is too long (2,000 characters at most).")
+    if not isinstance(spec, dict) or "words" not in spec:
+        raise HTTPException(422, "Send the clip as it is now.")
+    if not ai.available():
+        raise HTTPException(422, "Editing by asking needs an AI key (Settings → AI).")
+    project = load(pid)
+    _clip(project, cid)
+
+    def work(job: jobs.Job) -> dict:
+        from ..studio import ask
+        job.update(0.2, f"Working out the change with {ai.provider_label()}")
+        try:
+            return ask.plan(spec, request)
+        except ai.AIUnavailable as e:
+            raise MediaError(str(e)) from e
+
+    return {"job_id": jobs.submit("ask", "Editing by asking", work, {"project_id": pid, "clip_id": cid}).id}
+
+
 @router.post("/{pid}/clips/{cid}/subject")
 def subject_outline(pid: str, cid: str, body: dict) -> dict:
     """{t, box: [x0, y0, x1, y1] (0..1 of the source), find?: bool} -> job ->

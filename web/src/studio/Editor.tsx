@@ -5,6 +5,7 @@ import { api } from '../api';
 import { Short } from '../remotion/Short';
 import { outFrameOf, srcTimeAt } from '../remotion/timing';
 import { Button, Icon, JobBar, fmtTime, toastError, useJobRunner } from '../ui';
+import { AskBar } from './AskBar';
 import { Picked, StageOverlay } from './StageOverlay';
 import { Timeline } from './Timeline';
 import { EditSpec, clamp, planOf, retime, round3, withSegments } from './logic';
@@ -214,7 +215,7 @@ export function Editor({ project, clip, onBack }: { project: Project; clip: Clip
           <h2 className="ellipsis" title={title}>{title}</h2>
           <span className="save-state">{saved ? <><Icon name="check" size={12} /> Saved</> : 'Saving…'}</span>
         </div>
-        <span className="spacer" />
+        <AskBar projectId={project.id} clipId={clip.id} spec={spec} update={update} jobs={jobs} undo={undo} />
         <span className="pill mono" title="Change the shape and frame rate under Export">{spec.width}×{spec.height} · {spec.fps} fps</span>
         <Button variant="ghost" small icon="undo" onClick={undo} disabled={!hist.past.length} aria-label="Undo" title="Undo (Ctrl+Z)" />
         <Button variant="ghost" small icon="redo" onClick={redo} disabled={!hist.future.length} aria-label="Redo" title="Redo (Ctrl+Shift+Z)" />
