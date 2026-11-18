@@ -9,7 +9,7 @@ type Brand = { name: string; accent: string; secondary: string; font: string; lo
 type SettingsData = {
   ai_provider: 'anthropic' | 'gemini' | 'claude_code'; anthropic_api_key: string; anthropic_api_key_set: boolean; ai_model: string;
   gemini_api_key: string; gemini_api_key_set: boolean; gemini_model: string; claude_code_model: string; claude_code_effort: string; claude_code_path: string;
-  gemini_cli_tasks: string[]; gemini_cli_model: string; gemini_cli_path: string; whisper_model: string; copy_folder: string; capcut_folder: string;
+  gemini_cli_tasks: string[]; gemini_cli_model: string; gemini_cli_path: string; gemini_cli_task_models: Record<string, string>; gemini_cli_video: 'video' | 'frames'; gemini_cli_backup?: boolean; whisper_model: string; copy_folder: string; capcut_folder: string;
   pexels_api_key: string; pexels_api_key_set: boolean; tts_voice: string; brand: Brand;
   flow_enabled?: boolean; flow_mcp_path?: string; flow_out_dir?: string;
   youtube_client_id?: string; youtube_client_secret?: string; youtube_client_secret_set?: boolean; youtube_redirect_url?: string;
@@ -373,6 +373,22 @@ const CC_MODELS = [
 type GC = { installed: boolean; version: string; signed_in: boolean; kind: '' | 'agy' | 'gemini'; why: string; server_edition: boolean; tasks: Record<string, string> };
 
 /** Gemini through the person's own Google plan (the Gemini CLI on this computer), for the tasks they choose. */
+/** A model: the plan's list when loaded, 'let it choose', or any name typed in. */
+function ModelPick({ value, models, fallback, onChange }: { value: string; models: string[]; fallback: string; onChange: (v: string) => void }) {
+  const [typing, setTyping] = useState(false);
+  const custom = typing || (!!value && !models.includes(value));
+  return (
+    <div className="col gap-s">
+      <select value={custom ? '__custom' : value} onChange={(e) => { const v = e.target.value; setTyping(v === '__custom'); onChange(v === '__custom' ? value : v); }}>
+        <option value="">{fallback ? `Same as the general choice (${fallback})` : 'Let it choose'}</option>
+        {models.map((m) => <option key={m} value={m}>{m}</option>)}
+        <option value="__custom">Type a model name…</option>
+      </select>
+      {custom && <input type="text" className="mono" spellCheck={false} placeholder="e.g. gemini-3.1-pro-high" value={value} onChange={(e) => onChange(e.target.value.trim())} />}
+    </div>
+  );
+}
+
 function GeminiCliSettings({ s, set }: { s: SettingsData; set: (p: Partial<SettingsData>) => void }) {
   const [gc, setGc] = useState<GC | null>(null);
   const [models, setModels] = useState<string[]>([]);
@@ -389,7 +405,7 @@ function GeminiCliSettings({ s, set }: { s: SettingsData; set: (p: Partial<Setti
   async function test() {
     setTesting(true);
     try {
-      await api.put('/api/settings', { gemini_cli_model: s.gemini_cli_model, gemini_cli_path: s.gemini_cli_path });
+      await api.put('/api/settings', { gemini_cli_model: s.gemini_cli_model, gemini_cli_path: s.gemini_cli_path, gemini_cli_task_models: s.gemini_cli_task_models, gemini_cli_video: s.gemini_cli_video });
       const r = await api.post<{ greeting: string; seconds: number }>('/api/ai/gemini-cli/test');
       toast(`Gemini answered in ${r.seconds}s: “${r.greeting}”`, 'good');
     } catch (e) { toastError(e); }
@@ -416,16 +432,32 @@ function GeminiCliSettings({ s, set }: { s: SettingsData; set: (p: Partial<Setti
           </label>
         ))}
       </div>
+      <label className="row gap-s small" style={{ cursor: 'pointer' }} title="Planning edits, Ask, titles, translation and the rest: when the main AI fails (usage limit reached, signed out, an error), the same request goes to Gemini">
+        <input type="checkbox" checked={!!s.gemini_cli_backup} disabled={!gc?.installed}
+          onChange={(e) => { set({ gemini_cli_backup: e.target.checked }); api.put('/api/settings', { gemini_cli_backup: e.target.checked }).catch(toastError); }} />
+        Backup for everything else: when the main AI fails, use Gemini instead (slower)
+      </label>
+      <div className="row between wrap">
+        <span className="small muted">{models.length ? `${models.length} models your plan offers` : 'Load the models your plan offers, or type any model name.'}</span>
+        <Button small onClick={loadModels} disabled={!gc?.installed}>{models.length ? 'Reload models' : 'Load models'}</Button>
+      </div>
       <div className="grid-2">
-        <Field label="Model" hint="Empty lets it choose. Or type a model name your plan offers.">
-          <div className="row gap-s">
-            {models.length
-              ? <select value={s.gemini_cli_model} onChange={(e) => set({ gemini_cli_model: e.target.value })}>
-                  <option value="">Let the CLI choose</option>{models.map((m) => <option key={m} value={m}>{m}</option>)}</select>
-              : <input type="text" className="mono" spellCheck={false} placeholder="automatic" value={s.gemini_cli_model} onChange={(e) => set({ gemini_cli_model: e.target.value.trim() })} />}
-            {gc?.kind === 'gemini' && <Button small onClick={loadModels} disabled={!gc?.signed_in}>Load list</Button>}
-          </div>
+        <Field label="Model for finding moments" hint="A fast model is usually enough here.">
+          <ModelPick value={(s.gemini_cli_task_models ?? {}).moments ?? ''} models={models} fallback={s.gemini_cli_model}
+            onChange={(v) => set({ gemini_cli_task_models: { ...(s.gemini_cli_task_models ?? {}), moments: v } })} />
         </Field>
+        <Field label="Model for style references" hint="Watching videos well needs the strongest model you have.">
+          <ModelPick value={(s.gemini_cli_task_models ?? {}).references ?? ''} models={models} fallback={s.gemini_cli_model}
+            onChange={(v) => set({ gemini_cli_task_models: { ...(s.gemini_cli_task_models ?? {}), references: v } })} />
+        </Field>
+      </div>
+      <Field label="How it looks at reference videos">
+        <Seg value={s.gemini_cli_video ?? 'video'} onChange={(v) => set({ gemini_cli_video: v })} options={[
+          { value: 'video', label: 'Whole videos, frame by frame as backup', title: 'Watches each reference with motion and sound; if that fails or takes over 30 minutes, it looks at still frames instead' },
+          { value: 'frames', label: 'Frame by frame only (faster)', title: 'Still frames from each reference: much quicker, but no motion or sound' },
+        ]} />
+      </Field>
+      <div className="grid-2">
         <Field label="Where agy is (optional)" hint="Leave empty to find it automatically. Otherwise the full path to agy; in a terminal,  where agy  shows it.">
           <input type="text" className="mono" spellCheck={false} placeholder="found automatically" value={s.gemini_cli_path} onChange={(e) => set({ gemini_cli_path: e.target.value })} />
         </Field>

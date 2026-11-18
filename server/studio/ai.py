@@ -86,12 +86,20 @@ def gemini_cli_for(task: str) -> bool:
     return not auth.enabled() and gemini_cli_exe() is not None
 
 
+def backup_ready() -> bool:
+    """Whether the Google CLI stands in when the main provider fails (Settings → AI). Own computer only."""
+    if not get_settings().get("gemini_cli_backup"):
+        return False
+    from .. import auth
+    return not auth.enabled() and gemini_cli_exe() is not None
+
+
 def available(task: str = "") -> bool:
-    return gemini_cli_for(task) or bool(provider())
+    return gemini_cli_for(task) or bool(provider()) or backup_ready()
 
 
 def provider_label(task: str = "") -> str:
-    if gemini_cli_for(task):
+    if gemini_cli_for(task) or (not provider() and backup_ready()):
         return f"Gemini (your Google subscription, {gemini_cli_label()})"
     return {"anthropic": "Claude", "gemini": "Gemini", "claude_code": "Claude (your subscription)"}.get(provider(), "")
 
@@ -105,7 +113,22 @@ def ask_json(system: str, user: "str | list", schema: dict, max_tokens: int = 32
     Whole videos are only sent to Gemini, which can watch them; Claude gets the stills, so always include stills too.
     """
     if gemini_cli_for(task):
-        return _ask_gemini_cli(system, user, schema)
+        return _ask_gemini_cli(system, user, schema, task)
+    try:
+        return _ask_main(system, user, schema, max_tokens, effort)
+    except AIUnavailable as first:
+        if not backup_ready():
+            raise
+        # The backup: the same request through the person's Google subscription. Slower, but the work gets done.
+        import logging
+        logging.getLogger("cutroom.ai").warning("Main AI failed (%s); trying the Google CLI backup", first)
+        try:
+            return _ask_gemini_cli(system, user, schema, task)
+        except AIUnavailable as second:
+            raise AIUnavailable(f"{first} The backup (Gemini through the {gemini_cli_label()}) failed too: {second}") from second
+
+
+def _ask_main(system: str, user: "str | list", schema: dict, max_tokens: int, effort: str) -> dict:
     which = provider()
     if not which:
         raise AIUnavailable(setup_hint())
@@ -287,7 +310,9 @@ def _gemini_upload(client, path, wait_seconds: float = 180.0):
 
 def watches_video(task: str = "") -> bool:
     """True when the provider for this task can be given whole videos, not just stills."""
-    return gemini_cli_for(task) or provider() == "gemini"
+    if gemini_cli_for(task):
+        return (get_settings().get("gemini_cli_video") or "video") != "frames"
+    return provider() == "gemini"
 
 
 def gemini_models() -> list[dict]:
@@ -533,10 +558,43 @@ def _json_from(text: str) -> dict:
 
 
 AGY_TIMEOUT = 3600   # seconds; watching one 28 s video took about five minutes in testing
+VIDEO_TIMEOUT = 1800 # a try with whole videos gets this long before the frame-by-frame backup takes over
 MAX_CLI_VIDEO = 60 * 1024 * 1024
 
 
-def _ask_gemini_cli(system: str, user: "str | list", schema: dict) -> dict:
+def gemini_cli_model(task: str = "") -> str:
+    """The model for a task: its own choice, else the general one, else '' (the CLI chooses)."""
+    s = get_settings()
+    return ((s.get("gemini_cli_task_models") or {}).get(task) or s.get("gemini_cli_model") or "").strip()
+
+
+def gemini_cli_models() -> list[str]:
+    """The models the signed-in account can use, as the CLI lists them (agy models / gemini --list-models)."""
+    import subprocess
+    exe = gemini_cli_exe()
+    if not exe:
+        raise AIUnavailable("The Antigravity CLI (agy) was not found on this computer.")
+    tries = [["models"], ["models", "list"], ["--list-models"]] if _cli_kind(exe) == "agy" else [["--list-models"]]
+    for args in tries:
+        try:
+            r = subprocess.run(exe + args, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, env=_gemini_cli_env())
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        names: list[str] = []
+        for line in (r.stdout or "").splitlines():
+            t = line.strip().strip("-*•›>").strip()
+            if not t or t.endswith(":") or len(t) > 80 or t.lower().startswith(("usage", "available", "error", "note")):
+                continue
+            m = re.search(r"\b[a-z][a-z0-9]*(?:[-.][a-z0-9]+)+\b", t)   # a slug such as gemini-3.1-pro-high
+            names.append(m.group(0) if m else t)
+        names = list(dict.fromkeys(names))
+        if r.returncode == 0 and names:
+            return names[:60]
+    raise AIUnavailable("The CLI listed no models (is it signed in?). Type a model name instead; in a terminal, "
+                        "agy models  shows the ones your plan offers.")
+
+
+def _ask_gemini_cli(system: str, user: "str | list", schema: dict, task: str = "") -> dict:
     """One answer from Google's CLI in headless mode (-p), run in an empty folder that holds only this request: its
     instructions (prompt.md, so a long transcript never hits the command-line length limit) and its pictures and
     videos, which the instructions name as @files. The Gemini CLI also runs read-only (--approval-mode plan); agy
@@ -551,13 +609,14 @@ def _ask_gemini_cli(system: str, user: "str | list", schema: dict) -> dict:
         raise AIUnavailable("The Antigravity CLI (agy) was not found on this computer (Settings → AI).")
     kind = _cli_kind(exe)
     label = gemini_cli_label()
-    model = (get_settings().get("gemini_cli_model") or "").strip()
+    model = gemini_cli_model(task)
+    watch = (get_settings().get("gemini_cli_video") or "video") != "frames"
     work = DATA / "tmp" / "google-cli"
     work.mkdir(parents=True, exist_ok=True)
     # "@name" attaches a file: every other @ (a handle in a transcript or a rule) is escaped
     lit = lambda t: re.sub(r"(?<!\\)@", r"\\@", t)   # noqa: E731
 
-    def run(with_video: bool) -> dict:
+    def run(with_video: bool, limit: int, fix: str = "") -> dict:
         with tempfile.TemporaryDirectory(dir=work) as tmp:
             pieces = [lit(system), ""]
             n = 0
@@ -576,13 +635,16 @@ def _ask_gemini_cli(system: str, user: "str | list", schema: dict) -> dict:
                         name = f"video_{n:03d}{src.suffix.lower()}"
                         shutil.copy2(src, Path(tmp, name))
                         pieces.append(f"@{name} (watch the whole video, with its sound)")
+            if fix:
+                pieces.append("\nYour previous answer did not match the required format. Problems: " + lit(fix)
+                              + "\nAnswer again, fixing exactly these, and keep everything else as before.")
             pieces.append("\nAnswer with one JSON object and nothing else, matching this JSON schema:\n"
                           + lit(json.dumps(schema, separators=(",", ":"))))
             prompt = "\n".join(pieces)
             if kind == "agy":
                 Path(tmp, "prompt.md").write_text(prompt, "utf-8")
                 cmd = exe + ["-p", "Read @prompt.md and do exactly what it says, using the files it names. Change no files.",
-                             "--output-format", "json", "--print-timeout", str(AGY_TIMEOUT)]
+                             "--output-format", "json", "--print-timeout", str(limit)]
                 stdin = None
             else:
                 cmd = exe + ["-p", "Follow the instructions above.", "--output-format", "json", "--approval-mode", "plan", "--skip-trust"]
@@ -591,9 +653,9 @@ def _ask_gemini_cli(system: str, user: "str | list", schema: dict) -> dict:
                 cmd += ["--model" if kind == "agy" else "-m", model]
             try:
                 r = subprocess.run(cmd, input=stdin, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                                   timeout=AGY_TIMEOUT + 120, cwd=tmp, env=_gemini_cli_env())
+                                   timeout=limit + 120, cwd=tmp, env=_gemini_cli_env())
             except subprocess.TimeoutExpired as e:
-                raise AIUnavailable(f"The {label} took more than an hour and was stopped.") from e
+                raise AIUnavailable(f"The {label} took more than {limit // 60} minutes and was stopped.") from e
             except OSError as e:
                 raise AIUnavailable(f"The {label} could not be started: {e}") from e
         data: dict = {}
@@ -628,9 +690,44 @@ def _ask_gemini_cli(system: str, user: "str | list", schema: dict) -> dict:
         except json.JSONDecodeError as e:
             raise AIUnavailable("Gemini answered, but not with the JSON that was asked for.") from e
 
+    def checked(with_video: bool, limit: int) -> dict:
+        """An answer that matches the schema: one retry with the mismatches spelled out, since the CLI cannot be
+        held to a schema the way Claude Code's --json-schema is."""
+        out = run(with_video, limit)
+        problems = _schema_problems(out, schema)
+        if not problems:
+            return out
+        out = run(with_video, limit, "; ".join(problems))
+        problems = _schema_problems(out, schema)
+        if problems:
+            raise AIUnavailable("Gemini's answer did not have the expected shape: " + "; ".join(problems)[:300])
+        return out
+
+    has_video = watch and not isinstance(user, str) and any(isinstance(x, dict) and "video" in x for x in user)
+    if not has_video:
+        return checked(False, AGY_TIMEOUT)
     try:
-        return run(True)
+        return checked(True, VIDEO_TIMEOUT)
     except AIUnavailable as e:
-        if any(k in str(e).lower() for k in ("video", "mp4", "file too large", "too large")):
-            return run(False)   # a video it could not take: the stills carry the picture
-        raise
+        low = str(e).lower()
+        if "not signed in" in low or "usage limit" in low:
+            raise   # the frames would fail the same way
+        # Frame-by-frame backup: whatever went wrong with the whole videos (too big, too slow, refused, garbled),
+        # the same request with the still frames alone still gets an answer.
+        out = checked(False, AGY_TIMEOUT)
+        out["_watched"] = "frames"
+        return out
+
+
+def _schema_problems(data: object, schema: dict, limit: int = 12) -> list[str]:
+    """Where an answer breaks the JSON schema, in plain words ('' list when it fits)."""
+    try:
+        from jsonschema import Draft202012Validator
+    except ImportError:
+        return []
+    errs = sorted(Draft202012Validator(schema).iter_errors(data), key=lambda e: list(e.path))
+    out = []
+    for e in errs[:limit]:
+        where = "/".join(str(p) for p in e.path) or "the top level"
+        out.append(f"at {where}: {e.message[:160]}")
+    return out

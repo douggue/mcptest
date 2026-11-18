@@ -580,6 +580,8 @@ def review(pid: str, job: Job, span: tuple[float, float] = (0.0, 1.0)) -> dict:
     out = ai.ask_json(REVIEW_SYSTEM, parts, REVIEW_SCHEMA, max_tokens=8000, effort="medium", task="references")
     memory = [m.strip() for m in out["memory"] if m.strip()][:20]
     note = ("The references differ from the description: " + " ".join(out["contradictions"])) if out["contradictions"] else ""
+    if out.get("_watched") == "frames":
+        note = ("The whole videos could not be watched this time, so the review used still frames (no motion or sound). " + note).strip()
     return save(pid, {"memory": memory, "reviewed": time.time(), "review_note": note, "review_engine": ai.provider_label("references")})
 
 

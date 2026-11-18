@@ -34,6 +34,9 @@ DEFAULT_SETTINGS = {
     # Gemini CLI on this computer, signed in with the person's Google account (e.g. Google AI Ultra), for chosen tasks only:
     "gemini_cli_tasks": [],           # any of: "moments" (finding moments), "references" (studying and reviewing style references)
     "gemini_cli_model": "",           # '' lets the CLI choose (auto); or a model name
+    "gemini_cli_task_models": {},     # a different model per task, e.g. {"moments": "...flash...", "references": "...pro..."}
+    "gemini_cli_backup": False,       # when the main provider fails (limit reached, signed out, error), try the Google CLI
+    "gemini_cli_video": "video",      # "video": watch whole reference videos, frame by frame if that fails; "frames": stills only (faster)
     "gemini_cli_path": "",            # where gemini(.cmd) is, when it is not on PATH
     "anthropic_api_key": "",          # falls back to ANTHROPIC_API_KEY in the environment
     "ai_model": "claude-opus-5-5",

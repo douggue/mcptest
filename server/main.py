@@ -160,22 +160,13 @@ def gemini_cli_test() -> dict:
 @app.get("/api/ai/gemini-cli/models")
 def gemini_cli_models() -> list[str]:
     """The models the signed-in Google account can use, as the CLI lists them."""
-    import re
-    import subprocess
     from .studio import ai
-    exe = ai.gemini_cli_exe()
-    if auth.enabled() or not exe:
-        raise HTTPException(422, "The Antigravity CLI (agy) is not available here.")
-    if ai._cli_kind(exe) == "agy":
-        raise HTTPException(422, "Type the model name (as agy shows it), or leave it empty to let agy choose.")
+    if auth.enabled():
+        raise HTTPException(422, "Not available on the server edition.")
     try:
-        r = subprocess.run(exe + ["--list-models"], capture_output=True, text=True, timeout=120, env=ai._gemini_cli_env())
-    except (OSError, subprocess.TimeoutExpired) as e:
-        raise HTTPException(422, f"The Gemini CLI did not answer: {e}")
-    names = list(dict.fromkeys(re.findall(r"\b(gemini-[a-z0-9.\-]+)", (r.stdout or "") + (r.stderr or ""))))
-    if not names:
-        raise HTTPException(422, "No models were listed. Is the Gemini CLI signed in? " + (r.stderr or r.stdout or "").strip()[-200:])
-    return names
+        return ai.gemini_cli_models()
+    except ai.AIUnavailable as e:
+        raise HTTPException(422, str(e))
 
 
 @app.post("/api/ai/test")

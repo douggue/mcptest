@@ -9,3 +9,4 @@ pillow>=10
 anthropic>=1.0
 google-genai>=1.0       # Gemini as an alternative AI provider
 mcp>=1.9                # the MCP server and the optional flow-mcp connector
+jsonschema>=4.20     # checks that AI answers have the asked-for shape
