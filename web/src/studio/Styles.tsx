@@ -5,7 +5,7 @@ import { api } from '../api';
 import { go, useRoute } from '../App';
 import { Button, Empty, Field, JobBar, Panel, Toggle, fmtDur, toast, toastError, useJobRunner } from '../ui';
 import { StyleAnalysis, StyleProfile, StyleRule } from './types';
-import { AiPicker, HowItWorks, MemoryPanel, ReferencesPanel, StudiesPanel } from './StyleRefs';
+import { AiPicker, HowItWorks, MemoryPanel, PairsPanel, ReferencesPanel, StudiesPanel } from './StyleRefs';
 
 export default function Styles() {
   const [styles, setStyles] = useState<StyleProfile[]>([]);
@@ -69,6 +69,7 @@ export default function Styles() {
         <ReferencesPanel style={open} reload={load} job={job} run={run} busy={busy} onStudy={!fixed ? analyse : undefined} />
         {!fixed && <StudiesPanel style={open} reload={load} />}
         <MemoryPanel style={open} reload={load} run={run} busy={busy} use={aiUse} />
+        <PairsPanel style={open} reload={load} run={run} busy={busy} use={aiUse} />
         <HowItWorks style={open} />
 
         {(a || open.summary) && (

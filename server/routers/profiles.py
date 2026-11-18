@@ -53,7 +53,10 @@ def create_profile(body: dict) -> dict:
            "memory_by": copy.deepcopy(base.get("memory_by") or {}), "memory_from": base.get("memory_from", ""),
            "review_engine": base.get("review_engine", ""), "review_note": base.get("review_note", ""),
            "analysis_by": copy.deepcopy(base.get("analysis_by") or {}), "analysis_from": base.get("analysis_from", ""),
-           "make": copy.deepcopy(base.get("make"))}
+           "make": copy.deepcopy(base.get("make")),
+           "pairs": copy.deepcopy(base.get("pairs") or []), "edit_rules": list(base.get("edit_rules") or []),
+           "edit_summary": base.get("edit_summary", ""), "edit_rules_by": copy.deepcopy(base.get("edit_rules_by") or {}),
+           "edit_rules_from": base.get("edit_rules_from", "")}
     for r in row["rules"]:
         r["source"] = "copied"
     new = P.profiles.insert(row)
@@ -69,6 +72,18 @@ def create_profile(body: dict) -> dict:
                 from ..config import media_url
                 refs.append({**r, "url": media_url(dest / src.name)})
         new = P.profiles.update(new["id"], {"references": refs})
+    if base.get("pairs"):   # and its before-and-after pairs
+        from ..config import media_url
+        dest = P.folder(new["id"])
+        dest.mkdir(parents=True, exist_ok=True)
+        pairs = []
+        for pr in base["pairs"]:
+            for f in (pr["raw"], pr["edit"]):
+                src = P.folder(base["id"]) / f
+                if src.is_file():
+                    shutil.copy2(src, dest / f)
+            pairs.append({**pr, "raw_url": media_url(dest / pr["raw"]), "edit_url": media_url(dest / pr["edit"])})
+        new = P.profiles.update(new["id"], {"pairs": pairs})
     return new
 
 
@@ -170,6 +185,64 @@ def use_analysis(pid: str, body: dict) -> dict:
     _own(pid)
     try:
         return P.use_analysis(pid, str(body.get("key") or ""))
+    except MediaError as e:
+        raise HTTPException(422, str(e))
+
+
+@router.post("/{pid}/pairs")
+def add_pair(pid: str, raw: UploadFile = File(...), edit: UploadFile = File(...), name: str = "") -> dict:
+    """A raw video and the short you made from it, to learn your editing from."""
+    _style(pid)
+    folder = P.folder(pid)
+    folder.mkdir(parents=True, exist_ok=True)
+    saved = []
+    for up, tag in ((raw, "raw"), (edit, "edit")):
+        ext = Path(up.filename or "v.mp4").suffix.lower()
+        if ext not in VIDEO:
+            raise HTTPException(422, f"Both files must be videos ({', '.join(sorted(VIDEO))}).")
+        out = unique_path(folder, safe_name(f"{tag}_{Path(up.filename or tag).stem}", tag), ext.lstrip("."))
+        with open(out, "wb") as f:
+            shutil.copyfileobj(up.file, f)
+        saved.append(out)
+    return P.add_pair(pid, saved[0], saved[1], name.strip() or Path(edit.filename or "edit").stem)
+
+
+@router.delete("/{pid}/pairs/{pair_id}")
+def remove_pair(pid: str, pair_id: str) -> dict:
+    _style(pid)
+    return P.remove_pair(pid, pair_id)
+
+
+def _ready(use: str) -> None:
+    if use and not any(c["key"] == use and c["ready"] for c in P.ai.ai_choices()):
+        raise HTTPException(422, f"{P.ai.label_for(use)} is not set up here.")
+    if not use and not P.ai.available("references"):
+        raise HTTPException(422, "Understanding an edit needs the AI. " + P.ai.setup_hint())
+
+
+@router.post("/{pid}/pairs/{pair_id}/study")
+def study_pair(pid: str, pair_id: str, body: dict | None = None) -> dict:
+    """Measure the pair and have an AI ({use}) explain what the editor did and why."""
+    _style(pid)
+    use = str((body or {}).get("use") or "")
+    _ready(use)
+    return {"job_id": jobs.submit("style", "Understanding the edit", lambda job: P.study_pair(pid, pair_id, job, use)).id}
+
+
+@router.post("/{pid}/edits/learn")
+def learn_edits(pid: str, body: dict | None = None) -> dict:
+    """Turn every studied pair into the style's rules, with an AI ({use}); each AI keeps its own version."""
+    _style(pid)
+    use = str((body or {}).get("use") or "")
+    _ready(use)
+    return {"job_id": jobs.submit("style", "Learning from your edits", lambda job: P.learn_edits(pid, job, use)).id}
+
+
+@router.post("/{pid}/edits/use")
+def use_edit_rules(pid: str, body: dict) -> dict:
+    _style(pid)
+    try:
+        return P.use_edit_rules(pid, str(body.get("key") or ""))
     except MediaError as e:
         raise HTTPException(422, str(e))
 

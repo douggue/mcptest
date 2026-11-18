@@ -65,6 +65,10 @@ export type StyleProfile = {
   memory_by?: Record<string, { memory: string[]; reviewed: number; review_note: string; review_engine: string }>; memory_from?: string;
   analysis_by?: Record<string, { engine: string; analysed: number; summary: string }>; analysis_from?: string;
   copied_from?: string;
+  /** Before and after: raw videos and the shorts the person made from them, with each AI's reading of the edit. */
+  pairs?: EditPair[];
+  edit_rules?: string[]; edit_summary?: string; edit_rules_from?: string;
+  edit_rules_by?: Record<string, { rules: string[]; summary: string; at: number; engine: string; pairs: number }>;
   /** How a short is made from the video: the whole of it (an advert), one story from raw footage, or moments. */
   make?: { mode: 'whole' | 'story' | 'moments'; length?: [number, number]; kind?: ClipKind; count?: number; trim_end?: number };
   analysis?: StyleAnalysis | null; note?: string; engine?: string; analysed?: number;
@@ -109,3 +113,11 @@ export type YouTubePost = {
 export type PublishResult = { post_id: string; video_id: string; url: string; privacy: string; publish_at: string; state: string; warnings: string[] };
 /** An export row as /api/exports returns it; `meta` is the clip's post text when it was rendered. */
 export type ExportWithMeta = ExportRow & { meta?: Meta };
+
+export type EditDecision = { at_seconds: number; kind: string; what: string; why: string };
+export type EditPair = {
+  id: string; name: string; raw_url: string; edit_url: string; added: number;
+  measured: null | { raw_seconds: number; edit_seconds: number; trims: { raw_from: number; raw_to: number; where: string }[];
+    shots: { start: number; end: number; cx?: number; zoom?: number; pan?: number }[] };
+  by_ai: Record<string, { summary: string; decisions: EditDecision[]; rules: string[]; at: number; engine: string }>;
+};

@@ -470,7 +470,8 @@ def use_analysis(pid: str, key: str) -> dict:
 # A built-in style's definition lives in code, but its saved reference videos and what the AI noticed in them
 # (its memory) are the person's, so they are kept here, keyed by the style's id.
 state = Collection("style_state")
-STATE_KEYS = ("references", "memory", "reviewed", "review_note", "review_engine", "memory_by", "memory_from")
+STATE_KEYS = ("references", "memory", "reviewed", "review_note", "review_engine", "memory_by", "memory_from",
+              "pairs", "edit_rules", "edit_summary", "edit_rules_by", "edit_rules_from")
 
 
 def is_builtin(pid: str) -> bool:
@@ -510,6 +511,7 @@ def guidance(profile_id: str | None) -> tuple[str, list[str]]:
         return "", []
     rules = [r["text"] for r in p.get("rules", []) if r.get("on", True)]
     rules += [f"Seen in this style's reference videos: {m}" for m in p.get("memory") or []]
+    rules += [f"Learned from your own edits: {r}" for r in p.get("edit_rules") or []]
     return p.get("brief", ""), rules
 
 
@@ -738,3 +740,83 @@ def accept(pid: str, changes: list[dict]) -> dict:
         else:
             style[path[0]] = {**(style.get(path[0]) or {}), path[1]: ch["value"]}
     return profiles.update(pid, {"style": style})
+
+
+# ---------------------------------------------------------------- before and after: learning from the person's own edits
+
+def add_pair(pid: str, raw: Path, edit: Path, name: str) -> dict:
+    """Record a raw video and the short made from it (both already in the style's folder) as a pair to learn from."""
+    from ..store import new_id
+    p = lookup(pid) or {}
+    pair = {"id": new_id("pr_"), "name": name or edit.stem, "raw": raw.name, "edit": edit.name,
+            "raw_url": media_url(raw), "edit_url": media_url(edit), "added": time.time(), "measured": None, "by_ai": {}}
+    return save(pid, {"pairs": list(p.get("pairs") or []) + [pair]})
+
+
+def remove_pair(pid: str, pair_id: str) -> dict:
+    p = lookup(pid) or {}
+    keep = []
+    for x in p.get("pairs") or []:
+        if x["id"] == pair_id:
+            for f in (x["raw"], x["edit"]):
+                (folder(pid) / f).unlink(missing_ok=True)
+        else:
+            keep.append(x)
+    return save(pid, {"pairs": keep})
+
+
+def study_pair(pid: str, pair_id: str, job: Job, use: str = "") -> dict:
+    """Measure a pair (once) and have an AI explain the edit. Each AI keeps its own explanation."""
+    from . import compare
+    p = lookup(pid)
+    pair = next((x for x in (p or {}).get("pairs") or [] if x["id"] == pair_id), None)
+    if not pair:
+        raise MediaError("That before-and-after pair no longer exists.")
+    raw, edit = folder(pid) / pair["raw"], folder(pid) / pair["edit"]
+    if not pair.get("measured"):
+        work = DATA / "tmp" / f"compare_{job.id}"
+        work.mkdir(parents=True, exist_ok=True)
+        try:
+            measured = compare.measure(raw, edit, work, job)
+        finally:
+            import shutil
+            shutil.rmtree(work, ignore_errors=True)
+    else:
+        measured = pair["measured"]
+    key = use or ai.current_key("references")
+    who = ai.label_for(key) if use else ai.provider_label("references")
+    out = compare.explain(raw, edit, measured, use, job)
+    entry = {**out, "at": time.time(), "engine": who}
+    pairs = [dict(x, measured=measured, by_ai={**(x.get("by_ai") or {}), key: entry}) if x["id"] == pair_id else x
+             for x in (lookup(pid) or {}).get("pairs") or []]
+    return save(pid, {"pairs": pairs})
+
+
+def learn_edits(pid: str, job: Job, use: str = "") -> dict:
+    """Turn what was learned from every studied pair into the style's rules (kept per AI)."""
+    from . import compare
+    p = lookup(pid) or {}
+    key = use or ai.current_key("references")
+    who = ai.label_for(key) if use else ai.provider_label("references")
+    studied = []
+    for x in p.get("pairs") or []:
+        by = x.get("by_ai") or {}
+        e = by.get(key) or (max(by.values(), key=lambda v: v.get("at", 0)) if by else None)
+        if e:
+            studied.append({"name": x["name"], "summary": e["summary"], "decisions": e["decisions"], "rules": e["rules"]})
+    if not studied:
+        raise MediaError("Study at least one before-and-after pair first.")
+    job.update(0.3, f"Finding what your edits have in common with {who}")
+    out = compare.merge(studied, use)
+    entry = {"rules": [r.strip() for r in out["rules"] if r.strip()][:15], "summary": out["summary"], "at": time.time(),
+             "engine": who, "pairs": len(studied)}
+    by = dict(p.get("edit_rules_by") or {})
+    by[key] = entry
+    return save(pid, {"edit_rules": entry["rules"], "edit_summary": entry["summary"], "edit_rules_by": by, "edit_rules_from": key})
+
+
+def use_edit_rules(pid: str, key: str) -> dict:
+    entry = ((lookup(pid) or {}).get("edit_rules_by") or {}).get(key)
+    if not entry:
+        raise MediaError("That AI has not learned from your edits yet.")
+    return save(pid, {"edit_rules": entry["rules"], "edit_summary": entry["summary"], "edit_rules_from": key})

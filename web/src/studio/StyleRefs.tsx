@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { api, upload } from '../api';
 import { Button, Empty, Field, JobBar, Panel, fmtDur, toast, toastError, useJobRunner } from '../ui';
-import type { StyleProfile } from './types';
+import type { EditPair, StyleProfile } from './types';
 
 type Runner = ReturnType<typeof useJobRunner>;
 
@@ -219,6 +219,98 @@ export function HowItWorks({ style }: { style: StyleProfile }) {
         <div className="small">
           <b>Sound:</b> music {MUSIC[A.music]}; exports evened out to {A.lufs} LUFS
           {A.camera_on?.length ? `; the camera-flash sound plays on every ${A.camera_on.join(' and ')}` : ''}.
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+
+/** Before and after: the person's own raw videos and the shorts they made from them. The edit is measured
+ *  (trims, framing, punch-ins, pans), an AI explains each decision, and the rules common to all the pairs become
+ *  part of the style. Each AI keeps its own reading. */
+export function PairsPanel({ style, reload, run, busy, use = '' }: { style: StyleProfile; reload: () => void; run: Runner['run']; busy: boolean; use?: string }) {
+  const pairs = style.pairs ?? [];
+  const rawRef = useRef<HTMLInputElement>(null), editRef = useRef<HTMLInputElement>(null);
+  const [raw, setRaw] = useState<File | null>(null), [edited, setEdited] = useState<File | null>(null);
+  const [name, setName] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [open, setOpen] = useState<string | null>(null);
+  const base = `/api/profiles/${style.id}`;
+  async function add() {
+    if (!raw || !edited) return;
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append('raw', raw); form.append('edit', edited);
+      await upload(`${base}/pairs?name=${encodeURIComponent(name)}`, form);
+      setRaw(null); setEdited(null); setName('');
+      reload();
+    } catch (e) { toastError(e); }
+    setUploading(false);
+  }
+  async function study(id: string) {
+    try { await run(() => api.post(`${base}/pairs/${id}/study`, { use })); reload(); setOpen(id); toast('Understood. The decisions and reasons are below.', 'good'); }
+    catch (e) { toastError(e); }
+  }
+  async function learn() {
+    try { const p = await run<StyleProfile>(() => api.post(`${base}/edits/learn`, { use })); reload(); toast(`${p.edit_rules?.length ?? 0} rules learned from your edits`, 'good'); }
+    catch (e) { toastError(e); }
+  }
+  async function useRules(key: string) {
+    try { await api.post(`${base}/edits/use`, { key }); reload(); toast('Now using those rules', 'good'); } catch (e) { toastError(e); }
+  }
+  const studied = pairs.filter((p) => Object.keys(p.by_ai ?? {}).length).length;
+  const rulesBy = Object.entries(style.edit_rules_by ?? {});
+  return (
+    <Panel title={`Before and after: learn from your own edits (${pairs.length})`} actions={
+      <Button small variant="primary" icon="sparkle" onClick={learn} busy={busy} disabled={!studied} title="Find what your edits have in common and make it this style's rules">Learn the style from {studied} edit{studied === 1 ? '' : 's'}</Button>}>
+      <p className="muted">Add a raw video and the short you (or an editor you like) made from it. Cutroom lines the two up and measures every decision: what was trimmed, where each shot is framed, the punch-ins and the pans. The AI then explains why, and the rules that hold across all your pairs become part of this style. The more pairs, the better it tells the style from one video's content.</p>
+      <div className="row wrap gap-s" style={{ alignItems: 'flex-end' }}>
+        <input ref={rawRef} type="file" accept="video/*" hidden onChange={(e) => { setRaw(e.target.files?.[0] ?? null); e.target.value = ''; }} />
+        <input ref={editRef} type="file" accept="video/*" hidden onChange={(e) => { setEdited(e.target.files?.[0] ?? null); e.target.value = ''; }} />
+        <Button small icon="upload" onClick={() => rawRef.current?.click()}>{raw ? `Raw: ${raw.name}` : 'Choose the raw video'}</Button>
+        <Button small icon="upload" onClick={() => editRef.current?.click()}>{edited ? `Edit: ${edited.name}` : 'Choose the edited short'}</Button>
+        <Field label="Name (optional)"><input type="text" value={name} placeholder="e.g. Doritos slingshot" onChange={(e) => setName(e.target.value)} style={{ width: 180 }} /></Field>
+        <Button small variant="primary" icon="plus" onClick={add} busy={uploading} disabled={!raw || !edited}>Add the pair</Button>
+      </div>
+      {pairs.map((p: EditPair) => {
+        const by = Object.entries(p.by_ai ?? {});
+        const m = p.measured;
+        return (
+          <div key={p.id} className="card col gap-s" style={{ padding: '10px 12px' }}>
+            <div className="row between wrap">
+              <span className="small"><b>{p.name}</b>{m ? <span className="muted"> · raw {m.raw_seconds.toFixed(1)} s → short {m.edit_seconds.toFixed(1)} s · {m.trims.length} trims · {m.shots.length} shots · {m.shots.filter((x) => (x.zoom ?? 1) > 1.04).length} punch-ins · {m.shots.filter((x) => Math.abs(x.pan ?? 0) > 0.08).length} pans</span> : <span className="muted"> · not studied yet</span>}</span>
+              <div className="row gap-s">
+                <Button small icon="sparkle" onClick={() => study(p.id)} disabled={busy}>{by.length ? 'Understand again' : 'Understand this edit'}</Button>
+                {by.length > 0 && <Button small variant="ghost" onClick={() => setOpen(open === p.id ? null : p.id)}>{open === p.id ? 'Hide' : 'Read'}</Button>}
+                <Button small variant="ghost" icon="trash" aria-label={`Remove ${p.name}`} onClick={async () => { await api.del(`${base}/pairs/${p.id}`).catch(toastError); reload(); }} />
+              </div>
+            </div>
+            {open === p.id && by.map(([key, e]) => (
+              <div key={key} className="col gap-s">
+                <span className="small"><b>{e.engine || key}</b> <span className="muted">· {ago(e.at)}</span></span>
+                <span className="small">{e.summary}</span>
+                <table className="report-table"><tbody>{e.decisions.map((d, i) => (
+                  <tr key={i}><td className="mono faint">{d.at_seconds.toFixed(1)}s</td><td><span className="pill">{d.kind}</span></td><td>{d.what}<div className="muted">Why: {d.why}</div></td></tr>
+                ))}</tbody></table>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+      {(style.edit_rules?.length ?? 0) > 0 && (
+        <div className="col gap-s">
+          <span className="small"><b>Rules learned from your edits</b> <span className="muted">· {style.edit_summary}</span></span>
+          <ul className="memory-list">{style.edit_rules!.map((r, i) => <li key={i} className="small">{r}</li>)}</ul>
+        </div>
+      )}
+      {rulesBy.length > 1 && (
+        <div className="row wrap gap-s">
+          {rulesBy.map(([key, e]) => (
+            style.edit_rules_from === key ? <span key={key} className="pill good">In use: {e.engine}</span>
+              : <Button key={key} small onClick={() => useRules(key)}>Use {e.engine}'s rules ({e.rules.length})</Button>
+          ))}
         </div>
       )}
     </Panel>
