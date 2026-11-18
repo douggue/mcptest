@@ -8,6 +8,7 @@ from ..config import DATA, media_url
 from ..jobs import Cancelled, Job
 from ..media import MediaError, ffmpeg, probe, safe_name, ydl_opts
 from ..store import new_id
+from .. import gpu
 
 BROWSER_VIDEO = {"h264", "vp9", "av1", "vp8"}
 BROWSER_AUDIO = {"aac", "mp3", "opus", "vorbis", ""}
@@ -63,7 +64,7 @@ def normalise(path: Path, job: Job, span: tuple[float, float] = (0.0, 1.0)) -> P
             return out
         except MediaError:
             out.unlink(missing_ok=True)   # some stream/container pairs cannot be copied into MP4; re-encode instead
-    ffmpeg(["-i", str(path), "-map", "0:v:0", "-map", "0:a:0?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+    ffmpeg(["-i", str(path), "-map", "0:v:0", "-map", "0:a:0?", *gpu.h264(18),
             "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out)],
            job, info["duration"], span, "Converting video (one time)")
     return out

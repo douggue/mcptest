@@ -79,6 +79,26 @@ if not exist "%ENVDIR%\installed.txt" (
   echo  [2/4] Python packages already installed.
 )
 
+rem ---- the graphics card -----------------------------------------------------
+rem AI upscaling on any graphics card (NVIDIA, AMD, Intel): ONNX Runtime's DirectML build, not the processor-only one.
+rem The two cannot be installed together, so the plain one is removed first; if DirectML will not install, it goes back.
+"%VPY%" -c "import onnxruntime as o, sys; sys.exit(0 if 'DmlExecutionProvider' in o.get_available_providers() else 1)" >nul 2>nul || (
+  "%VPY%" -c "import onnxruntime" >nul 2>nul && (
+    echo  [i] Moving AI upscaling to the graphics card ^(DirectML^)...
+    "%VPY%" -m pip uninstall -y onnxruntime >nul 2>nul
+    "%VPY%" -m pip install "onnxruntime-directml>=1.18" >nul 2>nul || "%VPY%" -m pip install "onnxruntime>=1.18" >nul 2>nul
+  )
+)
+rem Transcription on an NVIDIA card: Whisper needs NVIDIA's cuBLAS and cuDNN libraries (about 1 GB, downloaded once).
+where nvidia-smi >nul 2>nul && (
+  if not exist "%ENVDIR%\cuda-libs.txt" (
+    "%VPY%" -c "import faster_whisper" >nul 2>nul && (
+      echo  [i] NVIDIA graphics card found: adding its libraries so transcription runs on it ^(about 1 GB, once^)...
+      "%VPY%" -m pip install nvidia-cublas-cu12 "nvidia-cudnn-cu12>=9,<10" && echo done> "%ENVDIR%\cuda-libs.txt"
+    )
+  )
+)
+
 rem OpenCV comes in two packages that cannot live together (they share one folder); if something installed the
 rem other one, the face finder breaks ("module 'cv2' has no attribute ..."). Check, and repair when needed.
 "%VPY%" -c "import cv2; cv2.CascadeClassifier; cv2.dnn" >nul 2>nul || (

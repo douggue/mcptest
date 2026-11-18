@@ -9,6 +9,7 @@ type Brand = { name: string; accent: string; secondary: string; font: string; lo
 type SettingsData = {
   ai_provider: 'anthropic' | 'gemini' | 'claude_code'; anthropic_api_key: string; anthropic_api_key_set: boolean; ai_model: string;
   gemini_api_key: string; gemini_api_key_set: boolean; gemini_model: string; claude_code_model: string; claude_code_effort: string; claude_code_path: string;
+  use_gpu?: boolean;
   gemini_cli_tasks: string[]; gemini_cli_model: string; gemini_cli_path: string; gemini_cli_task_models: Record<string, string>; gemini_cli_video: 'video' | 'frames'; gemini_cli_backup?: boolean; whisper_model: string; copy_folder: string; capcut_folder: string;
   pexels_api_key: string; pexels_api_key_set: boolean; tts_voice: string; brand: Brand;
   flow_enabled?: boolean; flow_mcp_path?: string; flow_out_dir?: string;
@@ -85,6 +86,8 @@ export default function Settings() {
       </div>
 
       {health && !health.ffmpeg && <div className="notice bad">ffmpeg was not found. Install it and restart Cutroom; nothing can be cut or rendered without it.</div>}
+
+      <GpuPanel s={s} set={set} />
 
       <Panel title="AI" actions={health?.ai ? <span className="pill good">Using {health.ai_provider}</span> : <span className="pill muted">Not set up</span>}>
         <p className="muted">With a key, the AI picks the moments, scores them, plans graphics, writes hooks and post text, and translates captions. Without one, simpler built-in rules are used and translation is unavailable. Transcripts are sent to the provider you choose.</p>
@@ -519,5 +522,33 @@ function ClaudeCodeSettings({ s, set }: { s: SettingsData; set: (p: Partial<Sett
       </Field>
       <span className="small muted">Every AI request runs through Claude Code with its tools switched off, and counts towards your Claude plan's usage limits like any Claude chat. Watching whole reference videos needs Gemini; with this choice, styles are studied from still frames.</span>
     </div>
+  );
+}
+
+type GpuState = { enabled: boolean; encoder: string; drawing: string; upscaler: string; upscaler_gpu: boolean; whisper_gpu: boolean };
+
+/** What runs on the graphics card, and the switch to keep everything on the processor. */
+function GpuPanel({ s, set }: { s: SettingsData; set: (p: Partial<SettingsData>) => void }) {
+  const [g, setG] = useState<GpuState | null>(null);
+  const load = () => api.get<GpuState>('/api/gpu').then(setG).catch(() => setG(null));
+  useEffect(() => { load(); }, []);
+  const on = s.use_gpu !== false;
+  const row = (label: string, value: string, good: boolean) => (
+    <div className="row between small"><span>{label}</span><span className={'pill ' + (good ? 'good' : 'muted')}>{value}</span></div>
+  );
+  return (
+    <Panel title="Graphics card" actions={<Toggle checked={on} label="Use the graphics card"
+      onChange={(v) => { set({ use_gpu: v }); api.put('/api/settings', { use_gpu: v }).then(load).catch(toastError); }} />}>
+      <p className="muted">Exports, AI upscaling and transcription go faster on the graphics card. Anything that fails on it is done again on the processor, so turning this on is safe. Turn it off if exports show glitches.</p>
+      {g && (
+        <div className="col gap-s">
+          {row('Video encoding', on && g.encoder ? g.encoder : 'Processor (x264)', on && !!g.encoder)}
+          {row('Drawing the short', on ? g.drawing : 'Processor', on && g.drawing !== 'Processor')}
+          {row('AI upscaling', g.upscaler ? (g.upscaler_gpu ? g.upscaler : 'Processor') : 'Not installed', g.upscaler_gpu)}
+          {row('Transcription (Whisper)', on && g.whisper_gpu ? 'NVIDIA graphics card' : 'Processor', on && g.whisper_gpu)}
+          {!g.upscaler_gpu && g.upscaler && <span className="small muted">AI upscaling moves to the graphics card the next time start.bat runs (it installs the DirectML version on Windows).</span>}
+        </div>
+      )}
+    </Panel>
   );
 }

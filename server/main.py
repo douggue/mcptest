@@ -131,6 +131,13 @@ def claude_code_status() -> dict:
     return {**ai.claude_code_status(), "server_edition": False}
 
 
+@app.get("/api/gpu")
+def gpu_status() -> dict:
+    """What runs on the graphics card here (Settings → Graphics card)."""
+    from . import gpu
+    return gpu.status()
+
+
 @app.get("/api/ai/choices")
 def ai_choices() -> dict:
     """The AIs that can be picked for a job (studying or reviewing a style), and which one each task uses now."""

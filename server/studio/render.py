@@ -13,6 +13,7 @@ from ..jobs import Cancelled, Job
 from ..media import MediaError, copy_to_folder, ffmpeg, probe, safe_name, unique_path
 from ..store import Collection
 from . import spec as specs
+from .. import gpu
 
 
 def base_url() -> str:
@@ -33,6 +34,20 @@ def _kill_tree(proc: subprocess.Popen) -> None:
 
 
 def _run_node(args: list[str], job: Job, span: tuple[float, float]) -> None:
+    """Render with the browser drawing through the graphics card when it can; if that fails, once more in software."""
+    gl = gpu.chrome_gl()
+    if not gl:
+        return _run_node_once(args, job, span, None)
+    try:
+        return _run_node_once(args, job, span, gl)
+    except Cancelled:
+        raise
+    except MediaError:
+        job.update(span[0], "Rendering again without the graphics card")
+        return _run_node_once(args, job, span, None)
+
+
+def _run_node_once(args: list[str], job: Job, span: tuple[float, float], gl: str | None) -> None:
     node = shutil.which("node")
     if not node:
         raise MediaError("Node.js was not found on PATH; it is needed to render shorts.")
@@ -40,8 +55,9 @@ def _run_node(args: list[str], job: Job, span: tuple[float, float]) -> None:
         raise MediaError("Renderer packages are missing. Run 'npm install' in the web folder.")
     # Own process group, so a cancel also stops the headless browser the renderer started.
     group = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
+    env = {**os.environ, "CUTROOM_GL": gl} if gl else None   # None: as set by the person (CUTROOM_GL), else Chrome's default
     proc = subprocess.Popen([node, str(WEB / "render.mjs"), *args], cwd=str(WEB), stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE, text=True, **group)
+                            stderr=subprocess.PIPE, text=True, env=env, **group)
     reported = ""
     try:
         assert proc.stdout
@@ -126,7 +142,7 @@ def render_clip(project: dict, clip: dict, job: Job, scale: float = 1.0, crf: in
         length = kept[-1]["end"] - offset + 0.5
         proxy = work / "source.mp4"
         ffmpeg(["-ss", f"{offset:.3f}", "-t", f"{length:.3f}", "-i", str(source), "-map", "0:v:0", "-map", "0:a:0?",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "14", "-g", "15", "-pix_fmt", "yuv420p",
+                *gpu.h264(14), "-g", "15", "-pix_fmt", "yuv420p",
                 "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(proxy)],
                job, length, (0.0, 0.03 if upscale else 0.12), "Preparing source")
         render_span = (0.12, 0.97)

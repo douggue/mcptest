@@ -14,6 +14,7 @@ from typing import Any
 
 from . import media
 from .jobs import Cancelled, Job
+from . import gpu
 
 VIDEO_FORMATS = ("mp4", "mov")
 AUDIO_FORMATS = ("mp3", "m4a")
@@ -194,7 +195,7 @@ def build_ffmpeg_args(src_path: str | Path, out_path: str | Path, fmt: str, plan
     else:
         if plan["vf"]:
             args += ["-vf", plan["vf"]]
-        args += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p"]
+        args += [*gpu.h264(18), "-pix_fmt", "yuv420p"]
         if has_audio:
             args += ["-c:a", "aac", "-b:a", "192k"]
     args += ["-movflags", "+faststart", "-f", "mov" if fmt == "mov" else "mp4", str(out_path)]
@@ -441,7 +442,7 @@ def ytdlp_options(fmt: str, quality: int | None, start: float | None, end: float
         opts["force_keyframes_at_cuts"] = exact
         if exact:
             opts["external_downloader_args"] = {"ffmpeg_o": [
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "16", "-pix_fmt", "yuv420p",
+                *gpu.h264(16), "-pix_fmt", "yuv420p",
                 "-c:a", "aac", "-b:a", "192k"]}
     return opts
 

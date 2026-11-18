@@ -59,6 +59,9 @@ def _cpus() -> int:
 
 def _provider() -> tuple[str, str]:
     import onnxruntime as ort
+    from .. import gpu
+    if not gpu.enabled():   # Settings → Graphics card switched off
+        return PROVIDERS[-1]
     have = ort.get_available_providers()
     return next((p for p in PROVIDERS if p[0] in have), PROVIDERS[-1])
 

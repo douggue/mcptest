@@ -34,6 +34,7 @@ from pathlib import Path
 from ..config import DATA, get_settings, media_path, media_url
 from ..jobs import Job
 from ..media import MediaError, ffmpeg, probe, safe_name, unique_path
+from .. import gpu
 
 # CapCut swaps this token for the project's own folder when it loads a draft, which keeps a zipped project portable.
 PLACEHOLDER = "##_draftpath_placeholder_0E685133-18CE-45ED-8CB8-2904A212EC80_##"
@@ -401,7 +402,7 @@ def _build(cc, script, b: _Builder, spec: dict, job: Job) -> None:
     length = spec["out"] - offset + 0.5
     trimmed = b.media / "source.mp4"
     ffmpeg(["-ss", f"{offset:.3f}", "-t", f"{length:.3f}", "-i", str(source), "-map", "0:v:0", "-map", "0:a:0?",
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "16", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
+            *gpu.h264(16), "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
             "-movflags", "+faststart", str(trimmed)], job, length, (0.02, 0.45), "Copying this clip's part of the source")
     info = probe(trimmed)
     sw, sh = float(info["width"]), float(info["height"])

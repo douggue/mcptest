@@ -18,6 +18,7 @@ from ..jobs import Cancelled, Job
 from ..media import MediaError, ffmpeg, probe, safe_name, unique_path
 from ..store import new_id
 from . import ai
+from .. import gpu
 
 ASPECT_SIZES = {"9:16": (1080, 1920), "16:9": (1920, 1080), "1:1": (1080, 1080), "4:5": (1080, 1350), "3:4": (1080, 1440)}
 # Shapes the image models accept through generate_content; anything else is mapped to the nearest.
@@ -720,7 +721,7 @@ def from_script(body: dict, job: Job) -> dict:
             seg = work / f"seg_{i:03d}.mp4"
             ffmpeg(["-i", str(images[owner[i]]), "-i", str(audio[i]), "-filter_complex", f"[0:v]{vf}[v];[1:a]apad[a]",
                     "-map", "[v]", "-map", "[a]", "-frames:v", str(frames), "-t", f"{dur:.4f}", "-r", str(fps),
-                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2",
+                    *gpu.h264(18), "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-ac", "2",
                     str(seg)], job, dur, (0.75 + 0.2 * clock / total, 0.75 + 0.2 * (clock + dur) / total),
                    f"Assembling the video ({i + 1} of {n})")
             segs.append(seg)

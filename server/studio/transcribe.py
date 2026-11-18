@@ -64,6 +64,10 @@ def whisper(path: Path, job: Job, model_name: str | None = None, language: str |
                 job.update(0.15 + 0.85 * min(1.0, seg.end / max(1.0, info["duration"])), "Transcribing")
             return {"words": _finish(words), "language": meta.language, "engine": f"whisper-{name}"}
 
+        from .. import gpu
+        if not gpu.enabled():
+            return run("cpu", "int8")
+        gpu.cuda_libraries()
         try:
             return run("auto", "auto")
         except Cancelled:

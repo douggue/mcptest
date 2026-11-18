@@ -35,6 +35,7 @@ DEFAULT_SETTINGS = {
     "gemini_cli_tasks": [],           # any of: "moments" (finding moments), "references" (studying and reviewing style references)
     "gemini_cli_model": "",           # '' lets the CLI choose (auto); or a model name
     "gemini_cli_task_models": {},     # a different model per task, e.g. {"moments": "...flash...", "references": "...pro..."}
+    "use_gpu": True,                  # encode, draw, upscale and transcribe on the graphics card where it can (server/gpu.py)
     "gemini_cli_backup": False,       # when the main provider fails (limit reached, signed out, error), try the Google CLI
     "gemini_cli_video": "video",      # "video": watch whole reference videos, frame by frame if that fails; "frames": stills only (faster)
     "gemini_cli_path": "",            # where gemini(.cmd) is, when it is not on PATH

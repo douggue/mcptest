@@ -55,7 +55,19 @@ def probe(path: str | Path) -> dict:
 
 def ffmpeg(args: list[str], job: Job | None = None, total: float | None = None,
            span: tuple[float, float] = (0.0, 1.0), message: str | None = None) -> None:
-    """Run ffmpeg. With a job and a total duration (seconds of output), reports progress into `span`."""
+    """Run ffmpeg. With a job and a total duration (seconds of output), reports progress into `span`.
+    An encode on the graphics card that fails (an odd size, a driver hiccup) is redone on the processor."""
+    try:
+        _ffmpeg(args, job, total, span, message)
+    except MediaError:
+        from . import gpu
+        cpu = gpu.swap_to_cpu(args)
+        if cpu is None:
+            raise
+        _ffmpeg(cpu, job, total, span, message)
+
+
+def _ffmpeg(args: list[str], job: Job | None, total: float | None, span: tuple[float, float], message: str | None) -> None:
     cmd = [need("ffmpeg"), "-y", "-hide_banner", "-loglevel", "error", "-nostats", "-progress", "pipe:1", *args]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if job and message:
