@@ -92,7 +92,7 @@ def available(task: str = "") -> bool:
 
 def provider_label(task: str = "") -> str:
     if gemini_cli_for(task):
-        return "Gemini (your Google subscription)"
+        return f"Gemini (your Google subscription, {gemini_cli_label()})"
     return {"anthropic": "Claude", "gemini": "Gemini", "claude_code": "Claude (your subscription)"}.get(provider(), "")
 
 
@@ -441,23 +441,43 @@ def _ask_claude_code(system: str, user: "str | list", schema: dict, effort: str)
     return result["structured_output"]
 
 
-# ---------------------------------------------------------------- Gemini CLI (the person's Google subscription)
+# ---------------------------------------------------------------- Google subscription: Antigravity CLI (agy), or the Gemini CLI
+# Since June 2026 personal Google accounts (AI Pro / Ultra) are served by the Antigravity CLI; the Gemini CLI only takes
+# API keys and company licences. Both run headless (-p) with JSON output; agy is preferred when both are installed.
 
 def gemini_cli_exe() -> list[str] | None:
-    """The command that runs Google's Gemini CLI here, or None. An npm install on Windows gives a gemini.cmd shim,
-    which cannot run without a shell, so its JavaScript entry point is run with node instead."""
+    """The command for Google's CLI here: agy, else gemini; None when neither is installed. A gemini.cmd npm shim is
+    run through its JavaScript entry point with node."""
     import os
     import shutil
     from pathlib import Path
     custom = (get_settings().get("gemini_cli_path") or "").strip().strip('"')
-    found = custom if custom and Path(custom).exists() else shutil.which("gemini")
+    found = custom if custom and Path(custom).exists() else (shutil.which("agy") or shutil.which("gemini"))
+    if not found:
+        home = Path.home()
+        for guess in (home / ".local" / "bin" / "agy", home / ".local" / "bin" / "agy.exe", home / "AppData" / "Local" / "Programs" / "agy" / "agy.exe"):
+            if guess.exists():
+                found = str(guess)
+                break
     if not found:
         return None
-    if found.lower().endswith((".cmd", ".bat", ".ps1")):
+    if _cli_kind([found]) == "gemini" and found.lower().endswith((".cmd", ".bat", ".ps1")):
         script = Path(found).parent / "node_modules" / "@google" / "gemini-cli" / "bundle" / "gemini.js"
         node = shutil.which("node")
         return [node, str(script)] if script.exists() and node else None
     return [found] if os.access(found, os.X_OK) or os.name == "nt" else None
+
+
+def _cli_kind(exe: list[str]) -> str:
+    """'agy' or 'gemini', from the program's name."""
+    from pathlib import Path
+    name = Path(exe[-1]).name.lower()
+    return "gemini" if name.startswith("gemini") else "agy"
+
+
+def gemini_cli_label() -> str:
+    exe = gemini_cli_exe()
+    return ("Antigravity CLI" if _cli_kind(exe) == "agy" else "Gemini CLI") if exe else "Antigravity CLI"
 
 
 def _gemini_cli_env() -> dict:
@@ -471,32 +491,37 @@ def _gemini_cli_env() -> dict:
 
 
 def gemini_cli_status() -> dict:
-    """{installed, version, signed_in, why} for Settings. Signed in = the CLI has saved a Google login."""
+    """{installed, version, signed_in, kind, why} for Settings. Whether it is signed in shows on Test."""
     import subprocess
     from pathlib import Path
     exe = gemini_cli_exe()
     if not exe:
-        return {"installed": False, "version": "", "signed_in": False,
-                "why": "The Gemini CLI was not found. Install it with  npm install -g @google/gemini-cli  then run  gemini  "
-                       "once in a terminal and choose Sign in with Google (use the account with your Gemini plan)."}
-    out = {"installed": True, "version": "", "signed_in": False, "why": ""}
+        return {"installed": False, "version": "", "signed_in": False, "kind": "",
+                "why": "The Antigravity CLI (agy) was not found. Install it from antigravity.google, run  agy  once in a "
+                       "terminal and sign in with the Google account that has your Gemini plan, or set where it is below."}
+    kind = _cli_kind(exe)
+    out = {"installed": True, "version": "", "signed_in": True, "kind": kind, "why": ""}
     try:
         v = subprocess.run(exe + ["--version"], capture_output=True, text=True, timeout=60, env=_gemini_cli_env())
-        out["version"] = (v.stdout or "").strip().splitlines()[-1] if (v.stdout or "").strip() else ""
+        lines = (v.stdout or "").strip().splitlines()
+        out["version"] = lines[-1].strip() if lines else ""
     except (OSError, subprocess.TimeoutExpired) as e:
-        out["why"] = f"The Gemini CLI is installed but did not answer ({e})."
+        out["why"] = f"The {gemini_cli_label()} is installed but did not answer ({e})."
         return out
-    out["signed_in"] = (Path.home() / ".gemini" / "oauth_creds.json").exists()
-    if not out["signed_in"]:
-        out["why"] = "The Gemini CLI is not signed in. Open a terminal, run  gemini  and choose Sign in with Google."
+    if kind == "gemini":
+        out["signed_in"] = (Path.home() / ".gemini" / "oauth_creds.json").exists()
+        out["why"] = ("Note: the Gemini CLI no longer takes personal Google sign-ins (AI Pro / Ultra). Install the "
+                      "Antigravity CLI (agy) instead; Cutroom uses it when it finds it.")
     return out
 
 
 def _json_from(text: str) -> dict:
     """The JSON object in a model's text answer (it may come in a code fence or with words around it)."""
     t = text.strip()
-    if t.startswith("```"):
-        t = t.split("\n", 1)[1] if "\n" in t else t
+    if "```" in t:
+        a = t.find("```")
+        t = t[a + 3:]
+        t = t.split("\n", 1)[1] if t[:4].lower().startswith("json") or "\n" in t[:8] else t
         t = t.rsplit("```", 1)[0]
     try:
         return json.loads(t)
@@ -507,22 +532,32 @@ def _json_from(text: str) -> dict:
         raise
 
 
+AGY_TIMEOUT = 3600   # seconds; watching one 28 s video took about five minutes in testing
+MAX_CLI_VIDEO = 60 * 1024 * 1024
+
+
 def _ask_gemini_cli(system: str, user: "str | list", schema: dict) -> dict:
-    """One answer from the Gemini CLI in headless mode (-p), read-only (--approval-mode plan), run from an empty
-    folder that holds only this request's pictures and videos, which the prompt names as @files."""
+    """One answer from Google's CLI in headless mode (-p), run in an empty folder that holds only this request: its
+    instructions (prompt.md, so a long transcript never hits the command-line length limit) and its pictures and
+    videos, which the instructions name as @files. The Gemini CLI also runs read-only (--approval-mode plan); agy
+    refuses anything but reading in headless mode unless allowed in its own settings."""
+    import shutil
     import subprocess
     import tempfile
+    from pathlib import Path
     from ..config import DATA
     exe = gemini_cli_exe()
     if not exe:
-        raise AIUnavailable("The Gemini CLI was not found on this computer (Settings → AI).")
+        raise AIUnavailable("The Antigravity CLI (agy) was not found on this computer (Settings → AI).")
+    kind = _cli_kind(exe)
+    label = gemini_cli_label()
     model = (get_settings().get("gemini_cli_model") or "").strip()
-    work = DATA / "tmp" / "gemini-cli"
+    work = DATA / "tmp" / "google-cli"
     work.mkdir(parents=True, exist_ok=True)
+    # "@name" attaches a file: every other @ (a handle in a transcript or a rule) is escaped
+    lit = lambda t: re.sub(r"(?<!\\)@", r"\\@", t)   # noqa: E731
 
     def run(with_video: bool) -> dict:
-        # "@name" asks the CLI to attach a file: every other @ (a handle in a transcript or a rule) is escaped
-        lit = lambda t: re.sub(r"(?<!\\)@", r"\\@", t)   # noqa: E731
         with tempfile.TemporaryDirectory(dir=work) as tmp:
             pieces = [lit(system), ""]
             n = 0
@@ -532,33 +567,38 @@ def _ask_gemini_cli(system: str, user: "str | list", schema: dict) -> dict:
                 elif "image" in part:
                     n += 1
                     name = f"picture_{n:03d}.jpg"
-                    with open(f"{tmp}/{name}", "wb") as f:
-                        f.write(part["image"])
+                    Path(tmp, name).write_bytes(part["image"])
                     pieces.append(f"@{name}")
                 elif "video" in part and with_video:
-                    import shutil
-                    from pathlib import Path
                     src = Path(part["video"])
-                    if src.is_file() and src.stat().st_size < 20 * 1024 * 1024:   # the CLI sends files inline
+                    if src.is_file() and src.stat().st_size < MAX_CLI_VIDEO:
                         n += 1
                         name = f"video_{n:03d}{src.suffix.lower()}"
-                        shutil.copy2(src, f"{tmp}/{name}")
-                        pieces.append(f"@{name}")
+                        shutil.copy2(src, Path(tmp, name))
+                        pieces.append(f"@{name} (watch the whole video, with its sound)")
             pieces.append("\nAnswer with one JSON object and nothing else, matching this JSON schema:\n"
                           + lit(json.dumps(schema, separators=(",", ":"))))
-            cmd = exe + ["-p", "Follow the instructions above.", "--output-format", "json", "--approval-mode", "plan", "--skip-trust"]
+            prompt = "\n".join(pieces)
+            if kind == "agy":
+                Path(tmp, "prompt.md").write_text(prompt, "utf-8")
+                cmd = exe + ["-p", "Read @prompt.md and do exactly what it says, using the files it names. Change no files.",
+                             "--output-format", "json", "--print-timeout", str(AGY_TIMEOUT)]
+                stdin = None
+            else:
+                cmd = exe + ["-p", "Follow the instructions above.", "--output-format", "json", "--approval-mode", "plan", "--skip-trust"]
+                stdin = prompt
             if model:
-                cmd += ["-m", model]
+                cmd += ["--model" if kind == "agy" else "-m", model]
             try:
-                r = subprocess.run(cmd, input="\n".join(pieces), capture_output=True, text=True, encoding="utf-8",
-                                   timeout=1800, cwd=tmp, env=_gemini_cli_env())
+                r = subprocess.run(cmd, input=stdin, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                                   timeout=AGY_TIMEOUT + 120, cwd=tmp, env=_gemini_cli_env())
             except subprocess.TimeoutExpired as e:
-                raise AIUnavailable("The Gemini CLI took more than 30 minutes and was stopped.") from e
+                raise AIUnavailable(f"The {label} took more than an hour and was stopped.") from e
             except OSError as e:
-                raise AIUnavailable(f"The Gemini CLI could not be started: {e}") from e
+                raise AIUnavailable(f"The {label} could not be started: {e}") from e
         data: dict = {}
         raw = ""
-        for stream in (r.stdout or "", r.stderr or ""):   # the answer comes on stdout, an error as JSON on stderr
+        for stream in (r.stdout or "", r.stderr or ""):   # the answer comes on stdout; an error may come as JSON on stderr
             raw = stream.strip()
             if "{" not in raw:
                 continue
@@ -568,14 +608,21 @@ def _ask_gemini_cli(system: str, user: "str | list", schema: dict) -> dict:
             except json.JSONDecodeError:
                 continue
         err = data.get("error") or {}
-        if r.returncode != 0 or err or not data.get("response"):
-            why = (err.get("message") if isinstance(err, dict) else str(err)) or (r.stderr or raw or "no answer").strip().splitlines()[-1]
+        status = str(data.get("status") or "SUCCESS").upper()
+        if r.returncode != 0 or err or status != "SUCCESS" or not data.get("response"):
+            why = (err.get("message") if isinstance(err, dict) else str(err)) or (data.get("response") if status != "SUCCESS" else "") \
+                or ((r.stderr or raw).strip().splitlines() or [""])[-1]
+            if not why:
+                why = ("it returned an empty answer. In headless mode it quietly refuses anything it is not allowed to do; "
+                       "check it is signed in (run  agy  once) and that it may read files in its settings")
             low = why.lower()
-            if any(k in low for k in ("login", "sign in", "auth", "credential", "oauth")):   # incl. "Please set an Auth method"
-                raise AIUnavailable("The Gemini CLI is not signed in. Open a terminal, run  gemini  and choose Sign in with Google.")
-            if any(k in low for k in ("quota", "rate limit", "resource_exhausted", "429")):
+            if any(k in low for k in ("login", "sign in", "unauthenticated", "credential", "oauth", "auth method")):
+                raise AIUnavailable(f"The {label} is not signed in. Open a terminal, run  {'agy' if kind == 'agy' else 'gemini'}  and sign in with Google.")
+            if any(k in low for k in ("quota", "rate limit", "resource_exhausted", "429", "limit reached")):
                 raise AIUnavailable(f"Your Gemini plan's usage limit was reached for now: {why[:200]}")
-            raise AIUnavailable(f"The Gemini CLI did not answer: {why[:300]}")
+            if "no longer supported" in low and kind == "gemini":
+                raise AIUnavailable("The Gemini CLI no longer takes personal Google sign-ins. Install the Antigravity CLI (agy) from antigravity.google.")
+            raise AIUnavailable(f"The {label} did not answer: {why[:300]}")
         try:
             return _json_from(str(data["response"]))
         except json.JSONDecodeError as e:
@@ -584,6 +631,6 @@ def _ask_gemini_cli(system: str, user: "str | list", schema: dict) -> dict:
     try:
         return run(True)
     except AIUnavailable as e:
-        if "video" in str(e).lower() or "file" in str(e).lower():
+        if any(k in str(e).lower() for k in ("video", "mp4", "file too large", "too large")):
             return run(False)   # a video it could not take: the stills carry the picture
         raise

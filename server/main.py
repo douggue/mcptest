@@ -147,7 +147,7 @@ def gemini_cli_test() -> dict:
     import time as _t
     from .studio import ai
     if auth.enabled() or not ai.gemini_cli_exe():
-        raise HTTPException(422, "The Gemini CLI is not available here.")
+        raise HTTPException(422, "The Antigravity CLI (agy) is not available here.")
     started = _t.time()
     try:
         out = ai._ask_gemini_cli("Answer in the requested format.", "Reply with ok set to true and a three-word greeting.",
@@ -165,7 +165,9 @@ def gemini_cli_models() -> list[str]:
     from .studio import ai
     exe = ai.gemini_cli_exe()
     if auth.enabled() or not exe:
-        raise HTTPException(422, "The Gemini CLI is not available here.")
+        raise HTTPException(422, "The Antigravity CLI (agy) is not available here.")
+    if ai._cli_kind(exe) == "agy":
+        raise HTTPException(422, "Type the model name (as agy shows it), or leave it empty to let agy choose.")
     try:
         r = subprocess.run(exe + ["--list-models"], capture_output=True, text=True, timeout=120, env=ai._gemini_cli_env())
     except (OSError, subprocess.TimeoutExpired) as e:

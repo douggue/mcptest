@@ -370,7 +370,7 @@ const CC_MODELS = [
 ];
 
 /** Claude through the Claude Code program on this computer, with the owner's own subscription. */
-type GC = { installed: boolean; version: string; signed_in: boolean; why: string; server_edition: boolean; tasks: Record<string, string> };
+type GC = { installed: boolean; version: string; signed_in: boolean; kind: '' | 'agy' | 'gemini'; why: string; server_edition: boolean; tasks: Record<string, string> };
 
 /** Gemini through the person's own Google plan (the Gemini CLI on this computer), for the tasks they choose. */
 function GeminiCliSettings({ s, set }: { s: SettingsData; set: (p: Partial<SettingsData>) => void }) {
@@ -401,14 +401,14 @@ function GeminiCliSettings({ s, set }: { s: SettingsData; set: (p: Partial<Setti
   return (
     <div className="card col gap-s" style={{ padding: 12 }}>
       <div className="row between wrap">
-        <b className="small">Gemini with your Google subscription</b>
+        <b className="small">Gemini with your Google subscription (Antigravity CLI)</b>
         <span className="small">
-          {!gc ? 'Checking the Gemini CLI…'
-            : gc.installed && gc.signed_in ? <><span className="pill good">Ready</span> Gemini CLI {gc.version}, signed in with Google.</>
+          {!gc ? 'Checking for the Antigravity CLI…'
+            : gc.installed && gc.kind === 'agy' ? <><span className="pill good">Found</span> Antigravity CLI {gc.version}. Click Test to check it is signed in.</>
               : <span style={{ color: 'var(--bad)' }}>{gc.why}</span>}
         </span>
       </div>
-      <span className="small muted">Send these tasks to Gemini through the Gemini CLI on this computer (your Google AI Pro or Ultra plan, no key); everything else keeps using the provider above.</span>
+      <span className="small muted">Send these tasks to Gemini through the Antigravity CLI (agy) on this computer: your Google AI Pro or Ultra plan, no key. Everything else keeps using the provider above. It watches reference videos whole, with their sound, but slowly: about five minutes for a 30-second video.</span>
       <div className="row wrap gap-s">
         {Object.entries(gc?.tasks ?? { moments: 'Finding moments', references: 'Studying and reviewing style references' }).map(([k, label]) => (
           <label key={k} className="row gap-s small" style={{ cursor: 'pointer' }}>
@@ -417,24 +417,24 @@ function GeminiCliSettings({ s, set }: { s: SettingsData; set: (p: Partial<Setti
         ))}
       </div>
       <div className="grid-2">
-        <Field label="Model" hint="Empty lets the Gemini CLI choose. Load the list to pick one your plan offers.">
+        <Field label="Model" hint="Empty lets it choose. Or type a model name your plan offers.">
           <div className="row gap-s">
             {models.length
               ? <select value={s.gemini_cli_model} onChange={(e) => set({ gemini_cli_model: e.target.value })}>
                   <option value="">Let the CLI choose</option>{models.map((m) => <option key={m} value={m}>{m}</option>)}</select>
               : <input type="text" className="mono" spellCheck={false} placeholder="automatic" value={s.gemini_cli_model} onChange={(e) => set({ gemini_cli_model: e.target.value.trim() })} />}
-            <Button small onClick={loadModels} disabled={!gc?.signed_in}>Load list</Button>
+            {gc?.kind === 'gemini' && <Button small onClick={loadModels} disabled={!gc?.signed_in}>Load list</Button>}
           </div>
         </Field>
-        <Field label="Where the Gemini CLI is (optional)" hint="Leave empty to find it automatically; otherwise the full path to gemini.cmd.">
-          <input type="text" className="mono" spellCheck={false} placeholder="C:\Users\you\AppData\Roaming\npm\gemini.cmd" value={s.gemini_cli_path} onChange={(e) => set({ gemini_cli_path: e.target.value })} />
+        <Field label="Where agy is (optional)" hint="Leave empty to find it automatically. Otherwise the full path to agy; in a terminal,  where agy  shows it.">
+          <input type="text" className="mono" spellCheck={false} placeholder="found automatically" value={s.gemini_cli_path} onChange={(e) => set({ gemini_cli_path: e.target.value })} />
         </Field>
       </div>
       <div className="row gap-s">
         <Button small onClick={check}>Check again</Button>
-        <Button small variant="primary" icon="sparkle" onClick={test} busy={testing} disabled={!gc?.installed || !gc.signed_in}>Test</Button>
+        <Button small variant="primary" icon="sparkle" onClick={test} busy={testing} disabled={!gc?.installed}>Test</Button>
       </div>
-      <span className="small muted">It runs read-only (it cannot change files) in an empty folder holding only the frames and videos of that request. For your own use on your own computer; Google's limits for your plan apply.</span>
+      <span className="small muted">It runs in an empty folder holding only that request's instructions, frames and videos, and is told to change nothing. For your own use on your own computer; Google's limits for your plan apply.</span>
     </div>
   );
 }

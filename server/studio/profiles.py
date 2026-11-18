@@ -570,6 +570,9 @@ def review(pid: str, job: Job, span: tuple[float, float] = (0.0, 1.0)) -> dict:
     for i, (r, f) in enumerate(files):
         job.update(span[0] + (span[1] - span[0]) * 0.5 * i / len(files), f"Looking at reference {i + 1} of {len(files)} again")
         dur = r.get("duration") or probe(f)["duration"]
+        if ai.watches_video("references"):   # the whole video, with its motion, timing and sound
+            parts.append(f"Reference {i + 1}, the whole video:")
+            parts.append({"video": f})
         for t, jpeg in _study_frames(f, dur, per):
             parts.append(f"Reference {i + 1}, frame at {t:.1f}s:")
             parts.append({"image": jpeg})
