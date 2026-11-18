@@ -434,11 +434,11 @@ def find(words: list[dict], kind: str = "highlights", count: int = 6, min_len: f
     if kind == "topic" and not query.strip():
         return {"engine": "none", "note": "Type the topic to look for.", "clips": []}
     note = ""
-    if ai.available():
+    if ai.available("moments"):
         user = _user_prompt(kind, lines, count, min_len, max_len, query) + _style_note(brief, rules) + extra
         schema = {"series": _SERIES_SCHEMA, "topic": _TOPIC_SCHEMA, "recap": _RECAP_SCHEMA, "trailer": _TRAILER_SCHEMA}[kind]
         try:
-            data = ai.ask_json(SYSTEM[kind], user, schema)
+            data = ai.ask_json(SYSTEM[kind], user, schema, task="moments")
             if kind == "series":
                 clips = check_series(data, lines, count, max_len)
             elif kind == "topic":

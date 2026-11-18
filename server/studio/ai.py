@@ -5,6 +5,7 @@ Every caller has a rule-based fallback, so the app works without a key.
 from __future__ import annotations
 
 import json
+import re
 
 from ..config import anthropic_key, gemini_key, get_settings
 
@@ -73,15 +74,29 @@ def setup_hint() -> str:
             "or add a Claude or Gemini API key.")
 
 
-def available() -> bool:
-    return bool(provider())
+GEMINI_CLI_TASKS = {"moments": "Finding moments", "references": "Studying and reviewing style references"}
 
 
-def provider_label() -> str:
+def gemini_cli_for(task: str) -> bool:
+    """Whether this task goes to the Gemini CLI (the person's Google subscription) instead of the main provider.
+    Never on the server edition: everyone signed in would be spending the owner's subscription."""
+    if not task or task not in (get_settings().get("gemini_cli_tasks") or []):
+        return False
+    from .. import auth
+    return not auth.enabled() and gemini_cli_exe() is not None
+
+
+def available(task: str = "") -> bool:
+    return gemini_cli_for(task) or bool(provider())
+
+
+def provider_label(task: str = "") -> str:
+    if gemini_cli_for(task):
+        return "Gemini (your Google subscription)"
     return {"anthropic": "Claude", "gemini": "Gemini", "claude_code": "Claude (your subscription)"}.get(provider(), "")
 
 
-def ask_json(system: str, user: "str | list", schema: dict, max_tokens: int = 32000, effort: str = "medium") -> dict:
+def ask_json(system: str, user: "str | list", schema: dict, max_tokens: int = 32000, effort: str = "medium", task: str = "") -> dict:
     """One structured request. Returns the parsed object or raises AIUnavailable with a readable reason.
 
     `user` is text, or an ordered list of parts for requests with pictures: plain strings,
@@ -89,6 +104,8 @@ def ask_json(system: str, user: "str | list", schema: dict, max_tokens: int = 32
     the model should read them.
     Whole videos are only sent to Gemini, which can watch them; Claude gets the stills, so always include stills too.
     """
+    if gemini_cli_for(task):
+        return _ask_gemini_cli(system, user, schema)
     which = provider()
     if not which:
         raise AIUnavailable(setup_hint())
@@ -268,9 +285,9 @@ def _gemini_upload(client, path, wait_seconds: float = 180.0):
         return None
 
 
-def watches_video() -> bool:
-    """True when the active provider can be given whole videos, not just stills."""
-    return provider() == "gemini"
+def watches_video(task: str = "") -> bool:
+    """True when the provider for this task can be given whole videos, not just stills."""
+    return gemini_cli_for(task) or provider() == "gemini"
 
 
 def gemini_models() -> list[dict]:
@@ -422,3 +439,151 @@ def _ask_claude_code(system: str, user: "str | list", schema: dict, effort: str)
             raise AIUnavailable(f"Claude Code does not accept the model '{model}'. Pick another under Settings → AI.")
         raise AIUnavailable(f"Claude Code could not answer: {why[:300] or 'unknown reason'}")
     return result["structured_output"]
+
+
+# ---------------------------------------------------------------- Gemini CLI (the person's Google subscription)
+
+def gemini_cli_exe() -> list[str] | None:
+    """The command that runs Google's Gemini CLI here, or None. An npm install on Windows gives a gemini.cmd shim,
+    which cannot run without a shell, so its JavaScript entry point is run with node instead."""
+    import os
+    import shutil
+    from pathlib import Path
+    custom = (get_settings().get("gemini_cli_path") or "").strip().strip('"')
+    found = custom if custom and Path(custom).exists() else shutil.which("gemini")
+    if not found:
+        return None
+    if found.lower().endswith((".cmd", ".bat", ".ps1")):
+        script = Path(found).parent / "node_modules" / "@google" / "gemini-cli" / "bundle" / "gemini.js"
+        node = shutil.which("node")
+        return [node, str(script)] if script.exists() and node else None
+    return [found] if os.access(found, os.X_OK) or os.name == "nt" else None
+
+
+def _gemini_cli_env() -> dict:
+    """Without API keys, so the Google sign-in (the subscription) is what gets used, not a key that bills."""
+    import os
+    env = dict(os.environ)
+    for k in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENAI_USE_VERTEXAI", "GOOGLE_GENAI_USE_GCA"):
+        env.pop(k, None)
+    env["NO_COLOR"] = "1"
+    return env
+
+
+def gemini_cli_status() -> dict:
+    """{installed, version, signed_in, why} for Settings. Signed in = the CLI has saved a Google login."""
+    import subprocess
+    from pathlib import Path
+    exe = gemini_cli_exe()
+    if not exe:
+        return {"installed": False, "version": "", "signed_in": False,
+                "why": "The Gemini CLI was not found. Install it with  npm install -g @google/gemini-cli  then run  gemini  "
+                       "once in a terminal and choose Sign in with Google (use the account with your Gemini plan)."}
+    out = {"installed": True, "version": "", "signed_in": False, "why": ""}
+    try:
+        v = subprocess.run(exe + ["--version"], capture_output=True, text=True, timeout=60, env=_gemini_cli_env())
+        out["version"] = (v.stdout or "").strip().splitlines()[-1] if (v.stdout or "").strip() else ""
+    except (OSError, subprocess.TimeoutExpired) as e:
+        out["why"] = f"The Gemini CLI is installed but did not answer ({e})."
+        return out
+    out["signed_in"] = (Path.home() / ".gemini" / "oauth_creds.json").exists()
+    if not out["signed_in"]:
+        out["why"] = "The Gemini CLI is not signed in. Open a terminal, run  gemini  and choose Sign in with Google."
+    return out
+
+
+def _json_from(text: str) -> dict:
+    """The JSON object in a model's text answer (it may come in a code fence or with words around it)."""
+    t = text.strip()
+    if t.startswith("```"):
+        t = t.split("\n", 1)[1] if "\n" in t else t
+        t = t.rsplit("```", 1)[0]
+    try:
+        return json.loads(t)
+    except json.JSONDecodeError:
+        a, b = t.find("{"), t.rfind("}")
+        if a >= 0 and b > a:
+            return json.loads(t[a:b + 1])
+        raise
+
+
+def _ask_gemini_cli(system: str, user: "str | list", schema: dict) -> dict:
+    """One answer from the Gemini CLI in headless mode (-p), read-only (--approval-mode plan), run from an empty
+    folder that holds only this request's pictures and videos, which the prompt names as @files."""
+    import subprocess
+    import tempfile
+    from ..config import DATA
+    exe = gemini_cli_exe()
+    if not exe:
+        raise AIUnavailable("The Gemini CLI was not found on this computer (Settings → AI).")
+    model = (get_settings().get("gemini_cli_model") or "").strip()
+    work = DATA / "tmp" / "gemini-cli"
+    work.mkdir(parents=True, exist_ok=True)
+
+    def run(with_video: bool) -> dict:
+        # "@name" asks the CLI to attach a file: every other @ (a handle in a transcript or a rule) is escaped
+        lit = lambda t: re.sub(r"(?<!\\)@", r"\\@", t)   # noqa: E731
+        with tempfile.TemporaryDirectory(dir=work) as tmp:
+            pieces = [lit(system), ""]
+            n = 0
+            for part in ([user] if isinstance(user, str) else user):
+                if isinstance(part, str):
+                    pieces.append(lit(part))
+                elif "image" in part:
+                    n += 1
+                    name = f"picture_{n:03d}.jpg"
+                    with open(f"{tmp}/{name}", "wb") as f:
+                        f.write(part["image"])
+                    pieces.append(f"@{name}")
+                elif "video" in part and with_video:
+                    import shutil
+                    from pathlib import Path
+                    src = Path(part["video"])
+                    if src.is_file() and src.stat().st_size < 20 * 1024 * 1024:   # the CLI sends files inline
+                        n += 1
+                        name = f"video_{n:03d}{src.suffix.lower()}"
+                        shutil.copy2(src, f"{tmp}/{name}")
+                        pieces.append(f"@{name}")
+            pieces.append("\nAnswer with one JSON object and nothing else, matching this JSON schema:\n"
+                          + lit(json.dumps(schema, separators=(",", ":"))))
+            cmd = exe + ["-p", "Follow the instructions above.", "--output-format", "json", "--approval-mode", "plan", "--skip-trust"]
+            if model:
+                cmd += ["-m", model]
+            try:
+                r = subprocess.run(cmd, input="\n".join(pieces), capture_output=True, text=True, encoding="utf-8",
+                                   timeout=1800, cwd=tmp, env=_gemini_cli_env())
+            except subprocess.TimeoutExpired as e:
+                raise AIUnavailable("The Gemini CLI took more than 30 minutes and was stopped.") from e
+            except OSError as e:
+                raise AIUnavailable(f"The Gemini CLI could not be started: {e}") from e
+        data: dict = {}
+        raw = ""
+        for stream in (r.stdout or "", r.stderr or ""):   # the answer comes on stdout, an error as JSON on stderr
+            raw = stream.strip()
+            if "{" not in raw:
+                continue
+            try:
+                data = json.loads(raw[raw.find("{"):raw.rfind("}") + 1])
+                break
+            except json.JSONDecodeError:
+                continue
+        err = data.get("error") or {}
+        if r.returncode != 0 or err or not data.get("response"):
+            why = (err.get("message") if isinstance(err, dict) else str(err)) or (r.stderr or raw or "no answer").strip().splitlines()[-1]
+            low = why.lower()
+            if any(k in low for k in ("login", "sign in", "auth", "credential", "oauth")):   # incl. "Please set an Auth method"
+                raise AIUnavailable("The Gemini CLI is not signed in. Open a terminal, run  gemini  and choose Sign in with Google.")
+            if any(k in low for k in ("quota", "rate limit", "resource_exhausted", "429")):
+                raise AIUnavailable(f"Your Gemini plan's usage limit was reached for now: {why[:200]}")
+            raise AIUnavailable(f"The Gemini CLI did not answer: {why[:300]}")
+        try:
+            return _json_from(str(data["response"]))
+        except json.JSONDecodeError as e:
+            raise AIUnavailable("Gemini answered, but not with the JSON that was asked for.") from e
+
+    try:
+        return run(True)
+    except AIUnavailable as e:
+        if "video" in str(e).lower() or "file" in str(e).lower():
+            return run(False)   # a video it could not take: the stills carry the picture
+        raise

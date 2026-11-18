@@ -8,7 +8,8 @@ import { Button, Field, Panel, Seg, Slider, Toggle, toast, toastError } from '..
 type Brand = { name: string; accent: string; secondary: string; font: string; logo: string; logoPos: string; logoSize: number; watermark: string };
 type SettingsData = {
   ai_provider: 'anthropic' | 'gemini' | 'claude_code'; anthropic_api_key: string; anthropic_api_key_set: boolean; ai_model: string;
-  gemini_api_key: string; gemini_api_key_set: boolean; gemini_model: string; claude_code_model: string; claude_code_effort: string; claude_code_path: string; whisper_model: string; copy_folder: string; capcut_folder: string;
+  gemini_api_key: string; gemini_api_key_set: boolean; gemini_model: string; claude_code_model: string; claude_code_effort: string; claude_code_path: string;
+  gemini_cli_tasks: string[]; gemini_cli_model: string; gemini_cli_path: string; whisper_model: string; copy_folder: string; capcut_folder: string;
   pexels_api_key: string; pexels_api_key_set: boolean; tts_voice: string; brand: Brand;
   flow_enabled?: boolean; flow_mcp_path?: string; flow_out_dir?: string;
   youtube_client_id?: string; youtube_client_secret?: string; youtube_client_secret_set?: boolean; youtube_redirect_url?: string;
@@ -95,6 +96,7 @@ export default function Settings() {
         </Field>
         {health && !health.ai && health.ai_problem && <div className="notice warn">{health.ai_problem}</div>}
         {s.ai_provider === 'claude_code' && <ClaudeCodeSettings s={s} set={set} />}
+        <GeminiCliSettings s={s} set={set} />
         <div className="grid-2">
           <Field label="Anthropic API key" hint={s.anthropic_api_key_set ? 'A key is set. Type a new one to replace it.' : 'Stored only in your data folder. You can also set ANTHROPIC_API_KEY before starting.'}>
             <input type="password" autoComplete="off" placeholder={s.anthropic_api_key_set ? '••••••••  (set)' : 'sk-ant-…'} value={s.anthropic_api_key} onChange={(e) => set({ anthropic_api_key: e.target.value })} />
@@ -368,6 +370,75 @@ const CC_MODELS = [
 ];
 
 /** Claude through the Claude Code program on this computer, with the owner's own subscription. */
+type GC = { installed: boolean; version: string; signed_in: boolean; why: string; server_edition: boolean; tasks: Record<string, string> };
+
+/** Gemini through the person's own Google plan (the Gemini CLI on this computer), for the tasks they choose. */
+function GeminiCliSettings({ s, set }: { s: SettingsData; set: (p: Partial<SettingsData>) => void }) {
+  const [gc, setGc] = useState<GC | null>(null);
+  const [models, setModels] = useState<string[]>([]);
+  const [testing, setTesting] = useState(false);
+  const check = () => api.get<GC>('/api/ai/gemini-cli').then(setGc).catch(() => setGc(null));
+  useEffect(() => { check(); }, []);
+  if (gc?.server_edition) return null;
+  const tasks = s.gemini_cli_tasks ?? [];
+  const toggle = (k: string, on: boolean) => {
+    const next = on ? [...new Set([...tasks, k])] : tasks.filter((x) => x !== k);
+    set({ gemini_cli_tasks: next });
+    api.put('/api/settings', { gemini_cli_tasks: next }).catch(toastError);   // saved at once, like the provider choice
+  };
+  async function test() {
+    setTesting(true);
+    try {
+      await api.put('/api/settings', { gemini_cli_model: s.gemini_cli_model, gemini_cli_path: s.gemini_cli_path });
+      const r = await api.post<{ greeting: string; seconds: number }>('/api/ai/gemini-cli/test');
+      toast(`Gemini answered in ${r.seconds}s: “${r.greeting}”`, 'good');
+    } catch (e) { toastError(e); }
+    setTesting(false);
+  }
+  async function loadModels() {
+    try { setModels(await api.get<string[]>('/api/ai/gemini-cli/models')); } catch (e) { toastError(e); }
+  }
+  return (
+    <div className="card col gap-s" style={{ padding: 12 }}>
+      <div className="row between wrap">
+        <b className="small">Gemini with your Google subscription</b>
+        <span className="small">
+          {!gc ? 'Checking the Gemini CLI…'
+            : gc.installed && gc.signed_in ? <><span className="pill good">Ready</span> Gemini CLI {gc.version}, signed in with Google.</>
+              : <span style={{ color: 'var(--bad)' }}>{gc.why}</span>}
+        </span>
+      </div>
+      <span className="small muted">Send these tasks to Gemini through the Gemini CLI on this computer (your Google AI Pro or Ultra plan, no key); everything else keeps using the provider above.</span>
+      <div className="row wrap gap-s">
+        {Object.entries(gc?.tasks ?? { moments: 'Finding moments', references: 'Studying and reviewing style references' }).map(([k, label]) => (
+          <label key={k} className="row gap-s small" style={{ cursor: 'pointer' }}>
+            <input type="checkbox" checked={tasks.includes(k)} disabled={!gc?.installed} onChange={(e) => toggle(k, e.target.checked)} /> {label}
+          </label>
+        ))}
+      </div>
+      <div className="grid-2">
+        <Field label="Model" hint="Empty lets the Gemini CLI choose. Load the list to pick one your plan offers.">
+          <div className="row gap-s">
+            {models.length
+              ? <select value={s.gemini_cli_model} onChange={(e) => set({ gemini_cli_model: e.target.value })}>
+                  <option value="">Let the CLI choose</option>{models.map((m) => <option key={m} value={m}>{m}</option>)}</select>
+              : <input type="text" className="mono" spellCheck={false} placeholder="automatic" value={s.gemini_cli_model} onChange={(e) => set({ gemini_cli_model: e.target.value.trim() })} />}
+            <Button small onClick={loadModels} disabled={!gc?.signed_in}>Load list</Button>
+          </div>
+        </Field>
+        <Field label="Where the Gemini CLI is (optional)" hint="Leave empty to find it automatically; otherwise the full path to gemini.cmd.">
+          <input type="text" className="mono" spellCheck={false} placeholder="C:\Users\you\AppData\Roaming\npm\gemini.cmd" value={s.gemini_cli_path} onChange={(e) => set({ gemini_cli_path: e.target.value })} />
+        </Field>
+      </div>
+      <div className="row gap-s">
+        <Button small onClick={check}>Check again</Button>
+        <Button small variant="primary" icon="sparkle" onClick={test} busy={testing} disabled={!gc?.installed || !gc.signed_in}>Test</Button>
+      </div>
+      <span className="small muted">It runs read-only (it cannot change files) in an empty folder holding only the frames and videos of that request. For your own use on your own computer; Google's limits for your plan apply.</span>
+    </div>
+  );
+}
+
 function ClaudeCodeSettings({ s, set }: { s: SettingsData; set: (p: Partial<SettingsData>) => void }) {
   const [cc, setCc] = useState<CC | null>(null);
   const [testing, setTesting] = useState(false);

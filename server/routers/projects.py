@@ -217,7 +217,7 @@ def _performance() -> dict | None:
 def moments_performance(pid: str) -> dict:
     """{posts: n} when past views will steer Find moments, {posts: 0} when there are not enough (or no AI to use them)."""
     load(pid)
-    perf = _performance() if ai.available() else None
+    perf = _performance() if ai.available("moments") else None
     return {"posts": perf["count"] if perf else 0}
 
 
@@ -246,8 +246,8 @@ def find_moments(pid: str, body: dict) -> dict:
              "recap": "Building the recap", "trailer": "Building the trailer"}[kind]
 
     def work(job: jobs.Job) -> dict:
-        perf = _performance() if ai.available() else None
-        job.update(0.1, "Reading the transcript" + (" with AI" if ai.available() else ""))
+        perf = _performance() if ai.available("moments") else None
+        job.update(0.1, "Reading the transcript" + (" with AI" if ai.available("moments") else ""))
         found = cliptypes.find(project["transcript"]["words"], kind, int(body.get("count") or 6), min_len, max_len,
                                body.get("query") or "", body.get("instructions") or "", brief, rules, perf)
         job.update(0.9, "Creating clips")

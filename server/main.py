@@ -131,6 +131,51 @@ def claude_code_status() -> dict:
     return {**ai.claude_code_status(), "server_edition": False}
 
 
+@app.get("/api/ai/gemini-cli")
+def gemini_cli_status() -> dict:
+    """Is the Gemini CLI installed and signed in here, and which tasks use it? Not offered on the server edition."""
+    from .studio import ai
+    if auth.enabled():
+        return {"installed": False, "version": "", "signed_in": False, "server_edition": True, "tasks": ai.GEMINI_CLI_TASKS,
+                "why": "The server edition uses API keys. Your Google subscription is for Cutroom on your own computer."}
+    return {**ai.gemini_cli_status(), "server_edition": False, "tasks": ai.GEMINI_CLI_TASKS}
+
+
+@app.post("/api/ai/gemini-cli/test")
+def gemini_cli_test() -> dict:
+    """A tiny request through the Gemini CLI, whatever tasks it is chosen for."""
+    import time as _t
+    from .studio import ai
+    if auth.enabled() or not ai.gemini_cli_exe():
+        raise HTTPException(422, "The Gemini CLI is not available here.")
+    started = _t.time()
+    try:
+        out = ai._ask_gemini_cli("Answer in the requested format.", "Reply with ok set to true and a three-word greeting.",
+                                 {"type": "object", "required": ["ok", "greeting"], "properties": {"ok": {"type": "boolean"}, "greeting": {"type": "string"}}})
+    except ai.AIUnavailable as e:
+        raise HTTPException(422, str(e))
+    return {"ok": bool(out.get("ok")), "greeting": out.get("greeting", ""), "seconds": round(_t.time() - started, 1)}
+
+
+@app.get("/api/ai/gemini-cli/models")
+def gemini_cli_models() -> list[str]:
+    """The models the signed-in Google account can use, as the CLI lists them."""
+    import re
+    import subprocess
+    from .studio import ai
+    exe = ai.gemini_cli_exe()
+    if auth.enabled() or not exe:
+        raise HTTPException(422, "The Gemini CLI is not available here.")
+    try:
+        r = subprocess.run(exe + ["--list-models"], capture_output=True, text=True, timeout=120, env=ai._gemini_cli_env())
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise HTTPException(422, f"The Gemini CLI did not answer: {e}")
+    names = list(dict.fromkeys(re.findall(r"\b(gemini-[a-z0-9.\-]+)", (r.stdout or "") + (r.stderr or ""))))
+    if not names:
+        raise HTTPException(422, "No models were listed. Is the Gemini CLI signed in? " + (r.stderr or r.stdout or "").strip()[-200:])
+    return names
+
+
 @app.post("/api/ai/test")
 def ai_test() -> dict:
     """A tiny request through the chosen provider, to check the setup works."""

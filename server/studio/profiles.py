@@ -394,10 +394,10 @@ def analyse(pid: str, job: Job) -> dict:
         refs.append({"name": f.name, "file": f.name, "url": media_url(f), **measure(f)})
 
     analysis, note = None, ""
-    if ai.available():
+    if ai.available("references"):
         per = max(6, min(FRAMES_PER_REFERENCE, MAX_FRAMES // len(files)))
         parts: list = [_analysis_request(refs)]
-        if ai.watches_video():
+        if ai.watches_video("references"):
             # Gemini can watch the references themselves, which adds motion, timing and sound to what the stills show.
             # It looks at one frame a second by default; short-form edits change faster than that, so ask for more
             # while keeping the whole request to about FRAME_BUDGET frames.
@@ -412,9 +412,9 @@ def analyse(pid: str, job: Job) -> dict:
             for t, jpeg in _study_frames(f, r["duration"], per):
                 parts.append(f"Reference {i + 1}, frame at {t:.1f}s:")
                 parts.append({"image": jpeg})
-        job.update(0.62, f"Studying the style with {ai.provider_label()}")
+        job.update(0.62, f"Studying the style with {ai.provider_label("references")}")
         try:
-            analysis = ai.ask_json(ANALYSIS_SYSTEM, parts, ANALYSIS_SCHEMA, max_tokens=32000, effort="high")
+            analysis = ai.ask_json(ANALYSIS_SYSTEM, parts, ANALYSIS_SCHEMA, max_tokens=32000, effort="high", task="references")
         except ai.AIUnavailable as e:
             note = f"The AI step failed ({e}), so this style holds measurements only."
     else:
@@ -438,7 +438,7 @@ def analyse(pid: str, job: Job) -> dict:
              "analysis": analysis, "note": note, "style": style, "elements": elements, "planner": planner,
              "summary": (analysis or {}).get("summary", profile.get("summary", "")),
              "rules": kept + learned, "brief": _brief(analysis) if analysis else profile.get("brief", ""),
-             "analysed": time.time(), "engine": ai.provider_label() if analysis else ""}
+             "analysed": time.time(), "engine": ai.provider_label("references") if analysis else ""}
     return profiles.update(pid, patch)
 
 
@@ -531,7 +531,7 @@ def download_missing(pid: str, job: Job) -> dict:
         except MediaError as e:
             failed.append(f"{link['title']}: {e}")
     note = ("Could not download " + "; ".join(failed)) if failed else ""
-    if (lookup(pid) or {}).get("references") and ai.available():
+    if (lookup(pid) or {}).get("references") and ai.available("references"):
         review(pid, job, (0.65, 1.0))
     p = save(pid, {"review_note": note} if note else {})
     return p
@@ -561,7 +561,7 @@ def review(pid: str, job: Job, span: tuple[float, float] = (0.0, 1.0)) -> dict:
     files = _reference_files(p)
     if not files:
         raise MediaError("This style has no saved reference videos yet.")
-    if not ai.available():
+    if not ai.available("references"):
         raise ai.AIUnavailable("Reviewing reference videos needs the AI. " + ai.setup_hint())
     per = max(4, min(10, 48 // len(files)))
     rules = "\n".join(f"- {r['text']}" for r in p.get("rules", []) if r.get("on", True))
@@ -573,11 +573,11 @@ def review(pid: str, job: Job, span: tuple[float, float] = (0.0, 1.0)) -> dict:
         for t, jpeg in _study_frames(f, dur, per):
             parts.append(f"Reference {i + 1}, frame at {t:.1f}s:")
             parts.append({"image": jpeg})
-    job.update(span[0] + (span[1] - span[0]) * 0.6, f"Reviewing the references with {ai.provider_label()}")
-    out = ai.ask_json(REVIEW_SYSTEM, parts, REVIEW_SCHEMA, max_tokens=8000, effort="medium")
+    job.update(span[0] + (span[1] - span[0]) * 0.6, f"Reviewing the references with {ai.provider_label("references")}")
+    out = ai.ask_json(REVIEW_SYSTEM, parts, REVIEW_SCHEMA, max_tokens=8000, effort="medium", task="references")
     memory = [m.strip() for m in out["memory"] if m.strip()][:20]
     note = ("The references differ from the description: " + " ".join(out["contradictions"])) if out["contradictions"] else ""
-    return save(pid, {"memory": memory, "reviewed": time.time(), "review_note": note, "review_engine": ai.provider_label()})
+    return save(pid, {"memory": memory, "reviewed": time.time(), "review_note": note, "review_engine": ai.provider_label("references")})
 
 
 def reference_frames(pid: str | None, n: int = 8) -> list[tuple[str, bytes]]:

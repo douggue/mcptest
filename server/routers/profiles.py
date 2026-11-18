@@ -120,7 +120,7 @@ def add_reference_link(pid: str, body: dict) -> dict:
         if not P.is_builtin(pid):   # keep the link, so the style lists it like the built-in ones do
             links = [l for l in p.get("reference_links") or [] if l["url"] != url]
             P.profiles.update(pid, {"reference_links": links + [{"title": name or p["references"][-1]["name"], "url": url}]})
-        if P.ai.available():
+        if P.ai.available("references"):
             P.review(pid, job, (0.7, 1.0))
         return P.lookup(pid)
     return {"job_id": jobs.submit("style", "Downloading a reference", work).id}
@@ -141,7 +141,7 @@ def review(pid: str) -> dict:
     p = _style(pid)
     if not p.get("references"):
         raise HTTPException(422, "Save some reference videos first.")
-    if not P.ai.available():
+    if not P.ai.available("references"):
         raise HTTPException(422, "Reviewing references needs the AI. " + P.ai.setup_hint())
     return {"job_id": jobs.submit("style", "Reviewing references", lambda job: P.review(pid, job)).id}
 

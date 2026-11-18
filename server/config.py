@@ -31,6 +31,10 @@ DEFAULT_SETTINGS = {
     "claude_code_model": "opus",      # with claude_code: an alias (opus, sonnet, haiku, fable) or a full model name
     "claude_code_effort": "",         # with claude_code: low | medium | high | xhigh | max; '' lets each feature choose
     "claude_code_path": "",           # with claude_code: where claude(.exe) is, when it is not on PATH
+    # Gemini CLI on this computer, signed in with the person's Google account (e.g. Google AI Ultra), for chosen tasks only:
+    "gemini_cli_tasks": [],           # any of: "moments" (finding moments), "references" (studying and reviewing style references)
+    "gemini_cli_model": "",           # '' lets the CLI choose (auto); or a model name
+    "gemini_cli_path": "",            # where gemini(.cmd) is, when it is not on PATH
     "anthropic_api_key": "",          # falls back to ANTHROPIC_API_KEY in the environment
     "ai_model": "claude-opus-5-5",
     "gemini_api_key": "",             # falls back to GEMINI_API_KEY / GOOGLE_API_KEY in the environment

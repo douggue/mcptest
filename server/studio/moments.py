@@ -164,7 +164,7 @@ def find_moments(words: list[dict], count: int = 6, min_len: float = 20, max_len
     if not lines:
         return {"engine": "none", "note": "The transcript is empty.", "clips": []}
     note = ""
-    if ai.available():
+    if ai.available("moments"):
         listing = "\n".join(f"[{i}] ({l['start']:.1f}s-{l['end']:.1f}s) {l['text']}" for i, l in enumerate(lines))
         system = (
             "You select clips from a long video's transcript for a short-form editor (TikTok, Shorts, Reels). "
@@ -183,7 +183,7 @@ def find_moments(words: list[dict], count: int = 6, min_len: float = 20, max_len
             + "Transcript lines as [index] (start-end) text:\n\n" + listing
         ) + _style_note(brief, rules) + extra
         try:
-            data = ai.ask_json(system, user, _MOMENTS_SCHEMA)
+            data = ai.ask_json(system, user, _MOMENTS_SCHEMA, task="moments")
             clips = []
             for c in data.get("clips", []):
                 a = max(0, min(len(lines) - 1, int(c["start_line"])))
