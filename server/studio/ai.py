@@ -723,8 +723,14 @@ def _ask_gemini_cli(system: str, user: "str | list", schema: dict, task: str = "
         err = data.get("error") or {}
         status = str(data.get("status") or "SUCCESS").upper()
         if r.returncode != 0 or err or status != "SUCCESS" or not data.get("response"):
-            why = (err.get("message") if isinstance(err, dict) else str(err)) or (data.get("response") if status != "SUCCESS" else "") \
-                or ((r.stderr or raw).strip().splitlines() or [""])[-1]
+            printed = "\n".join(x for x in ((r.stderr or "") + "\n" + (r.stdout or "")).splitlines() if x.strip())
+            shown = " | ".join(printed.splitlines()[-6:])[-400:]   # the end of what it printed, not just one line
+            why = (err.get("message") if isinstance(err, dict) else str(err)) or (data.get("response") if status != "SUCCESS" else "") or shown
+            if re.search(r"\bupdate\b", printed, re.I) and not data.get("response"):
+                # agy stops to offer an update, which it cannot ask about when run in the background
+                raise AIUnavailable(f"The {label} wants to update itself before it will answer. Open a terminal, run  "
+                                    f"{'agy' if kind == 'agy' else 'gemini'}  and accept the update (or run  agy update ), then press Test "
+                                    f"again. What it printed: {shown[:250]}")
             if not why:
                 why = ("it returned an empty answer. In headless mode it quietly refuses anything it is not allowed to do; "
                        "check it is signed in (run  agy  once) and that it may read files in its settings")
