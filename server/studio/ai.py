@@ -608,6 +608,18 @@ def _json_from(text: str) -> dict:
         raise
 
 
+_CLI_REJECTED: set[str] = set()   # options this CLI build answered with its help text (it does not know them)
+
+
+def _printed_help(r) -> bool:
+    """True when the CLI printed its usage instead of answering: it did not accept an option."""
+    out = (r.stdout or "") + "\n" + (r.stderr or "")
+    if '"response"' in out:
+        return False
+    return bool(re.search(r"(?im)^\s*(usage:|commands?:|options:)|unknown (option|flag|argument)|unrecognized", out)) \
+        or bool(re.search(r"(?im)^\s*update\s+update cli", out))
+
+
 AGY_TIMEOUT = 3600   # seconds; watching one 28 s video took about five minutes in testing
 VIDEO_TIMEOUT = 1800 # a try with whole videos gets this long before the frame-by-frame backup takes over
 MAX_CLI_VIDEO = 60 * 1024 * 1024
@@ -694,21 +706,34 @@ def _ask_gemini_cli(system: str, user: "str | list", schema: dict, task: str = "
             prompt = "\n".join(pieces)
             if kind == "agy":
                 Path(tmp, "prompt.md").write_text(prompt, "utf-8")
-                cmd = exe + ["-p", "Read @prompt.md and do exactly what it says, using the files it names. Change no files.",
-                             "--output-format", "json", "--print-timeout", str(limit)]
+                base = exe + ["-p", "Read @prompt.md and do exactly what it says, using the files it names. Change no files.",
+                              "--output-format", "json"]
                 stdin = None
+                # Options newer builds take; an older build answers an option it does not know with its help text,
+                # so each is dropped in turn (and remembered) until agy runs, ending with what the owner's own test used.
+                extras = [("--print-timeout", str(limit)), ("--model", model)] if model else [("--print-timeout", str(limit))]
             else:
-                cmd = exe + ["-p", "Follow the instructions above.", "--output-format", "json", "--approval-mode", "plan", "--skip-trust"]
+                base = exe + ["-p", "Follow the instructions above.", "--output-format", "json", "--approval-mode", "plan", "--skip-trust"]
                 stdin = prompt
-            if model:
-                cmd += ["--model" if kind == "agy" else "-m", model]
-            try:
-                r = subprocess.run(cmd, input=stdin, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                                   timeout=limit + 120, cwd=tmp, env=_gemini_cli_env())
-            except subprocess.TimeoutExpired as e:
-                raise AIUnavailable(f"The {label} took more than {limit // 60} minutes and was stopped.") from e
-            except OSError as e:
-                raise AIUnavailable(f"The {label} could not be started: {e}") from e
+                extras = [("-m", model)] if model else []
+            keep = [x for x in extras if x[0] not in _CLI_REJECTED]
+            # all of them; then without each one in turn (so only the refused one is lost); then none
+            tries = [keep] + [[x for x in keep if x is not y] for y in keep] + ([[]] if len(keep) > 1 else [])
+            for opts in tries:
+                cmd = base + [v for pair in opts for v in pair]
+                try:
+                    r = subprocess.run(cmd, input=stdin, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                                       timeout=limit + 120, cwd=tmp, env=_gemini_cli_env())
+                except subprocess.TimeoutExpired as e:
+                    raise AIUnavailable(f"The {label} took more than {limit // 60} minutes and was stopped.") from e
+                except OSError as e:
+                    raise AIUnavailable(f"The {label} could not be started: {e}") from e
+                if not _printed_help(r):
+                    _CLI_REJECTED.update(name for name, _ in keep if (name, dict(keep)[name]) not in opts)   # remember what it refused
+                    break
+            else:
+                raise AIUnavailable(f"The {label} did not accept Cutroom's request and printed its help instead. "
+                                    "In a terminal run  agy --help  and send what it shows, so the request can be fitted to your version.")
         data: dict = {}
         raw = ""
         for stream in (r.stdout or "", r.stderr or ""):   # the answer comes on stdout; an error may come as JSON on stderr
@@ -726,7 +751,7 @@ def _ask_gemini_cli(system: str, user: "str | list", schema: dict, task: str = "
             printed = "\n".join(x for x in ((r.stderr or "") + "\n" + (r.stdout or "")).splitlines() if x.strip())
             shown = " | ".join(printed.splitlines()[-6:])[-400:]   # the end of what it printed, not just one line
             why = (err.get("message") if isinstance(err, dict) else str(err)) or (data.get("response") if status != "SUCCESS" else "") or shown
-            if re.search(r"\bupdate\b", printed, re.I) and not data.get("response"):
+            if re.search(r"new version|update (is )?available|please update|out of date", printed, re.I) and not data.get("response"):
                 # agy stops to offer an update, which it cannot ask about when run in the background
                 raise AIUnavailable(f"The {label} wants to update itself before it will answer. Open a terminal, run  "
                                     f"{'agy' if kind == 'agy' else 'gemini'}  and accept the update (or run  agy update ), then press Test "
