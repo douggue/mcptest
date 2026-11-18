@@ -104,6 +104,57 @@ def provider_label(task: str = "") -> str:
     return {"anthropic": "Claude", "gemini": "Gemini", "claude_code": "Claude (your subscription)"}.get(provider(), "")
 
 
+AI_NAMES = {"claude_code": "Claude (your subscription)", "agy": "Gemini (your Google subscription)",
+            "anthropic": "Claude (API key)", "gemini": "Gemini (API key)"}
+
+
+def ai_choices() -> list[dict]:
+    """Every AI Cutroom can use here, for choosing one for a job: {key, label, ready, why, watches_video}."""
+    from .. import auth
+    local = not auth.enabled()
+    out = [
+        {"key": "claude_code", "ready": local and claude_code_exe() is not None, "watches_video": False,
+         "why": "" if local else "Not on the server edition."},
+        {"key": "agy", "ready": local and gemini_cli_exe() is not None, "watches_video": (get_settings().get("gemini_cli_video") or "video") != "frames",
+         "why": "" if local else "Not on the server edition."},
+        {"key": "anthropic", "ready": bool(anthropic_key()), "watches_video": False, "why": ""},
+        {"key": "gemini", "ready": bool(gemini_key()), "watches_video": True, "why": ""},
+    ]
+    for c in out:
+        c["label"] = AI_NAMES[c["key"]]
+        if not c["ready"] and not c["why"]:
+            c["why"] = {"claude_code": "Claude Code was not found.", "agy": "The Antigravity CLI was not found.",
+                        "anthropic": "No Claude API key.", "gemini": "No Gemini API key."}[c["key"]]
+    return out
+
+
+def current_key(task: str = "") -> str:
+    """Which AI a task would use now: 'agy' when routed to the Google CLI, else the main provider ('' if none)."""
+    return "agy" if gemini_cli_for(task) else provider()
+
+
+def label_for(key: str) -> str:
+    return AI_NAMES.get(key, key or "")
+
+
+def ask_with(use: str, system: str, user: "str | list", schema: dict, max_tokens: int = 32000, effort: str = "medium", task: str = "") -> dict:
+    """A request to one chosen AI ('' = whatever the task normally uses)."""
+    if not use:
+        return ask_json(system, user, schema, max_tokens, effort, task)
+    choice = next((c for c in ai_choices() if c["key"] == use), None)
+    if not choice or not choice["ready"]:
+        raise AIUnavailable(f"{label_for(use)} is not set up here: {(choice or {}).get('why', '')}".strip())
+    if use == "agy":
+        return _ask_gemini_cli(system, user, schema, task)
+    if use == "claude_code":
+        return _ask_claude_code(system, user, schema, effort)
+    text = _ask_gemini(system, user, schema) if use == "gemini" else _ask_claude(system, user, schema, max_tokens, effort)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        raise AIUnavailable("The AI returned something that was not valid JSON.") from e
+
+
 def ask_json(system: str, user: "str | list", schema: dict, max_tokens: int = 32000, effort: str = "medium", task: str = "") -> dict:
     """One structured request. Returns the parsed object or raises AIUnavailable with a readable reason.
 

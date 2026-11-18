@@ -276,13 +276,98 @@ def add_clip(pid: str, body: dict) -> dict:
     if t_out - t_in < 1:
         raise HTTPException(422, "A clip must be at least one second long.")
     template = Collection("templates").get(body["template_id"]) if body.get("template_id") else None
+    style = styles.lookup(body.get("profile_id"))
     holder: dict = {}
 
     def add(p: dict) -> None:
-        holder["clip"] = _new_clip(p, t_in, t_out, body.get("title") or "New clip", None, (template or {}).get("spec"))
+        holder["clip"] = _new_clip(p, t_in, t_out, body.get("title") or "New clip", None, (style or {}).get("style") or (template or {}).get("spec"))
+        if style:
+            holder["clip"]["profile_id"] = style["id"]
+        if body.get("kind"):
+            holder["clip"]["kind"] = str(body["kind"])
         p["clips"].append(holder["clip"])
     mutate(pid, add)
     return holder["clip"]
+
+
+def _lit_range(path, duration: float) -> tuple[float, float]:
+    """The part of a whole video worth keeping: it starts on the first fully lit frame (a fade up from black is
+    skipped, so the short opens on a picture that becomes the thumbnail) and stops a quarter of a second into a
+    still ending (the last second an advert holds on its final frame is dead time on a short)."""
+    import cv2
+    import numpy as np
+    cap = cv2.VideoCapture(str(path))
+    try:
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+
+        def frames(a: float, b: float) -> list[tuple[float, np.ndarray]]:
+            cap.set(cv2.CAP_PROP_POS_MSEC, max(0.0, a) * 1000)
+            out, t = [], max(0.0, a)
+            while t <= b:
+                ok, f = cap.read()
+                if not ok:
+                    break
+                out.append((t, cv2.cvtColor(cv2.resize(f, (160, 90)), cv2.COLOR_BGR2GRAY).astype(np.float32)))
+                t += 1 / fps
+            return out
+
+        head = frames(0.0, min(2.0, duration * 0.3))
+        t_in = 0.0
+        if head:
+            bright = [float(g.mean()) for _, g in head]
+            settled = float(np.median(bright[len(bright) // 2:])) if len(bright) > 3 else max(bright)
+            first = next((i for i, v in enumerate(bright) if v >= settled * 0.85), 0)
+            t_in = head[first][0]
+        tail = frames(max(t_in, duration - 2.5), duration)
+        t_out = duration
+        if len(tail) > 3:
+            moving = [float(np.abs(b - a).mean()) for (_, a), (_, b) in zip(tail, tail[1:])]
+            k = len(moving)
+            while k > 0 and moving[k - 1] < 1.2:   # still frames counted back from the end
+                k -= 1
+            hold = tail[k][0] if k < len(tail) else duration
+            if duration - hold > 0.6:
+                t_out = hold + 0.25
+    finally:
+        cap.release()
+    return round(t_in, 3), round(t_out, 3)
+
+
+@router.post("/{pid}/whole")
+def whole_video(pid: str, body: dict) -> dict:
+    """{profile_id?, template_id?, title?} -> one clip of the whole video (black frames at the ends trimmed), in the
+    chosen style. For adverts and other videos that are already the short: no moments to find."""
+    project = load(pid)
+    duration = project["source"]["duration"]
+    try:
+        t_in, t_out = _lit_range(sources.source_path(project), duration)
+    except Exception:   # noqa: BLE001 - without the check, the whole video is used
+        t_in, t_out = 0.0, duration
+    style = styles.lookup(body.get("profile_id"))
+    trim_end = float(((style or {}).get("make") or {}).get("trim_end") or 0)
+    if trim_end and t_out > duration - trim_end:
+        # the style ends a second early (an advert's last second is a held pose), unless that would cut into the
+        # last shot so far that less than 0.8 s of it is left
+        from ..studio import vision
+        cuts = [c for c in vision.detect_cuts(sources.source_path(project), max(0.0, duration - 6), duration)]
+        last_shot = cuts[-1] if cuts else 0.0
+        if duration - trim_end - last_shot >= 0.8:
+            t_out = round(duration - trim_end, 3)
+    if t_out - t_in < 1:
+        t_in, t_out = 0.0, duration
+    template = Collection("templates").get(body["template_id"]) if body.get("template_id") else None
+    title = body.get("title") or project.get("name") or "Short"
+    holder: dict = {}
+
+    def add(p: dict) -> None:
+        clip = _new_clip(p, t_in, t_out, title, None, (style or {}).get("style") or (template or {}).get("spec"))
+        clip["kind"] = str(body.get("kind") or "whole")
+        if style:
+            clip["profile_id"] = style["id"]
+        holder["clip"] = clip
+        p["clips"].append(clip)
+    mutate(pid, add)
+    return {**holder["clip"], "trimmed": {"start": t_in, "end": round(duration - t_out, 3)}}
 
 
 @router.put("/{pid}/clips/{cid}")

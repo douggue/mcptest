@@ -1,5 +1,5 @@
 // A style's reference videos (saved with the style), what the AI remembers from them, and how the style works.
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { api, upload } from '../api';
 import { Button, Empty, Field, JobBar, Panel, fmtDur, toast, toastError, useJobRunner } from '../ui';
@@ -101,11 +101,63 @@ export function ReferencesPanel({ style, reload, job, run, busy, onStudy }: {
   );
 }
 
-export function MemoryPanel({ style, reload, run, busy }: { style: StyleProfile; reload: () => void; run: Runner['run']; busy: boolean }) {
+type Choice = { key: string; label: string; ready: boolean; why: string; watches_video: boolean };
+
+/** Which AI studies and reviews the references on this page. Each one's findings are kept separately. */
+export function AiPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [choices, setChoices] = useState<Choice[]>([]);
+  const [usual, setUsual] = useState('');
+  useEffect(() => { api.get<{ choices: Choice[]; references: string }>('/api/ai/choices').then((r) => { setChoices(r.choices); setUsual(r.references); }).catch(() => {}); }, []);
+  const usualLabel = choices.find((c) => c.key === usual)?.label;
+  const chosen = choices.find((c) => c.key === value);
+  return (
+    <div className="card row between wrap" style={{ padding: '10px 14px', marginBottom: 16 }}>
+      <span className="small"><b>AI for studying and reviewing</b> <span className="muted">· each AI keeps its own findings below; switch to whichever you trust</span></span>
+      <div className="row gap-s">
+        <select value={value} onChange={(e) => onChange(e.target.value)} aria-label="AI for studying and reviewing">
+          <option value="">{usualLabel ? `Usual (${usualLabel})` : 'Usual'}</option>
+          {choices.map((c) => <option key={c.key} value={c.key} disabled={!c.ready} title={c.why}>{c.label}{c.ready ? '' : ' (not set up)'}</option>)}
+        </select>
+        {chosen && <span className="small muted">{chosen.watches_video ? 'watches whole videos' : 'looks at still frames'}</span>}
+      </div>
+    </div>
+  );
+}
+
+/** Studies of an own style by different AIs: which one the style follows now, and switching to another. */
+export function StudiesPanel({ style, reload }: { style: StyleProfile; reload: () => void }) {
+  const by = Object.entries(style.analysis_by ?? {});
+  if (by.length < 1) return null;
+  async function use(key: string) {
+    try { await api.post(`/api/profiles/${style.id}/analysis/use`, { key }); reload(); toast('The style now follows that study', 'good'); }
+    catch (e) { toastError(e); }
+  }
+  return (
+    <Panel title={`Studies by AI (${by.length})`}>
+      <p className="muted">Each AI that studied the references made its own version of the style. The one in use sets the look, the brief and the learned rules; your own rules are always kept.</p>
+      <div className="col gap-s">
+        {by.map(([key, a]) => (
+          <div key={key} className="row between wrap card" style={{ padding: '8px 12px' }}>
+            <div className="col"><b className="small">{a.engine || key}</b><span className="small muted clamp-2">{a.summary}</span><span className="small faint">studied {ago(a.analysed)}</span></div>
+            {style.analysis_from === key ? <span className="pill good">In use</span> : <Button small onClick={() => use(key)}>Use this study</Button>}
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+export function MemoryPanel({ style, reload, run, busy, use = '' }: { style: StyleProfile; reload: () => void; run: Runner['run']; busy: boolean; use?: string }) {
   const memory = style.memory ?? [];
+  const by = Object.entries(style.memory_by ?? {});
+  const [peek, setPeek] = useState<string | null>(null);
+  async function switchTo(key: string) {
+    try { await api.post(`/api/profiles/${style.id}/memory/use`, { key }); reload(); toast('Now using those notes', 'good'); }
+    catch (e) { toastError(e); }
+  }
   async function review() {
     try {
-      const p = await run<StyleProfile>(() => api.post(`/api/profiles/${style.id}/review`));
+      const p = await run<StyleProfile>(() => api.post(`/api/profiles/${style.id}/review`, { use }));
       reload();
       toast(`Reviewed: ${p.memory?.length ?? 0} things to match`, 'good');
     } catch (e) { toastError(e); }
@@ -118,6 +170,23 @@ export function MemoryPanel({ style, reload, run, busy }: { style: StyleProfile;
         style carries this list, and Plan the edit also looks at frames from the references themselves.
       </p>
       {style.review_note && <div className="notice warn">{style.review_note}</div>}
+      {by.length > 1 && (
+        <div className="col gap-s">
+          <span className="small"><b>Notes by AI</b> <span className="muted">· the ones in use go with every request in this style</span></span>
+          {by.map(([key, e]) => (
+            <div key={key} className="card col gap-s" style={{ padding: '8px 12px' }}>
+              <div className="row between wrap">
+                <span className="small"><b>{e.review_engine || key}</b> <span className="muted">· {e.memory.length} notes · {ago(e.reviewed)}</span></span>
+                <div className="row gap-s">
+                  <Button small variant="ghost" onClick={() => setPeek(peek === key ? null : key)}>{peek === key ? 'Hide' : 'Read'}</Button>
+                  {style.memory_from === key ? <span className="pill good">In use</span> : <Button small onClick={() => switchTo(key)}>Use these</Button>}
+                </div>
+              </div>
+              {peek === key && <ul className="memory-list">{e.memory.map((m, i) => <li key={i} className="small">{m}</li>)}</ul>}
+            </div>
+          ))}
+        </div>
+      )}
       {memory.length === 0
         ? <span className="small muted">{style.references?.length ? 'Not reviewed yet: click Review again.' : 'Save some reference videos first.'}</span>
         : <ul className="memory-list">{memory.map((m, i) => <li key={i} className="small">{m}</li>)}</ul>}

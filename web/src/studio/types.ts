@@ -4,7 +4,7 @@ import { EditSpec } from './logic';
 export type Score = { total: number; hook: number; flow: number; value: number; trend: number };
 export type Meta = { title: string; description: string; hashtags: string[] };
 /** What Find moments makes: standalone highlights, a numbered series, clips on one topic, or one recap / trailer of several pieces. */
-export type ClipKind = 'highlights' | 'series' | 'topic' | 'recap' | 'trailer';
+export type ClipKind = 'highlights' | 'series' | 'topic' | 'recap' | 'trailer' | 'whole' | 'story';
 export type Clip = {
   id: string; title: string; created: number; status: 'draft' | 'approved' | 'posted'; reason: string;
   score: Score | null; meta: Meta; spec: EditSpec; profile_id?: string; kind?: ClipKind;
@@ -61,10 +61,15 @@ export type StyleProfile = {
   reference_links?: { title: string; url: string }[]; reference_note?: string;
   /** What the AI noticed when it last looked at the saved references; sent with every request in this style. */
   memory?: string[]; reviewed?: number; review_note?: string; review_engine?: string;
+  /** Each AI's own notes and studies, kept apart so the person can switch between them. */
+  memory_by?: Record<string, { memory: string[]; reviewed: number; review_note: string; review_engine: string }>; memory_from?: string;
+  analysis_by?: Record<string, { engine: string; analysed: number; summary: string }>; analysis_from?: string;
   copied_from?: string;
+  /** How a short is made from the video: the whole of it (an advert), one story from raw footage, or moments. */
+  make?: { mode: 'whole' | 'story' | 'moments'; length?: [number, number]; kind?: ClipKind; count?: number; trim_end?: number };
   analysis?: StyleAnalysis | null; note?: string; engine?: string; analysed?: number;
   /** What the planners may add in this style (built-in styles only; none means no limits). */
-  limits?: { graphics: string[]; label_look?: string; sfx: boolean; emoji: boolean; hook: boolean; freezes: boolean; speeds: boolean; min_rate?: number; zooms: boolean; tracking: boolean; smooth60?: boolean; upscale?: boolean };
+  limits?: { graphics: string[]; label_look?: string; sfx: boolean; emoji: boolean; hook: boolean; freezes: boolean; speeds: boolean; min_rate?: number; zooms: boolean; tracking: boolean; smooth60?: boolean; upscale?: boolean; follow?: boolean; fit_wide?: boolean };
   /** The style's own steps, shown as a checklist in the editor. */
   workflow?: StyleStep[];
   /** The style's sound: what music does, its fades, the export loudness, and which graphics play the camera-flash sound. */

@@ -148,7 +148,31 @@ export function faceToX(cx: number, spec: ShortSpec, layout: Layout): number {
   return Math.round(clamp((cx - visible / 2) / (1 - visible), 0, 1) * 1000) / 10;
 }
 
-export type AnalysedShot = { start: number; end: number; faces: Face[]; track: { t: number; cx: number }[] };
+export type AnalysedShot = { start: number; end: number; faces: Face[]; track: { t: number; cx: number }[];
+  /** where the action is in a shot without faces: what moves, else the busiest detail */
+  focus?: { cx: number; cy: number; how: 'motion' | 'detail' } };
+
+/** Share of the source picture's width that one crop shows (1 or more: the whole width fits). */
+function visibleShare(spec: ShortSpec): number {
+  const panel = spec.frame?.mode === 'panel';
+  const bw = panel ? (spec.width * spec.frame!.width) / 100 : spec.width;
+  const bh = panel ? Math.min(spec.height, bw / spec.frame!.aspect) : spec.height;
+  return (bw / bh) / (spec.srcW / spec.srcH);
+}
+
+/** Where to aim a single crop: the main face; both main faces when they fit in the crop together; with no
+ *  steady face, the action (focus). A face seen in under half the sampled frames is likely a false detection. */
+function aimOf(s: AnalysedShot, spec: ShortSpec): number | null {
+  const steady = s.faces.filter((f) => (f.seen ?? 1) >= 0.5);
+  if (steady.length >= 2) {
+    const two = [...steady].sort((a, b) => b.w - a.w).slice(0, 2);
+    const left = Math.min(...two.map((f) => f.cx - f.w * 0.6)), right = Math.max(...two.map((f) => f.cx + f.w * 0.6));
+    if (two[1].w > two[0].w * 0.5 && right - left <= visibleShare(spec) * 0.85) return (left + right) / 2;
+  }
+  if (steady.length) return steady[0].cx;
+  if (s.focus) return s.focus.cx;
+  return s.faces.length ? s.faces[0].cx : null;
+}
 
 /** Build the shot list from a picture analysis: one shot per camera cut, centred on whoever is speaking.
  *  With `keepLayouts`, the analysis is for the user's own cuts, so each shot keeps its layout and transition. */
@@ -180,7 +204,7 @@ export function applyAnalysis(spec: EditSpec, shots: AnalysedShot[], opts: { spl
     let x: number[];
     if (layout === 'fit') x = [50];
     else if (faces.length >= n && n > 1) x = [...faces.slice(0, n)].sort((a, b) => a.cx - b.cx).map((f) => faceToX(f.cx, spec, layout));
-    else if (faces.length && n === 1) x = [faceToX(faces[0].cx, spec, layout)];
+    else if (n === 1 && aimOf(s, spec) != null) x = [faceToX(aimOf(s, spec)!, spec, layout)];
     else x = prev?.layout === layout ? prev.x : Array.from({ length: n }, (_, k) => (n === 1 ? 50 : Math.round((100 * (k + 0.5)) / n)));
     const moves = s.track.length > 1 && Math.max(...s.track.map((k) => k.cx)) - Math.min(...s.track.map((k) => k.cx)) > 0.04;
     return {

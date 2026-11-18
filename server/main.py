@@ -131,6 +131,13 @@ def claude_code_status() -> dict:
     return {**ai.claude_code_status(), "server_edition": False}
 
 
+@app.get("/api/ai/choices")
+def ai_choices() -> dict:
+    """The AIs that can be picked for a job (studying or reviewing a style), and which one each task uses now."""
+    from .studio import ai
+    return {"choices": ai.ai_choices(), "references": ai.current_key("references")}
+
+
 @app.get("/api/ai/gemini-cli")
 def gemini_cli_status() -> dict:
     """Is the Gemini CLI installed and signed in here, and which tasks use it? Not offered on the server edition."""

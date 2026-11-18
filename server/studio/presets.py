@@ -29,6 +29,7 @@ BUILTIN: list[dict] = [
             {"text": "Check the title: a claim with one key word in green", "tool": "frame", "check": "title"},
             {"text": "Export with Upscale on", "tool": "post", "check": "exported"},
         ],
+        "make": {"mode": "story", "length": [15, 60]},   # how the short is made from the video (project page, step 2)
         "summary": "Security-camera, dashcam and phone clips: a square picture over a blurred copy, a title that stays up, boxed captions with speaker tags, and freeze-frame spotlights on the key moments.",
         "style": {
             "width": 1080, "height": 1920, "fps": 30,
@@ -78,6 +79,7 @@ BUILTIN: list[dict] = [
             {"text": "Write the moral line under the heart at the end", "tool": "motion", "check": "manual"},
             {"text": "Export", "tool": "post", "check": "exported"},
         ],
+        "make": {"mode": "story", "length": [20, 35]},   # how the short is made from the video (project page, step 2)
         "summary": "A 3:4 story with a twist: typed narration lines, a freeze with a red circle and arrow, colour flashes on the turns, and a heart at the end.",
         "style": {
             "width": 1080, "height": 1440, "fps": 60,
@@ -124,6 +126,7 @@ BUILTIN: list[dict] = [
             {"text": "Check no label covers a face, and the circles and arrows sit on the subject", "tool": "motion", "check": "manual"},
             {"text": "Export", "tool": "post", "check": "exported"},
         ],
+        "make": {"mode": "story", "length": [16, 22]},   # how the short is made from the video (project page, step 2)
         "summary": "A brighter 3:4 story told in short quoted neon labels, with a name tag, glowing callouts on moving footage and colour flashes on the beats. No freezes.",
         "style": {
             "width": 1080, "height": 1440, "fps": 60,
@@ -163,6 +166,7 @@ BUILTIN: list[dict] = [
             {"text": "Check the spotlight, name tag and arrow are on the right person", "tool": "motion", "check": "manual"},
             {"text": "Export", "tool": "post", "check": "exported"},
         ],
+        "make": {"mode": "story", "length": [14, 27]},   # how the short is made from the video (project page, step 2)
         "summary": "A caption-only 3:4 story in multi-colour neon text: a spotlight and name tag early, a freeze on the twist with an arrow, and a heart at the end. Original sound, no music.",
         "style": {
             "width": 1080, "height": 1440, "fps": 30,
@@ -192,7 +196,8 @@ BUILTIN: list[dict] = [
         "reference_links": [],
         "reference_note": "Your skill keeps no links for this style: add your four reference Shorts as files.",
         "audio": {"music": "none", "lufs": -20, "camera_on": []},
-        "limits": {"graphics": [], "sfx": False, "emoji": False, "hook": False, "freezes": False, "speeds": False, "zooms": True, "tracking": True},
+        "limits": {"graphics": [], "sfx": False, "emoji": False, "hook": False, "freezes": False, "speeds": False, "zooms": True, "tracking": True,
+                   "follow": True, "fit_wide": False},
         "workflow": [
             {"text": "Put your channel name and picture in the header", "tool": "style", "check": "header"},
             {"text": "Write the two-line title with the brand name in colour", "tool": "frame", "check": "title"},
@@ -201,6 +206,7 @@ BUILTIN: list[dict] = [
             {"text": "Optional: Plan the edit to add punch-ins on the product", "tool": "style", "check": "optional"},
             {"text": "Export", "tool": "post", "check": "exported"},
         ],
+        "make": {"mode": "whole", "trim_end": 1.0},   # how the short is made from the video (project page, step 2)
         "summary": "Turns a landscape TV advert into a short: channel header, a two-line multi-colour title that stays up, the ad in a very rounded box on black, and one or two word captions coloured per speaker.",
         "style": {
             "width": 1080, "height": 1920, "fps": 60,
@@ -248,6 +254,7 @@ BUILTIN: list[dict] = [
             {"text": "Leave 1.5 to 4 seconds after the punchline with no narration", "tool": "frame", "check": "manual"},
             {"text": "Export", "tool": "post", "check": "exported"},
         ],
+        "make": {"mode": "moments", "kind": "highlights", "count": 1, "length": [20, 60]},   # how the short is made from the video (project page, step 2)
         "summary": "A narrated 9:16 story with your own voiceover: glowing serif captions in the centre, a new shot every couple of seconds, and dips between shots. Your skill marks this style's edit as not yet approved; only its script rules are.",
         "style": {
             "width": 1080, "height": 1920, "fps": 60,

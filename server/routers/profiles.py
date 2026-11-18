@@ -49,7 +49,11 @@ def create_profile(body: dict) -> dict:
            # a copy of a built-in style keeps its limits and its steps
            "limits": copy.deepcopy(base.get("limits")), "workflow": copy.deepcopy(base.get("workflow")),
            "audio": copy.deepcopy(base.get("audio")), "reference_links": copy.deepcopy(base.get("reference_links") or []),
-           "memory": list(base.get("memory") or []), "reviewed": base.get("reviewed"), "copied_from": base.get("id", "")}
+           "memory": list(base.get("memory") or []), "reviewed": base.get("reviewed"), "copied_from": base.get("id", ""),
+           "memory_by": copy.deepcopy(base.get("memory_by") or {}), "memory_from": base.get("memory_from", ""),
+           "review_engine": base.get("review_engine", ""), "review_note": base.get("review_note", ""),
+           "analysis_by": copy.deepcopy(base.get("analysis_by") or {}), "analysis_from": base.get("analysis_from", ""),
+           "make": copy.deepcopy(base.get("make"))}
     for r in row["rules"]:
         r["source"] = "copied"
     new = P.profiles.insert(row)
@@ -136,20 +140,48 @@ def download_references(pid: str) -> dict:
 
 
 @router.post("/{pid}/review")
-def review(pid: str) -> dict:
-    """Have the AI look at the saved references again and refresh what it remembers about the style."""
+def review(pid: str, body: dict | None = None) -> dict:
+    """Have an AI ({use}: claude_code | agy | anthropic | gemini; empty = the one set for references) look at the
+    saved references again. Each AI keeps its own notes."""
     p = _style(pid)
+    use = str((body or {}).get("use") or "")
     if not p.get("references"):
         raise HTTPException(422, "Save some reference videos first.")
-    if not P.ai.available("references"):
+    if use and not any(c["key"] == use and c["ready"] for c in P.ai.ai_choices()):
+        raise HTTPException(422, f"{P.ai.label_for(use)} is not set up here.")
+    if not use and not P.ai.available("references"):
         raise HTTPException(422, "Reviewing references needs the AI. " + P.ai.setup_hint())
-    return {"job_id": jobs.submit("style", "Reviewing references", lambda job: P.review(pid, job)).id}
+    return {"job_id": jobs.submit("style", "Reviewing references", lambda job: P.review(pid, job, use=use)).id}
+
+
+@router.post("/{pid}/memory/use")
+def use_memory(pid: str, body: dict) -> dict:
+    """Switch the style to the notes another AI made from its references."""
+    _style(pid)
+    try:
+        return P.use_memory(pid, str(body.get("key") or ""))
+    except MediaError as e:
+        raise HTTPException(422, str(e))
+
+
+@router.post("/{pid}/analysis/use")
+def use_analysis(pid: str, body: dict) -> dict:
+    """Switch the style to the study another AI made: its look, brief and learned rules."""
+    _own(pid)
+    try:
+        return P.use_analysis(pid, str(body.get("key") or ""))
+    except MediaError as e:
+        raise HTTPException(422, str(e))
 
 
 @router.post("/{pid}/analyse")
-def analyse(pid: str) -> dict:
+def analyse(pid: str, body: dict | None = None) -> dict:
+    """Study the references and build the style from them, with a chosen AI ({use}); each AI's study is kept."""
     _own(pid)
-    return {"job_id": jobs.submit("style", "Studying references", lambda job: P.analyse(pid, job)).id}
+    use = str((body or {}).get("use") or "")
+    if use and not any(c["key"] == use and c["ready"] for c in P.ai.ai_choices()):
+        raise HTTPException(422, f"{P.ai.label_for(use)} is not set up here.")
+    return {"job_id": jobs.submit("style", "Studying references", lambda job: P.analyse(pid, job, use=use)).id}
 
 
 @router.post("/{pid}/feedback")

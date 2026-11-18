@@ -169,16 +169,31 @@ export function FramePanel({ ctx }: { ctx: Ctx }) {
   const patchShot = (patch: Partial<typeof shot>, key = '') =>
     update((s) => ({ ...s, shots: s.shots.map((x, i) => (i === idx ? { ...x, ...patch } : x)) }), key);
 
-  async function analyse(detectCuts: boolean) {
+  async function analyse(detectCuts: boolean, opts?: { follow: boolean; fitWide: boolean }) {
+    const fol = opts?.follow ?? follow, wide = opts?.fitWide ?? fitWide;
     try {
       await flush();
       const r = await jobs.run<{ engine: string; shots: AnalysedShot[] }>(() =>
-        api.post(`${base}/analyse`, { detect_cuts: detectCuts, track: follow, cuts: spec.shots.slice(1).map((s) => s.start) }));
+        api.post(`${base}/analyse`, { detect_cuts: detectCuts, track: fol, cuts: spec.shots.slice(1).map((s) => s.start) }));
       const found = r.shots.filter((s) => s.faces.length).length;
-      update((s) => applyAnalysis(s, r.shots, { splitTwo, follow, fitWide, keepLayouts: !detectCuts }));
+      update((s) => applyAnalysis(s, r.shots, { splitTwo, follow: fol, fitWide: wide, keepLayouts: !detectCuts }));
       toast(`${r.shots.length} shot${r.shots.length === 1 ? '' : 's'}; speaker found in ${found}`, found ? 'good' : 'info');
     } catch (e) { toastError(e); }
   }
+
+  // The style's own framing: Brand ad follows moving subjects and never shrinks the picture to fit people in.
+  // A short made from a whole video in such a style is framed as soon as it is first opened.
+  const autoFramed = useRef(false);
+  useEffect(() => {
+    const L = frameStyle?.limits;
+    if (!L) return;
+    if (L.follow !== undefined) setFollow(!!L.follow);
+    if (L.fit_wide !== undefined) setFitWide(!!L.fit_wide);
+    if (clip.kind === 'whole' && !autoFramed.current && !spec.shots.some((s) => s.faces) && !jobs.busy) {
+      autoFramed.current = true;
+      analyse(true, { follow: !!L.follow, fitWide: L.fit_wide ?? true });
+    }
+  }, [frameStyle?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   async function hookIdeas() {
     try {

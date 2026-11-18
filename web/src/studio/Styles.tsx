@@ -5,11 +5,12 @@ import { api } from '../api';
 import { go, useRoute } from '../App';
 import { Button, Empty, Field, JobBar, Panel, Toggle, fmtDur, toast, toastError, useJobRunner } from '../ui';
 import { StyleAnalysis, StyleProfile, StyleRule } from './types';
-import { ReferencesPanel, MemoryPanel, HowItWorks } from './StyleRefs';
+import { AiPicker, HowItWorks, MemoryPanel, ReferencesPanel, StudiesPanel } from './StyleRefs';
 
 export default function Styles() {
   const [styles, setStyles] = useState<StyleProfile[]>([]);
   const route = useRoute();
+  const [aiUse, setAiUse] = useState('');   // which AI studies and reviews on this page ('' = the usual one)
   // every style has its own page: #/styles/<id>
   const openId = route[0] === 'styles' ? route[1] ?? null : null;
   const setOpenId = (id: string | null) => go(id ? `styles/${id}` : 'styles');
@@ -38,7 +39,7 @@ export default function Styles() {
     if (!open) return;
     if (open.copied_from && !confirm('Studying rebuilds this style\'s look (captions, colours, frame) and its learned rules from the reference videos, replacing what it copied from the built-in style. Your own rules are kept. Go ahead?')) return;
     try {
-      const p = await run<StyleProfile>(() => api.post(`/api/profiles/${open.id}/analyse`));
+      const p = await run<StyleProfile>(() => api.post(`/api/profiles/${open.id}/analyse`, { use: aiUse }));
       await load();
       toast(p.note || `Style learned from ${p.references?.length ?? 0} reference${p.references?.length === 1 ? '' : 's'}`, p.note ? 'info' : 'good');
     } catch (e) { toastError(e); }
@@ -64,8 +65,10 @@ export default function Styles() {
           </div>
         </div>
 
+        <AiPicker value={aiUse} onChange={setAiUse} />
         <ReferencesPanel style={open} reload={load} job={job} run={run} busy={busy} onStudy={!fixed ? analyse : undefined} />
-        <MemoryPanel style={open} reload={load} run={run} busy={busy} />
+        {!fixed && <StudiesPanel style={open} reload={load} />}
+        <MemoryPanel style={open} reload={load} run={run} busy={busy} use={aiUse} />
         <HowItWorks style={open} />
 
         {(a || open.summary) && (

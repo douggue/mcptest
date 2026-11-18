@@ -168,6 +168,32 @@ def _mouth_motion(cv2, a: np.ndarray, b: np.ndarray, face: tuple[float, float, f
     return float(np.mean(np.abs(pa - pb)))
 
 
+def _focus(cv2, cap, start: float, end: float) -> dict | None:
+    """Where the action is in a shot without faces: the centre of the movement between frames a moment apart
+    (a hand on a joystick, springs stretching); if nothing moves, the centre of the detail. {cx, cy, how}."""
+    dur = max(0.2, end - start)
+    motion = np.zeros((90, 160), np.float32)
+    detail = np.zeros((90, 160), np.float32)
+    for p in (0.2, 0.4, 0.6, 0.8):
+        t = start + dur * p
+        a, b = _grab(cap, t), _grab(cap, min(end - 0.02, t + 0.15))
+        if a is None:
+            continue
+        ga = cv2.GaussianBlur(cv2.cvtColor(cv2.resize(a, (160, 90)), cv2.COLOR_BGR2GRAY).astype(np.float32), (5, 5), 0)
+        detail += np.abs(cv2.Laplacian(ga, cv2.CV_32F))
+        if b is not None:
+            gb = cv2.GaussianBlur(cv2.cvtColor(cv2.resize(b, (160, 90)), cv2.COLOR_BGR2GRAY).astype(np.float32), (5, 5), 0)
+            motion += np.abs(ga - gb)
+    for name, field in (("motion", motion), ("detail", detail)):
+        field = np.where(field > np.percentile(field, 85), field, 0)   # only the strongest part counts
+        total = float(field.sum())
+        if total <= 0 or (name == "motion" and float(motion.mean()) < 1.5):
+            continue
+        ys, xs = np.mgrid[0:90, 0:160]
+        return {"cx": round(float((field * xs).sum() / total / 160), 4), "cy": round(float((field * ys).sum() / total / 90), 4), "how": name}
+    return None
+
+
 def analyse_shots(path: Path, ranges: list[tuple[float, float]], job: Job | None = None, track: bool = False) -> dict:
     """For each (start, end) shot: the faces in it ranked by who seems to be speaking, and optional tracking keyframes.
 
@@ -226,7 +252,13 @@ def analyse_shots(path: Path, ranges: list[tuple[float, float]], job: Job | None
                 for i, (t, _) in enumerate(raw):   # smooth so the crop glides instead of jittering
                     win = [x for _, x in raw[max(0, i - 2):i + 3]]
                     keys.append({"t": round(t, 3), "cx": round(sum(win) / len(win), 4)})
-            out.append({"faces": faces, "track": keys})
+            shot = {"faces": faces, "track": keys}
+            # where the action is, for when there is no steady face to frame on (none found, or only doubtful ones)
+            if not any(f["seen"] >= 0.5 for f in faces):
+                f = _focus(cv2, cap, start, end)
+                if f:
+                    shot["focus"] = f
+            out.append(shot)
     finally:
         cap.release()
     return {"engine": finder.engine, "shots": out}

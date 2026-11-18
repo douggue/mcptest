@@ -20,7 +20,7 @@ const LENGTHS = [
 ];
 const LENGTH_NOTE: Record<ClipKind, string> = {
   highlights: 'Length of each clip.', series: 'Length of each part.', topic: 'Length of each clip.',
-  recap: 'Length of the whole recap.', trailer: 'Length of the whole trailer.',
+  recap: 'Length of the whole recap.', trailer: 'Length of the whole trailer.', whole: '', story: '',
 };
 
 export function ScoreRing({ score }: { score: Score | null }) {
@@ -121,6 +121,38 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
       toast(r.added ? (single ? `Made the ${kind}` : `Found ${r.added} ${what}${r.added === 1 ? '' : 's'}`) : 'No matching moments found', r.added ? 'good' : 'info');
       await reload();
     } catch (e) { toastError(e); }
+  }
+
+  const chosenStyle = styles.find((x) => x.id === styleId);
+  // Each style makes its short its own way: an advert is the whole video, a story is one part of raw footage,
+  // a narrated story is one moment. Without a style, a short video is the short and a long one has moments.
+  const make = chosenStyle?.make ?? { mode: project.source.duration <= 90 ? 'whole' as const : 'moments' as const };
+  const wholeMode = make.mode !== 'moments';
+  const [part, setPart] = useState({ in: 0, out: project.source.duration });
+  useEffect(() => {
+    if (make.mode === 'moments' && make.count) { setCount(make.count); if (make.kind) setKind(make.kind); }
+    if (make.mode === 'moments' && make.length) { setMinLen(make.length[0]); setMaxLen(make.length[1]); }
+  }, [styleId]);   // eslint-disable-line react-hooks/exhaustive-deps
+  async function makePart() {
+    try {
+      const clip = await api.post<Clip>(`/api/projects/${project.id}/clips`, { in: part.in, out: part.out, title: project.name, kind: 'story',
+        profile_id: styleId || undefined, template_id: templateId || undefined });
+      await reload();
+      go(`studio/${project.id}/${clip.id}`);
+    } catch (e) { toastError(e); }
+  }
+  const [wholeBusy, setWholeBusy] = useState(false);
+  async function makeWhole() {
+    setWholeBusy(true);
+    try {
+      const clip = await api.post<Clip & { trimmed: { start: number; end: number } }>(`/api/projects/${project.id}/whole`,
+        { profile_id: styleId || undefined, template_id: templateId || undefined, title: project.name, kind: make.mode === 'story' ? 'story' : 'whole' });
+      const cut = [clip.trimmed.start > 0.02 && `${clip.trimmed.start.toFixed(2)} s at the start`, clip.trimmed.end > 0.02 && `${clip.trimmed.end.toFixed(2)} s at the end`].filter(Boolean);
+      toast(cut.length ? `Made the short; trimmed ${cut.join(' and ')}` : 'Made the short from the whole video', 'good');
+      await reload();
+      go(`studio/${project.id}/${clip.id}`);
+    } catch (e) { toastError(e); }
+    setWholeBusy(false);
   }
 
   async function addManual() {
@@ -227,6 +259,28 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
                 {templates.length > 0 && <optgroup label="Saved templates">{templates.map((t) => <option key={t.id} value={`tpl:${t.id}`}>{t.name}</option>)}</optgroup>}
               </select>
             </Field>
+            {make.mode === 'whole' && (
+              <div className="col gap-s">
+                <div className="notice">{chosenStyle
+                  ? `${chosenStyle.name}: the whole video becomes the short. There are no moments to find; a fade from black at the start${chosenStyle.make?.trim_end ? ` and the last ${chosenStyle.make.trim_end} s` : ''} are trimmed.`
+                  : `This video is ${Math.round(project.source.duration)} seconds long, so it can be the short as it is.`}</div>
+                <div className="row"><Button variant="primary" icon="film" onClick={makeWhole} busy={wholeBusy}>Make the short</Button></div>
+              </div>
+            )}
+            {make.mode === 'story' && (
+              <div className="col gap-s">
+                <div className="notice">{chosenStyle?.name}: one story from this footage{make.length ? `, best at ${make.length[0]}–${make.length[1]} seconds once dull stretches are sped up` : ''}. Use the whole video, or mark where the story starts and ends.</div>
+                <div className="row wrap gap-s" style={{ alignItems: 'flex-end' }}>
+                  <Button variant="primary" icon="film" onClick={makeWhole} busy={wholeBusy}>Use the whole video</Button>
+                  <span className="small muted">or</span>
+                  <Field label="Story starts (s)"><input type="number" min={0} step={0.1} value={part.in} onChange={(e) => setPart({ ...part, in: Math.max(0, Number(e.target.value)) })} style={{ width: 100 }} /></Field>
+                  <Field label="Story ends (s)"><input type="number" min={0} step={0.1} value={part.out} onChange={(e) => setPart({ ...part, out: Math.min(project.source.duration, Number(e.target.value)) })} style={{ width: 100 }} /></Field>
+                  <Button icon="scissors" onClick={makePart} disabled={part.out - part.in < 1}>Make the short from this part</Button>
+                </div>
+                {make.length && part.out - part.in > make.length[1] * 2.5 && <span className="small muted">That part is long for this style; plan the edit to speed up the dull stretches, or mark a shorter part.</span>}
+              </div>
+            )}
+            <MaybeFold fold={wholeMode} title="Find moments instead (for long videos)">
             <Field label="What to make">
               <div className="chips" role="radiogroup" aria-label="What to make">
                 {KINDS.map((k) => (
@@ -275,6 +329,7 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
             {pastPosts > 0 && <span className="small muted">Using the views of {pastPosts} posted clip{pastPosts === 1 ? '' : 's'}.</span>}
             {note && <div className="notice">{note}</div>}
             <JobBar job={mo.job} />
+            </MaybeFold>
           </Panel>
         </div>
       </div>
@@ -322,4 +377,9 @@ export function ProjectView({ project, reload }: { project: Project; reload: () 
       </Panel>
     </div>
   );
+}
+
+/** Its children as they are, or folded behind a title. */
+function MaybeFold({ fold, title, children }: { fold: boolean; title: string; children: React.ReactNode }) {
+  return fold ? <More title={title}>{children}</More> : <>{children}</>;
 }

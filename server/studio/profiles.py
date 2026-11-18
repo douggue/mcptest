@@ -379,8 +379,10 @@ def _brief(analysis: dict) -> str:
     return "\n".join(parts)
 
 
-def analyse(pid: str, job: Job) -> dict:
-    """Measure every reference, then (with an AI key) have the model describe the style. Saves and returns the profile."""
+def analyse(pid: str, job: Job, use: str = "") -> dict:
+    """Measure every reference, then have the chosen AI (`use`; '' = the one set for references) describe the style.
+    Each AI's study is kept under its own name (analysis_by), so studies by different AIs can be compared and
+    switched; the newest becomes the style's look. Saves and returns the profile."""
     profile = profiles.get(pid)
     if not profile:
         raise MediaError("That style no longer exists.")
@@ -394,10 +396,12 @@ def analyse(pid: str, job: Job) -> dict:
         refs.append({"name": f.name, "file": f.name, "url": media_url(f), **measure(f)})
 
     analysis, note = None, ""
-    if ai.available("references"):
+    key = use or ai.current_key("references")
+    who = ai.label_for(key) if use else ai.provider_label("references")
+    if (use and any(c["key"] == use and c["ready"] for c in ai.ai_choices())) or (not use and ai.available("references")):
         per = max(6, min(FRAMES_PER_REFERENCE, MAX_FRAMES // len(files)))
         parts: list = [_analysis_request(refs)]
-        if ai.watches_video("references"):
+        if (any(c["key"] == use and c["watches_video"] for c in ai.ai_choices()) if use else ai.watches_video("references")):
             # Gemini can watch the references themselves, which adds motion, timing and sound to what the stills show.
             # It looks at one frame a second by default; short-form edits change faster than that, so ask for more
             # while keeping the whole request to about FRAME_BUDGET frames.
@@ -412,9 +416,10 @@ def analyse(pid: str, job: Job) -> dict:
             for t, jpeg in _study_frames(f, r["duration"], per):
                 parts.append(f"Reference {i + 1}, frame at {t:.1f}s:")
                 parts.append({"image": jpeg})
-        job.update(0.62, f"Studying the style with {ai.provider_label("references")}")
+        job.update(0.62, f"Studying the style with {who}")
         try:
-            analysis = ai.ask_json(ANALYSIS_SYSTEM, parts, ANALYSIS_SCHEMA, max_tokens=32000, effort="high", task="references")
+            analysis = ai.ask_with(use, ANALYSIS_SYSTEM, parts, ANALYSIS_SCHEMA, max_tokens=32000, effort="high", task="references")
+            analysis.pop("_watched", None)
         except ai.AIUnavailable as e:
             note = f"The AI step failed ({e}), so this style holds measurements only."
     else:
@@ -438,14 +443,34 @@ def analyse(pid: str, job: Job) -> dict:
              "analysis": analysis, "note": note, "style": style, "elements": elements, "planner": planner,
              "summary": (analysis or {}).get("summary", profile.get("summary", "")),
              "rules": kept + learned, "brief": _brief(analysis) if analysis else profile.get("brief", ""),
-             "analysed": time.time(), "engine": ai.provider_label("references") if analysis else ""}
+             "analysed": time.time(), "engine": who if analysis else ""}
+    if analysis:
+        # keep this AI's study next to the others', so the style can be switched back to it
+        by = dict(profile.get("analysis_by") or {})
+        by[key] = {k: patch[k] for k in ("analysis", "style", "elements", "planner", "summary", "brief", "analysed", "engine")}
+        by[key]["learned"] = learned
+        patch.update(analysis_by=by, analysis_from=key)
+    return profiles.update(pid, patch)
+
+
+def use_analysis(pid: str, key: str) -> dict:
+    """Make the style follow the study one AI made earlier: its look, brief and learned rules."""
+    profile = profiles.get(pid)
+    if not profile:
+        raise MediaError("That style no longer exists.")
+    a = (profile.get("analysis_by") or {}).get(key)
+    if not a:
+        raise MediaError("That AI has not studied this style yet.")
+    kept = [r for r in profile.get("rules", []) if r.get("source") != "references"]
+    patch = {k: a[k] for k in ("analysis", "style", "elements", "planner", "summary", "brief", "analysed", "engine")}
+    patch.update(rules=kept + list(a.get("learned") or []), analysis_from=key)
     return profiles.update(pid, patch)
 
 
 # A built-in style's definition lives in code, but its saved reference videos and what the AI noticed in them
 # (its memory) are the person's, so they are kept here, keyed by the style's id.
 state = Collection("style_state")
-STATE_KEYS = ("references", "memory", "reviewed", "review_note", "review_engine")
+STATE_KEYS = ("references", "memory", "reviewed", "review_note", "review_engine", "memory_by", "memory_from")
 
 
 def is_builtin(pid: str) -> bool:
@@ -553,16 +578,21 @@ def _reference_files(p: dict) -> list[tuple[dict, Path]]:
     return out
 
 
-def review(pid: str, job: Job, span: tuple[float, float] = (0.0, 1.0)) -> dict:
-    """Have the AI look at the saved references again and store what it noticed as the style's memory."""
+def review(pid: str, job: Job, span: tuple[float, float] = (0.0, 1.0), use: str = "") -> dict:
+    """Have an AI (`use`; '' = the one set for references) look at the saved references again and store what it
+    noticed as the style's memory. Each AI keeps its own notes (memory_by); the newest review becomes the memory
+    used, and the person can switch to another AI's notes."""
     p = lookup(pid)
     if not p:
         raise MediaError("That style no longer exists.")
     files = _reference_files(p)
     if not files:
         raise MediaError("This style has no saved reference videos yet.")
-    if not ai.available("references"):
+    key = use or ai.current_key("references")
+    who = ai.label_for(key) if use else ai.provider_label("references")
+    if not use and not ai.available("references"):
         raise ai.AIUnavailable("Reviewing reference videos needs the AI. " + ai.setup_hint())
+    watches = any(c["key"] == use and c["watches_video"] for c in ai.ai_choices()) if use else ai.watches_video("references")
     per = max(4, min(10, 48 // len(files)))
     rules = "\n".join(f"- {r['text']}" for r in p.get("rules", []) if r.get("on", True))
     parts: list = [f"The style: {p.get('name')}\n\nIts description:\n{p.get('brief', '')}\n\nIts rules:\n{rules or '(none)'}\n\n"
@@ -570,19 +600,30 @@ def review(pid: str, job: Job, span: tuple[float, float] = (0.0, 1.0)) -> dict:
     for i, (r, f) in enumerate(files):
         job.update(span[0] + (span[1] - span[0]) * 0.5 * i / len(files), f"Looking at reference {i + 1} of {len(files)} again")
         dur = r.get("duration") or probe(f)["duration"]
-        if ai.watches_video("references"):   # the whole video, with its motion, timing and sound
+        if watches:   # the whole video, with its motion, timing and sound
             parts.append(f"Reference {i + 1}, the whole video:")
             parts.append({"video": f})
         for t, jpeg in _study_frames(f, dur, per):
             parts.append(f"Reference {i + 1}, frame at {t:.1f}s:")
             parts.append({"image": jpeg})
-    job.update(span[0] + (span[1] - span[0]) * 0.6, f"Reviewing the references with {ai.provider_label("references")}")
-    out = ai.ask_json(REVIEW_SYSTEM, parts, REVIEW_SCHEMA, max_tokens=8000, effort="medium", task="references")
+    job.update(span[0] + (span[1] - span[0]) * 0.6, f"Reviewing the references with {who}")
+    out = ai.ask_with(use, REVIEW_SYSTEM, parts, REVIEW_SCHEMA, max_tokens=8000, effort="medium", task="references")
     memory = [m.strip() for m in out["memory"] if m.strip()][:20]
     note = ("The references differ from the description: " + " ".join(out["contradictions"])) if out["contradictions"] else ""
     if out.get("_watched") == "frames":
         note = ("The whole videos could not be watched this time, so the review used still frames (no motion or sound). " + note).strip()
-    return save(pid, {"memory": memory, "reviewed": time.time(), "review_note": note, "review_engine": ai.provider_label("references")})
+    entry = {"memory": memory, "reviewed": time.time(), "review_note": note, "review_engine": who}
+    by = dict((lookup(pid) or {}).get("memory_by") or {})
+    by[key or "ai"] = entry
+    return save(pid, {**entry, "memory_by": by, "memory_from": key or "ai"})
+
+
+def use_memory(pid: str, key: str) -> dict:
+    """Use the notes one AI made when it last reviewed the references."""
+    entry = ((lookup(pid) or {}).get("memory_by") or {}).get(key)
+    if not entry:
+        raise MediaError("That AI has not reviewed these references yet.")
+    return save(pid, {**entry, "memory_from": key})
 
 
 def reference_frames(pid: str | None, n: int = 8) -> list[tuple[str, bytes]]:
