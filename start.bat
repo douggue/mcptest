@@ -79,6 +79,14 @@ if not exist "%ENVDIR%\installed.txt" (
   echo  [2/4] Python packages already installed.
 )
 
+rem OpenCV comes in two packages that cannot live together (they share one folder); if something installed the
+rem other one, the face finder breaks ("module 'cv2' has no attribute ..."). Check, and repair when needed.
+"%VPY%" -c "import cv2; cv2.CascadeClassifier; cv2.dnn" >nul 2>nul || (
+  echo  [!] Repairing OpenCV ^(two copies were installed over each other^)...
+  "%VPY%" -m pip uninstall -y opencv-python opencv-contrib-python opencv-python-headless scenedetect >nul 2>nul
+  "%VPY%" -m pip install --force-reinstall --no-deps "opencv-python-headless>=4.9,<5" || goto fail
+)
+
 node web\stale.cjs install
 if not errorlevel 1 (
   echo.
