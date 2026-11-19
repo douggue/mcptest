@@ -54,6 +54,10 @@ def provider() -> str:
         # never on the server edition: everyone signed in would be spending the owner's subscription
         if not auth.enabled() and claude_code_exe():
             return "claude_code"
+    elif chosen == "codex":
+        from .. import auth
+        if not auth.enabled() and codex_exe():
+            return "codex"
     elif keys.get(chosen):
         return chosen
     return next((name for name, key in keys.items() if key), "")
@@ -70,6 +74,14 @@ def setup_hint() -> str:
         if not claude_code_exe():
             return ("Claude subscription is chosen under Settings → AI, but Claude Code was not found on this computer. "
                     "Install it and sign in by running  claude  once in a terminal, or set where it is in Settings → AI.")
+    if chosen == "codex":
+        from .. import auth
+        if auth.enabled():
+            return ("The server edition cannot use your ChatGPT subscription (anyone signed in would be using it). "
+                    "Add a Claude or Gemini API key under Settings → AI.")
+        if not codex_exe():
+            return ("ChatGPT subscription is chosen under Settings → AI, but the Codex CLI was not found on this computer. "
+                    "Install it with  npm install -g @openai/codex  and sign in by running  codex login  once.")
     return ("No AI is set up yet. Under Settings → AI choose Claude subscription (uses Claude Code on this computer) "
             "or add a Claude or Gemini API key.")
 
@@ -101,10 +113,11 @@ def available(task: str = "") -> bool:
 def provider_label(task: str = "") -> str:
     if gemini_cli_for(task) or (not provider() and backup_ready()):
         return f"Gemini (your Google subscription, {gemini_cli_label()})"
-    return {"anthropic": "Claude", "gemini": "Gemini", "claude_code": "Claude (your subscription)"}.get(provider(), "")
+    return {"anthropic": "Claude", "gemini": "Gemini", "claude_code": "Claude (your subscription)",
+            "codex": "ChatGPT (your subscription)"}.get(provider(), "")
 
 
-AI_NAMES = {"claude_code": "Claude (your subscription)", "agy": "Gemini (your Google subscription)",
+AI_NAMES = {"claude_code": "Claude (your subscription)", "codex": "ChatGPT (your subscription)", "agy": "Gemini (your Google subscription)",
             "anthropic": "Claude (API key)", "gemini": "Gemini (API key)"}
 
 
@@ -115,6 +128,8 @@ def ai_choices() -> list[dict]:
     out = [
         {"key": "claude_code", "ready": local and claude_code_exe() is not None, "watches_video": False,
          "why": "" if local else "Not on the server edition."},
+        {"key": "codex", "ready": local and codex_exe() is not None, "watches_video": False,
+         "why": "" if local else "Not on the server edition."},
         {"key": "agy", "ready": local and gemini_cli_exe() is not None, "watches_video": (get_settings().get("gemini_cli_video") or "video") != "frames",
          "why": "" if local else "Not on the server edition."},
         {"key": "anthropic", "ready": bool(anthropic_key()), "watches_video": False, "why": ""},
@@ -123,7 +138,7 @@ def ai_choices() -> list[dict]:
     for c in out:
         c["label"] = AI_NAMES[c["key"]]
         if not c["ready"] and not c["why"]:
-            c["why"] = {"claude_code": "Claude Code was not found.", "agy": "The Antigravity CLI was not found.",
+            c["why"] = {"claude_code": "Claude Code was not found.", "codex": "The Codex CLI was not found.", "agy": "The Antigravity CLI was not found.",
                         "anthropic": "No Claude API key.", "gemini": "No Gemini API key."}[c["key"]]
     return out
 
@@ -148,6 +163,8 @@ def ask_with(use: str, system: str, user: "str | list", schema: dict, max_tokens
         return _ask_gemini_cli(system, user, schema, task)
     if use == "claude_code":
         return _ask_claude_code(system, user, schema, effort)
+    if use == "codex":
+        return _ask_codex(system, user, schema, effort)
     text = _ask_gemini(system, user, schema) if use == "gemini" else _ask_claude(system, user, schema, max_tokens, effort)
     try:
         return json.loads(text)
@@ -185,6 +202,8 @@ def _ask_main(system: str, user: "str | list", schema: dict, max_tokens: int, ef
         raise AIUnavailable(setup_hint())
     if which == "claude_code":
         return _ask_claude_code(system, user, schema, effort)   # already parsed
+    if which == "codex":
+        return _ask_codex(system, user, schema, effort)   # already parsed
     text = _ask_gemini(system, user, schema) if which == "gemini" else _ask_claude(system, user, schema, max_tokens, effort)
     try:
         return json.loads(text)
@@ -813,3 +832,188 @@ def _schema_problems(data: object, schema: dict, limit: int = 12) -> list[str]:
         where = "/".join(str(p) for p in e.path) or "the top level"
         out.append(f"at {where}: {e.message[:160]}")
     return out
+
+
+# ---------------------------------------------------------------- ChatGPT subscription: OpenAI's Codex CLI
+
+CODEX_EFFORTS = ("minimal", "low", "medium", "high", "xhigh")
+_CODEX_OK: list[bool] = []   # set once the sign-in has been checked in this run
+
+
+def codex_exe() -> list[str] | None:
+    """The command for the Codex CLI, or None. An npm install on Windows gives a codex.cmd shim, run through its
+    JavaScript entry point with node instead (a shell would mangle the arguments)."""
+    import os
+    import shutil
+    from pathlib import Path
+    custom = (get_settings().get("codex_path") or "").strip().strip('"')
+    found = custom if custom and Path(custom).exists() else shutil.which("codex")
+    if not found:
+        return None
+    if found.lower().endswith((".cmd", ".bat", ".ps1")):
+        script = Path(found).parent / "node_modules" / "@openai" / "codex" / "bin" / "codex.js"
+        node = shutil.which("node")
+        return [node, str(script)] if script.exists() and node else None
+    return [found] if os.access(found, os.X_OK) or os.name == "nt" else None
+
+
+def _codex_env() -> dict:
+    """Without API keys, so the ChatGPT sign-in (the subscription) is what gets used, not a key that bills."""
+    import os
+    env = dict(os.environ)
+    for k in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "CODEX_API_KEY"):
+        env.pop(k, None)
+    env["NO_COLOR"] = "1"
+    return env
+
+
+def codex_status() -> dict:
+    """{installed, version, logged_in, method, why} for Settings."""
+    import subprocess
+    exe = codex_exe()
+    if not exe:
+        return {"installed": False, "version": "", "logged_in": False, "method": "",
+                "why": "The Codex CLI was not found. Install it with  npm install -g @openai/codex  then run  codex login  "
+                       "once in a terminal and sign in with your ChatGPT account, or set where it is below."}
+    out = {"installed": True, "version": "", "logged_in": False, "method": "", "why": ""}
+    try:
+        v = subprocess.run(exe + ["--version"], capture_output=True, text=True, timeout=60, env=_codex_env())
+        out["version"] = (v.stdout or "").strip().split()[-1] if (v.stdout or "").strip() else ""
+        a = subprocess.run(exe + ["login", "status"], capture_output=True, text=True, timeout=60, env=_codex_env())
+        said = ((a.stdout or "") + (a.stderr or "")).strip()
+        low = said.lower()
+        out["logged_in"] = "logged in" in low and "not logged in" not in low   # anything else (a warning, an error) is not
+        out["method"] = "ChatGPT" if "chatgpt" in said.lower() else ("API key" if "api key" in said.lower() else "")
+    except (OSError, subprocess.TimeoutExpired) as e:
+        out["why"] = f"The Codex CLI is installed but did not answer ({e})."
+        return out
+    if not out["logged_in"]:
+        out["why"] = "The Codex CLI is not signed in. Open a terminal, run  codex login  and sign in with your ChatGPT account."
+    elif out["method"] == "API key":
+        out["why"] = "Codex is signed in with an API key, which is billed per use; run  codex login  to use your ChatGPT plan instead."
+    return out
+
+
+def _strict(schema: dict) -> dict | None:
+    """The schema in the strict form OpenAI's structured outputs need (every object closed, every property
+    required), or None when it cannot be made strict (an object with no listed properties)."""
+    import copy
+
+    def walk(n):
+        if isinstance(n, dict):
+            if n.get("type") == "object" or "properties" in n:
+                if not n.get("properties"):
+                    raise ValueError("open object")
+                n["additionalProperties"] = False
+                n["required"] = list(n["properties"])
+            for v in n.values():
+                walk(v)
+        elif isinstance(n, list):
+            for v in n:
+                walk(v)
+    out = copy.deepcopy(schema)
+    try:
+        walk(out)
+    except ValueError:
+        return None
+    return out
+
+
+def _ask_codex(system: str, user: "str | list", schema: dict, effort: str = "medium") -> dict:
+    """One answer from the Codex CLI (codex exec): read-only sandbox, nothing saved, the person's own Codex config
+    and plugins not loaded, run in an empty folder. Pictures are attached with -i; the answer is held to the schema
+    with --output-schema and read from the file -o writes."""
+    import subprocess
+    import tempfile
+    from pathlib import Path
+    from ..config import DATA
+    exe = codex_exe()
+    if not exe:
+        raise AIUnavailable("The Codex CLI was not found on this computer (Settings → AI).")
+    if not _CODEX_OK:   # signed out, Codex keeps retrying for minutes; check first (once per run once it is fine)
+        st = codex_status()
+        if not st["logged_in"]:
+            raise AIUnavailable(st["why"] or "The Codex CLI is not signed in. Open a terminal, run  codex login  and sign in.")
+        _CODEX_OK.append(True)
+    s = get_settings()
+    model = (s.get("codex_model") or "").strip()
+    effort = (s.get("codex_effort") or effort or "").strip()
+    work = DATA / "tmp" / "codex"
+    work.mkdir(parents=True, exist_ok=True)
+    strict = _strict(schema)
+
+    def run(enforce: bool, fix: str = "") -> dict:
+        with tempfile.TemporaryDirectory(dir=work) as tmp:
+            pieces = [system, ""]
+            images: list[str] = []
+            for part in ([user] if isinstance(user, str) else user):
+                if isinstance(part, str):
+                    pieces.append(part)
+                elif "image" in part:
+                    name = str(Path(tmp, f"picture_{len(images) + 1:03d}.jpg"))
+                    Path(name).write_bytes(part["image"])
+                    images.append(name)
+                    pieces.append(f"[picture {len(images)} of the attached pictures]")
+                # whole videos: Codex takes pictures only; the stills carry the picture
+            if fix:
+                pieces.append("\nYour previous answer did not match the required format. Problems: " + fix + "\nAnswer again, fixing exactly these.")
+            if not enforce:
+                pieces.append("\nAnswer with one JSON object and nothing else, matching this JSON schema:\n" + json.dumps(schema, separators=(",", ":")))
+            answer = Path(tmp, "answer.json")
+            cmd = exe + ["exec", "--skip-git-repo-check", "--ephemeral", "--ignore-user-config", "-s", "read-only",
+                         "-C", tmp, "-o", str(answer)]
+            if enforce and strict:
+                Path(tmp, "schema.json").write_text(json.dumps(strict), "utf-8")
+                cmd += ["--output-schema", str(Path(tmp, "schema.json"))]
+            if model:
+                cmd += ["-m", model]
+            if effort in CODEX_EFFORTS or effort == "max":
+                cmd += ["-c", f'model_reasoning_effort="{"xhigh" if effort == "max" else effort}"']
+            for img in images:
+                cmd += ["-i", img]
+            cmd += ["--color", "never", "-"]   # the prompt comes on stdin ("-" after a flag, so -i does not take it)
+            try:
+                r = subprocess.run(cmd, input="\n".join(pieces), capture_output=True, text=True, encoding="utf-8",
+                                   errors="replace", timeout=1800, cwd=tmp, env=_codex_env())
+            except subprocess.TimeoutExpired as e:
+                raise AIUnavailable("The Codex CLI took more than 30 minutes and was stopped.") from e
+            except OSError as e:
+                raise AIUnavailable(f"The Codex CLI could not be started: {e}") from e
+            text = answer.read_text("utf-8").strip() if answer.exists() else ""
+        if r.returncode != 0 or not text:
+            printed = [x for x in ((r.stderr or "") + "\n" + (r.stdout or "")).splitlines() if x.strip()]
+            why = " | ".join(printed[-5:])[-400:] or "no answer"
+            low = why.lower()
+            if any(k in low for k in ("not logged in", "login", "unauthorized", "401", "sign in")):
+                raise AIUnavailable("The Codex CLI is not signed in. Open a terminal, run  codex login  and sign in with your ChatGPT account.")
+            if any(k in low for k in ("usage limit", "rate limit", "quota", "429")):
+                raise AIUnavailable(f"Your ChatGPT plan's usage limit was reached for now: {why[:200]}")
+            if enforce and any(k in low for k in ("schema", "output_schema", "json_schema", "invalid_request")):
+                raise _SchemaRefused(why)
+            raise AIUnavailable(f"The Codex CLI did not answer: {why[:300]}")
+        try:
+            return _json_from(text)
+        except json.JSONDecodeError as e:
+            raise AIUnavailable("ChatGPT answered, but not with the JSON that was asked for.") from e
+
+    if strict:
+        try:
+            return run(True)
+        except AIUnavailable as e:
+            if "not signed in" in str(e) or "usage limit" in str(e):
+                raise
+            # a schema OpenAI would not take as strict (or any other trouble with it): asked for in words instead,
+            # and the answer checked against the schema here
+
+    out = run(False)
+    problems = _schema_problems(out, schema)
+    if problems:
+        out = run(False, "; ".join(problems))
+        problems = _schema_problems(out, schema)
+        if problems:
+            raise AIUnavailable("ChatGPT's answer did not have the expected shape: " + "; ".join(problems)[:300])
+    return out
+
+
+class _SchemaRefused(AIUnavailable):
+    """Codex would not take the schema as a strict output schema."""

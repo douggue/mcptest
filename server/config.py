@@ -27,10 +27,13 @@ SUBDIRS = [
 ]
 
 DEFAULT_SETTINGS = {
-    "ai_provider": "anthropic",       # anthropic | gemini | claude_code (whichever API has a key is used if this one is not ready)
+    "ai_provider": "anthropic",       # anthropic | gemini | claude_code | codex (whichever API has a key is used if this one is not ready)
     "claude_code_model": "opus",      # with claude_code: an alias (opus, sonnet, haiku, fable) or a full model name
     "claude_code_effort": "",         # with claude_code: low | medium | high | xhigh | max; '' lets each feature choose
     "claude_code_path": "",           # with claude_code: where claude(.exe) is, when it is not on PATH
+    "codex_model": "",                # with codex (ChatGPT subscription through the Codex CLI): '' lets Codex choose
+    "codex_effort": "",               # with codex: minimal | low | medium | high | xhigh; '' lets each feature choose
+    "codex_path": "",                 # with codex: where codex(.cmd) is, when it is not on PATH
     # Gemini CLI on this computer, signed in with the person's Google account (e.g. Google AI Ultra), for chosen tasks only:
     "gemini_cli_tasks": [],           # any of: "moments" (finding moments), "references" (studying and reviewing style references)
     "gemini_cli_model": "",           # '' lets the CLI choose (auto); or a model name

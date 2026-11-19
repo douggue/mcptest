@@ -7,8 +7,9 @@ import { Button, Field, Panel, Seg, Slider, Toggle, toast, toastError } from '..
 
 type Brand = { name: string; accent: string; secondary: string; font: string; logo: string; logoPos: string; logoSize: number; watermark: string };
 type SettingsData = {
-  ai_provider: 'anthropic' | 'gemini' | 'claude_code'; anthropic_api_key: string; anthropic_api_key_set: boolean; ai_model: string;
+  ai_provider: 'anthropic' | 'gemini' | 'claude_code' | 'codex'; anthropic_api_key: string; anthropic_api_key_set: boolean; ai_model: string;
   gemini_api_key: string; gemini_api_key_set: boolean; gemini_model: string; claude_code_model: string; claude_code_effort: string; claude_code_path: string;
+  codex_model?: string; codex_effort?: string; codex_path?: string;
   use_gpu?: boolean;
   gemini_cli_tasks: string[]; gemini_cli_model: string; gemini_cli_path: string; gemini_cli_task_models: Record<string, string>; gemini_cli_video: 'video' | 'frames'; gemini_cli_backup?: boolean; whisper_model: string; copy_folder: string; capcut_folder: string;
   pexels_api_key: string; pexels_api_key_set: boolean; tts_voice: string; brand: Brand;
@@ -95,10 +96,12 @@ export default function Settings() {
           <Seg value={s.ai_provider} onChange={chooseProvider} options={[
             { value: 'anthropic', label: 'Claude API key' }, { value: 'gemini', label: 'Gemini (Google)' },
             { value: 'claude_code', label: 'Claude subscription', title: 'Uses the Claude Code program on this computer, signed in with your own Claude plan: no API key' },
+            { value: 'codex', label: 'ChatGPT subscription', title: 'Uses the Codex CLI on this computer, signed in with your own ChatGPT plan: no API key' },
           ]} />
         </Field>
         {health && !health.ai && health.ai_problem && <div className="notice warn">{health.ai_problem}</div>}
         {s.ai_provider === 'claude_code' && <ClaudeCodeSettings s={s} set={set} />}
+        {s.ai_provider === 'codex' && <CodexSettings s={s} set={set} />}
         <GeminiCliSettings s={s} set={set} />
         <div className="grid-2">
           <Field label="Anthropic API key" hint={s.anthropic_api_key_set ? 'A key is set. Type a new one to replace it.' : 'Stored only in your data folder. You can also set ANTHROPIC_API_KEY before starting.'}>
@@ -550,5 +553,54 @@ function GpuPanel({ s, set }: { s: SettingsData; set: (p: Partial<SettingsData>)
         </div>
       )}
     </Panel>
+  );
+}
+
+type CX = { installed: boolean; version: string; logged_in: boolean; method: string; why: string; server_edition: boolean };
+
+/** ChatGPT through the Codex CLI on this computer, signed in with the person's own plan. */
+function CodexSettings({ s, set }: { s: SettingsData; set: (p: Partial<SettingsData>) => void }) {
+  const [cx, setCx] = useState<CX | null>(null);
+  const [testing, setTesting] = useState(false);
+  const check = () => api.get<CX>('/api/ai/codex').then(setCx).catch(() => setCx(null));
+  useEffect(() => { check(); }, []);
+  async function test() {
+    setTesting(true);
+    try {
+      await api.put('/api/settings', { ai_provider: 'codex', codex_model: s.codex_model ?? '', codex_effort: s.codex_effort ?? '', codex_path: s.codex_path ?? '' });
+      const r = await api.post<{ greeting: string; seconds: number }>('/api/ai/test');
+      toast(`ChatGPT answered in ${r.seconds}s: “${r.greeting}”`, 'good');
+    } catch (e) { toastError(e); }
+    setTesting(false);
+  }
+  return (
+    <div className="card col gap-s" style={{ padding: 12 }}>
+      <div className="row between wrap">
+        <span className="small">
+          {!cx ? 'Checking the Codex CLI…'
+            : cx.installed && cx.logged_in && !cx.why ? <><span className="pill good">Ready</span> Codex CLI {cx.version}, signed in{cx.method ? ` with ${cx.method}` : ''}.</>
+              : <span style={{ color: 'var(--bad)' }}>{cx.why}</span>}
+        </span>
+        <div className="row gap-s">
+          <Button small onClick={check}>Check again</Button>
+          <Button small variant="primary" icon="sparkle" onClick={test} busy={testing} disabled={!cx?.installed || !cx.logged_in}>Test</Button>
+        </div>
+      </div>
+      <div className="grid-2">
+        <Field label="Model" hint="Empty lets Codex choose. Or type a model your ChatGPT plan offers (codex shows them with /model).">
+          <input type="text" className="mono" spellCheck={false} placeholder="automatic" value={s.codex_model ?? ''} onChange={(e) => set({ codex_model: e.target.value.trim() })} />
+        </Field>
+        <Field label="Reasoning effort" hint="How long it thinks. Automatic lets each feature choose.">
+          <select value={s.codex_effort ?? ''} onChange={(e) => set({ codex_effort: e.target.value })}>
+            <option value="">Automatic</option><option value="minimal">Minimal (fastest)</option><option value="low">Low</option>
+            <option value="medium">Medium</option><option value="high">High</option><option value="xhigh">Extra high (slowest)</option>
+          </select>
+        </Field>
+      </div>
+      <Field label="Where the Codex CLI is (optional)" hint="Leave empty to find it automatically; otherwise the full path to codex.cmd (in a terminal,  where codex  shows it).">
+        <input type="text" className="mono" spellCheck={false} placeholder="found automatically" value={s.codex_path ?? ''} onChange={(e) => set({ codex_path: e.target.value })} />
+      </Field>
+      <span className="small muted">Every request runs through Codex read-only (it cannot change files), with your own Codex settings and plugins left out, and counts towards your ChatGPT plan's limits. It looks at still frames; watching whole videos needs Gemini.</span>
+    </div>
   );
 }

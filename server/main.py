@@ -183,6 +183,16 @@ def gemini_cli_models() -> list[str]:
         raise HTTPException(422, str(e))
 
 
+@app.get("/api/ai/codex")
+def codex_status() -> dict:
+    """Is the Codex CLI installed and signed in here? Server edition: it is not offered."""
+    from .studio import ai
+    if auth.enabled():
+        return {"installed": False, "version": "", "logged_in": False, "method": "", "server_edition": True,
+                "why": "The server edition uses API keys. Your ChatGPT subscription is for Cutroom on your own computer."}
+    return {**ai.codex_status(), "server_edition": False}
+
+
 @app.post("/api/ai/test")
 def ai_test() -> dict:
     """A tiny request through the chosen provider, to check the setup works."""
