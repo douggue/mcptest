@@ -1,7 +1,7 @@
 import type { SnapshotChannel } from '@jgtube/core';
 import { ExternalLink, X } from 'lucide-react';
 import { channelUrl, formatCount, formatScore, initials, percent, watchUrl } from '../lib/format';
-import { TIER_LABEL } from './tiers';
+import { OUTSIDE_LABEL, TIER_LABEL } from './tiers';
 
 interface Props {
   readonly channel: SnapshotChannel;
@@ -95,6 +95,13 @@ export function Inspector({ channel, onClose }: Props) {
           </span>
         </div>
       </div>
+
+      {channel.outsideReason && (
+        <p className="mt-space-sm rounded bg-space-deep p-2.5 text-body-sm text-on-surface-variant">
+          <span className="text-outline">Not counted as like yours: </span>
+          {OUTSIDE_LABEL[channel.outsideReason]}
+        </p>
+      )}
 
       {channel.breakout && (
         <p className="mt-space-sm text-body-sm text-on-surface-variant">

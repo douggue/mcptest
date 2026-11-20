@@ -1,5 +1,6 @@
 import type { MapRepo } from '../repos/types';
 import { listBreakouts, type BreakoutVideo } from './breakouts';
+import type { OutsideReason } from './peers';
 import { loadMapView, type Breakout, type MapViewDeps, type Recommender, type Tier } from './view';
 
 /**
@@ -15,7 +16,12 @@ export interface MapSnapshot {
   readonly center: SnapshotCenter;
   readonly channels: readonly SnapshotChannel[];
   readonly edges: readonly SnapshotEdge[];
-  readonly breakouts: readonly BreakoutVideo[];
+  readonly breakouts: readonly SnapshotBreakout[];
+}
+
+export interface SnapshotBreakout extends BreakoutVideo {
+  /** Whether the video's channel is a peer of the centre. */
+  readonly peer: boolean;
 }
 
 export interface SnapshotCenter {
@@ -42,6 +48,9 @@ export interface SnapshotChannel {
   readonly rising: boolean;
   readonly breakout: Breakout | null;
   readonly recommendedBy: readonly Recommender[];
+  /** The same kind of channel as the centre. */
+  readonly peer: boolean;
+  readonly outsideReason: OutsideReason | null;
 }
 
 export interface SnapshotEdge {
@@ -65,6 +74,7 @@ export function loadMapSnapshot(
   const view = loadMapView(deps, map.members, map.depth, now);
   if (!view) return null;
   const { center, rows, members, edges } = view;
+  const peerIds = new Set(rows.filter((row) => row.peer).map((row) => row.channel.id));
 
   return {
     mapId: map.id,
@@ -93,12 +103,24 @@ export function loadMapSnapshot(
       rising: row.metrics.rising,
       breakout: row.metrics.breakout,
       recommendedBy: row.recommendedBy,
+      peer: row.peer,
+      outsideReason: row.outsideReason,
     })),
     edges: edges.map((edge) => ({
       from: edge.fromChannelId,
       to: edge.toChannelId,
       share: edge.share,
     })),
-    breakouts: listBreakouts(members, now),
+    // Listed separately so that loud outsiders cannot crowd peers out of the feed.
+    breakouts: [
+      ...listBreakouts(
+        members.filter((member) => peerIds.has(member.channel.id)),
+        now,
+      ).map((video) => ({ ...video, peer: true })),
+      ...listBreakouts(
+        members.filter((member) => !peerIds.has(member.channel.id)),
+        now,
+      ).map((video) => ({ ...video, peer: false })),
+    ],
   };
 }

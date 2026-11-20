@@ -145,3 +145,36 @@ export function titleSimilarity(
     ]),
   );
 }
+
+/** How many of the closest look-alikes join the centre as the reference for the second pass. */
+export const MAX_ANCHORS = 3;
+
+export interface AnchoredSimilarity {
+  readonly scores: ReadonlyMap<string, number>;
+  /** The look-alikes whose titles were added to the centre's as the reference. */
+  readonly anchors: readonly string[];
+}
+
+/**
+ * Title similarity when the centre has too few videos to describe its niche.
+ *
+ * A first pass scores every candidate against the centre alone. The best few
+ * from `anchorPool` (channels that could plausibly be peers) then lend their
+ * titles to the centre, and a second pass scores everyone against that larger
+ * reference. With three titles the first pass barely separates a look-alike
+ * (12%) from a news network (2%); the second separates them clearly.
+ */
+export function anchoredTitleSimilarity(
+  centerTitles: readonly string[],
+  candidates: ReadonlyMap<string, readonly string[]>,
+  anchorPool: readonly string[],
+): AnchoredSimilarity {
+  const first = titleSimilarity(centerTitles, candidates);
+  const anchors = [...anchorPool]
+    .filter((id) => (first.get(id) ?? 0) > 0)
+    .sort((a, b) => (first.get(b) ?? 0) - (first.get(a) ?? 0) || a.localeCompare(b))
+    .slice(0, MAX_ANCHORS);
+  if (anchors.length === 0) return { scores: first, anchors };
+  const reference = [...centerTitles, ...anchors.flatMap((id) => candidates.get(id) ?? [])];
+  return { scores: titleSimilarity(reference, candidates), anchors };
+}

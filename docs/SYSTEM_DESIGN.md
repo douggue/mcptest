@@ -84,6 +84,29 @@ edges. The relevance thresholds in this table arrive with the judged pass in
 phase 4; until then the map shows a title-similarity "match" score and filters
 nothing out.
 
+### Peers ("channels like yours")
+
+Built. A channel on the map counts as a peer of the centre when all of these hold;
+otherwise it is kept but marked with the first reason it failed:
+
+| Check | Rule | Reason shown |
+|---|---|---|
+| Size | At most 1M subscribers | Far larger |
+| Publishing rate | At most 14 uploads a week over the last 14 days | Publishes many times a day |
+| Video length | Median within 0.4× to 4× of the centre's | Very different length |
+| Titles | Anchored title match of at least 14% | Titles unlike yours |
+
+**Anchored title match.** A new channel has too few titles to describe its niche.
+A first pass scores every channel against the centre's titles alone; the best
+three direct neighbours whose shape fits then lend their titles to the centre,
+and a second pass scores everyone against that larger reference. On the owner's
+three-video channel the first pass separated a look-alike (12%) from a news
+network (2%) only weakly; the second put look-alikes at 15% to 77% and news
+networks under 10%, leaving 13 peers of 149.
+
+The web app shows peers by default with a switch to everything, and the breakout
+feed lists peers' videos separately so outsiders cannot crowd them out.
+
 ### Relevance filter
 
 The crawl alone is too noisy for small channels, so every candidate gets a

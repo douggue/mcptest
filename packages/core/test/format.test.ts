@@ -83,6 +83,8 @@ describe('formatMapTable', () => {
       breakout: { videoId: 'abcdefghijk', title: 'Hit', views: 84_000, score: 1541.7 },
       rising: true,
     },
+    peer: true,
+    outsideReason: null,
     ...overrides,
   });
 

@@ -47,7 +47,7 @@ every phase; coverage floor is 80%.
 
 - [ ] Title-frame extraction
 - [ ] Search-based candidate discovery
-- [x] Cheap relevance pass: TF-IDF title similarity, shown as "match" on the map (language and duration checks still to add; nothing is filtered out yet)
+- [x] Cheap relevance pass: TF-IDF title similarity anchored on the closest look-alikes, plus size, publishing-rate and video-length checks. The app shows "like yours" by default (language check still to add)
 - [ ] Judged relevance pass (batched model call)
 - [ ] Closeness tiers; filtered-out list; manual add and remove
 

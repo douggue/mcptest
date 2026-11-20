@@ -160,11 +160,11 @@ describe('buildMapView', () => {
       now: NOW,
     });
 
-  test('ranks channels by closeness, then by how similar their titles are', () => {
+  test('ranks channels by how similar their titles are, then by closeness', () => {
     expect(view().map((row) => row.channel.title)).toEqual([
       'Channel A',
-      'Channel B',
       'Channel D',
+      'Channel B',
       'Channel E',
     ]);
   });

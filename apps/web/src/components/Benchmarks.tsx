@@ -94,7 +94,7 @@ export function Benchmarks({ snapshot, selectedId, onSelect }: Props) {
       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded bg-surface-card p-space-md shadow-xl">
         <div className="col-span-2 text-label-caps uppercase text-outline">This map</div>
         <div>
-          <dt className="text-body-sm text-on-surface-variant">Channels mapped</dt>
+          <dt className="text-body-sm text-on-surface-variant">Channels shown</dt>
           <dd className="text-headline-md text-on-surface">{snapshot.channels.length}</dd>
         </div>
         <div>

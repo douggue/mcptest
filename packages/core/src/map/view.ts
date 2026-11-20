@@ -9,7 +9,8 @@ import type {
   StoredVideo,
   VideoRepo,
 } from '../repos/types';
-import { titleSimilarity } from './relevance';
+import { outsideReason, shapeMismatch, type OutsideReason } from './peers';
+import { anchoredTitleSimilarity } from './relevance';
 
 const RECENT_DAYS = 30;
 const BREAKOUT_WINDOW_DAYS = 60;
@@ -94,6 +95,10 @@ export interface MapRow {
   readonly relevance: number;
   readonly recommendedBy: readonly Recommender[];
   readonly metrics: ChannelMetrics;
+  /** The same kind of channel as the centre, rather than something YouTube merely showed nearby. */
+  readonly peer: boolean;
+  /** Why it is not a peer; null when it is one. */
+  readonly outsideReason: OutsideReason | null;
 }
 
 export interface MapViewInput {
@@ -119,28 +124,46 @@ function tierFor(
   return inbound.length >= MEDIUM_MIN_INBOUND ? 'medium' : 'far';
 }
 
-/** The channels around the centre, nearest and most similar first. */
+/** Rounds a score so that channels with effectively equal matches keep a stable order. */
+const matchRank = (relevance: number): number => Math.round(relevance * 1000);
+
+/** The channels around the centre: peers first, then by title match, then by distance. */
 export function buildMapView(input: MapViewInput): readonly MapRow[] {
   const { center, members, edges, now } = input;
   const titles = new Map(
     [center, ...members].map((member) => [member.channel.id, member.channel.title]),
   );
+  const subject = (member: MapMemberData) => ({
+    subscribers: member.channel.subscribers,
+    videos: member.videos,
+  });
+  const shapes = new Map(
+    members.map((member) => [
+      member.channel.id,
+      shapeMismatch(subject(center), subject(member), now),
+    ]),
+  );
+  const fits = members.filter((member) => shapes.get(member.channel.id) === null);
+  const direct = fits.filter((member) => member.steps === 1);
   const recentTitles = (member: MapMemberData): readonly string[] =>
     member.videos.slice(0, TITLES_COMPARED).map((video) => video.title);
-  const relevance = titleSimilarity(
+  const { scores } = anchoredTitleSimilarity(
     recentTitles(center),
     new Map(members.map((member) => [member.channel.id, recentTitles(member)])),
+    (direct.length > 0 ? direct : fits).map((member) => member.channel.id),
   );
 
   const rows = members.map((member): MapRow => {
     const inbound = edges.filter(
       (edge) => edge.toChannelId === member.channel.id && titles.has(edge.fromChannelId),
     );
+    const relevance = scores.get(member.channel.id) ?? 0;
+    const reason = outsideReason(shapes.get(member.channel.id) ?? null, relevance);
     return {
       channel: member.channel,
       steps: member.steps,
       tier: tierFor(member, center.channel.id, inbound, edges),
-      relevance: relevance.get(member.channel.id) ?? 0,
+      relevance,
       recommendedBy: inbound
         .map((edge) => ({
           channelId: edge.fromChannelId,
@@ -149,13 +172,16 @@ export function buildMapView(input: MapViewInput): readonly MapRow[] {
         }))
         .sort((a, b) => b.share - a.share || a.channelTitle.localeCompare(b.channelTitle)),
       metrics: channelMetrics(member.videos, member.channel.subscribers, now),
+      peer: reason === null,
+      outsideReason: reason,
     };
   });
 
   return [...rows].sort(
     (a, b) =>
+      Number(b.peer) - Number(a.peer) ||
+      matchRank(b.relevance) - matchRank(a.relevance) ||
       a.steps - b.steps ||
-      b.relevance - a.relevance ||
       b.metrics.recentViews - a.metrics.recentViews,
   );
 }

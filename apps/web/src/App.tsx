@@ -4,9 +4,11 @@ import { Benchmarks } from './components/Benchmarks';
 import { BreakoutFeed } from './components/BreakoutFeed';
 import { Inspector } from './components/Inspector';
 import { MapToolbar } from './components/MapToolbar';
+import { ScopeToggle } from './components/ScopeToggle';
 import { Radar } from './components/Radar';
 import { Shell } from './components/Shell';
 import { createApi, type JobState } from './lib/api';
+import { inScope, type Scope } from './lib/feed';
 import { layoutRadar } from './lib/radarLayout';
 
 const STORAGE_KEY = 'jgtube.channel';
@@ -51,6 +53,7 @@ export function App() {
   const [message, setMessage] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [depth, setDepth] = useState(DEFAULT_DEPTH);
+  const [scope, setScope] = useState<Scope>('peers');
 
   const load = useCallback(
     async (channel: string): Promise<boolean> => {
@@ -105,7 +108,19 @@ export function App() {
     }
   };
 
-  const layout = useMemo(() => (snapshot ? layoutRadar(snapshot) : null), [snapshot]);
+  const peerCount = snapshot?.channels.filter((channel) => channel.peer).length ?? 0;
+  // With no channel like the centre found yet, showing an empty radar would help nobody.
+  const activeScope: Scope = peerCount === 0 ? 'all' : scope;
+  const visible = useMemo(
+    () =>
+      snapshot && {
+        ...snapshot,
+        channels: inScope(snapshot.channels, activeScope),
+        breakouts: inScope(snapshot.breakouts, activeScope),
+      },
+    [snapshot, activeScope],
+  );
+  const layout = useMemo(() => (visible ? layoutRadar(visible) : null), [visible]);
   const selected = snapshot?.channels.find((channel) => channel.id === selectedId) ?? null;
   const select = (channelId: string) => {
     setSelectedId((current) => (current === channelId ? null : channelId));
@@ -126,7 +141,7 @@ export function App() {
         onExport={snapshot ? () => download(snapshot) : null}
       />
       <Radar
-        snapshot={snapshot}
+        snapshot={visible}
         layout={layout}
         selectedId={selectedId}
         onSelect={select}
@@ -140,13 +155,24 @@ export function App() {
           </div>
         }
       >
+        {snapshot && (
+          <ScopeToggle
+            scope={activeScope}
+            onChange={(next) => {
+              setScope(next);
+              setSelectedId(null);
+            }}
+            peerCount={peerCount}
+            totalCount={snapshot.channels.length}
+          />
+        )}
         {selected && <Inspector channel={selected} onClose={() => setSelectedId(null)} />}
       </Radar>
-      {snapshot && (
+      {visible && (
         <section className="w-full bg-space-deep px-gutter-desktop py-space-xl">
           <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-space-xl xl:grid-cols-12">
-            <BreakoutFeed items={snapshot.breakouts} centerTitle={snapshot.center.title} />
-            <Benchmarks snapshot={snapshot} selectedId={selectedId} onSelect={select} />
+            <BreakoutFeed items={visible.breakouts} centerTitle={visible.center.title} />
+            <Benchmarks snapshot={visible} selectedId={selectedId} onSelect={select} />
           </div>
         </section>
       )}

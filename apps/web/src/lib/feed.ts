@@ -12,10 +12,10 @@ export const BREAKOUT_FILTERS: readonly { readonly id: BreakoutFilter; readonly 
 
 const SMALL_CHANNEL_SUBSCRIBERS = 10_000;
 
-export function filterBreakouts(
-  items: readonly BreakoutVideo[],
+export function filterBreakouts<T extends BreakoutVideo>(
+  items: readonly T[],
   filter: BreakoutFilter,
-): readonly BreakoutVideo[] {
+): readonly T[] {
   if (filter === '100x') return items.filter((item) => item.score >= 100);
   if (filter === '50x') return items.filter((item) => item.score >= 50);
   if (filter === 'small') {
@@ -25,4 +25,14 @@ export function filterBreakouts(
     );
   }
   return items;
+}
+
+/** 'peers' shows only channels like the centre; 'all' shows everything on the map. */
+export type Scope = 'peers' | 'all';
+
+export function inScope<T extends { readonly peer: boolean }>(
+  items: readonly T[],
+  scope: Scope,
+): readonly T[] {
+  return scope === 'peers' ? items.filter((item) => item.peer) : items;
 }

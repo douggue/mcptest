@@ -1,7 +1,7 @@
 import type { BreakoutVideo, MapSnapshot, SnapshotChannel } from '@jgtube/core';
 import { describe, expect, test } from 'vitest';
 import { ApiError, createApi } from '../src/lib/api';
-import { filterBreakouts } from '../src/lib/feed';
+import { filterBreakouts, inScope } from '../src/lib/feed';
 import {
   formatCount,
   formatDuration,
@@ -30,6 +30,8 @@ const channel = (n: number, overrides: Partial<SnapshotChannel> = {}): SnapshotC
   rising: false,
   breakout: null,
   recommendedBy: [],
+  peer: true,
+  outsideReason: null,
   ...overrides,
 });
 
@@ -99,6 +101,18 @@ describe('filterBreakouts', () => {
 
   test('keeps only channels known to be under ten thousand subscribers', () => {
     expect(filterBreakouts(items, 'small').map((i) => i.score)).toEqual([60, 8]);
+  });
+});
+
+describe('inScope', () => {
+  const items = [channel(1), channel(2, { peer: false, outsideReason: 'larger' })];
+
+  test('keeps only channels like the centre when asked for peers', () => {
+    expect(inScope(items, 'peers').map((item) => item.id)).toEqual([cid(1)]);
+  });
+
+  test('keeps everything otherwise', () => {
+    expect(inScope(items, 'all')).toHaveLength(2);
   });
 });
 
