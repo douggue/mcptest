@@ -118,13 +118,60 @@ otherwise it is kept but marked with the first reason it failed:
 | Video length    | Median within 0.4× to 4× of the centre's        | Very different length      |
 | Titles          | Anchored title match of at least 14%            | Titles unlike yours        |
 
-**Anchored title match.** A new channel has too few titles to describe its niche.
-A first pass scores every channel against the centre's titles alone; the best
-three direct neighbours whose shape fits then lend their titles to the centre,
-and a second pass scores everyone against that larger reference. On the owner's
-three-video channel the first pass separated a look-alike (12%) from a news
-network (2%) only weakly; the second put look-alikes at 15% to 77% and news
-networks under 10%, leaving 13 peers of 149.
+**Title match** (`packages/core/src/map/relevance.ts`). The reference is the model
+channel when the owner named one, otherwise the centre. A title is a format plus a
+subject: "America's New Invention Could Replace … Forever" plus "Car Mirrors".
+Look-alikes share the format and cover different subjects, so the two sides are
+weighted differently:
+
+```
+profile(w)   = share of the reference's titles that use word w      # 0..1, format
+candidate(w) = 1 + ln(times the candidate's 30 newest titles use w)  # damped
+rarity(w)    = ln((channels + 1) / (channels using w + 1)) + 1       # over this map
+match        = cosine(profile × rarity, candidate × rarity)          # 0..~1
+```
+
+- The profile is linear in the share. A word in half of the reference's titles is
+  format; a word in one of a hundred is one video's subject and counts for almost
+  nothing. With damped counts on this side too (the first version), a word used 18
+  times weighed under twice a word used four times, and channels that merely touched
+  the same subjects (aircraft, Tesla, batteries) matched as well as real look-alikes.
+- The candidate stays damped. It may have only a handful of titles, too few to tell
+  its format from its subjects; and with linear counts a single word it repeats in
+  every title ("America") could carry the whole match.
+- Rarity is counted on the map itself, where the niche is over-represented: on the
+  285-channel map "America" is used by 80 channels and "new" by 129, so the format's
+  commonest words are worth about 2 while a subject used once is worth about 6.
+  That is why format has to be told from subject by repetition, not by rarity.
+- A channel scored against itself comes out near 1, not exactly 1.
+
+**Anchoring.** The reference alone is too narrow: a new channel has three titles,
+and a model channel says "America" where its sister channels say "Britain". A first
+pass scores every channel against the reference's own titles; the best three direct
+neighbours whose shape fits (never the reference itself) then lend their titles, and
+a second pass scores everyone against the merged profile. Each title is one vote,
+except that the lent titles together get at most 30 votes, one channel's worth. So
+a model with 30 titles keeps half the say, while a three-title centre is led by its
+look-alikes.
+
+**What it settles and what it does not.** On the owner's 285-channel map measured
+against a model, the format profile took the list from 30 peers to 25: an aviation
+news channel (647K), a Tesla commentator (479K), an off-grid home channel and two
+how-it-works channels fell from 14-17% to 10-14%, and nothing was added. Outsiders
+now thin out below 14% and clear look-alikes start at 18%. The channels near the
+line are not settled by titles: a seven-video look-alike sits at 13% beside the
+Tesla commentator, and an airline analyst at 15% stays in. Those need the judged
+pass or the owner's own add and remove. The cases are pinned in
+`packages/core/test/peerFixture.test.ts`, on 40 channels from that map.
+
+Known weak spots: with no model and a three-title centre the first pass picks
+look-alikes from very little, and one off-format look-alike can pull its subjects
+in (on the 149-channel map without a model, three Tesla and SpaceX commentators
+still match at 14-17%); and a look-alike that lent its titles is scored partly
+against itself.
+
+Maps are stored as they were when made, so a map frozen before this scoring keeps
+its old matches and peers until it is made again.
 
 The web app shows peers by default with a switch to everything, and the breakout
 feed lists peers' videos separately so outsiders cannot crowd them out.
@@ -138,7 +185,8 @@ channel, one they want to be like.
 - The crawl reads the model, adds it to the map at step 1 and explores outwards
   from it at the first step alongside the centre, whatever the depth.
 - Shape checks (video length) and title matching use the model's videos as the
-  reference instead of the centre's. The model itself always counts as a peer.
+  reference instead of the centre's. The model itself always counts as a peer, and
+  is never one of the look-alikes that lend it titles.
 - The model is stored on the map (`maps.model_channel`) and shown in the snapshot
   as `model`, so a reopened map says what it was measured against.
 
@@ -148,17 +196,17 @@ A map holds at most `maxChannels` channels (150 by default; the screen offers 15
 300 and 600, the API 10 to 600) and follows 1 to 3 steps. From the second step on
 there are usually more candidates than places. Each recommendation is therefore
 weighted by its source: `share × (0.25 + titleMatch(source, reference))`, where the
-reference is the model channel or, without one, the centre. Channels recommended
-by look-alikes are read first; the rest are reported as left out.
+reference is the model channel or, without one, the centre, and `titleMatch` is the
+unanchored title match described under Peers. Channels recommended by look-alikes
+are read first; the rest are reported as left out.
 
 ### Relevance filter
 
 The crawl alone is too noisy for small channels, so every candidate gets a
 relevance score in two passes:
 
-1. **Cheap pass (code).** TF-IDF cosine similarity between the candidate's last 30
-   titles and the centre's titles plus its top competitors' titles; same language;
-   average duration within 3× of the centre's. Drop candidates under 0.05.
+1. **Cheap pass (code).** Built as the title match and shape checks under "Peers"
+   above; it marks channels rather than dropping them. Still to add: same language.
 2. **Judged pass (model).** For the remaining candidates, one batched call: given
    the centre's titles and 15 titles per candidate, return
    `{ channel_id, same_audience: yes|maybe|no, reason }`. Map to 1.0 / 0.5 / 0.
