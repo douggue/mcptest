@@ -9,6 +9,7 @@
  * commands. It is stopped if it runs too long or says too much.
  */
 import { spawn as nodeSpawn } from 'node:child_process';
+import { StringDecoder } from 'node:string_decoder';
 import { z } from 'zod';
 import { cleanMessage } from './jobs';
 
@@ -32,6 +33,8 @@ const DENIED_TOOLS: readonly string[] = [
 const WITHHELD_ENV: readonly string[] = ['ANTHROPIC_API_KEY', 'YOUTUBE_API_KEY'];
 const MAX_OUTPUT_CHARACTERS = 2_000_000;
 const MAX_ERROR_DETAIL = 300;
+/** A process asked to stop is given this long to go before it is forced. */
+const KILL_GRACE_MS = 2000;
 const LIMIT_PATTERN = /hit your .*limit|usage limit|rate limit/i;
 
 export interface McpServerSpec {
@@ -76,11 +79,14 @@ interface Emitter {
   on(event: string, listener: (...values: unknown[]) => void): unknown;
 }
 
+/** 'SIGTERM' asks the process to stop; 'SIGKILL' stops it whether it likes it or not. */
+export type StopSignal = 'SIGTERM' | 'SIGKILL';
+
 /** The parts of a running process this module uses, so tests can stand in for one. */
 export interface ClaudeChild extends Emitter {
   readonly stdout: Emitter;
   readonly stderr: Emitter;
-  kill(): void;
+  kill(signal?: StopSignal): void;
 }
 
 export type SpawnClaude = (
@@ -92,6 +98,12 @@ export type SpawnClaude = (
 export interface ClaudeRunDeps {
   readonly spawn: SpawnClaude;
   readonly env: Readonly<Record<string, string | undefined>>;
+  /** How long a process asked to stop is given before it is forced; tests shorten it. */
+  readonly killGraceMs?: number;
+  /** The operating system, which changes the wording of one message; tests set it. */
+  readonly platform?: string;
+  /** Aborted when Jgtube is closing: the run is stopped, or never started. */
+  readonly signal?: AbortSignal;
 }
 
 const replySchema = z.object({
@@ -169,18 +181,84 @@ function readReply(output: string, errorText: string, exitCode: number | null): 
 const isMissingProgram = (error: unknown): boolean =>
   typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'ENOENT';
 
+/**
+ * Why Claude Code could not be started. On Windows a Claude Code installed as
+ * `claude.cmd` cannot be started without going through a shell, and a prompt
+ * is never passed through a shell, so there the message says what is needed.
+ */
+function startFailure(error: unknown, platform: string): ClaudeRunError {
+  if (!isMissingProgram(error)) {
+    return new ClaudeRunError('failed', `Claude Code could not be started: ${cleanMessage(error)}`);
+  }
+  return new ClaudeRunError(
+    'not-installed',
+    platform === 'win32'
+      ? 'Claude Code could not be started. The Ask Claude buttons need Claude Code reachable as `claude`, and are verified on macOS and Linux only.'
+      : 'Claude Code is not installed on this computer, or cannot be found. Install it and sign in, then try again.',
+  );
+}
+
+interface TextCollector {
+  /** Takes the next piece of the stream. True when it did not all fit under the limit. */
+  add(chunk: unknown): boolean;
+  /** Everything taken so far. */
+  end(): string;
+}
+
+/**
+ * Gathers what a process prints, up to a limit. Bytes are decoded as one
+ * UTF-8 stream, so a character that arrives split across two pieces is read
+ * whole instead of as two broken halves.
+ */
+function collectText(limit: number): TextCollector {
+  const decoder = new StringDecoder('utf8');
+  let text = '';
+  return {
+    add(chunk) {
+      const piece = Buffer.isBuffer(chunk) ? decoder.write(chunk) : String(chunk);
+      const room = limit - text.length;
+      text += piece.slice(0, Math.max(room, 0));
+      return piece.length > room;
+    },
+    end: () => (text + decoder.end()).slice(0, limit),
+  };
+}
+
+/** Asks the process to stop and, if it has not gone after `graceMs`, forces it. */
+function stopProcess(child: ClaudeChild, graceMs: number): void {
+  child.kill('SIGTERM');
+  const force = setTimeout(() => child.kill('SIGKILL'), graceMs);
+  // Waiting to force a process must not keep Jgtube itself from closing.
+  force.unref();
+  child.on('close', () => clearTimeout(force));
+}
+
+const closingError = (): ClaudeRunError =>
+  new ClaudeRunError('failed', 'Claude was stopped because Jgtube is closing.');
+const timeoutError = (): ClaudeRunError =>
+  new ClaudeRunError('timeout', 'Claude took too long and was stopped. Try again.');
+const tooMuchError = (): ClaudeRunError =>
+  new ClaudeRunError('failed', 'Claude sent more than could be read and was stopped.');
+
+/** The answer in what the process printed; rejects with the reason when there is none. */
+const replyOf = (output: string, errorText: string, code: unknown): Promise<ClaudeRunResult> =>
+  new Promise((resolve) => {
+    resolve(readReply(output, errorText, typeof code === 'number' ? code : null));
+  });
+
 /** Runs Claude Code once and resolves with its answer. Rejects with a ClaudeRunError. */
 export function runClaude(
   request: ClaudeRunRequest,
   deps: ClaudeRunDeps,
 ): Promise<ClaudeRunResult> {
+  if (deps.signal?.aborted) return Promise.reject(closingError());
   return new Promise((resolve, reject) => {
     const child = deps.spawn(COMMAND, buildClaudeArgs(request), {
       cwd: request.cwd,
       env: withoutKeys(deps.env),
     });
-    let output = '';
-    let errorText = '';
+    const output = collectText(MAX_OUTPUT_CHARACTERS);
+    const errorText = collectText(MAX_OUTPUT_CHARACTERS);
     let settled = false;
     const settle = (finish: () => void): void => {
       if (settled) return;
@@ -190,46 +268,25 @@ export function runClaude(
     };
     const stop = (error: ClaudeRunError): void =>
       settle(() => {
-        child.kill();
+        stopProcess(child, deps.killGraceMs ?? KILL_GRACE_MS);
         reject(error);
       });
-    const timer = setTimeout(
-      () => stop(new ClaudeRunError('timeout', 'Claude took too long and was stopped. Try again.')),
-      request.timeoutMs,
-    );
+    const timer = setTimeout(() => stop(timeoutError()), request.timeoutMs);
 
+    deps.signal?.addEventListener('abort', () => stop(closingError()), { once: true });
+
+    // Once the verdict is in, whatever else the process prints is not kept.
     child.stdout.on('data', (chunk: unknown) => {
-      output += String(chunk);
-      if (output.length > MAX_OUTPUT_CHARACTERS) {
-        stop(new ClaudeRunError('failed', 'Claude sent more than could be read and was stopped.'));
-      }
+      if (!settled && output.add(chunk)) stop(tooMuchError());
     });
     child.stderr.on('data', (chunk: unknown) => {
-      errorText = (errorText + String(chunk)).slice(0, MAX_OUTPUT_CHARACTERS);
+      if (!settled) errorText.add(chunk);
     });
     child.on('error', (error: unknown) =>
-      settle(() =>
-        reject(
-          isMissingProgram(error)
-            ? new ClaudeRunError(
-                'not-installed',
-                'Claude Code is not installed on this computer, or cannot be found. Install it and sign in, then try again.',
-              )
-            : new ClaudeRunError(
-                'failed',
-                `Claude Code could not be started: ${cleanMessage(error)}`,
-              ),
-        ),
-      ),
+      settle(() => reject(startFailure(error, deps.platform ?? process.platform))),
     );
     child.on('close', (code: unknown) =>
-      settle(() => {
-        try {
-          resolve(readReply(output, errorText, typeof code === 'number' ? code : null));
-        } catch (error) {
-          reject(error);
-        }
-      }),
+      settle(() => resolve(replyOf(output.end(), errorText.end(), code))),
     );
   });
 }
@@ -245,6 +302,6 @@ export const spawnClaude: SpawnClaude = (command, args, options) => {
     stdout: child.stdout,
     stderr: child.stderr,
     on: (event, listener) => child.on(event, listener as (...values: unknown[]) => void),
-    kill: () => child.kill(),
+    kill: (signal) => child.kill(signal),
   };
 };

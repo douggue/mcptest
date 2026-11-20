@@ -1,8 +1,11 @@
 import { loadConfig } from './config';
+import { resolve } from 'node:path';
 import { crawlMap, type CrawlDeps, type CrawlProgress } from './crawl/crawl';
+import { backupStore } from './db/backup';
 import { openDatabase, transactionRunner, type Db } from './db/sqlite';
 import { formatCount, formatMapTable, formatVideoTable, sanitize } from './format';
 import { ingestChannel } from './ingest';
+import { withYouTubeLease } from './lease';
 import { fillNicheFacts } from './niches/facts';
 import { loadMapView } from './map/view';
 import { refreshStalest, type RefreshProgress } from './refresh/refresh';
@@ -10,6 +13,7 @@ import { buildVideoReport } from './report';
 import { SqliteChannelRepo } from './repos/sqliteChannelRepo';
 import { SqliteEdgeRepo } from './repos/sqliteEdgeRepo';
 import { SqliteFactsRepo } from './repos/sqliteFactsRepo';
+import { SqliteLeaseRepo } from './repos/sqliteLeaseRepo';
 import { SqliteMapRepo } from './repos/sqliteMapRepo';
 import { SqliteRefreshRepo } from './repos/sqliteRefreshRepo';
 import { SqliteVideoRepo } from './repos/sqliteVideoRepo';
@@ -23,9 +27,11 @@ const USAGE = [
   '  npm run jgtube -- ingest <channel> [--refresh]',
   '  npm run jgtube -- map <channel> [--depth 1|2] [--sample N] [--max-channels N]',
   '  npm run refresh [-- --max N]',
+  '  npm run backup',
   '',
   '<channel> is an @handle, a channel id or a youtube.com URL.',
   'refresh reads the stored channels read longest ago again (50 unless --max says otherwise).',
+  'backup writes a dated copy of the store beside it and prints where.',
 ].join('\n');
 const FAILURES_SHOWN = 10;
 const VIDEO_ROWS_SHOWN = 25;
@@ -122,7 +128,11 @@ function showRefreshProgress(progress: RefreshProgress): void {
  * Reads the account dates the niche list lacks from the official API. Without
  * the owner's key there is nothing to ask with, so it says nothing.
  */
-async function factsLines(deps: CrawlDeps, db: Db): Promise<readonly string[]> {
+async function factsLines(
+  deps: CrawlDeps,
+  db: Db,
+  listedIds: readonly string[],
+): Promise<readonly string[]> {
   const apiKey = loadConfig().youtubeApiKey;
   if (apiKey === undefined) return [];
   const outcome = await fillNicheFacts(
@@ -133,6 +143,7 @@ async function factsLines(deps: CrawlDeps, db: Db): Promise<readonly string[]> {
       fetchFacts: (ids) => fetchChannelFacts(ids, { apiKey }),
     },
     new Date(),
+    listedIds,
   );
   return outcome.problem
     ? [`Account dates could not be read: ${sanitize(outcome.problem)}`]
@@ -151,7 +162,7 @@ async function refreshCommand(deps: CrawlDeps, db: Db, flags: readonly string[])
     },
     { onProgress: showRefreshProgress, ...(maxChannels === undefined ? {} : { maxChannels }) },
   );
-  const facts = await factsLines(deps, db);
+  const facts = await factsLines(deps, db, result.nicheIds);
   print([
     `Read ${result.refreshed.length} of ${result.picked} channels again; ${result.failed.length} could not be read.`,
     ...(result.stoppedEarly
@@ -166,6 +177,7 @@ async function refreshCommand(deps: CrawlDeps, db: Db, flags: readonly string[])
 }
 
 type Request =
+  | { readonly command: 'backup' }
   | { readonly command: 'refresh'; readonly flags: readonly string[] }
   | {
       readonly command: 'ingest' | 'map';
@@ -176,6 +188,7 @@ type Request =
 /** What the arguments ask for, or null when they do not make a command. */
 function parseArguments(argv: readonly string[]): Request | null {
   const [command, target, ...flags] = argv;
+  if (command === 'backup') return { command };
   if (command === 'refresh') return { command, flags: argv.slice(1) };
   if ((command !== 'ingest' && command !== 'map') || !target) return null;
   return { command, target, flags };
@@ -190,6 +203,17 @@ function loadEnvFile(): void {
   }
 }
 
+async function readYouTube(db: Db, request: Exclude<Request, { command: 'backup' }>) {
+  const deps = await openEngine(db);
+  if (request.command === 'refresh') {
+    await refreshCommand(deps, db, request.flags);
+  } else if (request.command === 'ingest') {
+    await ingestCommand(deps, request.target, request.flags.includes('--refresh'));
+  } else {
+    await mapCommand(deps, request.target, request.flags);
+  }
+}
+
 async function main(argv: readonly string[]): Promise<void> {
   loadEnvFile();
   const request = parseArguments(argv);
@@ -198,16 +222,19 @@ async function main(argv: readonly string[]): Promise<void> {
     process.exitCode = 1;
     return;
   }
-  const db = openDatabase(loadConfig().dbPath);
+  const { dbPath } = loadConfig();
+  const db = openDatabase(dbPath);
   try {
-    const deps = await openEngine(db);
-    if (request.command === 'refresh') {
-      await refreshCommand(deps, db, request.flags);
-    } else if (request.command === 'ingest') {
-      await ingestCommand(deps, request.target, request.flags.includes('--refresh'));
-    } else {
-      await mapCommand(deps, request.target, request.flags);
+    if (request.command === 'backup') {
+      // Needs no connection to YouTube, so it is done before one is made.
+      print([`Backup written to ${resolve(backupStore(db, dbPath, new Date()))}`]);
+      return;
     }
+    // Every other command reads YouTube, so it waits its turn behind the web
+    // app and the connector, and is refused before it connects to anything.
+    await withYouTubeLease({ leases: new SqliteLeaseRepo(db), now: () => new Date() }, () =>
+      readYouTube(db, request),
+    );
   } finally {
     db.close();
   }

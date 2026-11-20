@@ -17,6 +17,7 @@ import { useNiches } from './components/useNiches';
 import { useRefresh } from './components/useRefresh';
 import { useSameTopic } from './components/useSameTopic';
 import { useThumbnailBoard } from './components/useThumbnailBoard';
+import { CRAWL_DEFAULT_DEPTH, CRAWL_DEFAULT_MAX_CHANNELS } from '@jgtube/core/src/limits';
 import { createApi, type JobState } from './lib/api';
 import { inScope, type Scope } from './lib/feed';
 import { layoutRadar } from './lib/radarLayout';
@@ -24,8 +25,8 @@ import { layoutRadar } from './lib/radarLayout';
 const STORAGE_KEY = 'jgtube.channel';
 const MODEL_STORAGE_KEY = 'jgtube.model';
 const POLL_INTERVAL_MS = 1500;
-const DEFAULT_DEPTH = 2;
-const DEFAULT_SIZE = 150;
+const DEFAULT_DEPTH = CRAWL_DEFAULT_DEPTH;
+const DEFAULT_SIZE = CRAWL_DEFAULT_MAX_CHANNELS;
 
 /** The browser may refuse storage (private windows); the app works without it. */
 function recall(key = STORAGE_KEY): string {

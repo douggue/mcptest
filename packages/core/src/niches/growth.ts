@@ -21,14 +21,51 @@ export interface NicheGrowth {
   readonly since: string;
 }
 
+/** One video's earliest and latest reading inside the window. */
+interface Span {
+  readonly earliest: VideoReading;
+  readonly latest: VideoReading;
+}
+
+/** Each video's earliest and latest reading, from readings in any order. */
+function spansOf(readings: readonly VideoReading[]): readonly Span[] {
+  const spans = new Map<string, Span>();
+  for (const reading of readings) {
+    const known = spans.get(reading.videoId);
+    const at = reading.capturedAt.getTime();
+    spans.set(reading.videoId, {
+      earliest: known && known.earliest.capturedAt.getTime() <= at ? known.earliest : reading,
+      latest: known && known.latest.capturedAt.getTime() > at ? known.latest : reading,
+    });
+  }
+  return [...spans.values()];
+}
+
+/**
+ * What one video gained since the channel's first reading at `first`. A count
+ * that fell counts as zero: YouTube removes views it judges invalid, which is
+ * not the channel shrinking.
+ */
+function gainedSince(span: Span, first: number): number {
+  const { earliest, latest } = span;
+  // Published since the first reading: every view it has was gained since then.
+  if (earliest.capturedAt.getTime() > first && earliest.publishedAt.getTime() >= first) {
+    return latest.views;
+  }
+  // Otherwise only what was seen to be gained: from its own first reading on.
+  return Math.max(0, latest.views - earliest.views);
+}
+
 /**
  * What a channel's videos gained since its earliest reading of the last 30
  * days, or null when it was read only once in that time.
  *
- * A video first seen after that earliest reading did not exist then, so all
- * its views count. One seen only at the earliest reading (deleted since, or
- * past the newest hundred) counts nothing. A count that fell counts as zero:
- * YouTube removes views it judges invalid, which is not the channel shrinking.
+ * Only growth inside that time counts. A video published after the earliest
+ * reading did not exist then, so all its views count. An older video that was
+ * merely missing from the earliest reading (the channel was read less deeply
+ * that day, or the video was private) counts what it gained since it was first
+ * seen, not the views of its whole life. One seen only once (deleted since, or
+ * past the newest hundred) counts nothing.
  */
 export function viewsGained(readings: readonly VideoReading[], now: Date): NicheGrowth | null {
   const cutoff = now.getTime() - GROWTH_WINDOW_DAYS * DAY_MS;
@@ -39,18 +76,6 @@ export function viewsGained(readings: readonly VideoReading[], now: Date): Niche
   const last = Math.max(...times);
   if (last === first) return null;
 
-  const atFirst = new Map<string, number>();
-  const latest = new Map<string, VideoReading>();
-  for (const reading of recent) {
-    if (reading.capturedAt.getTime() === first) atFirst.set(reading.videoId, reading.views);
-    const known = latest.get(reading.videoId);
-    if (!known || reading.capturedAt.getTime() > known.capturedAt.getTime()) {
-      latest.set(reading.videoId, reading);
-    }
-  }
-  const views = [...latest.values()].reduce(
-    (sum, reading) => sum + Math.max(0, reading.views - (atFirst.get(reading.videoId) ?? 0)),
-    0,
-  );
+  const views = spansOf(recent).reduce((sum, span) => sum + gainedSince(span, first), 0);
   return { views, days: (last - first) / DAY_MS, since: new Date(first).toISOString() };
 }

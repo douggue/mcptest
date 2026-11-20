@@ -18,17 +18,39 @@ export interface VideoReading {
   readonly videoId: string;
   readonly capturedAt: Date;
   readonly views: number;
+  /** When the video was published, so a new video can be told from one merely not read before. */
+  readonly publishedAt: Date;
 }
 
 /** Runs a group of writes so that either all of them are stored or none is. */
 export type Transact = (work: () => void) => void;
+
+/** A stored channel whose latest reads all failed. */
+export interface ReadFailure {
+  readonly channelId: string;
+  /** Failed reads in a row since the channel was last read. */
+  readonly failures: number;
+  readonly lastFailedAt: Date;
+}
 
 export interface ChannelRepo {
   findById(id: string): StoredChannel | null;
   findByHandle(handle: string): StoredChannel | null;
   /** Every stored channel, whichever crawl read it. */
   listAll(): readonly StoredChannel[];
+  /** How many channels the store holds. */
+  count(): number;
+  /**
+   * The channels with at most `maxSubscribers` (or a hidden count) that have a
+   * video published at or after `publishedSince`, in the order of `listAll`.
+   */
+  listActiveUpTo(maxSubscribers: number, publishedSince: Date): readonly StoredChannel[];
+  /** Storing a channel also forgets its failed reads: it has just been read. */
   upsert(channel: ChannelInfo, fetchedAt: Date): void;
+  /** Notes that a stored channel could not be read; does nothing for one not in the store. */
+  recordReadFailure(id: string, failedAt: Date): void;
+  /** The stored channels that could not be read the last time it was tried. */
+  listReadFailures(): readonly ReadFailure[];
 }
 
 export interface VideoRepo {
@@ -130,6 +152,21 @@ export interface RefreshRunRepo {
   record(run: RefreshRun): void;
   /** The run that finished last, or null when there has been none. */
   latest(): RefreshRun | null;
+}
+
+/**
+ * The right to read YouTube. One piece of work holds it at a time, across
+ * every program that has the store open; see `withYouTubeLease`.
+ */
+export interface LeaseRepo {
+  /** Takes the lease when it is free or has run out. False when other work holds it. */
+  acquire(owner: string, now: Date, expiresAt: Date): boolean;
+  /** Holds the lease for longer. False when `owner` does not hold it. */
+  renew(owner: string, expiresAt: Date): boolean;
+  /** Gives the lease back; does nothing when `owner` does not hold it. */
+  release(owner: string): void;
+  /** Who holds the lease at `now`; null when it is free or has run out. */
+  holder(now: Date): string | null;
 }
 
 /** What the official API says about a channel, as far as the store keeps it. */

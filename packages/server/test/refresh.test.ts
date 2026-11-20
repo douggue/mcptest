@@ -1,4 +1,9 @@
-import type { NicheList, RefreshProgress, YouTubeSource } from '@jgtube/core';
+import {
+  REFRESH_MAX_CHANNELS,
+  type NicheList,
+  type RefreshProgress,
+  type YouTubeSource,
+} from '@jgtube/core';
 import { describe, expect, test } from 'vitest';
 import { createApp, type RefreshOutcome, type RefreshState } from '../src/app';
 import { createEngine } from '../src/engine';
@@ -100,6 +105,18 @@ describe('POST /api/refresh', () => {
       expect(runs).toEqual([]);
     },
   );
+
+  test('takes the most channels a run may read from the engine, not from a copy of it', async () => {
+    const { app, runs } = control();
+
+    const over = await post(app, PATH, { maxChannels: REFRESH_MAX_CHANNELS + 1 });
+    expect(over.status).toBe(400);
+    expect((await read(over)).error).toContain(`from 1 to ${REFRESH_MAX_CHANNELS}`);
+    expect((await post(app, PATH, { maxChannels: REFRESH_MAX_CHANNELS })).status).toBe(202);
+    await settle();
+
+    expect(runs).toEqual([REFRESH_MAX_CHANNELS]);
+  });
 
   test('refuses a second refresh, and a new map, while one is running', async () => {
     const { app, finish } = control();

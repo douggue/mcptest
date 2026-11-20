@@ -6,7 +6,14 @@ import type {
   DiscoveryResult,
 } from '@jgtube/core';
 import { beforeEach, describe, expect, test } from 'vitest';
-import type { ChannelSnapshot, SidebarItem, YouTubeSource } from '@jgtube/core';
+import {
+  CRAWL_MAX_CHANNELS_ASKED,
+  CRAWL_MAX_DEPTH,
+  CRAWL_MIN_CHANNELS_ASKED,
+  type ChannelSnapshot,
+  type SidebarItem,
+  type YouTubeSource,
+} from '@jgtube/core';
 import { createApp, type CrawlOutcome, type Engine } from '../src/app';
 import { createEngine } from '../src/engine';
 import { JobStore } from '../src/jobs';
@@ -58,6 +65,10 @@ class FakeEngine implements Engine {
 
   canDiscover(): boolean {
     return this.hasKey;
+  }
+
+  isReadingYouTube(): boolean {
+    return false;
   }
 
   analyse(): Promise<{ readonly text: string }> {
@@ -267,6 +278,25 @@ describe('POST /api/maps', () => {
 
     expect(second.status).toBe(409);
     expect(engine.crawls).toHaveLength(1);
+  });
+
+  test('takes its limits on depth and size from the engine, not from a copy of them', async () => {
+    const most = { depth: CRAWL_MAX_DEPTH, maxChannels: CRAWL_MAX_CHANNELS_ASKED };
+
+    expect((await post({ channel: '@veritasium', ...most })).status).toBe(202);
+    await settle();
+    for (const tooMuch of [
+      { depth: CRAWL_MAX_DEPTH + 1 },
+      { maxChannels: CRAWL_MAX_CHANNELS_ASKED + 1 },
+      { maxChannels: CRAWL_MIN_CHANNELS_ASKED - 1 },
+    ]) {
+      const response = await post({ channel: '@veritasium', ...tooMuch });
+      expect(response.status).toBe(400);
+      expect(((await response.json()) as { error: string }).error).toContain(
+        `a depth of 1 to ${CRAWL_MAX_DEPTH} and a size of ${CRAWL_MIN_CHANNELS_ASKED} to ${CRAWL_MAX_CHANNELS_ASKED} channels`,
+      );
+    }
+    expect(engine.crawls).toEqual([{ channel: '@veritasium', depth: CRAWL_MAX_DEPTH }]);
   });
 
   test('passes a deeper, larger crawl through to the engine', async () => {
@@ -989,6 +1019,65 @@ describe('POST /api/niches/discover', () => {
     expect(second.status).toBe(409);
     expect((await first).status).toBe(200);
     expect((await send({ keyword: 'three' })).status).toBe(200);
+  });
+
+  test('is refused while a map is being made, and runs once the map is done', async () => {
+    let finishCrawl: (outcome: CrawlOutcome) => void = () => {};
+    engine.outcome = new Promise((resolve) => {
+      finishCrawl = resolve;
+    });
+    await post({ channel: CHANNEL_ID });
+    await settle();
+
+    const refused = await send({ keyword: 'one' });
+    finishCrawl({ centerChannelId: CHANNEL_ID, warnings: [] });
+    await settle();
+    const allowed = await send({ keyword: 'two' });
+
+    expect(refused.status).toBe(409);
+    expect(((await refused.json()) as { error: string }).error).toMatch(/already running/);
+    expect(allowed.status).toBe(200);
+    expect(engine.searched).toEqual(['two']);
+  });
+
+  test('holds off a new map and a refresh until the search is done', async () => {
+    let finish: (result: DiscoveryResult) => void = () => {};
+    engine.searchOutcome = new Promise((resolve) => {
+      finish = resolve;
+    });
+    const search = send({ keyword: 'one' });
+    await settle();
+
+    const map = await post({ channel: CHANNEL_ID });
+    const refresh = await app(
+      new Request(`http://${HOST}/api/refresh`, {
+        method: 'POST',
+        headers: { host: HOST, 'content-type': 'application/json' },
+        body: '{}',
+      }),
+    );
+    finish({
+      keyword: 'one',
+      videosFound: 0,
+      channelsFound: 0,
+      added: [],
+      alreadyKnown: [],
+      failed: [],
+    });
+
+    expect(map.status).toBe(409);
+    expect(refresh.status).toBe(409);
+    expect(engine.crawls).toEqual([]);
+    expect((await search).status).toBe(200);
+    expect((await post({ channel: CHANNEL_ID })).status).toBe(202);
+  });
+
+  test('lets other work start again after a search that failed', async () => {
+    engine.searchOutcome = Promise.reject(new Error('quota gone'));
+
+    expect((await send({ keyword: 'one' })).status).toBe(502);
+
+    expect((await post({ channel: CHANNEL_ID })).status).toBe(202);
   });
 
   test('reports a search that fails without leaking where files live', async () => {

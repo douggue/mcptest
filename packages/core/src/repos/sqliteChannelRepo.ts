@@ -1,6 +1,6 @@
 import type { Db } from '../db/sqlite';
 import type { ChannelInfo } from '../sources/types';
-import type { ChannelRepo, StoredChannel } from './types';
+import type { ChannelRepo, ReadFailure, StoredChannel } from './types';
 
 interface ChannelRow {
   id: string;
@@ -10,6 +10,12 @@ interface ChannelRow {
   subs_hidden: number;
   video_count: number | null;
   fetched_at: string;
+}
+
+interface FailureRow {
+  id: string;
+  read_failures: number;
+  read_failed_at: string;
 }
 
 const COLUMNS = 'id, title, handle, subscribers, subs_hidden, video_count, fetched_at';
@@ -52,6 +58,26 @@ export class SqliteChannelRepo implements ChannelRepo {
       .map(toChannel);
   }
 
+  count(): number {
+    const row = this.db.prepare<[], { total: number }>('SELECT COUNT(*) AS total FROM channels');
+    return row.get()?.total ?? 0;
+  }
+
+  listActiveUpTo(maxSubscribers: number, publishedSince: Date): readonly StoredChannel[] {
+    return this.db
+      .prepare<[number, string], ChannelRow>(
+        `SELECT ${COLUMNS} FROM channels
+         WHERE (subscribers IS NULL OR subscribers <= ?)
+           AND EXISTS (
+             SELECT 1 FROM videos
+             WHERE videos.channel_id = channels.id AND videos.published_at >= ?
+           )
+         ORDER BY id`,
+      )
+      .all(maxSubscribers, publishedSince.toISOString())
+      .map(toChannel);
+  }
+
   upsert(channel: ChannelInfo, fetchedAt: Date): void {
     this.db
       .prepare(
@@ -64,7 +90,9 @@ export class SqliteChannelRepo implements ChannelRepo {
            subscribers = excluded.subscribers,
            subs_hidden = excluded.subs_hidden,
            video_count = excluded.video_count,
-           fetched_at = excluded.fetched_at`,
+           fetched_at = excluded.fetched_at,
+           read_failures = 0,
+           read_failed_at = NULL`,
       )
       .run({
         id: channel.id,
@@ -76,5 +104,27 @@ export class SqliteChannelRepo implements ChannelRepo {
         videoCount: channel.videoCount,
         fetchedAt: fetchedAt.toISOString(),
       });
+  }
+
+  recordReadFailure(id: string, failedAt: Date): void {
+    this.db
+      .prepare(
+        `UPDATE channels SET read_failures = read_failures + 1, read_failed_at = ? WHERE id = ?`,
+      )
+      .run(failedAt.toISOString(), id);
+  }
+
+  listReadFailures(): readonly ReadFailure[] {
+    return this.db
+      .prepare<[], FailureRow>(
+        `SELECT id, read_failures, read_failed_at FROM channels
+         WHERE read_failures > 0 AND read_failed_at IS NOT NULL ORDER BY id`,
+      )
+      .all()
+      .map((row) => ({
+        channelId: row.id,
+        failures: row.read_failures,
+        lastFailedAt: new Date(row.read_failed_at),
+      }));
   }
 }

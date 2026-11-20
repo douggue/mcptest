@@ -6,10 +6,17 @@ const NOW = new Date('2026-11-20T12:00:00Z');
 const DAY_MS = 86_400_000;
 const daysAgo = (days: number) => new Date(NOW.getTime() - days * DAY_MS);
 
-const reading = (videoId: string, days: number, views: number): VideoReading => ({
+/** A reading taken `days` ago of a video published `publishedDays` ago: long ago unless said. */
+const reading = (
+  videoId: string,
+  days: number,
+  views: number,
+  publishedDays = 400,
+): VideoReading => ({
   videoId,
   capturedAt: daysAgo(days),
   views,
+  publishedAt: daysAgo(publishedDays),
 });
 
 describe('viewsGained', () => {
@@ -34,13 +41,45 @@ describe('viewsGained', () => {
     expect(growth).toEqual({ views: 3100, days: 9, since: daysAgo(10).toISOString() });
   });
 
-  test('counts every view of a video first seen after the first reading: it is new since then', () => {
+  test('counts every view of a video published after the first reading: it is new since then', () => {
     const growth = viewsGained(
-      [reading('old', 6, 500), reading('old', 2, 800), reading('new', 2, 9000)],
+      [reading('old', 6, 500), reading('old', 2, 800), reading('new', 2, 9000, 4)],
       NOW,
     );
 
     expect(growth?.views).toBe(300 + 9000);
+  });
+
+  test('does not count the lifetime views of an older video that was merely missing at the first reading', () => {
+    const growth = viewsGained(
+      [reading('old', 6, 500), reading('old', 2, 800), reading('missed', 2, 2_000_000, 300)],
+      NOW,
+    );
+
+    expect(growth?.views).toBe(300);
+  });
+
+  test('counts what an older video gained since it was first seen inside the window', () => {
+    const growth = viewsGained(
+      [
+        reading('old', 6, 500),
+        reading('old', 1, 800),
+        reading('missed', 4, 2_000_000, 300),
+        reading('missed', 1, 2_000_450, 300),
+      ],
+      NOW,
+    );
+
+    expect(growth?.views).toBe(300 + 450);
+  });
+
+  test('counts a video published exactly at the first reading as new', () => {
+    const growth = viewsGained(
+      [reading('old', 6, 500), reading('old', 2, 500), reading('new', 2, 70, 6)],
+      NOW,
+    );
+
+    expect(growth?.views).toBe(70);
   });
 
   test('counts nothing for a video that was only seen at the first reading', () => {

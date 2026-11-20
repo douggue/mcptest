@@ -3,13 +3,14 @@ import type { EdgeRepo, MapMember, MapRepo, RecEdge } from '../repos/types';
 import type { SidebarItem } from '../sources/types';
 import { titleSimilarity } from '../map/relevance';
 import { freezeMapSnapshot } from '../map/snapshot';
+import { CRAWL_DEFAULT_DEPTH, CRAWL_DEFAULT_MAX_CHANNELS, CRAWL_MAX_DEPTH } from '../limits';
 import { buildEdges } from './edges';
 
-export const DEFAULT_DEPTH = 2;
-export const MAX_DEPTH = 3;
+export const DEFAULT_DEPTH = CRAWL_DEFAULT_DEPTH;
+export const MAX_DEPTH = CRAWL_MAX_DEPTH;
 export const DEFAULT_SAMPLE_SIZE = 10;
 export const DEFAULT_TOP_CHANNELS = 15;
-export const DEFAULT_MAX_CHANNELS = 150;
+export const DEFAULT_MAX_CHANNELS = CRAWL_DEFAULT_MAX_CHANNELS;
 export const EDGE_FRESHNESS_MS = 7 * 24 * 60 * 60 * 1000;
 /** A reading built from fewer sidebars than this share of the sample is too thin to trust or keep. */
 const MIN_SIDEBAR_COVERAGE = 0.7;

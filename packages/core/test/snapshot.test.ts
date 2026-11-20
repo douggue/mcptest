@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { openDatabase } from '../src/db/sqlite';
-import { listBreakouts } from '../src/map/breakouts';
+import { DEFAULT_BREAKOUT_LIMIT, listBreakouts } from '../src/map/breakouts';
 import {
   SNAPSHOT_FORMAT,
   freezeMapSnapshot,
@@ -398,6 +398,56 @@ describe('a channel the owner keeps as a competitor', () => {
     deps.maps.setKept(cid('C'), cid('X'), true, NOW);
 
     expect(feedOf('X').map((video) => [video.videoId, video.peer])).toEqual([[vid('X', 1), true]]);
+  });
+
+  test('fills the feed with the next videos when a removed channel held some of its places', () => {
+    const mapId = deps.maps.latestForCenter(cid('C'))?.id ?? 0;
+    freezeMapSnapshot(deps, cid('C'), NOW);
+    const frozen = JSON.parse(deps.maps.findSnapshot(mapId) ?? '{}') as {
+      snapshot: { breakouts: Array<Record<string, unknown>> };
+    };
+    const template = frozen.snapshot.breakouts[0] ?? {};
+    // A full frozen feed of peers' videos, the strongest five from a channel the owner then removes.
+    frozen.snapshot.breakouts = Array.from({ length: DEFAULT_BREAKOUT_LIMIT }, (_, index) => ({
+      ...template,
+      videoId: `frozen${String(index).padStart(5, '0')}`,
+      channelId: index < 5 ? cid('R') : cid('A'),
+      score: 10_000 - index,
+      peer: true,
+    }));
+    deps.maps.saveSnapshot(mapId, JSON.stringify(frozen));
+    deps.maps.setRemoved(cid('C'), cid('R'), true, NOW);
+    deps.maps.setKept(cid('C'), cid('X'), true, NOW);
+
+    const peers = (load()?.breakouts ?? []).filter((video) => video.peer);
+
+    expect(peers.some((video) => video.channelId === cid('R'))).toBe(false);
+    // The kept channel's video scores lowest; it is in because the removed five made room.
+    expect(peers.at(-1)?.videoId).toBe(vid('X', 1));
+    expect(peers).toHaveLength(DEFAULT_BREAKOUT_LIMIT - 5 + 1);
+  });
+
+  test('still cuts the feed to its limit after the removed channels are taken out', () => {
+    const mapId = deps.maps.latestForCenter(cid('C'))?.id ?? 0;
+    freezeMapSnapshot(deps, cid('C'), NOW);
+    const frozen = JSON.parse(deps.maps.findSnapshot(mapId) ?? '{}') as {
+      snapshot: { breakouts: Array<Record<string, unknown>> };
+    };
+    const template = frozen.snapshot.breakouts[0] ?? {};
+    frozen.snapshot.breakouts = Array.from({ length: DEFAULT_BREAKOUT_LIMIT }, (_, index) => ({
+      ...template,
+      videoId: `frozen${String(index).padStart(5, '0')}`,
+      channelId: cid('A'),
+      score: 10_000 - index,
+      peer: true,
+    }));
+    deps.maps.saveSnapshot(mapId, JSON.stringify(frozen));
+    deps.maps.setKept(cid('C'), cid('X'), true, NOW);
+
+    const peers = (load()?.breakouts ?? []).filter((video) => video.peer);
+
+    expect(peers).toHaveLength(DEFAULT_BREAKOUT_LIMIT);
+    expect(peers.some((video) => video.channelId === cid('X'))).toBe(false);
   });
 
   test('stays in the order of the map: channels like the centre first', () => {

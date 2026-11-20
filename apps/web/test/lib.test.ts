@@ -1,4 +1,6 @@
 import type { BreakoutVideo, MapSnapshot, SnapshotChannel } from '@jgtube/core';
+import { SMALL_CHANNEL_MAX_SUBSCRIBERS } from '@jgtube/core/src/limits';
+import { NICHE_SMALL_MAX_SUBSCRIBERS } from '@jgtube/core/src/niches/niches';
 import { describe, expect, test } from 'vitest';
 import { ApiError, createApi } from '../src/lib/api';
 import { competitorActions, describeEvidence, filterBreakouts, inScope } from '../src/lib/feed';
@@ -130,6 +132,20 @@ describe('filterBreakouts', () => {
 
   test('keeps only channels known to be under ten thousand subscribers', () => {
     expect(filterBreakouts(items, 'small').map((i) => i.score)).toEqual([60, 8]);
+  });
+
+  test('draws the small line where the engine draws it, not at a copy of the number', () => {
+    const sized = (subscribers: number) => ({ ...items[0]!, channelSubscribers: subscribers });
+    const edge = [
+      sized(SMALL_CHANNEL_MAX_SUBSCRIBERS - 1),
+      sized(SMALL_CHANNEL_MAX_SUBSCRIBERS),
+      sized(SMALL_CHANNEL_MAX_SUBSCRIBERS + 1),
+    ];
+
+    expect(filterBreakouts(edge, 'small').map((item) => item.channelSubscribers)).toEqual([
+      SMALL_CHANNEL_MAX_SUBSCRIBERS - 1,
+    ]);
+    expect(NICHE_SMALL_MAX_SUBSCRIBERS).toBe(SMALL_CHANNEL_MAX_SUBSCRIBERS);
   });
 });
 

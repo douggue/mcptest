@@ -1,5 +1,6 @@
 export { loadConfig, type Config } from './config';
 export { openDatabase, type Db } from './db/sqlite';
+export { backupPathFor, backupStore } from './db/backup';
 export { ingestChannel, type IngestDeps, type IngestOptions, type IngestResult } from './ingest';
 export { buildVideoReport, type VideoReportRow } from './report';
 export { SqliteChannelRepo } from './repos/sqliteChannelRepo';
@@ -85,3 +86,21 @@ export { fillNicheFacts, type FactsDeps, type FactsOutcome } from './niches/fact
 export { SqliteFactsRepo } from './repos/sqliteFactsRepo';
 export type { FactsRepo, NewFacts, StoredFacts } from './repos/types';
 export { NICHE_MIN_LATIN_SHARE, latinShare } from './niches/script';
+export {
+  READING_ELSEWHERE,
+  ReadingElsewhereError,
+  withYouTubeLease,
+  type LeaseDeps,
+} from './lease';
+export { SqliteLeaseRepo } from './repos/sqliteLeaseRepo';
+export {
+  CRAWL_DEFAULT_DEPTH,
+  CRAWL_DEFAULT_MAX_CHANNELS,
+  CRAWL_MAX_CHANNELS_ASKED,
+  CRAWL_MAX_DEPTH,
+  CRAWL_MIN_CHANNELS_ASKED,
+  REFRESH_DEFAULT_MAX_CHANNELS,
+  REFRESH_MAX_CHANNELS,
+  SMALL_CHANNEL_MAX_SUBSCRIBERS,
+} from './limits';
+export type { LeaseRepo } from './repos/types';

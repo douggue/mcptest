@@ -46,8 +46,11 @@ function warningList(warnings: readonly string[]): Record<string, unknown> {
 }
 
 /**
- * Makes the tool that crawls a new map. One crawl runs at a time in this
- * process: a crawl is hundreds of requests to YouTube and two would double the rate.
+ * Makes the tool that crawls a new map. One crawl runs at a time: a crawl is
+ * hundreds of requests to YouTube and two would double the rate. The flag here
+ * covers this process; the engine holds the store's lease while it crawls, so
+ * a crawl is also refused, in plain words, while the web app or the command
+ * line is reading YouTube, and they are refused while this one runs.
  */
 export function createMakeMap(engine: ConnectorEngine): MakeMap {
   let running = false;

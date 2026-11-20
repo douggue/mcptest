@@ -31,20 +31,27 @@ export function cleanMessage(error: unknown): string {
  * Holds the state of long-running work (crawls, refreshes) in memory so the
  * browser can poll it. One job runs at a time, whatever its kind: each is
  * hundreds of requests to YouTube and two at once would double the rate.
+ * A keyword search, which its caller waits for, takes the same slot.
  * `T` is what a finished job leaves behind and `P` what it reports on the way.
  */
 export class JobStore<T, P = CrawlProgress> {
   private jobs: ReadonlyMap<string, Job<T, P>> = new Map();
-  private runningId: string | null = null;
+  /** Whether the one slot is taken, by a job or by work a caller is waiting on. */
+  private busy = false;
 
   constructor(private readonly nextId: () => string = randomUUID) {}
 
+  /** Whether the one slot is taken, so nothing new can start. */
+  isBusy(): boolean {
+    return this.busy;
+  }
+
   /** Starts the work in the background. Returns null when another job is still running. */
   start(work: Work<T, P>): Job<T, P> | null {
-    if (this.runningId !== null) return null;
+    if (this.busy) return null;
     const id = this.nextId();
     const job: Job<T, P> = { id, status: 'running', progress: null, result: null, error: null };
-    this.runningId = id;
+    this.busy = true;
     this.save(job);
     Promise.resolve()
       .then(() => work((progress) => this.update(id, { progress })))
@@ -53,9 +60,24 @@ export class JobStore<T, P = CrawlProgress> {
         (error: unknown) => this.update(id, { status: 'failed', error: cleanMessage(error) }),
       )
       .finally(() => {
-        this.runningId = null;
+        this.busy = false;
       });
     return job;
+  }
+
+  /**
+   * Runs work whose caller waits for the answer, in the same one slot the jobs
+   * use, so it cannot run beside a job nor a job beside it. Returns null when
+   * the slot is taken. Nothing is kept afterwards: the caller has the answer.
+   */
+  hold<R>(work: () => Promise<R>): Promise<R> | null {
+    if (this.busy) return null;
+    this.busy = true;
+    return Promise.resolve()
+      .then(work)
+      .finally(() => {
+        this.busy = false;
+      });
   }
 
   get(id: string): Job<T, P> | null {

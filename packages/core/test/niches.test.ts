@@ -451,6 +451,98 @@ describe('loadNicheList', () => {
   });
 });
 
+describe('loadNicheList over a large store', () => {
+  const idOf = (n: number) => `UC${String(n).padStart(22, '0')}`;
+  const TOTAL = 3000;
+
+  /** What channel `n` of the synthetic store looks like. */
+  const subscribersOf = (n: number): number | null => {
+    if (n % 500 === 0) return 2000; // small, with a recent hit: listed
+    if (n % 500 === 1) return null; // hidden count, new, with a recent hit: listed
+    if (n % 500 === 2) return 50_000; // mid-sized with recent videos: a candidate, not listed
+    if (n % 500 === 3) return 3000; // small, but nothing uploaded lately
+    return 500_000 + n; // large
+  };
+  const specsOf = (n: number): readonly VideoSpec[] => {
+    if (n % 500 === 2) return [...NEW_AND_FLAT, { views: 1000, daysAgo: 300 }];
+    if (n % 500 === 3) return [{ views: 90_000, daysAgo: 200 }];
+    return n % 500 <= 1 ? NEW_WITH_HIT : [{ views: 800_000, daysAgo: 3 }];
+  };
+  const synthetic = (n: number): NicheSource => ({
+    channel: {
+      id: idOf(n),
+      title: `Channel ${n}`,
+      handle: null,
+      subscribers: subscribersOf(n),
+      subscribersHidden: subscribersOf(n) === null,
+      videoCount: specsOf(n).length,
+      fetchedAt: NOW,
+    },
+    videos: specsOf(n).map((spec, index) => ({
+      id: `v${String(n).padStart(6, '0')}${String(index).padStart(4, '0')}`,
+      channelId: idOf(n),
+      title: `How Number ${n} Built Thing ${index}`,
+      views: spec.views,
+      durationSeconds: 900,
+      published: {
+        date: new Date(NOW.getTime() - spec.daysAgo * DAY_MS),
+        precision: 'day' as const,
+        raw: `${spec.daysAgo}d ago`,
+      },
+      fetchedAt: NOW,
+    })),
+  });
+
+  test('loads the videos of the channels that could be listed, and of no others', () => {
+    const db = openDatabase(':memory:');
+    const channels = new SqliteChannelRepo(db);
+    const videos = new SqliteVideoRepo(db);
+    const watchlist = new SqliteWatchlistRepo(db);
+    const sources = Array.from({ length: TOTAL }, (_, n) => synthetic(n));
+    db.transaction(() => {
+      for (const item of sources) {
+        channels.upsert(item.channel, NOW);
+        videos.upsertMany(item.videos, NOW);
+      }
+    })();
+    // A large channel the owner watches, and a centre channel that would otherwise be listed.
+    watchlist.setWatched(idOf(7), true, NOW);
+    const maps = new SqliteMapRepo(db);
+    maps.create({ centerChannelId: idOf(500), depth: 1, region: 'US', members: [] }, NOW);
+    const loaded: string[] = [];
+    const spied: typeof videos = Object.assign(Object.create(videos), {
+      listByChannel: (channelId: string) => {
+        loaded.push(channelId);
+        return videos.listByChannel(channelId);
+      },
+    });
+
+    const found = loadNicheList({ channels, videos: spied, maps, watchlist }, NOW);
+
+    const everything = buildNicheList(
+      {
+        sources,
+        watchedIds: new Set([idOf(7)]),
+        excludedIds: new Set([idOf(500)]),
+        readingsOf: (channelId) => videos.listChannelReadings(channelId, new Date(0)),
+        factsOf: () => null,
+      },
+      NOW,
+    );
+    expect(found).toEqual(everything);
+    expect(found.channelsChecked).toBe(TOTAL);
+    expect(found.channels.map((entry) => entry.id).sort()).toEqual(
+      [0, 1, 7, 501, 1000, 1001, 1500, 1501, 2000, 2001, 2500, 2501].map(idOf).sort(),
+    );
+    // Small or hidden channels with a recent upload, plus the watched one: 19 of 3,000.
+    const candidates = sources
+      .filter((_, n) => n % 500 <= 2)
+      .map((item) => item.channel.id)
+      .concat(idOf(7));
+    expect([...loaded].sort()).toEqual([...candidates].sort());
+  });
+});
+
 describe('growth on the niche list', () => {
   test('is worked out only for the channels that are listed', () => {
     const asked: string[] = [];

@@ -40,6 +40,32 @@ beforeEach(() => {
 });
 
 describe('SqliteChannelRepo', () => {
+  test('counts the reads of a channel that failed in a row, and when the last one was', () => {
+    channels.upsert(channel, T1);
+
+    channels.recordReadFailure(channel.id, T1);
+    channels.recordReadFailure(channel.id, T2);
+
+    expect(channels.listReadFailures()).toEqual([
+      { channelId: channel.id, failures: 2, lastFailedAt: T2 },
+    ]);
+  });
+
+  test('forgets the failed reads of a channel once it is read again', () => {
+    channels.upsert(channel, T1);
+    channels.recordReadFailure(channel.id, T1);
+
+    channels.upsert(channel, T2);
+
+    expect(channels.listReadFailures()).toEqual([]);
+  });
+
+  test('records nothing for a channel that is not in the store', () => {
+    channels.recordReadFailure(channel.id, T1);
+
+    expect(channels.listReadFailures()).toEqual([]);
+  });
+
   test('returns null for a channel that was never stored', () => {
     expect(channels.findById('UCxxxxxxxxxxxxxxxxxxxxxx')).toBeNull();
     expect(channels.findByHandle('nobody')).toBeNull();

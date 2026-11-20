@@ -1,9 +1,7 @@
+import { REFRESH_MAX_CHANNELS } from '@jgtube/core';
 import { z } from 'zod';
-import { BUSY, type AppOptions } from './app';
+import { BUSY, refusal, type AppOptions } from './app';
 import { fail, ok, readJson } from './http';
-
-/** The most channels one refresh asked for over the API may read; the engine's own limit. */
-const MAX_CHANNELS = 500;
 
 /** The job of the refresh under way, so the screen can pick it up after a reload. */
 export interface RefreshTracker {
@@ -11,7 +9,7 @@ export interface RefreshTracker {
 }
 
 const refreshRequest = z.object({
-  maxChannels: z.number().int().min(1).max(MAX_CHANNELS).optional(),
+  maxChannels: z.number().int().min(1).max(REFRESH_MAX_CHANNELS).optional(),
 });
 
 /** The id of the refresh still running, or null when none is. */
@@ -29,7 +27,8 @@ export function refreshState(options: AppOptions, tracker: RefreshTracker): Resp
 /**
  * Starts a refresh as a background job, the way a crawl starts. It shares the
  * crawls' job store, so it is refused while a map is being made and a map is
- * refused while it runs.
+ * refused while it runs. It is refused, too, while another program that shares
+ * the store is reading YouTube.
  */
 export async function startRefresh(
   options: AppOptions,
@@ -40,9 +39,14 @@ export async function startRefresh(
   if (body instanceof Response) return body;
   const parsed = refreshRequest.safeParse(body);
   if (!parsed.success) {
-    return fail(400, `Optionally give maxChannels, a whole number from 1 to ${MAX_CHANNELS}`);
+    return fail(
+      400,
+      `Optionally give maxChannels, a whole number from 1 to ${REFRESH_MAX_CHANNELS}`,
+    );
   }
   const { maxChannels } = parsed.data;
+  const refused = refusal(options);
+  if (refused) return refused;
   const job = options.jobs.start((report) => options.engine.refresh(report, maxChannels));
   if (!job) return fail(409, BUSY);
   tracker.jobId = job.id;

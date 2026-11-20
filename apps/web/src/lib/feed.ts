@@ -1,4 +1,7 @@
 import type { BreakoutVideo, CompetitorStatus } from '@jgtube/core';
+// Only this file of the engine is loaded, never its index: the index would
+// pull the store and the YouTube client into the browser bundle.
+import { SMALL_CHANNEL_MAX_SUBSCRIBERS } from '@jgtube/core/src/limits';
 import { formatAge, formatCount } from './format';
 
 export type BreakoutFilter = 'all' | '100x' | '50x' | 'small';
@@ -11,8 +14,6 @@ export const BREAKOUT_FILTERS: readonly { readonly id: BreakoutFilter; readonly 
     { id: 'small', label: 'Under 10K' },
   ];
 
-const SMALL_CHANNEL_SUBSCRIBERS = 10_000;
-
 export function filterBreakouts<T extends BreakoutVideo>(
   items: readonly T[],
   filter: BreakoutFilter,
@@ -22,7 +23,7 @@ export function filterBreakouts<T extends BreakoutVideo>(
   if (filter === 'small') {
     return items.filter(
       (item) =>
-        item.channelSubscribers !== null && item.channelSubscribers < SMALL_CHANNEL_SUBSCRIBERS,
+        item.channelSubscribers !== null && item.channelSubscribers < SMALL_CHANNEL_MAX_SUBSCRIBERS,
     );
   }
   return items;

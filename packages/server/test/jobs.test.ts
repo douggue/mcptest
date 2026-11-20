@@ -29,6 +29,36 @@ describe('JobStore', () => {
     expect(jobs.get('job-1')).toEqual(job);
   });
 
+  test('holds the one slot for work whose caller waits, and frees it afterwards', async () => {
+    const jobs = new JobStore();
+    const work = deferred<string>();
+
+    const held = jobs.hold(() => work.promise);
+
+    expect(jobs.start(async () => 'a job')).toBeNull();
+    expect(jobs.hold(async () => 'more')).toBeNull();
+    work.resolve('answer');
+    expect(await held).toBe('answer');
+    expect(jobs.start(async () => 'a job')).not.toBeNull();
+  });
+
+  test('refuses to hold the slot while a job is running, and frees it after a failure', async () => {
+    const jobs = new JobStore();
+    const job = deferred<string>();
+    jobs.start(() => job.promise);
+
+    expect(jobs.hold(async () => 'waited for')).toBeNull();
+    job.resolve('done');
+    await settle();
+    await expect(jobs.hold(() => Promise.reject(new Error('no')))).rejects.toThrow('no');
+    await expect(
+      jobs.hold(() => {
+        throw new Error('at once');
+      }),
+    ).rejects.toThrow('at once');
+    expect(await jobs.hold(async () => 'free again')).toBe('free again');
+  });
+
   test('refuses a second job while one is running', () => {
     const jobs = new JobStore();
     jobs.start(() => new Promise(() => {}));
