@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, test } from 'vitest';
 import { openDatabase, transactionRunner } from '../src/db/sqlite';
 import {
   DEFAULT_REFRESH_MAX_CHANNELS,
+  REFRESH_FAILURE_BACKOFF_HOURS,
+  REFRESH_MAX_BACKOFF_HOURS,
   REFRESH_MAX_CONSECUTIVE_FAILURES,
   REFRESH_MIN_AGE_HOURS,
   loadRefreshStatus,
@@ -16,7 +18,7 @@ import { SqliteMapRepo } from '../src/repos/sqliteMapRepo';
 import { SqliteRefreshRepo } from '../src/repos/sqliteRefreshRepo';
 import { SqliteVideoRepo } from '../src/repos/sqliteVideoRepo';
 import { SqliteWatchlistRepo } from '../src/repos/sqliteWatchlistRepo';
-import type { StoredChannel } from '../src/repos/types';
+import type { ReadFailure, StoredChannel } from '../src/repos/types';
 import type { ChannelSnapshot, YouTubeSource } from '../src/sources/types';
 
 const NOW = new Date('2026-11-20T12:00:00Z');
@@ -147,6 +149,50 @@ describe('pickStalest', () => {
 
     expect(pick(channels, [], 2)).toBe('AB');
   });
+
+  const failed = (letter: string, failures: number, hours: number): ReadFailure => ({
+    channelId: cid(letter),
+    failures,
+    lastFailedAt: hoursAgo(hours),
+  });
+  const pickWith = (
+    channels: readonly StoredChannel[],
+    failures: readonly ReadFailure[],
+    priority: readonly string[] = [],
+  ) =>
+    pickStalest({
+      channels,
+      failures,
+      priorityIds: new Set(priority.map(cid)),
+      now: NOW,
+      maxChannels: 10,
+    })
+      .map((picked) => picked.id.charAt(2))
+      .join('');
+
+  test('leaves alone a channel that could not be read a short while ago', () => {
+    const channels = [channel('A', 900), channel('B', 30)];
+
+    expect(pickWith(channels, [failed('A', 1, REFRESH_FAILURE_BACKOFF_HOURS - 1)])).toBe('B');
+    expect(pickWith(channels, [failed('A', 1, REFRESH_FAILURE_BACKOFF_HOURS)])).toBe('BA');
+  });
+
+  test('waits twice as long after each further failure, up to a limit', () => {
+    const channels = [channel('A', 9000)];
+    const second = REFRESH_FAILURE_BACKOFF_HOURS * 2;
+
+    expect(pickWith(channels, [failed('A', 2, second - 1)])).toBe('');
+    expect(pickWith(channels, [failed('A', 2, second)])).toBe('A');
+    expect(pickWith(channels, [failed('A', 40, REFRESH_MAX_BACKOFF_HOURS - 1)])).toBe('');
+    expect(pickWith(channels, [failed('A', 40, REFRESH_MAX_BACKOFF_HOURS)])).toBe('A');
+  });
+
+  test('tries a channel that failed before only after every channel that did not', () => {
+    const channels = [channel('A', 900), channel('B', 30), channel('D', 40)];
+
+    expect(pickWith(channels, [failed('A', 1, 100)])).toBe('DBA');
+    expect(pickWith(channels, [failed('A', 1, 100)], ['A'])).toBe('DBA');
+  });
 });
 
 describe('refreshStalest', () => {
@@ -258,6 +304,45 @@ describe('refreshStalest', () => {
     expect(result.refreshed).toHaveLength(6);
   });
 
+  test('does not let channels that are gone hold up the rest, run after run', async () => {
+    const gone = ['A', 'B', 'D', 'E', 'F'];
+    for (const [index, letter] of gone.entries()) await seed(letter, 500 - index);
+    await seed('G', 30);
+    await seed('H', 25);
+    for (const letter of gone) source.failing.add(letter);
+
+    const first = await refreshStalest(deps);
+    clock = new Date(NOW.getTime() + 2 * HOUR_MS);
+    source.fetched = [];
+    const second = await refreshStalest(deps);
+
+    expect(first).toMatchObject({ stoppedEarly: true, refreshed: [], notAttempted: 2 });
+    expect(source.fetched).toEqual(['G', 'H']);
+    expect(second).toMatchObject({
+      refreshed: [cid('G'), cid('H')],
+      failed: [],
+      stoppedEarly: false,
+      stillDue: 0,
+    });
+  });
+
+  test('tries a channel that failed again once its wait is over, and forgets the failure when it reads', async () => {
+    await seed('A', 50);
+    source.failing.add('A');
+    await refreshStalest(deps);
+    source.failing.clear();
+    source.fetched = [];
+
+    clock = new Date(NOW.getTime() + (REFRESH_FAILURE_BACKOFF_HOURS - 1) * HOUR_MS);
+    const early = await refreshStalest(deps);
+    clock = new Date(NOW.getTime() + REFRESH_FAILURE_BACKOFF_HOURS * HOUR_MS);
+    const due = await refreshStalest(deps);
+
+    expect(early.picked).toBe(0);
+    expect(due.refreshed).toEqual([cid('A')]);
+    expect(deps.channels.listReadFailures()).toEqual([]);
+  });
+
   test('reports progress after each channel', async () => {
     await seed('A', 50);
     await seed('B', 40);
@@ -315,6 +400,7 @@ describe('loadRefreshStatus', () => {
       stoppedEarly: false,
     });
     expect(new Date(status.last!.finishedAt).getTime()).toBeGreaterThan(started.getTime());
-    expect(status).toMatchObject({ channels: 3, due: 1, oldestReadAt: hoursAgo(40).toISOString() });
+    // The channel that failed a minute ago is not due again yet.
+    expect(status).toMatchObject({ channels: 3, due: 0, oldestReadAt: hoursAgo(40).toISOString() });
   });
 });

@@ -23,12 +23,25 @@ export interface VideoReading {
 /** Runs a group of writes so that either all of them are stored or none is. */
 export type Transact = (work: () => void) => void;
 
+/** A stored channel whose latest reads all failed. */
+export interface ReadFailure {
+  readonly channelId: string;
+  /** Failed reads in a row since the channel was last read. */
+  readonly failures: number;
+  readonly lastFailedAt: Date;
+}
+
 export interface ChannelRepo {
   findById(id: string): StoredChannel | null;
   findByHandle(handle: string): StoredChannel | null;
   /** Every stored channel, whichever crawl read it. */
   listAll(): readonly StoredChannel[];
+  /** Storing a channel also forgets its failed reads: it has just been read. */
   upsert(channel: ChannelInfo, fetchedAt: Date): void;
+  /** Notes that a stored channel could not be read; does nothing for one not in the store. */
+  recordReadFailure(id: string, failedAt: Date): void;
+  /** The stored channels that could not be read the last time it was tried. */
+  listReadFailures(): readonly ReadFailure[];
 }
 
 export interface VideoRepo {

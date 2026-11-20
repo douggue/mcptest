@@ -119,6 +119,11 @@ ALTER TABLE channels ADD COLUMN country TEXT;
 ALTER TABLE channels ADD COLUMN total_views INTEGER;
 ALTER TABLE channels ADD COLUMN facts_fetched_at TEXT;
 `,
+  // 8: reads of a channel that failed in a row, so a refresh stops retrying one that is gone.
+  `
+ALTER TABLE channels ADD COLUMN read_failures INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE channels ADD COLUMN read_failed_at TEXT;
+`,
 ];
 
 /**

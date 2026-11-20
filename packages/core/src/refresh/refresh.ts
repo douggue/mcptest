@@ -12,6 +12,7 @@ import { loadNicheList } from '../niches/niches';
 import type {
   EdgeRepo,
   MapRepo,
+  ReadFailure,
   RefreshRunRepo,
   StoredChannel,
   WatchlistRepo,
@@ -37,6 +38,14 @@ export const REFRESH_MIN_AGE_HOURS = 20;
  * requests at a time; this reads one channel at a time, so five is as clear.
  */
 export const REFRESH_MAX_CONSECUTIVE_FAILURES = 5;
+/**
+ * A channel that could not be read is left alone this long before it is tried
+ * again, and twice as long after each further failure in a row. One odd
+ * response costs a day; a channel that is deleted or terminated soon costs one
+ * request a fortnight instead of leading every run.
+ */
+export const REFRESH_FAILURE_BACKOFF_HOURS = 20;
+export const REFRESH_MAX_BACKOFF_HOURS = 14 * 24;
 const HOUR_MS = 60 * 60 * 1000;
 
 export interface RefreshDeps extends IngestDeps {
@@ -82,12 +91,29 @@ export interface PickInput {
   readonly channels: readonly StoredChannel[];
   /** Channels read before the rest when both are due. */
   readonly priorityIds: ReadonlySet<string>;
+  /** The channels whose latest reads failed; none when left out. */
+  readonly failures?: readonly ReadFailure[];
   readonly now: Date;
   readonly maxChannels: number;
 }
 
-const isDue = (channel: StoredChannel, now: Date): boolean =>
-  now.getTime() - channel.fetchedAt.getTime() >= REFRESH_MIN_AGE_HOURS * HOUR_MS;
+type FailureIndex = ReadonlyMap<string, ReadFailure>;
+
+const indexFailures = (failures: readonly ReadFailure[]): FailureIndex =>
+  new Map(failures.map((failure) => [failure.channelId, failure]));
+
+/** How long a channel is left alone after this many failed reads in a row. */
+const backoffMs = (failures: number): number =>
+  Math.min(REFRESH_MAX_BACKOFF_HOURS, REFRESH_FAILURE_BACKOFF_HOURS * 2 ** (failures - 1)) *
+  HOUR_MS;
+
+/** Whether a refresh would read the channel now: not read lately, and not just failed. */
+function isDue(channel: StoredChannel, now: Date, failures: FailureIndex): boolean {
+  if (now.getTime() - channel.fetchedAt.getTime() < REFRESH_MIN_AGE_HOURS * HOUR_MS) return false;
+  const failure = failures.get(channel.id);
+  if (!failure) return true;
+  return now.getTime() - failure.lastFailedAt.getTime() >= backoffMs(failure.failures);
+}
 
 /**
  * The channels a run reads, in order: only those due, the ones that matter to
@@ -95,18 +121,30 @@ const isDue = (channel: StoredChannel, now: Date): boolean =>
  *
  * Because a channel just read is no longer due, the priority group cannot
  * starve the rest: once it has been read today, the run moves on to the others.
+ * A channel whose last read failed waits out its back-off and then goes after
+ * every channel that has not failed, so channels that are gone can neither
+ * lead a run nor end it early before the others are read.
  */
 export function pickStalest(input: PickInput): readonly StoredChannel[] {
+  const failures = indexFailures(input.failures ?? []);
+  const failed = (channel: StoredChannel): number => (failures.has(channel.id) ? 1 : 0);
   const rank = (channel: StoredChannel): number => (input.priorityIds.has(channel.id) ? 0 : 1);
   return input.channels
-    .filter((channel) => isDue(channel, input.now))
+    .filter((channel) => isDue(channel, input.now, failures))
     .sort(
       (a, b) =>
+        failed(a) - failed(b) ||
         rank(a) - rank(b) ||
         a.fetchedAt.getTime() - b.fetchedAt.getTime() ||
         a.id.localeCompare(b.id),
     )
     .slice(0, input.maxChannels);
+}
+
+/** How many stored channels a refresh would read at `now`. */
+function countDue(deps: Pick<RefreshDeps, 'channels'>, now: Date): number {
+  const failures = indexFailures(deps.channels.listReadFailures());
+  return deps.channels.listAll().filter((channel) => isDue(channel, now, failures)).length;
 }
 
 /**
@@ -157,6 +195,7 @@ async function readAll(
       await ingestChannel(deps, channel.id, { refresh: true });
       tally = { ...tally, refreshed: [...tally.refreshed, channel.id], streak: 0 };
     } catch (error) {
+      deps.channels.recordReadFailure(channel.id, deps.now());
       const failure = { channelId: channel.id, error: messageOf(error) };
       tally = { ...tally, failed: [...tally.failed, failure], streak: tally.streak + 1 };
     }
@@ -171,8 +210,9 @@ async function readAll(
 
 /**
  * Reads the stalest stored channels again, up to `maxChannels`, and records
- * the run. A channel that cannot be read is reported and skipped; several in a
- * row end the run early, leaving the rest for a later one.
+ * the run. A channel that cannot be read is reported, noted in the store so it
+ * is not tried again for a while, and skipped; several in a row end the run
+ * early, leaving the rest for a later one.
  */
 export async function refreshStalest(
   deps: RefreshDeps,
@@ -183,6 +223,7 @@ export async function refreshStalest(
   const startedAt = deps.now();
   const picked = pickStalest({
     channels: deps.channels.listAll(),
+    failures: deps.channels.listReadFailures(),
     priorityIds: refreshPriorityIds(deps, startedAt),
     now: startedAt,
     maxChannels,
@@ -204,7 +245,7 @@ export async function refreshStalest(
     failed: tally.failed,
     notAttempted,
     stoppedEarly,
-    stillDue: deps.channels.listAll().filter((channel) => isDue(channel, finishedAt)).length,
+    stillDue: countDue(deps, finishedAt),
   };
 }
 
@@ -243,7 +284,7 @@ export function loadRefreshStatus(
       stoppedEarly: last.stoppedEarly,
     },
     channels: channels.length,
-    due: channels.filter((channel) => isDue(channel, now)).length,
+    due: countDue(deps, now),
     oldestReadAt: channels.length > 0 ? new Date(oldest).toISOString() : null,
   };
 }

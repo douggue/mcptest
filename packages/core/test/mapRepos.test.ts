@@ -8,7 +8,7 @@ import { SqliteMapRepo } from '../src/repos/sqliteMapRepo';
 import type { RecEdge } from '../src/repos/types';
 
 /** The number of the newest schema step. */
-const LATEST = 7;
+const LATEST = 8;
 const T1 = new Date('2026-11-20T12:00:00Z');
 const T2 = new Date('2026-11-25T12:00:00Z');
 const cid = (letter: string) => `UC${letter.repeat(22)}`;
@@ -228,7 +228,9 @@ describe('opening a store made by an earlier version', () => {
        DROP TABLE map_removals;
        ALTER TABLE channels DROP COLUMN created_at; ALTER TABLE channels DROP COLUMN country;
        ALTER TABLE channels DROP COLUMN total_views;
-       ALTER TABLE channels DROP COLUMN facts_fetched_at;`,
+       ALTER TABLE channels DROP COLUMN facts_fetched_at;
+       ALTER TABLE channels DROP COLUMN read_failures;
+       ALTER TABLE channels DROP COLUMN read_failed_at;`,
     );
     first.close();
 
