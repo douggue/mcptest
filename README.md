@@ -32,18 +32,32 @@ You need about ten minutes and a Mac, Windows or Linux computer.
 1. **Install Node.js 22.** Download the "LTS" installer for version 22 from
    <https://nodejs.org> and run it. Use version 22: newer versions may need extra
    build tools (see "If `npm install` fails" below).
-2. **Get Jgtube.** On the repository's page on GitHub press **Code → Download ZIP**
-   and unzip it, or run `git clone` if you use git. Put the folder somewhere you
-   will keep it.
+2. **Get Jgtube.** With git:
+
+   ```
+   git clone --branch claude/sharp-pascal-bfajgw https://github.com/douggue/mcptest.git
+   cd mcptest
+   ```
+
+   Without git: on the repository's page on GitHub, open the branch menu, choose
+   `claude/sharp-pascal-bfajgw`, press **Code → Download ZIP** and unzip it. The
+   branch matters: the default branch does not hold the project yet.
+
 3. **Open a terminal in that folder.**
    - Mac: open Terminal, type `cd ` (with a space), drag the folder onto the
      window, press Enter.
    - Windows: open the folder in File Explorer, click the address bar, type
      `powershell`, press Enter.
 4. **Install.** Type `npm install` and wait for it to finish (a minute or two).
+   Newer versions of npm may print a notice about "install scripts" for
+   `better-sqlite3` and `esbuild`. Those are the database and the page builder
+   Jgtube uses, both already approved in the project; the notice needs no action.
 5. **Create your settings file.**
    - Mac or Linux: `cp .env.example .env`
-   - Windows: `copy .env.example .env`
+   - Windows: `copy .env.example .env` (`cp` does not exist in the Windows
+     command prompt)
+
+   This step is only needed for the optional settings; Jgtube starts without it.
 
    You can leave it as it is. To search for niches by keyword, open `.env` in a
    text editor and add your YouTube API key on the `YOUTUBE_API_KEY` line (remove
