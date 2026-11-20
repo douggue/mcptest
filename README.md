@@ -30,6 +30,13 @@ The app is only reachable from your own computer and has no login.
 For development, run `npm run api` and `npm run web` in two terminals and open
 http://127.0.0.1:5173.
 
+## Use it inside Claude
+
+`npm run mcp` starts the connector, which gives your own Claude the stored map,
+the breakout videos and the thumbnails to look at, so you can ask it what to make
+next or how to improve your thumbnails. Setting it up takes a few minutes:
+see [the connector guide](docs/CONNECTOR.md).
+
 ## Command line
 
 The same engine without the app:
@@ -76,6 +83,7 @@ the first part of phase 7 of the
 | [PRD](docs/PRD.md) | Problem, users, goals, user stories, risks, open questions |
 | [Architecture](docs/ARCHITECTURE.md) | Components, stack, repository layout, data flow |
 | [System design](docs/SYSTEM_DESIGN.md) | Data model, scoring and relevance algorithms, model and tool contracts, testing |
+| [Connector](docs/CONNECTOR.md) | Adding Jgtube to the Claude desktop app or Claude Code, and what to ask |
 | [Crawl](docs/CRAWL.md) | How the recommendation map is gathered, with evidence, request budget and risks |
 | [UI design](docs/UI_DESIGN.md) | The owner's design (stored in `design/`), and how each screen maps to real data |
 | [Task list](docs/TASK_LIST.md) | Phased build order with a check for each phase |
