@@ -1,11 +1,11 @@
 /**
  * The loop that keeps the finder working all day: a round of readings every
- * hour, a round of searching whenever subjects are due, and the thinning of
- * old readings once a day.
+ * hour, a round of searching whenever subjects are due, the owner's alerts
+ * and daily messages, and the thinning of old readings once a day.
  *
  * It is a plain function over what it is given: the cycles, a clock and a
- * timer. It starts no process and knows nothing of settings or alerts; the
- * program that will run it is a later step.
+ * timer. It starts no process and knows nothing of settings; `service.ts`
+ * builds what it is given.
  */
 import { reasonOf, type StopReason } from '../cycleStop';
 import { ReadingElsewhereError, withYouTubeLease, type LeaseDeps } from '../lease';
@@ -31,7 +31,7 @@ export const READ_CYCLE_EVERY_MS = 60 * MS_PER_MINUTE;
  */
 export const RATE_LIMIT_PAUSE_MS = 15 * MS_PER_MINUTE;
 
-export type CycleName = 'read' | 'channels' | 'search' | 'rollup';
+export type CycleName = 'read' | 'channels' | 'search' | 'alerts' | 'daily' | 'rollup';
 
 /** What became of one piece of scheduled work. */
 export interface CycleRecord {
@@ -64,12 +64,32 @@ export interface SchedulerDeps {
   readonly searchIsDue: (now: Date) => boolean;
   /** Thins old readings; run once on each UTC day. */
   readonly dailyRollup: (now: Date) => unknown;
+  /**
+   * Tells the owner of findings that wait. Run in every look, after the
+   * readings and the searching, which is when new findings appear; it reads
+   * nothing from YouTube, so it needs no lease. Resolves to null when there
+   * was nothing to try, and then nothing is recorded.
+   */
+  readonly alertCycle?: () => Promise<unknown>;
+  /** The daily summary and the still-running line; null when neither was due. */
+  readonly dailyMessages?: () => Promise<unknown>;
+  /** Where the loop remembers when it last worked, so a restart carries on from there. */
+  readonly memory?: SchedulerMemory;
   /** Where every outcome goes: done, failed or skipped. */
   readonly record: (entry: CycleRecord) => void;
   /** Replace the timer; used by tests. */
   readonly every?: (run: () => void, ms: number) => unknown;
   readonly stop?: (handle: unknown) => void;
 }
+
+/** A few named values that outlive the program: the store's `service_state`. */
+export interface SchedulerMemory {
+  get(key: string): string | null;
+  set(key: string, value: string): void;
+}
+
+export const LAST_READ_AT = 'scheduler.lastReadAt';
+export const LAST_ROLLUP_DAY = 'scheduler.lastRollupDay';
 
 export interface Scheduler {
   /** Stops the loop. Work that is running finishes first; nothing new starts. */
@@ -139,6 +159,51 @@ function runLocal(deps: SchedulerDeps, cycle: CycleName, work: () => unknown): v
   }
 }
 
+/**
+ * Runs work that reads nothing from YouTube and may have nothing to do: an
+ * answer of null (or none) means it did not try, and is not recorded.
+ */
+async function runWhenDue(
+  deps: SchedulerDeps,
+  state: LoopState,
+  cycle: CycleName,
+  work: (() => Promise<unknown>) | undefined,
+): Promise<void> {
+  if (work === undefined || state.stopping) return;
+  const startedAt = deps.now();
+  try {
+    const report = await work();
+    if (report === null || report === undefined) return;
+    record(deps, { cycle, startedAt, result: 'done', report, reason: null });
+  } catch (error) {
+    record(deps, { cycle, startedAt, result: 'failed', report: null, reason: reasonOf(error) });
+  }
+}
+
+/** Notes a value for after a restart. Failing to must not stop the loop: it only costs a repeat. */
+function remember(deps: SchedulerDeps, key: string, value: string): void {
+  try {
+    deps.memory?.set(key, value);
+  } catch {
+    // The store was busy or closed; the loop's own memory still holds the value.
+  }
+}
+
+/** What the loop noted before the last restart; nothing when it cannot be read. */
+function recall(deps: SchedulerDeps): Pick<LoopState, 'lastReadAt' | 'lastRollupDay'> {
+  try {
+    const readAt = new Date(deps.memory?.get(LAST_READ_AT) ?? '');
+    // A time that is not one, or is still to come, would hold the readings back.
+    const usable = Number.isFinite(readAt.getTime()) && readAt <= deps.now();
+    return {
+      lastReadAt: usable ? readAt : null,
+      lastRollupDay: deps.memory?.get(LAST_ROLLUP_DAY) ?? null,
+    };
+  } catch {
+    return { lastReadAt: null, lastRollupDay: null };
+  }
+}
+
 /** Whether YouTube may be asked now: not while stopping, nor during a pause it asked for. */
 const mayRead = (deps: SchedulerDeps, state: LoopState): boolean =>
   !state.stopping && (state.pausedUntil === null || deps.now() >= state.pausedUntil);
@@ -154,7 +219,10 @@ function searchIsDue(deps: SchedulerDeps): boolean {
   }
 }
 
-/** One look at what is due: readings, then searching, then the daily thinning. Never rejects. */
+/**
+ * One look at what is due: readings, then searching, then the owner's
+ * messages, then the daily thinning. Never rejects.
+ */
 async function tick(deps: SchedulerDeps, state: LoopState): Promise<void> {
   const now = deps.now();
   const readDue =
@@ -162,15 +230,21 @@ async function tick(deps: SchedulerDeps, state: LoopState): Promise<void> {
   if (readDue && mayRead(deps, state)) {
     // A round that failed is not tried again until the next hour: a fault that
     // lasts would otherwise spend a unit per request every five minutes.
-    if (await runUnderLease(deps, state, 'read', deps.readCycle)) state.lastReadAt = now;
+    if (await runUnderLease(deps, state, 'read', deps.readCycle)) {
+      state.lastReadAt = now;
+      remember(deps, LAST_READ_AT, now.toISOString());
+    }
     if (mayRead(deps, state)) await runUnderLease(deps, state, 'channels', deps.channelReads);
   }
   if (mayRead(deps, state) && searchIsDue(deps)) {
     await runUnderLease(deps, state, 'search', deps.searchCycle);
   }
+  await runWhenDue(deps, state, 'alerts', deps.alertCycle);
+  await runWhenDue(deps, state, 'daily', deps.dailyMessages);
   const day = utcDay(deps.now());
   if (!state.stopping && day !== state.lastRollupDay) {
     state.lastRollupDay = day;
+    remember(deps, LAST_ROLLUP_DAY, day);
     runLocal(deps, 'rollup', () => deps.dailyRollup(deps.now()));
   }
 }
@@ -182,11 +256,11 @@ async function tick(deps: SchedulerDeps, state: LoopState): Promise<void> {
  * cycle that fails is recorded and the loop carries on.
  */
 export function startScheduler(deps: SchedulerDeps): Scheduler {
-  // The loop's memory lives here and nowhere else; it is lost on a restart,
-  // after which the first look simply does whatever the store says is due.
+  // Searching needs no memory here: each subject's last search is in the
+  // store. The last round of readings and the last thinning are recalled, so
+  // a restart within the hour does not read again at once.
   const state: LoopState = {
-    lastReadAt: null,
-    lastRollupDay: null,
+    ...recall(deps),
     pausedUntil: null,
     stopping: false,
     running: null,

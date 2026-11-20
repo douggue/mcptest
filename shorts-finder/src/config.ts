@@ -1,6 +1,8 @@
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+import { DEFAULT_MAX_ALERTS_PER_DAY } from './alerts/alertCycle';
+import { isTimeZone } from './alerts/localTime';
 import { DEFAULT_SHORTS_RATE, type RateRange } from './scoring/earnings';
 
 /** The countries watched first: English-speaking ones where ads pay most. */
@@ -23,6 +25,16 @@ const IN_MEMORY = ':memory:';
 const PROJECT_ROOT = fileURLToPath(new URL('..', import.meta.url));
 /** Dollars per 1,000 views. Above this a rate is a typing mistake, not a rate. */
 const MAX_RATE = 100;
+/** Six in the evening: the day's findings are mostly in, and the owner is likely awake. */
+const DEFAULT_DIGEST_HOUR = 18;
+const LAST_HOUR = 23;
+const DEFAULT_TIME_ZONE = 'UTC';
+/** More alerts than this in a day would not be read. */
+const MAX_ALERTS_PER_DAY = 100;
+/** A bot token as @BotFather gives it: the bot's number, a colon, a long secret. */
+const BOT_TOKEN_PATTERN = /^\d{5,15}:[\w-]{30,60}$/;
+/** A chat's number; a group's or a channel's is negative. */
+const CHAT_ID_PATTERN = /^-?\d{1,20}$/;
 
 const storePath = (path: string): string =>
   path === IN_MEMORY || isAbsolute(path) ? path : resolve(PROJECT_ROOT, path);
@@ -52,59 +64,144 @@ const dailyUnits = z
     message: `must be from 1 to ${MAX_DAILY_UNITS} units`,
   });
 
-const envSchema = z.object({
+/** A whole number from `min` to `max`, written in digits. */
+const wholeNumber = (min: number, max: number) =>
+  z
+    .string()
+    .regex(/^\d{1,3}$/, `must be a whole number from ${min} to ${max}`)
+    .transform((text) => Number(text))
+    .refine((value) => value >= min && value <= max, {
+      message: `must be a whole number from ${min} to ${max}`,
+    });
+
+/** A setting left empty in the file ("NAME=") counts as not set. */
+const optionalSecret = (schema: z.ZodString) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
+
+/** What a command run by hand needs: where the store is and how it is used. No secrets. */
+const storeSchema = z.object({
   SHORTS_DB_PATH: z.string().min(1, 'must not be empty').default(DEFAULT_DB_PATH),
-  // Checked for shape only; the messages never repeat the value.
-  YOUTUBE_API_KEY: z
-    .string({ error: 'is missing' })
-    .min(20, 'is too short to be an API key')
-    .max(200, 'is too long to be an API key'),
   SHORTS_REGIONS: regions.default(DEFAULT_REGIONS),
   SHORTS_LANGUAGE: z
     .string()
     .regex(/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/, 'must be a language code such as en or es')
     .default(DEFAULT_LANGUAGE),
   SHORTS_DAILY_UNITS: dailyUnits.default(DEFAULT_DAILY_UNITS),
-  SHORTS_RATE_LOW: rate.default(DEFAULT_SHORTS_RATE.low),
-  SHORTS_RATE_HIGH: rate.default(DEFAULT_SHORTS_RATE.high),
 });
 
-export interface Config {
+const envSchema = storeSchema.extend({
+  // Checked for shape only; the messages never repeat the value.
+  YOUTUBE_API_KEY: z
+    .string({ error: 'is missing' })
+    .min(20, 'is too short to be an API key')
+    .max(200, 'is too long to be an API key'),
+  SHORTS_RATE_LOW: rate.default(DEFAULT_SHORTS_RATE.low),
+  SHORTS_RATE_HIGH: rate.default(DEFAULT_SHORTS_RATE.high),
+  TELEGRAM_BOT_TOKEN: optionalSecret(
+    z.string().regex(BOT_TOKEN_PATTERN, 'is not shaped like a bot token from @BotFather'),
+  ),
+  TELEGRAM_CHAT_ID: optionalSecret(
+    z.string().regex(CHAT_ID_PATTERN, 'must be a chat number such as 123456789 or -1001234567890'),
+  ),
+  SHORTS_MAX_ALERTS_PER_DAY: wholeNumber(1, MAX_ALERTS_PER_DAY).default(DEFAULT_MAX_ALERTS_PER_DAY),
+  SHORTS_DIGEST_HOUR: wholeNumber(0, LAST_HOUR).default(DEFAULT_DIGEST_HOUR),
+  SHORTS_TIMEZONE: z
+    .string()
+    .refine(isTimeZone, { message: 'must be a time zone such as UTC or Europe/London' })
+    .default(DEFAULT_TIME_ZONE),
+});
+
+/** Where alerts go. Both settings or neither. */
+export interface TelegramSettings {
+  /** The bot's token. Never logged. */
+  readonly botToken: string;
+  readonly chatId: string;
+}
+
+/** What every program that opens the store needs to know. Holds no secret. */
+export interface StoreConfig {
   /** Where the SQLite store lives: an absolute path, or ":memory:". */
   readonly dbPath: string;
-  /** The owner's key for the official YouTube API. Never logged. */
-  readonly youtubeApiKey: string;
   /** Two-letter countries each subject is searched in. */
   readonly regions: readonly string[];
   /** The language searches lean towards. */
   readonly language: string;
   /** The key's daily allowance, which the plan is split from. */
   readonly dailyUnits: number;
+}
+
+export interface Config extends StoreConfig {
+  /** The owner's key for the official YouTube API. Never logged. */
+  readonly youtubeApiKey: string;
   /** What 1,000 Shorts views are taken to be worth, in US dollars, low to high. */
   readonly shortsRate: RateRange;
+  /** Null when neither Telegram setting is given: alerts are off. */
+  readonly telegram: TelegramSettings | null;
+  /** The most findings told of one by one in a day; the rest go in the summary. */
+  readonly maxAlertsPerDay: number;
+  /** The hour (0 to 23, in `timeZone`) from which the daily messages go out. */
+  readonly digestHour: number;
+  /** The owner's time zone, which decides where a day starts and ends for alerts. */
+  readonly timeZone: string;
+}
+
+type Env = Readonly<Record<string, string | undefined>>;
+
+/** A wrong setting: the service cannot start until the owner corrects it. */
+export class ConfigError extends Error {
+  constructor(problems: string) {
+    super(`Invalid configuration. ${problems}`);
+    this.name = 'ConfigError';
+  }
+}
+
+const problemsOf = (error: z.ZodError): string =>
+  error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+
+const storeConfigOf = (data: z.output<typeof storeSchema>): StoreConfig => ({
+  dbPath: storePath(data.SHORTS_DB_PATH),
+  regions: data.SHORTS_REGIONS,
+  language: data.SHORTS_LANGUAGE,
+  dailyUnits: data.SHORTS_DAILY_UNITS,
+});
+
+/** The settings a command run by hand needs. Asks for no key and no token. */
+export function loadStoreConfig(env: Env = process.env): StoreConfig {
+  const parsed = storeSchema.safeParse(env);
+  if (!parsed.success) throw new ConfigError(problemsOf(parsed.error));
+  return storeConfigOf(parsed.data);
+}
+
+/** Both Telegram settings, or null for neither. One without the other is a mistake. */
+function telegramOf(
+  token: string | undefined,
+  chatId: string | undefined,
+): TelegramSettings | null {
+  if (token === undefined && chatId === undefined) return null;
+  if (token === undefined) {
+    throw new ConfigError('TELEGRAM_BOT_TOKEN: is missing, though TELEGRAM_CHAT_ID is set');
+  }
+  if (chatId === undefined) {
+    throw new ConfigError('TELEGRAM_CHAT_ID: is missing, though TELEGRAM_BOT_TOKEN is set');
+  }
+  return { botToken: token, chatId };
 }
 
 /** Reads settings from the environment and fails fast, naming the bad variable. */
-export function loadConfig(
-  env: Readonly<Record<string, string | undefined>> = process.env,
-): Config {
+export function loadConfig(env: Env = process.env): Config {
   const parsed = envSchema.safeParse(env);
-  if (!parsed.success) {
-    const problems = parsed.error.issues
-      .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-      .join('; ');
-    throw new Error(`Invalid configuration. ${problems}`);
-  }
+  if (!parsed.success) throw new ConfigError(problemsOf(parsed.error));
   const shortsRate = { low: parsed.data.SHORTS_RATE_LOW, high: parsed.data.SHORTS_RATE_HIGH };
   if (shortsRate.low > shortsRate.high) {
-    throw new Error('Invalid configuration. SHORTS_RATE_LOW: must not be above SHORTS_RATE_HIGH');
+    throw new ConfigError('SHORTS_RATE_LOW: must not be above SHORTS_RATE_HIGH');
   }
   return {
-    dbPath: storePath(parsed.data.SHORTS_DB_PATH),
+    ...storeConfigOf(parsed.data),
     youtubeApiKey: parsed.data.YOUTUBE_API_KEY,
-    regions: parsed.data.SHORTS_REGIONS,
-    language: parsed.data.SHORTS_LANGUAGE,
-    dailyUnits: parsed.data.SHORTS_DAILY_UNITS,
     shortsRate,
+    telegram: telegramOf(parsed.data.TELEGRAM_BOT_TOKEN, parsed.data.TELEGRAM_CHAT_ID),
+    maxAlertsPerDay: parsed.data.SHORTS_MAX_ALERTS_PER_DAY,
+    digestHour: parsed.data.SHORTS_DIGEST_HOUR,
+    timeZone: parsed.data.SHORTS_TIMEZONE,
   };
 }

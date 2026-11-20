@@ -1,4 +1,54 @@
-export { loadConfig, DEFAULT_DAILY_UNITS, DEFAULT_REGIONS, type Config } from './config';
+export {
+  ALERTS_PAUSED_UNTIL,
+  ALERT_FAILURE_PAUSE_MS,
+  DEFAULT_MAX_ALERTS_PER_DAY,
+  runAlertCycle,
+  type AlertCycleReport,
+  type AlertDeps,
+  type AlertSettings,
+  type NotSent,
+} from './alerts/alertCycle';
+export {
+  DIGEST_SENT_FOR_DAY,
+  HEARTBEAT_SENT_FOR_DAY,
+  runDailyMessages,
+  type DailyDeps,
+  type DailyOutcome,
+  type DailyReport,
+  type ServiceStats,
+} from './alerts/dailyMessages';
+export {
+  DIGEST_TOP,
+  formatDigest,
+  formatFinding,
+  formatHeartbeat,
+  type DigestInput,
+  type FindingContext,
+  type HeartbeatInput,
+  type LastProblem,
+} from './alerts/format';
+export { isTimeZone, localMoment, startOfLocalDay, endOfLocalDay } from './alerts/localTime';
+export {
+  TELEGRAM_MAX_MESSAGE_LENGTH,
+  TELEGRAM_TIMEOUT_MS,
+  createSender,
+  sendMessage,
+  type MessageOptions,
+  type Send,
+  type SendResult,
+  type TelegramOptions,
+} from './alerts/telegram';
+export { escapeHtml, truncateHtml } from './alerts/text';
+export {
+  ConfigError,
+  DEFAULT_DAILY_UNITS,
+  DEFAULT_REGIONS,
+  loadConfig,
+  loadStoreConfig,
+  type Config,
+  type StoreConfig,
+  type TelegramSettings,
+} from './config';
 export { reasonOf, stopReasonFor, type StopReason } from './cycleStop';
 export { backupPathFor, backupStore } from './db/backup';
 export { migrate, openDatabase, transactionRunner, type Db } from './db/sqlite';
@@ -16,12 +66,14 @@ export {
   type SubjectFailure,
   type SubjectOutcome,
 } from './discover/searchCycle';
+export { NO_REASON, reasonFromText, reasonToText } from './findings/reason';
 export {
   READING_ELSEWHERE,
   ReadingElsewhereError,
   withYouTubeLease,
   type LeaseDeps,
 } from './lease';
+export { createLogger, type LogFields, type Logger, type LoggerOptions } from './log';
 export { QUOTA_KINDS, type QuotaKind } from './quota/kinds';
 export {
   AllowanceSpentError,
@@ -35,9 +87,11 @@ export {
   type Remaining,
 } from './quota/ledger';
 export { SqliteChannelRepo } from './repos/sqliteChannelRepo';
+export { SqliteFindingRepo } from './repos/sqliteFindingRepo';
 export { SqliteLeaseRepo } from './repos/sqliteLeaseRepo';
 export { SqliteQuotaRepo } from './repos/sqliteQuotaRepo';
 export { SqliteReadingRepo } from './repos/sqliteReadingRepo';
+export { SqliteServiceStateRepo } from './repos/sqliteServiceStateRepo';
 export { SqliteSubjectHitRepo, SqliteSubjectRepo } from './repos/sqliteSubjectRepo';
 export { SqliteTrackingRepo } from './repos/sqliteTrackingRepo';
 export { SqliteVideoRepo } from './repos/sqliteVideoRepo';
@@ -46,10 +100,16 @@ export type {
   ChannelReadRequest,
   ChannelRepo,
   DayUsage,
+  Finding,
+  FindingKind,
+  FindingReason,
+  FindingRepo,
   LeaseRepo,
+  NewFinding,
   QuotaRepo,
   Reading,
   ReadingRepo,
+  ServiceStateRepo,
   ShortAnswer,
   SpendLimits,
   Store,
@@ -60,11 +120,14 @@ export type {
   SubjectRepo,
   Tier,
   TrackedVideo,
+  TrackingCounts,
   TrackingRepo,
   Transact,
   VideoRepo,
 } from './repos/types';
 export {
+  LAST_READ_AT,
+  LAST_ROLLUP_DAY,
   RATE_LIMIT_PAUSE_MS,
   READ_CYCLE_EVERY_MS,
   SCHEDULER_TICK_MS,
@@ -73,7 +136,20 @@ export {
   type CycleRecord,
   type Scheduler,
   type SchedulerDeps,
+  type SchedulerMemory,
 } from './schedule/scheduler';
+export { startService, type Service, type ServiceDeps } from './service';
+export {
+  CYCLE_NAMES,
+  gatherStats,
+  noteOutcome,
+  problemIn,
+  readLastProblem,
+  readOutcome,
+  storeBytes,
+  type CycleOutcome,
+  type StatsSources,
+} from './status';
 export {
   DEFAULT_SHORTS_RATE,
   SUBSCRIBER_THRESHOLD,

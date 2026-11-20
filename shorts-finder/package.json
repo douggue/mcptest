@@ -8,6 +8,9 @@
     "node": ">=22"
   },
   "scripts": {
+    "start": "node --env-file-if-exists=.env --import tsx src/main.ts",
+    "subjects": "node --env-file-if-exists=.env --import tsx src/cli.ts subjects",
+    "status": "node --env-file-if-exists=.env --import tsx src/cli.ts status",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . && prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"*.{ts,js,json}\"",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"*.{ts,js,json}\"",
@@ -15,6 +18,7 @@
   },
   "dependencies": {
     "better-sqlite3": "^13.2.0",
+    "tsx": "^4.23.15",
     "zod": "^4.6.7"
   },
   "devDependencies": {
