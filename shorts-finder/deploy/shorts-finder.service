@@ -1,0 +1,56 @@
+# Shorts finder, run by systemd. Installed by deploy/setup.sh.
+# Not yet run on a real server: see deploy/README.md.
+[Unit]
+Description=Shorts finder (watches YouTube Shorts, sends Telegram alerts)
+After=network-online.target
+Wants=network-online.target
+# Keep trying for ever: a fault that lasts an hour must not leave it stopped.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=shorts
+Group=shorts
+WorkingDirectory=/opt/shorts-finder
+# The key and the token live here, readable by root only. systemd reads the
+# file itself and hands the values to the service; they are on no command line.
+EnvironmentFile=/etc/shorts-finder/env
+Environment=NODE_ENV=production
+# node is started directly, not through npm: npm does not pass the stop
+# signal on, and the service must hear it to close the store cleanly.
+ExecStart=/usr/bin/node --import tsx src/main.ts
+Restart=always
+RestartSec=30
+# 78 is "a setting is wrong". Restarting cannot cure that; fix the file, then
+# run: systemctl restart shorts-finder
+RestartPreventExitStatus=78
+# Work that is running (a request can take 20 seconds) is allowed to finish.
+TimeoutStopSec=90
+# On a 1 GB server, be restarted rather than starve everything else.
+MemoryMax=600M
+
+# The service may write to its data folder and nowhere else.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/shorts-finder
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

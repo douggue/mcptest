@@ -1,0 +1,19 @@
+# The nightly copy of the store. Started by shorts-finder-backup.timer.
+[Unit]
+Description=Shorts finder: nightly copy of the store
+
+[Service]
+Type=oneshot
+User=shorts
+Group=shorts
+ExecStart=/opt/shorts-finder/deploy/backup.sh
+Nice=10
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/shorts-finder
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+PrivateNetwork=true
+CapabilityBoundingSet=
+UMask=0077
