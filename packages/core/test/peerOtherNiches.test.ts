@@ -80,6 +80,8 @@ interface Niche {
   readonly lookAlikes: readonly string[];
   /** Other niches altogether. */
   readonly otherNiches: readonly string[];
+  /** Make the centre's kind of video but have stopped uploading. */
+  readonly dormant: readonly string[];
 }
 
 const NICHES: readonly Niche[] = [
@@ -90,7 +92,6 @@ const NICHES: readonly Niche[] = [
       'Tech Fallout',
       'Byte & Fall',
       'Jason Stewards',
-      'Tech Assembly',
       'Tech Rewind',
       'Silicon Hindsight',
       'Ctrl+Alt+Fail',
@@ -111,6 +112,7 @@ const NICHES: readonly Niche[] = [
       'StandFirm',
       'biplav',
     ],
+    dormant: ['Tech Assembly'],
   },
   {
     name: 'companies and brands in decline',
@@ -136,12 +138,13 @@ const NICHES: readonly Niche[] = [
       'Kitco Mining',
       'Canadian Chronicler',
     ],
+    dormant: [],
   },
 ];
 
 describe.each(NICHES)(
   'look-alikes in another niche: $name',
-  ({ fixture, lookAlikes, otherNiches }) => {
+  ({ fixture, lookAlikes, otherNiches, dormant }) => {
     const row = rowsOf(fixture);
 
     test('counts the channels that make the centre’s kind of video', () => {
@@ -154,6 +157,12 @@ describe.each(NICHES)(
       const wronglyIn = otherNiches.filter((title) => row(title).peer);
 
       expect(wronglyIn).toEqual([]);
+    });
+
+    test('sets aside a channel that stopped uploading as dormant, not as another niche', () => {
+      expect(dormant.map((title) => row(title).outsideReason)).toEqual(
+        dormant.map(() => 'dormant'),
+      );
     });
 
     test('scores every look-alike above every channel from another niche', () => {
