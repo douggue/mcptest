@@ -90,6 +90,8 @@ every phase; coverage floor is 80%.
 - [ ] Results feed and topic streams (need phase 5)
 - [ ] Channel detail, run progress
 - [x] Competitor remove and restore
+- [x] Thumbnail board: per channel like yours, the thumbnails that took off beside ordinary ones and the owner's own, with a switch between winners only and winners next to ordinary (`GET /api/maps/latest/thumbnails`)
+- [ ] Thumbnail patterns in words: a model looks at the board's winners and ordinary videos and says what to copy
 - [ ] Star, hide, copy
 - [ ] Follow-up chat over a stored run
 - [ ] Keyboard and screen-reader pass; phone layout

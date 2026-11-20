@@ -190,6 +190,47 @@ channel, one they want to be like.
 - The model is stored on the map (`maps.model_channel`) and shown in the snapshot
   as `model`, so a reopened map says what it was measured against.
 
+### Thumbnail board
+
+Built (`packages/core/src/map/thumbnails.ts`, `GET /api/maps/latest/thumbnails?channel=`).
+The owner asked which thumbnails work on channels like theirs and which to copy. This
+first version shows the pictures and leaves the judgement to the owner's eyes; no
+image is read, downloaded or stored. The browser loads each thumbnail from YouTube by
+video id.
+
+For each peer the owner has not removed, in the map's own order (closest title match
+first):
+
+| List     | Rule                                                         | Order           | Shown |
+| -------- | ------------------------------------------------------------ | --------------- | ----- |
+| Winners  | Outlier score of 2× or more, from all stored videos          | Strongest first | 6     |
+| Ordinary | Score of 1.2× or less, and published at least three days ago | Newest first    | 6     |
+
+Videos between 1.2× and 2× are in neither list, and a video under three days old is
+never called ordinary: its score is already adjusted for age, but so early it is
+mostly noise. The centre's own six newest videos are listed too, with scores where
+there are enough videos to score them. Each channel also carries `winnerCount` and
+`scoredCount` over all its stored videos, so "12 of 38 took off" is not limited to
+the six shown.
+
+```
+ThumbnailBoard { mapId, winnerMinScore, ordinaryMaxScore,
+  center   { id, title, subscribers, videos: BoardVideo[] },
+  channels [{ id, title, subscribers, winners: BoardVideo[], ordinary: BoardVideo[],
+              winnerCount, scoredCount }] }
+BoardVideo { videoId, title, views, score, publishedRaw, ageDays, durationSeconds }
+```
+
+Which channels are peers comes from the map as the owner sees it (`loadMapSnapshot`:
+frozen when made, less their removals). The videos and scores are read from the store
+at request time. The board is therefore not part of the frozen snapshot, whose shape
+is unchanged; after a later crawl refreshes a channel's videos, the board shows the
+newer numbers while the frozen breakout feed does not.
+
+Next step: have a model look at the same videos by `videoId` and say what the winners
+share that the ordinary ones lack. The board's ids, scores and titles are the evidence
+pack for that call.
+
 ### Filling a limited map
 
 A map holds at most `maxChannels` channels (150 by default; the screen offers 150,
