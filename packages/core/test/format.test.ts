@@ -86,6 +86,7 @@ describe('formatMapTable', () => {
     },
     peer: true,
     outsideReason: null,
+    settled: true,
     ...overrides,
   });
 

@@ -254,6 +254,61 @@ describe('buildMapView', () => {
     expect([tier('M'), tier('A'), tier('B')]).toEqual(['close', 'close', 'medium']);
   });
 
+  describe('whether a look-alike call is settled', () => {
+    const outsiders = ['Rifles Ranked', 'Tigers Avoid Elephants', 'Quiet Walks', 'Slow Cooking'];
+    const input = {
+      center: member('C', 0, ['America Just Built a Humanoid Robot Army']),
+      members: [
+        member('L', 1, [
+          'America Just Built a Fusion Reactor',
+          'This New Invention Could Replace Jet Engines Forever',
+        ]),
+        member('B', 2, [
+          'This New Invention Could Replace Car Mirrors Forever',
+          'Germany Battery Breakthrough',
+        ]),
+        ...outsiders.map((title, index) =>
+          member(String.fromCharCode(80 + index), 2, [title, `${title} Again`]),
+        ),
+      ],
+      edges: [],
+      now: NOW,
+    };
+    const row = (rows: ReturnType<typeof buildMapView>, letter: string) =>
+      rows.find((candidate) => candidate.channel.id === cid(letter));
+
+    test('marks a channel that passes only because of who else is on the map', () => {
+      const rows = buildMapView(input);
+
+      // Channel B shares nothing with the centre; it passes on wording Channel L lent.
+      expect(row(rows, 'B')).toMatchObject({ peer: true, settled: false });
+      expect(row(rows, 'L')).toMatchObject({ peer: true, settled: true });
+    });
+
+    test('calls channels that share nothing with anyone settled outsiders', () => {
+      const rows = buildMapView(input);
+
+      expect(rows.filter((candidate) => !candidate.peer).map((r) => r.settled)).toEqual(
+        outsiders.map(() => true),
+      );
+    });
+
+    test('calls a channel ruled out by its size settled, and the model too', () => {
+      const giant = { ...member('G', 2, ['Germany Battery Breakthrough']) };
+      const rows = buildMapView({
+        ...input,
+        members: [
+          ...input.members,
+          { ...giant, channel: { ...giant.channel, subscribers: 15_600_000 } },
+        ],
+        modelId: cid('L'),
+      });
+
+      expect(row(rows, 'G')).toMatchObject({ outsideReason: 'larger', settled: true });
+      expect(row(rows, 'L')).toMatchObject({ peer: true, settled: true });
+    });
+  });
+
   test('treats a mutual recommendation as close', () => {
     const rows = buildMapView({
       center: member('C', 0),
