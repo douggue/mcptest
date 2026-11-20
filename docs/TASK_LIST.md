@@ -141,6 +141,13 @@ Phase 7 needs 5.
 - [ ] Connector tried in the Claude desktop app on the owner's computer (checked here only through a test client and Claude Code)
 - [ ] Ask Claude on Windows (checked on macOS-style and Linux environments only)
 
+## Safety, from the final reviews
+
+- [x] Backup of the store before every upgrade, and `npm run backup`
+- [x] One reader of YouTube at a time across the app, the connector and the command line
+- [x] Refresh backs off from channels that can no longer be read
+- [x] Claude runs: no built-in tools, private working folder, API keys withheld
+
 ## Not built from the original plan
 
 - [ ] Stored topic runs, novelty check, fact check with web search, follow-up chat in the app (PRD stories 4 to 8); video ideas come from Claude on demand instead

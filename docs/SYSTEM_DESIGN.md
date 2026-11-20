@@ -14,6 +14,8 @@ channels        id PK (UC…), handle, title, subscribers NULL, subs_hidden,   -
                 video_count, fetched_at        (language: planned)
                 created_at NULL, country NULL, total_views NULL,   -- from the official API;
                 facts_fetched_at NULL          -- set once the API has been asked
+                read_failures, read_failed_at NULL   -- reads that failed in a row, so a
+                -- refresh backs off from a channel that is gone
 videos          id PK, channel_id FK, title, views, duration_s,
                 published_at, published_precision (day|week|month|year),
                 published_raw ("2w ago"), fetched_at                    -- built
@@ -35,6 +37,8 @@ niche_watchlist channel_id PK FK, watched_at                          -- built; 
                 (source crawl|search|manual and judged relevance: planned)
 refresh_runs    id PK, started_at, finished_at, refreshed, failed,    -- built; one row per
                 stopped_early                  -- finished refresh, whoever started it
+work_leases     name PK, owner, expires_at        -- built; the right to read YouTube,
+                -- held by one piece of work at a time across every program
 ```
 
 There is no HTTP cache table; freshness is decided from `fetched_at` (a channel
@@ -52,6 +56,21 @@ A re-read adds a row to `video_snapshots` each time, so view history builds up.
 Channels, videos and recommendation edges are updated in place: only the latest
 reading of each is kept (`edge_crawls` records when a channel's edges were last
 read).
+
+### Keeping the store safe
+
+- **Backup before upgrade.** When an existing store with data has pending
+  migrations, a dated copy (`<name>.backup-v<version>-<UTC time>.db`, written with
+  `VACUUM INTO`) is made first; if the copy fails, nothing is migrated. `npm run
+backup` makes one on demand.
+- **One reader of YouTube at a time, across processes.** A crawl, a refresh and a
+  keyword search each take the `work_leases` row before starting, whether they run
+  in the web server, the connector or the command line. The lease is renewed every
+  30 seconds while work runs and expires after two minutes, so a process that died
+  does not block the next one. Inside the server the same rule is the job slot.
+- **Channels that are gone.** A read that fails is counted on the channel. The
+  refresh waits 20 hours before trying it again, doubling up to 14 days, and puts
+  failed channels last, so a deleted channel cannot starve the rest.
 
 ## Algorithms
 

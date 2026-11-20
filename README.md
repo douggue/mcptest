@@ -116,9 +116,11 @@ Deleting or replacing the folder deletes it.
 - To keep the file somewhere safer, set `JGTUBE_DB_PATH` in `.env` to a full path
   outside the Jgtube folder, such as a folder that your computer backs up.
 - `npm run backup` writes a dated copy of the file.
-- Run one copy of Jgtube at a time. The app, the connector and `npm run refresh`
-  can all open the same file, but two of them reading YouTube at once doubles the
-  traffic and raises the chance of being refused.
+- Before Jgtube upgrades the file to a new version, it writes a dated copy beside
+  it first (`jgtube.backup-v…db`). You can delete old copies once you are happy.
+- Only one thing reads YouTube at a time: a map, a refresh or a keyword search,
+  in the app, in Claude or on the command line. If one is running, the next is
+  refused with a message saying so; wait and try again.
 
 ## Settings
 
