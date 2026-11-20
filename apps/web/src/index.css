@@ -28,3 +28,18 @@
     }
   }
 }
+
+/* The top bar is fixed, so a section jumped to from the left rail must stop below it. */
+h2[id] {
+  scroll-margin-top: 5.5rem;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

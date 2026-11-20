@@ -112,7 +112,10 @@ export function BreakoutFeed({ items, centerTitle }: Props) {
         <div>
           <div className="flex items-center gap-2">
             <Flame aria-hidden="true" className="h-[22px] w-[22px] text-metric-amber" />
-            <h2 className="text-headline-lg font-bold tracking-tight text-on-surface">
+            <h2
+              id="breakouts-title"
+              className="text-headline-lg font-bold tracking-tight text-on-surface"
+            >
               Breaking out right now
             </h2>
           </div>
