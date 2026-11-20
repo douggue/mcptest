@@ -171,6 +171,18 @@ export class InnertubeSource implements YouTubeSource {
   }
 
   /**
+   * The player's answer for one video as the library returns it, files and
+   * download call included: what the built-in video download works from. One
+   * request, through the limiter like every other.
+   */
+  async fetchPlayer(videoId: string): Promise<unknown> {
+    if (!VIDEO_ID_PATTERN.test(videoId)) {
+      throw new Error(`Not a valid YouTube video id: "${videoId.slice(0, 40)}"`);
+    }
+    return this.limiter.run(() => this.client.getBasicInfo(videoId, { client: PLAYER_CLIENT }));
+  }
+
+  /**
    * The other route, for when the player will not answer: the watch page the
    * crawl already reads, and the library's own transcript call on it.
    */

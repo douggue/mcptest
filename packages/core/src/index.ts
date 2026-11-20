@@ -243,3 +243,23 @@ export {
   type ThumbnailDownloadOptions,
 } from './downloads/thumbnails';
 export { boardChannel } from './map/thumbnails';
+export {
+  MAX_VIDEO_BYTES,
+  VIDEO_MIN_HEIGHT,
+  VIDEO_TEMP_FOLDER,
+  VIDEO_TEMP_MAX_AGE_HOURS,
+  cleanVideoTemp,
+  downloadVideoFile,
+  removeVideoFile,
+  videoTempFolder,
+  type VideoDownload,
+  type VideoDownloadDeps,
+  type VideoFailure,
+  type VideoFailureKind,
+  type VideoFetcher,
+  type VideoFile,
+  type VideoRoute,
+} from './downloads/videoFile';
+export { downloadVideo, type DownloadVideoOptions } from './downloads/video';
+export { builtInVideoFetcher, type VideoPlayerSource } from './downloads/builtInVideo';
+export { YT_DLP_PROGRAM, findProgram, ytDlpFetcher, type RunProgram } from './downloads/ytDlp';
