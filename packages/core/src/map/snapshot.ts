@@ -124,7 +124,7 @@ function buildSnapshot(deps: SnapshotDeps, map: StoredMap, now: Date): MapSnapsh
 }
 
 /** Raised when the stored shape changes, so older copies are rebuilt instead of misread. */
-const SNAPSHOT_FORMAT = 1;
+export const SNAPSHOT_FORMAT = 2;
 
 /** Checks the parts every reader relies on; the rest is carried through as stored. */
 const storedSnapshot = z.object({

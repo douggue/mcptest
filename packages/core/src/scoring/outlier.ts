@@ -28,6 +28,8 @@ export interface OutlierScore {
   readonly baseline: number;
   /** Baseline scaled down for the video's age. */
   readonly expected: number;
+  /** How many other videos the baseline was taken from. */
+  readonly sampleSize: number;
 }
 
 /** Share of its eventual views a typical video has reached after `ageDays`. */
@@ -61,7 +63,7 @@ function scoreOne(video: ScorableVideo, all: readonly ScorableVideo[]): OutlierS
   const baseline = median(pool.map((other) => other.views));
   if (baseline === null || baseline <= 0) return null;
   const expected = baseline * ageRamp(video.ageDays);
-  return { score: video.views / expected, baseline, expected };
+  return { score: video.views / expected, baseline, expected, sampleSize: pool.length };
 }
 
 /** Scores every video of one channel. A video with too little to compare against maps to null. */

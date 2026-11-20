@@ -43,6 +43,7 @@ describe('formatVideoTable', () => {
     publishedRaw: '1d ago',
     score,
     baseline: 54,
+    sampleSize: 12,
   });
 
   test('prints a header and one line per video up to the limit', () => {

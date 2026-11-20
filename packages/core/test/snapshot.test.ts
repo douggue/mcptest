@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { openDatabase } from '../src/db/sqlite';
 import { listBreakouts } from '../src/map/breakouts';
-import { freezeMapSnapshot, loadMapSnapshot, type SnapshotDeps } from '../src/map/snapshot';
+import {
+  SNAPSHOT_FORMAT,
+  freezeMapSnapshot,
+  loadMapSnapshot,
+  type SnapshotDeps,
+} from '../src/map/snapshot';
 import type { MapMemberData } from '../src/map/view';
 import { SqliteChannelRepo } from '../src/repos/sqliteChannelRepo';
 import { SqliteEdgeRepo } from '../src/repos/sqliteEdgeRepo';
@@ -81,6 +86,42 @@ describe('listBreakouts', () => {
     );
 
     expect(feed).toEqual([]);
+  });
+
+  test('carries the evidence behind each score', () => {
+    const [hit] = listBreakouts([member('A', withHit('A', 20))], NOW);
+
+    expect(hit).toMatchObject({
+      baseline: 1000,
+      sampleSize: 3,
+      channelHits: 1,
+      channelScored: 4,
+      caution: 'few-videos',
+    });
+    expect(hit?.channelAgeDays).toBeCloseTo(28, 0);
+  });
+
+  test('trusts a score built on enough videos with real view counts, and no other', () => {
+    const many = (letter: string, usual: number): StoredVideo[] => [
+      stored(letter, 0, usual * 30, 5),
+      ...[1, 2, 3, 4, 5, 6].map((n) => stored(letter, n, usual, 10 + n)),
+    ];
+
+    const feed = listBreakouts([member('A', many('A', 1000)), member('B', many('B', 40))], NOW);
+
+    expect(feed.map((item) => [item.channelTitle, item.sampleSize, item.caution])).toEqual([
+      ['Channel A', 6, null],
+      ['Channel B', 6, 'low-baseline'],
+    ]);
+  });
+
+  test('does not guess a channel age when older videos may not have been read', () => {
+    const capped = [
+      stored('A', 0, 90_000, 5),
+      ...Array.from({ length: 99 }, (_, n) => stored('A', n + 1, 1000, 6 + n)),
+    ];
+
+    expect(listBreakouts([member('A', capped)], NOW)[0]?.channelAgeDays).toBeNull();
   });
 
   test('honours the limit', () => {
@@ -214,7 +255,7 @@ describe('loadMapSnapshot', () => {
       'holds entries of the wrong shape',
       (id: number) =>
         JSON.stringify({
-          format: 1,
+          format: SNAPSHOT_FORMAT,
           snapshot: { mapId: id, channels: [null], breakouts: [{}], edges: [] },
         }),
     ],
@@ -222,7 +263,7 @@ describe('loadMapSnapshot', () => {
       'belongs to another map',
       () =>
         JSON.stringify({
-          format: 1,
+          format: SNAPSHOT_FORMAT,
           snapshot: { mapId: 999, channels: [], breakouts: [], edges: [] },
         }),
     ],

@@ -31,7 +31,7 @@ every phase; coverage floor is 80%.
 - [x] Rising-channel rule
 - [x] "Views on recent uploads"
 - [ ] True 30-day views from stored snapshots
-- [ ] Baseline, sample size, channel age and hit rate shown beside each score
+- [x] Baseline, sample size, channel age and hit rate shown beside each score, with a caution mark when the usual is taken from few videos or is very small
 
 **Done when:** scores for one channel from the Makina export are reproduced within 15%. (Met: a test checks the median error on an exported channel.)
 

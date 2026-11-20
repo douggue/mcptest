@@ -71,6 +71,21 @@ Guards:
 - Cap displayed scores at 9,999× and show the baseline beside any score above 500×,
   since tiny baselines produce absurd multiples. (Display rule; not built yet.)
 
+### Evidence beside a score
+
+A score alone misleads: 800× on a channel whose usual video gets 300 views is a
+different thing from 60× on one that usually gets 7,000. Every breakout therefore
+carries what it rests on:
+
+- `baseline`: the channel's usual views (the median the score divides by)
+- `sampleSize`: how many other videos that median was taken from
+- `channelHits` / `channelScored`: of the channel's scored videos from the last 90
+  days, how many scored 2× or more
+- `channelAgeDays`: days since its oldest video, or null when the fetch hit the
+  100-video cap and older ones may exist
+- `caution`: `few-videos` when `sampleSize` is under 5, else `low-baseline` when the
+  usual is under 500 views, else null
+
 ### Rising channels
 
 A channel is "rising" when its first long-form upload is under 90 days old and

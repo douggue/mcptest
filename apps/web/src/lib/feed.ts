@@ -1,4 +1,5 @@
 import type { BreakoutVideo } from '@jgtube/core';
+import { formatAge, formatCount } from './format';
 
 export type BreakoutFilter = 'all' | '100x' | '50x' | 'small';
 
@@ -35,4 +36,16 @@ export function inScope<T extends { readonly peer: boolean; readonly removed?: b
   scope: Scope,
 ): readonly T[] {
   return scope === 'peers' ? items.filter((item) => item.peer && !item.removed) : items;
+}
+
+/** In words, what a breakout score rests on, so a big number can be weighed. */
+export function describeEvidence(item: BreakoutVideo): string {
+  return [
+    `Usually ${formatCount(item.baseline)} views`,
+    `compared with ${item.sampleSize} video${item.sampleSize === 1 ? '' : 's'}`,
+    `${item.channelHits} of ${item.channelScored} recent videos broke out`,
+    ...(item.channelAgeDays === null
+      ? []
+      : [`channel about ${formatAge(item.channelAgeDays)} old`]),
+  ].join(' · ');
 }

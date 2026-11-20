@@ -49,6 +49,7 @@ describe('scoreVideos', () => {
 
     expect(scores.get('hit')?.score).toBeCloseTo(10, 1);
     expect(scores.get('hit')?.baseline).toBe(1000);
+    expect(scores.get('hit')?.sampleSize).toBe(videos.length - 1);
     expect(scores.get('a')?.score).toBeCloseTo(1, 1);
   });
 

@@ -1,7 +1,12 @@
 import type { BreakoutVideo } from '@jgtube/core';
 import { ArrowUpRight, Flame, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
-import { BREAKOUT_FILTERS, filterBreakouts, type BreakoutFilter } from '../lib/feed';
+import {
+  BREAKOUT_FILTERS,
+  describeEvidence,
+  filterBreakouts,
+  type BreakoutFilter,
+} from '../lib/feed';
 import {
   formatCount,
   formatDuration,
@@ -10,6 +15,7 @@ import {
   thumbnailUrl,
   watchUrl,
 } from '../lib/format';
+import { CAUTION_LABEL } from './tiers';
 
 const PAGE_SIZE = 8;
 
@@ -42,6 +48,14 @@ function Card({ item }: { readonly item: BreakoutVideo }) {
               <TrendingUp aria-hidden="true" className="h-3.5 w-3.5" />
               {formatScore(item.score)}
             </span>
+            {item.caution && (
+              <span
+                title={CAUTION_LABEL[item.caution].detail}
+                className="rounded-full bg-surface-container-high px-2 py-0.5 text-label-caps text-on-surface-variant"
+              >
+                {CAUTION_LABEL[item.caution].label}
+              </span>
+            )}
             <span className="text-label-caps text-outline">
               {formatCount(item.views)} views · {item.publishedRaw}
             </span>
@@ -55,6 +69,7 @@ function Card({ item }: { readonly item: BreakoutVideo }) {
               item.title
             )}
           </h3>
+          <p className="mt-1 text-label-caps text-outline">{describeEvidence(item)}</p>
         </div>
         <div className="flex items-center justify-between text-body-sm text-on-surface-variant">
           <div className="flex min-w-0 items-center gap-2">

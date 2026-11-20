@@ -1,7 +1,7 @@
 import type { BreakoutVideo, MapSnapshot, SnapshotChannel } from '@jgtube/core';
 import { describe, expect, test } from 'vitest';
 import { ApiError, createApi } from '../src/lib/api';
-import { filterBreakouts, inScope } from '../src/lib/feed';
+import { describeEvidence, filterBreakouts, inScope } from '../src/lib/feed';
 import {
   formatCount,
   formatDuration,
@@ -10,6 +10,7 @@ import {
   percent,
   thumbnailUrl,
   watchUrl,
+  formatAge,
 } from '../src/lib/format';
 import { layoutRadar, RING_RADIUS } from '../src/lib/radarLayout';
 
@@ -88,8 +89,34 @@ describe('filterBreakouts', () => {
     channelId: cid(1),
     channelTitle: 'Channel',
     channelSubscribers,
+    baseline: 1200,
+    sampleSize: 12,
+    channelHits: 3,
+    channelScored: 14,
+    channelAgeDays: 150,
+    caution: null,
   });
   const items = [item(300, 500_000), item(60, 2000), item(8, 900), item(4, null)];
+
+  test('says in words what a score rests on', () => {
+    expect(describeEvidence(item(8, 900))).toBe(
+      'Usually 1.2K views · compared with 12 videos · 3 of 14 recent videos broke out · channel about 5 months old',
+    );
+    expect(describeEvidence({ ...item(8, 900), sampleSize: 1, channelAgeDays: null })).toBe(
+      'Usually 1.2K views · compared with 1 video · 3 of 14 recent videos broke out',
+    );
+  });
+
+  test.each([
+    [0, 'under a day'],
+    [1, '1 day'],
+    [9, '9 days'],
+    [21, '3 weeks'],
+    [150, '5 months'],
+    [800, '2 years'],
+  ])('describes an age of %d days as %s', (days, text) => {
+    expect(formatAge(days)).toBe(text);
+  });
 
   test('keeps everything by default', () => {
     expect(filterBreakouts(items, 'all')).toHaveLength(4);

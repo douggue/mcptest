@@ -47,3 +47,15 @@ export function thumbnailUrl(videoId: string): string | null {
 export function channelUrl(channelId: string): string | null {
   return CHANNEL_ID.test(channelId) ? `https://www.youtube.com/channel/${channelId}` : null;
 }
+
+const plural = (count: number, unit: string): string => `${count} ${unit}${count === 1 ? '' : 's'}`;
+
+/** A length of time in the largest unit that reads naturally, such as "5 months". */
+export function formatAge(days: number): string {
+  const whole = Math.floor(days);
+  if (whole < 1) return 'under a day';
+  if (whole < 14) return plural(whole, 'day');
+  if (whole < 60) return plural(Math.floor(whole / 7), 'week');
+  if (whole < 730) return plural(Math.floor(whole / 30), 'month');
+  return plural(Math.floor(whole / 365), 'year');
+}
