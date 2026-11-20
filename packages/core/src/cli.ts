@@ -1,93 +1,132 @@
 import { loadConfig } from './config';
-import { openDatabase, transactionRunner } from './db/sqlite';
+import { crawlMap, type CrawlDeps, type CrawlProgress } from './crawl/crawl';
+import { openDatabase, transactionRunner, type Db } from './db/sqlite';
+import { formatCount, formatMapTable, formatVideoTable, sanitize } from './format';
 import { ingestChannel } from './ingest';
-import { buildVideoReport, type VideoReportRow } from './report';
+import { loadMapView } from './map/view';
+import { buildVideoReport } from './report';
 import { SqliteChannelRepo } from './repos/sqliteChannelRepo';
+import { SqliteEdgeRepo } from './repos/sqliteEdgeRepo';
+import { SqliteMapRepo } from './repos/sqliteMapRepo';
 import { SqliteVideoRepo } from './repos/sqliteVideoRepo';
 import { InnertubeSource } from './sources/innertube';
 import { RateLimiter } from './sources/limiter';
 
-const USAGE = 'Usage: npm run scout -- ingest <@handle | channel id | youtube.com URL> [--refresh]';
-const ROWS_SHOWN = 25;
-const TITLE_WIDTH = 72;
+const USAGE = [
+  'Usage:',
+  '  npm run scout -- ingest <channel> [--refresh]',
+  '  npm run scout -- map <channel> [--depth 1|2] [--sample N] [--max-channels N]',
+  '',
+  '<channel> is an @handle, a channel id or a youtube.com URL.',
+].join('\n');
+const VIDEO_ROWS_SHOWN = 25;
+const MAP_ROWS_SHOWN = 60;
 const REQUEST_TIMEOUT_MS = 30_000;
-/** Titles are untrusted; control characters could otherwise drive the terminal. */
-const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/g;
 
-const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+const print = (lines: readonly string[]): void => {
+  process.stdout.write(`${lines.join('\n')}\n`);
+};
 
-function formatScore(score: number | null): string {
-  if (score === null) return 'new';
-  return `${score >= 100 ? Math.round(score) : score.toFixed(1)}x`;
+/** Reads `--name 12` from the arguments; undefined when the flag is absent. */
+function numberFlag(flags: readonly string[], name: string): number | undefined {
+  const index = flags.indexOf(`--${name}`);
+  if (index === -1) return undefined;
+  const value = Number(flags[index + 1]);
+  if (!Number.isInteger(value)) throw new Error(`--${name} needs a whole number`);
+  return value;
 }
 
-function formatRow(row: VideoReportRow): string {
-  const title = row.title.replace(CONTROL_CHARACTERS, ' ').slice(0, TITLE_WIDTH);
-  return [
-    formatScore(row.score).padStart(8),
-    compact.format(row.views).padStart(7),
-    `${Math.round(row.ageDays)}d`.padStart(6),
-    title,
-  ].join('  ');
-}
-
-async function ingestCommand(target: string, refresh: boolean): Promise<void> {
+async function openEngine(db: Db): Promise<CrawlDeps> {
   const config = loadConfig();
-  const db = openDatabase(config.dbPath);
+  const limiter = new RateLimiter({
+    concurrency: 2,
+    minDelayMs: 300,
+    maxDelayMs: 600,
+    maxRetries: 3,
+    baseBackoffMs: 2000,
+    taskTimeoutMs: REQUEST_TIMEOUT_MS,
+  });
+  const now = new Date();
+  return {
+    source: await InnertubeSource.create({ limiter, region: config.region }),
+    channels: new SqliteChannelRepo(db),
+    videos: new SqliteVideoRepo(db),
+    edges: new SqliteEdgeRepo(db),
+    maps: new SqliteMapRepo(db),
+    transact: transactionRunner(db),
+    region: config.region,
+    now: () => now,
+  };
+}
+
+async function ingestCommand(deps: CrawlDeps, target: string, refresh: boolean): Promise<void> {
+  const result = await ingestChannel(deps, target, { refresh });
+  const report = buildVideoReport(result.videos, deps.now());
+  const subscribers =
+    result.channel.subscribers === null
+      ? 'subscribers hidden'
+      : `${formatCount(result.channel.subscribers)} subscribers`;
+  print([
+    `${sanitize(result.channel.title)} · ${subscribers} · ${report.length} videos${result.fromCache ? ' (stored copy)' : ''}`,
+    '',
+    ...formatVideoTable(report, VIDEO_ROWS_SHOWN),
+  ]);
+}
+
+function showProgress(progress: CrawlProgress): void {
+  const where = progress.step ? ` (step ${progress.step})` : '';
+  process.stderr.write(`${progress.stage}${where}: ${progress.channels} channels\n`);
+}
+
+async function mapCommand(
+  deps: CrawlDeps,
+  target: string,
+  flags: readonly string[],
+): Promise<void> {
+  const result = await crawlMap(deps, target, {
+    depth: numberFlag(flags, 'depth'),
+    sampleSize: numberFlag(flags, 'sample'),
+    maxChannels: numberFlag(flags, 'max-channels'),
+    onProgress: showProgress,
+  });
+  const view = loadMapView(deps, result.members, result.depth, deps.now());
+  if (!view) throw new Error('The map was saved but its centre channel could not be loaded');
+  print([
+    `Map of ${sanitize(view.center.channel.title)}: ${view.rows.length} channels`,
+    '',
+    ...formatMapTable(view.rows, MAP_ROWS_SHOWN),
+    ...(result.warnings.length > 0
+      ? [
+          '',
+          `${result.warnings.length} warnings:`,
+          ...result.warnings.map((w) => `  ${sanitize(w)}`),
+        ]
+      : []),
+  ]);
+}
+
+async function main(argv: readonly string[]): Promise<void> {
+  const [command, target, ...flags] = argv;
+  if ((command !== 'ingest' && command !== 'map') || !target) {
+    process.stderr.write(`${USAGE}\n`);
+    process.exitCode = 1;
+    return;
+  }
+  const db = openDatabase(loadConfig().dbPath);
   try {
-    const limiter = new RateLimiter({
-      concurrency: 2,
-      minDelayMs: 300,
-      maxDelayMs: 600,
-      maxRetries: 3,
-      baseBackoffMs: 2000,
-      taskTimeoutMs: REQUEST_TIMEOUT_MS,
-    });
-    const source = await InnertubeSource.create({
-      limiter,
-      region: config.region,
-    });
-    const now = new Date();
-    const result = await ingestChannel(
-      {
-        source,
-        channels: new SqliteChannelRepo(db),
-        videos: new SqliteVideoRepo(db),
-        transact: transactionRunner(db),
-        now: () => now,
-      },
-      target,
-      { refresh },
-    );
-    const report = buildVideoReport(result.videos, now);
-    const subscribers =
-      result.channel.subscribers === null
-        ? 'subscribers hidden'
-        : `${compact.format(result.channel.subscribers)} subscribers`;
-    const lines = [
-      `${result.channel.title.replace(CONTROL_CHARACTERS, ' ')} · ${subscribers} · ${report.length} videos${result.fromCache ? ' (stored copy)' : ''}`,
-      '',
-      ['score'.padStart(8), 'views'.padStart(7), 'age'.padStart(6), 'title'].join('  '),
-      ...report.slice(0, ROWS_SHOWN).map(formatRow),
-    ];
-    process.stdout.write(`${lines.join('\n')}\n`);
+    const deps = await openEngine(db);
+    if (command === 'ingest') {
+      await ingestCommand(deps, target, flags.includes('--refresh'));
+    } else {
+      await mapCommand(deps, target, flags);
+    }
   } finally {
     db.close();
   }
 }
 
-async function main(argv: readonly string[]): Promise<void> {
-  const [command, target, ...flags] = argv;
-  if (command !== 'ingest' || !target) {
-    process.stderr.write(`${USAGE}\n`);
-    process.exitCode = 1;
-    return;
-  }
-  await ingestCommand(target, flags.includes('--refresh'));
-}
-
 main(process.argv.slice(2)).catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`Error: ${message.replace(CONTROL_CHARACTERS, ' ')}\n`);
+  process.stderr.write(`Error: ${sanitize(message)}\n`);
   process.exitCode = 1;
 });

@@ -1,4 +1,4 @@
-import { Innertube } from 'youtubei.js';
+import { Innertube, Log, Parser } from 'youtubei.js';
 import type { RateLimiter } from './limiter';
 import { mapChannel, mapChannelVideo, mapSidebarItem } from './mappers';
 import { CHANNEL_ID_PATTERN, HANDLE_PATTERN, VIDEO_ID_PATTERN } from './parse';
@@ -50,6 +50,10 @@ export class InnertubeSource implements YouTubeSource {
   ) {}
 
   static async create(options: InnertubeSourceOptions): Promise<InnertubeSource> {
+    // The library logs every list-item type it has not seen before. The mappers
+    // already skip what they cannot read, so those reports are noise here.
+    Parser.setParserErrorHandler(() => {});
+    Log.setLevel(Log.Level.ERROR);
     const client = await Innertube.create({
       retrieve_player: false,
       lang: LISTING_LANGUAGE,

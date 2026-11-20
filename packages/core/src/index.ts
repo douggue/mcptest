@@ -10,3 +10,7 @@ export { InnertubeSource } from './sources/innertube';
 export { RateLimiter } from './sources/limiter';
 export { parseChannelRef } from './sources/parse';
 export type { ChannelInfo, SidebarItem, VideoItem, YouTubeSource } from './sources/types';
+export { crawlMap, type CrawlDeps, type CrawlOptions, type CrawlResult } from './crawl/crawl';
+export { buildMapView, loadMapView, type MapRow, type Tier } from './map/view';
+export { SqliteEdgeRepo } from './repos/sqliteEdgeRepo';
+export { SqliteMapRepo } from './repos/sqliteMapRepo';

@@ -18,6 +18,19 @@ This reads the channel's latest long-form videos (up to 100), stores them in
 what the channel usually gets at that age. A second run within 24 hours uses the
 stored copy; add `--refresh` to fetch again.
 
+To map the channels around one channel:
+
+```
+npm run scout -- map @somechannel
+```
+
+This follows YouTube's recommendations two steps out and lists each channel
+with its closeness tier, how closely its titles match the centre's, its size,
+views on recent uploads, best recent breakout and whether it is rising. A full
+map is a few hundred requests and takes a few minutes; `--depth 1`,
+`--sample N` and `--max-channels N` make it smaller. Readings are reused for a
+week, so repeating a map is fast.
+
 Settings (both optional): `SCOUT_DB_PATH` (default `scout.db`) and `SCOUT_REGION`
 (default `US`).
 
@@ -28,7 +41,7 @@ See [the crawl document](docs/CRAWL.md) for what that means and its risks.
 
 ## Plan
 
-Built so far: ingest and outlier scoring (phases 0 to 2 of the
+Built so far: ingest, outlier scoring and the competitor map (phases 0 to 3 of the
 [task list](docs/TASK_LIST.md)). The full plan is in `docs/`:
 
 | Document | What it covers |

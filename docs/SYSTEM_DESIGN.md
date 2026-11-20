@@ -79,6 +79,11 @@ or it has two or more videos above 10×.
 | Medium | 1 step otherwise, or 2 steps with two or more inbound edges, or relevance ≥ 0.5 |
 | Far | Everything else that passes the relevance floor |
 
+Built so far: the rows for distance, share, mutual recommendation and inbound
+edges. The relevance thresholds in this table arrive with the judged pass in
+phase 4; until then the map shows a title-similarity "match" score and filters
+nothing out.
+
 ### Relevance filter
 
 The crawl alone is too noisy for small channels, so every candidate gets a

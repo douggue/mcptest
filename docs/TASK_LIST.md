@@ -34,10 +34,12 @@ every phase; coverage floor is 80%.
 
 ## Phase 3: crawl and map
 
-- [ ] BFS crawl to depth 2 with sampling, floors and top-15 cut
-- [ ] `rec_edges`, `maps`, `map_channels` repositories
-- [ ] Progress events
-- [ ] `DataApiSource` for channel and video data (no sidebars)
+- [x] BFS crawl to depth 2 with sampling, floors and top-15 cut
+- [x] `rec_edges`, `maps`, `map_channels` repositories
+- [x] Progress events
+- [x] Channel budget, reuse of fresh readings, early stop after repeated failures
+- [x] Map view: closeness tiers, recent views, best breakout, rising flag
+- [ ] `DataApiSource` for channel and video data (no sidebars). Deferred: only needed if the web source is blocked.
 
 **Done when:** a live crawl of one channel finishes inside the request budget in `CRAWL.md` and its 1-step set overlaps a Makina export of the same channel by at least half.
 
@@ -45,7 +47,7 @@ every phase; coverage floor is 80%.
 
 - [ ] Title-frame extraction
 - [ ] Search-based candidate discovery
-- [ ] Cheap relevance pass (TF-IDF, language, duration)
+- [x] Cheap relevance pass: TF-IDF title similarity, shown as "match" on the map (language and duration checks still to add; nothing is filtered out yet)
 - [ ] Judged relevance pass (batched model call)
 - [ ] Closeness tiers; filtered-out list; manual add and remove
 
