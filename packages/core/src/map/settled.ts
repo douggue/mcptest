@@ -92,7 +92,7 @@ export function judgePeers(
  * in about half of them, so one whose call changes on one half in ten is caught
  * nearly nine times in ten (1 - 0.9^20), and one that changes on one in five
  * nearly always. Measured on five maps in four niches: with 40 halves, at most
- * 0.2% of the calls left standing changed on further halves.
+ * 0.3% of the calls left standing changed on further halves (six runs; 0.2% over forty).
  */
 export const SETTLED_HALVES = 40;
 

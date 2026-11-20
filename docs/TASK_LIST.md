@@ -53,6 +53,8 @@ every phase; coverage floor is 80%.
 - [x] Cheap relevance pass: TF-IDF title similarity anchored on the closest look-alikes, plus size, publishing-rate and video-length checks. The app shows "like yours" by default (language check still to add)
 - [x] Title match reads the reference as a format profile (words by the share of its titles that use them), so shared subjects no longer pass for a shared format; pinned by a 40-channel fixture from the owner's map
 - [ ] Judged relevance pass (batched model call). Needed for channels within a point or two of the title threshold, which titles do not settle
+- [x] Each look-alike call says whether it is settled: the map is read again on 40 random halves and a call that differs on any of them is marked, in the stored map (format 5), the connector and the channel panel. Measured on five maps: all calls changed 0.8-5.2% with half a map removed, settled calls at most 0.2%
+- [ ] A title rule whose calls do not depend on the rest of the map. Seven were measured (see "Checked in other niches"); none kept the look-alikes and kept loud outsiders out. Next to try: a lender not scored against its own titles, and word rarity from a fixed background
 - [x] Closeness tiers; filtered-out list ("Everything" view); manual remove and restore, kept across new maps
 - [x] Keep as a competitor: the owner pulls a rejected channel in; it then counts as a peer on the radar, in the breakout feed and on the thumbnail board, across new maps, until undone (`POST /api/competitors` with `status` `kept`, `removed` or `auto`)
 - [x] "Same topic, different wording?": the channels left out on titles alone, listed with their numbers and newest titles for the owner (or their Claude) to keep (`GET /api/maps/latest/same-topic`)
