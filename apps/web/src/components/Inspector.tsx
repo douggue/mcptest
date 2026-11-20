@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import type { CompetitorStatus, SnapshotChannel } from '@jgtube/core';
 import { ExternalLink, X } from 'lucide-react';
 import { competitorActions } from '../lib/feed';
@@ -22,6 +23,14 @@ function Tile({ label, children }: { readonly label: string; readonly children: 
 
 /** The panel for one selected channel: how it relates to you and how it is doing. */
 export function Inspector({ channel, onClose, onSetStatus }: Props) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [onClose]);
+
   const link = channelUrl(channel.id);
   const breakoutLink = channel.breakout ? watchUrl(channel.breakout.videoId) : null;
   const topSource = channel.recommendedBy[0];

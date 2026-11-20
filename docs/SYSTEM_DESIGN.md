@@ -346,6 +346,26 @@ reference is the model channel or, without one, the centre, and `titleMatch` is 
 unanchored title match described under Peers. Channels recommended by look-alikes
 are read first; the rest are reported as left out.
 
+### Keyword discovery
+
+The crawl reaches only what YouTube recommends beside known channels. With the
+owner's API key (`YOUTUBE_API_KEY` in `.env`), `POST /api/niches/discover
+{keyword}` asks the official search for the most-viewed videos on a subject from
+the last 90 days (one page of 50; 100 units of the key's 10,000 daily allowance),
+ranks the channels behind them by how many of those videos are theirs, and reads
+up to 25 into the store through the usual ingest. The niche list then judges
+them like any other channel. One search runs at a time; without a key the route
+answers 400 and the screen explains how to add one. The key is sent in a header,
+never in an address, and is stripped from error text.
+
+### Earnings range
+
+Each niche channel carries `earnings`: the views on its uploads of the last 30
+days valued at $2-8 per 1,000 for long videos and $0.10-0.50 per 1,000 for
+Shorts (60 seconds or less), in whole dollars, with `belowAdThreshold` set under
+1,000 subscribers. It is a rule of thumb for comparing channels. The tool cannot
+see whether a channel is monetised or where its viewers live.
+
 ### Relevance filter
 
 The crawl alone is too noisy for small channels, so every candidate gets a

@@ -6,6 +6,8 @@ const envSchema = z.object({
     .string()
     .regex(/^[A-Z]{2}$/, 'must be a two-letter country code such as US')
     .default('US'),
+  // Checked for shape only; the message below never repeats the value.
+  YOUTUBE_API_KEY: z.string().min(20, 'is too short to be an API key').max(200).optional(),
 });
 
 export interface Config {
@@ -13,6 +15,8 @@ export interface Config {
   readonly dbPath: string;
   /** Country that recommendations and listings are read from. */
   readonly region: string;
+  /** The owner's key for the official YouTube API; keyword search needs it. Never logged. */
+  readonly youtubeApiKey?: string;
 }
 
 /** Reads settings from the environment and fails fast, naming the bad variable. */
@@ -29,5 +33,6 @@ export function loadConfig(
   return {
     dbPath: parsed.data.JGTUBE_DB_PATH,
     region: parsed.data.JGTUBE_REGION,
+    ...(parsed.data.YOUTUBE_API_KEY ? { youtubeApiKey: parsed.data.YOUTUBE_API_KEY } : {}),
   };
 }

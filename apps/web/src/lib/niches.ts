@@ -1,4 +1,5 @@
-import type { NicheChannel, NicheList, NicheSample } from '@jgtube/core';
+import type { EarningsEstimate, NicheChannel, NicheList, NicheSample } from '@jgtube/core';
+import type { SearchSummary } from './api';
 import { formatAge, formatCount } from './format';
 
 /** 'new' and 'small' show the channels listed for that reason; 'watched' the ones the owner marked. */
@@ -77,4 +78,29 @@ export function formatPerSubscriber(viewsPerSubscriber: number | null): string {
 export function otherTitles(channel: NicheChannel): readonly NicheSample[] {
   const shown = new Set(channel.outperformers.map((video) => video.videoId));
   return channel.sampleTitles.filter((sample) => !shown.has(sample.videoId));
+}
+
+const dollars = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  notation: 'compact',
+  // Currency formats default to two decimals; "$84.00" would claim a precision the estimate lacks.
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+});
+
+/** The monthly earnings range in words, with what it cannot know said plainly. */
+export function describeEarnings(estimate: EarningsEstimate): string {
+  if (estimate.high <= 0) return 'No recent views to estimate from';
+  const range = `${dollars.format(estimate.low)}–${dollars.format(estimate.high)} a month`;
+  return estimate.belowAdThreshold
+    ? `Views worth about ${range}, but under 1,000 subscribers it cannot earn from ads yet`
+    : `About ${range}`;
+}
+
+/** What a keyword search found, in one sentence. */
+export function describeSearch(summary: SearchSummary): string {
+  if (summary.videosFound === 0) return `No recent videos were found for "${summary.keyword}".`;
+  const unread = summary.failed > 0 ? `, ${summary.failed} could not be read` : '';
+  return `Found ${summary.videosFound} videos from ${summary.channelsFound} channels for "${summary.keyword}": ${summary.added} new to Jgtube, ${summary.alreadyKnown} already known${unread}.`;
 }

@@ -103,7 +103,17 @@ async function serveWeb(pathname: string, response: ServerResponse): Promise<voi
   response.end(namesFile ? 'Not found' : 'The web app has not been built yet. Run: npm run build');
 }
 
+/** Reads settings from a `.env` file beside where Jgtube is started, if there is one. */
+function loadEnvFile(): void {
+  try {
+    process.loadEnvFile();
+  } catch {
+    // No .env file: settings come from the environment or their defaults.
+  }
+}
+
 function start(): void {
+  loadEnvFile();
   const engine = createEngine(loadConfig());
   const port = readPort();
   const allowedHosts = [`${HOST}:${port}`, `localhost:${port}`];
