@@ -242,6 +242,11 @@ export function App() {
       )}
       <Niches niches={niches} hasMap={snapshot !== null} />
       <RefreshBar refresh={refresh} />
+      <p className="mx-auto w-full max-w-[1440px] px-gutter-desktop pb-space-xl text-label-caps text-outline">
+        Jgtube reads YouTube&rsquo;s public pages without an account. That is outside
+        YouTube&rsquo;s terms of service and can stop working without notice. Scores and earnings
+        are estimates.
+      </p>
     </Shell>
   );
 }

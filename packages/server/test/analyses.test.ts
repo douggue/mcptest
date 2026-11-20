@@ -29,6 +29,14 @@ describe('the analyses on offer', () => {
     }
   });
 
+  test('the idea generator asks for evidence at the owner’s size, never for a forecast', () => {
+    const question = ANALYSES.topics.question('@americainvents2');
+
+    expect(question).not.toMatch(/expected views/i);
+    expect(question).toMatch(/PROOF AT YOUR SIZE/);
+    expect(question).toMatch(/do not (estimate|forecast|predict)/i);
+  });
+
   test('only the thumbnail analysis looks at images', () => {
     const looks = (id: (typeof ANALYSIS_IDS)[number]) =>
       ANALYSES[id].allowedTools.includes('mcp__jgtube__view_thumbnails');

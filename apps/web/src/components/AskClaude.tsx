@@ -104,7 +104,8 @@ export function AskClaude({ analysis, centerId, centerTitle }: Props) {
           </div>
           <p className="mt-1 text-body-md text-on-surface-variant">
             Claude reads what Jgtube has stored around {centerTitle} and answers in about a minute.
-            It uses Claude Code on this computer with your own Claude plan.
+            Each press runs Claude Code on this computer and uses some of your Claude plan&rsquo;s
+            allowance, as a chat would.
           </p>
         </div>
 

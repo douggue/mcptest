@@ -131,13 +131,18 @@ const dollars = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 1,
 });
 
-/** The monthly earnings range in words, with what it cannot know said plainly. */
+/**
+ * What the views on a channel's last 30 days of uploads are worth, in words.
+ * It is not called monthly income: these are the views those videos have so
+ * far, not views received in a month.
+ */
 export function describeEarnings(estimate: EarningsEstimate): string {
-  if (estimate.high <= 0) return 'No recent views to estimate from';
-  const range = `${dollars.format(estimate.low)}–${dollars.format(estimate.high)} a month`;
+  if (estimate.high <= 0) return 'No uploads in the last 30 days to estimate from';
+  const range = `${dollars.format(estimate.low)}–${dollars.format(estimate.high)}`;
+  const worth = `Views on the last 30 days of uploads are worth about ${range}`;
   return estimate.belowAdThreshold
-    ? `Views worth about ${range}, but under 1,000 subscribers it cannot earn from ads yet`
-    : `About ${range}`;
+    ? `${worth}, but under 1,000 subscribers it cannot earn from ads yet`
+    : worth;
 }
 
 /** What a keyword search found, in one sentence. */

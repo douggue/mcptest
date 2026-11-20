@@ -3,7 +3,9 @@
  * thumbnails do, which videos to make next, and which rejected channels cover
  * the same ground in other words.
  *
- * Each is a fixed question plus the tools it may use. The tools only read: an
+ * Each is a fixed question plus the tools it may use. Claude is asked to cite
+ * numbers the tools return, never to produce its own: forecasts belong to code
+ * that can show its working, and there is none yet. The tools only read: an
  * analysis never changes the owner's stored choices and never starts a crawl.
  * The only thing taken from the outside is the channel, and it goes into the
  * question in a fixed form after validation, never as the text that was typed.
@@ -78,7 +80,8 @@ export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
       [
         `For the channel ${channel}: call get_map, then get_breakouts for the look-alike channels, then list_niches. Call get_channel_videos on the owner's channel to see what they have already made.`,
         'Propose eight videos to make next, best first. Prefer subjects where a small channel got large views, and skip anything the owner has already made.',
-        "For each give: TITLE (two options in the title format the owner and the look-alikes use), WHY (one or two breakout videos that prove demand, with channel, views and score, and any caution on that score), CROWDING (how many look-alike channels already covered the subject and how those versions did, or 'fresh'), EXPECTED VIEWS (a range based on channels of the owner's size, and what it is based on), and THUMBNAIL (one line on what to show).",
+        "For each give: TITLE (two options in the title format the owner and the look-alikes use), WHY (one or two breakout videos that prove demand, with channel, views and score, and any caution on that score), CROWDING (how many look-alike channels already covered the subject and how those versions did, or 'fresh'), PROOF AT YOUR SIZE (the smallest channel in the tool results that got large views on this subject, with its subscriber count and that video's views, or 'none yet' when only larger channels did), and THUMBNAIL (one line on what to show).",
+        'Every number you give must be one a tool returned. Do not estimate, forecast or predict views for the owner.',
         'At most 650 words.',
       ].join(' '),
   },

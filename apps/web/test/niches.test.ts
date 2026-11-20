@@ -257,18 +257,22 @@ describe('describeEarnings', () => {
   });
 
   test('gives the monthly range in short dollar figures', () => {
-    expect(describeEarnings(worth(84, 338))).toBe('About $84–$338 a month');
-    expect(describeEarnings(worth(1200, 4900))).toBe('About $1.2K–$4.9K a month');
+    expect(describeEarnings(worth(84, 338))).toBe(
+      'Views on the last 30 days of uploads are worth about $84–$338',
+    );
+    expect(describeEarnings(worth(1200, 4900))).toBe(
+      'Views on the last 30 days of uploads are worth about $1.2K–$4.9K',
+    );
   });
 
   test('says when a channel is too small to earn from ads yet', () => {
     expect(describeEarnings(worth(84, 338, true))).toBe(
-      'Views worth about $84–$338 a month, but under 1,000 subscribers it cannot earn from ads yet',
+      'Views on the last 30 days of uploads are worth about $84–$338, but under 1,000 subscribers it cannot earn from ads yet',
     );
   });
 
   test('says so when there is nothing to estimate from', () => {
-    expect(describeEarnings(worth(0, 0))).toBe('No recent views to estimate from');
+    expect(describeEarnings(worth(0, 0))).toBe('No uploads in the last 30 days to estimate from');
   });
 });
 
