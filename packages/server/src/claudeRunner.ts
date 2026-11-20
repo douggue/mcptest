@@ -235,6 +235,16 @@ function stopProcess(child: ClaudeChild, graceMs: number): void {
 
 const closingError = (): ClaudeRunError =>
   new ClaudeRunError('failed', 'Claude was stopped because Jgtube is closing.');
+const timeoutError = (): ClaudeRunError =>
+  new ClaudeRunError('timeout', 'Claude took too long and was stopped. Try again.');
+const tooMuchError = (): ClaudeRunError =>
+  new ClaudeRunError('failed', 'Claude sent more than could be read and was stopped.');
+
+/** The answer in what the process printed; rejects with the reason when there is none. */
+const replyOf = (output: string, errorText: string, code: unknown): Promise<ClaudeRunResult> =>
+  new Promise((resolve) => {
+    resolve(readReply(output, errorText, typeof code === 'number' ? code : null));
+  });
 
 /** Runs Claude Code once and resolves with its answer. Rejects with a ClaudeRunError. */
 export function runClaude(
@@ -261,17 +271,13 @@ export function runClaude(
         stopProcess(child, deps.killGraceMs ?? KILL_GRACE_MS);
         reject(error);
       });
-    const timer = setTimeout(
-      () => stop(new ClaudeRunError('timeout', 'Claude took too long and was stopped. Try again.')),
-      request.timeoutMs,
-    );
+    const timer = setTimeout(() => stop(timeoutError()), request.timeoutMs);
 
     deps.signal?.addEventListener('abort', () => stop(closingError()), { once: true });
 
     // Once the verdict is in, whatever else the process prints is not kept.
     child.stdout.on('data', (chunk: unknown) => {
-      if (settled || !output.add(chunk)) return;
-      stop(new ClaudeRunError('failed', 'Claude sent more than could be read and was stopped.'));
+      if (!settled && output.add(chunk)) stop(tooMuchError());
     });
     child.stderr.on('data', (chunk: unknown) => {
       if (!settled) errorText.add(chunk);
@@ -280,13 +286,7 @@ export function runClaude(
       settle(() => reject(startFailure(error, deps.platform ?? process.platform))),
     );
     child.on('close', (code: unknown) =>
-      settle(() => {
-        try {
-          resolve(readReply(output.end(), errorText.end(), typeof code === 'number' ? code : null));
-        } catch (error) {
-          reject(error);
-        }
-      }),
+      settle(() => resolve(replyOf(output.end(), errorText.end(), code))),
     );
   });
 }

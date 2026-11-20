@@ -1,6 +1,6 @@
 import type { RefreshProgress } from '@jgtube/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Api, RefreshReply, RefreshSummary } from '../lib/api';
+import type { Api, RefreshJobState, RefreshReply, RefreshSummary } from '../lib/api';
 import { followJob, oneAtATime } from '../lib/requests';
 
 const POLL_INTERVAL_MS = 1500;
@@ -32,6 +32,37 @@ export interface Refresh {
   readonly run: RefreshRun;
   /** Starts a refresh; a press while one is being started is ignored. */
   readonly start: () => void;
+}
+
+/** What a reading of the refresh job means for the screen. */
+function runFromJob(job: RefreshJobState): RefreshRun {
+  if (job.status === 'done' && job.result) return { status: 'done', summary: job.result };
+  if (job.status !== 'running') {
+    return { status: 'failed', message: job.error ?? 'The refresh did not finish' };
+  }
+  return { status: 'running', jobId: job.id, progress: job.progress };
+}
+
+/**
+ * Polls the refresh job while one runs, telling `onState` each state it is
+ * seen in. Each reading waits for the last, and once a state other than
+ * running has been told, nothing more is.
+ */
+function useFollowedJob(api: Api, jobId: string | null, onState: (next: RefreshRun) => void) {
+  useEffect(() => {
+    if (jobId === null) return;
+    const tell = (next: RefreshRun): boolean => {
+      onState(next);
+      return next.status !== 'running';
+    };
+    return followJob({
+      intervalMs: POLL_INTERVAL_MS,
+      read: () => api.refreshJob(jobId),
+      onReading: (job) => tell(runFromJob(job)),
+      onLost: (error) =>
+        tell({ status: 'failed', message: messageOf(error, 'The refresh was lost track of') }),
+    });
+  }, [api, jobId, onState]);
 }
 
 /**
@@ -73,34 +104,17 @@ export function useRefresh(api: Api, onDone: () => void): Refresh {
     };
   }, [readStatus]);
 
-  const jobId = run.status === 'running' ? run.jobId : null;
-  // While a refresh runs, poll it; when it ends, read the status and the lists again.
-  // Each reading waits for the last, and the end is acted on once.
-  useEffect(() => {
-    if (jobId === null) return;
-    const finish = (next: RefreshRun): boolean => {
+  // While a refresh runs, follow it; when it ends, read the status and the lists again.
+  const follow = useCallback(
+    (next: RefreshRun) => {
       setRun(next);
+      if (next.status === 'running') return;
       void readStatus();
       onDone();
-      return true;
-    };
-    return followJob({
-      intervalMs: POLL_INTERVAL_MS,
-      read: () => api.refreshJob(jobId),
-      onReading: (job) => {
-        if (job.status === 'done' && job.result) {
-          return finish({ status: 'done', summary: job.result });
-        }
-        if (job.status !== 'running') {
-          return finish({ status: 'failed', message: job.error ?? 'The refresh did not finish' });
-        }
-        setRun({ status: 'running', jobId, progress: job.progress });
-        return false;
-      },
-      onLost: (error) =>
-        finish({ status: 'failed', message: messageOf(error, 'The refresh was lost track of') }),
-    });
-  }, [api, jobId, onDone, readStatus]);
+    },
+    [onDone, readStatus],
+  );
+  useFollowedJob(api, run.status === 'running' ? run.jobId : null, follow);
 
   // A second press while the first is still being sent does nothing. A refusal
   // never replaces a refresh this page is following: the server refuses a start
