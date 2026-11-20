@@ -8,15 +8,19 @@
  * recommendations, which is why the crawl does not use it.
  */
 import { z } from 'zod';
-import { CHANNEL_ID_PATTERN } from './parse';
+import { CHANNEL_ID_PATTERN, VIDEO_ID_PATTERN } from './parse';
 
-const ENDPOINT = 'https://www.googleapis.com/youtube/v3/channels';
+const API_BASE = 'https://www.googleapis.com/youtube/v3';
 /** The API's own limit on ids per request. */
 const MAX_IDS_PER_REQUEST = 50;
 /** Sent as a header so the key never appears in an address, a log or an error. */
 const KEY_HEADER = 'x-goog-api-key';
 const REQUEST_TIMEOUT_MS = 20_000;
 const MAX_ERROR_TEXT = 200;
+/** One page of search results, the most the API returns at once. A search costs 100 units. */
+const SEARCH_PAGE_SIZE = 50;
+const MAX_QUERY_LENGTH = 200;
+const MAX_TEXT_LENGTH = 300;
 const QUOTA_REASONS: readonly string[] = ['quotaExceeded', 'dailyLimitExceeded'];
 
 export interface ChannelFacts {
@@ -43,13 +47,16 @@ const count = z
   .regex(/^\d+$/)
   .transform((text) => Number(text));
 
+/** A timestamp as the API writes it, read as a date; unreadable ones fail validation. */
+const publishedAt = z
+  .string()
+  .transform((text) => new Date(text))
+  .refine((date) => !Number.isNaN(date.getTime()));
+
 const itemSchema = z.object({
   id: z.string().regex(CHANNEL_ID_PATTERN),
   snippet: z.object({
-    publishedAt: z
-      .string()
-      .transform((text) => new Date(text))
-      .refine((date) => !Number.isNaN(date.getTime())),
+    publishedAt,
     country: z.string().max(10).optional(),
   }),
   statistics: z
@@ -106,6 +113,31 @@ async function refusal(response: Response, apiKey: string): Promise<Error> {
   return new Error(`The YouTube API refused the request (${response.status}): ${detail}`);
 }
 
+/** One GET to the API. Returns the reply's items, or throws the refusal. */
+async function getItems(
+  path: string,
+  query: URLSearchParams,
+  apiKey: string,
+  fetcher: typeof fetch,
+): Promise<readonly unknown[]> {
+  const response = await fetcher(`${API_BASE}/${path}?${query.toString()}`, {
+    headers: { [KEY_HEADER]: apiKey },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (!response.ok) throw await refusal(response, apiKey);
+  const reply = replySchema.safeParse(await response.json());
+  if (!reply.success) throw new Error('The YouTube API sent a reply that could not be read');
+  return reply.data.items ?? [];
+}
+
+function requireKey(apiKey: string): string {
+  const key = apiKey.trim();
+  if (key === '') {
+    throw new Error('No YouTube API key is set. Put one in the YOUTUBE_API_KEY setting.');
+  }
+  return key;
+}
+
 async function fetchBatch(
   ids: readonly string[],
   apiKey: string,
@@ -116,14 +148,7 @@ async function fetchBatch(
     id: ids.join(','),
     maxResults: String(MAX_IDS_PER_REQUEST),
   });
-  const response = await fetcher(`${ENDPOINT}?${query.toString()}`, {
-    headers: { [KEY_HEADER]: apiKey },
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-  if (!response.ok) throw await refusal(response, apiKey);
-  const reply = replySchema.safeParse(await response.json());
-  if (!reply.success) throw new Error('The YouTube API sent a reply that could not be read');
-  return (reply.data.items ?? []).flatMap((raw) => {
+  return (await getItems('channels', query, apiKey, fetcher)).flatMap((raw) => {
     const facts = toFacts(raw);
     return facts ? [facts] : [];
   });
@@ -138,10 +163,7 @@ export async function fetchChannelFacts(
   channelIds: readonly string[],
   options: DataApiOptions,
 ): Promise<readonly ChannelFacts[]> {
-  const apiKey = options.apiKey.trim();
-  if (apiKey === '') {
-    throw new Error('No YouTube API key is set. Put one in the YOUTUBE_API_KEY setting.');
-  }
+  const apiKey = requireKey(options.apiKey);
   const invalid = channelIds.find((id) => !CHANNEL_ID_PATTERN.test(id));
   if (invalid !== undefined) {
     throw new Error(`Not a valid YouTube channel id: "${invalid.slice(0, 40)}"`);
@@ -153,4 +175,69 @@ export async function fetchChannelFacts(
     facts = [...facts, ...(await fetchBatch(batch, apiKey, fetcher))];
   }
   return facts;
+}
+
+export interface SearchHit {
+  readonly videoId: string;
+  readonly channelId: string;
+  readonly channelTitle: string;
+  /** As the search returns it, which may contain HTML character codes such as &#39;. */
+  readonly title: string;
+  readonly publishedAt: Date;
+}
+
+export interface SearchOptions extends DataApiOptions {
+  /** Only videos published after this moment are returned. */
+  readonly publishedAfter: Date;
+}
+
+const hitSchema = z.object({
+  id: z.object({ videoId: z.string().regex(VIDEO_ID_PATTERN) }),
+  snippet: z.object({
+    channelId: z.string().regex(CHANNEL_ID_PATTERN),
+    channelTitle: z.string(),
+    title: z.string(),
+    publishedAt,
+  }),
+});
+
+function toHit(raw: unknown): SearchHit | null {
+  const parsed = hitSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const { id, snippet } = parsed.data;
+  return {
+    videoId: id.videoId,
+    channelId: snippet.channelId,
+    channelTitle: snippet.channelTitle.slice(0, MAX_TEXT_LENGTH),
+    title: snippet.title.slice(0, MAX_TEXT_LENGTH),
+    publishedAt: snippet.publishedAt,
+  };
+}
+
+/**
+ * The most-viewed videos on a subject published since a date: one page of up
+ * to fifty, for 100 units of the key's daily allowance. Results that are not
+ * readable videos are left out.
+ */
+export async function searchRecentVideos(
+  query: string,
+  options: SearchOptions,
+): Promise<readonly SearchHit[]> {
+  const apiKey = requireKey(options.apiKey);
+  const text = query.trim();
+  if (text === '' || text.length > MAX_QUERY_LENGTH) {
+    throw new Error(`Give a search of 1 to ${MAX_QUERY_LENGTH} characters`);
+  }
+  const params = new URLSearchParams({
+    part: 'snippet',
+    type: 'video',
+    q: text,
+    order: 'viewCount',
+    publishedAfter: options.publishedAfter.toISOString(),
+    maxResults: String(SEARCH_PAGE_SIZE),
+  });
+  return (await getItems('search', params, apiKey, options.fetch ?? fetch)).flatMap((raw) => {
+    const hit = toHit(raw);
+    return hit ? [hit] : [];
+  });
 }

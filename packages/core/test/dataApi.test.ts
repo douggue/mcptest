@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { fetchChannelFacts } from '../src/sources/dataApi';
+import { fetchChannelFacts, searchRecentVideos } from '../src/sources/dataApi';
 
 const KEY = 'test-key-not-a-real-one';
 const cid = (letter: string) => `UC${letter.repeat(22)}`;
@@ -144,5 +144,73 @@ describe('fetchChannelFacts', () => {
     await expect(fetchChannelFacts([cid('A')], { apiKey: ' ', fetch: fetcher })).rejects.toThrow(
       /YOUTUBE_API_KEY/,
     );
+  });
+});
+
+describe('searchRecentVideos', () => {
+  const AFTER = new Date('2026-08-22T12:00:00Z');
+  const found = (letter: string, n: number, overrides: Record<string, unknown> = {}) => ({
+    id: { videoId: letter.repeat(10) + String(n) },
+    snippet: {
+      channelId: cid(letter),
+      channelTitle: `Channel ${letter}`,
+      title: `Video ${n}`,
+      publishedAt: '2026-10-01T09:00:00Z',
+    },
+    ...overrides,
+  });
+
+  test('asks for the most-viewed videos on a subject since a date', async () => {
+    const { fetcher, calls } = fakeFetch([{ body: { items: [found('A', 1)] } }]);
+
+    const hits = await searchRecentVideos('new invention', {
+      apiKey: KEY,
+      fetch: fetcher,
+      publishedAfter: AFTER,
+    });
+
+    const asked = new URL(calls[0]?.url ?? '');
+    expect(asked.pathname).toBe('/youtube/v3/search');
+    expect(Object.fromEntries(asked.searchParams)).toMatchObject({
+      q: 'new invention',
+      type: 'video',
+      order: 'viewCount',
+      publishedAfter: '2026-08-22T12:00:00.000Z',
+      maxResults: '50',
+    });
+    expect(calls[0]?.url).not.toContain(KEY);
+    expect(hits).toEqual([
+      {
+        videoId: 'AAAAAAAAAA1',
+        channelId: cid('A'),
+        channelTitle: 'Channel A',
+        title: 'Video 1',
+        publishedAt: new Date('2026-10-01T09:00:00Z'),
+      },
+    ]);
+  });
+
+  test('skips results it cannot read', async () => {
+    const { fetcher } = fakeFetch([
+      { body: { items: [{ id: { kind: 'youtube#channel' } }, found('B', 2)] } },
+    ]);
+
+    const hits = await searchRecentVideos('x', {
+      apiKey: KEY,
+      fetch: fetcher,
+      publishedAfter: AFTER,
+    });
+
+    expect(hits.map((entry) => entry.videoId)).toEqual(['BBBBBBBBBB2']);
+  });
+
+  test('says so when the daily allowance is used up', async () => {
+    const { fetcher } = fakeFetch([
+      { status: 403, body: { error: { message: 'q', errors: [{ reason: 'quotaExceeded' }] } } },
+    ]);
+
+    await expect(
+      searchRecentVideos('x', { apiKey: KEY, fetch: fetcher, publishedAfter: AFTER }),
+    ).rejects.toThrow(/daily allowance/);
   });
 });
