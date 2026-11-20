@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import type { StopReason } from '../src/cycleStop';
+import { SHUTDOWN, type StopReason } from '../src/cycleStop';
 import { openDatabase, type Db } from '../src/db/sqlite';
 import { READING_ELSEWHERE, YOUTUBE_LEASE_TTL_MS } from '../src/lease';
 import { SqliteLeaseRepo } from '../src/repos/sqliteLeaseRepo';
@@ -247,7 +247,7 @@ describe('the scheduler', () => {
     expect(RATE_LIMIT_PAUSE_MS).toBe(15 * MINUTE_MS);
   });
 
-  test('thins old readings once on each UTC day, and records a thinning that fails', async () => {
+  test('thins old readings once on each UTC day, and tries a thinning that failed again at the next look', async () => {
     const loop = makeLoop();
     let runs = 0;
     await loop.start({
@@ -262,13 +262,25 @@ describe('the scheduler', () => {
     // NOW is 20:00 UTC: four hours on is the next day.
     await loop.after(4 * HOUR_MS);
     await loop.after(SCHEDULER_TICK_MS);
+    await loop.after(SCHEDULER_TICK_MS);
     await loop.after(DAY_MS);
 
-    expect(runs).toBe(3);
+    expect(runs).toBe(4);
     const rollups = loop.records.filter((entry) => entry.cycle === 'rollup');
-    expect(rollups.map((entry) => entry.result)).toEqual(['done', 'failed', 'done']);
+    expect(rollups.map((entry) => entry.result)).toEqual(['done', 'failed', 'done', 'done']);
     expect(rollups[0]?.report).toEqual({ removed: 3 });
     expect(rollups[1]?.reason).toBe('the store is busy');
+    expect(rollups[2]?.startedAt).toEqual(at(4 * HOUR_MS + 2 * SCHEDULER_TICK_MS));
+  });
+
+  test('takes a round of readings at once when the clock has been set back past the last one', async () => {
+    const loop = makeLoop();
+    await loop.start();
+    loop.started.length = 0;
+
+    await loop.after(-2 * HOUR_MS);
+
+    expect(loop.started).toEqual(['read', 'channels']);
   });
 
   test('records it and searches nothing when it cannot tell whether subjects are due', async () => {
@@ -305,6 +317,30 @@ describe('the scheduler', () => {
 });
 
 describe('stopping the scheduler', () => {
+  test('tells running work to stop, which it does between requests', async () => {
+    const loop = makeLoop();
+    const reasons: unknown[] = [];
+    let release: () => void = () => undefined;
+    const request = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    void loop.start({
+      readCycle: async (signal) => {
+        await request;
+        reasons.push(signal.aborted, signal.reason);
+        return { stopped: signal.aborted ? 'shutdown' : null };
+      },
+    });
+
+    const stopping = scheduler!.stop();
+    release();
+    await stopping;
+
+    expect(reasons).toEqual([true, SHUTDOWN]);
+    expect(loop.records[0]).toMatchObject({ cycle: 'read', report: { stopped: 'shutdown' } });
+    expect(loop.started).toEqual(['read']);
+  });
+
   test('lets the running cycle finish, starts nothing after it and stops the timer', async () => {
     const loop = makeLoop();
     loop.searchDue = true;

@@ -53,6 +53,7 @@ const problemSchema = z.object({
 const faultSchema = z.object({
   failure: z.string().nullable().optional(),
   failed: z.array(z.object({ reason: z.string() })).optional(),
+  details: z.object({ failure: z.string().nullable() }).optional(),
 });
 
 /** How a round last went. */
@@ -70,6 +71,7 @@ export function problemIn(entry: CycleRecord): string | null {
   const report = faultSchema.safeParse(entry.report);
   if (!report.success) return null;
   if (typeof report.data.failure === 'string') return report.data.failure;
+  if (typeof report.data.details?.failure === 'string') return report.data.details.failure;
   const failed = report.data.failed ?? [];
   const first = failed[0];
   if (first === undefined) return null;

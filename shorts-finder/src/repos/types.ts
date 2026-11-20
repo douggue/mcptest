@@ -92,6 +92,11 @@ export interface ChannelRepo {
   listQueued(): readonly string[];
   /** Takes a channel the API did not return out of the queue, noting when it was asked for. */
   markUnavailable(id: string, at: Date): void;
+  /**
+   * Counts a read whose reply could not be read for this channel, which stays
+   * queued. Returns how many there have been since its facts were last stored.
+   */
+  countFailedRead(id: string): number;
   get(id: string): StoredChannel | null;
 }
 
@@ -106,7 +111,10 @@ export interface VideoRepo {
   get(id: string): StoredVideo | null;
   /** Which of the given ids are stored. */
   knownIds(ids: readonly string[]): readonly string[];
-  /** Deletes a video with its readings, its tracking and its search hits. False when not stored. */
+  /**
+   * Deletes a video with its readings, its tracking and its search hits. False
+   * when not stored. Only the retention clean-up does this: never a missed read.
+   */
   delete(id: string): boolean;
 }
 
@@ -157,10 +165,53 @@ export interface SubjectHitRepo {
   videoIdsFor(subjectId: number): readonly string[];
 }
 
+/** A search result waiting for the details of its video to be read. */
+export interface PendingHit {
+  readonly subjectId: number;
+  readonly videoId: string;
+  readonly channelId: string;
+  /** The channel's name as the search gave it. */
+  readonly channelTitle: string | null;
+  /** When the search answered. */
+  readonly foundAt: Date;
+}
+
+/** Search results kept from the search's reply until their videos' details are read. */
+export interface PendingHitRepo {
+  /** Keeps a result. False when the same subject is already waiting on the same video. */
+  add(hit: PendingHit): boolean;
+  /** Every result still waiting, longest-waiting first. */
+  list(): readonly PendingHit[];
+  remove(subjectId: number, videoId: string): void;
+  count(): number;
+  /** Drops results found before `cutoff`. Returns how many. */
+  deleteOlderThan(cutoff: Date): number;
+}
+
+/** Why a video a search returned is not tracked. */
+export type PassedOverReason = 'too_long' | 'not_returned';
+
+/** Videos searches return that are not worth reading again. */
+export interface PassedOverRepo {
+  /** Remembers a video; one already remembered keeps its first reason. */
+  add(videoId: string, reason: PassedOverReason, at: Date): void;
+  /** Which of the given ids are remembered. */
+  knownIds(ids: readonly string[]): readonly string[];
+  /** Forgets videos noted before `cutoff`. Returns how many. */
+  deleteOlderThan(cutoff: Date): number;
+}
+
 /** How often a tracked video is read: every hour, every six, or no longer. */
 export type Tier = 'hourly' | 'six_hourly' | 'done';
 /** Whether a video is a Short. `yes` is by its length only; see `shortByLength`. */
 export type ShortAnswer = 'yes' | 'no' | 'unknown';
+
+/**
+ * Why a video's tracking ended. `aged_out`: it reached the age tracking stops
+ * at. `not_short`: it turned out too long for a Short. `gone`: the API left
+ * it out of several reads, far enough apart, in a row.
+ */
+export type FinishReason = 'aged_out' | 'not_short' | 'gone';
 
 export interface TrackedVideo {
   readonly videoId: string;
@@ -168,24 +219,41 @@ export interface TrackedVideo {
   /** Null once tracking is done. */
   readonly nextReadAt: Date | null;
   readonly isShort: ShortAnswer;
-  /** How many reads in a row the API has left the video out of. */
+  /** How many reads in a row, far enough apart to count, the API has left the video out of. */
   readonly missedReads: number;
   readonly publishedAt: Date;
+  /** When and why tracking ended; null while it goes on. */
+  readonly finishedAt: Date | null;
+  readonly finishReason: FinishReason | null;
+}
+
+/** A read that did not find a video. */
+export interface MissedRead {
+  readonly videoId: string;
+  readonly tier: Exclude<Tier, 'done'>;
+  readonly nextReadAt: Date;
+  readonly at: Date;
+  /** A miss counts only when the one before it is at least this long ago. */
+  readonly minGapMs: number;
 }
 
 export interface TrackingRepo {
   /** Starts tracking a stored video at the hourly tier. False when it is tracked already. */
   start(videoId: string, isShort: ShortAnswer, nextReadAt: Date): boolean;
-  /** Videos still tracked whose next read is at or before `now`, longest-due first. */
-  listDue(now: Date): readonly TrackedVideo[];
+  /** Videos still tracked whose next read is at or before `before`, longest-due first. */
+  listDue(before: Date): readonly TrackedVideo[];
   /** Sets the tier and the next read after a read that found the video. */
   move(videoId: string, tier: Exclude<Tier, 'done'>, nextReadAt: Date): void;
-  /** Counts a read that did not find the video, and sets its next one. Returns the count in a row. */
-  markMissed(videoId: string, tier: Exclude<Tier, 'done'>, nextReadAt: Date): number;
+  /**
+   * Notes a read that did not find the video, and sets its next one. The miss
+   * is counted only when the last counted one is far enough back (or there is
+   * none): two misses minutes apart are one outage, not two. Returns the count.
+   */
+  markMissed(miss: MissedRead): number;
   /** Records what was learnt about whether the video is a Short. */
   classify(videoId: string, isShort: ShortAnswer): void;
-  /** Ends tracking: the video is not read again. */
-  finish(videoId: string): void;
+  /** Ends tracking, noting when and why: the video is not read again. */
+  finish(videoId: string, reason: FinishReason, at: Date): void;
   get(videoId: string): TrackedVideo | null;
   /** How many videos are still tracked, and how many of those have a read due at `now`. */
   counts(now: Date): TrackingCounts;
@@ -240,6 +308,10 @@ export interface Finding extends NewFinding {
   readonly alertedAt: Date | null;
   /** When a daily summary told of it in place of an alert; null when none did. */
   readonly digestedAt: Date | null;
+  /** When it was given up on because Telegram would not take its message; null when it was not. */
+  readonly skippedAt: Date | null;
+  /** What Telegram said of the message it would not take. */
+  readonly skipReason: string | null;
 }
 
 /** What was found, and what the owner has been told of it. */
@@ -249,11 +321,15 @@ export interface FindingRepo {
    * the same video and kind changes nothing and the answer is false.
    */
   add(finding: NewFinding): boolean;
-  /** Findings the owner has not been told of, in an alert or a summary, oldest first. */
+  /** Findings the owner has not been told of, in an alert or a summary, and not given up on, oldest first. */
   listWaiting(limit: number): readonly Finding[];
   countWaiting(): number;
   /** Notes that the finding's alert went out. False when it had gone out already. */
   markAlerted(id: number, at: Date): boolean;
+  /** Counts a message Telegram would not take for this finding. Returns how many there have been. */
+  countRejection(id: number): number;
+  /** Gives up on telling of this finding, noting why: it no longer waits. */
+  markSkipped(id: number, reason: string, at: Date): void;
   /** Notes that a daily summary told of these findings. */
   markDigested(ids: readonly number[], at: Date): void;
   /** How many alerts went out from `from` up to, not including, `to`. */
@@ -275,6 +351,8 @@ export interface Store {
   readonly readings: ReadingRepo;
   readonly subjects: SubjectRepo;
   readonly hits: SubjectHitRepo;
+  readonly pending: PendingHitRepo;
+  readonly passedOver: PassedOverRepo;
   readonly tracking: TrackingRepo;
   readonly findings: FindingRepo;
   readonly state: ServiceStateRepo;

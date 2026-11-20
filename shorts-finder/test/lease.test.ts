@@ -66,6 +66,20 @@ describe('SqliteLeaseRepo', () => {
     expect(leases.holder(after(3 * MINUTE_MS))).toBe('next');
   });
 
+  test('takes a lease that runs out further off than any renewal could reach: the clock was set back', () => {
+    leases.acquire('before the clock moved', after(60 * MINUTE_MS), after(62 * MINUTE_MS));
+
+    expect(leases.acquire('next', NOW, after(2 * MINUTE_MS))).toBe(true);
+    expect(leases.holder(NOW)).toBe('next');
+  });
+
+  test('does not take a lease renewed a moment ago, though it runs out later than a new one would', () => {
+    leases.acquire('scheduler', NOW, after(2 * MINUTE_MS));
+    leases.renew('scheduler', after(3 * MINUTE_MS));
+
+    expect(leases.acquire('by-hand', NOW, after(2 * MINUTE_MS))).toBe(false);
+  });
+
   test('keeps the lease with a holder that renews it', () => {
     leases.acquire('scheduler', NOW, after(2 * MINUTE_MS));
 

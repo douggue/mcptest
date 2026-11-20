@@ -7,7 +7,7 @@
  * timer. It starts no process and knows nothing of settings; `service.ts`
  * builds what it is given.
  */
-import { reasonOf, type StopReason } from '../cycleStop';
+import { SHUTDOWN, reasonOf, type StopReason } from '../cycleStop';
 import { ReadingElsewhereError, withYouTubeLease, type LeaseDeps } from '../lease';
 
 const MS_PER_MINUTE = 60 * 1000;
@@ -90,9 +90,13 @@ export interface SchedulerMemory {
 
 export const LAST_READ_AT = 'scheduler.lastReadAt';
 export const LAST_ROLLUP_DAY = 'scheduler.lastRollupDay';
+export const PAUSED_UNTIL = 'scheduler.pausedUntil';
 
 export interface Scheduler {
-  /** Stops the loop. Work that is running finishes first; nothing new starts. */
+  /**
+   * Stops the loop. Running work is told to stop and does so between
+   * requests, so this resolves within one request's time; nothing new starts.
+   */
   stop(): Promise<void>;
   /** Resolves when no work is running. */
   whenIdle(): Promise<void>;
@@ -112,6 +116,8 @@ interface LoopState {
   pausedUntil: Date | null;
   stopping: boolean;
   running: Promise<void> | null;
+  /** Aborted when the service is stopping; every piece of YouTube work listens. */
+  readonly halt: AbortController;
 }
 
 /** Hands an outcome to the recorder; a recorder that fails must not stop the loop. */
@@ -135,9 +141,14 @@ async function runUnderLease(
 ): Promise<boolean> {
   const startedAt = deps.now();
   try {
-    const report = await withYouTubeLease(deps.lease, work);
+    // The work stops between requests when the lease is lost or the service is stopping.
+    const report = await withYouTubeLease(deps.lease, (leaseLost) =>
+      work(AbortSignal.any([leaseLost, state.halt.signal])),
+    );
     if (report.stopped === 'rate_limit') {
       state.pausedUntil = new Date(deps.now().getTime() + RATE_LIMIT_PAUSE_MS);
+      // Kept in the store, so a restart does not ask again at once.
+      remember(deps, PAUSED_UNTIL, state.pausedUntil.toISOString());
     }
     record(deps, { cycle, startedAt, result: 'done', report, reason: null });
     return true;
@@ -149,13 +160,15 @@ async function runUnderLease(
   }
 }
 
-/** Runs work that does not read YouTube, recording its outcome. */
-function runLocal(deps: SchedulerDeps, cycle: CycleName, work: () => unknown): void {
+/** Runs work that does not read YouTube, recording its outcome. False when it failed. */
+function runLocal(deps: SchedulerDeps, cycle: CycleName, work: () => unknown): boolean {
   const startedAt = deps.now();
   try {
     record(deps, { cycle, startedAt, result: 'done', report: work(), reason: null });
+    return true;
   } catch (error) {
     record(deps, { cycle, startedAt, result: 'failed', report: null, reason: reasonOf(error) });
+    return false;
   }
 }
 
@@ -189,24 +202,52 @@ function remember(deps: SchedulerDeps, key: string, value: string): void {
   }
 }
 
+/** A noted moment; null when there is none or it cannot be read. */
+function momentOf(text: string | null | undefined): Date | null {
+  const moment = new Date(text ?? '');
+  return Number.isFinite(moment.getTime()) ? moment : null;
+}
+
 /** What the loop noted before the last restart; nothing when it cannot be read. */
-function recall(deps: SchedulerDeps): Pick<LoopState, 'lastReadAt' | 'lastRollupDay'> {
+function recall(
+  deps: SchedulerDeps,
+): Pick<LoopState, 'lastReadAt' | 'lastRollupDay' | 'pausedUntil'> {
   try {
-    const readAt = new Date(deps.memory?.get(LAST_READ_AT) ?? '');
-    // A time that is not one, or is still to come, would hold the readings back.
-    const usable = Number.isFinite(readAt.getTime()) && readAt <= deps.now();
     return {
-      lastReadAt: usable ? readAt : null,
+      lastReadAt: momentOf(deps.memory?.get(LAST_READ_AT)),
       lastRollupDay: deps.memory?.get(LAST_ROLLUP_DAY) ?? null,
+      pausedUntil: momentOf(deps.memory?.get(PAUSED_UNTIL)),
     };
   } catch {
-    return { lastReadAt: null, lastRollupDay: null };
+    return { lastReadAt: null, lastRollupDay: null, pausedUntil: null };
   }
+}
+
+/**
+ * Whether a pause Google asked for is still on. A pause that ends further off
+ * than a pause is long was noted by a clock that has since been set back; it
+ * is over, rather than waited out.
+ */
+function paused(deps: SchedulerDeps, state: LoopState): boolean {
+  if (state.pausedUntil === null) return false;
+  const left = state.pausedUntil.getTime() - deps.now().getTime();
+  return left > 0 && left <= RATE_LIMIT_PAUSE_MS;
 }
 
 /** Whether YouTube may be asked now: not while stopping, nor during a pause it asked for. */
 const mayRead = (deps: SchedulerDeps, state: LoopState): boolean =>
-  !state.stopping && (state.pausedUntil === null || deps.now() >= state.pausedUntil);
+  !state.stopping && !paused(deps, state);
+
+/**
+ * Whether an hour has passed since the last round of readings began. A last
+ * round "in the future" means the clock was set back: the round is due,
+ * rather than held until the clock catches up.
+ */
+function readIsDue(state: LoopState, now: Date): boolean {
+  if (state.lastReadAt === null) return true;
+  const waited = now.getTime() - state.lastReadAt.getTime();
+  return waited < 0 || waited >= READ_CYCLE_EVERY_MS;
+}
 
 function searchIsDue(deps: SchedulerDeps): boolean {
   const startedAt = deps.now();
@@ -225,9 +266,7 @@ function searchIsDue(deps: SchedulerDeps): boolean {
  */
 async function tick(deps: SchedulerDeps, state: LoopState): Promise<void> {
   const now = deps.now();
-  const readDue =
-    state.lastReadAt === null || now.getTime() - state.lastReadAt.getTime() >= READ_CYCLE_EVERY_MS;
-  if (readDue && mayRead(deps, state)) {
+  if (readIsDue(state, now) && mayRead(deps, state)) {
     // A round that failed is not tried again until the next hour: a fault that
     // lasts would otherwise spend a unit per request every five minutes.
     if (await runUnderLease(deps, state, 'read', deps.readCycle)) {
@@ -242,10 +281,13 @@ async function tick(deps: SchedulerDeps, state: LoopState): Promise<void> {
   await runWhenDue(deps, state, 'alerts', deps.alertCycle);
   await runWhenDue(deps, state, 'daily', deps.dailyMessages);
   const day = utcDay(deps.now());
+  // The day is noted only once the work has succeeded: one that failed is
+  // tried again at the next look, not left until tomorrow.
   if (!state.stopping && day !== state.lastRollupDay) {
-    state.lastRollupDay = day;
-    remember(deps, LAST_ROLLUP_DAY, day);
-    runLocal(deps, 'rollup', () => deps.dailyRollup(deps.now()));
+    if (runLocal(deps, 'rollup', () => deps.dailyRollup(deps.now()))) {
+      state.lastRollupDay = day;
+      remember(deps, LAST_ROLLUP_DAY, day);
+    }
   }
 }
 
@@ -257,13 +299,13 @@ async function tick(deps: SchedulerDeps, state: LoopState): Promise<void> {
  */
 export function startScheduler(deps: SchedulerDeps): Scheduler {
   // Searching needs no memory here: each subject's last search is in the
-  // store. The last round of readings and the last thinning are recalled, so
-  // a restart within the hour does not read again at once.
+  // store. The last round of readings, the last thinning and a pause Google
+  // asked for are recalled, so a restart does not repeat or ignore them.
   const state: LoopState = {
     ...recall(deps),
-    pausedUntil: null,
     stopping: false,
     running: null,
+    halt: new AbortController(),
   };
   const look = (): void => {
     if (state.stopping || state.running !== null) return;
@@ -277,6 +319,9 @@ export function startScheduler(deps: SchedulerDeps): Scheduler {
     async stop() {
       state.stopping = true;
       (deps.stop ?? defaultStop)(timer);
+      // Running work stops between requests; one request is at most its own
+      // time limit, far inside the 90 seconds systemd allows a stop.
+      state.halt.abort(SHUTDOWN);
       await state.running;
     },
     async whenIdle() {

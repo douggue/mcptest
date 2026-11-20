@@ -13,7 +13,7 @@ const MS_PER_HOUR = 60 * 60 * 1000;
  * can be afforded can always be finished: a search whose results cannot be
  * read is 100 units for nothing.
  */
-const DETAILS_COST_UNITS = 1;
+export const DETAILS_COST_UNITS = 1;
 /** What one subject costs the search share each time it is searched. */
 export const SUBJECT_COST_UNITS = SEARCH_COST_UNITS + DETAILS_COST_UNITS;
 
@@ -21,7 +21,10 @@ export const SUBJECT_COST_UNITS = SEARCH_COST_UNITS + DETAILS_COST_UNITS;
 export function isDue(subject: Subject, now: Date): boolean {
   if (!subject.enabled) return false;
   if (subject.lastSearchedAt === null) return true;
-  return now.getTime() - subject.lastSearchedAt.getTime() >= subject.everyHours * MS_PER_HOUR;
+  const waited = now.getTime() - subject.lastSearchedAt.getTime();
+  // A last search "in the future" means the clock was set back since. The
+  // subject is due, rather than held until the clock catches up.
+  return waited < 0 || waited >= subject.everyHours * MS_PER_HOUR;
 }
 
 /** Never searched sorts before any date; ties keep the order the subjects were added in. */

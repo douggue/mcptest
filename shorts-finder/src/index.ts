@@ -2,6 +2,7 @@ export {
   ALERTS_PAUSED_UNTIL,
   ALERT_FAILURE_PAUSE_MS,
   DEFAULT_MAX_ALERTS_PER_DAY,
+  MAX_SEND_ATTEMPTS,
   runAlertCycle,
   type AlertCycleReport,
   type AlertDeps,
@@ -49,15 +50,22 @@ export {
   type StoreConfig,
   type TelegramSettings,
 } from './config';
-export { reasonOf, stopReasonFor, type StopReason } from './cycleStop';
+export { SHUTDOWN, abortReason, reasonOf, stopReasonFor, type StopReason } from './cycleStop';
 export { backupPathFor, backupStore } from './db/backup';
 export { migrate, openDatabase, transactionRunner, type Db } from './db/sqlite';
 export {
   CHANNEL_REREAD_AFTER_MS,
+  MAX_CHANNEL_READ_ATTEMPTS,
   readQueuedChannels,
   type ChannelReadsDeps,
   type ChannelReadsReport,
 } from './discover/channelReads';
+export {
+  PENDING_HIT_MAX_AGE_MS,
+  resolvePendingHits,
+  type HitDetailsDeps,
+  type HitDetailsReport,
+} from './discover/hitDetails';
 export {
   SEARCH_WINDOW_DAYS,
   runSearchCycle,
@@ -169,7 +177,9 @@ export {
   type SubjectInput,
 } from './subjects/subject';
 export {
-  MISSED_READS_BEFORE_DROP,
+  MISSED_READS_BEFORE_GONE,
+  MISS_MIN_GAP_MS,
+  SUSPECT_EMPTY_BATCH_ABOVE,
   READ_BATCH_SIZE,
   runReadCycle,
   type ReadCycleDeps,
@@ -187,6 +197,7 @@ export {
 export {
   MIN_SPAN_MS,
   RATE_WINDOW_MS,
+  STALE_AFTER_MS,
   velocity,
   viewsPerHour,
   type Velocity,

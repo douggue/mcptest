@@ -129,6 +129,12 @@ describe('pickDueSubjects', () => {
     expect(ids(pickDueSubjects(subjects, NOW, PLENTY))).toEqual([3, 5]);
   });
 
+  test('counts a subject searched "after now" as due: the clock was set back', () => {
+    const subjects = [subject(1, { lastSearchedAt: at(3 * HOUR_MS) })];
+
+    expect(ids(pickDueSubjects(subjects, NOW, PLENTY))).toEqual([1]);
+  });
+
   test('picks no more than the search share can still pay for', () => {
     const subjects = [1, 2, 3, 4].map((id) => subject(id));
 

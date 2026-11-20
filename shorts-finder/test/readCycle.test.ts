@@ -1,8 +1,21 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { SHUTDOWN } from '../src/cycleStop';
 import { planFor } from '../src/quota/ledger';
-import { MISSED_READS_BEFORE_DROP, READ_BATCH_SIZE, runReadCycle } from '../src/track/readCycle';
+import {
+  MISSED_READS_BEFORE_GONE,
+  MISS_MIN_GAP_MS,
+  READ_BATCH_SIZE,
+  SUSPECT_EMPTY_BATCH_ABOVE,
+  runReadCycle,
+} from '../src/track/readCycle';
 import { rollUpOldReadings } from '../src/track/rollup';
-import { HOURLY_UNTIL_MS, TRACKED_UNTIL_MS, planNextRead } from '../src/track/tiers';
+import {
+  DUE_LOOK_AHEAD_MS,
+  HOURLY_UNTIL_MS,
+  TRACKED_UNTIL_MS,
+  planNextRead,
+} from '../src/track/tiers';
+import { createYouTubeApi } from '../src/youtube/api';
 import { shortByLength } from '../src/youtube/shorts';
 import { videoId } from './fixtures/apiReplies';
 import { DAY_MS, HOUR_MS, MINUTE_MS, NOW, at, channelFacts, videoFacts } from './fixtures/facts';
@@ -31,6 +44,14 @@ function track(n: number, letter: string, options: VideoOptions = {}): string {
   bench.youtube.setVideo(n, letter, { ...options, publishedAt });
   return videoId(n);
 }
+
+/** The reader over a network that answers every request with the same body. */
+const emptyApi = (body: unknown) =>
+  createYouTubeApi({
+    apiKey: 'test-key-not-a-real-one',
+    spend: (kind, units) => bench.ledger.spend(kind, units),
+    fetch: (async () => new Response(JSON.stringify(body))) as typeof fetch,
+  });
 
 const readingsOf = (id: string) =>
   bench.store.readings.list(id, new Date(0), at(30 * DAY_MS)).map((reading) => reading.views);
@@ -76,9 +97,10 @@ describe('a read cycle', () => {
       readings: 2,
       missing: 0,
       finished: 0,
-      removed: 0,
+      gone: 0,
       skipped: 0,
       unreadablePages: 0,
+      suspectReplies: 0,
       leftUnread: 0,
       stopped: null,
     });
@@ -105,12 +127,39 @@ describe('a read cycle', () => {
 
   test('reads nothing that is not due yet, and makes no request for nothing', async () => {
     const id = track(1, 'A');
-    bench.store.tracking.move(id, 'hourly', at(MINUTE_MS));
+    bench.store.tracking.move(id, 'hourly', at(DUE_LOOK_AHEAD_MS + MINUTE_MS));
 
     const report = await run();
 
     expect(report).toMatchObject({ due: 0, read: 0, leftUnread: 0 });
     expect(bench.youtube.calls).toEqual([]);
+  });
+
+  test('reads a video that falls due within the next five minutes, not an hour late', async () => {
+    const id = track(1, 'A', { views: 70 });
+    bench.store.tracking.move(id, 'hourly', at(DUE_LOOK_AHEAD_MS));
+
+    const report = await run();
+
+    expect(report).toMatchObject({ due: 1, read: 1 });
+    expect(readingsOf(id)).toEqual([70]);
+    expect(DUE_LOOK_AHEAD_MS).toBe(5 * MINUTE_MS);
+  });
+
+  test('stamps each reading with the time of its own reply and counts next reads from the round start', async () => {
+    const ids = Array.from({ length: 60 }, (_, n) => track(n, 'A', { views: 5 }));
+    // The clock moves a minute with every look at it, as a slow round would.
+    let looks = 0;
+    const now = (): Date => at(looks++ * MINUTE_MS);
+
+    await runReadCycle({ ...bench, now });
+
+    const taken = (id: string) =>
+      bench.store.readings.list(id, new Date(0), at(DAY_MS)).map((reading) => reading.capturedAt);
+    expect(taken(ids[0]!)).toEqual([at(MINUTE_MS)]);
+    expect(taken(ids[59]!)).toEqual([at(2 * MINUTE_MS)]);
+    expect(bench.store.tracking.get(ids[0]!)?.nextReadAt).toEqual(at(HOUR_MS));
+    expect(bench.store.tracking.get(ids[59]!)?.nextReadAt).toEqual(at(HOUR_MS));
   });
 
   test('asks for fifty videos a request, one unit of the reading share each', async () => {
@@ -182,7 +231,7 @@ describe('a read cycle and a video the API no longer returns', () => {
 
     const report = await run();
 
-    expect(report).toMatchObject({ read: 0, missing: 1, removed: 0 });
+    expect(report).toMatchObject({ read: 0, missing: 1, gone: 0 });
     expect(bench.store.tracking.get(id)).toMatchObject({
       tier: 'hourly',
       missedReads: 1,
@@ -191,20 +240,38 @@ describe('a read cycle and a video the API no longer returns', () => {
     expect(readingsOf(id)).toEqual([100]);
   });
 
-  test('deletes it, readings and all, after the second miss in a row', async () => {
+  test('does not count a second miss an hour after the first: one outage is one occasion', async () => {
     const id = track(1, 'A');
-    bench.store.readings.add({ videoId: id, capturedAt: at(-HOUR_MS), views: 100 });
     bench.youtube.removeVideo(1);
     await run();
     bench.clock = at(HOUR_MS);
 
     const report = await run();
 
-    expect(MISSED_READS_BEFORE_DROP).toBe(2);
-    expect(report).toMatchObject({ missing: 1, removed: 1 });
-    expect(bench.store.videos.get(id)).toBeNull();
-    expect(bench.store.tracking.get(id)).toBeNull();
-    expect(readingsOf(id)).toEqual([]);
+    expect(report).toMatchObject({ missing: 1, gone: 0, finished: 0 });
+    expect(bench.store.tracking.get(id)).toMatchObject({ tier: 'hourly', missedReads: 1 });
+  });
+
+  test('ends tracking as gone after a second miss six hours on, and deletes nothing', async () => {
+    const id = track(1, 'A');
+    bench.store.readings.add({ videoId: id, capturedAt: at(-HOUR_MS), views: 100 });
+    bench.youtube.removeVideo(1);
+    await run();
+    bench.clock = at(MISS_MIN_GAP_MS);
+
+    const report = await run();
+
+    expect(MISSED_READS_BEFORE_GONE).toBe(2);
+    expect(MISS_MIN_GAP_MS).toBe(6 * HOUR_MS);
+    expect(report).toMatchObject({ missing: 1, gone: 1, finished: 1 });
+    expect(bench.store.videos.get(id)).not.toBeNull();
+    expect(bench.store.tracking.get(id)).toMatchObject({
+      tier: 'done',
+      nextReadAt: null,
+      finishReason: 'gone',
+      finishedAt: at(MISS_MIN_GAP_MS),
+    });
+    expect(readingsOf(id)).toEqual([100]);
   });
 
   test('starts counting again when it comes back between two misses', async () => {
@@ -214,12 +281,12 @@ describe('a read cycle and a video the API no longer returns', () => {
     bench.clock = at(HOUR_MS);
     bench.youtube.setVideo(1, 'A', { views: 300 });
     await run();
-    bench.clock = at(2 * HOUR_MS);
+    bench.clock = at(8 * HOUR_MS);
     bench.youtube.removeVideo(1);
 
     const report = await run();
 
-    expect(report).toMatchObject({ missing: 1, removed: 0 });
+    expect(report).toMatchObject({ missing: 1, gone: 0 });
     expect(bench.store.tracking.get(id)?.missedReads).toBe(1);
   });
 
@@ -229,8 +296,37 @@ describe('a read cycle and a video the API no longer returns', () => {
 
     const report = await run();
 
-    expect(report).toMatchObject({ missing: 1, finished: 1, removed: 0 });
+    expect(report).toMatchObject({ missing: 1, finished: 1, gone: 0 });
     expect(bench.store.videos.get(id)).not.toBeNull();
+    expect(bench.store.tracking.get(id)?.finishReason).toBe('aged_out');
+  });
+
+  test.each([
+    ['an empty object', {}],
+    ['an empty list of items', { items: [] }],
+  ])('counts no miss when a request for many videos is answered with %s', async (_what, body) => {
+    const ids = Array.from({ length: SUSPECT_EMPTY_BATCH_ABOVE + 1 }, (_, n) => track(n, 'A'));
+
+    const first = await runReadCycle({ ...bench, api: emptyApi(body) });
+    bench.clock = at(MISS_MIN_GAP_MS);
+    const second = await runReadCycle({ ...bench, api: emptyApi(body) });
+
+    expect(first).toMatchObject({ read: 0, missing: 0, gone: 0, suspectReplies: 1, leftUnread: 0 });
+    expect(second).toMatchObject({ missing: 0, gone: 0, suspectReplies: 1 });
+    for (const id of ids) {
+      expect(bench.store.videos.get(id)).not.toBeNull();
+      expect(bench.store.tracking.get(id)).toMatchObject({ tier: 'hourly', missedReads: 0 });
+    }
+  });
+
+  test('believes a few videos all missing: a small request answered with none counts misses', async () => {
+    const ids = Array.from({ length: SUSPECT_EMPTY_BATCH_ABOVE }, (_, n) => track(n, 'A'));
+    ids.forEach((_, n) => bench.youtube.removeVideo(n));
+
+    const report = await run();
+
+    expect(report).toMatchObject({ missing: SUSPECT_EMPTY_BATCH_ABOVE, suspectReplies: 0 });
+    expect(SUSPECT_EMPTY_BATCH_ABOVE).toBe(5);
   });
 
   test('does not count a miss when the reply held an entry that could not be read', async () => {
@@ -310,6 +406,21 @@ describe('a read cycle that cannot finish', () => {
     const report = await runReadCycle({ ...bench, api }, lost.signal);
 
     expect(report).toMatchObject({ read: 50, leftUnread: 10, stopped: 'lease_lost' });
+  });
+
+  test('stops between requests, saying so, when the service is stopping', async () => {
+    Array.from({ length: 60 }, (_, n) => track(n, 'A'));
+    const halt = new AbortController();
+    const api = {
+      fetchVideos: async (ids: readonly string[]) => {
+        halt.abort(SHUTDOWN);
+        return bench.api.fetchVideos(ids);
+      },
+    };
+
+    const report = await runReadCycle({ ...bench, api }, halt.signal);
+
+    expect(report).toMatchObject({ read: 50, leftUnread: 10, stopped: 'shutdown' });
   });
 
   test('throws any other failure, after storing the requests before it', async () => {

@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { openDatabase, type Db } from '../src/db/sqlite';
+import { YOUTUBE_LEASE_TTL_MS } from '../src/lease';
 import { SqliteLeaseRepo } from '../src/repos/sqliteLeaseRepo';
 import {
   LAST_READ_AT,
+  PAUSED_UNTIL,
+  RATE_LIMIT_PAUSE_MS,
   LAST_ROLLUP_DAY,
   READ_CYCLE_EVERY_MS,
   SCHEDULER_TICK_MS,
@@ -120,7 +123,7 @@ describe("the scheduler and the owner's messages", () => {
   });
 
   test('sends alerts without the YouTube lease, even while another program holds it', async () => {
-    new SqliteLeaseRepo(db).acquire('another program', clock, at(DAY_MS));
+    new SqliteLeaseRepo(db).acquire('another program', clock, at(YOUTUBE_LEASE_TTL_MS));
 
     await start({ alertCycle: note('alerts', { sent: 2 }) });
 
@@ -199,6 +202,28 @@ describe("the scheduler's memory", () => {
     expect(started).toContain('read');
   });
 
+  test('remembers a pause Google asked for, and keeps to it after a restart', async () => {
+    const memory = mapMemory();
+    await start({ memory, readCycle: async () => ({ stopped: 'rate_limit' }) });
+    const until = memory.values.get(PAUSED_UNTIL);
+    await scheduler!.stop();
+    started.length = 0;
+
+    await start({ memory: mapMemory({ [PAUSED_UNTIL]: until ?? '' }) });
+    expect(started).not.toContain('read');
+    await after(RATE_LIMIT_PAUSE_MS);
+
+    expect(until).toBe(at(RATE_LIMIT_PAUSE_MS).toISOString());
+    expect(started).toContain('read');
+  });
+
+  test('does not wait out a remembered pause that ends further off than a pause is long', async () => {
+    // The clock was set back since the pause was noted.
+    await start({ memory: mapMemory({ [PAUSED_UNTIL]: at(DAY_MS).toISOString() }) });
+
+    expect(started).toContain('read');
+  });
+
   test('carries on when the memory cannot be read or written', async () => {
     const broken: SchedulerMemory = {
       get: () => {
@@ -218,7 +243,7 @@ describe("the scheduler's memory", () => {
 
   test('does not note a round of readings that another program kept from starting', async () => {
     const memory = mapMemory();
-    new SqliteLeaseRepo(db).acquire('another program', clock, at(DAY_MS));
+    new SqliteLeaseRepo(db).acquire('another program', clock, at(YOUTUBE_LEASE_TTL_MS));
 
     await start({ memory });
 

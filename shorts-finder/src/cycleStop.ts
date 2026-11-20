@@ -10,8 +10,22 @@ import { YouTubeApiError } from './youtube/client';
  * - `allowance`: the day's plan, or Google's own count, has no units left for this.
  * - `rate_limit`: Google said requests are coming too fast; wait a while.
  * - `lease_lost`: other work took over the right to read YouTube.
+ * - `shutdown`: the service is stopping and asked running work to wind down.
  */
-export type StopReason = 'allowance' | 'rate_limit' | 'lease_lost';
+export type StopReason = 'allowance' | 'rate_limit' | 'lease_lost' | 'shutdown';
+
+/** What the scheduler aborts running work with when the service is stopping. */
+export const SHUTDOWN = 'shutdown';
+
+/**
+ * Why work was told to stop, asked between requests: null while it may carry
+ * on. The signal is the lease's (lost to other work) joined with the
+ * service's own (stopping).
+ */
+export function abortReason(signal: AbortSignal | undefined): StopReason | null {
+  if (signal?.aborted !== true) return null;
+  return signal.reason === SHUTDOWN ? 'shutdown' : 'lease_lost';
+}
 
 /**
  * What an error means for the cycle that met it: a reason to stop cleanly, or

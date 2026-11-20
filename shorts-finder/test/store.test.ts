@@ -13,6 +13,8 @@ const VIDEO_ID = 'vid00000001';
 const TABLES = [
   'channels',
   'findings',
+  'passed_over_videos',
+  'pending_hits',
   'quota_ledger',
   'service_state',
   'subject_hits',

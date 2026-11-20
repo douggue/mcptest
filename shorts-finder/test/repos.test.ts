@@ -106,6 +106,18 @@ describe('the channel repository', () => {
     expect(store.channels.listQueued()).toEqual([channelId('C')]);
   });
 
+  test('counts the reads that could not be read, from none again once its facts are stored', () => {
+    const request = { id: channelId('A'), title: null, now: NOW, staleBefore: NOW };
+    store.channels.queueRead(request);
+
+    expect(store.channels.countFailedRead(channelId('A'))).toBe(1);
+    expect(store.channels.countFailedRead(channelId('A'))).toBe(2);
+    store.channels.upsert(channelFacts('A'), NOW);
+
+    expect(store.channels.countFailedRead(channelId('A'))).toBe(1);
+    expect(store.channels.countFailedRead(channelId('Z'))).toBe(0);
+  });
+
   test('takes a channel the API does not return out of the queue, keeping its row', () => {
     store.channels.queueRead({
       id: channelId('D'),
@@ -328,6 +340,13 @@ describe('the subject repository', () => {
     expect(store.subjects.setEnabled(99, false)).toBe(false);
   });
 
+  test('lists as due a subject searched "after now": the clock was set back', () => {
+    const subject = store.subjects.add(sky);
+    store.subjects.markSearched(subject.id, at(HOUR_MS));
+
+    expect(store.subjects.listDue(NOW).map((due) => due.id)).toEqual([subject.id]);
+  });
+
   test('lists as due the never-searched, then the longest unsearched, and not the recent', () => {
     const first = store.subjects.add(paper);
     const second = store.subjects.add(bread);
@@ -358,6 +377,69 @@ describe('the subject hit repository', () => {
   });
 });
 
+describe('the pending results of searches', () => {
+  const pending = (subjectId: number, n: number, foundAt: Date = NOW) => ({
+    subjectId,
+    videoId: videoId(n),
+    channelId: channelId('A'),
+    channelTitle: 'Channel A',
+    foundAt,
+  });
+
+  test('keeps a result once for each subject, longest-waiting first, until it is removed', () => {
+    const paper = store.subjects.add(createSubject({ keyword: 'paper folding', region: 'US' }));
+    const sky = store.subjects.add(createSubject({ keyword: 'night sky', region: 'CA' }));
+
+    expect(store.pending.add(pending(paper.id, 1))).toBe(true);
+    expect(store.pending.add(pending(paper.id, 1))).toBe(false);
+    store.pending.add(pending(sky.id, 1, at(-HOUR_MS)));
+    store.pending.add({ ...pending(sky.id, 2), channelTitle: null });
+
+    expect(store.pending.list().map((hit) => [hit.subjectId, hit.videoId])).toEqual([
+      [sky.id, videoId(1)],
+      [paper.id, videoId(1)],
+      [sky.id, videoId(2)],
+    ]);
+    store.pending.remove(sky.id, videoId(1));
+    expect(store.pending.count()).toBe(2);
+    expect(store.pending.list()[1]).toEqual({ ...pending(sky.id, 2), channelTitle: null });
+  });
+
+  test('drops results found before a cutoff', () => {
+    const paper = store.subjects.add(createSubject({ keyword: 'paper folding', region: 'US' }));
+    store.pending.add(pending(paper.id, 1, at(-2 * DAY_MS)));
+    store.pending.add(pending(paper.id, 2, at(-HOUR_MS)));
+
+    expect(store.pending.deleteOlderThan(at(-DAY_MS))).toBe(1);
+    expect(store.pending.list().map((hit) => hit.videoId)).toEqual([videoId(2)]);
+  });
+});
+
+describe('the videos passed over', () => {
+  test('remembers a video with its first reason and says which of some ids it knows', () => {
+    store.passedOver.add(videoId(2), 'too_long', NOW);
+    store.passedOver.add(videoId(2), 'not_returned', at(HOUR_MS));
+    store.passedOver.add(videoId(1), 'not_returned', NOW);
+
+    expect(store.passedOver.knownIds([videoId(3), videoId(2), videoId(1)])).toEqual([
+      videoId(1),
+      videoId(2),
+    ]);
+    expect(store.passedOver.knownIds([])).toEqual([]);
+    expect(
+      db.prepare('SELECT reason FROM passed_over_videos ORDER BY video_id').pluck().all(),
+    ).toEqual(['not_returned', 'too_long']);
+  });
+
+  test('forgets videos noted before a cutoff', () => {
+    store.passedOver.add(videoId(1), 'too_long', at(-40 * DAY_MS));
+    store.passedOver.add(videoId(2), 'too_long', at(-DAY_MS));
+
+    expect(store.passedOver.deleteOlderThan(at(-30 * DAY_MS))).toBe(1);
+    expect(store.passedOver.knownIds([videoId(1), videoId(2)])).toEqual([videoId(2)]);
+  });
+});
+
 describe('the tracking repository', () => {
   test('starts a video at the hourly tier, once', () => {
     const id = addVideo(1, 'A', at(-5 * HOUR_MS));
@@ -372,6 +454,8 @@ describe('the tracking repository', () => {
       isShort: 'yes',
       missedReads: 0,
       publishedAt: at(-5 * HOUR_MS),
+      finishedAt: null,
+      finishReason: null,
     });
     expect(store.tracking.get(videoId(9))).toBeNull();
   });
@@ -385,10 +469,17 @@ describe('the tracking repository', () => {
     store.tracking.start(late, 'yes', at(-HOUR_MS));
     store.tracking.start(later, 'yes', at(MINUTE_MS));
     store.tracking.start(done, 'yes', at(-HOUR_MS));
-    store.tracking.finish(done);
+    store.tracking.finish(done, 'gone', NOW);
+    store.tracking.finish(done, 'aged_out', at(HOUR_MS));
 
     expect(store.tracking.listDue(NOW).map((tracked) => tracked.videoId)).toEqual([late, due]);
-    expect(store.tracking.get(done)).toMatchObject({ tier: 'done', nextReadAt: null });
+    // The first ending is the one kept.
+    expect(store.tracking.get(done)).toMatchObject({
+      tier: 'done',
+      nextReadAt: null,
+      finishedAt: NOW,
+      finishReason: 'gone',
+    });
   });
 
   test('moves a video to another tier and sets its next read', () => {
@@ -403,17 +494,54 @@ describe('the tracking repository', () => {
     });
   });
 
-  test('counts missed reads in a row, and starts again from none when the video is read', () => {
+  test('counts missed reads far enough apart, and starts again from none when the video is read', () => {
     const id = addVideo(1, 'A');
     store.tracking.start(id, 'yes', NOW);
+    const miss = (hours: number) =>
+      store.tracking.markMissed({
+        videoId: id,
+        tier: 'hourly',
+        nextReadAt: at((hours + 1) * HOUR_MS),
+        at: at(hours * HOUR_MS),
+        minGapMs: 6 * HOUR_MS,
+      });
 
-    expect(store.tracking.markMissed(id, 'hourly', at(HOUR_MS))).toBe(1);
-    expect(store.tracking.markMissed(id, 'hourly', at(2 * HOUR_MS))).toBe(2);
-    expect(store.tracking.get(id)).toMatchObject({ missedReads: 2, nextReadAt: at(2 * HOUR_MS) });
-    store.tracking.move(id, 'hourly', at(3 * HOUR_MS));
+    expect(miss(0)).toBe(1);
+    expect(miss(1)).toBe(1);
+    expect(miss(5)).toBe(1);
+    expect(miss(6)).toBe(2);
+    expect(store.tracking.get(id)).toMatchObject({ missedReads: 2, nextReadAt: at(7 * HOUR_MS) });
+    store.tracking.move(id, 'hourly', at(8 * HOUR_MS));
 
     expect(store.tracking.get(id)?.missedReads).toBe(0);
-    expect(store.tracking.markMissed(videoId(9), 'hourly', NOW)).toBe(0);
+    expect(miss(8)).toBe(1);
+    expect(
+      store.tracking.markMissed({
+        videoId: videoId(9),
+        tier: 'hourly',
+        nextReadAt: NOW,
+        at: NOW,
+        minGapMs: 0,
+      }),
+    ).toBe(0);
+  });
+
+  test('does not count a miss noted before the last one, and counts from it afresh', () => {
+    const id = addVideo(1, 'A');
+    store.tracking.start(id, 'yes', NOW);
+    const miss = (hours: number) =>
+      store.tracking.markMissed({
+        videoId: id,
+        tier: 'hourly',
+        nextReadAt: at((hours + 1) * HOUR_MS),
+        at: at(hours * HOUR_MS),
+        minGapMs: 6 * HOUR_MS,
+      });
+    miss(10);
+
+    // The clock was set back five hours: not a second occasion, but the stamp moves with the clock.
+    expect(miss(5)).toBe(1);
+    expect(miss(11)).toBe(2);
   });
 
   test('records what was learnt about whether a video is a Short', () => {

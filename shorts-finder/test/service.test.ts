@@ -135,6 +135,27 @@ describe('the service', () => {
     expect(JSON.stringify(lines)).not.toContain(KEY);
   });
 
+  test('reads the details a search is still owed in a round of its own, with no subject due', async () => {
+    const [subject] = expandAcrossRegions('night sky', ['CA']).map((entry) =>
+      store.subjects.add(entry),
+    );
+    store.subjects.markSearched(subject!.id, NOW);
+    store.pending.add({
+      subjectId: subject!.id,
+      videoId: videoFacts(2, 'B').id,
+      channelId: channelFacts('B').id,
+      channelTitle: 'Channel B',
+      foundAt: NOW,
+    });
+    youtube.setVideo(2, 'B', { views: 40 });
+
+    await start(config());
+
+    expect(youtube.callsTo('search')).toEqual([]);
+    expect(store.pending.count()).toBe(0);
+    expect(store.hits.videoIdsFor(subject!.id)).toEqual([videoFacts(2, 'B').id]);
+  });
+
   test('sends a waiting finding and, at the hour, the two daily messages', async () => {
     store.findings.add(newFinding(1, 'A'));
 
@@ -238,6 +259,9 @@ describe('what the service knows about itself', () => {
     expect(problemIn({ ...entry, result: 'done', report: { failed } })).toBe(
       '2 failed; the first: refused',
     );
+    expect(
+      problemIn({ ...entry, result: 'done', report: { details: { failure: 'no details' } } }),
+    ).toBe('no details');
   });
 
   test('remembers how each round last went and the last problem among them', () => {

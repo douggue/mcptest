@@ -25,7 +25,7 @@ import {
   type SchedulerMemory,
 } from './schedule/scheduler';
 import { gatherStats, noteOutcome } from './status';
-import { pickDueSubjects } from './subjects/due';
+import { DETAILS_COST_UNITS, pickDueSubjects } from './subjects/due';
 import { runReadCycle } from './track/readCycle';
 import { rollUpOldReadings } from './track/rollup';
 import { createYouTubeApi } from './youtube/api';
@@ -125,7 +125,9 @@ function schedulerOver(config: Config, deps: ServiceDeps, now: () => Date, db: D
     searchCycle: (signal) => runSearchCycle(cycle, signal),
     searchIsDue: (at) => {
       const left = ledger.remaining(at).byKind.search;
-      return pickDueSubjects(store.subjects.listDue(at), at, left).length > 0;
+      // Results still waiting for their details are work for a round as well.
+      const waiting = store.pending.count() > 0 && left >= DETAILS_COST_UNITS;
+      return waiting || pickDueSubjects(store.subjects.listDue(at), at, left).length > 0;
     },
     dailyRollup: (at) => rollUpOldReadings(store.readings, at),
     ...messagesFor(config, store, deps, now, db),

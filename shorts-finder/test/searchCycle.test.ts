@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { SEARCH_WINDOW_DAYS, runSearchCycle } from '../src/discover/searchCycle';
-import { CHANNEL_REREAD_AFTER_MS, readQueuedChannels } from '../src/discover/channelReads';
+import {
+  CHANNEL_REREAD_AFTER_MS,
+  MAX_CHANNEL_READ_ATTEMPTS,
+  readQueuedChannels,
+} from '../src/discover/channelReads';
+import { PENDING_HIT_MAX_AGE_MS } from '../src/discover/hitDetails';
 import { planFor } from '../src/quota/ledger';
 import type { Subject } from '../src/repos/types';
 import { createSubject } from '../src/subjects/subject';
@@ -74,8 +79,17 @@ describe('a search cycle', () => {
     const report = await run();
 
     expect(report.searched).toEqual([
-      { subjectId: subject.id, result: 'searched', hits: 1, newVideos: 1, tooLong: 0, skipped: 0 },
+      { subjectId: subject.id, result: 'searched', hits: 1, skipped: 0 },
     ]);
+    expect(report.details).toEqual({
+      newVideos: 1,
+      tooLong: 0,
+      notReturned: 0,
+      skipped: 0,
+      leftPending: 0,
+      stopped: null,
+      failure: null,
+    });
     expect(bench.store.videos.get(videoId(1))).toMatchObject({ views: 1200, fetchedAt: NOW });
     expect(bench.store.readings.list(videoId(1), at(-HOUR_MS), NOW)).toEqual([
       { videoId: videoId(1), capturedAt: NOW, views: 1200 },
@@ -125,7 +139,8 @@ describe('a search cycle', () => {
     const report = await run();
 
     expect(SHORTS_MAX_SECONDS).toBe(180);
-    expect(report.searched[0]).toMatchObject({ hits: 3, newVideos: 2, tooLong: 1 });
+    expect(report.searched[0]).toMatchObject({ hits: 3 });
+    expect(report.details).toMatchObject({ newVideos: 2, tooLong: 1 });
     expect(bench.store.tracking.get(videoId(1))?.isShort).toBe('yes');
     expect(bench.store.videos.get(videoId(2))).toBeNull();
     expect(bench.store.tracking.get(videoId(3))?.isShort).toBe('unknown');
@@ -152,7 +167,7 @@ describe('a search cycle', () => {
     const report = await run();
 
     expect(bench.youtube.callsTo('videos')).toHaveLength(1);
-    expect(report.searched.map((outcome) => outcome.newVideos)).toEqual([1, 0, 0, 0]);
+    expect(report.details.newVideos).toBe(1);
     expect(bench.store.hits.videoIdsFor(paper!.id)).toEqual([videoId(1)]);
     expect(bench.store.hits.videoIdsFor(bread!.id)).toEqual([videoId(1)]);
   });
@@ -274,14 +289,99 @@ describe('a search cycle when things go wrong', () => {
     expect(bench.store.videos.get(videoId(2))).not.toBeNull();
   });
 
-  test('counts a subject as failed when the details of its new videos cannot be read', async () => {
+  test('keeps a paid search when the details of its videos cannot be read, and reads them next round', async () => {
     const subject = oneFind();
     bench.youtube.refuse((call) => call.path === 'videos', 503);
 
+    const failed = await run();
+    bench.youtube.heal();
+    bench.clock = at(HOUR_MS);
+    const later = await run();
+
+    expect(failed.searched.map((outcome) => outcome.subjectId)).toEqual([subject.id]);
+    expect(failed.failed).toEqual([]);
+    expect(failed.details).toMatchObject({ newVideos: 0, leftPending: 1, stopped: null });
+    expect(failed.details.failure).toMatch(/refused the request \(503\)/);
+    expect(bench.store.subjects.list()[0]?.lastSearchedAt).toEqual(NOW);
+    // The second round pays for no search: only the details still owed.
+    expect(bench.youtube.callsTo('search')).toHaveLength(1);
+    expect(later.details).toMatchObject({ newVideos: 1, leftPending: 0, failure: null });
+    expect(bench.store.videos.get(videoId(1))).not.toBeNull();
+    expect(bench.store.hits.videoIdsFor(subject.id)).toEqual([videoId(1)]);
+  });
+
+  test('keeps a paid search when the details stop for a pause, and searches no further', async () => {
+    const [paper] = addSubjects();
+    bench.youtube.setSearch('paper folding', 'US', [hit(1, 'A')]);
+    bench.youtube.setVideo(1, 'A');
+    bench.youtube.refuse((call) => call.path === 'videos', 403, refusalBody('rateLimitExceeded'));
+
     const report = await run();
 
-    expect(report.failed.map((failure) => failure.subjectId)).toEqual([subject.id]);
-    expect(bench.store.videos.get(videoId(1))).toBeNull();
+    expect(report.searched.map((outcome) => outcome.subjectId)).toEqual([paper!.id]);
+    expect(report).toMatchObject({ stopped: 'rate_limit', details: { leftPending: 1 } });
+    expect(bench.youtube.callsTo('search')).toHaveLength(1);
+    expect(bench.store.subjects.list()[0]?.lastSearchedAt).toEqual(NOW);
+    expect(bench.store.pending.list()).toEqual([
+      {
+        subjectId: paper!.id,
+        videoId: videoId(1),
+        channelId: channelId('A'),
+        channelTitle: 'Channel A',
+        foundAt: NOW,
+      },
+    ]);
+  });
+
+  test('drops a result still waiting for its details after a day', async () => {
+    const subject = oneFind();
+    bench.youtube.refuse((call) => call.path === 'videos', 503);
+    await run();
+    bench.youtube.heal();
+    bench.clock = at(PENDING_HIT_MAX_AGE_MS + 1);
+    bench.store.subjects.markSearched(subject.id, bench.clock);
+
+    const report = await run();
+
+    expect(report.details).toMatchObject({ newVideos: 0, leftPending: 0 });
+    expect(bench.youtube.callsTo('videos')).toHaveLength(1);
+    expect(PENDING_HIT_MAX_AGE_MS).toBe(DAY_MS);
+  });
+
+  test('does not pay again for a video found too long, or one the details did not return', async () => {
+    const subject = bench.store.subjects.add(createSubject({ keyword: 'night sky', region: 'CA' }));
+    bench.youtube.setSearch('night sky', 'CA', [hit(1, 'A'), hit(2, 'B'), hit(3, 'C')]);
+    bench.youtube.setVideo(1, 'A');
+    bench.youtube.setVideo(2, 'B', { duration: 'PT10M' });
+
+    const first = await run();
+    bench.clock = at(DAY_MS);
+    const second = await run();
+
+    expect(first.details).toMatchObject({ newVideos: 1, tooLong: 1, notReturned: 1 });
+    expect(bench.store.passedOver.knownIds([videoId(1), videoId(2), videoId(3)])).toEqual([
+      videoId(2),
+      videoId(3),
+    ]);
+    expect(second.searched[0]).toMatchObject({ subjectId: subject.id, hits: 3 });
+    expect(second.details).toMatchObject({ newVideos: 0, tooLong: 0, notReturned: 0 });
+    expect(bench.youtube.callsTo('videos')).toHaveLength(1);
+    expect(bench.quota.usage('2026-11-21').byKind.search).toBe(100);
+  });
+
+  test('does not write off many results when the details come back empty', async () => {
+    bench.store.subjects.add(createSubject({ keyword: 'night sky', region: 'CA' }));
+    const numbers = [1, 2, 3, 4, 5, 6];
+    bench.youtube.setSearch(
+      'night sky',
+      'CA',
+      numbers.map((n) => hit(n, 'A')),
+    );
+
+    const report = await run();
+
+    expect(report.details).toMatchObject({ notReturned: 0, leftPending: 6 });
+    expect(bench.store.passedOver.knownIds(numbers.map(videoId))).toEqual([]);
   });
 
   test('says when a search answered with nothing readable, apart from a search that found nothing', async () => {
@@ -308,7 +408,9 @@ describe('a search cycle when things go wrong', () => {
 
     const report = await run();
 
-    expect(report.searched[0]).toMatchObject({ result: 'searched', newVideos: 0, skipped: 1 });
+    expect(report.searched[0]).toMatchObject({ result: 'searched', skipped: 0 });
+    // An unreadable entry may be the video asked for, so the result goes on waiting.
+    expect(report.details).toMatchObject({ newVideos: 0, skipped: 1, leftPending: 1 });
   });
 
   test('stops before the next subject when the lease was lost', async () => {
@@ -408,7 +510,65 @@ describe('reading queued channels', () => {
 
     const report = await reads();
 
-    expect(report).toMatchObject({ read: 0, unavailable: 0, skipped: 1, leftQueued: 1 });
+    expect(report).toMatchObject({ read: 0, unavailable: 0, skipped: 1, gaveUp: 0, leftQueued: 1 });
+  });
+
+  test('gives up on a channel that stays unreadable after three reads', async () => {
+    bench.store.channels.queueRead({
+      id: channelId('A'),
+      title: null,
+      now: NOW,
+      staleBefore: at(-DAY_MS),
+    });
+    bench.youtube.setChannel('A', { snippet: 'not a snippet' });
+
+    await reads();
+    await reads();
+    const third = await reads();
+    const fourth = await reads();
+
+    expect(MAX_CHANNEL_READ_ATTEMPTS).toBe(3);
+    expect(third).toMatchObject({ skipped: 1, gaveUp: 1, unavailable: 0, leftQueued: 0 });
+    expect(fourth).toMatchObject({ read: 0, leftQueued: 0 });
+    expect(bench.youtube.callsTo('channels')).toHaveLength(3);
+    expect(bench.store.channels.get(channelId('A'))?.readQueuedAt).toBeNull();
+  });
+
+  test('counts unreadable reads afresh once the channel has been read', async () => {
+    const queue = (): boolean =>
+      bench.store.channels.queueRead({
+        id: channelId('A'),
+        title: null,
+        now: bench.clock,
+        staleBefore: bench.clock,
+      });
+    queue();
+    bench.youtube.setChannel('A', { snippet: 'not a snippet' });
+    await reads();
+    await reads();
+    bench.youtube.setChannel('A');
+    await reads();
+    queue();
+    bench.youtube.setChannel('A', { snippet: 'not a snippet' });
+
+    const report = await reads();
+
+    expect(report).toMatchObject({ gaveUp: 0, leftQueued: 1 });
+  });
+
+  test('stamps a channel with the time of the reply that brought its facts', async () => {
+    bench.store.channels.queueRead({
+      id: channelId('A'),
+      title: null,
+      now: NOW,
+      staleBefore: at(-DAY_MS),
+    });
+    bench.youtube.setChannel('A');
+    let looks = 0;
+
+    await readQueuedChannels({ ...bench, now: () => at(looks++ * 1000) });
+
+    expect(bench.store.channels.get(channelId('A'))?.fetchedAt).toEqual(at(0));
   });
 
   test('stops for a pause, or because the lease was lost, without a failure', async () => {
@@ -431,6 +591,7 @@ describe('reading queued channels', () => {
       read: 0,
       unavailable: 0,
       skipped: 0,
+      gaveUp: 0,
       leftQueued: 0,
       stopped: null,
       failure: null,

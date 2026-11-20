@@ -25,7 +25,14 @@ describe('the finding repository', () => {
 
     expect(added).toBe(true);
     expect(store.findings.listWaiting(10)).toEqual([
-      { ...newFinding(1, 'A'), id: 1, alertedAt: null, digestedAt: null },
+      {
+        ...newFinding(1, 'A'),
+        id: 1,
+        alertedAt: null,
+        digestedAt: null,
+        skippedAt: null,
+        skipReason: null,
+      },
     ]);
   });
 
@@ -156,7 +163,7 @@ describe('the tracking counts', () => {
     store.tracking.start(videoFacts(1, 'A').id, 'yes', at(-MINUTE_MS));
     store.tracking.start(videoFacts(2, 'A').id, 'yes', at(HOUR_MS));
     store.tracking.start(videoFacts(3, 'A').id, 'yes', at(-HOUR_MS));
-    store.tracking.finish(videoFacts(3, 'A').id);
+    store.tracking.finish(videoFacts(3, 'A').id, 'aged_out', NOW);
 
     expect(store.tracking.counts(NOW)).toEqual({ tracked: 2, due: 1 });
   });

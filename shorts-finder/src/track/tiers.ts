@@ -23,6 +23,17 @@ export const HOURLY_UNTIL_MS = 72 * MS_PER_HOUR;
  */
 export const TRACKED_UNTIL_MS = 14 * MS_PER_DAY;
 
+/**
+ * A round of readings takes every video due within the next five minutes as
+ * well as those already due. Rounds are an hour apart and a video's next read
+ * is set an hour after its round began, a few milliseconds after the
+ * scheduler noted the round's start; without this margin every video would be
+ * "not quite due" at the next round and wait a second hour. Five minutes is
+ * the scheduler's own look interval: nothing due inside it could be read any
+ * sooner by waiting.
+ */
+export const DUE_LOOK_AHEAD_MS = 5 * 60 * 1000;
+
 export type ReadPlan =
   | { readonly tier: Exclude<Tier, 'done'>; readonly nextReadAt: Date }
   | { readonly tier: 'done'; readonly nextReadAt: null };

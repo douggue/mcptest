@@ -114,7 +114,7 @@ describe('sendMessage', () => {
     },
   );
 
-  test('reports any other refusal with what Telegram said, the token taken out', async () => {
+  test('reports a message Telegram will not take as rejected, with what it said, the token taken out', async () => {
     const { options } = telegram(() =>
       json(400, { ok: false, description: `Bad Request: can't parse entities near bot${TOKEN}` }),
     );
@@ -122,9 +122,20 @@ describe('sendMessage', () => {
     const result = await sendMessage('Hello', options);
 
     expect(result).toEqual({
-      kind: 'failed',
+      kind: 'rejected',
       message:
         "Telegram refused the message (400): Bad Request: can't parse entities near bot[token]",
+    });
+  });
+
+  test("reports a refusal that is Telegram's own fault as failed, not as a rejected message", async () => {
+    const { options } = telegram(() => json(502, { ok: false, description: 'Bad Gateway' }));
+
+    const result = await sendMessage('Hello', options);
+
+    expect(result).toEqual({
+      kind: 'failed',
+      message: 'Telegram refused the message (502): Bad Gateway',
     });
   });
 

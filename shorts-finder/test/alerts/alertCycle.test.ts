@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   ALERTS_PAUSED_UNTIL,
   ALERT_FAILURE_PAUSE_MS,
+  MAX_SEND_ATTEMPTS,
   runAlertCycle,
   type AlertSettings,
 } from '../../src/alerts/alertCycle';
@@ -95,7 +96,7 @@ describe('runAlertCycle', () => {
 
     const report = await runAlertCycle(deps());
 
-    expect(report).toEqual({ sent: 2, waiting: 0, stopped: null, failure: null });
+    expect(report).toEqual({ sent: 2, skipped: 0, waiting: 0, stopped: null, failure: null });
     expect(outbox.messages.map((message) => message.html.split('\n')[2])).toEqual([
       'by Channel A',
       'by Channel B',
@@ -120,9 +121,44 @@ describe('runAlertCycle', () => {
     const report = await runAlertCycle(deps({ maxPerDay: 3 }));
     const later = await runAlertCycle(deps({ maxPerDay: 3 }));
 
-    expect(report).toEqual({ sent: 3, waiting: 2, stopped: null, failure: null });
+    expect(report).toEqual({ sent: 3, skipped: 0, waiting: 2, stopped: null, failure: null });
     expect(later).toBeNull();
     expect(outbox.messages).toHaveLength(3);
+  });
+
+  test('sets aside a finding whose message Telegram will not take, after three tries, and sends the rest', async () => {
+    addFindings(3);
+    const rejected: SendResult = {
+      kind: 'rejected',
+      message: "Telegram refused the message (400): Bad Request: can't parse entities",
+    };
+    outbox.answers = [rejected];
+    const first = await runAlertCycle(deps());
+    clock = at(ALERT_FAILURE_PAUSE_MS);
+    outbox.answers = [rejected];
+    const second = await runAlertCycle(deps());
+    clock = at(2 * ALERT_FAILURE_PAUSE_MS);
+    outbox.answers = [rejected];
+
+    const third = await runAlertCycle(deps());
+
+    expect(MAX_SEND_ATTEMPTS).toBe(3);
+    expect(first).toMatchObject({ sent: 0, skipped: 0, waiting: 3, stopped: 'rejected' });
+    expect(second).toMatchObject({ sent: 0, skipped: 0, waiting: 3, stopped: 'rejected' });
+    expect(third).toEqual({
+      sent: 2,
+      skipped: 1,
+      waiting: 0,
+      stopped: null,
+      failure: rejected.message,
+    });
+    const [skipped] = store.findings.listFoundBetween(at(-DAY_MS), at(DAY_MS));
+    expect(skipped).toMatchObject({
+      alertedAt: null,
+      skippedAt: at(2 * ALERT_FAILURE_PAUSE_MS),
+      skipReason: rejected.message,
+    });
+    expect(await runAlertCycle(deps())).toBeNull();
   });
 
   test("counts the limit by the owner's day, not by UTC", async () => {
@@ -148,6 +184,7 @@ describe('runAlertCycle', () => {
 
     expect(report).toEqual({
       sent: 1,
+      skipped: 0,
       waiting: 2,
       stopped: 'failed',
       failure: 'Telegram could not be reached: down',
@@ -166,7 +203,13 @@ describe('runAlertCycle', () => {
     clock = at(120_000);
     const after = await runAlertCycle(deps());
 
-    expect(first).toEqual({ sent: 0, waiting: 2, stopped: 'retry_after', failure: null });
+    expect(first).toEqual({
+      sent: 0,
+      skipped: 0,
+      waiting: 2,
+      stopped: 'retry_after',
+      failure: null,
+    });
     expect(tooSoon).toBeNull();
     expect(after).toMatchObject({ sent: 2, waiting: 0 });
     expect(outbox.messages).toHaveLength(3);

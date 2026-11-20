@@ -35,7 +35,13 @@ export type SendResult =
   | { readonly kind: 'retry_after'; readonly seconds: number }
   /** The token or the chat is wrong; trying again changes nothing until the owner fixes it. */
   | { readonly kind: 'misconfigured'; readonly message: string }
-  /** The network, Telegram itself, or a message it would not take. */
+  /**
+   * Telegram read this message and would not take it (a 400 that is not about
+   * the chat): the fault is in the message, so sending the same one again will
+   * get the same answer, though the next message may be fine.
+   */
+  | { readonly kind: 'rejected'; readonly message: string }
+  /** The network, or Telegram itself. */
   | { readonly kind: 'failed'; readonly message: string };
 
 export interface TelegramOptions {
@@ -89,7 +95,8 @@ function refusal(status: number, reply: Reply, token: string): SendResult {
     return { kind: 'misconfigured', message: CHAT_NOT_FOUND };
   }
   const detail = withoutToken(description, token);
-  return { kind: 'failed', message: `Telegram refused the message (${status}): ${detail}` };
+  const message = `Telegram refused the message (${status}): ${detail}`;
+  return { kind: status === 400 ? 'rejected' : 'failed', message };
 }
 
 async function post(body: string, options: TelegramOptions): Promise<Response | SendResult> {

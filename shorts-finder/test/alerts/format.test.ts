@@ -32,6 +32,8 @@ const finding = (n: number, letter: string, overrides: Partial<NewFinding> = {})
   id: n,
   alertedAt: null,
   digestedAt: null,
+  skippedAt: null,
+  skipReason: null,
 });
 
 /** Every tag opened is closed, in order, and no entity or tag is cut short. */

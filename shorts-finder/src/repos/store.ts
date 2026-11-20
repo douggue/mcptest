@@ -2,6 +2,7 @@ import { transactionRunner, type Db } from '../db/sqlite';
 import { SqliteChannelRepo } from './sqliteChannelRepo';
 import { SqliteFindingRepo } from './sqliteFindingRepo';
 import { SqliteReadingRepo } from './sqliteReadingRepo';
+import { SqlitePassedOverRepo, SqlitePendingHitRepo } from './sqliteSearchMemoryRepo';
 import { SqliteServiceStateRepo } from './sqliteServiceStateRepo';
 import { SqliteSubjectHitRepo, SqliteSubjectRepo } from './sqliteSubjectRepo';
 import { SqliteTrackingRepo } from './sqliteTrackingRepo';
@@ -16,6 +17,8 @@ export function openStore(db: Db): Store {
     readings: new SqliteReadingRepo(db),
     subjects: new SqliteSubjectRepo(db),
     hits: new SqliteSubjectHitRepo(db),
+    pending: new SqlitePendingHitRepo(db),
+    passedOver: new SqlitePassedOverRepo(db),
     tracking: new SqliteTrackingRepo(db),
     findings: new SqliteFindingRepo(db),
     state: new SqliteServiceStateRepo(db),

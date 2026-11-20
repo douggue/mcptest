@@ -66,7 +66,8 @@ runs is what is in `src/`. `subjects` and `status` need no key or token.
 
 The service writes one line of JSON per event to standard output and nothing
 else; under systemd that is the journal. It stops on SIGTERM or SIGINT by
-letting running work finish and closing the store. It exits with 78 when a
+telling running work to stop, which it does between requests, and closing
+the store. It exits with 78 when a
 setting is wrong and 1 when it cannot start for another reason. Send the
 signal to `node` itself: `npm` does not pass SIGTERM on to it (systemd starts
 `node` directly for that reason).
@@ -94,10 +95,15 @@ the calendar day in Pacific time, when Google resets the allowance.
 
 - Every hour, every tracked video that is due is read, fifty to a request. A
   video is read hourly until 72 hours after publication, every six hours until
-  day 14, then no longer. A video the API leaves out twice in a row is deleted.
+  day 14, then no longer. A video the API leaves out on two occasions at least
+  six hours apart stops being tracked, marked as gone; nothing is deleted on a
+  miss, and a reply that is empty for many videos at once is not believed.
 - Whenever subjects are due, each is searched once (short videos of the last
-  seven days). New videos of three minutes or less are stored and tracked;
-  their channels' facts are read at most once in 24 hours.
+  seven days). A search's results are kept the moment it answers, so a failure
+  while reading their details costs no search: the details are read in the
+  next round. New videos of three minutes or less are stored and tracked;
+  longer ones are remembered and not paid for again. Channels' facts are read
+  at most once in 24 hours.
 - A search and the read of its results cost 101 units of the search share, so
   the default plan pays for 59 searches a day.
 - Once a day, readings older than 14 days are thinned to the last of each day.
@@ -113,7 +119,9 @@ the calendar day in Pacific time, when Google resets the allowance.
   `SHORTS_MAX_ALERTS_PER_DAY` (10) in a day of the owner's time zone.
 - A finding is marked as sent only after Telegram accepts the message. When
   Telegram asks for a pause, or a message fails, sending stops and is tried
-  again later (after the pause Telegram names, or 15 minutes).
+  again later (after the pause Telegram names, or 15 minutes). A finding
+  whose message Telegram reads and refuses three times is set aside with the
+  reason, so it cannot hold up the ones behind it.
 - From `SHORTS_DIGEST_HOUR` (18) in `SHORTS_TIMEZONE` (UTC), once a day: a
   summary (the day's counts, units spent, the fastest findings the daily
   limit left out) and a "still running" line (videos tracked, readings

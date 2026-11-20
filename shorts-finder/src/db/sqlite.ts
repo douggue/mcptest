@@ -132,6 +132,41 @@ CREATE TABLE service_state (
   updated_at  TEXT NOT NULL
 ) WITHOUT ROWID;
 `,
+  // 3: what the review of the cycles asked for. Tracking remembers when a
+  // video was last missed and when and why its tracking ended, so a video is
+  // never deleted on a miss. A channel counts the reads that could not be
+  // read, and a finding the messages Telegram would not take, so neither is
+  // tried for ever. A search's results are kept the moment the search answers
+  // (`pending_hits`), before their details are read, so a paid search is never
+  // lost; and videos a search returns that will never be tracked are
+  // remembered (`passed_over_videos`), so they are not paid for again.
+  `
+ALTER TABLE video_tracking ADD COLUMN last_missed_at TEXT;
+ALTER TABLE video_tracking ADD COLUMN finished_at TEXT;
+ALTER TABLE video_tracking ADD COLUMN finish_reason TEXT;
+
+ALTER TABLE channels ADD COLUMN read_attempts INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE findings ADD COLUMN send_attempts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE findings ADD COLUMN skipped_at TEXT;
+ALTER TABLE findings ADD COLUMN skip_reason TEXT;
+
+CREATE TABLE pending_hits (
+  subject_id     INTEGER NOT NULL REFERENCES subjects (id) ON DELETE CASCADE,
+  video_id       TEXT NOT NULL,
+  channel_id     TEXT NOT NULL,
+  channel_title  TEXT,
+  found_at       TEXT NOT NULL,
+  PRIMARY KEY (subject_id, video_id)
+) WITHOUT ROWID;
+
+CREATE TABLE passed_over_videos (
+  video_id  TEXT PRIMARY KEY,
+  reason    TEXT NOT NULL,
+  noted_at  TEXT NOT NULL
+) WITHOUT ROWID;
+CREATE INDEX passed_over_noted ON passed_over_videos (noted_at);
+`,
 ];
 
 /**

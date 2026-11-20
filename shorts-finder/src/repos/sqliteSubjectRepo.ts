@@ -71,12 +71,14 @@ export class SqliteSubjectRepo implements SubjectRepo {
   }
 
   listDue(now: Date): readonly Subject[] {
-    // Whole seconds, so a subject searched exactly its hours ago is due.
+    // Whole seconds, so a subject searched exactly its hours ago is due. One
+    // searched "after now" (the clock was set back since) is due as well.
     return this.db
       .prepare<{ now: string; hour: number }, SubjectRow>(
         `SELECT * FROM subjects
          WHERE enabled = 1 AND (last_searched_at IS NULL
-           OR strftime('%s', @now) - strftime('%s', last_searched_at) >= every_hours * @hour)
+           OR strftime('%s', @now) - strftime('%s', last_searched_at) >= every_hours * @hour
+           OR last_searched_at > @now)
          ORDER BY last_searched_at IS NOT NULL, last_searched_at, id`,
       )
       .all({ now: toText(now), hour: SECONDS_PER_HOUR })

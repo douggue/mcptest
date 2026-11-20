@@ -52,7 +52,7 @@ export class SqliteChannelRepo implements ChannelRepo {
            subscribers = excluded.subscribers, subs_hidden = excluded.subs_hidden,
            video_count = excluded.video_count, total_views = excluded.total_views,
            uploads_playlist_id = excluded.uploads_playlist_id, fetched_at = excluded.fetched_at,
-           read_queued_at = NULL`,
+           read_queued_at = NULL, read_attempts = 0`,
       )
       .run({
         id: channel.id,
@@ -98,8 +98,19 @@ export class SqliteChannelRepo implements ChannelRepo {
 
   markUnavailable(id: string, at: Date): void {
     this.db
-      .prepare(`UPDATE channels SET read_queued_at = NULL, fetched_at = ? WHERE id = ?`)
+      .prepare(
+        `UPDATE channels SET read_queued_at = NULL, read_attempts = 0, fetched_at = ? WHERE id = ?`,
+      )
       .run(toText(at), id);
+  }
+
+  countFailedRead(id: string): number {
+    const row = this.db
+      .prepare<[string], { read_attempts: number }>(
+        `UPDATE channels SET read_attempts = read_attempts + 1 WHERE id = ? RETURNING read_attempts`,
+      )
+      .get(id);
+    return row?.read_attempts ?? 0;
   }
 
   get(id: string): StoredChannel | null {

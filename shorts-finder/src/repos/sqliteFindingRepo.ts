@@ -36,7 +36,13 @@ interface FindingRow {
   readonly found_at: string;
   readonly alerted_at: string | null;
   readonly digested_at: string | null;
+  readonly skipped_at: string | null;
+  readonly skip_reason: string | null;
 }
+
+/** A finding waits while the owner has not been told of it and it has not been given up on. */
+const WAITING = 'alerted_at IS NULL AND digested_at IS NULL AND skipped_at IS NULL';
+const MAX_SKIP_REASON = 500;
 
 const toFinding = (row: FindingRow): Finding => ({
   id: row.id,
@@ -53,6 +59,8 @@ const toFinding = (row: FindingRow): Finding => ({
   foundAt: fromText(row.found_at),
   alertedAt: fromTextOrNull(row.alerted_at),
   digestedAt: fromTextOrNull(row.digested_at),
+  skippedAt: fromTextOrNull(row.skipped_at),
+  skipReason: row.skip_reason,
 });
 
 function requireValid(finding: NewFinding): void {
@@ -97,8 +105,7 @@ export class SqliteFindingRepo implements FindingRepo {
   listWaiting(limit: number): readonly Finding[] {
     return this.db
       .prepare<[number], FindingRow>(
-        `SELECT * FROM findings WHERE alerted_at IS NULL AND digested_at IS NULL
-         ORDER BY found_at, id LIMIT ?`,
+        `SELECT * FROM findings WHERE ${WAITING} ORDER BY found_at, id LIMIT ?`,
       )
       .all(Math.max(0, Math.floor(limit)))
       .map(toFinding);
@@ -106,9 +113,7 @@ export class SqliteFindingRepo implements FindingRepo {
 
   countWaiting(): number {
     const row = this.db
-      .prepare<[], { n: number }>(
-        `SELECT COUNT(*) AS n FROM findings WHERE alerted_at IS NULL AND digested_at IS NULL`,
-      )
+      .prepare<[], { n: number }>(`SELECT COUNT(*) AS n FROM findings WHERE ${WAITING}`)
       .get();
     return row?.n ?? 0;
   }
@@ -118,6 +123,23 @@ export class SqliteFindingRepo implements FindingRepo {
       .prepare(`UPDATE findings SET alerted_at = ? WHERE id = ? AND alerted_at IS NULL`)
       .run(toText(at), id);
     return marked.changes === 1;
+  }
+
+  countRejection(id: number): number {
+    const row = this.db
+      .prepare<[number], { send_attempts: number }>(
+        `UPDATE findings SET send_attempts = send_attempts + 1 WHERE id = ? RETURNING send_attempts`,
+      )
+      .get(id);
+    return row?.send_attempts ?? 0;
+  }
+
+  markSkipped(id: number, reason: string, at: Date): void {
+    this.db
+      .prepare(
+        `UPDATE findings SET skipped_at = ?, skip_reason = ? WHERE id = ? AND skipped_at IS NULL`,
+      )
+      .run(toText(at), reason.slice(0, MAX_SKIP_REASON), id);
   }
 
   markDigested(ids: readonly number[], at: Date): void {
