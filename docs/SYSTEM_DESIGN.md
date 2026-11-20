@@ -488,9 +488,10 @@ Rules the tools keep:
   not stopped when the client gives up waiting; the map is stored and `get_map`
   returns it. The connector and the app do not know about each other's crawls.
 - **Standard output** carries only the protocol. Diagnostics go to standard error.
-- **Store location** is `loadConfig` (`JGTUBE_DB_PATH`, `JGTUBE_REGION`). A path
-  that is not absolute is taken from the project folder, because Claude starts the
-  connector from another directory. `get_channel_videos` and the titles in
+- **Store location** is `loadConfig` (`JGTUBE_DB_PATH`, `JGTUBE_REGION`), after
+  reading the project folder's `.env` as the app does. A path that is not absolute
+  is taken from the project folder, because Claude starts the connector from
+  another directory. `get_channel_videos` and the titles in
   `get_near_misses` read through a second connection to the same file (WAL mode),
   since the server's engine does not expose its repositories.
 

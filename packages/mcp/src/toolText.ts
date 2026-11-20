@@ -80,7 +80,9 @@ export const TOOL_TEXT = {
     description:
       'New or small channels anywhere in the store (not only on one map) that have a recent video far above their ' +
       'size: possible new niches. Most views on recent uploads first. Per channel: subs, recentViews and uploads ' +
-      '(last 30 days), viewsPerSub, channelAgeDays, why (new: first upload within newMaxAgeDays; small: at or under ' +
+      '(last 30 days), viewsPerSub, earnsUsd (a rough low and high guess, in US dollars, at the ad money those ' +
+      '30 days of views are worth: for comparing channels, not a payout; notPaidYet marks a channel too small to be ' +
+      'paid for ads), channelAgeDays, why (new: first upload within newMaxAgeDays; small: at or under ' +
       'smallMaxSubs), hits (strong videos out of scored ones), top (its videos that took off) and titles. watched ' +
       'marks channels the owner chose to follow; qualifies false marks a watched one that no longer meets the rule. ' +
       'Reads the local store only.',

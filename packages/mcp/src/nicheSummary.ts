@@ -21,6 +21,8 @@ function nicheEntry(niche: NicheChannel): Record<string, unknown> {
     recentViews: niche.recentViews,
     uploads: niche.recentUploads,
     viewsPerSub: niche.viewsPerSubscriber === null ? null : oneDecimal(niche.viewsPerSubscriber),
+    earnsUsd: [niche.earnings.low, niche.earnings.high],
+    notPaidYet: niche.earnings.belowAdThreshold ? true : null,
     channelAgeDays: niche.channelAgeDays === null ? null : Math.round(niche.channelAgeDays),
     why: niche.reasons,
     hits: `${niche.hitCount}/${niche.scoredCount}`,

@@ -105,10 +105,11 @@ channel back to automatic, or in the app.
 ## Good to know
 
 - **Same data as the app.** The connector opens `jgtube.db` in the Jgtube folder,
-  the same file the app uses, and both can run at once. If you start the app with a
-  `JGTUBE_DB_PATH` or `JGTUBE_REGION` setting, give the connector the same one by
-  adding `"env": { "JGTUBE_DB_PATH": "/ABSOLUTE/PATH/TO/your.db" }` next to
-  `"args"` in the config.
+  the same file the app uses, and both can run at once. Settings in a `.env` file
+  in the Jgtube folder (`JGTUBE_DB_PATH`, `JGTUBE_REGION`) are read by both. If
+  you set them some other way when starting the app, give the connector the same
+  ones by adding `"env": { "JGTUBE_DB_PATH": "/ABSOLUTE/PATH/TO/your.db" }` next
+  to `"args"` in the config.
 - **What leaves your computer.** The store stays on your computer. What a tool
   returns (channel names, titles, view counts, thumbnails) becomes part of your chat
   with Claude, like anything else you paste into it.

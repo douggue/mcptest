@@ -226,6 +226,13 @@ export function niche(overrides: Partial<NicheChannel> = {}): NicheChannel {
     recentViews: 420_000,
     recentUploads: 6,
     viewsPerSubscriber: 84.04,
+    earnings: {
+      low: 840,
+      high: 3360,
+      longFormViews: 420_000,
+      shortsViews: 0,
+      belowAdThreshold: false,
+    },
     channelAgeDays: 41.7,
     reasons: ['new', 'small'],
     outperformers: [

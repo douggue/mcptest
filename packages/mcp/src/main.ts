@@ -24,7 +24,21 @@ function anchoredConfig(config: Config): Config {
     : { ...config, dbPath: resolve(PROJECT_ROOT, config.dbPath) };
 }
 
+/**
+ * Reads the `.env` file in the project folder, if there is one: the same file
+ * the app reads, so both use the same settings. Values already set by whoever
+ * started the connector win over the file.
+ */
+function loadEnvFile(): void {
+  try {
+    process.loadEnvFile(resolve(PROJECT_ROOT, '.env'));
+  } catch {
+    // No .env file: settings come from the environment or their defaults.
+  }
+}
+
 async function start(): Promise<void> {
+  loadEnvFile();
   const config = anchoredConfig(loadConfig());
   const engine = createConnectorEngine(config);
   const server = createConnectorServer({ engine, log: say });
