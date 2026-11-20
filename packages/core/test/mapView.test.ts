@@ -116,7 +116,7 @@ describe('titleSimilarity', () => {
     expect(scores.get('other')).toBe(0);
   });
 
-  test('scores identical titles as one and empty input as zero', () => {
+  test('scores identical titles close to one and empty input as zero', () => {
     const scores = titleSimilarity(
       centre,
       new Map([
@@ -125,8 +125,36 @@ describe('titleSimilarity', () => {
       ]),
     );
 
-    expect(scores.get('same')).toBeCloseTo(1, 5);
+    expect(scores.get('same')).toBeGreaterThan(0.95);
+    expect(scores.get('same')).toBeLessThanOrEqual(1);
     expect(scores.get('empty')).toBe(0);
+  });
+
+  test('weighs a reference word by the share of its titles that use it', () => {
+    const reference = ['Forever Tires', 'Forever Magnets', 'Forever Stoves', 'Forever Mirrors'];
+
+    const scores = titleSimilarity(
+      reference,
+      new Map([
+        ['format', ['Forever']],
+        ['subject', ['Tires']],
+      ]),
+    );
+
+    // Used in four titles against one: the format word counts four times the subject word.
+    expect((scores.get('format') ?? 0) / (scores.get('subject') ?? 1)).toBeCloseTo(4, 5);
+  });
+
+  test('counts a word once per title however often the title repeats it', () => {
+    const scores = titleSimilarity(
+      ['Robots Robots Robots', 'Tires'],
+      new Map([
+        ['robots', ['Robots']],
+        ['tires', ['Tires']],
+      ]),
+    );
+
+    expect(scores.get('robots')).toBeCloseTo(scores.get('tires') ?? 0, 5);
   });
 
   test('returns zero for everything when the centre has no titles', () => {

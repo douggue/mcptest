@@ -51,7 +51,8 @@ every phase; coverage floor is 80%.
 - [ ] Title-frame extraction
 - [ ] Search-based candidate discovery
 - [x] Cheap relevance pass: TF-IDF title similarity anchored on the closest look-alikes, plus size, publishing-rate and video-length checks. The app shows "like yours" by default (language check still to add)
-- [ ] Judged relevance pass (batched model call)
+- [x] Title match reads the reference as a format profile (words by the share of its titles that use them), so shared subjects no longer pass for a shared format; pinned by a 40-channel fixture from the owner's map
+- [ ] Judged relevance pass (batched model call). Needed for channels within a point or two of the title threshold, which titles do not settle
 - [x] Closeness tiers; filtered-out list ("Everything" view); manual remove and restore, kept across new maps
 - [x] Each map stored as it was when made; schema migrations
 - [x] Seed from a model channel: the crawl also explores from it and "like yours" is measured against it

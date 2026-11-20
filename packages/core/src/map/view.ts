@@ -155,7 +155,10 @@ export function buildMapView(input: MapViewInput): readonly MapRow[] {
       shapeMismatch(subject(reference), subject(member), now),
     ]),
   );
-  const fits = members.filter((member) => shapes.get(member.channel.id) === null);
+  // The model is a member of the map; it cannot be a look-alike of itself.
+  const fits = members.filter(
+    (member) => member !== reference && shapes.get(member.channel.id) === null,
+  );
   const direct = fits.filter((member) => member.steps === 1);
   const recentTitles = (member: MapMemberData): readonly string[] =>
     member.videos.slice(0, TITLES_COMPARED).map((video) => video.title);
