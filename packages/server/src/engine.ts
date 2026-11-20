@@ -29,7 +29,7 @@ import {
   type StoredChannel,
   type YouTubeSource,
 } from '@jgtube/core';
-import { mkdirSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -47,8 +47,8 @@ const REQUEST_TIMEOUT_MS = 30_000;
 const IN_MEMORY = ':memory:';
 /** The Jgtube folder: the connector Claude is given lives under it. */
 const PROJECT_ROOT = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
-/** An empty folder for Claude to start in, so it picks up no project settings. */
-const CLAUDE_WORK_DIR = join(tmpdir(), 'jgtube-claude');
+/** Prefix of the private folder Claude starts in. */
+const CLAUDE_WORK_PREFIX = join(tmpdir(), 'jgtube-claude-');
 
 export interface RunningEngine extends Engine {
   close(): void;
@@ -101,6 +101,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
   };
   // Created on the first crawl, so stored maps can be read with no network at all.
   let source: Promise<YouTubeSource> | null = null;
+  let claudeWorkDir: string | null = null;
   /**
    * A source that connects on first use. A refresh that finds nothing due then
    * makes no request at all, which matters to a timer that fires every few hours.
@@ -251,11 +252,13 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
           'Claude needs the store to be a file on disk, and this one is only in memory',
         );
       }
-      mkdirSync(CLAUDE_WORK_DIR, { recursive: true });
+      // Made on first use, owner-only and with a name nobody can guess, so no other
+      // account on the computer can plant settings for Claude to pick up there.
+      claudeWorkDir ??= mkdtempSync(CLAUDE_WORK_PREFIX);
       const request = analysisRequest(analysis, channel, {
         projectRoot: PROJECT_ROOT,
         dbPath: storePath,
-        workDir: CLAUDE_WORK_DIR,
+        workDir: claudeWorkDir,
       });
       const run =
         options.runClaude ??
@@ -265,6 +268,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     },
 
     close() {
+      if (claudeWorkDir !== null) rmSync(claudeWorkDir, { recursive: true, force: true });
       db.close();
     },
   };

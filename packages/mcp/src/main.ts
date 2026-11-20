@@ -39,6 +39,9 @@ function loadEnvFile(): void {
 
 async function start(): Promise<void> {
   loadEnvFile();
+  // The connector is driven by a model and none of its tools uses the YouTube
+  // API key, so it does not keep one: a key it never holds cannot leak through it.
+  delete process.env['YOUTUBE_API_KEY'];
   const config = anchoredConfig(loadConfig());
   const engine = createConnectorEngine(config);
   const server = createConnectorServer({ engine, log: say });

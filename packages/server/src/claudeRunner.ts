@@ -120,6 +120,9 @@ export function buildClaudeArgs(request: ClaudeRunRequest): readonly string[] {
     'project',
     '--permission-mode',
     'dontAsk',
+    // No built-in tools exist in the run at all; the deny list below is a second lock.
+    '--tools',
+    '',
     '--allowedTools',
     ...request.allowedTools,
     '--disallowedTools',

@@ -96,6 +96,10 @@ describe('buildClaudeArgs', () => {
     expect(denied).toEqual(expect.arrayContaining(['Bash', 'Edit', 'Write', 'Read', 'WebFetch']));
     expect(valueAfter(args, '--permission-mode')).toBe('dontAsk');
   });
+
+  test('makes none of Claude Code’s built-in tools available at all', () => {
+    expect(valueAfter(args, '--tools')).toBe('');
+  });
 });
 
 describe('runClaude', () => {

@@ -1,3 +1,4 @@
+import { existsSync, statSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
 import type { AnalysisId } from '../src/analyses';
 import { createApp } from '../src/app';
@@ -136,6 +137,35 @@ describe('the engine’s analyse', () => {
     expect(requests[0]?.mcpServers['jgtube']?.env).toEqual({ JGTUBE_DB_PATH: '/data/jgtube.db' });
     expect(requests[0]?.allowedTools.every((tool) => tool.startsWith('mcp__jgtube__'))).toBe(true);
     engine.close();
+  });
+
+  test('starts Claude in a private folder of its own, removed when the engine closes', async () => {
+    const folders: string[] = [];
+    const start = () =>
+      createEngine(
+        { dbPath: ':memory:', region: 'US' },
+        {
+          storePath: '/data/jgtube.db',
+          runClaude: async (request) => {
+            folders.push(request.cwd);
+            return { text: 'x', turns: 1 };
+          },
+        },
+      );
+    const first = start();
+    const second = start();
+
+    await first.analyse('topics', '@americainvents2');
+    await first.analyse('topics', '@americainvents2');
+    await second.analyse('topics', '@americainvents2');
+
+    expect(folders[0]).toBe(folders[1]);
+    expect(folders[2]).not.toBe(folders[0]);
+    // Owner-only: nobody else on the computer can plant settings in it.
+    expect(statSync(folders[0] ?? '').mode & 0o077).toBe(0);
+    first.close();
+    second.close();
+    expect(existsSync(folders[0] ?? '')).toBe(false);
   });
 
   test('refuses when the store is only in memory, since the connector could not open it', async () => {
