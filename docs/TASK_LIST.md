@@ -131,11 +131,21 @@ Phase 7 needs 5.
 - [x] Settings from a `.env` file, including `YOUTUBE_API_KEY`
 - [x] Refresh so growth history builds up: the stalest stored channels are read again, 50 a run, watched and niche channels and map look-alikes first (`npm run refresh`, `POST /api/refresh`, a timer when `JGTUBE_REFRESH_HOURS` is set); "Refresh now" and the last run at the foot of the page
 - [x] Measured growth on the niche card: views gained between a channel's first reading of the last 30 days and its latest, once it has been read twice
+- [x] Niche transfer opportunities: every stored video of the last 90 days grouped by title template into ideas (the same title for different countries) and formats (the same words around a changing subject); each idea judged for the owner's place as open, weak, done, unproven or unplaced; saved ideas stay listed (`GET /api/transfers`, `POST /api/transfers/save`, the section above "New niches to watch")
+- [x] The owner's place read from the map centres' titles or country, or passed in; titles that name no place use the channel's country
+- [x] Channels in another alphabet listed on the niche list with a mark and the script's name, instead of left out
+- [x] 90-day views, uploads and earnings on the niche card beside the 30-day ones; the list sorted by the 90-day views
+- [x] Earnings scaled by a rough ad-rate tier for the channel's country, and the card says which tier was used
+- [x] A breakout feed holds at most four videos per channel
+- [x] A channel with no upload in 45 days is not a look-alike (reason `dormant`)
+- [ ] Ideas grouped across wording: a synonym ("detected" for "found") or a translation is a separate idea today, shown as a one-word variant
+- [ ] Channel countries for channels off the niche list (only niche-list channels are asked about), so more ideas without a place in the title can be judged
 - [ ] Niche labels and "same topic, different wording" judged by Claude through the connector
 
 ## Claude's judgement
 
-- [x] Claude connector (`packages/mcp`): nine tools and a thumbnail-review prompt
+- [x] Claude connector (`packages/mcp`): ten tools and a thumbnail-review prompt
+- [x] `list_transfer_opportunities`: the ideas, their versions and the formats, read-only (not yet offered to the "Ask Claude" analyses)
 - [x] "Ask Claude" on the page: thumbnail review, video ideas, same-topic channels, each one boxed-in run of Claude Code
 - [x] Thumbnail patterns in words (through Ask Claude and the connector; Claude sees the real images)
 - [ ] Connector tried in the Claude desktop app on the owner's computer (checked here only through a test client and Claude Code)

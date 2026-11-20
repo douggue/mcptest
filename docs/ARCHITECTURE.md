@@ -76,7 +76,7 @@ packages/
     claudeRunner.ts, analyses.ts, analysisRoutes.ts
                   the three "Ask Claude" analyses: a fixed question, read-only tools,
                   one boxed-in run of Claude Code
-  mcp/src/        the connector: nine tools and one prompt over the same store
+  mcp/src/        the connector: ten tools and one prompt over the same store
 apps/web/src/     one page: radar, breakouts, same-topic list, thumbnail board,
                   Ask Claude, niches, refresh bar
 docs/  design/

@@ -39,7 +39,12 @@ refresh_runs    id PK, started_at, finished_at, refreshed, failed,    -- built; 
                 stopped_early                  -- finished refresh, whoever started it
 work_leases     name PK, owner, expires_at        -- built; the right to read YouTube,
                 -- held by one piece of work at a time across every program
+transfer_saves  idea_key PK, template, saved_at   -- built; ideas the owner saved as
+                -- transfer opportunities, kept by the words of their title template
 ```
+
+`videos` has a second index, on `published_at` alone, for reading the recent
+videos of every channel at once, which the transfer list does on each read.
 
 There is no HTTP cache table; freshness is decided from `fetched_at` (a channel
 younger than 24 hours is served from the store with no request).
@@ -113,6 +118,19 @@ carries what it rests on:
 - `caution`: `few-videos` when `sampleSize` is under 5, else `low-baseline` when the
   usual is under 500 views, else null
 
+### One channel's share of a feed
+
+A channel with a series that is working used to fill the feed: on one map a single
+channel held 17 of the 60 look-alike places. A feed now holds at most four videos
+per channel (`MAX_BREAKOUTS_PER_CHANNEL`): enough to show a series and not one
+lucky video, and a full feed is then at least fifteen channels wide. The limit is
+applied after the videos are sorted and before the feed is cut to its length, so
+the places it frees go to the next strongest videos of other channels. It is
+applied again each time a stored map is read (`applyOwnerChoices`), which only
+removes: a feed frozen before the limit existed was already cut to 60, so nothing
+is left to fill the gaps with. Maps frozen under the earlier rules (format 3) are
+therefore rebuilt from the store when read, which gives them a full feed.
+
 ### Rising channels
 
 A channel is "rising" when its first long-form upload is under 90 days old and
@@ -140,9 +158,17 @@ otherwise it is kept but marked with the first reason it failed:
 | Check           | Rule                                                                  | Reason shown               |
 | --------------- | --------------------------------------------------------------------- | -------------------------- |
 | Size            | At most 20× the reference's subscribers, never under 150K nor over 1M | Far larger                 |
+| Still uploading | Its newest stored upload is within the last 45 days                   | No upload in 45 days       |
 | Publishing rate | At most 14 uploads a week over the last 14 days                       | Publishes many times a day |
 | Video length    | Median within 0.4× to 4× of the centre's                              | Very different length      |
 | Titles          | Anchored title match of at least 14%                                  | Titles unlike yours        |
+
+A dormant channel (`PEER_DORMANT_AFTER_DAYS`, 45) is not competing for anyone's
+viewers. Six weeks is past any ordinary gap: the slowest channels worth copying
+publish monthly, and one missed month still leaves them inside it. A channel with
+no stored video is not called dormant, and the owner can still keep a dormant
+channel by hand. Frozen maps carry the reasons they were made with, so the
+snapshot format was raised to 4 and older copies are rebuilt when read.
 
 **Title match** (`packages/core/src/map/relevance.ts`). The reference is the model
 channel when the owner named one, otherwise the centre. A title is a format plus a
@@ -353,7 +379,6 @@ A channel is listed when all of these hold:
 | Outperforms          | At least one video from the last 30 days with 10,000 views or more that is either 5× the channel's usual views (outlier score) or seen by 10× its subscribers                                                                 | `NICHE_MIN_VIDEO_VIEWS`, `NICHE_MIN_OUTLIER_SCORE`, `NICHE_MIN_VIEWS_PER_SUBSCRIBER` |
 | Not large            | 100,000 subscribers or fewer, new or not                                                                                                                                                                                      | `NICHE_MAX_SUBSCRIBERS`                                                              |
 | Makes its own videos | At most 14 uploads a week, and a median length of an hour or less                                                                                                                                                             | `NICHE_MAX_UPLOADS_PER_WEEK`, `NICHE_MAX_MEDIAN_DURATION_SECONDS`                    |
-| Readable             | At least 80% of the letters in its 30 newest titles are Latin                                                                                                                                                                 | `NICHE_MIN_LATIN_SHARE`                                                              |
 | Not the owner's      | Never a channel a map was made around                                                                                                                                                                                         |                                                                                      |
 
 Why these numbers:
@@ -369,18 +394,25 @@ Why these numbers:
   people. 5× sits between the feed's 2×, which a good week reaches, and the rising
   rule's 10× twice over. The 10× subscribers path also catches a channel with too few
   videos to score.
-- The Latin-letter share tells alphabets apart, not languages: a channel in Spanish
-  passes. On the owner's store listed channels score 0.96 or more and the rest 0.73
-  or less. No language detector was added.
+- A channel in another alphabet is no longer left out. When under 80% of the
+  letters in its 30 newest titles are Latin (`NICHE_MIN_LATIN_SHARE`) it is held to
+  the same rule and listed with `otherLanguage: { script }`, the script named from
+  the Unicode script of its letters (Cyrillic, Arabic, Devanagari, CJK, Korean and
+  so on; null when it is not one of the named ones): an idea that works there may
+  not have been made in the owner's language yet. The share tells alphabets apart,
+  not languages (a channel in Spanish reads as Latin), and nothing is translated.
 
 Each entry carries why it is listed (`reasons`: `new`, `small` or both), up to three
 outperforming videos as `BoardVideo`s (so the screen shows the thumbnails that took
 off), the hit rate over scored videos from the last 90 days (a one-off against a
 pattern), views and uploads from the last 30 days, views per subscriber, days since
 the first upload when the whole channel was read, and its three most viewed recent
-titles. The order is views on the last 30 days' uploads, most first: the niche with
-the most proven demand leads. Views per subscriber would put a channel with one
-subscriber and 300 views on top.
+titles. Beside the 30-day figures it carries the same over 90 days
+(`ninetyDayViews`, `ninetyDayUploads`, `ninetyDayEarnings`; `NICHE_LONG_WINDOW_DAYS`):
+the owner judges a niche by three months of uploads, since one month swings with a
+single video. The order is views on the last 90 days' uploads, most first, then the
+last 30: the niche with the most proven demand leads. Views per subscriber would
+put a channel with one subscriber and 300 views on top.
 
 ```
 NicheList { channelsChecked, smallMaxSubscribers, newMaxAgeDays,
@@ -388,7 +420,9 @@ NicheList { channelsChecked, smallMaxSubscribers, newMaxAgeDays,
               viewsPerSubscriber, channelAgeDays, reasons: ('new'|'small')[],
               outperformers: BoardVideo[], hitCount, scoredCount,
               sampleTitles: [{ videoId, title, views }], qualifies, watched,
-              earnings, growth: { views, days, since } | null,
+              earnings, ninetyDayViews, ninetyDayUploads, ninetyDayEarnings,
+              otherLanguage: { script: string | null } | null,
+              growth: { views, days, since } | null,
               createdAt: string | null, country: string | null }] }
 ```
 
@@ -404,6 +438,132 @@ frozen with any map.
 
 Not built: a model's reading of what the listed channels have in common, and a
 language check beyond the alphabet.
+
+### Niche transfer opportunities
+
+Built (`packages/core/src/transfer/`, `GET /api/transfers`,
+`POST /api/transfers/save`, the connector's `list_transfer_opportunities`). The
+niche list is a list of channels; it leaves the owner to notice that several of
+them are one idea made for different countries. This list goes through every
+stored video of the last 90 days, whichever channel or map it came from, and
+groups the videos that are the same idea or the same title format.
+
+Nothing in it is chosen for one channel, one subject or one country. The place
+words are a fixed list of every country (keyed by ISO code, which is also what
+the official API gives as a channel's country), the adjective for its people where
+English has a common one, thirteen regions and twelve US states
+(`placeList.ts`). The owner's place is read from data or passed in. Titles that
+name no place at all are grouped the same way, and their place is then the
+channel's country.
+
+**Template** (`template.ts`). A title is put in lower case, each place word
+becomes `{place}` (possessives and plurals included: "Germany's", "Americans")
+and each number or sum of money becomes `{n}`. A place counts only when written
+with a capital ("turkey" is a bird); "US" only in capitals in a title that is not
+all capitals. The template's *words* are its slots and its words less the short
+and common ones, through the same tokenizer the title match uses
+(`tokenize` in `map/relevance.ts`).
+
+**Same idea** (`ideas.ts`). Videos whose templates have the same words are one
+idea, so the country-swapped copies of a title land together. "Nearly the same"
+is the same words with a tag of at most two words in front or behind
+("Breaking:", "- must watch"). An idea is listed once two channels have made it.
+
+| Constant               | Value | Why                                                                                     |
+| ---------------------- | ----- | --------------------------------------------------------------------------------------- |
+| `IDEA_MIN_WORDS`       | 3     | Fewer words besides the slots is a phrase ("{place} news") that unrelated videos share  |
+| `IDEA_MAX_TAG_WORDS`   | 2     | The room a tag takes; three added words are a clause that can change the subject        |
+| `IDEA_MIN_VIDEOS`      | 2     | One video is not an idea that travels                                                   |
+| `IDEA_MIN_CHANNELS`    | 2     | One channel repeating itself is not either                                              |
+| `TRANSFER_WINDOW_DAYS` | 90    | What the owner counts as "now"; it also bounds the work on a store that keeps growing   |
+
+**Same format** (`formats.ts`). Each idea is filed under every way of blanking a
+run of one or two of its words, written `{subject}`. Ideas that land under the
+same blanked form share everything but the subject, so
+"{place} new invention could make {subject} obsolete forever" collects carbon
+fibre, subwoofers and solar panels. Each idea counts in one format: the form with
+the most subjects.
+
+| Constant                   | Value | Why                                                                               |
+| -------------------------- | ----- | --------------------------------------------------------------------------------- |
+| `FORMAT_MAX_SUBJECT_WORDS` | 2     | A noun or a two-word noun phrase; longer blanks make unrelated titles look alike  |
+| `FORMAT_MIN_FIXED_WORDS`   | 3     | The words around the subject must be a phrase of their own, as for an idea        |
+| `FORMAT_MIN_SUBJECTS`      | 3     | Two subjects can be one channel trying twice; a third shows the wording is a frame |
+| `FORMAT_MIN_CHANNELS`      | 2     | Worth learning from once more than one channel uses it                            |
+
+**The owner's place** (`ownerPlace.ts`). In order: the place passed in
+(`?place=`), the channel on screen (`?channel=`), then the channels maps were
+made around, the centre of the most recent map deciding a tie. A channel's place
+is the place at least half of its titles name first (`OWNER_PLACE_MIN_TITLE_SHARE`
+0.5: under a majority the place is one subject among several), else its own
+country, else unknown.
+
+**The verdict** (`opportunity.ts`). A version's place is the one its title names
+or, failing that, its channel's country. A version is *strong* when it has
+10,000 views or more and is 5x its channel's usual views or was seen by 10x its
+subscribers: the niche list's rule for an outperforming video (`beatsItsChannel`)
+without its 30-day limit.
+
+| Status     | Meaning                                                                                              | Opportunity |
+| ---------- | ---------------------------------------------------------------------------------------------------- | ----------- |
+| `open`     | A strong version elsewhere, none for the owner's place, every version's place known                   | yes         |
+| `weak`     | The owner's place has versions, none strong, the best under a tenth of the strongest elsewhere       | yes         |
+| `done`     | The owner's place has a strong version, or one within a tenth of the strongest elsewhere             | no          |
+| `unproven` | No version is strong                                                                                 | no          |
+| `unplaced` | The owner's place is unknown, or a version that may be the owner's has no known place                | no          |
+| `gone`     | A saved idea none of whose videos is recent enough to list                                           | no          |
+
+`TRANSFER_WEAK_MAX_SHARE` is 0.1: channels of different sizes making the same
+video ordinarily land within a few times of each other, so ten times less is the
+version failing, not the channel being smaller. Opportunities shown to travel
+(made for two or more places, `TRAVELLED_MIN_PLACES`) are listed ahead of plain
+copies, the biggest winner first.
+
+**What it cannot do.** It cannot tell a synonym from a subject: "Just Detected A
+Fuel" and "Just Found A Fuel" are one idea to a reader and "Just Found An Engine"
+is another, and all three differ by one word. Titles that differ by a word in the
+middle are therefore separate ideas, and an open idea lists the one-word-different
+titles made for the owner's place (`variants`, three at most) so the owner or
+Claude can judge. It does not translate: a channel in another alphabet is marked
+on the niche list instead. And a place slot in a news title ("Trump arrives in
+{place}") is not an idea to carry over; such copies are made for one place only
+and sort below ideas that have travelled.
+
+**Bounded.** The store hands over only videos published in the last 90 days, as
+light rows with what is needed of the channel (`listRecentVideos`, on a new index
+on `videos.published_at`). Videos are dropped into buckets by their template's
+words and ideas into buckets by their blanked forms; no title is compared with
+another, so the work grows with the number of videos. A channel's full video list
+is loaded, for its outlier scores, only when it takes part in a listed idea. A
+test with 12,000 recent and 4,500 older videos over 300 channels checks that only
+the fifty taking part are loaded and that it finishes inside a time no pairwise
+comparison could. On a store of 432 channels and 15,092 recent videos it takes
+about a second.
+
+```
+TransferList { ownerPlace: { key, name, source: 'given'|'titles'|'country' } | null,
+  windowDays, videosChecked, ideaCount, opportunityCount, formatCount,
+  ideas [{ key, template, opportunity, saved, versionCount, channelCount,
+           verdict: { status, winner: Version | null, own: Version | null },
+           versions: Version[], best, worst,
+           places: [{ key, name, versions, bestViews }],
+           variants: [{ videoId, title, channelTitle, views, word }] }],
+  formats [{ key, template, subjectCount, channelCount, videoCount, bestViews,
+             medianViews, places, subjects: [{ subject, videos, channels,
+             bestViews, videoId, title, channelTitle }] }] }
+Version { videoId, title, channelId, channelTitle, subscribers,
+          place: { key, name, source: 'title'|'channel' } | null,
+          views, score, ageDays, durationSeconds, strong }
+```
+
+At most 200 ideas, 50 formats, 12 versions an idea and 8 subjects a format are
+handed over; the counts cover them all.
+
+**Saving.** `POST /api/transfers/save` takes `{ key, saved }`, where the key is the
+idea's template words. It goes through the same Host, Origin, content-type and
+size checks as `POST /api/niches/watch`, and answers 404 for an idea no recent
+video has. A saved idea is kept in `transfer_saves` with its title as it read
+then, and stays listed (as `gone`) after its videos have aged out.
 
 ### Filling a limited map
 
@@ -517,7 +677,25 @@ Each niche channel carries `earnings`: the views on its uploads of the last 30
 days valued at $2-8 per 1,000 for long videos and $0.10-0.50 per 1,000 for
 Shorts (60 seconds or less), in whole dollars, with `belowAdThreshold` set under
 1,000 subscribers. It is a rule of thumb for comparing channels. The tool cannot
-see whether a channel is monetised or where its viewers live.
+see whether a channel is monetised or where its viewers live. The same is worked
+out for the uploads of the last 90 days.
+
+One rate for every channel overstates those whose audience is outside the
+highest-paying countries, so the long-video rate is scaled by a tier for the
+channel's country when the official API has given one (`rateTierFor`,
+`RATE_TIER_MULTIPLIER`). The tiers are rough rules of thumb, not measurements:
+
+| Tier        | Countries                                                              | Share of the rate |
+| ----------- | ---------------------------------------------------------------------- | ----------------- |
+| `top`       | US, CA, GB, AU, DE, NZ, IE, CH, NO, SE, DK, NL, AT                     | 1.0               |
+| `developed` | The rest of Europe; JP, KR, SG, HK, TW, IL, AE, QA, KW, SA             | 0.5               |
+| `emerging`  | Every other country: most of Africa, South Asia, Latin America, the Caribbean | 0.2        |
+| `unknown`   | No country stored: the top rate is assumed, and the card says so       | 1.0               |
+
+The Shorts rate is not scaled. The estimate carries `rateTier` (`id`, `multiplier`,
+`country`) and the niche card says which was used. The country is where the channel
+is run from, which is only often where its viewers are: a channel run from a lower
+tier that makes videos for a top-tier audience is under-counted.
 
 ### Relevance filter
 
@@ -614,6 +792,7 @@ Claude reads what the app shows. Setup for the owner is in
 | `get_near_misses`       | `channel`, `limit?` (25)                                        | Channels left out on titles alone (`outsideReason: 'titles'`, not kept or removed) with five recent titles   |
 | `set_competitor_status` | `center`, `channel`, `status` (kept, removed, auto)             | Records the owner's choice (`setCompetitorStatus`) and says whether the channel now counts as a look-alike   |
 | `list_niches`           | `limit?` (15), `watched_only?`                                  | New or small channels with a video that took off (`listNiches`)                                              |
+| `list_transfer_opportunities` | `channel?`, `place?`, `show?` (opportunities, formats, saved, all), `limit?` (10) | Ideas open or weak for the owner's place with up to five versions each, or the title formats (`listTransfers`) |
 | `make_map`              | `channel`, `model?`, `depth?` (1..3), `max_channels?` (10..600) | Crawls a new map, then the same summary as `get_map` plus warnings                                           |
 
 One prompt, `thumbnail_review` (argument `channel`), tells the model to read the
