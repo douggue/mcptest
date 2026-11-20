@@ -3,6 +3,7 @@ import type {
   CrawlProgress,
   MapSnapshot,
   NicheList,
+  SameTopicList,
   ThumbnailBoard,
 } from '@jgtube/core';
 
@@ -94,7 +95,15 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
       return unwrap<ThumbnailBoard>(envelope);
     },
 
-    /** Starts a crawl and returns the id of the job to poll. */
+    /** The channels left out of a channel's map on wording alone, or null when it has no map yet. */
+    async sameTopic(channel: string): Promise<SameTopicList | null> {
+      const envelope = await call(
+        `/api/maps/latest/same-topic?channel=${encodeURIComponent(channel)}`,
+      );
+      if (envelope.status === 404) return null;
+      return unwrap<SameTopicList>(envelope);
+    },
+
     /** Starts a new map. `model` is a channel the owner wants to be like, if any. */
     async startCrawl(
       channel: string,

@@ -55,6 +55,7 @@ every phase; coverage floor is 80%.
 - [ ] Judged relevance pass (batched model call). Needed for channels within a point or two of the title threshold, which titles do not settle
 - [x] Closeness tiers; filtered-out list ("Everything" view); manual remove and restore, kept across new maps
 - [x] Keep as a competitor: the owner pulls a rejected channel in; it then counts as a peer on the radar, in the breakout feed and on the thumbnail board, across new maps, until undone (`POST /api/competitors` with `status` `kept`, `removed` or `auto`)
+- [x] "Same topic, different wording?": the channels left out on titles alone, listed with their numbers and newest titles for the owner (or their Claude) to keep (`GET /api/maps/latest/same-topic`)
 - [x] Each map stored as it was when made; schema migrations
 - [x] Seed from a model channel: the crawl also explores from it and "like yours" is measured against it
 - [x] Depth 1 to 3 and a channel limit of 150, 300 or 600 chosen on screen; when the limit cannot fit every candidate, places go first to channels recommended by look-alikes
@@ -93,6 +94,7 @@ every phase; coverage floor is 80%.
 - [ ] Channel detail, run progress
 - [x] Competitor remove and restore; keep and undo for a channel the filter left out
 - [x] Thumbnail board: per channel like yours, the thumbnails that took off beside ordinary ones and the owner's own, with a switch between winners only and winners next to ordinary (`GET /api/maps/latest/thumbnails`)
+- [x] "Same topic, different wording?" section on the map page: six channels at a time, one-press keep, a "Kept by you" row with undo
 - [x] "New niches to watch" section: a card per channel with why it is listed, its numbers, the thumbnails that took off and its hit rate; filters for new, small and watched
 - [ ] Thumbnail patterns in words: a model looks at the board's winners and ordinary videos and says what to copy
 - [ ] Star, hide, copy

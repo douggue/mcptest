@@ -216,6 +216,51 @@ Copies frozen before this existed carry no `kept` field; it is filled in on read
 
 Not built: adding a channel that is not on the map at all (phase 4, "Manual add").
 
+### Same topic, different wording
+
+Built (`packages/core/src/map/sameTopic.ts`, `GET /api/maps/latest/same-topic`). Title
+matching compares words, so a channel that covers the centre's subject in its own
+words is rejected with `outsideReason: 'titles'` although its size, publishing rate
+and video length fit. The owner asked to stay open to those. Whether two sets of
+titles say the same thing is a judgement about meaning, so the tool does not make
+it: it lists the candidates with the evidence and the owner, or their Claude
+through the connector, keeps the ones that belong.
+
+The list is worked out on each request from the map as the owner sees it
+(`loadMapSnapshot`, so their keeps and removals are applied) and the videos in the
+store. Nothing is added to the frozen snapshot and the peer rules are untouched.
+
+| Field           | Holds                                                                                              |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| `channels`      | Left out on titles alone, neither kept nor removed, strongest title match first                    |
+| `kept`          | `{ id, title }` of channels left out on titles that the owner kept, so the keep can be undone here |
+| `otherAlphabet` | How many were left out of `channels` for being written in another alphabet than the centre         |
+| `minTitleMatch` | `PEER_MIN_TITLE_MATCH`, the match a channel needs without the owner's say                          |
+
+```
+SameTopicList { mapId, centerId, minTitleMatch, otherAlphabet,
+  kept [{ id, title }],
+  channels [{ id, title, handle, subscribers, titleMatch, recentViews, recentUploads,
+              breakout: { videoId, title, views, score } | null,
+              recentTitles: [{ videoId, title, views, publishedRaw }] }] }
+```
+
+`recentTitles` are the channel's four newest stored videos (`SAME_TOPIC_TITLES_SHOWN`):
+what it is publishing now is what shows its subject.
+
+A channel whose 30 newest titles are under 80% Latin letters is left out when the
+centre's own titles are Latin (the niche list's `latinShare` check): its titles miss
+because of the language, and the owner cannot weigh them. They are counted, not
+hidden silently. When the centre is not written in Latin letters, or has no stored
+titles, nobody is left out. A removed channel is not listed either: the owner has
+already said no.
+
+The screen shows six at a time with "Show more", each with a one-press "Keep as
+competitor" that calls `POST /api/competitors` with `status: 'kept'`; the kept ones
+move to a "Kept by you" row with Undo (`status: 'auto'`). On the owner's
+285-channel map 122 channels were left out on titles alone: 106 are listed and 16
+are in another alphabet.
+
 ### Model channel
 
 A new channel has too few videos to describe itself: three titles and whatever

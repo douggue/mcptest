@@ -61,3 +61,11 @@ export {
   type SearchHit,
 } from './sources/dataApi';
 export { discoverByKeyword, type DiscoveryResult } from './discovery/keyword';
+export {
+  buildSameTopicList,
+  loadSameTopicList,
+  type SameTopicChannel,
+  type SameTopicKept,
+  type SameTopicList,
+  type SameTopicVideo,
+} from './map/sameTopic';

@@ -10,6 +10,7 @@ import {
   discoverByKeyword,
   loadMapSnapshot,
   loadNicheList,
+  loadSameTopicList,
   loadThumbnailBoard,
   openDatabase,
   parseChannelRef,
@@ -84,6 +85,11 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     findThumbnailBoard(channel) {
       const stored = findStored(channel);
       return stored ? loadThumbnailBoard(repos, stored.id, now()) : null;
+    },
+
+    findSameTopic(channel) {
+      const stored = findStored(channel);
+      return stored ? loadSameTopicList(repos, stored.id, now()) : null;
     },
 
     async crawl(channel, depth, onProgress, choices = {}) {

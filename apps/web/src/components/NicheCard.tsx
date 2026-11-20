@@ -21,7 +21,13 @@ const REASON_LABEL: Readonly<Record<NicheReason, string>> = {
   small: 'Small channel',
 };
 
-function Stat({ label, children }: { readonly label: string; readonly children: ReactNode }) {
+export function Stat({
+  label,
+  children,
+}: {
+  readonly label: string;
+  readonly children: ReactNode;
+}) {
   return (
     <div className="flex min-w-0 flex-col">
       <dt className="truncate text-label-caps text-outline">{label}</dt>
@@ -31,7 +37,7 @@ function Stat({ label, children }: { readonly label: string; readonly children: 
 }
 
 /** A link to YouTube when the id is well formed, plain text otherwise. */
-function Outbound({
+export function Outbound({
   href,
   children,
 }: {

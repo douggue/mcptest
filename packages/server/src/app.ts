@@ -6,6 +6,7 @@ import {
   type DiscoveryResult,
   type MapSnapshot,
   type NicheList,
+  type SameTopicList,
   type ThumbnailBoard,
 } from '@jgtube/core';
 import { z } from 'zod';
@@ -39,6 +40,11 @@ export interface Engine {
   findSnapshot(channel: string): MapSnapshot | null;
   /** The thumbnails that worked around a channel, from its latest map; reads the store only. */
   findThumbnailBoard(channel: string): ThumbnailBoard | null;
+  /**
+   * The channels on a channel's latest map that were left out on title wording
+   * alone, for the owner to judge; reads the store only.
+   */
+  findSameTopic(channel: string): SameTopicList | null;
   crawl(
     channel: string,
     depth: number,
@@ -280,6 +286,11 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     if (pathname === '/api/maps/latest/thumbnails') {
       return method === 'GET'
         ? readLatest(url, (channel) => options.engine.findThumbnailBoard(channel))
+        : fail(405, 'Use GET');
+    }
+    if (pathname === '/api/maps/latest/same-topic') {
+      return method === 'GET'
+        ? readLatest(url, (channel) => options.engine.findSameTopic(channel))
         : fail(405, 'Use GET');
     }
     if (pathname === '/api/maps') {

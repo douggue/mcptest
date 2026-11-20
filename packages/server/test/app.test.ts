@@ -80,6 +80,10 @@ class FakeEngine implements Engine {
     this.boardLookups.push(channel);
     return this.board;
   }
+
+  findSameTopic(): null {
+    return null;
+  }
   crawls: Array<{ channel: string; depth: number }> = [];
   outcome: Promise<CrawlOutcome> = Promise.resolve({ centerChannelId: CHANNEL_ID, warnings: [] });
 
