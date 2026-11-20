@@ -193,9 +193,16 @@ measured before it is promised.
 Each step is written tests-first and reviewed by a code reviewer, a senior
 supervisor and a creator's-eye reviewer before the next begins.
 
-## Open decisions
+## Decisions (owner, 20 November 2026)
 
-1. Which countries and languages to watch first.
-2. Where alerts go (Telegram, Discord or email).
-3. A new project of its own, or a second mode inside Jgtube.
-4. Whether Claude labels niches on the server, or only when asked.
+1. **Countries:** the ones with high ad rates. Start with US, GB, CA and AU in
+   English, as a setting; four countries means about 15 subjects searched daily
+   within the 60-search budget, or more on rotation.
+2. **Alerts:** Telegram.
+3. **A new project.** It lives in `shorts-finder/`, self-contained (its own
+   `package.json`, no imports from `packages/`), so the folder can be moved to a
+   repository of its own.
+4. **Claude labelling:** an option, off by default; on only when an Anthropic
+   key is set.
+
+Still open: the first list of subjects (keywords) to watch.
