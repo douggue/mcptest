@@ -6,6 +6,7 @@ import { channelUrl, formatCount, initials, watchUrl } from '../lib/format';
 import {
   describeChannel,
   describeEarnings,
+  describeGrowth,
   describeHits,
   formatPerSubscriber,
   otherTitles,
@@ -188,6 +189,15 @@ export function NicheCard({ channel, onSetWatched }: Props) {
       >
         {describeEarnings(channel.earnings)} · estimate
       </p>
+      {channel.growth && (
+        <p
+          className="text-label-caps text-outline"
+          title="Counted from the view numbers Jgtube stored each time it read this channel: the first reading of the last 30 days against the latest."
+        >
+          <span className="text-primary-fixed-dim">{describeGrowth(channel.growth)}</span> ·
+          measured
+        </p>
+      )}
       <Videos channel={channel} />
     </article>
   );

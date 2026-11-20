@@ -210,6 +210,7 @@ describe('buildNicheList', () => {
       ],
       qualifies: true,
       watched: false,
+      growth: null,
     });
     expect(entry?.outperformers[0]?.score).toBeGreaterThan(40);
   });
@@ -422,5 +423,54 @@ describe('loadNicheList', () => {
       [cid('B'), true],
       [cid('D'), false],
     ]);
+  });
+
+  test('says nothing about growth for a channel read only once', () => {
+    store(source('A', 2000));
+
+    expect(loadNicheList(deps, NOW).channels[0]?.growth).toBeNull();
+  });
+
+  test('measures what a listed channel gained once it has been read twice', () => {
+    const earlier = new Date(NOW.getTime() - 4 * DAY_MS);
+    const item = source('A', 2000);
+    deps.channels.upsert(item.channel, earlier);
+    deps.videos.upsertMany(
+      item.videos.map((video) => ({ ...video, views: video.views - 300 })),
+      earlier,
+    );
+    store(item);
+
+    expect(loadNicheList(deps, NOW).channels[0]?.growth).toEqual({
+      views: 300 * item.videos.length,
+      days: 4,
+      since: earlier.toISOString(),
+    });
+  });
+});
+
+describe('growth on the niche list', () => {
+  test('is worked out only for the channels that are listed', () => {
+    const asked: string[] = [];
+
+    const found = buildNicheList(
+      {
+        sources: [source('A', 2000), source('B', 500_000)],
+        watchedIds: NONE,
+        excludedIds: NONE,
+        readingsOf: (channelId) => {
+          asked.push(channelId);
+          return [];
+        },
+      },
+      NOW,
+    );
+
+    expect(found.channels.map((entry) => entry.id)).toEqual([cid('A')]);
+    expect(asked).toEqual([cid('A')]);
+  });
+
+  test('is left out when no readings are given', () => {
+    expect(list([source('A', 2000)]).channels[0]?.growth).toBeNull();
   });
 });

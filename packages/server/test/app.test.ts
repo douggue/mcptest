@@ -84,6 +84,14 @@ class FakeEngine implements Engine {
   findSameTopic(): null {
     return null;
   }
+
+  refresh(): never {
+    throw new Error('not used in these tests');
+  }
+
+  refreshStatus(): never {
+    throw new Error('not used in these tests');
+  }
   crawls: Array<{ channel: string; depth: number }> = [];
   outcome: Promise<CrawlOutcome> = Promise.resolve({ centerChannelId: CHANNEL_ID, warnings: [] });
 

@@ -28,6 +28,8 @@ map_keeps       center_channel FK, channel_id, kept_at                -- built; 
 niche_watchlist channel_id PK FK, watched_at                          -- built; channels the
                 -- owner marked on "New niches to watch"; not tied to any map
                 (source crawl|search|manual and judged relevance: planned)
+refresh_runs    id PK, started_at, finished_at, refreshed, failed,    -- built; one row per
+                stopped_early                  -- finished refresh, whoever started it
 topic_runs      id PK, map_id FK, status, model, input_tokens, output_tokens,
                 started_at, finished_at, memo_json
 topics          id PK, run_id FK, rank, name, score, views_low, views_high,
@@ -402,6 +404,58 @@ up to 25 into the store through the usual ingest. The niche list then judges
 them like any other channel. One search runs at a time; without a key the route
 answers 400 and the screen explains how to add one. The key is sent in a header,
 never in an address, and is stripped from error text.
+
+### Refresh and measured growth
+
+Built (`packages/core/src/refresh/refresh.ts`, `packages/core/src/niches/growth.ts`,
+`POST /api/refresh`, `GET /api/refresh`, `npm run refresh`). A channel is otherwise
+read only when a crawl or a search touches it, so `video_snapshots` held one reading
+per video and nothing could be measured. A refresh reads stored channels again
+through `ingestChannel` with `refresh`, which stores a new reading for every video.
+
+Which channels a run reads (`pickStalest`):
+
+| Rule      | Value                                                                                                                                                                                          | Constant                           |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Due       | Last read 20 hours ago or more. Growth is read off daily readings; more often adds requests and no information. Twenty, not twenty-four, so a daily run that starts early still finds them due | `REFRESH_MIN_AGE_HOURS`            |
+| Priority  | Watched channels, channels on the niche list, and each map's centre and look-alikes (the filter's and the owner's kept ones, less removed) go before the rest                                  | `refreshPriorityIds`               |
+| Order     | Within each group, read longest ago first                                                                                                                                                      |                                    |
+| Size      | 50 channels a run (1 to 500), read one at a time through the shared rate limiter                                                                                                               | `DEFAULT_REFRESH_MAX_CHANNELS`     |
+| Giving up | Five failures in a row end the run; the rest stay due. One channel that cannot be read is reported and skipped                                                                                 | `REFRESH_MAX_CONSECUTIVE_FAILURES` |
+
+Because a channel just read is no longer due, the priority group cannot starve the
+rest: once it has been read today the next run moves on. Each finished run is
+written to `refresh_runs`, so the screen can say when the last one was whether the
+button, the timer or the command line started it.
+
+Three ways in, one code path:
+
+- `npm run refresh [-- --max N]` on the command line.
+- `POST /api/refresh {maxChannels?}` starts it as a background job in the same
+  `JobStore` as crawls and answers `202 {jobId}`; the job is polled at
+  `/api/jobs/:id` and reports `{stage: 'refreshing', done, total}`. One job runs at
+  a time across both kinds: a second refresh, or a new map, gets 409.
+  `GET /api/refresh` answers `{last, channels, due, oldestReadAt, everyHours,
+running, jobId}` from the store, so a page opened mid-run picks the job up.
+- `JGTUBE_REFRESH_HOURS` (1 to 168, off by default) makes the server process start a
+  refresh every that many hours by calling its own `POST /api/refresh`
+  (`packages/server/src/schedule.ts`). The first turn is a minute after start; when
+  a map is being made at its turn it tries again in 15 minutes.
+
+The niche list then carries `growth` on each listed channel (`viewsGained`): of the
+channel's readings from the last 30 days, the latest views of each video minus its
+views at the channel's earliest reading. A video first seen after that reading
+counts in full (it did not exist then); one seen only at it counts nothing; a count
+that fell counts as zero. It is null until the channel has been read twice in the
+window. The card shows it as "Gained 12.4K views in 3 days · measured", beside the
+estimate, which stays: `recentViews` is views on recent uploads, `growth` is views
+gained on everything, over however long the readings span.
+
+```
+growth: { views, days, since } | null
+```
+
+Not built: a views-per-day chart, and using the readings to calibrate the age ramp.
 
 ### Earnings range
 

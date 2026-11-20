@@ -69,3 +69,15 @@ export {
   type SameTopicList,
   type SameTopicVideo,
 } from './map/sameTopic';
+export { viewsGained, type NicheGrowth } from './niches/growth';
+export {
+  loadRefreshStatus,
+  refreshStalest,
+  type RefreshDeps,
+  type RefreshOptions,
+  type RefreshProgress,
+  type RefreshResult,
+  type RefreshStatus,
+} from './refresh/refresh';
+export { SqliteRefreshRepo } from './repos/sqliteRefreshRepo';
+export type { RefreshRun, RefreshRunRepo, VideoReading } from './repos/types';

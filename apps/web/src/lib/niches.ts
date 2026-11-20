@@ -1,4 +1,10 @@
-import type { EarningsEstimate, NicheChannel, NicheList, NicheSample } from '@jgtube/core';
+import type {
+  EarningsEstimate,
+  NicheChannel,
+  NicheGrowth,
+  NicheList,
+  NicheSample,
+} from '@jgtube/core';
 import type { SearchSummary } from './api';
 import { formatAge, formatCount } from './format';
 
@@ -103,4 +109,9 @@ export function describeSearch(summary: SearchSummary): string {
   if (summary.videosFound === 0) return `No recent videos were found for "${summary.keyword}".`;
   const unread = summary.failed > 0 ? `, ${summary.failed} could not be read` : '';
   return `Found ${summary.videosFound} videos from ${summary.channelsFound} channels for "${summary.keyword}": ${summary.added} new to Jgtube, ${summary.alreadyKnown} already known${unread}.`;
+}
+
+/** What a channel's videos gained between its first and latest stored reading, in words. */
+export function describeGrowth(growth: NicheGrowth): string {
+  return `Gained ${formatCount(growth.views)} views in ${formatAge(growth.days)}`;
 }

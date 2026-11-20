@@ -15,6 +15,7 @@
     "format": "prettier --write \"packages/**/*.ts\" \"apps/**/*.{ts,tsx}\"",
     "test": "vitest run --coverage",
     "jgtube": "tsx packages/core/src/cli.ts",
+    "refresh": "tsx packages/core/src/cli.ts refresh",
     "api": "tsx packages/server/src/main.ts",
     "web": "vite --config apps/web/vite.config.ts",
     "build": "vite build --config apps/web/vite.config.ts",

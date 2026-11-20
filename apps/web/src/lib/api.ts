@@ -3,6 +3,8 @@ import type {
   CrawlProgress,
   MapSnapshot,
   NicheList,
+  RefreshProgress,
+  RefreshStatus,
   SameTopicList,
   ThumbnailBoard,
 } from '@jgtube/core';
@@ -30,6 +32,32 @@ export interface JobState {
     readonly centerChannelId: string;
     readonly warnings: readonly string[];
   } | null;
+  readonly error: string | null;
+}
+
+/** When the stored channels were last read again, and whether a refresh is running now. */
+export interface RefreshReply extends RefreshStatus {
+  /** Hours between scheduled refreshes; null when none is scheduled. */
+  readonly everyHours: number | null;
+  readonly running: boolean;
+  /** The job to poll while a refresh is running. */
+  readonly jobId: string | null;
+}
+
+/** How one refresh went, as counts. */
+export interface RefreshSummary {
+  readonly refreshed: number;
+  readonly failed: number;
+  readonly notAttempted: number;
+  readonly stoppedEarly: boolean;
+  readonly stillDue: number;
+}
+
+export interface RefreshJobState {
+  readonly id: string;
+  readonly status: 'running' | 'done' | 'failed';
+  readonly progress: RefreshProgress | null;
+  readonly result: RefreshSummary | null;
   readonly error: string | null;
 }
 
@@ -169,6 +197,25 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
 
     async job(id: string): Promise<JobState> {
       return unwrap<JobState>(await call(`/api/jobs/${encodeURIComponent(id)}`));
+    },
+
+    /** When the stored channels were last read again, and whether a refresh is running. */
+    async refreshStatus(): Promise<RefreshReply> {
+      return unwrap<RefreshReply>(await call('/api/refresh'));
+    },
+
+    /** Starts reading the stalest stored channels again and returns the id of the job to poll. */
+    async startRefresh(): Promise<string> {
+      const envelope = await call('/api/refresh', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      });
+      return unwrap<{ jobId: string }>(envelope).jobId;
+    },
+
+    async refreshJob(id: string): Promise<RefreshJobState> {
+      return unwrap<RefreshJobState>(await call(`/api/jobs/${encodeURIComponent(id)}`));
     },
   };
 }

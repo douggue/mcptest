@@ -6,6 +6,7 @@ import { loadConfig } from '@jgtube/core';
 import { createApp } from './app';
 import { createEngine } from './engine';
 import { JobStore } from './jobs';
+import { startRefreshTimer, startThroughApi } from './schedule';
 
 /** Only this computer can reach the server; it has no login. */
 const HOST = '127.0.0.1';
@@ -114,7 +115,8 @@ function loadEnvFile(): void {
 
 function start(): void {
   loadEnvFile();
-  const engine = createEngine(loadConfig());
+  const config = loadConfig();
+  const engine = createEngine(config);
   const port = readPort();
   const allowedHosts = [`${HOST}:${port}`, `localhost:${port}`];
   const app = createApp({ engine, jobs: new JobStore(), allowedHosts });
@@ -160,7 +162,19 @@ function start(): void {
   server.listen(port, HOST, () => {
     process.stdout.write(`Jgtube is running at http://${HOST}:${port}\n`);
   });
+  const timer =
+    config.refreshHours === undefined
+      ? null
+      : startRefreshTimer({
+          everyHours: config.refreshHours,
+          start: startThroughApi(app, `${HOST}:${port}`),
+          onProblem: (message) => process.stderr.write(`Scheduled refresh: ${message}\n`),
+        });
+  if (config.refreshHours !== undefined) {
+    process.stdout.write(`Stored channels are refreshed every ${config.refreshHours} hours\n`);
+  }
   const stop = (): void => {
+    timer?.stop();
     server.close();
     engine.close();
   };

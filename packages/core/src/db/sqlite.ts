@@ -101,6 +101,17 @@ CREATE TABLE IF NOT EXISTS map_keeps (
   PRIMARY KEY (center_channel, channel_id)
 );
 `,
+  // 6: each finished refresh of the stored channels, so the screen can say when the last one ran.
+  `
+CREATE TABLE IF NOT EXISTS refresh_runs (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  started_at     TEXT NOT NULL,
+  finished_at    TEXT NOT NULL,
+  refreshed      INTEGER NOT NULL,
+  failed         INTEGER NOT NULL,
+  stopped_early  INTEGER NOT NULL
+);
+`,
 ];
 
 /**

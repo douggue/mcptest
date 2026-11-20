@@ -40,6 +40,7 @@ const niche = (n: number, overrides: Partial<NicheChannel> = {}): NicheChannel =
   sampleTitles: [],
   qualifies: true,
   watched: false,
+  growth: null,
   ...overrides,
 });
 

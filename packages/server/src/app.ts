@@ -6,19 +6,23 @@ import {
   type DiscoveryResult,
   type MapSnapshot,
   type NicheList,
+  type RefreshProgress,
+  type RefreshStatus,
   type SameTopicList,
   type ThumbnailBoard,
 } from '@jgtube/core';
 import { z } from 'zod';
+import { fail, isTrustedHost, ok, readJson } from './http';
 import { cleanMessage, type JobStore } from './jobs';
+import { refreshState, startRefresh, type RefreshTracker } from './refreshRoutes';
 
-const MAX_BODY_CHARACTERS = 2000;
 const DEFAULT_DEPTH = 2;
 const MAX_DEPTH = 3;
 const MIN_CHANNELS_PER_MAP = 10;
 const MAX_CHANNELS_PER_MAP = 600;
 const CHANNEL_ID = /^UC[\w-]{22}$/;
 const MAX_KEYWORD_LENGTH = 200;
+export const BUSY = 'A map or a refresh is already running. Wait for it to finish.';
 const NO_API_KEY =
   'Keyword search needs a YouTube API key. Put YOUTUBE_API_KEY in the .env file and start Jgtube again.';
 
@@ -26,6 +30,27 @@ export interface CrawlOutcome {
   readonly centerChannelId: string;
   readonly warnings: readonly string[];
 }
+
+/** How one refresh went, as counts. */
+export interface RefreshOutcome {
+  readonly refreshed: number;
+  readonly failed: number;
+  /** Channels left unread because YouTube refused several in a row. */
+  readonly notAttempted: number;
+  readonly stoppedEarly: boolean;
+  /** Channels still due for a read; a later refresh takes them. */
+  readonly stillDue: number;
+}
+
+/** When the store was last refreshed, how much is due, and whether a timer does it. */
+export interface RefreshState extends RefreshStatus {
+  /** Hours between scheduled refreshes; null when none is scheduled. */
+  readonly everyHours: number | null;
+}
+
+/** What a finished job leaves behind, and what it reports on the way. */
+export type JobOutcome = CrawlOutcome | RefreshOutcome;
+export type JobProgress = CrawlProgress | RefreshProgress;
 
 export interface CrawlChoices {
   /** A channel the owner wants to be like; the map is measured against it. */
@@ -64,6 +89,16 @@ export interface Engine {
   listNiches(): NicheList;
   /** Marks a channel as a niche to watch, or unmarks it. False when it is not in the store. */
   setNicheWatched(channelId: string, watched: boolean): boolean;
+  /**
+   * Reads the stalest stored channels again so history builds up; `maxChannels`
+   * bounds the run. Resolves when the run is over.
+   */
+  refresh(
+    onProgress: (progress: RefreshProgress) => void,
+    maxChannels?: number,
+  ): Promise<RefreshOutcome>;
+  /** When the store was last refreshed and how much of it is due; reads the store only. */
+  refreshStatus(): RefreshState;
   /** Whether keyword search can run: it needs the owner's YouTube API key. */
   canDiscover(): boolean;
   /** Searches for recent videos on a subject and reads the channels behind them into the store. */
@@ -72,7 +107,8 @@ export interface Engine {
 
 export interface AppOptions {
   readonly engine: Engine;
-  readonly jobs: JobStore<CrawlOutcome>;
+  /** Crawls and refreshes share one store, so only one of either runs at a time. */
+  readonly jobs: JobStore<JobOutcome, JobProgress>;
   /** The only `host:port` values this server answers to, such as `127.0.0.1:4317`. */
   readonly allowedHosts: readonly string[];
 }
@@ -95,26 +131,6 @@ const watchRequest = z.object({
   watched: z.boolean(),
 });
 
-const HEADERS = {
-  'content-type': 'application/json; charset=utf-8',
-  'cache-control': 'no-store',
-  'x-content-type-options': 'nosniff',
-};
-
-function ok(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify({ success: true, data, error: null, meta: null }), {
-    status,
-    headers: HEADERS,
-  });
-}
-
-function fail(status: number, error: string): Response {
-  return new Response(JSON.stringify({ success: false, data: null, error, meta: null }), {
-    status,
-    headers: HEADERS,
-  });
-}
-
 /** Returns the reason a channel reference is unusable, or null when it is fine. */
 function channelProblem(channel: string): string | null {
   try {
@@ -122,46 +138,6 @@ function channelProblem(channel: string): string | null {
     return null;
   } catch (error) {
     return error instanceof Error ? error.message : 'Not a valid channel';
-  }
-}
-
-/**
- * The server only answers to its own address. A page on another site can point
- * its domain at 127.0.0.1 (DNS rebinding) and would then look same-origin to
- * the browser, but its requests still carry that site's name in Host.
- */
-function isTrustedHost(request: Request, allowedHosts: readonly string[]): boolean {
-  return allowedHosts.includes(request.headers.get('host') ?? '');
-}
-
-/**
- * A browser sends an Origin header on cross-site POSTs. Refusing any origin
- * that is not this server stops another website from changing anything here.
- */
-function isCrossSite(request: Request, allowedHosts: readonly string[]): boolean {
-  const origin = request.headers.get('origin');
-  if (origin === null) return false;
-  try {
-    return !allowedHosts.includes(new URL(origin).host);
-  } catch {
-    return true;
-  }
-}
-
-/** Reads the JSON body of a write request, or returns the response that refuses it. */
-async function readJson(options: AppOptions, request: Request): Promise<unknown | Response> {
-  if (isCrossSite(request, options.allowedHosts)) {
-    return fail(403, 'Requests from other sites are not accepted');
-  }
-  if (!(request.headers.get('content-type') ?? '').startsWith('application/json')) {
-    return fail(415, 'Send the request as application/json');
-  }
-  const text = await request.text();
-  if (text.length > MAX_BODY_CHARACTERS) return fail(400, 'The request is too large');
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return fail(400, 'The request is not valid JSON');
   }
 }
 
@@ -175,7 +151,7 @@ function readLatest<T>(url: URL, find: (channel: string) => T | null): Response 
 }
 
 async function startCrawl(options: AppOptions, request: Request): Promise<Response> {
-  const body = await readJson(options, request);
+  const body = await readJson(options.allowedHosts, request);
   if (body instanceof Response) return body;
   const parsed = crawlRequest.safeParse(body);
   if (!parsed.success) {
@@ -193,12 +169,12 @@ async function startCrawl(options: AppOptions, request: Request): Promise<Respon
   const job = options.jobs.start((report) =>
     options.engine.crawl(channel, depth, report, { model, maxChannels }),
   );
-  if (!job) return fail(409, 'A map is already being made. Wait for it to finish.');
+  if (!job) return fail(409, BUSY);
   return ok({ jobId: job.id }, 202);
 }
 
 async function setCompetitor(options: AppOptions, request: Request): Promise<Response> {
-  const body = await readJson(options, request);
+  const body = await readJson(options.allowedHosts, request);
   if (body instanceof Response) return body;
   const parsed = competitorRequest.safeParse(body);
   if (!parsed.success) {
@@ -214,7 +190,7 @@ async function setCompetitor(options: AppOptions, request: Request): Promise<Res
 }
 
 async function setWatched(options: AppOptions, request: Request): Promise<Response> {
-  const body = await readJson(options, request);
+  const body = await readJson(options.allowedHosts, request);
   if (body instanceof Response) return body;
   const parsed = watchRequest.safeParse(body);
   if (!parsed.success) return fail(400, 'Give the channel and watched');
@@ -236,7 +212,7 @@ async function discover(
   request: Request,
   search: SearchState,
 ): Promise<Response> {
-  const body = await readJson(options, request);
+  const body = await readJson(options.allowedHosts, request);
   if (body instanceof Response) return body;
   const parsed = discoverRequest.safeParse(body);
   if (!parsed.success) return fail(400, `Give a keyword of 1 to ${MAX_KEYWORD_LENGTH} characters`);
@@ -270,6 +246,7 @@ function jobStatus(options: AppOptions, id: string): Response {
 /** The JSON API as a plain function from request to response. */
 export function createApp(options: AppOptions): (request: Request) => Promise<Response> {
   const search: SearchState = { running: false };
+  const refreshing: RefreshTracker = { jobId: null };
   return async (request) => {
     if (!isTrustedHost(request, options.allowedHosts)) {
       return fail(403, 'This server only answers to its own address');
@@ -309,6 +286,12 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     }
     if (pathname === '/api/niches/watch') {
       return method === 'POST' ? setWatched(options, request) : fail(405, 'Use POST');
+    }
+    if (pathname === '/api/refresh') {
+      if (method === 'GET') return refreshState(options, refreshing);
+      return method === 'POST'
+        ? startRefresh(options, request, refreshing)
+        : fail(405, 'Use GET or POST');
     }
     if (pathname.startsWith('/api/jobs/')) {
       const id = pathname.slice('/api/jobs/'.length);

@@ -4,16 +4,19 @@ import {
   SqliteChannelRepo,
   SqliteEdgeRepo,
   SqliteMapRepo,
+  SqliteRefreshRepo,
   SqliteVideoRepo,
   SqliteWatchlistRepo,
   crawlMap,
   discoverByKeyword,
   loadMapSnapshot,
   loadNicheList,
+  loadRefreshStatus,
   loadSameTopicList,
   loadThumbnailBoard,
   openDatabase,
   parseChannelRef,
+  refreshStalest,
   searchRecentVideos,
   transactionRunner,
   type Config,
@@ -65,9 +68,21 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     edges: new SqliteEdgeRepo(db),
     maps: new SqliteMapRepo(db),
     watchlist: new SqliteWatchlistRepo(db),
+    runs: new SqliteRefreshRepo(db),
   };
   // Created on the first crawl, so stored maps can be read with no network at all.
   let source: Promise<YouTubeSource> | null = null;
+  /**
+   * A source that connects on first use. A refresh that finds nothing due then
+   * makes no request at all, which matters to a timer that fires every few hours.
+   */
+  const connected = (): Promise<YouTubeSource> => (source ??= createSource());
+  const lazySource: YouTubeSource = {
+    resolveChannelId: async (handle) => (await connected()).resolveChannelId(handle),
+    fetchChannel: async (channelId, maxVideos) =>
+      (await connected()).fetchChannel(channelId, maxVideos),
+    getSidebar: async (videoId) => (await connected()).getSidebar(videoId),
+  };
   /** The stored channel a handle, link or id refers to; reads the store only. */
   const findStored = (channel: string): StoredChannel | null => {
     const ref = parseChannelRef(channel);
@@ -140,6 +155,24 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       if (!repos.channels.findById(channelId)) return false;
       repos.watchlist.setWatched(channelId, watched, now());
       return true;
+    },
+
+    async refresh(onProgress, maxChannels) {
+      const result = await refreshStalest(
+        { ...repos, source: lazySource, transact: transactionRunner(db), now },
+        { onProgress, ...(maxChannels ? { maxChannels } : {}) },
+      );
+      return {
+        refreshed: result.refreshed.length,
+        failed: result.failed.length,
+        notAttempted: result.notAttempted,
+        stoppedEarly: result.stoppedEarly,
+        stillDue: result.stillDue,
+      };
+    },
+
+    refreshStatus() {
+      return { ...loadRefreshStatus(repos, now()), everyHours: config.refreshHours ?? null };
     },
 
     canDiscover() {

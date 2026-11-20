@@ -19,6 +19,8 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     setNicheWatched: unused('setNicheWatched'),
     canDiscover: unused('canDiscover'),
     discover: unused('discover'),
+    refresh: unused('refresh'),
+    refreshStatus: unused('refreshStatus'),
     ...parts,
   };
 }

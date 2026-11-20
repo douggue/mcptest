@@ -13,6 +13,13 @@ export interface ViewSnapshot {
   readonly views: number;
 }
 
+/** One video's view count at one reading of its channel. */
+export interface VideoReading {
+  readonly videoId: string;
+  readonly capturedAt: Date;
+  readonly views: number;
+}
+
 /** Runs a group of writes so that either all of them are stored or none is. */
 export type Transact = (work: () => void) => void;
 
@@ -29,6 +36,8 @@ export interface VideoRepo {
   /** Stores the videos and records one view-count snapshot for each. */
   upsertMany(videos: readonly StorableVideo[], fetchedAt: Date): void;
   listSnapshots(videoId: string): readonly ViewSnapshot[];
+  /** Every view reading of a channel's videos taken at or after `since`, oldest first. */
+  listChannelReadings(channelId: string, since: Date): readonly VideoReading[];
 }
 
 /** One channel's videos were shown next to another's: `hits` of the `sampled` videos read. */
@@ -104,4 +113,21 @@ export interface WatchlistRepo {
   listWatched(): readonly string[];
   /** The channel must be in the store. */
   setWatched(channelId: string, watched: boolean, at: Date): void;
+}
+
+/** One finished refresh: how many stored channels were read again, and how it went. */
+export interface RefreshRun {
+  readonly startedAt: Date;
+  readonly finishedAt: Date;
+  readonly refreshed: number;
+  readonly failed: number;
+  /** YouTube refused several channels in a row, so the run gave up. */
+  readonly stoppedEarly: boolean;
+}
+
+/** A log of refreshes, so the screen can say when the store was last brought up to date. */
+export interface RefreshRunRepo {
+  record(run: RefreshRun): void;
+  /** The run that finished last, or null when there has been none. */
+  latest(): RefreshRun | null;
 }

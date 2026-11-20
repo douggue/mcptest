@@ -30,7 +30,7 @@ every phase; coverage floor is 80%.
 - [x] Baseline, age ramp and outlier score with guards
 - [x] Rising-channel rule
 - [x] "Views on recent uploads"
-- [ ] True 30-day views from stored snapshots
+- [ ] True 30-day views from stored snapshots (started: the niche list measures views gained between readings; it needs 30 days of refreshes to cover 30 days)
 - [x] Baseline, sample size, channel age and hit rate shown beside each score, with a caution mark when the usual is taken from few videos or is very small
 
 **Done when:** scores for one channel from the Makina export are reproduced within 15%. (Met: a test checks the median error on an exported channel.)
@@ -124,5 +124,6 @@ Phase 7 needs 5.
 - [x] Keyword discovery: official search for recent most-viewed videos on a subject, channels read into the store; search box on the niches section
 - [x] Earnings range per niche channel (long videos $2-8 per 1,000 views, Shorts $0.10-0.50; flagged under 1,000 subscribers)
 - [x] Settings from a `.env` file, including `YOUTUBE_API_KEY`
-- [ ] Scheduled refresh so growth history builds up
+- [x] Refresh so growth history builds up: the stalest stored channels are read again, 50 a run, watched and niche channels and map look-alikes first (`npm run refresh`, `POST /api/refresh`, a timer when `JGTUBE_REFRESH_HOURS` is set); "Refresh now" and the last run at the foot of the page
+- [x] Measured growth on the niche card: views gained between a channel's first reading of the last 30 days and its latest, once it has been read twice
 - [ ] Niche labels and "same topic, different wording" judged by Claude through the connector

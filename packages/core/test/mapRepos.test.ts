@@ -8,7 +8,7 @@ import { SqliteMapRepo } from '../src/repos/sqliteMapRepo';
 import type { RecEdge } from '../src/repos/types';
 
 /** The number of the newest schema step. */
-const LATEST = 5;
+const LATEST = 6;
 const T1 = new Date('2026-11-20T12:00:00Z');
 const T2 = new Date('2026-11-25T12:00:00Z');
 const cid = (letter: string) => `UC${letter.repeat(22)}`;

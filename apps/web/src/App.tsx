@@ -8,9 +8,11 @@ import { Niches } from './components/Niches';
 import { SameTopic } from './components/SameTopic';
 import { ScopeToggle } from './components/ScopeToggle';
 import { Radar } from './components/Radar';
+import { RefreshBar } from './components/RefreshBar';
 import { Shell } from './components/Shell';
 import { ThumbnailBoard } from './components/ThumbnailBoard';
 import { useNiches } from './components/useNiches';
+import { useRefresh } from './components/useRefresh';
 import { useSameTopic } from './components/useSameTopic';
 import { useThumbnailBoard } from './components/useThumbnailBoard';
 import { createApi, type JobState } from './lib/api';
@@ -140,6 +142,8 @@ export function App() {
   const board = useThumbnailBoard(api, snapshot);
   const sameTopic = useSameTopic(api, snapshot);
   const niches = useNiches(api, snapshot?.mapId ?? null);
+  // A refresh stores new view counts, which the niche list turns into measured growth.
+  const refresh = useRefresh(api, niches.reload);
   const selected = snapshot?.channels.find((channel) => channel.id === selectedId) ?? null;
   /** Records the owner's say on a channel of the map on screen, then reads the map again. */
   const setStatus = async (channelId: string, status: CompetitorStatus): Promise<void> => {
@@ -227,6 +231,7 @@ export function App() {
         />
       )}
       <Niches niches={niches} hasMap={snapshot !== null} />
+      <RefreshBar refresh={refresh} />
     </Shell>
   );
 }
