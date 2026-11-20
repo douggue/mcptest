@@ -7,10 +7,12 @@ import {
   SqliteVideoRepo,
   crawlMap,
   loadMapSnapshot,
+  loadThumbnailBoard,
   openDatabase,
   parseChannelRef,
   transactionRunner,
   type Config,
+  type StoredChannel,
   type YouTubeSource,
 } from '@jgtube/core';
 import type { Engine } from './app';
@@ -54,15 +56,23 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
   };
   // Created on the first crawl, so stored maps can be read with no network at all.
   let source: Promise<YouTubeSource> | null = null;
+  /** The stored channel a handle, link or id refers to; reads the store only. */
+  const findStored = (channel: string): StoredChannel | null => {
+    const ref = parseChannelRef(channel);
+    return ref.kind === 'id'
+      ? repos.channels.findById(ref.id)
+      : repos.channels.findByHandle(ref.handle);
+  };
 
   return {
     findSnapshot(channel) {
-      const ref = parseChannelRef(channel);
-      const stored =
-        ref.kind === 'id'
-          ? repos.channels.findById(ref.id)
-          : repos.channels.findByHandle(ref.handle);
+      const stored = findStored(channel);
       return stored ? loadMapSnapshot(repos, stored.id, now()) : null;
+    },
+
+    findThumbnailBoard(channel) {
+      const stored = findStored(channel);
+      return stored ? loadThumbnailBoard(repos, stored.id, now()) : null;
     },
 
     async crawl(channel, depth, onProgress, choices = {}) {

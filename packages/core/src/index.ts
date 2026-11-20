@@ -32,3 +32,12 @@ export { freezeMapSnapshot } from './map/snapshot';
 export type { ChannelSnapshot } from './sources/types';
 export type { ScoreCaution } from './map/breakouts';
 export type { SnapshotModel } from './map/snapshot';
+export {
+  buildThumbnailBoard,
+  loadThumbnailBoard,
+  type BoardCenter,
+  type BoardChannel,
+  type BoardVideo,
+  type ScoredBoardVideo,
+  type ThumbnailBoard,
+} from './map/thumbnails';

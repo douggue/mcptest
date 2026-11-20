@@ -7,6 +7,8 @@ import { MapToolbar } from './components/MapToolbar';
 import { ScopeToggle } from './components/ScopeToggle';
 import { Radar } from './components/Radar';
 import { Shell } from './components/Shell';
+import { ThumbnailBoard } from './components/ThumbnailBoard';
+import { useThumbnailBoard } from './components/useThumbnailBoard';
 import { createApi, type JobState } from './lib/api';
 import { inScope, type Scope } from './lib/feed';
 import { layoutRadar } from './lib/radarLayout';
@@ -126,6 +128,7 @@ export function App() {
     [snapshot, activeScope],
   );
   const layout = useMemo(() => (visible ? layoutRadar(visible) : null), [visible]);
+  const board = useThumbnailBoard(api, snapshot);
   const selected = snapshot?.channels.find((channel) => channel.id === selectedId) ?? null;
   const select = (channelId: string) => {
     setSelectedId((current) => (current === channelId ? null : channelId));
@@ -196,6 +199,13 @@ export function App() {
             <Benchmarks snapshot={visible} selectedId={selectedId} onSelect={select} />
           </div>
         </section>
+      )}
+      {snapshot && (
+        <ThumbnailBoard
+          state={board}
+          centerTitle={snapshot.center.title}
+          modelId={snapshot.model?.id ?? null}
+        />
       )}
     </Shell>
   );
