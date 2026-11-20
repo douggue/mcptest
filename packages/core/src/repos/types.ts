@@ -19,6 +19,8 @@ export type Transact = (work: () => void) => void;
 export interface ChannelRepo {
   findById(id: string): StoredChannel | null;
   findByHandle(handle: string): StoredChannel | null;
+  /** Every stored channel, whichever crawl read it. */
+  listAll(): readonly StoredChannel[];
   upsert(channel: ChannelInfo, fetchedAt: Date): void;
 }
 
@@ -82,10 +84,24 @@ export interface StoredMap extends NewMap {
 export interface MapRepo {
   create(map: NewMap, createdAt: Date): number;
   latestForCenter(centerChannelId: string): StoredMap | null;
+  /** Each channel a map has been made around. */
+  listCenterIds(): readonly string[];
   /** Stores the map as it looked when it was made, as JSON. */
   saveSnapshot(mapId: number, snapshotJson: string): void;
   findSnapshot(mapId: number): string | null;
   /** Channels the owner removed from this centre's competitors; survives new crawls. */
   listRemoved(centerChannelId: string): readonly string[];
+  /** Removing a channel also stops keeping it: the two choices exclude each other. */
   setRemoved(centerChannelId: string, channelId: string, removed: boolean, at: Date): void;
+  /** Channels the owner counts as competitors whatever the filter says; survives new crawls. */
+  listKept(centerChannelId: string): readonly string[];
+  /** Keeping a channel also restores it if it was removed. */
+  setKept(centerChannelId: string, channelId: string, kept: boolean, at: Date): void;
+}
+
+/** The channels the owner marked as niches to watch; not tied to any one map. */
+export interface WatchlistRepo {
+  listWatched(): readonly string[];
+  /** The channel must be in the store. */
+  setWatched(channelId: string, watched: boolean, at: Date): void;
 }

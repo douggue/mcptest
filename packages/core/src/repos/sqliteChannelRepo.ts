@@ -45,6 +45,13 @@ export class SqliteChannelRepo implements ChannelRepo {
     return row ? toChannel(row) : null;
   }
 
+  listAll(): readonly StoredChannel[] {
+    return this.db
+      .prepare<[], ChannelRow>(`SELECT ${COLUMNS} FROM channels ORDER BY id`)
+      .all()
+      .map(toChannel);
+  }
+
   upsert(channel: ChannelInfo, fetchedAt: Date): void {
     this.db
       .prepare(

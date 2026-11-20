@@ -5,8 +5,10 @@ import {
   SqliteEdgeRepo,
   SqliteMapRepo,
   SqliteVideoRepo,
+  SqliteWatchlistRepo,
   crawlMap,
   loadMapSnapshot,
+  loadNicheList,
   loadThumbnailBoard,
   openDatabase,
   parseChannelRef,
@@ -53,6 +55,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     videos: new SqliteVideoRepo(db),
     edges: new SqliteEdgeRepo(db),
     maps: new SqliteMapRepo(db),
+    watchlist: new SqliteWatchlistRepo(db),
   };
   // Created on the first crawl, so stored maps can be read with no network at all.
   let source: Promise<YouTubeSource> | null = null;
@@ -97,12 +100,31 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       return { centerChannelId: result.centerChannelId, warnings: result.warnings };
     },
 
-    setCompetitorRemoved(centerChannelId, channelId, removed) {
+    setCompetitorStatus(centerChannelId, channelId, status) {
       const map = repos.maps.latestForCenter(centerChannelId);
-      // Only channels on the map can be removed, and never the centre itself.
+      // Only channels on the map can be kept or removed, and never the centre itself.
       const onMap = map?.members.some((m) => m.channelId === channelId && m.steps > 0) ?? false;
       if (!onMap) return false;
-      repos.maps.setRemoved(centerChannelId, channelId, removed, now());
+      if (status === 'kept') {
+        repos.maps.setKept(centerChannelId, channelId, true, now());
+      } else if (status === 'removed') {
+        repos.maps.setRemoved(centerChannelId, channelId, true, now());
+      } else {
+        // Making a choice withdraws the other one; 'auto' withdraws whichever was made.
+        repos.maps.setRemoved(centerChannelId, channelId, false, now());
+        repos.maps.setKept(centerChannelId, channelId, false, now());
+      }
+      return true;
+    },
+
+    listNiches() {
+      return loadNicheList(repos, now());
+    },
+
+    setNicheWatched(channelId, watched) {
+      // Only a channel some crawl has read can be watched.
+      if (!repos.channels.findById(channelId)) return false;
+      repos.watchlist.setWatched(channelId, watched, now());
       return true;
     },
 

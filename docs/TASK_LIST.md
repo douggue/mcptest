@@ -54,10 +54,12 @@ every phase; coverage floor is 80%.
 - [x] Title match reads the reference as a format profile (words by the share of its titles that use them), so shared subjects no longer pass for a shared format; pinned by a 40-channel fixture from the owner's map
 - [ ] Judged relevance pass (batched model call). Needed for channels within a point or two of the title threshold, which titles do not settle
 - [x] Closeness tiers; filtered-out list ("Everything" view); manual remove and restore, kept across new maps
+- [x] Keep as a competitor: the owner pulls a rejected channel in; it then counts as a peer on the radar, in the breakout feed and on the thumbnail board, across new maps, until undone (`POST /api/competitors` with `status` `kept`, `removed` or `auto`)
 - [x] Each map stored as it was when made; schema migrations
 - [x] Seed from a model channel: the crawl also explores from it and "like yours" is measured against it
 - [x] Depth 1 to 3 and a channel limit of 150, 300 or 600 chosen on screen; when the limit cannot fit every candidate, places go first to channels recommended by look-alikes
 - [ ] Manual add
+- [x] New niches to watch: every stored channel that is new (first upload within 90 days) or small (10,000 subscribers or fewer) and has a recent video that outperforms, less large, clip, film and non-Latin channels; a watchlist that outlives maps (`GET /api/niches`, `POST /api/niches/watch`)
 
 **Done when:** for the owner's channel, at least 8 of the top 12 competitors are judged same-format by the owner, and the closest look-alike from the export is included.
 
@@ -89,8 +91,9 @@ every phase; coverage floor is 80%.
 - [x] Competitor radar screen on real crawl data: radar, channel details, breakout feed, channel list, export
 - [ ] Results feed and topic streams (need phase 5)
 - [ ] Channel detail, run progress
-- [x] Competitor remove and restore
+- [x] Competitor remove and restore; keep and undo for a channel the filter left out
 - [x] Thumbnail board: per channel like yours, the thumbnails that took off beside ordinary ones and the owner's own, with a switch between winners only and winners next to ordinary (`GET /api/maps/latest/thumbnails`)
+- [x] "New niches to watch" section: a card per channel with why it is listed, its numbers, the thumbnails that took off and its hit rate; filters for new, small and watched
 - [ ] Thumbnail patterns in words: a model looks at the board's winners and ordinary videos and says what to copy
 - [ ] Star, hide, copy
 - [ ] Follow-up chat over a stored run
