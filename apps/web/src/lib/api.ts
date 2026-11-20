@@ -1,4 +1,4 @@
-import type { CrawlProgress, MapSnapshot } from '@jgtube/core';
+import type { CrawlProgress, MapSnapshot, ThumbnailBoard } from '@jgtube/core';
 
 export interface JobState {
   readonly id: string;
@@ -62,6 +62,15 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
       const envelope = await call(`/api/maps/latest?channel=${encodeURIComponent(channel)}`);
       if (envelope.status === 404) return null;
       return unwrap<MapSnapshot>(envelope);
+    },
+
+    /** The thumbnails that worked around a channel, or null when it has no map yet. */
+    async thumbnailBoard(channel: string): Promise<ThumbnailBoard | null> {
+      const envelope = await call(
+        `/api/maps/latest/thumbnails?channel=${encodeURIComponent(channel)}`,
+      );
+      if (envelope.status === 404) return null;
+      return unwrap<ThumbnailBoard>(envelope);
     },
 
     /** Starts a crawl and returns the id of the job to poll. */
