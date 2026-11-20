@@ -64,6 +64,10 @@ class ScenarioSource implements YouTubeSource {
     };
   }
 
+  async fetchVideoPage(): Promise<never> {
+    throw new Error('fetchVideoPage is not used in this test');
+  }
+
   async getSidebar(videoId: string): Promise<readonly SidebarItem[]> {
     this.sidebarCalls.push(videoId);
     if (this.scenario.failingSidebars?.has(videoId)) throw new Error('boom');

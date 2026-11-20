@@ -23,11 +23,11 @@ const MAX_TEXT_LENGTH = 300;
 
 type JsonRecord = Record<string, unknown>;
 
-function isRecord(value: unknown): value is JsonRecord {
+export function isRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function at(node: unknown, ...path: readonly string[]): unknown {
+export function at(node: unknown, ...path: readonly string[]): unknown {
   return path.reduce<unknown>(
     (current, key) => (isRecord(current) ? current[key] : undefined),
     node,
@@ -39,11 +39,11 @@ function asString(value: unknown): string | null {
 }
 
 /** Reads either a plain string or a `{ text }` object. */
-function textOf(value: unknown): string | null {
+export function textOf(value: unknown): string | null {
   return asString(value) ?? asString(at(value, 'text'));
 }
 
-function asArray(value: unknown): readonly unknown[] {
+export function asArray(value: unknown): readonly unknown[] {
   return Array.isArray(value) ? value : [];
 }
 

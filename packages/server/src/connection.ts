@@ -59,6 +59,10 @@ export function stopWhen(source: YouTubeSource, isStopped: () => boolean): YouTu
       check();
       return source.getSidebar(videoId);
     },
+    fetchVideoPage: async (videoId, options) => {
+      check();
+      return source.fetchVideoPage(videoId, options);
+    },
   };
 }
 
@@ -72,5 +76,6 @@ export function connectOnUse(connect: () => Promise<YouTubeSource>): YouTubeSour
     fetchChannel: async (channelId, maxVideos) =>
       (await connect()).fetchChannel(channelId, maxVideos),
     getSidebar: async (videoId) => (await connect()).getSidebar(videoId),
+    fetchVideoPage: async (videoId, options) => (await connect()).fetchVideoPage(videoId, options),
   };
 }

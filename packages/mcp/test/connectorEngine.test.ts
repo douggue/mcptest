@@ -47,6 +47,9 @@ const source: YouTubeSource = {
       })),
     };
   },
+  fetchVideoPage: async () => {
+    throw new Error('fetchVideoPage is not used in this test');
+  },
   getSidebar: async (videoId): Promise<readonly SidebarItem[]> =>
     (links[videoId.charAt(0)] ?? []).map((letter) => ({
       videoId: vid(letter, 0),

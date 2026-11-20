@@ -14,6 +14,9 @@ const NICHE_ID = `UC${'N'.repeat(22)}`;
 /** A small channel whose newest video has taken off, so it lands on the niche list. */
 const source: YouTubeSource = {
   resolveChannelId: async () => NICHE_ID,
+  fetchVideoPage: async () => {
+    throw new Error('fetchVideoPage is not used in this test');
+  },
   getSidebar: async () => [],
   fetchChannel: async (channelId) => ({
     channel: {

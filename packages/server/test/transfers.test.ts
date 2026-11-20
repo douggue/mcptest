@@ -236,6 +236,9 @@ describe('the transfer list with the real engine and store', () => {
         })),
       };
     },
+    fetchVideoPage: async () => {
+      throw new Error('fetchVideoPage is not used in this test');
+    },
     getSidebar: async (videoId) =>
       (videoId.startsWith('C') ? ['A', 'B'] : []).map((letter) => ({
         videoId: letter.repeat(10) + '0',

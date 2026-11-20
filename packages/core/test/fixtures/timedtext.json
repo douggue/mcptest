@@ -1,0 +1,296 @@
+{
+ "wireMagic": "pb3",
+ "events": [
+  {
+   "tStartMs": 0,
+   "dDurationMs": 1555408,
+   "id": 1,
+   "wpWinPosId": 1,
+   "wsWinStyleId": 1
+  },
+  {
+   "tStartMs": 600,
+   "dDurationMs": 5000,
+   "wWinId": 1,
+   "segs": [
+    {
+     "utf8": "Right"
+    },
+    {
+     "utf8": " now,",
+     "tOffsetMs": 200
+    },
+    {
+     "utf8": " under",
+     "tOffsetMs": 600
+    },
+    {
+     "utf8": " millions",
+     "tOffsetMs": 900
+    },
+    {
+     "utf8": " of",
+     "tOffsetMs": 1500
+    },
+    {
+     "utf8": " American",
+     "tOffsetMs": 1600
+    }
+   ]
+  },
+  {
+   "tStartMs": 2690,
+   "dDurationMs": 2910,
+   "wWinId": 1,
+   "aAppend": 1,
+   "segs": [
+    {
+     "utf8": "\n"
+    }
+   ]
+  },
+  {
+   "tStartMs": 2700,
+   "dDurationMs": 5200,
+   "wWinId": 1,
+   "segs": [
+    {
+     "utf8": "tires,"
+    },
+    {
+     "utf8": " a",
+     "tOffsetMs": 700
+    },
+    {
+     "utf8": " crack",
+     "tOffsetMs": 800
+    },
+    {
+     "utf8": " is",
+     "tOffsetMs": 1200
+    },
+    {
+     "utf8": " quietly",
+     "tOffsetMs": 1400
+    },
+    {
+     "utf8": " spreading.",
+     "tOffsetMs": 2000
+    }
+   ]
+  },
+  {
+   "tStartMs": 5590,
+   "dDurationMs": 2310,
+   "wWinId": 1,
+   "aAppend": 1,
+   "segs": [
+    {
+     "utf8": "\n"
+    }
+   ]
+  },
+  {
+   "tStartMs": 5600,
+   "dDurationMs": 5700,
+   "wWinId": 1,
+   "segs": [
+    {
+     "utf8": "Almost"
+    },
+    {
+     "utf8": " nobody",
+     "tOffsetMs": 400
+    },
+    {
+     "utf8": " driving",
+     "tOffsetMs": 800
+    },
+    {
+     "utf8": " over",
+     "tOffsetMs": 1200
+    },
+    {
+     "utf8": " it",
+     "tOffsetMs": 1500
+    },
+    {
+     "utf8": " knows",
+     "tOffsetMs": 1600
+    },
+    {
+     "utf8": " why",
+     "tOffsetMs": 2000
+    }
+   ]
+  },
+  {
+   "tStartMs": 7890,
+   "dDurationMs": 3410,
+   "wWinId": 1,
+   "aAppend": 1,
+   "segs": [
+    {
+     "utf8": "\n"
+    }
+   ]
+  },
+  {
+   "tStartMs": 7900,
+   "dDurationMs": 5800,
+   "wWinId": 1,
+   "segs": [
+    {
+     "utf8": "it's"
+    },
+    {
+     "utf8": " really",
+     "tOffsetMs": 200
+    },
+    {
+     "utf8": " there.",
+     "tOffsetMs": 500
+    },
+    {
+     "utf8": " In",
+     "tOffsetMs": 1300
+    },
+    {
+     "utf8": " 2021,",
+     "tOffsetMs": 1500
+    },
+    {
+     "utf8": " one",
+     "tOffsetMs": 2700
+    },
+    {
+     "utf8": " in",
+     "tOffsetMs": 2900
+    },
+    {
+     "utf8": " 10",
+     "tOffsetMs": 3100
+    }
+   ]
+  },
+  {
+   "tStartMs": 11290,
+   "dDurationMs": 2410,
+   "wWinId": 1,
+   "aAppend": 1,
+   "segs": [
+    {
+     "utf8": "\n"
+    }
+   ]
+  },
+  {
+   "tStartMs": 11300,
+   "dDurationMs": 4600,
+   "wWinId": 1,
+   "segs": [
+    {
+     "utf8": "American"
+    },
+    {
+     "utf8": " drivers",
+     "tOffsetMs": 500
+    },
+    {
+     "utf8": " paid",
+     "tOffsetMs": 1000
+    },
+    {
+     "utf8": " to",
+     "tOffsetMs": 1400
+    },
+    {
+     "utf8": " fix",
+     "tOffsetMs": 1500
+    },
+    {
+     "utf8": " their",
+     "tOffsetMs": 1700
+    },
+    {
+     "utf8": " car",
+     "tOffsetMs": 1900
+    }
+   ]
+  },
+  {
+   "tStartMs": 13690,
+   "dDurationMs": 2210,
+   "wWinId": 1,
+   "aAppend": 1,
+   "segs": [
+    {
+     "utf8": "\n"
+    }
+   ]
+  },
+  {
+   "tStartMs": 13700,
+   "dDurationMs": 4700,
+   "wWinId": 1,
+   "segs": [
+    {
+     "utf8": "after"
+    },
+    {
+     "utf8": " hitting",
+     "tOffsetMs": 300
+    },
+    {
+     "utf8": " a",
+     "tOffsetMs": 500
+    },
+    {
+     "utf8": " pothole.",
+     "tOffsetMs": 600
+    },
+    {
+     "utf8": " The",
+     "tOffsetMs": 1600
+    },
+    {
+     "utf8": " average",
+     "tOffsetMs": 1800
+    }
+   ]
+  },
+  {
+   "tStartMs": 15890,
+   "dDurationMs": 2510,
+   "wWinId": 1,
+   "aAppend": 1,
+   "segs": [
+    {
+     "utf8": "\n"
+    }
+   ]
+  },
+  {
+   "tStartMs": 15900,
+   "dDurationMs": 6400,
+   "wWinId": 1,
+   "segs": [
+    {
+     "utf8": "bill"
+    },
+    {
+     "utf8": " ran",
+     "tOffsetMs": 300
+    },
+    {
+     "utf8": " about",
+     "tOffsetMs": 500
+    },
+    {
+     "utf8": " $600.",
+     "tOffsetMs": 800
+    }
+   ]
+  }
+ ]
+}

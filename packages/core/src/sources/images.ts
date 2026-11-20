@@ -102,7 +102,7 @@ export function thumbnailUrl(videoId: string): string {
 }
 
 /** Reads a response body, giving up as soon as it passes the cap. Null means too large. */
-async function readCapped(response: Response, maxBytes: number): Promise<Uint8Array | null> {
+export async function readCapped(response: Response, maxBytes: number): Promise<Uint8Array | null> {
   if (!response.body) return new Uint8Array();
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];

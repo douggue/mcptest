@@ -11,6 +11,9 @@ const CHANNEL_ID = `UC${'S'.repeat(22)}`;
 
 const source: YouTubeSource = {
   resolveChannelId: async () => CHANNEL_ID,
+  fetchVideoPage: async () => {
+    throw new Error('fetchVideoPage is not used in this test');
+  },
   getSidebar: async () => [],
   fetchChannel: async (channelId) => ({
     channel: {

@@ -70,6 +70,10 @@ class FakeSource implements YouTubeSource {
     };
   }
 
+  async fetchVideoPage(): Promise<never> {
+    throw new Error('fetchVideoPage is not used in this test');
+  }
+
   async getSidebar(): Promise<readonly never[]> {
     return [];
   }

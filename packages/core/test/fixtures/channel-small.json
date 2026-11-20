@@ -1,0 +1,96 @@
+{
+  "header": {
+    "type": "PageHeader",
+    "page_title": "Williamson",
+    "content": {
+      "type": "PageHeaderView",
+      "title": {
+        "text": {
+          "text": "Williamson"
+        }
+      },
+      "image": {
+        "type": "DecoratedAvatarView",
+        "avatar": {
+          "type": "AvatarView",
+          "image": [
+            {
+              "url": "https://yt3.googleusercontent.com/ytc/AIdro_kNz_6aT-NycY4qt2fXvKjNAZKgnU-RWARilIH00fMc1hywr9x8YSSH3p64Yrcz7pNH6Q=s160-c-k-c0x00ffffff-no-rj",
+              "width": 160,
+              "height": 160
+            },
+            {
+              "url": "https://yt3.googleusercontent.com/ytc/AIdro_kNz_6aT-NycY4qt2fXvKjNAZKgnU-RWARilIH00fMc1hywr9x8YSSH3p64Yrcz7pNH6Q=s120-c-k-c0x00ffffff-no-rj",
+              "width": 120,
+              "height": 120
+            },
+            {
+              "url": "https://yt3.googleusercontent.com/ytc/AIdro_kNz_6aT-NycY4qt2fXvKjNAZKgnU-RWARilIH00fMc1hywr9x8YSSH3p64Yrcz7pNH6Q=s72-c-k-c0x00ffffff-no-rj",
+              "width": 72,
+              "height": 72
+            }
+          ],
+          "image_processor": {
+            "border_image_processor": {
+              "circular": true
+            }
+          },
+          "avatar_image_size": "AVATAR_SIZE_XL"
+        },
+        "renderer_context": {}
+      },
+      "banner": null,
+      "description": {
+        "type": "DescriptionPreviewView",
+        "description": {
+          "text": "More about this channel "
+        }
+      },
+      "attributation": null,
+      "metadata": {
+        "type": "ContentMetadataView",
+        "metadata_rows": [
+          {
+            "metadata_parts": [
+              {
+                "text": {
+                  "text": "@Williamson-x5d"
+                }
+              }
+            ]
+          },
+          {
+            "metadata_parts": [
+              {
+                "text": {
+                  "text": "8.31K subscribers"
+                }
+              },
+              {
+                "text": {
+                  "text": "23 videos"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "metadata": {
+    "type": "MicroformatData",
+    "title": "Williamson",
+    "description": "",
+    "url": "https://www.youtube.com/channel/UC0UJp3kmO7wf33XFf56gbTw",
+    "vanity_channel_url": "http://www.youtube.com/@Williamson-x5d",
+    "external_id": "UC0UJp3kmO7wf33XFf56gbTw",
+    "keywords": "",
+    "avatar": [
+      {
+        "url": "https://yt3.googleusercontent.com/ytc/AIdro_kNz_6aT-NycY4qt2fXvKjNAZKgnU-RWARilIH00fMc1hywr9x8YSSH3p64Yrcz7pNH6Q=s900-c-k-c0x00ffffff-no-rj",
+        "width": 900,
+        "height": 900
+      }
+    ]
+  }
+}
