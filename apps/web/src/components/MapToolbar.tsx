@@ -152,7 +152,7 @@ export function MapToolbar(props: Props) {
           <div
             role="group"
             aria-label="How many steps to follow"
-            className="hidden items-center gap-2 rounded-full bg-surface-card/90 px-3 py-1.5 sm:flex"
+            className="flex items-center gap-2 rounded-full bg-surface-card/90 px-3 py-1.5"
           >
             <Layers aria-hidden="true" className="h-4 w-4 text-outline" />
             <span className="text-label-caps uppercase text-outline">Depth</span>
@@ -175,7 +175,7 @@ export function MapToolbar(props: Props) {
           <div
             role="group"
             aria-label="How many channels the map may hold"
-            className="hidden items-center gap-2 rounded-full bg-surface-card/90 px-3 py-1.5 sm:flex"
+            className="flex items-center gap-2 rounded-full bg-surface-card/90 px-3 py-1.5"
           >
             <span className="text-label-caps uppercase text-outline">Size</span>
             {SIZES.map((option) => (

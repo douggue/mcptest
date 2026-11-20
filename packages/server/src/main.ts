@@ -78,10 +78,10 @@ function webFile(pathname: string): string | null {
 
 async function serveWeb(pathname: string, response: ServerResponse): Promise<void> {
   const requested = webFile(pathname);
-  // Unknown paths get the app shell, which handles its own routes.
-  const candidates = [requested, join(WEB_ROOT, 'index.html')].filter(
-    (path): path is string => path !== null && extname(path) !== '',
-  );
+  // A path that names a file is that file or nothing; answering a missing script
+  // with the page would hide the mistake. Any other path gets the app shell.
+  const namesFile = requested !== null && extname(requested) !== '';
+  const candidates = namesFile ? [requested] : [join(WEB_ROOT, 'index.html')];
   for (const path of candidates) {
     try {
       const body = await readFile(path);
@@ -90,6 +90,8 @@ async function serveWeb(pathname: string, response: ServerResponse): Promise<voi
         'content-security-policy': CONTENT_SECURITY_POLICY,
         'x-content-type-options': 'nosniff',
         'referrer-policy': 'no-referrer',
+        // For browsers that do not honour frame-ancestors in the policy above.
+        'x-frame-options': 'DENY',
       });
       response.end(body);
       return;
@@ -98,7 +100,7 @@ async function serveWeb(pathname: string, response: ServerResponse): Promise<voi
     }
   }
   response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-  response.end('The web app has not been built yet. Run: npm run build');
+  response.end(namesFile ? 'Not found' : 'The web app has not been built yet. Run: npm run build');
 }
 
 function start(): void {
