@@ -8,6 +8,7 @@ import type { QuotaLedger } from '../quota/ledger';
 import type { Store } from '../repos/types';
 import type { YouTubeApi } from '../youtube/api';
 import type { ChannelFacts } from '../youtube/dataApi';
+import { DEFAULT_FOLLOW, shouldFollow, type FollowSettings } from './follow';
 
 const MS_PER_HOUR = 60 * 60 * 1000;
 /**
@@ -30,13 +31,17 @@ export const MAX_CHANNEL_READ_ATTEMPTS = 3;
 export interface ChannelReadsDeps {
   readonly api: Pick<YouTubeApi, 'fetchChannels'>;
   readonly ledger: Pick<QuotaLedger, 'markExhausted'>;
-  readonly store: Pick<Store, 'channels' | 'transact'>;
+  readonly store: Pick<Store, 'channels' | 'follows' | 'transact'>;
   readonly now: () => Date;
+  /** Which channels are followed once their facts are known; the defaults when not given. */
+  readonly follow?: FollowSettings;
 }
 
 export interface ChannelReadsReport {
   /** Channels whose facts were read and stored. */
   readonly read: number;
+  /** Of those, the channels that are followed from now on, or still. */
+  readonly followed: number;
   /** Channels the API did not return: closed, or hidden. They leave the queue. */
   readonly unavailable: number;
   /** Entries the API sent that could not be read. Their channels stay queued, a few times. */
@@ -67,6 +72,7 @@ export async function readQueuedChannels(
   const queued = deps.store.channels.listQueued();
   let report: ChannelReadsReport = {
     read: 0,
+    followed: 0,
     unavailable: 0,
     skipped: 0,
     gaveUp: 0,
@@ -86,6 +92,7 @@ export async function readQueuedChannels(
     report = {
       ...report,
       read: report.read + result.items.length,
+      followed: report.followed + settled.followed,
       unavailable: report.unavailable + settled.gone,
       skipped: report.skipped + result.skipped,
       gaveUp: report.gaveUp + settled.gaveUp,
@@ -101,13 +108,21 @@ function storeChannels(
   batch: readonly string[],
   result: { readonly items: readonly ChannelFacts[]; readonly skipped: number },
   repliedAt: Date,
-): { readonly gone: number; readonly gaveUp: number } {
-  const { channels } = deps.store;
+): { readonly gone: number; readonly gaveUp: number; readonly followed: number } {
+  const { channels, follows } = deps.store;
+  const settings = deps.follow ?? DEFAULT_FOLLOW;
+  // Whether a channel is followed is decided afresh each time its facts are
+  // read: one that has grown past the limit stops being followed here.
+  const follow = result.items.filter((channel) => shouldFollow(channel, settings, repliedAt));
+  const followIds = new Set(follow.map((channel) => channel.id));
   const returned = new Set(result.items.map((channel) => channel.id));
   const absent = batch.filter((id) => !returned.has(id));
   let gaveUp = 0;
   deps.store.transact(() => {
-    result.items.forEach((channel) => channels.upsert(channel, repliedAt));
+    for (const channel of result.items) {
+      channels.upsert(channel, repliedAt);
+      follows.setFollowed(channel.id, followIds.has(channel.id), repliedAt);
+    }
     for (const id of absent) {
       // With an unreadable entry in the reply, an absent channel may be that
       // entry rather than a closed channel: it stays queued, up to a point.
@@ -118,5 +133,5 @@ function storeChannels(
       }
     }
   });
-  return { gone: result.skipped === 0 ? absent.length : 0, gaveUp };
+  return { gone: result.skipped === 0 ? absent.length : 0, gaveUp, followed: follow.length };
 }

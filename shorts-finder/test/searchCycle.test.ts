@@ -725,6 +725,7 @@ describe('reading queued channels', () => {
   test('makes no request when nothing is queued', async () => {
     expect(await reads()).toEqual({
       read: 0,
+      followed: 0,
       unavailable: 0,
       skipped: 0,
       gaveUp: 0,

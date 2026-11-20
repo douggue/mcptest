@@ -68,6 +68,60 @@ export interface StoredChannel {
   readonly fetchedAt: Date;
   /** Since when the channel has been waiting for its facts to be read; null when it is not. */
   readonly readQueuedAt: Date | null;
+  /** Whether its new uploads are watched; see `discover/follow.ts`. */
+  readonly followed: boolean;
+  /** When one of its videos last started being tracked; null when none has. */
+  readonly lastTrackedUploadAt: Date | null;
+  /** When its uploads were last read, through its feed or its uploads list; null when never. */
+  readonly uploadsReadAt: Date | null;
+}
+
+/** A followed channel as the reads of its uploads need it. */
+export interface FollowedChannel {
+  readonly id: string;
+  readonly uploadsPlaylistId: string | null;
+  /** What its feed's last reply said about itself, to send back; nulls when nothing. */
+  readonly feedEtag: string | null;
+  readonly feedModified: string | null;
+  /** How many times in a row its feed has not answered. */
+  readonly feedFailures: number;
+}
+
+/** A feed that answered: when, and what the reply said about itself. */
+export interface FeedRead {
+  readonly at: Date;
+  readonly etag: string | null;
+  readonly modified: string | null;
+}
+
+/** Which channels are followed, and when each was last looked at. */
+export interface FollowRepo {
+  /**
+   * Starts or stops following a channel. Starting notes the moment, once, and
+   * counts it as the channel's last tracked upload when it has none.
+   */
+  setFollowed(id: string, followed: boolean, at: Date): void;
+  /** Notes that one of the channel's videos started being tracked. */
+  noteTrackedUpload(id: string, at: Date): void;
+  /**
+   * Followed channels whose feed may be read now: not looked at since
+   * `checkedBefore`, and not waiting out a failure. Least-recently first.
+   */
+  listFeedDue(now: Date, checkedBefore: Date, limit: number): readonly FollowedChannel[];
+  /** Notes a feed that answered: its failures are forgotten and its uploads count as read. */
+  noteFeedRead(id: string, read: FeedRead): void;
+  /** Notes a feed that did not answer and when to try it again. Returns the failures in a row. */
+  noteFeedFailure(id: string, at: Date, retryAt: Date): number;
+  /**
+   * Followed channels whose feed is failing and whose uploads have not been
+   * read since `readBefore`, with an uploads list to read. Least-recently first.
+   */
+  listUploadsDue(now: Date, readBefore: Date, limit: number): readonly FollowedChannel[];
+  /** Notes that the channel's uploads list was read through the official API. */
+  noteUploadsRead(id: string, at: Date): void;
+  /** Stops following channels with no tracked upload (nor a start) since `cutoff`. Returns how many. */
+  unfollowIdle(cutoff: Date): number;
+  countFollowed(): number;
 }
 
 export interface ChannelReadRequest {
@@ -123,6 +177,11 @@ export interface Reading {
   readonly videoId: string;
   readonly capturedAt: Date;
   readonly views: number;
+  /**
+   * Set when the count came from a channel's public feed rather than the
+   * official API: such a count can be a quarter of an hour old when read.
+   */
+  readonly source?: 'feed';
 }
 
 export interface ReadingRepo {
@@ -146,10 +205,11 @@ export interface ReadingRepo {
 export type SearchKind = 'top_recent' | 'newest';
 
 /**
- * How a video came to be known: by one of the searches, or by reading the
- * uploads of a channel that is followed.
+ * How a video came to be known: by one of the searches, or on a channel that
+ * is followed, through its public Shorts feed (`channel_feed`) or, when the
+ * feed does not answer, its uploads list in the official API (`channel_uploads`).
  */
-export type HitKind = SearchKind | 'channel_uploads';
+export type HitKind = SearchKind | 'channel_uploads' | 'channel_feed';
 
 /** A subject as the store holds it. `everyHours` is the cadence of its top-recent search. */
 export interface Subject extends NewSubject {
@@ -206,6 +266,8 @@ export interface SubjectHitRepo {
   videoIdsFor(subjectId: number): readonly string[];
   /** Every find of a video, first-seen first. */
   listForVideo(videoId: string): readonly SubjectHit[];
+  /** The subject whose search first found any video of the channel; null when none did. */
+  firstSubjectForChannel(channelId: string): number | null;
 }
 
 /** A search result waiting for the details of its video to be read. */
@@ -235,7 +297,7 @@ export interface PendingHitRepo {
 }
 
 /** Why a video a search returned is not tracked. */
-export type PassedOverReason = 'too_long' | 'not_returned';
+export type PassedOverReason = 'too_long' | 'not_returned' | 'too_old';
 
 /** Videos searches return that are not worth reading again. */
 export interface PassedOverRepo {
@@ -249,8 +311,12 @@ export interface PassedOverRepo {
 
 /** How often a tracked video is read: every hour, every six, or no longer. */
 export type Tier = 'hourly' | 'six_hourly' | 'done';
-/** Whether a video is a Short. `yes` is by its length only; see `shortByLength`. */
-export type ShortAnswer = 'yes' | 'no' | 'unknown';
+/**
+ * Whether a video is a Short. `yes` is by its length only; see
+ * `shortByLength`. `confirmed` is YouTube's own word: the video was listed in
+ * its channel's Shorts feed.
+ */
+export type ShortAnswer = 'yes' | 'no' | 'unknown' | 'confirmed';
 
 /**
  * Why a video's tracking ended. `aged_out`: it reached the age tracking stops
@@ -393,6 +459,7 @@ export interface ServiceStateRepo {
 /** Every repository over one store, and the means to write to several as one. */
 export interface Store {
   readonly channels: ChannelRepo;
+  readonly follows: FollowRepo;
   readonly videos: VideoRepo;
   readonly readings: ReadingRepo;
   readonly subjects: SubjectRepo;

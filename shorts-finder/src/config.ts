@@ -3,6 +3,11 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { DEFAULT_MAX_ALERTS_PER_DAY } from './alerts/alertCycle';
 import { isTimeZone } from './alerts/localTime';
+import {
+  DEFAULT_FOLLOW_MAX_ACCOUNT_AGE_DAYS,
+  DEFAULT_FOLLOW_MAX_SUBSCRIBERS,
+  type FollowSettings,
+} from './discover/follow';
 import { DEFAULT_SHORTS_RATE, type RateRange } from './scoring/earnings';
 
 /** The countries watched first: English-speaking ones where ads pay most. */
@@ -74,6 +79,19 @@ const wholeNumber = (min: number, max: number) =>
       message: `must be a whole number from ${min} to ${max}`,
     });
 
+/** A whole number from 0 to `max`, written in up to ten digits. */
+const count = (max: number) =>
+  z
+    .string()
+    .regex(/^\d{1,10}$/, `must be a whole number from 0 to ${max}`)
+    .transform((text) => Number(text))
+    .refine((value) => value <= max, { message: `must be a whole number from 0 to ${max}` });
+
+/** More subscribers than any channel has: above this the number is a typing mistake. */
+const MAX_SUBSCRIBERS = 1_000_000_000;
+/** A hundred years: older than YouTube, so anything above is a typing mistake. */
+const MAX_ACCOUNT_AGE_DAYS = 36_500;
+
 /** A setting left empty in the file ("NAME=") counts as not set. */
 const optionalSecret = (schema: z.ZodString) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
@@ -102,6 +120,10 @@ const envSchema = storeSchema.extend({
   ),
   TELEGRAM_CHAT_ID: optionalSecret(
     z.string().regex(CHAT_ID_PATTERN, 'must be a chat number such as 123456789 or -1001234567890'),
+  ),
+  SHORTS_FOLLOW_MAX_SUBSCRIBERS: count(MAX_SUBSCRIBERS).default(DEFAULT_FOLLOW_MAX_SUBSCRIBERS),
+  SHORTS_FOLLOW_MAX_ACCOUNT_AGE_DAYS: count(MAX_ACCOUNT_AGE_DAYS).default(
+    DEFAULT_FOLLOW_MAX_ACCOUNT_AGE_DAYS,
   ),
   SHORTS_MAX_ALERTS_PER_DAY: wholeNumber(1, MAX_ALERTS_PER_DAY).default(DEFAULT_MAX_ALERTS_PER_DAY),
   SHORTS_DIGEST_HOUR: wholeNumber(0, LAST_HOUR).default(DEFAULT_DIGEST_HOUR),
@@ -135,6 +157,8 @@ export interface Config extends StoreConfig {
   readonly youtubeApiKey: string;
   /** What 1,000 Shorts views are taken to be worth, in US dollars, low to high. */
   readonly shortsRate: RateRange;
+  /** Which channels are followed for their new uploads; starting values, to be revisited. */
+  readonly follow: FollowSettings;
   /** Null when neither Telegram setting is given: alerts are off. */
   readonly telegram: TelegramSettings | null;
   /** The most findings told of one by one in a day; the rest go in the summary. */
@@ -199,6 +223,10 @@ export function loadConfig(env: Env = process.env): Config {
     ...storeConfigOf(parsed.data),
     youtubeApiKey: parsed.data.YOUTUBE_API_KEY,
     shortsRate,
+    follow: {
+      maxSubscribers: parsed.data.SHORTS_FOLLOW_MAX_SUBSCRIBERS,
+      maxAccountAgeDays: parsed.data.SHORTS_FOLLOW_MAX_ACCOUNT_AGE_DAYS,
+    },
     telegram: telegramOf(parsed.data.TELEGRAM_BOT_TOKEN, parsed.data.TELEGRAM_CHAT_ID),
     maxAlertsPerDay: parsed.data.SHORTS_MAX_ALERTS_PER_DAY,
     digestHour: parsed.data.SHORTS_DIGEST_HOUR,

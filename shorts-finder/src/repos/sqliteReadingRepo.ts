@@ -8,6 +8,7 @@ const SECONDS_PER_DAY = 86_400;
 interface ReadingRow {
   readonly captured_at: number;
   readonly views: number;
+  readonly source: 'feed' | null;
 }
 
 /**
@@ -21,20 +22,26 @@ export class SqliteReadingRepo implements ReadingRepo {
   add(reading: Reading): void {
     this.db
       .prepare(
-        `INSERT INTO video_snapshots (video_id, captured_at, views) VALUES (?, ?, ?)
-         ON CONFLICT (video_id, captured_at) DO UPDATE SET views = excluded.views`,
+        `INSERT INTO video_snapshots (video_id, captured_at, views, source) VALUES (?, ?, ?, ?)
+         ON CONFLICT (video_id, captured_at) DO UPDATE SET
+           views = excluded.views, source = excluded.source`,
       )
-      .run(reading.videoId, toSeconds(reading.capturedAt), reading.views);
+      .run(reading.videoId, toSeconds(reading.capturedAt), reading.views, reading.source ?? null);
   }
 
   list(videoId: string, from: Date, to: Date): readonly Reading[] {
     return this.db
       .prepare<[string, number, number], ReadingRow>(
-        `SELECT captured_at, views FROM video_snapshots
+        `SELECT captured_at, views, source FROM video_snapshots
          WHERE video_id = ? AND captured_at >= ? AND captured_at <= ? ORDER BY captured_at`,
       )
       .all(videoId, toSeconds(from), toSeconds(to))
-      .map((row) => ({ videoId, capturedAt: fromSeconds(row.captured_at), views: row.views }));
+      .map((row) => ({
+        videoId,
+        capturedAt: fromSeconds(row.captured_at),
+        views: row.views,
+        ...(row.source === null ? {} : { source: row.source }),
+      }));
   }
 
   rollUpOlderThan(cutoff: Date): number {

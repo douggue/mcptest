@@ -20,6 +20,7 @@ import { ORDER_OF, nextNewestInterval, publishedAfterFor } from '../subjects/swe
 import type { YouTubeApi } from '../youtube/api';
 import type { SearchResult } from '../youtube/dataApi';
 import { readQueuedChannels, type ChannelReadsReport } from './channelReads';
+import type { FollowSettings } from './follow';
 import { plusDetails, resolvePendingHits, type HitDetailsReport } from './hitDetails';
 
 export interface SearchCycleDeps {
@@ -27,6 +28,8 @@ export interface SearchCycleDeps {
   readonly ledger: Pick<QuotaLedger, 'remaining' | 'markExhausted'>;
   readonly store: Store;
   readonly now: () => Date;
+  /** Which channels are followed once their facts are read; the defaults when not given. */
+  readonly follow?: FollowSettings;
 }
 
 /** One search of one subject. */
@@ -65,6 +68,7 @@ export interface SearchCycleReport {
 
 const NO_CHANNEL_READS: ChannelReadsReport = {
   read: 0,
+  followed: 0,
   unavailable: 0,
   skipped: 0,
   gaveUp: 0,

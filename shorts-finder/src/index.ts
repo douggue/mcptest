@@ -61,6 +61,43 @@ export {
   type ChannelReadsReport,
 } from './discover/channelReads';
 export {
+  detailChannelFinds,
+  unseenIds,
+  type FindsDeps,
+  type FindsReport,
+  type FindsSource,
+} from './discover/channelFinds';
+export {
+  CONFIRM_MAX_CHANNELS,
+  FEED_BACKOFF_BASE_MS,
+  FEED_BACKOFF_MAX_MS,
+  FEED_CONCURRENCY,
+  FEED_POLL_EVERY_MS,
+  FEED_REFUSED_PAUSE_MS,
+  FEED_STOP_AFTER_FAILURES,
+  applyFeed,
+  confirmCandidates,
+  runFeedCycle,
+  type ConfirmReport,
+  type FeedCycleDeps,
+  type FeedCycleReport,
+  type ReadFeed,
+} from './discover/feedCycle';
+export {
+  DEFAULT_FOLLOW_MAX_ACCOUNT_AGE_DAYS,
+  DEFAULT_FOLLOW_MAX_SUBSCRIBERS,
+  UNFOLLOW_AFTER_DAYS,
+  shouldFollow,
+  type FollowSettings,
+} from './discover/follow';
+export {
+  UPLOADS_COST_UNITS,
+  UPLOADS_READ_EVERY_MS,
+  runUploadsCycle,
+  type UploadsDeps,
+  type UploadsReport,
+} from './discover/followedUploads';
+export {
   PENDING_HIT_MAX_AGE_MS,
   resolvePendingHits,
   type HitDetailsDeps,
@@ -240,4 +277,17 @@ export {
   type VideoFacts,
 } from './youtube/dataApi';
 export { parseIsoDuration } from './youtube/duration';
+export {
+  FEED_MAX_BYTES,
+  FEED_TIMEOUT_MS,
+  channelFeedUrl,
+  decodeXml,
+  fetchFeed,
+  parseFeed,
+  shortsFeedUrl,
+  type FeedEntry,
+  type FeedOptions,
+  type FeedResult,
+  type FeedValidators,
+} from './youtube/feed';
 export { SHORTS_MAX_SECONDS, shortByLength } from './youtube/shorts';

@@ -9,8 +9,12 @@ import { runDailyMessages } from './alerts/dailyMessages';
 import { createSender } from './alerts/telegram';
 import type { Config } from './config';
 import { openDatabase, type Db } from './db/sqlite';
+import { detailChannelFinds, NO_FINDS, type FindsReport } from './discover/channelFinds';
 import { readQueuedChannels } from './discover/channelReads';
+import { runFeedCycle, type ReadFeed } from './discover/feedCycle';
+import { runUploadsCycle } from './discover/followedUploads';
 import { runSearchCycle } from './discover/searchCycle';
+import { ReadingElsewhereError, withYouTubeLease, type LeaseDeps } from './lease';
 import type { Logger } from './log';
 import { createQuotaLedger, planFor } from './quota/ledger';
 import { SqliteLeaseRepo } from './repos/sqliteLeaseRepo';
@@ -29,6 +33,7 @@ import { DETAILS_COST_UNITS, pickDueSubjects } from './subjects/due';
 import { runReadCycle } from './track/readCycle';
 import { rollUpOldReadings } from './track/rollup';
 import { createYouTubeApi } from './youtube/api';
+import { fetchFeed, shortsFeedUrl } from './youtube/feed';
 
 export interface ServiceDeps {
   readonly log: Logger;
@@ -112,16 +117,26 @@ function schedulerOver(config: Config, deps: ServiceDeps, now: () => Date, db: D
     spend: ledger.spend,
     fetch: deps.fetch,
   });
-  const cycle = { api, ledger, store, now };
+  const cycle = { api, ledger, store, now, follow: config.follow };
+  const lease: LeaseDeps = { leases: new SqliteLeaseRepo(db), now };
   const memory: SchedulerMemory = {
     get: (key) => store.state.get(key),
     set: (key, value) => store.state.set(key, value, now()),
   };
+  const readFeed: ReadFeed = (channelId, validators, signal) =>
+    fetchFeed(shortsFeedUrl(channelId), {
+      fetch: deps.fetch,
+      ...(validators === null ? {} : { validators }),
+      ...(signal === undefined ? {} : { signal }),
+    });
   return startScheduler({
-    lease: { leases: new SqliteLeaseRepo(db), now },
+    lease,
     now,
     readCycle: (signal) => runReadCycle(cycle, signal),
     channelReads: (signal) => readQueuedChannels(cycle, signal),
+    uploadsCycle: (signal) => runUploadsCycle(cycle, signal),
+    feedCycle: (signal) =>
+      runFeedCycle({ store, now, readFeed, detail: feedDetails(cycle, lease) }, signal),
     searchCycle: (signal) => runSearchCycle(cycle, signal),
     searchIsDue: (at) => {
       const left = ledger.remaining(at).byKind.search;
@@ -137,6 +152,31 @@ function schedulerOver(config: Config, deps: ServiceDeps, now: () => Date, db: D
     stop: deps.stop,
   });
 }
+
+/**
+ * Reads the details of what the feeds listed, under the YouTube lease: the
+ * feeds themselves cost nothing, but this step spends units like any other
+ * read. When other work holds the lease the ids are left for the next round;
+ * they are still in the feed then.
+ */
+const feedDetails =
+  (cycle: Parameters<typeof detailChannelFinds>[0], lease: LeaseDeps) =>
+  async (ids: readonly string[], signal?: AbortSignal): Promise<FindsReport> => {
+    const source = { kind: 'channel_feed', confirmed: true } as const;
+    try {
+      return await withYouTubeLease(lease, (lost) =>
+        detailChannelFinds(
+          cycle,
+          ids,
+          source,
+          signal === undefined ? lost : AbortSignal.any([lost, signal]),
+        ),
+      );
+    } catch (error) {
+      if (!(error instanceof ReadingElsewhereError)) throw error;
+      return { ...NO_FINDS, stopped: 'lease_lost' };
+    }
+  };
 
 /**
  * Opens the store (copying it first if it needs bringing up to date), builds

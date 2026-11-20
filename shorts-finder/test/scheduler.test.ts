@@ -123,6 +123,90 @@ describe('the scheduler', () => {
     });
   });
 
+  test('reads followed channels’ uploads lists after the channels, each round of readings', async () => {
+    const loop = makeLoop();
+
+    await loop.start({
+      uploadsCycle: async () => {
+        loop.started.push('uploads');
+        return { stopped: null };
+      },
+    });
+
+    expect(loop.started).toEqual(['read', 'channels', 'uploads', 'rollup']);
+    expect(results(loop)).toContain('uploads:done');
+  });
+
+  test('reads followed channels’ feeds in every look, after the searching, recording only rounds that had work', async () => {
+    const loop = makeLoop();
+    loop.searchDue = true;
+    const answers: Array<{ stopped: null } | null> = [{ stopped: null }, null, { stopped: null }];
+    const signals: AbortSignal[] = [];
+
+    await loop.start({
+      feedCycle: async (signal) => {
+        loop.started.push('feeds');
+        signals.push(signal);
+        return answers.shift() ?? null;
+      },
+    });
+    loop.searchDue = false;
+    await loop.after(SCHEDULER_TICK_MS);
+    await loop.after(SCHEDULER_TICK_MS);
+
+    expect(loop.started).toEqual([
+      'read',
+      'channels',
+      'search',
+      'feeds',
+      'rollup',
+      'feeds',
+      'feeds',
+    ]);
+    expect(results(loop).filter((entry) => entry.startsWith('feeds'))).toEqual([
+      'feeds:done',
+      'feeds:done',
+    ]);
+    expect(signals[0]?.aborted).toBe(false);
+  });
+
+  test('holds the feeds back during a pause, and starts one when their details were told to slow down', async () => {
+    const loop = makeLoop();
+    let feeds = 0;
+
+    await loop.start({
+      feedCycle: async () => {
+        feeds += 1;
+        return { stopped: 'rate_limit' };
+      },
+    });
+    await loop.after(SCHEDULER_TICK_MS);
+    await loop.after(SCHEDULER_TICK_MS);
+    expect(feeds).toBe(1);
+    await loop.after(SCHEDULER_TICK_MS);
+
+    expect(feeds).toBe(2);
+  });
+
+  test('records a round of feeds that fails and carries on', async () => {
+    const loop = makeLoop();
+
+    await loop.start({
+      feedCycle: async () => {
+        throw new Error('the store is busy');
+      },
+    });
+
+    expect(loop.records).toContainEqual({
+      cycle: 'feeds',
+      startedAt: NOW,
+      result: 'failed',
+      report: null,
+      reason: 'the store is busy',
+    });
+    expect(loop.started).toContain('rollup');
+  });
+
   test('holds the YouTube lease while a cycle runs and gives it back after', async () => {
     const loop = makeLoop();
     const holders: Array<string | null> = [];

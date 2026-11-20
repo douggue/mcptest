@@ -211,6 +211,51 @@ INSERT INTO pending_hits_next (subject_id, video_id, kind, channel_id, channel_t
 DROP TABLE pending_hits;
 ALTER TABLE pending_hits_next RENAME TO pending_hits;
 `,
+  // 5: channels that are followed, and what tracking by promise needs. A
+  // followed channel remembers when it was followed, when one of its uploads
+  // was last tracked, when its uploads were last read by either route, and the
+  // state of its public feed: last look, failures in a row, when to try again
+  // and the validators the last reply gave. Tracking is rebuilt because two
+  // of its columns list their allowed values: a video can now be a confirmed
+  // Short, and can be on the baseline tier; it also keeps its latest rate and
+  // how many readings in a row found it in the lower half of its group. A
+  // reading says where it came from when that is not the official API.
+  `
+ALTER TABLE channels ADD COLUMN followed INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE channels ADD COLUMN followed_at TEXT;
+ALTER TABLE channels ADD COLUMN last_tracked_upload_at TEXT;
+ALTER TABLE channels ADD COLUMN uploads_read_at TEXT;
+ALTER TABLE channels ADD COLUMN feed_checked_at TEXT;
+ALTER TABLE channels ADD COLUMN feed_failures INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE channels ADD COLUMN feed_retry_at TEXT;
+ALTER TABLE channels ADD COLUMN feed_etag TEXT;
+ALTER TABLE channels ADD COLUMN feed_modified TEXT;
+CREATE INDEX channels_followed ON channels (feed_checked_at) WHERE followed = 1;
+
+CREATE TABLE video_tracking_next (
+  video_id        TEXT PRIMARY KEY REFERENCES videos (id) ON DELETE CASCADE,
+  tier            TEXT NOT NULL CHECK (tier IN ('hourly', 'six_hourly', 'baseline', 'done')),
+  next_read_at    TEXT,
+  is_short        TEXT NOT NULL CHECK (is_short IN ('yes', 'no', 'unknown', 'confirmed')),
+  missed_reads    INTEGER NOT NULL DEFAULT 0,
+  last_missed_at  TEXT,
+  finished_at     TEXT,
+  finish_reason   TEXT,
+  low_streak      INTEGER NOT NULL DEFAULT 0,
+  rate            REAL,
+  rate_at         TEXT
+);
+INSERT INTO video_tracking_next
+  (video_id, tier, next_read_at, is_short, missed_reads, last_missed_at, finished_at, finish_reason)
+  SELECT video_id, tier, next_read_at, is_short, missed_reads, last_missed_at, finished_at,
+    finish_reason FROM video_tracking;
+DROP TABLE video_tracking;
+ALTER TABLE video_tracking_next RENAME TO video_tracking;
+CREATE INDEX video_tracking_next_read ON video_tracking (next_read_at);
+CREATE INDEX video_tracking_finished ON video_tracking (finished_at) WHERE finished_at IS NOT NULL;
+
+ALTER TABLE video_snapshots ADD COLUMN source TEXT;
+`,
 ];
 
 /**

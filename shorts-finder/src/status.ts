@@ -17,7 +17,9 @@ import { SEARCH_COST_UNITS } from './youtube/dataApi';
 export const CYCLE_NAMES: readonly CycleName[] = [
   'read',
   'channels',
+  'uploads',
   'search',
+  'feeds',
   'alerts',
   'daily',
   'rollup',
@@ -27,7 +29,9 @@ export const CYCLE_NAMES: readonly CycleName[] = [
 const CYCLE_WORDS: Readonly<Record<CycleName, string>> = {
   read: 'reading tracked videos',
   channels: 'reading channels',
+  uploads: 'reading followed channels’ uploads',
   search: 'searching',
+  feeds: 'reading followed channels’ feeds',
   alerts: 'sending alerts',
   daily: 'sending the daily messages',
   rollup: 'thinning old readings',

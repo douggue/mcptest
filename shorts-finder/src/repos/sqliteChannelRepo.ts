@@ -15,6 +15,9 @@ interface ChannelRow {
   readonly uploads_playlist_id: string | null;
   readonly fetched_at: string;
   readonly read_queued_at: string | null;
+  readonly followed: number;
+  readonly last_tracked_upload_at: string | null;
+  readonly uploads_read_at: string | null;
 }
 
 const toChannel = (row: ChannelRow): StoredChannel => ({
@@ -29,6 +32,9 @@ const toChannel = (row: ChannelRow): StoredChannel => ({
   uploadsPlaylistId: row.uploads_playlist_id,
   fetchedAt: fromText(row.fetched_at),
   readQueuedAt: fromTextOrNull(row.read_queued_at),
+  followed: row.followed === 1,
+  lastTrackedUploadAt: fromTextOrNull(row.last_tracked_upload_at),
+  uploadsReadAt: fromTextOrNull(row.uploads_read_at),
 });
 
 /**

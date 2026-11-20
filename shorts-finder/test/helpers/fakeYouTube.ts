@@ -16,8 +16,11 @@ import { openStore } from '../../src/repos/store';
 import type { Store } from '../../src/repos/types';
 import { createYouTubeApi, type YouTubeApi } from '../../src/youtube/api';
 import {
+  PLAYLIST_NOT_FOUND,
+  channelId,
   channelItem,
   channelsReply,
+  playlistReply,
   searchItem,
   videoId,
   videoItem,
@@ -56,6 +59,8 @@ export class FakeYouTube {
   private readonly searches = new Map<string, readonly unknown[]>();
   private readonly videos = new Map<string, unknown>();
   private readonly channels = new Map<string, unknown>();
+  private readonly playlists = new Map<string, readonly number[]>();
+  private readonly feeds = new Map<string, string | number>();
   private refusals: readonly Refusal[] = [];
 
   /** What a search for `keyword` in `region` returns: raw search results. */
@@ -92,6 +97,19 @@ export class FakeYouTube {
     this.channels.set(item.id, item);
   }
 
+  /** What a list holds, newest first, as video numbers. A list never set is not found. */
+  setPlaylist(playlistId: string, numbers: readonly number[]): void {
+    this.playlists.set(playlistId, numbers);
+  }
+
+  /**
+   * What the public Shorts feed of channel `letter` answers: a document, or a
+   * status to refuse with. A feed never set is not found.
+   */
+  setFeed(letter: string, answer: string | number): void {
+    this.feeds.set(channelId(letter), answer);
+  }
+
   /** Makes every matching request fail from now on, until `heal` is called. */
   refuse(when: (call: Call) => boolean, status: number, body: unknown = {}): void {
     this.refusals = [...this.refusals, { when, status, body }];
@@ -107,6 +125,7 @@ export class FakeYouTube {
 
   readonly fetch = (async (input: string | URL | Request): Promise<Response> => {
     const url = new URL(String(input));
+    if (url.hostname === 'www.youtube.com') return this.feed(url);
     const call: Call = {
       path: url.pathname.split('/').at(-1) ?? '',
       params: Object.fromEntries(url.searchParams),
@@ -116,8 +135,24 @@ export class FakeYouTube {
     if (refusal !== undefined) {
       return new Response(JSON.stringify(refusal.body), { status: refusal.status });
     }
+    if (call.path === 'playlistItems' && !this.playlists.has(call.params['playlistId'] ?? '')) {
+      return new Response(JSON.stringify(PLAYLIST_NOT_FOUND), { status: 404 });
+    }
     return new Response(JSON.stringify(this.answer(call)));
   }) as typeof fetch;
+
+  /** The public feed of a channel's Shorts-only list; not part of the API, so not in `calls`. */
+  readonly feedCalls: string[] = [];
+
+  private feed(url: URL): Response {
+    const list = url.searchParams.get('playlist_id') ?? '';
+    const id = `UC${list.slice('UUSH'.length)}`;
+    this.feedCalls.push(id);
+    const answer = this.feeds.get(id) ?? 404;
+    return typeof answer === 'number'
+      ? new Response('', { status: answer })
+      : new Response(answer, { headers: { 'content-type': 'text/xml; charset=UTF-8' } });
+  }
 
   private answer(call: Call): unknown {
     const ids = (call.params['id'] ?? '').split(',');
@@ -128,6 +163,9 @@ export class FakeYouTube {
       return { items: this.searches.get(key) ?? [] };
     }
     if (call.path === 'videos') return videosReply(present(this.videos));
+    if (call.path === 'playlistItems') {
+      return playlistReply(this.playlists.get(call.params['playlistId'] ?? '') ?? []);
+    }
     return channelsReply(present(this.channels));
   }
 }

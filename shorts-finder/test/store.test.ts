@@ -114,6 +114,38 @@ describe('openDatabase', () => {
     });
   });
 
+  test('brings a store of the fourth version up to date, keeping what tracking knew of each video', () => {
+    const old = openDatabase(storePath, NOW, MIGRATIONS.slice(0, 4));
+    addChannel(old);
+    addVideo(old);
+    old
+      .prepare(
+        `INSERT INTO video_tracking
+           (video_id, tier, next_read_at, is_short, missed_reads, last_missed_at, finished_at, finish_reason)
+         VALUES (?, 'done', NULL, 'yes', 2, ?, ?, 'gone')`,
+      )
+      .run(VIDEO_ID, STAMP, STAMP);
+    old.close();
+
+    const db = openDatabase(storePath, NOW);
+    const store = openStore(db);
+    const tracked = store.tracking.get(VIDEO_ID);
+    const channel = store.channels.get(CHANNEL_ID);
+    store.tracking.classify(VIDEO_ID, 'confirmed');
+    const confirmed = store.tracking.get(VIDEO_ID)?.isShort;
+    db.close();
+
+    expect(tracked).toMatchObject({
+      tier: 'done',
+      isShort: 'yes',
+      missedReads: 2,
+      finishedAt: NOW,
+      finishReason: 'gone',
+    });
+    expect(confirmed).toBe('confirmed');
+    expect(channel).toMatchObject({ followed: false, uploadsReadAt: null });
+  });
+
   test('brings a store of the first version up to date, keeping its findings', () => {
     const old = openDatabase(storePath, NOW, MIGRATIONS.slice(0, 1));
     old

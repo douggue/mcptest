@@ -1,15 +1,17 @@
 /**
- * The three calls the cycles make, bound to one key and one ledger, so a cycle
+ * The four calls the cycles make, bound to one key and one ledger, so a cycle
  * is handed "the API" and a test can hand it another.
  */
 import type { QuotaKind } from '../quota/kinds';
 import {
   fetchChannels,
+  fetchPlaylistVideoIds,
   fetchVideos,
   searchRecentVideos,
   type ChannelFacts,
   type DataApiOptions,
   type ListResult,
+  type PlaylistVideoIds,
   type SearchOrder,
   type SearchResult,
   type VideoFacts,
@@ -34,14 +36,21 @@ export interface YouTubeApi {
   fetchVideos(ids: readonly string[], paidFrom?: QuotaKind): Promise<ListResult<VideoFacts>>;
   /** The facts of channels, 1 unit per fifty, from the channel share. */
   fetchChannels(ids: readonly string[]): Promise<ListResult<ChannelFacts>>;
+  /**
+   * The newest page (up to fifty ids) of a list, 1 unit of the channel share.
+   * Rejects when the request fails; a list the API does not know is an answer.
+   */
+  fetchPlaylistVideoIds(playlistId: string): Promise<PlaylistVideoIds>;
 }
 
-/** The official API behind the cycles' three calls. */
+/** The official API behind the cycles' four calls. */
 export function createYouTubeApi(options: DataApiOptions): YouTubeApi {
   return {
     searchRecentVideos: (query, request) => searchRecentVideos(query, { ...options, ...request }),
     fetchVideos: (ids, paidFrom) =>
       fetchVideos(ids, paidFrom === undefined ? options : { ...options, kind: paidFrom }),
     fetchChannels: (ids) => fetchChannels(ids, options),
+    fetchPlaylistVideoIds: (playlistId) =>
+      fetchPlaylistVideoIds(playlistId, { ...options, maxPages: 1 }),
   };
 }

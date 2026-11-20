@@ -43,6 +43,9 @@ describe('the channel repository', () => {
       ...channelFacts('A'),
       fetchedAt: NOW,
       readQueuedAt: null,
+      followed: false,
+      lastTrackedUploadAt: null,
+      uploadsReadAt: null,
     });
   });
 

@@ -31,7 +31,8 @@ export const READ_CYCLE_EVERY_MS = 60 * MS_PER_MINUTE;
  */
 export const RATE_LIMIT_PAUSE_MS = 15 * MS_PER_MINUTE;
 
-export type CycleName = 'read' | 'channels' | 'search' | 'alerts' | 'daily' | 'rollup';
+export type CycleName =
+  'read' | 'channels' | 'uploads' | 'search' | 'feeds' | 'alerts' | 'daily' | 'rollup';
 
 /** What became of one piece of scheduled work. */
 export interface CycleRecord {
@@ -59,6 +60,17 @@ export interface SchedulerDeps {
   readonly readCycle: YouTubeWork;
   /** Reads channels still queued, after each round of readings. */
   readonly channelReads: YouTubeWork;
+  /**
+   * After the channels, each round of readings: lets go of quiet followed
+   * channels and reads the uploads list of those whose feed is not answering.
+   */
+  readonly uploadsCycle?: YouTubeWork;
+  /**
+   * Reads followed channels' public feeds. Run in every look; it needs no
+   * lease for the feeds themselves and takes it only to read the details of
+   * what they list. Resolves to null when no feed was due.
+   */
+  readonly feedCycle?: (signal: AbortSignal) => Promise<Stoppable | null>;
   readonly searchCycle: YouTubeWork;
   /** Whether any subject is due and can be paid for at `now`. */
   readonly searchIsDue: (now: Date) => boolean;
@@ -129,6 +141,14 @@ function record(deps: SchedulerDeps, entry: CycleRecord): void {
   }
 }
 
+/** Starts the pause Google asked for, when a piece of work says it did. */
+function pauseIfAsked(deps: SchedulerDeps, state: LoopState, report: Stoppable): void {
+  if (report.stopped !== 'rate_limit') return;
+  state.pausedUntil = new Date(deps.now().getTime() + RATE_LIMIT_PAUSE_MS);
+  // Kept in the store, so a restart does not ask again at once.
+  remember(deps, PAUSED_UNTIL, state.pausedUntil.toISOString());
+}
+
 /**
  * Runs one piece of work that reads YouTube, under the lease. Returns false
  * when it did not start because other work held the lease.
@@ -145,11 +165,7 @@ async function runUnderLease(
     const report = await withYouTubeLease(deps.lease, (leaseLost) =>
       work(AbortSignal.any([leaseLost, state.halt.signal])),
     );
-    if (report.stopped === 'rate_limit') {
-      state.pausedUntil = new Date(deps.now().getTime() + RATE_LIMIT_PAUSE_MS);
-      // Kept in the store, so a restart does not ask again at once.
-      remember(deps, PAUSED_UNTIL, state.pausedUntil.toISOString());
-    }
+    pauseIfAsked(deps, state, report);
     record(deps, { cycle, startedAt, result: 'done', report, reason: null });
     return true;
   } catch (error) {
@@ -191,6 +207,21 @@ async function runWhenDue(
   } catch (error) {
     record(deps, { cycle, startedAt, result: 'failed', report: null, reason: reasonOf(error) });
   }
+}
+
+/**
+ * Reads the followed channels' feeds, when any is due. Held back during a
+ * pause Google asked for, since what the feeds list is then read through the
+ * API; a pause is short and the feeds lose nothing by waiting.
+ */
+async function runFeeds(deps: SchedulerDeps, state: LoopState): Promise<void> {
+  const { feedCycle } = deps;
+  if (feedCycle === undefined || !mayRead(deps, state)) return;
+  await runWhenDue(deps, state, 'feeds', async () => {
+    const report = await feedCycle(state.halt.signal);
+    if (report !== null) pauseIfAsked(deps, state, report);
+    return report;
+  });
 }
 
 /** Notes a value for after a restart. Failing to must not stop the loop: it only costs a repeat. */
@@ -261,8 +292,9 @@ function searchIsDue(deps: SchedulerDeps): boolean {
 }
 
 /**
- * One look at what is due: readings, then searching, then the owner's
- * messages, then the daily thinning. Never rejects.
+ * One look at what is due: readings, then searching, then the followed
+ * channels' feeds, then the owner's messages, then the daily thinning. Never
+ * rejects.
  */
 async function tick(deps: SchedulerDeps, state: LoopState): Promise<void> {
   const now = deps.now();
@@ -274,10 +306,14 @@ async function tick(deps: SchedulerDeps, state: LoopState): Promise<void> {
       remember(deps, LAST_READ_AT, now.toISOString());
     }
     if (mayRead(deps, state)) await runUnderLease(deps, state, 'channels', deps.channelReads);
+    if (deps.uploadsCycle !== undefined && mayRead(deps, state)) {
+      await runUnderLease(deps, state, 'uploads', deps.uploadsCycle);
+    }
   }
   if (mayRead(deps, state) && searchIsDue(deps)) {
     await runUnderLease(deps, state, 'search', deps.searchCycle);
   }
+  await runFeeds(deps, state);
   await runWhenDue(deps, state, 'alerts', deps.alertCycle);
   await runWhenDue(deps, state, 'daily', deps.dailyMessages);
   const day = utcDay(deps.now());

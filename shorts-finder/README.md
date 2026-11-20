@@ -17,6 +17,7 @@ no finding alerts go out until that step is built. What exists:
 | One reader at a time (a lease)     | `src/lease.ts`                                    |
 | Subjects, the two searches, pacing | `src/subjects/`                                   |
 | Search cycle, channel reads        | `src/discover/`                                   |
+| Followed channels and their feeds  | `src/discover/follow.ts`, `feedCycle.ts`, `followedUploads.ts`, `src/youtube/feed.ts` |
 | Read cycle, tiers, views per hour  | `src/track/`                                      |
 | Findings as stored, and their text | `src/findings/`, `src/repos/sqliteFindingRepo.ts` |
 | Telegram alerts and daily messages | `src/alerts/`                                     |
@@ -112,6 +113,26 @@ the calendar day in Pacific time, when Google resets the allowance.
   next round. New videos of three minutes or less are stored and tracked;
   longer ones are remembered and not paid for again. Channels' facts are read
   at most once in 24 hours.
+- A channel is followed once its facts are read and it is small (a known
+  subscriber count at or under `SHORTS_FOLLOW_MAX_SUBSCRIBERS`, 100,000) or
+  new (an account younger than `SHORTS_FOLLOW_MAX_ACCOUNT_AGE_DAYS`, 180).
+  Both are starting values, to be revisited once real readings show where
+  "small" and "new" sit. A followed channel is watched through its public
+  Shorts feed, which needs no key and costs no units: at most every 30
+  minutes, three feeds at a time, backing off a channel whose feed fails
+  (30 minutes, doubling to a day) and pausing all feeds for an hour after five
+  failures in a row. New Shorts a feed lists are stored as confirmed Shorts
+  and tracked (their details cost 1 unit per 50, from the channel share); a
+  video a search had found is marked confirmed when its channel's feed lists
+  it; and the feed's view count is kept as a reading marked `feed` for videos
+  already tracked. While a channel's feed is not answering, the newest page
+  of its uploads list is read through the API instead, once a day, 1 unit,
+  within the channel share. A followed channel with no tracked upload for 14
+  days is let go.
+- The feeds are not part of the documented API. Their shape was checked by
+  hand on two channels from one address; whether YouTube keeps answering a
+  server that asks for hundreds of them a day is not yet known, which is what
+  the back-off, the pause and the fallback are for.
 - A search and the read of its results cost 101 units of the search share, so
   the default plan pays for 59 searches a day: with both kinds at 24 hours,
   about 29 subject-and-country pairs.

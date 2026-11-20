@@ -9,7 +9,7 @@
  */
 import { abortReason, reasonOf, stopReasonFor, type StopReason } from '../cycleStop';
 import type { QuotaLedger } from '../quota/ledger';
-import type { PendingHit, Store } from '../repos/types';
+import type { PendingHit, ShortAnswer, Store } from '../repos/types';
 import { HOURLY_READ_MS } from '../track/tiers';
 import type { YouTubeApi } from '../youtube/api';
 import type { VideoFacts } from '../youtube/dataApi';
@@ -76,12 +76,17 @@ export const plusDetails = (a: HitDetailsReport, b: HitDetailsReport): HitDetail
   failure: b.failure ?? a.failure,
 });
 
-/** Stores a newly found video, its first reading and its tracking, and queues its channel. */
+/**
+ * Stores a newly found video, its first reading and its tracking, and queues
+ * its channel. `isShort` replaces the answer by length when YouTube itself
+ * has said the video is a Short.
+ */
 export function storeNewVideo(
   store: Store,
   video: VideoFacts,
   channelTitle: string | null,
   readAt: Date,
+  isShort: ShortAnswer = shortByLength(video.durationSeconds),
 ): void {
   store.channels.queueRead({
     id: video.channelId,
@@ -97,7 +102,9 @@ export function storeNewVideo(
   // reading and a first rate come within the hour; the first read then moves
   // an older video to the tier its age calls for.
   const firstRead = new Date(readAt.getTime() + HOURLY_READ_MS);
-  store.tracking.start(video.id, shortByLength(video.durationSeconds), firstRead);
+  if (store.tracking.start(video.id, isShort, firstRead)) {
+    store.follows.noteTrackedUpload(video.channelId, readAt);
+  }
 }
 
 const batchesOf = (ids: readonly string[]): readonly (readonly string[])[] =>

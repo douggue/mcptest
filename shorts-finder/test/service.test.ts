@@ -4,7 +4,9 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { loadConfig, type Config } from '../src/config';
 import { openDatabase, type Db } from '../src/db/sqlite';
+import { YOUTUBE_LEASE_TTL_MS } from '../src/lease';
 import { createLogger } from '../src/log';
+import { SqliteLeaseRepo } from '../src/repos/sqliteLeaseRepo';
 import { openStore } from '../src/repos/store';
 import type { Store } from '../src/repos/types';
 import { LAST_READ_AT } from '../src/schedule/scheduler';
@@ -21,6 +23,7 @@ import {
 import { SqliteQuotaRepo } from '../src/repos/sqliteQuotaRepo';
 import { expandAcrossRegions } from '../src/subjects/subject';
 import { channelFacts, videoFacts, HOUR_MS, NOW, at } from './fixtures/facts';
+import { feedEntry, feedXml } from './fixtures/feeds';
 import { newFinding } from './fixtures/findings';
 import { FakeYouTube, hit } from './helpers/fakeYouTube';
 
@@ -111,9 +114,11 @@ describe('the service', () => {
     expect(events('cycle').map((line) => line.cycle)).toEqual([
       'read',
       'channels',
+      'uploads',
       'rollup',
       'read',
       'channels',
+      'uploads',
     ]);
     expect(telegrams).toEqual([]);
   });
@@ -163,6 +168,57 @@ describe('the service', () => {
     expect(store.hits.videoIdsFor(subject!.id)).toEqual([videoFacts(2, 'B').id]);
   });
 
+  test('follows a small channel a search led to, and meets its next Short through its feed at no search cost', async () => {
+    expandAcrossRegions('paper craft', ['GB']).forEach((subject) => store.subjects.add(subject));
+    youtube.setSearch('paper craft', 'GB', [hit(1, 'A')]);
+    youtube.setVideo(1, 'A', { views: 1000 });
+    youtube.setChannel('A');
+    youtube.setVideo(2, 'A', { views: 30 });
+    youtube.setFeed('A', feedXml('A', [feedEntry(2, 'A'), feedEntry(1, 'A', { views: 1500 })]));
+
+    await start(config());
+
+    expect(store.channels.get(channelFacts('A').id)?.followed).toBe(true);
+    expect(store.tracking.get(videoFacts(2, 'A').id)).toMatchObject({ isShort: 'confirmed' });
+    expect(store.tracking.get(videoFacts(1, 'A').id)?.isShort).toBe('confirmed');
+    expect(store.hits.listForVideo(videoFacts(2, 'A').id)[0]).toMatchObject({
+      subjectId: 1,
+      kind: 'channel_feed',
+    });
+    expect(youtube.callsTo('search')).toHaveLength(2);
+    expect(readOutcome(store.state, 'feeds')).toMatchObject({ result: 'done', problem: null });
+    expect(youtube.feedCalls).toEqual([channelFacts('A').id]);
+    expect(JSON.stringify(lines)).not.toContain(KEY);
+  });
+
+  test('falls back to the uploads list in the API for a followed channel whose feed does not answer', async () => {
+    store.channels.upsert(channelFacts('B'), NOW);
+    store.follows.setFollowed(channelFacts('B').id, true, NOW);
+    youtube.setFeed('B', 503);
+    youtube.setPlaylist(channelFacts('B').uploadsPlaylistId ?? '', [3]);
+    youtube.setVideo(3, 'B');
+
+    await start(config());
+    await later(HOUR_MS);
+
+    expect(store.tracking.get(videoFacts(3, 'B').id)).toMatchObject({ isShort: 'yes' });
+    expect(store.hits.listForVideo(videoFacts(3, 'B').id)[0]?.kind).toBe('channel_uploads');
+  });
+
+  test('leaves what a feed listed for the next round when another program holds the YouTube lease', async () => {
+    store.channels.upsert(channelFacts('B'), NOW);
+    store.follows.setFollowed(channelFacts('B').id, true, NOW);
+    youtube.setFeed('B', feedXml('B', [feedEntry(3, 'B')]));
+    youtube.setVideo(3, 'B');
+    new SqliteLeaseRepo(db).acquire('by hand', NOW, at(YOUTUBE_LEASE_TTL_MS));
+
+    await start(config());
+
+    expect(store.videos.get(videoFacts(3, 'B').id)).toBeNull();
+    expect(readOutcome(store.state, 'feeds')).toMatchObject({ result: 'done' });
+    expect(youtube.callsTo('videos')).toEqual([]);
+  });
+
   test('sends a waiting finding and, at the hour, the two daily messages', async () => {
     store.findings.add(newFinding(1, 'A'));
 
@@ -178,6 +234,7 @@ describe('the service', () => {
     expect(events('cycle').map((line) => line.cycle)).toEqual([
       'read',
       'channels',
+      'uploads',
       'alerts',
       'daily',
       'rollup',
@@ -227,7 +284,7 @@ describe('the service', () => {
     await running?.stop();
     fire();
 
-    expect(events('cycle')).toHaveLength(3);
+    expect(events('cycle')).toHaveLength(4);
   });
 
   test('fails to start, leaving nothing open, when the store cannot be opened', () => {

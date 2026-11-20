@@ -156,4 +156,15 @@ export class SqliteSubjectHitRepo implements SubjectHitRepo {
         firstSeenAt: fromText(row.first_seen_at),
       }));
   }
+
+  firstSubjectForChannel(channelId: string): number | null {
+    const row = this.db
+      .prepare<[string], { subject_id: number }>(
+        `SELECT h.subject_id FROM subject_hits h JOIN videos v ON v.id = h.video_id
+         WHERE v.channel_id = ? AND h.subject_id IS NOT NULL
+         ORDER BY h.first_seen_at, h.subject_id LIMIT 1`,
+      )
+      .get(channelId);
+    return row?.subject_id ?? null;
+  }
 }
