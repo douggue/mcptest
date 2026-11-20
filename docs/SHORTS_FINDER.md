@@ -243,6 +243,44 @@ aimed wrongly. These replace the matching parts of the plan above.
   read; the daily "still running" message reports units by kind, videos due but
   unread, tracked-set size and disk use; a swap file on the 1 GB droplet.
 
+## Changes from the creator's-eye review (accepted, not yet built)
+
+A review of the alerts, the commands and the set-up guide as a creator would use
+them. Its main point: speed on a small channel detects a hit, not a niche. A
+niche is a format that works more than once.
+
+- **Repetition is the headline.** Every alert says whether the find looks
+  repeatable or is one hit so far: how many Shorts the channel has, what its
+  usual Short gets, how many of its last ten beat that several times over, and
+  whether other small channels took off on the same subject this week. The
+  followed channels' upload lists supply this.
+- **Alert layout.** Title first, linked to the Short, so the phone notification
+  says something; length in seconds; views per hour beside what is typical for a
+  Short of that age from the same search; country names, not codes; a link to
+  the channel's Shorts tab. An alert is held until its rate and reason exist.
+- **Warning labels, not silent drops**, from what the API returns: made for
+  kids, Music or News category, audio language, the same title on several
+  channels, a very new channel with many uploads. Labels are shown so the owner
+  sees what is flagged; none is fitted to a niche.
+- **Earnings wording.** "At your rate, views like these are worth at most about
+  $X to $Y", whole dollars, with "too small to be paid for Shorts yet" under
+  1,000 subscribers; and a per-channel line from its last 30 days of Shorts.
+- **One evening message** in plain words instead of a digest and a heartbeat:
+  working or not, a problem line only when there is one, finds per subject, and
+  the subjects that found nothing in a week. Engineering figures stay in
+  `status`.
+- **Best first.** Under the daily cap the best finds go out, not the oldest, and
+  a command lists every find, so none is lost to the cap.
+- **Subject commands** act on a keyword across all its countries, can remove a
+  subject, show what each has found, and print the server's command names.
+- **Set-up guide.** Says at the top what the service does and does not yet do;
+  a command that sends a test message and prints the chat number; exact steps
+  for logging in on Windows and Mac; one path, not two; how to choose the first
+  subjects (a few known niches as controls, broad interests the owner has never
+  worked in, and format words that cross topics; replace the emptiest weekly).
+- **Countries against subjects.** If the first week shows the four countries
+  return largely the same videos, more subjects in fewer countries finds more.
+
 ## Decisions (owner, 20 November 2026)
 
 1. **Countries:** the ones with high ad rates. Start with US, GB, CA and AU in
