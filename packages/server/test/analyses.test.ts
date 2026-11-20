@@ -37,6 +37,25 @@ describe('the analyses on offer', () => {
     expect(question).toMatch(/do not (estimate|forecast|predict)/i);
   });
 
+  test('the thumbnail review starts from the model, compares winners with ordinary ones and is open to new styles', () => {
+    const question = ANALYSES.thumbnails.question('@americainvents2');
+
+    expect(ANALYSES.thumbnails.allowedTools).toContain('mcp__jgtube__get_map');
+    expect(question).toMatch(/model/i);
+    expect(question).toMatch(/ordinary/i);
+    expect(question).toMatch(/HOW MANY I LOOKED AT/);
+    expect(question).toMatch(/WINNING STYLES/);
+    expect(question).toMatch(/a style the owner does not use yet/i);
+    expect(question).toMatch(/topic, not the thumbnail/i);
+  });
+
+  test('the idea generator writes its own titles and flags ideas with no real story behind them', () => {
+    const question = ANALYSES.topics.question('@americainvents2');
+
+    expect(question).toMatch(/never reuse a competitor's title/i);
+    expect(question).toMatch(/NEEDS A REAL STORY/);
+  });
+
   test('only the thumbnail analysis looks at images', () => {
     const looks = (id: (typeof ANALYSIS_IDS)[number]) =>
       ANALYSES[id].allowedTools.includes('mcp__jgtube__view_thumbnails');

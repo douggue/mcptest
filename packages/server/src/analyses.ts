@@ -54,15 +54,16 @@ export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
   thumbnails: {
     title: 'Thumbnail review',
     description:
-      'Claude looks at the thumbnails that took off on channels like yours, and at yours, and says what to change.',
-    allowedTools: [tool('get_thumbnail_board'), tool('view_thumbnails')],
-    maxTurns: 10,
+      'Claude looks at the thumbnails that took off on channels like yours, and at yours, names the styles that are winning and says what to test.',
+    allowedTools: [tool('get_map'), tool('get_thumbnail_board'), tool('view_thumbnails')],
+    maxTurns: 12,
     question: (channel) =>
       [
-        `For the channel ${channel}: call get_thumbnail_board.`,
-        "Then look at the pictures with view_thumbnails: the owner's own videos, the strongest winner from each of the five look-alike channels that hit most often, and three ordinary thumbnails from those same channels for contrast. Use at most two calls.",
-        'Write four sections: WHAT THE WINNERS DO (three to five points, each naming the video it is seen in), WHAT YOURS DO DIFFERENTLY, THREE CHANGES TO TRY NEXT (specific: example wording of four words or fewer, what to show, colours, layout), and ONE THUMBNAIL TO MODEL (which video and why).',
-        'Describe only what you can see. At most 350 words.',
+        `For the channel ${channel}: call get_map to learn which channel is the owner's model, if there is one, and which look-alikes match most closely. Then call get_thumbnail_board.`,
+        "Look at the pictures with view_thumbnails, in at most three calls: the owner's own videos; two winners and two ordinary thumbnails from the model channel and from each of the three closest look-alikes; and winners from up to four other look-alike channels, choosing ones whose winners might look different.",
+        "Find every thumbnail style that is winning on these channels. The owner is open to a new style when it wins on channels in the same niche or format, so do not assume that the owner's style or the model's is the right one.",
+        "Write five sections: HOW MANY I LOOKED AT (the number of thumbnails and the channels they came from), WINNING STYLES (for each style: what it looks like, the channels and videos it is seen in, and whether those channels' ordinary thumbnails look different; when a channel's winners and ordinary thumbnails look the same, say that the topic, not the thumbnail, made the difference there), WHAT YOURS DO DIFFERENTLY, THREE THINGS TO TEST NEXT (specific: example wording of four words or fewer, what to show, colours, layout; at least one must be a style the owner does not use yet), and ONE THUMBNAIL TO MODEL (which video and why).",
+        'Describe only what you can see, and do not generalise beyond the thumbnails you looked at. At most 450 words.',
       ].join(' '),
   },
   topics: {
@@ -82,6 +83,7 @@ export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
         'Propose eight videos to make next, best first. Prefer subjects where a small channel got large views, and skip anything the owner has already made.',
         "For each give: TITLE (two options in the title format the owner and the look-alikes use), WHY (one or two breakout videos that prove demand, with channel, views and score, and any caution on that score), CROWDING (how many look-alike channels already covered the subject and how those versions did, or 'fresh'), PROOF AT YOUR SIZE (the smallest channel in the tool results that got large views on this subject, with its subscriber count and that video's views, or 'none yet' when only larger channels did), and THUMBNAIL (one line on what to show).",
         'Every number you give must be one a tool returned. Do not estimate, forecast or predict views for the owner.',
+        "Write each title yourself in the niche's format: never reuse a competitor's title word for word, or with only the country or one word changed. If the tool results do not show which real invention, product or event an idea is about, mark it NEEDS A REAL STORY and say what to look up before making it.",
         'At most 650 words.',
       ].join(' '),
   },
