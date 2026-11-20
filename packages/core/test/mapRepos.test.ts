@@ -8,7 +8,7 @@ import { SqliteMapRepo } from '../src/repos/sqliteMapRepo';
 import type { RecEdge } from '../src/repos/types';
 
 /** The number of the newest schema step. */
-const LATEST = 3;
+const LATEST = 4;
 const T1 = new Date('2026-11-20T12:00:00Z');
 const T2 = new Date('2026-11-25T12:00:00Z');
 const cid = (letter: string) => `UC${letter.repeat(22)}`;
@@ -123,6 +123,16 @@ describe('SqliteMapRepo', () => {
     const newer = maps.create({ centerChannelId: cid('C'), depth: 2, region: 'US', members }, T2);
 
     expect(maps.latestForCenter(cid('C'))?.id).toBe(newer);
+  });
+
+  test('lists each channel a map was made around, once', () => {
+    expect(maps.listCenterIds()).toEqual([]);
+
+    maps.create({ centerChannelId: cid('C'), depth: 1, region: 'US', members }, T1);
+    maps.create({ centerChannelId: cid('C'), depth: 2, region: 'US', members }, T2);
+    maps.create({ centerChannelId: cid('A'), depth: 1, region: 'US', members: [] }, T2);
+
+    expect(maps.listCenterIds()).toEqual([cid('A'), cid('C')]);
   });
 
   test('starts with no stored snapshot and no removals', () => {

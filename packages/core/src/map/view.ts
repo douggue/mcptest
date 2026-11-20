@@ -12,7 +12,8 @@ import type {
 import { outsideReason, shapeMismatch, type OutsideReason } from './peers';
 import { anchoredTitleSimilarity } from './relevance';
 
-const RECENT_DAYS = 30;
+/** "Recent" for views and uploads: videos published in the last 30 days. */
+export const RECENT_DAYS = 30;
 const BREAKOUT_WINDOW_DAYS = 60;
 const RISING_MAX_CHANNEL_AGE_DAYS = 90;
 const RISING_VIEWS_PER_SUBSCRIBER = 20;

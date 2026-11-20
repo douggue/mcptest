@@ -19,6 +19,10 @@ one for details. Below it is a feed of recent videos far above their channel's
 usual views, and the full channel list. A first map takes a few minutes; after
 that it opens instantly from the copy stored on your computer.
 
+At the bottom, **New niches to watch** lists every new or small channel Jgtube
+has read, on any map, that has a recent video far above its size or its usual
+views. Press **Watch** on one to keep it there.
+
 The app is only reachable from your own computer and has no login.
 
 For development, run `npm run api` and `npm run web` in two terminals and open

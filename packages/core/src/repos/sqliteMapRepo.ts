@@ -71,6 +71,15 @@ export class SqliteMapRepo implements MapRepo {
     };
   }
 
+  listCenterIds(): readonly string[] {
+    return this.db
+      .prepare<[], { center_channel: string }>(
+        'SELECT DISTINCT center_channel FROM maps ORDER BY center_channel',
+      )
+      .all()
+      .map((row) => row.center_channel);
+  }
+
   saveSnapshot(mapId: number, snapshotJson: string): void {
     this.db.prepare('UPDATE maps SET snapshot_json = ? WHERE id = ?').run(snapshotJson, mapId);
   }

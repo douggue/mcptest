@@ -348,6 +348,7 @@ describe('crawlMap and the stored snapshot', () => {
       maps: {
         create: maps.create.bind(maps),
         latestForCenter: maps.latestForCenter.bind(maps),
+        listCenterIds: maps.listCenterIds.bind(maps),
         findSnapshot: maps.findSnapshot.bind(maps),
         listRemoved: maps.listRemoved.bind(maps),
         setRemoved: maps.setRemoved.bind(maps),

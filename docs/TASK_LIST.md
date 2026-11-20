@@ -58,6 +58,7 @@ every phase; coverage floor is 80%.
 - [x] Seed from a model channel: the crawl also explores from it and "like yours" is measured against it
 - [x] Depth 1 to 3 and a channel limit of 150, 300 or 600 chosen on screen; when the limit cannot fit every candidate, places go first to channels recommended by look-alikes
 - [ ] Manual add
+- [x] New niches to watch: every stored channel that is new (first upload within 90 days) or small (10,000 subscribers or fewer) and has a recent video that outperforms, less large, clip, film and non-Latin channels; a watchlist that outlives maps (`GET /api/niches`, `POST /api/niches/watch`)
 
 **Done when:** for the owner's channel, at least 8 of the top 12 competitors are judged same-format by the owner, and the closest look-alike from the export is included.
 
@@ -91,6 +92,7 @@ every phase; coverage floor is 80%.
 - [ ] Channel detail, run progress
 - [x] Competitor remove and restore
 - [x] Thumbnail board: per channel like yours, the thumbnails that took off beside ordinary ones and the owner's own, with a switch between winners only and winners next to ordinary (`GET /api/maps/latest/thumbnails`)
+- [x] "New niches to watch" section: a card per channel with why it is listed, its numbers, the thumbnails that took off and its hit rate; filters for new, small and watched
 - [ ] Thumbnail patterns in words: a model looks at the board's winners and ordinary videos and says what to copy
 - [ ] Star, hide, copy
 - [ ] Follow-up chat over a stored run

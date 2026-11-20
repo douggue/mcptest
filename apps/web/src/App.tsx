@@ -4,10 +4,12 @@ import { Benchmarks } from './components/Benchmarks';
 import { BreakoutFeed } from './components/BreakoutFeed';
 import { Inspector } from './components/Inspector';
 import { MapToolbar } from './components/MapToolbar';
+import { Niches } from './components/Niches';
 import { ScopeToggle } from './components/ScopeToggle';
 import { Radar } from './components/Radar';
 import { Shell } from './components/Shell';
 import { ThumbnailBoard } from './components/ThumbnailBoard';
+import { useNiches } from './components/useNiches';
 import { useThumbnailBoard } from './components/useThumbnailBoard';
 import { createApi, type JobState } from './lib/api';
 import { inScope, type Scope } from './lib/feed';
@@ -129,6 +131,7 @@ export function App() {
   );
   const layout = useMemo(() => (visible ? layoutRadar(visible) : null), [visible]);
   const board = useThumbnailBoard(api, snapshot);
+  const niches = useNiches(api, snapshot?.mapId ?? null);
   const selected = snapshot?.channels.find((channel) => channel.id === selectedId) ?? null;
   const select = (channelId: string) => {
     setSelectedId((current) => (current === channelId ? null : channelId));
@@ -207,6 +210,7 @@ export function App() {
           modelId={snapshot.model?.id ?? null}
         />
       )}
+      <Niches niches={niches} hasMap={snapshot !== null} />
     </Shell>
   );
 }

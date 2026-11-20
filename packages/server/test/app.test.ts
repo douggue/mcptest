@@ -1,4 +1,4 @@
-import type { MapSnapshot, ThumbnailBoard } from '@jgtube/core';
+import type { MapSnapshot, NicheList, ThumbnailBoard } from '@jgtube/core';
 import { beforeEach, describe, expect, test } from 'vitest';
 import type { ChannelSnapshot, SidebarItem, YouTubeSource } from '@jgtube/core';
 import { createApp, type CrawlOutcome, type Engine } from '../src/app';
@@ -21,7 +21,30 @@ const board = {
   ordinaryMaxScore: 1.2,
 } satisfies ThumbnailBoard;
 
+const niches = {
+  channels: [],
+  channelsChecked: 12,
+  smallMaxSubscribers: 10_000,
+  newMaxAgeDays: 90,
+} satisfies NicheList;
+
 class FakeEngine implements Engine {
+  nicheReads = 0;
+  /** The channels the fake store holds, for the watchlist. */
+  known: readonly string[] = [CHANNEL_ID];
+  watches: Array<[string, boolean]> = [];
+
+  listNiches(): NicheList {
+    this.nicheReads += 1;
+    return niches;
+  }
+
+  setNicheWatched(channel: string, watched: boolean): boolean {
+    if (!this.known.includes(channel)) return false;
+    this.watches.push([channel, watched]);
+    return true;
+  }
+
   stored: MapSnapshot | null = snapshot;
   lookups: string[] = [];
   board: ThumbnailBoard | null = board;
@@ -392,6 +415,128 @@ describe('POST /api/competitors', () => {
   });
 });
 
+describe('GET /api/niches', () => {
+  test('returns the niche list in the standard envelope', async () => {
+    const response = await get('/api/niches');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ success: true, data: niches, error: null, meta: null });
+    expect(engine.nicheReads).toBe(1);
+  });
+
+  test('only answers to GET', async () => {
+    const response = await app(
+      new Request(`http://${HOST}/api/niches`, { method: 'POST', headers: { host: HOST } }),
+    );
+
+    expect(response.status).toBe(405);
+    expect(engine.nicheReads).toBe(0);
+  });
+
+  test('is refused to a page that names another host', async () => {
+    const response = await app(
+      new Request('http://evil.example/api/niches', { headers: { host: 'evil.example' } }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(engine.nicheReads).toBe(0);
+  });
+});
+
+describe('POST /api/niches/watch', () => {
+  const OTHER = 'UCMOqf8ab-42UUQIdVoKwjlQ';
+  const send = (body: unknown, headers: Record<string, string> = {}) =>
+    app(
+      new Request(`http://${HOST}/api/niches/watch`, {
+        method: 'POST',
+        headers: { host: HOST, 'content-type': 'application/json', ...headers },
+        body: typeof body === 'string' ? body : JSON.stringify(body),
+      }),
+    );
+
+  test('marks a channel as watched and can unmark it', async () => {
+    const watched = await send({ channel: CHANNEL_ID, watched: true });
+    await send({ channel: CHANNEL_ID, watched: false });
+
+    expect(watched.status).toBe(200);
+    expect(await watched.json()).toEqual({
+      success: true,
+      data: { channel: CHANNEL_ID, watched: true },
+      error: null,
+      meta: null,
+    });
+    expect(engine.watches).toEqual([
+      [CHANNEL_ID, true],
+      [CHANNEL_ID, false],
+    ]);
+  });
+
+  test('answers 404 for a channel that is not in the store', async () => {
+    const response = await send({ channel: OTHER, watched: true });
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ success: false, data: null });
+  });
+
+  test.each([
+    [{ channel: 'not-an-id', watched: true }],
+    [{ channel: '@handle', watched: true }],
+    [{ channel: CHANNEL_ID, watched: 'yes' }],
+    [{ channel: CHANNEL_ID }],
+    [{ watched: true }],
+    ['{not json'],
+  ])('rejects %j', async (body) => {
+    expect((await send(body)).status).toBe(400);
+    expect(engine.watches).toEqual([]);
+  });
+
+  test('rejects a body that is too large', async () => {
+    const response = await send({ channel: CHANNEL_ID, watched: true, padding: 'x'.repeat(3000) });
+
+    expect(response.status).toBe(400);
+    expect(engine.watches).toEqual([]);
+  });
+
+  test('rejects requests sent from another site', async () => {
+    const response = await send(
+      { channel: CHANNEL_ID, watched: true },
+      { origin: 'https://evil.example' },
+    );
+
+    expect(response.status).toBe(403);
+    expect(engine.watches).toEqual([]);
+  });
+
+  test('requires a JSON content type', async () => {
+    const response = await send(
+      { channel: CHANNEL_ID, watched: true },
+      {
+        'content-type': 'text/plain',
+      },
+    );
+
+    expect(response.status).toBe(415);
+    expect(engine.watches).toEqual([]);
+  });
+
+  test('only answers to POST', async () => {
+    expect((await get('/api/niches/watch')).status).toBe(405);
+  });
+
+  test('is refused to a page that names another host', async () => {
+    const response = await app(
+      new Request('http://evil.example/api/niches/watch', {
+        method: 'POST',
+        headers: { host: 'evil.example', 'content-type': 'application/json' },
+        body: JSON.stringify({ channel: CHANNEL_ID, watched: true }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(engine.watches).toEqual([]);
+  });
+});
+
 describe('the server, the store and the engine together', () => {
   const NOW = new Date('2026-11-20T12:00:00Z');
   const cid = (letter: string) => `UC${letter.repeat(22)}`;
@@ -606,6 +751,99 @@ describe('the server, the store and the engine together', () => {
       'Channel B',
       'Channel D',
     ]);
+    real.close();
+  });
+
+  test('find the new channels with a video that took off, watch one and see it stay watched', async () => {
+    /** Two videos far above the channel's usual and four at it, all under 40 days old. */
+    const views = [40_000, 30_000, 1000, 1000, 1000, 1000];
+    const rising: YouTubeSource = {
+      ...source,
+      fetchChannel: async (channelId, maxVideos) => {
+        const snapshot = await source.fetchChannel(channelId, maxVideos);
+        const letter = channelId.charAt(2);
+        return {
+          ...snapshot,
+          videos: views.map((count, index) => ({
+            id: vid(letter, index),
+            channelId,
+            title: `America Just Built Thing ${index}`,
+            views: count,
+            durationSeconds: 900,
+            published: {
+              date: new Date(NOW.getTime() - (index + 1) * 5 * 86_400_000),
+              precision: 'day' as const,
+              raw: `${(index + 1) * 5}d ago`,
+            },
+          })),
+        };
+      },
+    };
+    const real = createEngine(
+      { dbPath: ':memory:', region: 'US' },
+      { createSource: async () => rising, now: () => NOW },
+    );
+    const live = createApp({ engine: real, jobs: new JobStore(), allowedHosts: [HOST] });
+    const call = (path: string, body?: unknown) =>
+      live(
+        new Request(`http://${HOST}${path}`, {
+          method: body ? 'POST' : 'GET',
+          headers: { host: HOST, ...(body ? { 'content-type': 'application/json' } : {}) },
+          body: body ? JSON.stringify(body) : undefined,
+        }),
+      );
+    const readNiches = async () =>
+      ((await (await call('/api/niches')).json()) as { data: NicheList }).data;
+
+    expect(await readNiches()).toMatchObject({ channels: [], channelsChecked: 0 });
+    await call('/api/maps', { channel: '@handleC' });
+    for (let tries = 0; real.findSnapshot(cid('C')) === null && tries < 50; tries += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    const found = await readNiches();
+    expect(found.channelsChecked).toBe(4);
+    // The centre is the owner's own channel: never offered as a niche.
+    expect(found.channels.map((entry) => entry.title)).toEqual([
+      'Channel A',
+      'Channel B',
+      'Channel D',
+    ]);
+    expect(found.channels[0]).toMatchObject({
+      id: cid('A'),
+      handle: 'handleA',
+      subscribers: 1000,
+      recentViews: 74_000,
+      recentUploads: 6,
+      viewsPerSubscriber: 74,
+      channelAgeDays: 30,
+      reasons: ['new', 'small'],
+      hitCount: 2,
+      scoredCount: 6,
+      qualifies: true,
+      watched: false,
+    });
+    expect(found.channels[0]?.outperformers.map((video) => video.videoId)).toEqual([
+      vid('A', 0),
+      vid('A', 1),
+    ]);
+    expect(found.channels[0]?.sampleTitles[0]).toEqual({
+      videoId: vid('A', 0),
+      title: 'America Just Built Thing 0',
+      views: 40_000,
+    });
+
+    expect((await call('/api/niches/watch', { channel: cid('Z'), watched: true })).status).toBe(
+      404,
+    );
+    expect((await call('/api/niches/watch', { channel: cid('B'), watched: true })).status).toBe(
+      200,
+    );
+    const watched = (await readNiches()).channels.filter((entry) => entry.watched);
+    expect(watched.map((entry) => entry.title)).toEqual(['Channel B']);
+
+    await call('/api/niches/watch', { channel: cid('B'), watched: false });
+    expect((await readNiches()).channels.filter((entry) => entry.watched)).toEqual([]);
     real.close();
   });
 });

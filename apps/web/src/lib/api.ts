@@ -1,4 +1,4 @@
-import type { CrawlProgress, MapSnapshot, ThumbnailBoard } from '@jgtube/core';
+import type { CrawlProgress, MapSnapshot, NicheList, ThumbnailBoard } from '@jgtube/core';
 
 export interface JobState {
   readonly id: string;
@@ -102,6 +102,22 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ center, channel, removed }),
+        }),
+      );
+    },
+
+    /** Small rising channels across everything stored, and the ones the owner watches. */
+    async niches(): Promise<NicheList> {
+      return unwrap<NicheList>(await call('/api/niches'));
+    },
+
+    /** Marks a channel as a niche to watch, or unmarks it. */
+    async setNicheWatched(channel: string, watched: boolean): Promise<void> {
+      unwrap<unknown>(
+        await call('/api/niches/watch', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ channel, watched }),
         }),
       );
     },

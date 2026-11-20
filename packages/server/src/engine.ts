@@ -5,8 +5,10 @@ import {
   SqliteEdgeRepo,
   SqliteMapRepo,
   SqliteVideoRepo,
+  SqliteWatchlistRepo,
   crawlMap,
   loadMapSnapshot,
+  loadNicheList,
   loadThumbnailBoard,
   openDatabase,
   parseChannelRef,
@@ -53,6 +55,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     videos: new SqliteVideoRepo(db),
     edges: new SqliteEdgeRepo(db),
     maps: new SqliteMapRepo(db),
+    watchlist: new SqliteWatchlistRepo(db),
   };
   // Created on the first crawl, so stored maps can be read with no network at all.
   let source: Promise<YouTubeSource> | null = null;
@@ -103,6 +106,17 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       const onMap = map?.members.some((m) => m.channelId === channelId && m.steps > 0) ?? false;
       if (!onMap) return false;
       repos.maps.setRemoved(centerChannelId, channelId, removed, now());
+      return true;
+    },
+
+    listNiches() {
+      return loadNicheList(repos, now());
+    },
+
+    setNicheWatched(channelId, watched) {
+      // Only a channel some crawl has read can be watched.
+      if (!repos.channels.findById(channelId)) return false;
+      repos.watchlist.setWatched(channelId, watched, now());
       return true;
     },
 
