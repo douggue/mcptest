@@ -1,4 +1,4 @@
-import type { MapSnapshot } from '@jgtube/core';
+import type { MapSnapshot, ThumbnailBoard } from '@jgtube/core';
 import { beforeEach, describe, expect, test } from 'vitest';
 import type { ChannelSnapshot, SidebarItem, YouTubeSource } from '@jgtube/core';
 import { createApp, type CrawlOutcome, type Engine } from '../src/app';
@@ -13,9 +13,24 @@ const snapshot = {
   center: { id: CHANNEL_ID, title: 'Centre' },
 } as unknown as MapSnapshot;
 
+const board = {
+  mapId: 7,
+  center: { id: CHANNEL_ID, title: 'Centre', subscribers: null, videos: [] },
+  channels: [],
+  winnerMinScore: 2,
+  ordinaryMaxScore: 1.2,
+} satisfies ThumbnailBoard;
+
 class FakeEngine implements Engine {
   stored: MapSnapshot | null = snapshot;
   lookups: string[] = [];
+  board: ThumbnailBoard | null = board;
+  boardLookups: string[] = [];
+
+  findThumbnailBoard(channel: string): ThumbnailBoard | null {
+    this.boardLookups.push(channel);
+    return this.board;
+  }
   crawls: Array<{ channel: string; depth: number }> = [];
   outcome: Promise<CrawlOutcome> = Promise.resolve({ centerChannelId: CHANNEL_ID, warnings: [] });
 
@@ -107,6 +122,61 @@ describe('GET /api/maps/latest', () => {
       expect(engine.lookups).toEqual([]);
     },
   );
+});
+
+describe('GET /api/maps/latest/thumbnails', () => {
+  const PATH = '/api/maps/latest/thumbnails';
+
+  test('returns the thumbnail board in the standard envelope', async () => {
+    const response = await get(`${PATH}?channel=%40veritasium`);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toMatch(/application\/json/);
+    expect(await response.json()).toEqual({ success: true, data: board, error: null, meta: null });
+    expect(engine.boardLookups).toEqual(['@veritasium']);
+  });
+
+  test('answers 404 when no map has been made for the channel', async () => {
+    engine.board = null;
+
+    const response = await get(`${PATH}?channel=${CHANNEL_ID}`);
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ success: false, data: null });
+  });
+
+  test.each(['', 'https%3A%2F%2Fevil.example%2F%40x', 'a%20b'])(
+    'rejects the channel %j without touching the store',
+    async (channel) => {
+      const response = await get(`${PATH}?channel=${channel}`);
+
+      expect(response.status).toBe(400);
+      expect(engine.boardLookups).toEqual([]);
+    },
+  );
+
+  test('only answers to GET', async () => {
+    const response = await app(
+      new Request(`http://${HOST}${PATH}?channel=${CHANNEL_ID}`, {
+        method: 'POST',
+        headers: { host: HOST },
+      }),
+    );
+
+    expect(response.status).toBe(405);
+    expect(engine.boardLookups).toEqual([]);
+  });
+
+  test('is refused to a page that names another host', async () => {
+    const response = await app(
+      new Request(`http://evil.example:4317${PATH}?channel=${CHANNEL_ID}`, {
+        headers: { host: 'evil.example:4317' },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(engine.boardLookups).toEqual([]);
+  });
 });
 
 describe('POST /api/maps', () => {
@@ -451,6 +521,91 @@ describe('the server, the store and the engine together', () => {
     const { data: after } = await call(`/api/maps/latest?channel=${cid('C')}`);
     const removed = after.channels.filter((c) => c.removed);
     expect(removed.map((c) => c.title)).toEqual(['Channel A']);
+    real.close();
+  });
+
+  test('make a map and read its thumbnail board, less a removed competitor', async () => {
+    const USUAL_VIEWS = 1000;
+    /** Seven videos old enough to judge: two far above the channel's usual, five at it. */
+    const views = [USUAL_VIEWS * 30, USUAL_VIEWS * 8, ...Array<number>(5).fill(USUAL_VIEWS)];
+    const withHits: YouTubeSource = {
+      ...source,
+      fetchChannel: async (channelId, maxVideos) => {
+        const snapshot = await source.fetchChannel(channelId, maxVideos);
+        const letter = channelId.charAt(2);
+        return {
+          ...snapshot,
+          videos: views.map((count, index) => ({
+            id: vid(letter, index),
+            channelId,
+            title: `America Just Built Thing ${index}`,
+            views: count,
+            durationSeconds: 900,
+            published: {
+              date: new Date(NOW.getTime() - (index + 10) * 86_400_000),
+              precision: 'day' as const,
+              raw: `${index + 10}d ago`,
+            },
+          })),
+        };
+      },
+    };
+    const real = createEngine(
+      { dbPath: ':memory:', region: 'US' },
+      { createSource: async () => withHits, now: () => NOW },
+    );
+    const live = createApp({ engine: real, jobs: new JobStore(), allowedHosts: [HOST] });
+    const call = (path: string, body?: unknown) =>
+      live(
+        new Request(`http://${HOST}${path}`, {
+          method: body ? 'POST' : 'GET',
+          headers: { host: HOST, ...(body ? { 'content-type': 'application/json' } : {}) },
+          body: body ? JSON.stringify(body) : undefined,
+        }),
+      );
+    const readBoard = async (channel: string) =>
+      (
+        (await (await call(`/api/maps/latest/thumbnails?channel=${channel}`)).json()) as {
+          data: ThumbnailBoard;
+        }
+      ).data;
+
+    expect((await call(`/api/maps/latest/thumbnails?channel=${cid('C')}`)).status).toBe(404);
+    await call('/api/maps', { channel: '@handleC' });
+    for (let tries = 0; real.findSnapshot(cid('C')) === null && tries < 50; tries += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    const found = await readBoard('%40handleC');
+    expect(found.center).toMatchObject({ id: cid('C'), title: 'Channel C', subscribers: 1000 });
+    expect(found.center.videos.map((video) => video.videoId)).toEqual(
+      views.slice(0, 6).map((_, index) => vid('C', index)),
+    );
+    expect(found.channels.map((channel) => channel.title).sort()).toEqual([
+      'Channel A',
+      'Channel B',
+      'Channel D',
+    ]);
+    for (const channel of found.channels) {
+      expect(channel.winners.map((video) => video.videoId)).toEqual([
+        vid(channel.id.charAt(2), 0),
+        vid(channel.id.charAt(2), 1),
+      ]);
+      expect(channel.ordinary).toHaveLength(5);
+      expect(channel).toMatchObject({ subscribers: 1000, winnerCount: 2, scoredCount: 7 });
+    }
+    expect(found.channels[0]?.winners[0]).toMatchObject({
+      title: 'America Just Built Thing 0',
+      views: 30_000,
+      publishedRaw: '10d ago',
+    });
+
+    await call('/api/competitors', { center: cid('C'), channel: cid('A'), removed: true });
+    const after = await readBoard(cid('C'));
+    expect(after.channels.map((channel) => channel.title).sort()).toEqual([
+      'Channel B',
+      'Channel D',
+    ]);
     real.close();
   });
 });

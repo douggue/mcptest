@@ -1,4 +1,9 @@
-import { parseChannelRef, type CrawlProgress, type MapSnapshot } from '@jgtube/core';
+import {
+  parseChannelRef,
+  type CrawlProgress,
+  type MapSnapshot,
+  type ThumbnailBoard,
+} from '@jgtube/core';
 import { z } from 'zod';
 import type { JobStore } from './jobs';
 
@@ -25,6 +30,8 @@ export interface CrawlChoices {
 export interface Engine {
   /** The latest stored map around a channel; reads the store only. */
   findSnapshot(channel: string): MapSnapshot | null;
+  /** The thumbnails that worked around a channel, from its latest map; reads the store only. */
+  findThumbnailBoard(channel: string): ThumbnailBoard | null;
   crawl(
     channel: string,
     depth: number,
@@ -125,12 +132,13 @@ async function readJson(options: AppOptions, request: Request): Promise<unknown 
   }
 }
 
-function latestMap(engine: Engine, url: URL): Response {
+/** Answers a read about a channel's latest map, once the channel reference is known to be usable. */
+function readLatest<T>(url: URL, find: (channel: string) => T | null): Response {
   const channel = url.searchParams.get('channel') ?? '';
   const problem = channelProblem(channel);
   if (problem) return fail(400, problem);
-  const snapshot = engine.findSnapshot(channel);
-  return snapshot ? ok(snapshot) : fail(404, 'No map has been made for this channel yet');
+  const found = find(channel);
+  return found ? ok(found) : fail(404, 'No map has been made for this channel yet');
 }
 
 async function startCrawl(options: AppOptions, request: Request): Promise<Response> {
@@ -183,7 +191,14 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     const { method } = request;
 
     if (pathname === '/api/maps/latest') {
-      return method === 'GET' ? latestMap(options.engine, url) : fail(405, 'Use GET');
+      return method === 'GET'
+        ? readLatest(url, (channel) => options.engine.findSnapshot(channel))
+        : fail(405, 'Use GET');
+    }
+    if (pathname === '/api/maps/latest/thumbnails') {
+      return method === 'GET'
+        ? readLatest(url, (channel) => options.engine.findThumbnailBoard(channel))
+        : fail(405, 'Use GET');
     }
     if (pathname === '/api/maps') {
       return method === 'POST' ? startCrawl(options, request) : fail(405, 'Use POST');
