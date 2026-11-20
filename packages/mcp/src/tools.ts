@@ -1,3 +1,4 @@
+import type { FetchImage } from '@jgtube/core';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { createMakeMap } from './crawlTool';
 import { ToolFailure, plainMessage } from './failure';
@@ -16,7 +17,6 @@ import type {
   SetCompetitorStatusArgs,
   ViewThumbnailsArgs,
 } from './schemas';
-import type { FetchImage } from './thumbnailImages';
 import { viewThumbnails } from './thumbnailTool';
 import { listTransferOpportunities } from './transferTool';
 import type { ConnectorEngine, ToolContext } from './types';

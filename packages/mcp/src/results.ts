@@ -5,6 +5,19 @@ export function jsonResult(value: unknown): CallToolResult {
   return { content: [{ type: 'text', text: JSON.stringify(value) }] };
 }
 
+/** A picture as the protocol carries it, for the model to look at. */
+export function imageBlock(image: { readonly bytes: Uint8Array; readonly mimeType: string }): {
+  type: 'image';
+  data: string;
+  mimeType: string;
+} {
+  return {
+    type: 'image',
+    data: Buffer.from(image.bytes).toString('base64'),
+    mimeType: image.mimeType,
+  };
+}
+
 /** A failed call, as the protocol's error result carrying one plain sentence. */
 export function failureResult(message: string): CallToolResult {
   return { content: [{ type: 'text', text: message }], isError: true };

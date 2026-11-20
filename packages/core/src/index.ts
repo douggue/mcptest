@@ -152,3 +152,18 @@ export type {
 } from './transfer/types';
 export { SqliteTransferRepo } from './repos/sqliteTransferRepo';
 export type { SavedIdea, TransferRepo } from './repos/types';
+export {
+  CHANNEL_IMAGE_HOSTS,
+  CHANNEL_IMAGE_RULE,
+  MAX_THUMBNAIL_BYTES,
+  STORYBOARD_RULE,
+  THUMBNAIL_RULE,
+  VIDEO_IMAGE_HOST,
+  fetchPinnedImage,
+  fetchThumbnail,
+  isPinnedImageUrl,
+  thumbnailUrl,
+  type FetchImage,
+  type FetchedImage,
+  type ImageRule,
+} from './sources/images';
