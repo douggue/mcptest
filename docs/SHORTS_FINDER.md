@@ -1,0 +1,201 @@
+# Shorts niche finder: plan
+
+Status: plan only. Nothing here is built. Four decisions are the owner's and are
+listed under "Open decisions"; the parts that depend on them are marked.
+
+## Goal
+
+A service that runs all day on a small server, watches YouTube Shorts on a list
+of subjects and countries through the official YouTube Data API, and sends an
+alert when a new or small channel has a Short that is gaining views unusually
+fast. Findings are kept with an earnings range at the owner's Shorts rate
+($0.10 to $0.50 per 1,000 views) and, where the same idea is winning in another
+country, language or category, as a transfer opportunity.
+
+## What carries over from Jgtube
+
+| Part                                              | Use                                                               | Change needed                                                                                   |
+| ------------------------------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `db/sqlite.ts`, `db/backup.ts`                    | Store, numbered migrations, backup before upgrade                 | New tables (below)                                                                              |
+| `repos/`                                          | Channels, videos, readings, watchlist, leases                     | A reading repository that can prune and roll up                                                 |
+| `sources/dataApi.ts`                              | Search and channel facts; key in a header, stripped from errors   | Add video statistics, playlist items, region and language on search, and a count of units spent |
+| `niches/outperform.ts`, `niches/niches.ts`        | "New or small channel with a recent video that outperforms"       | Thresholds re-derived for Shorts (see "Rules")                                                  |
+| `niches/growth.ts`                                | Views gained between stored readings                              | A per-hour version over a short window                                                          |
+| `scoring/earnings.ts`                             | Earnings range; Shorts rate is already the owner's                | The Shorts test (60 seconds) is out of date; replaced by the Shorts check below                 |
+| `refresh/refresh.ts`, `lease.ts`                  | Scheduled re-reading, back-off for failures, one reader at a time | Reads go through the official API, not the page reader                                          |
+| `discovery/keyword.ts`                            | Channels found by keyword                                         | It reads each channel through the page reader today; needs an official-API reader               |
+| `packages/server`, `apps/web`, `design/DESIGN.md` | API envelope, security headers, page in the owner's design        | A login, or no public address at all (see "Security")                                           |
+| `packages/mcp`                                    | The owner's Claude reads findings                                 | Remote access is an open decision                                                               |
+
+Not on the branch: `packages/core/src/transfer` (title templates and transfer
+opportunities). The plan does not depend on it until the owner confirms it has
+been merged.
+
+The largest piece of new engine work is the one Jgtube deferred as
+`DataApiSource`: reading a channel and its videos through the official API.
+Jgtube's ingest uses the unofficial page reader, which data-centre addresses are
+refused first, so the server cannot rely on it.
+
+## What is new
+
+1. **Official-API reader.** `videos.list` (statistics, length, language,
+   category; 1 unit per 50 videos), `playlistItems.list` (a channel's uploads;
+   1 unit per 50), `search.list` with `regionCode`, `relevanceLanguage` and
+   `videoDuration=short` (100 units).
+2. **Allowance ledger.** Every call records its cost. The scheduler spends from
+   a daily plan and stops before the allowance does, so a refusal never happens
+   mid-cycle. Resets at midnight Pacific time.
+3. **Watch list of subjects.** Keyword, country, language, how often. Seeds come
+   from the owner; later, subjects found in winning titles can be proposed, never
+   added silently.
+4. **Shorts check.** The API has no "is a Short" flag. First cut: three minutes
+   or less (the current Shorts limit). Confirmation, to be tested before
+   anything is built on it, in this order:
+   - the channel's Shorts-only uploads list read through the official API (an
+     undocumented list id; if it works it costs 1 unit and needs no page read);
+   - failing that, one request per candidate to the video's Shorts address,
+     which is an unofficial page read and may need a residential proxy from a
+     data-centre address.
+
+   Only candidates that would otherwise alert are confirmed, never every video.
+
+5. **Views per hour.** Tracked videos are read on a tier: hourly for the first
+   three days, every six hours to day 14, then dropped. Rank is views gained per
+   hour over the last readings, not totals.
+6. **Alerts.** One message per finding, with the reason, the numbers and a link;
+   a daily digest; a daily "still running" line, so silence means a fault. No
+   repeat alert for the same video. Channel is an open decision.
+7. **Service wrapper.** A long-running process with a scheduler, started by
+   systemd, restarted on failure.
+
+## Rules (to be set on evidence, not on one channel)
+
+The long-video niche rule cannot be copied as it stands:
+
+- "At most 14 uploads a week" would reject most Shorts channels, which post
+  daily or more.
+- A 10,000-view floor is low for Shorts, where views are cheap.
+- "5× the channel's usual" needs a usual; a week-old channel has none, so the
+  views-per-subscriber path and the per-hour rate carry more weight.
+- The Latin-letter check assumes the owner reads only Latin alphabets; with
+  several languages watched it becomes a per-subject setting.
+
+Each threshold is chosen from readings of small established channels in at least
+three unrelated niches and two languages, and held to niches it was not chosen
+on, as Jgtube's look-alike rules are. No word list or number is fitted to one
+channel.
+
+## Daily allowance
+
+10,000 units a day. A starting split:
+
+| Use                            | Units | What it buys                                                                 |
+| ------------------------------ | ----- | ---------------------------------------------------------------------------- |
+| Searches                       | 6,000 | 60 a day: for example 30 subjects in 2 countries, or 20 in 3, once a day     |
+| Readings of tracked videos     | 2,000 | About 3,000 fresh videos hourly plus about 6,000 older ones four times a day |
+| Channel facts and upload lists | 1,000 | Several hundred channels a day                                               |
+| Kept back                      | 1,000 | Retries, confirmation, a search asked for by hand                            |
+
+Search is the scarce part: every extra country multiplies it. Subjects can
+rotate (each searched every second or third day) to widen coverage at the cost
+of finding things later. The plan assumes one key; asking Google for a larger
+allowance is possible but slow and not assumed.
+
+## Data model additions
+
+```
+subjects          id PK, keyword, region, language, every_hours, enabled, last_searched_at
+subject_hits      subject_id FK, video_id FK, first_seen_at   -- which search found what
+quota_ledger      day (Pacific), units_spent, by_kind JSON
+video_tracking    video_id PK FK, tier (hourly|six_hourly|done), next_read_at,
+                  is_short (yes|no|unknown)
+findings          id PK, video_id FK, channel_id FK, kind (niche|transfer), reason JSON,
+                  views_per_hour, earnings_low, earnings_high, found_at, alerted_at NULL
+```
+
+`video_snapshots` is reused for readings. Hourly readings are rolled up to one a
+day after 14 days so the file stays small. Google's API terms limit how long API
+data may be kept without being read again (to be checked against the current
+policy text before the retention rule is fixed); tracked videos are re-read
+often, and videos that leave tracking keep only what a finding needs.
+
+## Deployment
+
+- One droplet, Ubuntu LTS. The $6 size (1 GB) is recommended; the $4 size (512 MB)
+  runs the service but is tight for installing and building.
+- Node 22, the service under its own unprivileged user, `systemd` unit with
+  `Restart=always`.
+- Settings and the API key in a root-owned file readable only by the service
+  (`chmod 600`), never in the repository. The key is restricted to the YouTube
+  Data API and, once the droplet has an address, to that address.
+- Nightly dated backup of the store on the droplet; a weekly copy off it
+  (the host's own droplet backups are the simplest).
+- Updates: `git pull`, install, restart, as one script; the store is backed up
+  before any migration, as today.
+
+## Security
+
+- Firewall closed except SSH; SSH by key only; automatic security updates.
+- The service makes outbound calls only (YouTube API, the alert service).
+- Preferred: **no public web page.** Alerts carry the findings; the page and
+  API stay bound to 127.0.0.1 and are reached through a private link (Tailscale,
+  free, or an SSH tunnel). This needs no login code at all.
+- If a public address is wanted: HTTPS through Caddy on a domain, one
+  owner password checked by the server (hashed, rate-limited, secure cookie),
+  and every existing write check kept. This is more to build and to keep safe.
+- Titles and channel names remain untrusted text everywhere, including in
+  alerts.
+
+## Claude's part
+
+Open decision. Without it the service is rules and numbers only, and the owner's
+Claude labels niches on request through the connector on their own computer,
+with no extra bill. With it, the server calls the Claude API with an Anthropic
+key (a separate, usage-priced bill) to name each finding's niche once; with a
+small model and one short call per finding this is expected to be small, to be
+measured before it is promised.
+
+## Cost
+
+| Item                                                             | Per month                 |
+| ---------------------------------------------------------------- | ------------------------- |
+| Droplet                                                          | $4 to $6                  |
+| Droplet backups (optional)                                       | about $1 to $2            |
+| YouTube Data API                                                 | free within the allowance |
+| Telegram, Discord or email                                       | free at this volume       |
+| Domain (only for a public page)                                  | about $1                  |
+| Residential proxy (only if the page-read Shorts check is needed) | by use; to be priced      |
+| Claude on the server (optional)                                  | usage-priced; small       |
+
+## Risks
+
+| Risk                                                  | Answer                                                                                      |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Search returns the biggest videos, not small channels | Search is only the net; ranking is by per-hour gain and channel size after reading          |
+| The seed subjects decide what can be found            | Start narrow, review what each subject finds weekly, drop the empty ones                    |
+| No reliable Shorts flag                               | Test the official list first; confirm only candidates; mark "unconfirmed" rather than guess |
+| Allowance runs out                                    | Ledger and daily plan; searches are cut before readings                                     |
+| Too many alerts, then ignored                         | A daily cap, a digest for the rest, thresholds tuned on the first two weeks                 |
+| Rules fitted to one niche                             | Chosen and tested on small established channels in several niches and languages             |
+| The droplet or the service dies quietly               | systemd restart, daily "still running" line, backups                                        |
+| Search results vary between identical calls           | A video counts once seen; tracking, not search order, drives everything after               |
+
+## Order of work (after the decisions)
+
+1. Official-API reader and allowance ledger, with recorded replies as fixtures.
+2. Shorts check: test both routes on small established channels in three niches.
+3. Subjects, scheduler, tiered readings, per-hour rate.
+4. Rules and findings; thresholds from evidence; earnings range.
+5. Alerts and the daily digest.
+6. Droplet set-up script, service unit, backups; a week's unattended run.
+7. Page or connector access, as decided.
+
+Each step is written tests-first and reviewed by a code reviewer, a senior
+supervisor and a creator's-eye reviewer before the next begins.
+
+## Open decisions
+
+1. Which countries and languages to watch first.
+2. Where alerts go (Telegram, Discord or email).
+3. A new project of its own, or a second mode inside Jgtube.
+4. Whether Claude labels niches on the server, or only when asked.
