@@ -202,6 +202,32 @@ its old matches and peers until it is made again.
 The web app shows peers by default with a switch to everything, and the breakout
 feed lists peers' videos separately so outsiders cannot crowd them out.
 
+### Checked in other niches
+
+A channel is only ever an example; the rules must not be fitted to one. They
+were first worked out on one map, then checked on maps centred on small
+established channels in unrelated niches (retro technology, companies in
+decline, ancient history), with no model channel.
+
+- **What held.** In each niche the look-alikes are the centre's kind of channel
+  and channels from other niches stay out. Two of those maps are now permanent
+  tests (`packages/core/test/peerOtherNiches.test.ts`), labelled by reading the
+  titles, not from the scores.
+- **The same weakness everywhere.** Channels that make the same videos in a
+  different title format fall just under the line in every niche ("Rolex Is
+  (Finally) Getting What They Deserve" beside "Lowe's $84 Billion Empire Is
+  Collapsing"). Wording cannot settle those; the same-topic list and Claude's
+  reading of it do.
+- **A dependence still to remove.** A channel's score depends on which other
+  channels are on the map, because the reference borrows titles from the three
+  closest look-alikes on that map. Removing half of a map at random changed
+  0% to 7% of look-alike decisions across five maps. Counting word rarity over
+  the whole store instead of the map made no difference; the borrowing is the
+  cause. Letting an established channel rely on its own titles alone made
+  decisions stable (under 1% changed) but cost too many look-alikes in niches
+  with varied titles (32 down to 4 on one map), so it was not adopted. A rule
+  that keeps the look-alikes and removes the dependence is open work.
+
 ### The owner's say: keep and remove
 
 Built (`packages/core/src/map/choices.ts`, `POST /api/competitors`). The filter is a
