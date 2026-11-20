@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import {
   MIN_SPAN_MS,
   RATE_WINDOW_MS,
+  STALE_AFTER_MS,
   velocity,
   viewsPerHour,
   type ViewReading,
@@ -87,8 +88,10 @@ describe('velocity', () => {
     expect(velocity(speeding, NOW)).toEqual({
       viewsPerHour: 400,
       acceleration: 4,
+      startedFromZero: false,
       measuredFrom: at(-6 * HOUR_MS),
       measuredTo: NOW,
+      stale: false,
     });
   });
 
@@ -118,17 +121,55 @@ describe('velocity', () => {
     expect(velocity(stale, NOW)).toEqual({
       viewsPerHour: 100,
       acceleration: null,
+      startedFromZero: false,
       measuredFrom: at(-40 * HOUR_MS),
       measuredTo: at(-30 * HOUR_MS),
+      stale: true,
     });
+  });
+
+  test('calls a rate stale only once its newest reading is more than seven hours old', () => {
+    const edge = [
+      { capturedAt: at(-STALE_AFTER_MS - HOUR_MS), views: 0 },
+      { capturedAt: at(-STALE_AFTER_MS), views: 500 },
+    ];
+    const past = edge.map((reading) => ({
+      ...reading,
+      capturedAt: new Date(reading.capturedAt.getTime() - 1),
+    }));
+
+    expect(velocity(edge, NOW)).toMatchObject({ viewsPerHour: 500, stale: false });
+    expect(velocity(past, NOW)).toMatchObject({ viewsPerHour: 500, stale: true });
+    expect(STALE_AFTER_MS).toBe(7 * HOUR_MS);
+  });
+
+  test('falls back to the latest readings far enough apart when the window holds only two too close together', () => {
+    const close = readings([20, 1000], [10, 3000], [0.2, 9000], [0, 9100]);
+
+    expect(velocity(close, NOW)).toMatchObject({
+      viewsPerHour: 610,
+      measuredFrom: at(-10 * HOUR_MS),
+      measuredTo: NOW,
+      stale: false,
+    });
+  });
+
+  test('says a video started from nothing when the window before gained nothing and this one gains', () => {
+    const waking = readings([12, 500], [6, 500], [3, 800], [0, 1100]);
+    const asleep = readings([12, 500], [6, 500], [3, 500], [0, 500]);
+
+    expect(velocity(waking, NOW)).toMatchObject({ acceleration: null, startedFromZero: true });
+    expect(velocity(asleep, NOW)).toMatchObject({ acceleration: null, startedFromZero: false });
   });
 
   test('has nothing to say without readings', () => {
     expect(velocity([], NOW)).toEqual({
       viewsPerHour: null,
       acceleration: null,
+      startedFromZero: false,
       measuredFrom: null,
       measuredTo: null,
+      stale: false,
     });
   });
 });

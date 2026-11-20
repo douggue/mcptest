@@ -18,6 +18,14 @@ export const RATE_WINDOW_MS = 6 * MS_PER_HOUR;
  */
 export const MIN_SPAN_MS = 30 * 60 * 1000;
 
+/**
+ * A rate whose newest reading is more than seven hours old is marked stale.
+ * The slowest tier reads every six hours, so a tracked video's newest reading
+ * is never older than that plus the round it waits for; seven hours on, the
+ * figure describes the past, and nothing should be reported "now" on it.
+ */
+export const STALE_AFTER_MS = 7 * MS_PER_HOUR;
+
 export interface ViewReading {
   readonly capturedAt: Date;
   readonly views: number;
@@ -31,9 +39,21 @@ export interface Velocity {
    * above 1 the video is speeding up, below 1 slowing down. Null when unknown.
    */
   readonly acceleration: number | null;
+  /**
+   * True when the video gained nothing in the window before and is gaining
+   * now. The acceleration is null then, as a ratio to zero has no value, but
+   * "started moving" is not the same as "unknown", and this says which.
+   */
+  readonly startedFromZero: boolean;
   /** The readings the rate was measured between; null when there is no rate. */
   readonly measuredFrom: Date | null;
   readonly measuredTo: Date | null;
+  /**
+   * True when the newest reading the rate uses is older than `STALE_AFTER_MS`
+   * at `now`: the rate is what the video was doing then, not what it does now.
+   * False when there is no rate.
+   */
+  readonly stale: boolean;
 }
 
 interface Span {
@@ -57,15 +77,26 @@ function spanWithin(sorted: readonly ViewReading[], from: number, to: number): S
   return inside.length < 2 || first === undefined || last === undefined ? null : { first, last };
 }
 
-/** The two latest readings, for when the window holds too few. */
-function latestTwo(sorted: readonly ViewReading[]): Span | null {
-  const [first, last] = sorted.slice(-2);
-  return first === undefined || last === undefined ? null : { first, last };
+/**
+ * The latest reading and the latest one at least the minimum span before it,
+ * for when the window cannot give a rate: it holds fewer than two readings, or
+ * only readings too close together to divide by.
+ */
+function latestApart(sorted: readonly ViewReading[]): Span | null {
+  const last = sorted.at(-1);
+  if (last === undefined) return null;
+  const first = sorted.findLast(
+    (reading) => last.capturedAt.getTime() - reading.capturedAt.getTime() >= MIN_SPAN_MS,
+  );
+  return first === undefined ? null : { first, last };
 }
+
+const spans = (span: Span): number =>
+  span.last.capturedAt.getTime() - span.first.capturedAt.getTime();
 
 function rateOver(span: Span | null): number | null {
   if (span === null) return null;
-  const elapsed = span.last.capturedAt.getTime() - span.first.capturedAt.getTime();
+  const elapsed = spans(span);
   if (elapsed < MIN_SPAN_MS) return null;
   // The gain is the last count less the first. A count that fell (YouTube
   // removes views it judges invalid) is no gain rather than a negative one:
@@ -79,14 +110,17 @@ function rateOver(span: Span | null): number | null {
  * The rate and how it is changing, at `now`, over windows of `windowMs`.
  *
  * The rate uses the readings of the last window; when that holds fewer than
- * two (a video read every six hours, or after a gap) it falls back to the two
- * latest readings, however old, and `measuredFrom`/`measuredTo` say which they
- * were, so a rate from old readings is not taken for a current one.
+ * two (a video read every six hours, or after a gap), or only readings closer
+ * together than the minimum span, it falls back to the latest reading and the
+ * latest one far enough before it, however old. `measuredFrom`/`measuredTo`
+ * say which they were and `stale` says when the newest is too old to speak
+ * for now, so a rate from old readings is not taken for a current one.
  *
  * The acceleration compares the last window with the one before it, each from
  * its own readings only, with no fallback: a ratio of two rates measured over
  * different lengths of time would mean nothing. It is null when either window
- * has no rate, and when the earlier rate is zero, where a ratio has no value.
+ * has no rate, and when the earlier rate is zero, where a ratio has no value;
+ * `startedFromZero` tells that last case apart when the video is gaining now.
  */
 export function velocity(
   readings: readonly ViewReading[],
@@ -97,16 +131,19 @@ export function velocity(
   // Readings after `now` are left out, so the same call gives the same answer later.
   const sorted = oldestFirst(readings).filter((reading) => reading.capturedAt.getTime() <= end);
   const latest = spanWithin(sorted, end - windowMs, end);
-  const measured = latest ?? latestTwo(sorted);
+  const measured = latest !== null && spans(latest) >= MIN_SPAN_MS ? latest : latestApart(sorted);
   const viewsPerHour = rateOver(measured);
   const before = rateOver(spanWithin(sorted, end - 2 * windowMs, end - windowMs));
   const latestRate = rateOver(latest);
+  const comparable = latestRate !== null && before !== null;
+  const to = viewsPerHour === null || measured === null ? null : measured.last.capturedAt;
   return {
     viewsPerHour,
-    acceleration:
-      latestRate === null || before === null || before === 0 ? null : latestRate / before,
+    acceleration: comparable && before !== 0 ? latestRate / before : null,
+    startedFromZero: comparable && before === 0 && latestRate > 0,
     measuredFrom: viewsPerHour === null || measured === null ? null : measured.first.capturedAt,
-    measuredTo: viewsPerHour === null || measured === null ? null : measured.last.capturedAt,
+    measuredTo: to,
+    stale: to !== null && end - to.getTime() > STALE_AFTER_MS,
   };
 }
 
