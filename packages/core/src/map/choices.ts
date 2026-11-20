@@ -29,30 +29,33 @@ function memberOf(deps: SnapshotDeps, channel: UnmarkedChannel): MapMemberData[]
 }
 
 /**
- * The feed with the pulled-in channels' videos among the peers' videos.
+ * The feed without the removed channels' videos and with the pulled-in
+ * channels' videos among the peers' videos.
  *
  * A frozen feed keeps only the strongest outsiders, so a kept channel's videos
  * may not be in it at all. They are read from the store as it is now instead,
- * as the thumbnail board's are.
+ * as the thumbnail board's are. Removed channels are taken out before the feed
+ * is cut to its length, so the places they held go to the next videos instead
+ * of leaving the feed short.
  */
 function feedWith(
   deps: SnapshotDeps,
   snapshot: MapSnapshot,
   pulledIn: readonly UnmarkedChannel[],
+  removed: ReadonlySet<string>,
   now: Date,
 ): readonly SnapshotBreakout[] {
-  if (pulledIn.length === 0) return snapshot.breakouts;
+  const shown = snapshot.breakouts.filter((video) => !removed.has(video.channelId));
+  if (pulledIn.length === 0) return shown;
   const pulledIds = new Set(pulledIn.map((channel) => channel.id));
   const fresh = listBreakouts(
     pulledIn.flatMap((channel) => memberOf(deps, channel)),
     now,
   ).map((video) => ({ ...video, peer: true }));
-  const peers = [...snapshot.breakouts.filter((video) => video.peer), ...fresh]
+  const peers = [...shown.filter((video) => video.peer), ...fresh]
     .sort((a, b) => b.score - a.score || b.views - a.views)
     .slice(0, DEFAULT_BREAKOUT_LIMIT);
-  const outsiders = snapshot.breakouts.filter(
-    (video) => !video.peer && !pulledIds.has(video.channelId),
-  );
+  const outsiders = shown.filter((video) => !video.peer && !pulledIds.has(video.channelId));
   return [...peers, ...outsiders];
 }
 
@@ -85,8 +88,6 @@ export function applyOwnerChoices(
       ...channels.filter((channel) => channel.peer),
       ...channels.filter((channel) => !channel.peer),
     ],
-    breakouts: feedWith(deps, snapshot, pulledIn, now).filter(
-      (video) => !removed.has(video.channelId),
-    ),
+    breakouts: feedWith(deps, snapshot, pulledIn, removed, now),
   };
 }
