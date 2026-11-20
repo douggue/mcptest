@@ -190,6 +190,21 @@ describe('groupFormats', () => {
     ]);
   });
 
+  test('names the ideas behind each subject, so a saved idea can be told apart', () => {
+    const [format] = formatsOf([
+      invention('A', 'America', 'Carbon Fiber', 129_000),
+      invention('B', 'Kenya', 'Carbon Fiber', 900),
+      invention('B', 'Kenya', 'TVs', 3800),
+      invention('C', 'America', 'Solar Panels', 1400),
+    ]);
+
+    expect(format?.subjects.map((entry) => entry.ideaKeys)).toEqual([
+      ['{place} new invention could make carbon fiber obsolete forever'],
+      ['{place} new invention could make tvs obsolete forever'],
+      ['{place} new invention could make solar panels obsolete forever'],
+    ]);
+  });
+
   test('keeps the title’s own small words in the format as shown', () => {
     const [format] = formatsOf([
       video('A', 'Why Nobody Is Buying A Tesla In Winter Anymore'),

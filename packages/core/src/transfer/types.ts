@@ -109,6 +109,11 @@ export interface FormatSubject {
   readonly videoId: string;
   readonly title: string;
   readonly channelTitle: string;
+  /**
+   * The keys of the ideas behind this subject (see `TransferIdea.key`), so a
+   * reader can leave out a subject whose ideas the owner has all saved.
+   */
+  readonly ideaKeys: readonly string[];
 }
 
 /** A title format used for several subjects: the same words around a subject that changes. */

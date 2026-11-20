@@ -1,7 +1,13 @@
 import type { NicheList } from '@jgtube/core';
 import { Sprout } from 'lucide-react';
 import { useState } from 'react';
-import { NICHE_FILTERS, describeList, filterNiches, type NicheFilter } from '../lib/niches';
+import {
+  NICHE_FILTERS,
+  describeView,
+  emptyNiches,
+  filterNiches,
+  type NicheFilter,
+} from '../lib/niches';
 import { NicheCard } from './NicheCard';
 import { NicheSearch } from './NicheSearch';
 import type { Niches as NichesData } from './useNiches';
@@ -9,28 +15,12 @@ import type { Niches as NichesData } from './useNiches';
 const PAGE_SIZE = 6;
 const NOTE = 'rounded bg-surface-card p-space-lg text-body-md text-on-surface-variant';
 
-const NO_MATCH: Readonly<Record<Exclude<NicheFilter, 'all'>, string>> = {
-  new: 'None of the channels listed is new.',
-  small: 'None of the channels listed is small.',
-  language: 'None of the channels listed writes in another alphabet than Latin.',
-  watched: 'You are not watching any channel yet. Press Watch on one to keep it here.',
-};
-
-/** Why nothing is listed, in the owner's terms. */
-function emptyText(list: NicheList, filter: NicheFilter): string {
-  if (filter !== 'all' && list.channels.length > 0) return NO_MATCH[filter];
-  if (list.channelsChecked === 0) {
-    return 'Nothing has been read yet. Make a map and the new and small channels found along the way are listed here.';
-  }
-  return `None of the ${list.channelsChecked} channels read so far is a new or small channel with a recent video that took off. A larger map reads more channels.`;
-}
-
 interface FilterProps {
   readonly filter: NicheFilter;
   readonly onChange: (filter: NicheFilter) => void;
 }
 
-/** Narrows the list to the new channels, the small ones, or the ones the owner is watching. */
+/** Narrows the list to the new channels or the small ones, or shows the ones the owner is watching. */
 function Filter({ filter, onChange }: FilterProps) {
   return (
     <div
@@ -67,7 +57,7 @@ interface CardsProps {
 function Cards({ list, filter, onSetWatched }: CardsProps) {
   const [shown, setShown] = useState(PAGE_SIZE);
   const matching = filterNiches(list.channels, filter);
-  if (matching.length === 0) return <p className={NOTE}>{emptyText(list, filter)}</p>;
+  if (matching.length === 0) return <p className={NOTE}>{emptyNiches(list, filter)}</p>;
   return (
     <div className="flex flex-col gap-space-md">
       <div className="grid grid-cols-1 gap-space-md xl:grid-cols-2">
@@ -126,7 +116,7 @@ export function Niches({ niches, hasMap }: Props) {
             </div>
             <p className="mt-1 text-body-md text-on-surface-variant">
               {list
-                ? describeList(list)
+                ? describeView(list, filter)
                 : 'New or small channels with a recent video that took off, from every channel Jgtube has read.'}
             </p>
           </div>

@@ -365,6 +365,7 @@ export function format(overrides: Partial<TransferFormat> = {}): TransferFormat 
         videoId: 'ccccccccccc',
         title: 'America’s New Invention Could Make Carbon Fiber Obsolete Forever',
         channelTitle: 'Modern Frontier',
+        ideaKeys: ['{place} new invention could make carbon fiber obsolete forever'],
       },
     ],
     ...overrides,

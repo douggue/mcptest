@@ -21,17 +21,23 @@ export const NICHE_FILTERS: readonly { readonly id: NicheFilter; readonly label:
   { id: 'new', label: 'New' },
   { id: 'small', label: 'Small' },
   { id: 'language', label: 'Other language' },
-  { id: 'watched', label: 'Watched only' },
+  { id: 'watched', label: 'Watched' },
 ];
 
+/**
+ * The channels a view shows. A channel the owner is watching is shown under
+ * "Watched" and nowhere else: they have already taken it up, so the other
+ * views are left for what they have not looked at yet. Unwatching brings it back.
+ */
 export function filterNiches(
   channels: readonly NicheChannel[],
   filter: NicheFilter,
 ): readonly NicheChannel[] {
-  if (filter === 'all') return channels;
   if (filter === 'watched') return channels.filter((channel) => channel.watched);
-  if (filter === 'language') return channels.filter((channel) => channel.otherLanguage !== null);
-  return channels.filter((channel) => channel.reasons.includes(filter));
+  const unwatched = channels.filter((channel) => !channel.watched);
+  if (filter === 'all') return unwatched;
+  if (filter === 'language') return unwatched.filter((channel) => channel.otherLanguage !== null);
+  return unwatched.filter((channel) => channel.reasons.includes(filter));
 }
 
 /** The same list with one channel marked as watched or not. */
@@ -90,22 +96,71 @@ export function describeOrigin(channel: NicheChannel, now: Date = new Date()): s
   return [...(start ? [start] : []), ...(country ? [country] : [])].join(' · ');
 }
 
-/** In words, what the list holds and how much was gone through to make it. */
+/** Where the channels the owner is watching went, or nothing when there are none. */
+function watchedNote(watched: number): string {
+  if (watched === 0) return '';
+  return ` The ${watched} you are watching ${watched === 1 ? 'is' : 'are'} under Watched.`;
+}
+
+/**
+ * In words, what the default view holds and how much was gone through to make
+ * it. The count is of the channels that view shows: the ones the owner is
+ * watching are counted apart, since they are shown under "Watched" only.
+ */
 export function describeList(list: NicheList): string {
-  const count = list.channels.length;
-  if (count === 0) {
+  if (list.channels.length === 0) {
     return 'New or small channels with a recent video far above their size or their usual views, from every channel Jgtube has read.';
+  }
+  const count = filterNiches(list.channels, 'all').length;
+  const watched = watchedNote(list.channels.length - count);
+  const read = `${list.channelsChecked} channel${list.channelsChecked === 1 ? '' : 's'}`;
+  if (count === 0) {
+    return `No new or small channel with a recent video that took off is left that you are not already watching, among the ${read} Jgtube has read.${watched}`;
   }
   const one = count === 1;
   const its = one ? 'its' : 'their';
-  const read = `${list.channelsChecked} channel${list.channelsChecked === 1 ? '' : 's'}`;
   return [
     `${count} ${one ? 'channel that is' : 'channels that are'}`,
     `new (first upload in the last ${list.newMaxAgeDays} days)`,
     `or small (${formatCount(list.smallMaxSubscribers)} subscribers or fewer)`,
     `with a recent video far above ${its} size or ${its} usual views,`,
-    `found among the ${read} Jgtube has read. Most views on the last 90 days of uploads first.`,
+    `found among the ${read} Jgtube has read. Most views on the last 90 days of uploads first.${watched}`,
   ].join(' ');
+}
+
+/** What a narrower view keeps of the list, as the end of "Showing the 3 …". */
+const VIEW_KEEPS: Readonly<Record<Exclude<NicheFilter, 'all'>, (one: boolean) => string>> = {
+  new: (one) => `that ${one ? 'is' : 'are'} new`,
+  small: (one) => `that ${one ? 'is' : 'are'} small`,
+  language: (one) => `that ${one ? 'writes' : 'write'} in another alphabet`,
+  watched: () => 'you are watching',
+};
+
+/** The section's opening sentence for the view on screen, with the number that view shows. */
+export function describeView(list: NicheList, filter: NicheFilter): string {
+  const all = describeList(list);
+  if (filter === 'all') return all;
+  const shown = filterNiches(list.channels, filter).length;
+  return shown === 0 ? all : `${all} Showing the ${shown} ${VIEW_KEEPS[filter](shown === 1)}.`;
+}
+
+const NO_MATCH: Readonly<Record<Exclude<NicheFilter, 'all'>, string>> = {
+  new: 'None of the channels listed is new.',
+  small: 'None of the channels listed is small.',
+  language: 'None of the channels listed writes in another alphabet than Latin.',
+  watched: 'You are not watching any channel yet. Press Watch on one to keep it here.',
+};
+
+/** Why a view has nothing in it, in the owner's terms. */
+export function emptyNiches(list: NicheList, filter: NicheFilter): string {
+  if (filter !== 'all' && list.channels.length > 0) return NO_MATCH[filter];
+  if (list.channels.length > 0) {
+    return 'Every channel found so far is one you are watching. They are under Watched; stop watching one to bring it back here.';
+  }
+  if (list.channelsChecked === 0) {
+    return 'Nothing has been read yet. Make a map and the new and small channels found along the way are listed here.';
+  }
+  return `None of the ${list.channelsChecked} channels read so far is a new or small channel with a recent video that took off. A larger map reads more channels.`;
 }
 
 /** In words, how often a channel's recent videos go far above its usual views. */
