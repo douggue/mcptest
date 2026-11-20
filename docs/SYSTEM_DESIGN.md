@@ -11,6 +11,8 @@ numbered migrations tracked in `PRAGMA user_version`). The rest are the plan.
 ```
 channels        id PK (UC…), handle, title, subscribers NULL, subs_hidden,   -- built
                 video_count, fetched_at        (language: planned)
+                created_at NULL, country NULL, total_views NULL,   -- from the official API;
+                facts_fetched_at NULL          -- set once the API has been asked
 videos          id PK, channel_id FK, title, views, duration_s,
                 published_at, published_precision (day|week|month|year),
                 published_raw ("2w ago"), fetched_at                    -- built
@@ -28,6 +30,8 @@ map_keeps       center_channel FK, channel_id, kept_at                -- built; 
 niche_watchlist channel_id PK FK, watched_at                          -- built; channels the
                 -- owner marked on "New niches to watch"; not tied to any map
                 (source crawl|search|manual and judged relevance: planned)
+refresh_runs    id PK, started_at, finished_at, refreshed, failed,    -- built; one row per
+                stopped_early                  -- finished refresh, whoever started it
 topic_runs      id PK, map_id FK, status, model, input_tokens, output_tokens,
                 started_at, finished_at, memo_json
 topics          id PK, run_id FK, rank, name, score, views_low, views_high,
@@ -216,6 +220,51 @@ Copies frozen before this existed carry no `kept` field; it is filled in on read
 
 Not built: adding a channel that is not on the map at all (phase 4, "Manual add").
 
+### Same topic, different wording
+
+Built (`packages/core/src/map/sameTopic.ts`, `GET /api/maps/latest/same-topic`). Title
+matching compares words, so a channel that covers the centre's subject in its own
+words is rejected with `outsideReason: 'titles'` although its size, publishing rate
+and video length fit. The owner asked to stay open to those. Whether two sets of
+titles say the same thing is a judgement about meaning, so the tool does not make
+it: it lists the candidates with the evidence and the owner, or their Claude
+through the connector, keeps the ones that belong.
+
+The list is worked out on each request from the map as the owner sees it
+(`loadMapSnapshot`, so their keeps and removals are applied) and the videos in the
+store. Nothing is added to the frozen snapshot and the peer rules are untouched.
+
+| Field           | Holds                                                                                              |
+| --------------- | -------------------------------------------------------------------------------------------------- |
+| `channels`      | Left out on titles alone, neither kept nor removed, strongest title match first                    |
+| `kept`          | `{ id, title }` of channels left out on titles that the owner kept, so the keep can be undone here |
+| `otherAlphabet` | How many were left out of `channels` for being written in another alphabet than the centre         |
+| `minTitleMatch` | `PEER_MIN_TITLE_MATCH`, the match a channel needs without the owner's say                          |
+
+```
+SameTopicList { mapId, centerId, minTitleMatch, otherAlphabet,
+  kept [{ id, title }],
+  channels [{ id, title, handle, subscribers, titleMatch, recentViews, recentUploads,
+              breakout: { videoId, title, views, score } | null,
+              recentTitles: [{ videoId, title, views, publishedRaw }] }] }
+```
+
+`recentTitles` are the channel's four newest stored videos (`SAME_TOPIC_TITLES_SHOWN`):
+what it is publishing now is what shows its subject.
+
+A channel whose 30 newest titles are under 80% Latin letters is left out when the
+centre's own titles are Latin (the niche list's `latinShare` check): its titles miss
+because of the language, and the owner cannot weigh them. They are counted, not
+hidden silently. When the centre is not written in Latin letters, or has no stored
+titles, nobody is left out. A removed channel is not listed either: the owner has
+already said no.
+
+The screen shows six at a time with "Show more", each with a one-press "Keep as
+competitor" that calls `POST /api/competitors` with `status: 'kept'`; the kept ones
+move to a "Kept by you" row with Undo (`status: 'auto'`). On the owner's
+285-channel map 122 channels were left out on titles alone: 106 are listed and 16
+are in another alphabet.
+
 ### Model channel
 
 A new channel has too few videos to describe itself: three titles and whatever
@@ -320,7 +369,9 @@ NicheList { channelsChecked, smallMaxSubscribers, newMaxAgeDays,
   channels [{ id, title, handle, subscribers, recentViews, recentUploads,
               viewsPerSubscriber, channelAgeDays, reasons: ('new'|'small')[],
               outperformers: BoardVideo[], hitCount, scoredCount,
-              sampleTitles: [{ videoId, title, views }], qualifies, watched }] }
+              sampleTitles: [{ videoId, title, views }], qualifies, watched,
+              earnings, growth: { views, days, since } | null,
+              createdAt: string | null, country: string | null }] }
 ```
 
 The owner can mark a channel as watched (`niche_watchlist`, one row per channel, no
@@ -357,6 +408,90 @@ up to 25 into the store through the usual ingest. The niche list then judges
 them like any other channel. One search runs at a time; without a key the route
 answers 400 and the screen explains how to add one. The key is sent in a header,
 never in an address, and is stripped from error text.
+
+### Refresh and measured growth
+
+Built (`packages/core/src/refresh/refresh.ts`, `packages/core/src/niches/growth.ts`,
+`POST /api/refresh`, `GET /api/refresh`, `npm run refresh`). A channel is otherwise
+read only when a crawl or a search touches it, so `video_snapshots` held one reading
+per video and nothing could be measured. A refresh reads stored channels again
+through `ingestChannel` with `refresh`, which stores a new reading for every video.
+
+Which channels a run reads (`pickStalest`):
+
+| Rule      | Value                                                                                                                                                                                          | Constant                           |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Due       | Last read 20 hours ago or more. Growth is read off daily readings; more often adds requests and no information. Twenty, not twenty-four, so a daily run that starts early still finds them due | `REFRESH_MIN_AGE_HOURS`            |
+| Priority  | Watched channels, channels on the niche list, and each map's centre and look-alikes (the filter's and the owner's kept ones, less removed) go before the rest                                  | `refreshPriorityIds`               |
+| Order     | Within each group, read longest ago first                                                                                                                                                      |                                    |
+| Size      | 50 channels a run (1 to 500), read one at a time through the shared rate limiter                                                                                                               | `DEFAULT_REFRESH_MAX_CHANNELS`     |
+| Giving up | Five failures in a row end the run; the rest stay due. One channel that cannot be read is reported and skipped                                                                                 | `REFRESH_MAX_CONSECUTIVE_FAILURES` |
+
+Because a channel just read is no longer due, the priority group cannot starve the
+rest: once it has been read today the next run moves on. Each finished run is
+written to `refresh_runs`, so the screen can say when the last one was whether the
+button, the timer or the command line started it.
+
+Three ways in, one code path:
+
+- `npm run refresh [-- --max N]` on the command line.
+- `POST /api/refresh {maxChannels?}` starts it as a background job in the same
+  `JobStore` as crawls and answers `202 {jobId}`; the job is polled at
+  `/api/jobs/:id` and reports `{stage: 'refreshing', done, total}`. One job runs at
+  a time across both kinds: a second refresh, or a new map, gets 409.
+  `GET /api/refresh` answers `{last, channels, due, oldestReadAt, everyHours,
+running, jobId}` from the store, so a page opened mid-run picks the job up.
+- `JGTUBE_REFRESH_HOURS` (1 to 168, off by default) makes the server process start a
+  refresh every that many hours by calling its own `POST /api/refresh`
+  (`packages/server/src/schedule.ts`). The first turn is a minute after start; when
+  a map is being made at its turn it tries again in 15 minutes.
+
+The niche list then carries `growth` on each listed channel (`viewsGained`): of the
+channel's readings from the last 30 days, the latest views of each video minus its
+views at the channel's earliest reading. A video first seen after that reading
+counts in full (it did not exist then); one seen only at it counts nothing; a count
+that fell counts as zero. It is null until the channel has been read twice in the
+window. The card shows it as "Gained 12.4K views in 3 days · measured", beside the
+estimate, which stays: `recentViews` is views on recent uploads, `growth` is views
+gained on everything, over however long the readings span.
+
+```
+growth: { views, days, since } | null
+```
+
+Not built: a views-per-day chart, and using the readings to calibrate the age ramp.
+
+### Exact channel dates
+
+Built (`packages/core/src/niches/facts.ts`, `packages/core/src/repos/sqliteFactsRepo.ts`).
+The web pages do not show when a channel account was created, and "first upload" is
+only the oldest video Jgtube has read. The official API gives the exact creation
+date, the country the owner set and the total views, fifty channels per request at
+one unit of the key's daily allowance (`fetchChannelFacts`).
+
+- They are kept in four columns of `channels` (migration 7) that the web ingest
+  never writes, so reading a channel again leaves them alone.
+- `fillNicheFacts` asks only about channels on the niche list that have never been
+  asked about, at most 200 at a time, and notes every channel asked, so one the API
+  does not know is not asked about on every run.
+- It runs after a refresh (button, timer or command line) and after a keyword
+  search. Opening the page never calls the API: `GET /api/niches` reads stored
+  columns only.
+- Without `YOUTUBE_API_KEY` it is skipped and nothing is said. A refusal (allowance
+  used up, no connection) does not fail the refresh or the search it follows: it
+  comes back as `factsProblem` beside `factsAdded` in the refresh outcome and the
+  search summary, with paths and control characters removed, and the channels are
+  asked about again next time.
+
+Each niche entry carries `createdAt` (ISO-8601 or null) and `country` (two letters or
+null). The card says "Account from 2018, restarted 2 months ago" when the account is
+more than 60 days older than the first upload and the whole channel was read,
+"First upload about 2 months ago" otherwise, and the account's year alone when the
+first upload is not known; the country's English name follows when it is one.
+
+"New" on the niche list is still measured from the first upload, not from
+`createdAt`: an old account that restarted is new as a channel, which is what the
+owner is looking for.
 
 ### Earnings range
 

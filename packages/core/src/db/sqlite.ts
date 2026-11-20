@@ -101,6 +101,24 @@ CREATE TABLE IF NOT EXISTS map_keeps (
   PRIMARY KEY (center_channel, channel_id)
 );
 `,
+  // 6: each finished refresh of the stored channels, so the screen can say when the last one ran.
+  `
+CREATE TABLE IF NOT EXISTS refresh_runs (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  started_at     TEXT NOT NULL,
+  finished_at    TEXT NOT NULL,
+  refreshed      INTEGER NOT NULL,
+  failed         INTEGER NOT NULL,
+  stopped_early  INTEGER NOT NULL
+);
+`,
+  // 7: channel facts from the official API: the exact creation date, the country and total views.
+  `
+ALTER TABLE channels ADD COLUMN created_at TEXT;
+ALTER TABLE channels ADD COLUMN country TEXT;
+ALTER TABLE channels ADD COLUMN total_views INTEGER;
+ALTER TABLE channels ADD COLUMN facts_fetched_at TEXT;
+`,
 ];
 
 /**

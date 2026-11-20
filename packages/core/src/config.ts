@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+/** A refresh more often than hourly reads nothing new; a week is the longest gap that still builds history. */
+const MIN_REFRESH_HOURS = 1;
+const MAX_REFRESH_HOURS = 168;
+
 const envSchema = z.object({
   JGTUBE_DB_PATH: z.string().min(1).default('jgtube.db'),
   JGTUBE_REGION: z
@@ -8,6 +12,14 @@ const envSchema = z.object({
     .default('US'),
   // Checked for shape only; the message below never repeats the value.
   YOUTUBE_API_KEY: z.string().min(20, 'is too short to be an API key').max(200).optional(),
+  JGTUBE_REFRESH_HOURS: z
+    .string()
+    .regex(/^\d{1,3}$/, 'must be a whole number of hours')
+    .transform((text) => Number(text))
+    .refine((hours) => hours >= MIN_REFRESH_HOURS && hours <= MAX_REFRESH_HOURS, {
+      message: `must be from ${MIN_REFRESH_HOURS} to ${MAX_REFRESH_HOURS} hours`,
+    })
+    .optional(),
 });
 
 export interface Config {
@@ -17,6 +29,11 @@ export interface Config {
   readonly region: string;
   /** The owner's key for the official YouTube API; keyword search needs it. Never logged. */
   readonly youtubeApiKey?: string;
+  /**
+   * Hours between scheduled refreshes of the stored channels while the server
+   * runs. Absent means off: channels are read again only when asked.
+   */
+  readonly refreshHours?: number;
 }
 
 /** Reads settings from the environment and fails fast, naming the bad variable. */
@@ -34,5 +51,8 @@ export function loadConfig(
     dbPath: parsed.data.JGTUBE_DB_PATH,
     region: parsed.data.JGTUBE_REGION,
     ...(parsed.data.YOUTUBE_API_KEY ? { youtubeApiKey: parsed.data.YOUTUBE_API_KEY } : {}),
+    ...(parsed.data.JGTUBE_REFRESH_HOURS === undefined
+      ? {}
+      : { refreshHours: parsed.data.JGTUBE_REFRESH_HOURS }),
   };
 }

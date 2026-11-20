@@ -1,6 +1,6 @@
 import type { Db } from '../db/sqlite';
 import type { DatePrecision, StorableVideo } from '../sources/types';
-import type { StoredVideo, VideoRepo, ViewSnapshot } from './types';
+import type { StoredVideo, VideoReading, VideoRepo, ViewSnapshot } from './types';
 
 interface VideoRow {
   id: string;
@@ -17,6 +17,10 @@ interface VideoRow {
 interface SnapshotRow {
   captured_at: string;
   views: number;
+}
+
+interface ReadingRow extends SnapshotRow {
+  video_id: string;
 }
 
 function toVideo(row: VideoRow): StoredVideo {
@@ -97,5 +101,21 @@ export class SqliteVideoRepo implements VideoRepo {
       )
       .all(videoId)
       .map((row) => ({ capturedAt: new Date(row.captured_at), views: row.views }));
+  }
+
+  listChannelReadings(channelId: string, since: Date): readonly VideoReading[] {
+    return this.db
+      .prepare<[string, string], ReadingRow>(
+        `SELECT s.video_id, s.captured_at, s.views
+         FROM video_snapshots s JOIN videos v ON v.id = s.video_id
+         WHERE v.channel_id = ? AND s.captured_at >= ?
+         ORDER BY s.captured_at, s.video_id`,
+      )
+      .all(channelId, since.toISOString())
+      .map((row) => ({
+        videoId: row.video_id,
+        capturedAt: new Date(row.captured_at),
+        views: row.views,
+      }));
   }
 }

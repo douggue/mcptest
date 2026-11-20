@@ -1,15 +1,19 @@
-import type { MapSnapshot } from '@jgtube/core';
+import type { CompetitorStatus, MapSnapshot } from '@jgtube/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Benchmarks } from './components/Benchmarks';
 import { BreakoutFeed } from './components/BreakoutFeed';
 import { Inspector } from './components/Inspector';
 import { MapToolbar } from './components/MapToolbar';
 import { Niches } from './components/Niches';
+import { SameTopic } from './components/SameTopic';
 import { ScopeToggle } from './components/ScopeToggle';
 import { Radar } from './components/Radar';
+import { RefreshBar } from './components/RefreshBar';
 import { Shell } from './components/Shell';
 import { ThumbnailBoard } from './components/ThumbnailBoard';
 import { useNiches } from './components/useNiches';
+import { useRefresh } from './components/useRefresh';
+import { useSameTopic } from './components/useSameTopic';
 import { useThumbnailBoard } from './components/useThumbnailBoard';
 import { createApi, type JobState } from './lib/api';
 import { inScope, type Scope } from './lib/feed';
@@ -136,8 +140,17 @@ export function App() {
   );
   const layout = useMemo(() => (visible ? layoutRadar(visible) : null), [visible]);
   const board = useThumbnailBoard(api, snapshot);
+  const sameTopic = useSameTopic(api, snapshot);
   const niches = useNiches(api, snapshot?.mapId ?? null);
+  // A refresh stores new view counts, which the niche list turns into measured growth.
+  const refresh = useRefresh(api, niches.reload);
   const selected = snapshot?.channels.find((channel) => channel.id === selectedId) ?? null;
+  /** Records the owner's say on a channel of the map on screen, then reads the map again. */
+  const setStatus = async (channelId: string, status: CompetitorStatus): Promise<void> => {
+    if (!snapshot) return;
+    await api.setCompetitorStatus(snapshot.center.id, channelId, status);
+    await load(snapshot.center.id);
+  };
   const select = (channelId: string) => {
     setSelectedId((current) => (current === channelId ? null : channelId));
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -192,10 +205,9 @@ export function App() {
             channel={selected}
             onClose={() => setSelectedId(null)}
             onSetStatus={(status) => {
-              api
-                .setCompetitorStatus(snapshot.center.id, selected.id, status)
-                .then(() => load(snapshot.center.id))
-                .catch((error: unknown) => setMessage(messageOf(error)));
+              setStatus(selected.id, status).catch((error: unknown) =>
+                setMessage(messageOf(error)),
+              );
             }}
           />
         )}
@@ -209,6 +221,9 @@ export function App() {
         </section>
       )}
       {snapshot && (
+        <SameTopic state={sameTopic} centerTitle={snapshot.center.title} onSetStatus={setStatus} />
+      )}
+      {snapshot && (
         <ThumbnailBoard
           state={board}
           centerTitle={snapshot.center.title}
@@ -216,6 +231,7 @@ export function App() {
         />
       )}
       <Niches niches={niches} hasMap={snapshot !== null} />
+      <RefreshBar refresh={refresh} />
     </Shell>
   );
 }

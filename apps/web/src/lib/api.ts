@@ -3,6 +3,9 @@ import type {
   CrawlProgress,
   MapSnapshot,
   NicheList,
+  RefreshProgress,
+  RefreshStatus,
+  SameTopicList,
   ThumbnailBoard,
 } from '@jgtube/core';
 
@@ -19,6 +22,10 @@ export interface SearchSummary {
   readonly added: number;
   readonly alreadyKnown: number;
   readonly failed: number;
+  /** Channels whose account date and country were read from the official API afterwards. */
+  readonly factsAdded: number;
+  /** Why those could not be read; null when they were. */
+  readonly factsProblem: string | null;
 }
 
 export interface JobState {
@@ -29,6 +36,36 @@ export interface JobState {
     readonly centerChannelId: string;
     readonly warnings: readonly string[];
   } | null;
+  readonly error: string | null;
+}
+
+/** When the stored channels were last read again, and whether a refresh is running now. */
+export interface RefreshReply extends RefreshStatus {
+  /** Hours between scheduled refreshes; null when none is scheduled. */
+  readonly everyHours: number | null;
+  readonly running: boolean;
+  /** The job to poll while a refresh is running. */
+  readonly jobId: string | null;
+}
+
+/** How one refresh went, as counts. */
+export interface RefreshSummary {
+  readonly refreshed: number;
+  readonly failed: number;
+  readonly notAttempted: number;
+  readonly stoppedEarly: boolean;
+  readonly stillDue: number;
+  /** Niche channels whose account date and country were read from the official API. */
+  readonly factsAdded: number;
+  /** Why those could not be read; null when they were, or when no API key is set. */
+  readonly factsProblem: string | null;
+}
+
+export interface RefreshJobState {
+  readonly id: string;
+  readonly status: 'running' | 'done' | 'failed';
+  readonly progress: RefreshProgress | null;
+  readonly result: RefreshSummary | null;
   readonly error: string | null;
 }
 
@@ -94,7 +131,15 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
       return unwrap<ThumbnailBoard>(envelope);
     },
 
-    /** Starts a crawl and returns the id of the job to poll. */
+    /** The channels left out of a channel's map on wording alone, or null when it has no map yet. */
+    async sameTopic(channel: string): Promise<SameTopicList | null> {
+      const envelope = await call(
+        `/api/maps/latest/same-topic?channel=${encodeURIComponent(channel)}`,
+      );
+      if (envelope.status === 404) return null;
+      return unwrap<SameTopicList>(envelope);
+    },
+
     /** Starts a new map. `model` is a channel the owner wants to be like, if any. */
     async startCrawl(
       channel: string,
@@ -160,6 +205,25 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
 
     async job(id: string): Promise<JobState> {
       return unwrap<JobState>(await call(`/api/jobs/${encodeURIComponent(id)}`));
+    },
+
+    /** When the stored channels were last read again, and whether a refresh is running. */
+    async refreshStatus(): Promise<RefreshReply> {
+      return unwrap<RefreshReply>(await call('/api/refresh'));
+    },
+
+    /** Starts reading the stalest stored channels again and returns the id of the job to poll. */
+    async startRefresh(): Promise<string> {
+      const envelope = await call('/api/refresh', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      });
+      return unwrap<{ jobId: string }>(envelope).jobId;
+    },
+
+    async refreshJob(id: string): Promise<RefreshJobState> {
+      return unwrap<RefreshJobState>(await call(`/api/jobs/${encodeURIComponent(id)}`));
     },
   };
 }

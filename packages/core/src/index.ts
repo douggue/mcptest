@@ -61,3 +61,26 @@ export {
   type SearchHit,
 } from './sources/dataApi';
 export { discoverByKeyword, type DiscoveryResult } from './discovery/keyword';
+export {
+  buildSameTopicList,
+  loadSameTopicList,
+  type SameTopicChannel,
+  type SameTopicKept,
+  type SameTopicList,
+  type SameTopicVideo,
+} from './map/sameTopic';
+export { viewsGained, type NicheGrowth } from './niches/growth';
+export {
+  loadRefreshStatus,
+  refreshStalest,
+  type RefreshDeps,
+  type RefreshOptions,
+  type RefreshProgress,
+  type RefreshResult,
+  type RefreshStatus,
+} from './refresh/refresh';
+export { SqliteRefreshRepo } from './repos/sqliteRefreshRepo';
+export type { RefreshRun, RefreshRunRepo, VideoReading } from './repos/types';
+export { fillNicheFacts, type FactsDeps, type FactsOutcome } from './niches/facts';
+export { SqliteFactsRepo } from './repos/sqliteFactsRepo';
+export type { FactsRepo, NewFacts, StoredFacts } from './repos/types';

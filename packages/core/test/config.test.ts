@@ -24,6 +24,19 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ YOUTUBE_API_KEY: 'abc123' })).not.toThrow(/abc123/);
   });
 
+  test('leaves the scheduled refresh off unless hours are given', () => {
+    expect('refreshHours' in loadConfig({})).toBe(false);
+    expect(loadConfig({ JGTUBE_REFRESH_HOURS: '6' }).refreshHours).toBe(6);
+    expect(loadConfig({ JGTUBE_REFRESH_HOURS: '168' }).refreshHours).toBe(168);
+  });
+
+  test.each(['0', '169', '2.5', 'daily', '-6', ''])(
+    'rejects %j as the hours between refreshes',
+    (value) => {
+      expect(() => loadConfig({ JGTUBE_REFRESH_HOURS: value })).toThrow(/JGTUBE_REFRESH_HOURS/);
+    },
+  );
+
   test('rejects a region that is not a two-letter code', () => {
     expect(() => loadConfig({ JGTUBE_REGION: 'United States' })).toThrow(/JGTUBE_REGION/);
   });

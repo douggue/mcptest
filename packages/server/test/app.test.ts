@@ -80,6 +80,18 @@ class FakeEngine implements Engine {
     this.boardLookups.push(channel);
     return this.board;
   }
+
+  findSameTopic(): null {
+    return null;
+  }
+
+  refresh(): never {
+    throw new Error('not used in these tests');
+  }
+
+  refreshStatus(): never {
+    throw new Error('not used in these tests');
+  }
   crawls: Array<{ channel: string; depth: number }> = [];
   outcome: Promise<CrawlOutcome> = Promise.resolve({ centerChannelId: CHANNEL_ID, warnings: [] });
 
@@ -929,6 +941,8 @@ describe('POST /api/niches/discover', () => {
       added: 1,
       alreadyKnown: 0,
       failed: 0,
+      factsAdded: 0,
+      factsProblem: null,
     });
   });
 

@@ -64,8 +64,21 @@ map is a few hundred requests and takes a few minutes; `--depth 1`,
 `--sample N` and `--max-channels N` make it smaller. Readings are reused for a
 week, so repeating a map is fast.
 
+To read the stored channels again, so that view history builds up:
+
+```
+npm run refresh
+```
+
+This reads up to 50 of the channels read longest ago (`-- --max N` changes
+that), one at a time, and leaves alone any read in the last 20 hours. The app
+has the same thing as **Refresh now** at the foot of the page. To have it done
+by itself while Jgtube is running, set `JGTUBE_REFRESH_HOURS` (for example `6`)
+in `.env`.
+
 Settings (all optional): `JGTUBE_DB_PATH` (default `jgtube.db`), `JGTUBE_REGION`
-(default `US`) and `JGTUBE_PORT` (default `4317`).
+(default `US`), `JGTUBE_PORT` (default `4317`) and `JGTUBE_REFRESH_HOURS` (off
+by default).
 
 Checks: `npm run typecheck`, `npm run lint`, `npm test`.
 

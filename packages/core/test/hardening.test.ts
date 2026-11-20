@@ -353,6 +353,7 @@ describe('ingestChannel when the fetch is unusable or the write fails', () => {
     const failing: VideoRepo = {
       listByChannel: (id) => real.listByChannel(id),
       listSnapshots: (id) => real.listSnapshots(id),
+      listChannelReadings: (id, since) => real.listChannelReadings(id, since),
       upsertMany: () => {
         throw new Error('disk full');
       },

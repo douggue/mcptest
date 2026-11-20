@@ -6,12 +6,16 @@ import { buildVideoReport, type VideoReportRow } from '../report';
 import { estimateEarnings, type EarningsEstimate } from '../scoring/earnings';
 import type {
   ChannelRepo,
+  FactsRepo,
   MapRepo,
   StoredChannel,
+  StoredFacts,
   StoredVideo,
+  VideoReading,
   VideoRepo,
   WatchlistRepo,
 } from '../repos/types';
+import { GROWTH_WINDOW_DAYS, viewsGained, type NicheGrowth } from './growth';
 import { hitRate, isOutperformer } from './outperform';
 import { NICHE_MIN_LATIN_SHARE, latinShare } from './script';
 
@@ -52,6 +56,7 @@ export const NICHE_MAX_MEDIAN_DURATION_SECONDS = 60 * 60;
 const TITLES_CHECKED = 30;
 const SAMPLE_TITLES = 3;
 const OUTPERFORMERS_SHOWN = 3;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** 'new': first upload in the last 90 days. 'small': 10,000 subscribers or fewer. */
 export type NicheReason = 'new' | 'small';
@@ -89,6 +94,19 @@ export interface NicheChannel {
   readonly scoredCount: number;
   /** Its most viewed uploads of the last 30 days. */
   readonly sampleTitles: readonly NicheSample[];
+  /**
+   * Views its videos gained between its earliest reading of the last 30 days
+   * and its latest: a measurement, unlike `recentViews`. Null until the channel
+   * has been read twice in that time.
+   */
+  readonly growth: NicheGrowth | null;
+  /**
+   * When the channel account was created, from the official API, as an
+   * ISO-8601 string. Often years before the first upload. Null until asked for.
+   */
+  readonly createdAt: string | null;
+  /** Two-letter country the channel's owner set; null when none or not asked for. */
+  readonly country: string | null;
   /** False only on a watched channel that no longer meets the rule. */
   readonly qualifies: boolean;
   /** The owner marked it to keep an eye on. */
@@ -117,6 +135,13 @@ export interface NicheInput {
   readonly watchedIds: ReadonlySet<string>;
   /** Channels never offered as a niche: the ones the owner maps from. */
   readonly excludedIds: ReadonlySet<string>;
+  /**
+   * A channel's stored view readings, asked for only for the channels that end
+   * up listed. Without it no growth is worked out.
+   */
+  readonly readingsOf?: (channelId: string) => readonly VideoReading[];
+  /** A channel's stored facts from the official API, asked for only for listed channels. */
+  readonly factsOf?: (channelId: string) => StoredFacts | null;
 }
 
 function channelAgeDays(report: readonly VideoReportRow[]): number | null {
@@ -170,7 +195,10 @@ function outperformers(source: NicheSource, report: readonly VideoReportRow[]): 
 }
 
 /** What one stored channel looks like as a niche, whether or not it is listed. */
-function describe(source: NicheSource, now: Date): Omit<NicheChannel, 'qualifies' | 'watched'> {
+function describe(
+  source: NicheSource,
+  now: Date,
+): Omit<NicheChannel, 'qualifies' | 'watched' | 'growth' | 'createdAt' | 'country'> {
   const { channel } = source;
   const report = buildVideoReport(source.videos, now);
   const recent = report.filter((row) => row.ageDays <= RECENT_DAYS);
@@ -226,7 +254,11 @@ export function buildNicheList(input: NicheInput, now: Date): NicheList {
       entry.outperformers.length > 0 &&
       !input.excludedIds.has(id) &&
       !isJunk(source, now);
-    return watched || qualifies ? [{ ...entry, qualifies, watched }] : [];
+    if (!watched && !qualifies) return [];
+    const growth = input.readingsOf ? viewsGained(input.readingsOf(id), now) : null;
+    const facts = input.factsOf?.(id) ?? null;
+    const createdAt = facts?.createdAt.toISOString() ?? null;
+    return [{ ...entry, qualifies, watched, growth, createdAt, country: facts?.country ?? null }];
   });
   return {
     channels: [...channels].sort(byDemand),
@@ -241,10 +273,13 @@ export interface NicheDeps {
   readonly videos: VideoRepo;
   readonly maps: MapRepo;
   readonly watchlist: WatchlistRepo;
+  /** Where channel facts from the official API are kept. Without it entries carry none. */
+  readonly facts?: FactsRepo;
 }
 
 /** The niche list over everything in the store, as it stands now. */
 export function loadNicheList(deps: NicheDeps, now: Date): NicheList {
+  const since = new Date(now.getTime() - GROWTH_WINDOW_DAYS * DAY_MS);
   return buildNicheList(
     {
       sources: deps.channels
@@ -252,6 +287,8 @@ export function loadNicheList(deps: NicheDeps, now: Date): NicheList {
         .map((channel) => ({ channel, videos: deps.videos.listByChannel(channel.id) })),
       watchedIds: new Set(deps.watchlist.listWatched()),
       excludedIds: new Set(deps.maps.listCenterIds()),
+      readingsOf: (channelId) => deps.videos.listChannelReadings(channelId, since),
+      factsOf: (channelId) => deps.facts?.find(channelId) ?? null,
     },
     now,
   );

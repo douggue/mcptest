@@ -33,6 +33,8 @@ export interface Niches {
   readonly search: SearchState;
   /** Searches YouTube for a keyword, then shows the list with whatever it added. */
   readonly discover: (keyword: string) => void;
+  /** Reads the list again, after something else has changed the store. */
+  readonly reload: () => void;
 }
 
 /**
@@ -102,5 +104,9 @@ export function useNiches(api: Api, mapId: number | null): Niches {
     [api, read],
   );
 
-  return { state, setWatched, search, discover };
+  const reload = useCallback(() => {
+    void read(() => true);
+  }, [read]);
+
+  return { state, setWatched, search, discover, reload };
 }

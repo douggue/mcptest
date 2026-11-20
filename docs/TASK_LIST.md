@@ -30,7 +30,7 @@ every phase; coverage floor is 80%.
 - [x] Baseline, age ramp and outlier score with guards
 - [x] Rising-channel rule
 - [x] "Views on recent uploads"
-- [ ] True 30-day views from stored snapshots
+- [ ] True 30-day views from stored snapshots (started: the niche list measures views gained between readings; it needs 30 days of refreshes to cover 30 days)
 - [x] Baseline, sample size, channel age and hit rate shown beside each score, with a caution mark when the usual is taken from few videos or is very small
 
 **Done when:** scores for one channel from the Makina export are reproduced within 15%. (Met: a test checks the median error on an exported channel.)
@@ -55,6 +55,7 @@ every phase; coverage floor is 80%.
 - [ ] Judged relevance pass (batched model call). Needed for channels within a point or two of the title threshold, which titles do not settle
 - [x] Closeness tiers; filtered-out list ("Everything" view); manual remove and restore, kept across new maps
 - [x] Keep as a competitor: the owner pulls a rejected channel in; it then counts as a peer on the radar, in the breakout feed and on the thumbnail board, across new maps, until undone (`POST /api/competitors` with `status` `kept`, `removed` or `auto`)
+- [x] "Same topic, different wording?": the channels left out on titles alone, listed with their numbers and newest titles for the owner (or their Claude) to keep (`GET /api/maps/latest/same-topic`)
 - [x] Each map stored as it was when made; schema migrations
 - [x] Seed from a model channel: the crawl also explores from it and "like yours" is measured against it
 - [x] Depth 1 to 3 and a channel limit of 150, 300 or 600 chosen on screen; when the limit cannot fit every candidate, places go first to channels recommended by look-alikes
@@ -97,6 +98,7 @@ every phase; coverage floor is 80%.
 - [ ] Channel detail, run progress
 - [x] Competitor remove and restore; keep and undo for a channel the filter left out
 - [x] Thumbnail board: per channel like yours, the thumbnails that took off beside ordinary ones and the owner's own, with a switch between winners only and winners next to ordinary (`GET /api/maps/latest/thumbnails`)
+- [x] "Same topic, different wording?" section on the map page: six channels at a time, one-press keep, a "Kept by you" row with undo
 - [x] "New niches to watch" section: a card per channel with why it is listed, its numbers, the thumbnails that took off and its hit rate; filters for new, small and watched
 - [ ] Thumbnail patterns in words on the screen: a model looks at the board's winners and ordinary videos and says what to copy (available in Claude through the connector's `view_thumbnails`)
 - [ ] Star, hide, copy
@@ -123,8 +125,10 @@ Phase 7 needs 5.
 
 - [x] "New niches to watch": new or small channels across the whole store with a recent video that outperforms; watchlist
 - [x] Channel facts from the official API (exact creation date, country, totals), with the owner's key
+- [x] Those facts stored on channels and read for niche-list channels that lack them, after a refresh and after a keyword search (never on a page load); the card shows the account's year beside the first upload when they are more than 60 days apart, and the country
 - [x] Keyword discovery: official search for recent most-viewed videos on a subject, channels read into the store; search box on the niches section
 - [x] Earnings range per niche channel (long videos $2-8 per 1,000 views, Shorts $0.10-0.50; flagged under 1,000 subscribers)
 - [x] Settings from a `.env` file, including `YOUTUBE_API_KEY`
-- [ ] Scheduled refresh so growth history builds up
+- [x] Refresh so growth history builds up: the stalest stored channels are read again, 50 a run, watched and niche channels and map look-alikes first (`npm run refresh`, `POST /api/refresh`, a timer when `JGTUBE_REFRESH_HOURS` is set); "Refresh now" and the last run at the foot of the page
+- [x] Measured growth on the niche card: views gained between a channel's first reading of the last 30 days and its latest, once it has been read twice
 - [ ] Niche labels and "same topic, different wording" judged by Claude through the connector

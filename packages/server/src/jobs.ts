@@ -6,15 +6,15 @@ const MAX_JOBS_KEPT = 20;
 /** Error text can carry scraped strings; keep control characters out of it. */
 const UNSAFE_CHARACTERS = /[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩]/g;
 
-export interface Job<T> {
+export interface Job<T, P = CrawlProgress> {
   readonly id: string;
   readonly status: 'running' | 'done' | 'failed';
-  readonly progress: CrawlProgress | null;
+  readonly progress: P | null;
   readonly result: T | null;
   readonly error: string | null;
 }
 
-export type Work<T> = (report: (progress: CrawlProgress) => void) => Promise<T>;
+export type Work<T, P = CrawlProgress> = (report: (progress: P) => void) => Promise<T>;
 
 /** Matches things that look like file paths, which have no business reaching the browser. */
 const PATH_LIKE = /(?:[A-Za-z]:)?[\\/][^\s:"']*[\\/][^\s:"']*/g;
@@ -28,21 +28,22 @@ export function cleanMessage(error: unknown): string {
 }
 
 /**
- * Holds the state of long-running crawls in memory so the browser can poll
- * them. One job runs at a time: a crawl is hundreds of requests to YouTube and
- * two at once would double the rate.
+ * Holds the state of long-running work (crawls, refreshes) in memory so the
+ * browser can poll it. One job runs at a time, whatever its kind: each is
+ * hundreds of requests to YouTube and two at once would double the rate.
+ * `T` is what a finished job leaves behind and `P` what it reports on the way.
  */
-export class JobStore<T> {
-  private jobs: ReadonlyMap<string, Job<T>> = new Map();
+export class JobStore<T, P = CrawlProgress> {
+  private jobs: ReadonlyMap<string, Job<T, P>> = new Map();
   private runningId: string | null = null;
 
   constructor(private readonly nextId: () => string = randomUUID) {}
 
   /** Starts the work in the background. Returns null when another job is still running. */
-  start(work: Work<T>): Job<T> | null {
+  start(work: Work<T, P>): Job<T, P> | null {
     if (this.runningId !== null) return null;
     const id = this.nextId();
-    const job: Job<T> = { id, status: 'running', progress: null, result: null, error: null };
+    const job: Job<T, P> = { id, status: 'running', progress: null, result: null, error: null };
     this.runningId = id;
     this.save(job);
     Promise.resolve()
@@ -57,16 +58,16 @@ export class JobStore<T> {
     return job;
   }
 
-  get(id: string): Job<T> | null {
+  get(id: string): Job<T, P> | null {
     return this.jobs.get(id) ?? null;
   }
 
-  private update(id: string, changes: Partial<Job<T>>): void {
+  private update(id: string, changes: Partial<Job<T, P>>): void {
     const current = this.jobs.get(id);
     if (current) this.save({ ...current, ...changes });
   }
 
-  private save(job: Job<T>): void {
+  private save(job: Job<T, P>): void {
     const kept = [...this.jobs].filter(([id]) => id !== job.id).slice(-(MAX_JOBS_KEPT - 1));
     this.jobs = new Map([...kept, [job.id, job]]);
   }
