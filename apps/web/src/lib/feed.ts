@@ -63,6 +63,23 @@ export function competitorActions(channel: {
   return [REMOVE];
 }
 
+/**
+ * What to tell the owner about a channel whose look-alike call (in or out)
+ * came out differently when a random half of the other channels was left off
+ * the map, or null when the call holds or the owner has already decided.
+ */
+export function unsettledNote(channel: {
+  readonly peer: boolean;
+  readonly settled?: boolean;
+  readonly removed?: boolean;
+  readonly kept?: boolean;
+}): string | null {
+  if (channel.settled !== false || channel.kept || channel.removed) return null;
+  return channel.peer
+    ? 'Not settled: counted as like yours on this map, but not on every half of it. Read its titles before relying on it.'
+    : 'Not settled: left out on this map, but counted as like yours on some halves of it. Read its titles before ruling it out.';
+}
+
 /** In words, what a breakout score rests on, so a big number can be weighed. */
 export function describeEvidence(item: BreakoutVideo): string {
   return [

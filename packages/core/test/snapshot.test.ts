@@ -264,6 +264,15 @@ describe('loadMapSnapshot', () => {
     });
   });
 
+  test('says for each channel whether its look-alike call is settled', () => {
+    saveMap();
+
+    const snapshot = loadMapSnapshot(deps, cid('C'), NOW);
+
+    // Two channels with nothing in common: neither call hangs on the other being there.
+    expect(snapshot?.channels.map((entry) => entry.settled)).toEqual([true, true]);
+  });
+
   test('includes the edges between members and the breakout feed', () => {
     saveMap();
 
@@ -306,6 +315,15 @@ describe('loadMapSnapshot', () => {
       (id: number) =>
         JSON.stringify({
           format: 3,
+          snapshot: { mapId: id, center: { id: cid('C') }, channels: [], breakouts: [], edges: [] },
+        }),
+    ],
+    [
+      // Format 4: before each call said whether it is settled.
+      'does not say which calls are settled',
+      (id: number) =>
+        JSON.stringify({
+          format: 4,
           snapshot: { mapId: id, center: { id: cid('C') }, channels: [], breakouts: [], edges: [] },
         }),
     ],
