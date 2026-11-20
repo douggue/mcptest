@@ -159,6 +159,8 @@ export interface ChannelRepo {
    */
   countFailedRead(id: string): number;
   get(id: string): StoredChannel | null;
+  /** Removes channels none of whose videos is left and that are not followed. Returns how many. */
+  deleteWithoutVideos(): number;
 }
 
 /** A video as the store holds it: the API's facts and when they were read. */
@@ -177,6 +179,12 @@ export interface VideoRepo {
    * when not stored. Only the retention clean-up does this: never a missed read.
    */
   delete(id: string): boolean;
+  /**
+   * Removes the videos whose tracking ended before `cutoff` (and those never
+   * tracked and not read since), except any a finding is about. Their
+   * readings, growth, tracking and hits go with them. Returns how many.
+   */
+  deleteFinishedBefore(cutoff: Date): number;
 }
 
 /** A video's view count at one moment. Moments are kept to the whole second. */

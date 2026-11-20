@@ -74,4 +74,19 @@ export class SqliteVideoRepo implements VideoRepo {
   delete(id: string): boolean {
     return this.db.prepare('DELETE FROM videos WHERE id = ?').run(id).changes === 1;
   }
+
+  deleteFinishedBefore(cutoff: Date): number {
+    // A video goes when its tracking ended before the cutoff, or when it was
+    // never tracked and has not been read since; never one a finding is about.
+    return this.db
+      .prepare(
+        `DELETE FROM videos
+         WHERE NOT EXISTS (SELECT 1 FROM findings f WHERE f.video_id = videos.id)
+           AND (EXISTS (SELECT 1 FROM video_tracking t
+                        WHERE t.video_id = videos.id AND t.finished_at < @cutoff)
+             OR (videos.fetched_at < @cutoff
+               AND NOT EXISTS (SELECT 1 FROM video_tracking t WHERE t.video_id = videos.id)))`,
+      )
+      .run({ cutoff: toText(cutoff) }).changes;
+  }
 }

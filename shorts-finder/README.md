@@ -162,7 +162,14 @@ kept back is never lent.
   the default plan pays for 59 searches a day: with both kinds at 24 hours,
   about 29 subject-and-country pairs.
 - Once a day a clean-up ends the tracking of videos past 14 days that were
-  always put off, so their growth is summed up like everyone else's.
+  always put off, so their growth is summed up like everyone else's; deletes
+  videos whose tracking ended more than 30 days ago, unless a finding is
+  about them (a finding keeps its own copy of what it needs in any case);
+  and deletes channels with no video left that are not followed. The 30 days
+  is a starting value: Google's API terms on how long API data may be kept
+  must be checked before it is settled (`RETENTION_DAYS` in
+  `src/track/cleanup.ts`). The day is marked done only when the clean-up
+  succeeded.
 - When a share of the allowance is spent, or Google says the day's is, a cycle
   stops and reports what it left; it does not fail.
 

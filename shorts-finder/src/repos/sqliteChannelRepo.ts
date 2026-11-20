@@ -125,4 +125,14 @@ export class SqliteChannelRepo implements ChannelRepo {
       .get(id);
     return row === undefined ? null : toChannel(row);
   }
+
+  deleteWithoutVideos(): number {
+    return this.db
+      .prepare(
+        `DELETE FROM channels
+         WHERE followed = 0
+           AND NOT EXISTS (SELECT 1 FROM videos v WHERE v.channel_id = channels.id)`,
+      )
+      .run().changes;
+  }
 }

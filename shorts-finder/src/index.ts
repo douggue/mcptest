@@ -265,7 +265,12 @@ export {
   type ReadCycleDeps,
   type ReadCycleReport,
 } from './track/readCycle';
-export { endOverdueTracking, runDailyCleanup, type CleanupReport } from './track/cleanup';
+export {
+  RETENTION_DAYS,
+  endOverdueTracking,
+  runDailyCleanup,
+  type CleanupReport,
+} from './track/cleanup';
 export { finishTracking, updateGrowth } from './track/finish';
 export {
   COHORT_MIN_MEMBERS,
