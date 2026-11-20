@@ -29,17 +29,31 @@ export const NICHE_MIN_VIEWS_PER_SUBSCRIBER = 10;
  */
 export const NICHE_MIN_VIDEO_VIEWS = 10_000;
 
-/** Whether a video is recent, widely seen, and far above its channel's usual or its size. */
-export function isOutperformer(row: VideoReportRow, subscribers: number | null): boolean {
-  if (row.ageDays > NICHE_OUTPERFORM_WINDOW_DAYS || row.views < NICHE_MIN_VIDEO_VIEWS) {
-    return false;
-  }
-  const beatsUsual = row.score !== null && row.score >= NICHE_MIN_OUTLIER_SCORE;
+/**
+ * Whether a video was widely seen and far above its channel's usual views or
+ * its size, whatever its age. `score` is the multiple of the channel's usual
+ * views, or null when it cannot be judged.
+ */
+export function beatsItsChannel(
+  views: number,
+  score: number | null,
+  subscribers: number | null,
+): boolean {
+  if (views < NICHE_MIN_VIDEO_VIEWS) return false;
+  const beatsUsual = score !== null && score >= NICHE_MIN_OUTLIER_SCORE;
   const beatsSize =
     subscribers !== null &&
     subscribers > 0 &&
-    row.views >= subscribers * NICHE_MIN_VIEWS_PER_SUBSCRIBER;
+    views >= subscribers * NICHE_MIN_VIEWS_PER_SUBSCRIBER;
   return beatsUsual || beatsSize;
+}
+
+/** Whether a video is recent, widely seen, and far above its channel's usual or its size. */
+export function isOutperformer(row: VideoReportRow, subscribers: number | null): boolean {
+  return (
+    row.ageDays <= NICHE_OUTPERFORM_WINDOW_DAYS &&
+    beatsItsChannel(row.views, row.score, subscribers)
+  );
 }
 
 export interface HitRate {
