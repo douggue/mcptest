@@ -1,6 +1,9 @@
 import type {
+  CompetitorStatus,
   CrawlProgress,
   MapSnapshot,
+  NicheChannel,
+  NicheList,
   SnapshotBreakout,
   SnapshotChannel,
   ThumbnailBoard,
@@ -32,6 +35,7 @@ export function channel(overrides: Partial<SnapshotChannel> = {}): SnapshotChann
     peer: true,
     outsideReason: null,
     removed: false,
+    kept: false,
     ...overrides,
   };
 }
@@ -213,6 +217,44 @@ export function channelVideos(count = 3): ChannelVideos {
   };
 }
 
+export function niche(overrides: Partial<NicheChannel> = {}): NicheChannel {
+  return {
+    id: ALPHA_ID,
+    title: 'Alpha',
+    handle: 'alpha',
+    subscribers: 5000,
+    recentViews: 420_000,
+    recentUploads: 6,
+    viewsPerSubscriber: 84.04,
+    channelAgeDays: 41.7,
+    reasons: ['new', 'small'],
+    outperformers: [
+      {
+        videoId: 'aaaaaaaaaa1',
+        title: 'America Just Built The Impossible',
+        views: 90_000,
+        score: 8.2649,
+        publishedRaw: '6d ago',
+        ageDays: 6,
+        durationSeconds: 900,
+      },
+    ],
+    hitCount: 2,
+    scoredCount: 9,
+    sampleTitles: [
+      { videoId: 'aaaaaaaaaa1', title: 'America Just Built The Impossible', views: 90_000 },
+      { videoId: 'aaaaaaaaaa2', title: 'The Tunnel Nobody Wanted', views: 60_000 },
+    ],
+    qualifies: true,
+    watched: false,
+    ...overrides,
+  };
+}
+
+export function nicheList(channels: readonly NicheChannel[] = [niche()]): NicheList {
+  return { channels, channelsChecked: 320, smallMaxSubscribers: 10_000, newMaxAgeDays: 90 };
+}
+
 type Crawl = ConnectorEngine['crawl'];
 
 /** Stands in for the store and YouTube; every answer can be replaced by a test. */
@@ -251,8 +293,33 @@ export class FakeEngine implements ConnectorEngine {
     return this.outcome();
   };
 
-  setCompetitorRemoved(): boolean {
-    return false;
+  statusCalls: Array<[string, string, CompetitorStatus]> = [];
+
+  /** Applies the choice to the stored map the way the real engine's next read would show it. */
+  setCompetitorStatus(centerId: string, channelId: string, status: CompetitorStatus): boolean {
+    this.statusCalls.push([centerId, channelId, status]);
+    const map = this.stored;
+    if (!map || !map.channels.some((entry) => entry.id === channelId)) return false;
+    this.stored = {
+      ...map,
+      channels: map.channels.map((entry) =>
+        entry.id === channelId
+          ? {
+              ...entry,
+              kept: status === 'kept',
+              removed: status === 'removed',
+              peer: status === 'kept' || entry.outsideReason === null,
+            }
+          : entry,
+      ),
+    };
+    return true;
+  }
+
+  niches: NicheList = nicheList();
+
+  listNiches(): NicheList {
+    return this.niches;
   }
 }
 

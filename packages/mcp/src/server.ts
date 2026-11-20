@@ -12,8 +12,11 @@ import {
   getBreakoutsShape,
   getChannelVideosShape,
   getMapShape,
+  getNearMissesShape,
   getThumbnailBoardShape,
+  listNichesShape,
   makeMapShape,
+  setCompetitorStatusShape,
   viewThumbnailsShape,
 } from './schemas';
 import { TOOL_TEXT } from './toolText';
@@ -25,7 +28,9 @@ const SERVER_INFO = { name: 'jgtube', version: '0.1.0' };
 const INSTRUCTIONS =
   'Jgtube holds a YouTube channel’s competitor research: the channels like it and which of their videos took off. ' +
   'Start with get_map, then get_breakouts for what is working now. For thumbnails use get_thumbnail_board, then ' +
-  'view_thumbnails to look at the pictures. Scores are multiples of a channel’s usual views. ' +
+  'view_thumbnails to look at the pictures. get_near_misses lists channels left out only for wording their titles ' +
+  'differently; set_competitor_status records a decision the owner has agreed to. list_niches shows new or small ' +
+  'channels with a video that took off. Scores are multiples of a channel’s usual views. ' +
   'Only make_map reads YouTube, and it takes minutes; everything else reads the local store.';
 
 /** Reads only the store. */
@@ -34,6 +39,13 @@ const READS_STORE = { readOnlyHint: true, openWorldHint: false };
 const READS_INTERNET = { readOnlyHint: true, openWorldHint: true };
 /** Adds to the store from the internet; never deletes. */
 const ADDS_TO_STORE = { readOnlyHint: false, destructiveHint: false, openWorldHint: true };
+/** Changes one stored choice of the owner's; repeating it changes nothing more, and it can be undone. */
+const CHANGES_A_CHOICE = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+};
 
 type Extra = RequestHandlerExtra<ServerRequest, ServerNotification>;
 
@@ -84,6 +96,28 @@ function registerReadTools(server: McpServer, tools: ToolHandlers): void {
   );
 }
 
+function registerOwnerTools(server: McpServer, tools: ToolHandlers): void {
+  server.registerTool(
+    'get_near_misses',
+    { ...TOOL_TEXT.get_near_misses, inputSchema: getNearMissesShape, annotations: READS_STORE },
+    (args) => tools.getNearMisses(args),
+  );
+  server.registerTool(
+    'set_competitor_status',
+    {
+      ...TOOL_TEXT.set_competitor_status,
+      inputSchema: setCompetitorStatusShape,
+      annotations: CHANGES_A_CHOICE,
+    },
+    (args) => tools.setCompetitorStatus(args),
+  );
+  server.registerTool(
+    'list_niches',
+    { ...TOOL_TEXT.list_niches, inputSchema: listNichesShape, annotations: READS_STORE },
+    (args) => tools.listNiches(args),
+  );
+}
+
 function registerNetworkTools(
   server: McpServer,
   tools: ToolHandlers,
@@ -117,12 +151,13 @@ function registerPrompts(server: McpServer): void {
   );
 }
 
-/** The connector: six tools and one prompt, ready to be connected to a transport. */
+/** The connector: its tools and one prompt, ready to be connected to a transport. */
 export function createConnectorServer(deps: ToolDeps): McpServer {
   const log = deps.log ?? logToStderr;
   const tools = createToolHandlers({ ...deps, log });
   const server = new McpServer(SERVER_INFO, { instructions: INSTRUCTIONS });
   registerReadTools(server, tools);
+  registerOwnerTools(server, tools);
   registerNetworkTools(server, tools, log);
   registerPrompts(server);
   return server;

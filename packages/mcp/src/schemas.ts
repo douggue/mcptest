@@ -1,4 +1,4 @@
-import { VIDEO_ID_PATTERN } from '@jgtube/core';
+import { COMPETITOR_STATUSES, VIDEO_ID_PATTERN } from '@jgtube/core';
 import { z } from 'zod';
 import { ToolFailure } from './failure';
 
@@ -20,6 +20,12 @@ const MAX_BOARD_VIDEOS = 6;
 export const DEFAULT_CHANNEL_VIDEOS = 20;
 const MAX_CHANNEL_VIDEOS = 100;
 
+export const DEFAULT_NEAR_MISSES = 25;
+const MAX_NEAR_MISSES = 50;
+export const DEFAULT_NICHES = 15;
+const MAX_NICHES = 50;
+
+const CENTER_RULE = 'center is a YouTube handle such as @name, a channel URL or a channel id.';
 const CHANNEL_RULE = 'channel is a YouTube handle such as @name, a channel URL or a channel id.';
 const MODEL_RULE = 'model is a YouTube handle such as @name, a channel URL or a channel id.';
 const VIDEO_ID_RULE = 'Video ids are 11 characters: letters, digits, "-" and "_".';
@@ -116,7 +122,40 @@ export const makeMapShape = {
     .describe('Most channels on the map, centre included. Default 150.'),
 };
 
+export const getNearMissesShape = {
+  channel,
+  limit: wholeNumber('limit', 1, MAX_NEAR_MISSES)
+    .optional()
+    .describe(`Most channels returned. Default ${DEFAULT_NEAR_MISSES}.`),
+};
+
+export const setCompetitorStatusShape = {
+  center: channelRef(CENTER_RULE).describe(
+    'The channel the map is centred on: @handle, channel URL or channel id.',
+  ),
+  channel: channelRef(CHANNEL_RULE).describe(
+    'The channel on that map the decision is about: its id (from get_map or get_near_misses), @handle or URL.',
+  ),
+  status: z
+    .enum(COMPETITOR_STATUSES, { error: 'status is "kept", "removed" or "auto".' })
+    .describe(
+      'kept: count it as a look-alike although the filter left it out. removed: never count it. auto: withdraw the decision and let the filter decide.',
+    ),
+};
+
+export const listNichesShape = {
+  limit: wholeNumber('limit', 1, MAX_NICHES)
+    .optional()
+    .describe(`Most channels returned. Default ${DEFAULT_NICHES}.`),
+  watched_only: flag('watched_only')
+    .optional()
+    .describe('Only the channels the owner marked to watch. Default false.'),
+};
+
 export const getMapArgs = z.object(getMapShape);
+export const getNearMissesArgs = z.object(getNearMissesShape);
+export const setCompetitorStatusArgs = z.object(setCompetitorStatusShape);
+export const listNichesArgs = z.object(listNichesShape);
 export const getBreakoutsArgs = z.object(getBreakoutsShape);
 export const getThumbnailBoardArgs = z.object(getThumbnailBoardShape);
 export const viewThumbnailsArgs = z.object(viewThumbnailsShape);
@@ -124,6 +163,9 @@ export const getChannelVideosArgs = z.object(getChannelVideosShape);
 export const makeMapArgs = z.object(makeMapShape);
 
 export type GetMapArgs = z.input<typeof getMapArgs>;
+export type GetNearMissesArgs = z.input<typeof getNearMissesArgs>;
+export type SetCompetitorStatusArgs = z.input<typeof setCompetitorStatusArgs>;
+export type ListNichesArgs = z.input<typeof listNichesArgs>;
 export type GetBreakoutsArgs = z.input<typeof getBreakoutsArgs>;
 export type GetThumbnailBoardArgs = z.input<typeof getThumbnailBoardArgs>;
 export type ViewThumbnailsArgs = z.input<typeof viewThumbnailsArgs>;

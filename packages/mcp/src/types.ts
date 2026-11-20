@@ -18,8 +18,14 @@ export interface ChannelVideos {
   readonly videos: readonly ChannelVideoRow[];
 }
 
+/** The parts of the server's engine the connector uses; the engine may grow without touching it. */
+type EngineParts = Pick<
+  Engine,
+  'findSnapshot' | 'findThumbnailBoard' | 'crawl' | 'setCompetitorStatus' | 'listNiches'
+>;
+
 /** What the connector needs from the engine, so tests can stand in for it. */
-export interface ConnectorEngine extends Engine {
+export interface ConnectorEngine extends EngineParts {
   /** A stored channel's videos; reads the store only. Null when the channel is not stored. */
   findChannelVideos(channel: string): ChannelVideos | null;
 }

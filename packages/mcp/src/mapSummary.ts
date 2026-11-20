@@ -29,8 +29,17 @@ function channelEntry(channel: SnapshotChannel): Record<string, unknown> {
       ? { video: best.videoId, title: best.title, views: best.views, score: oneDecimal(best.score) }
       : null,
     why: channel.outsideReason,
+    kept: channel.kept ? true : null,
   });
 }
+
+/**
+ * A channel the size, upload rate and video length of a look-alike that was
+ * left out only because its titles use other words, and that the owner has not
+ * already decided on. It may cover the same subject in its own words.
+ */
+export const isNearMiss = (channel: SnapshotChannel): boolean =>
+  channel.outsideReason === 'titles' && !channel.kept && !channel.removed;
 
 function channelList(
   key: string,
@@ -72,12 +81,50 @@ export function summarizeMap(
       channels: channels.length,
       lookalikes: lookalikes.length,
       others: others.length,
+      nearMisses: others.filter(isNearMiss).length,
       removed: channels.length - kept.length,
       breakouts: lookalikeBreakouts,
       otherBreakouts: breakouts.length - lookalikeBreakouts,
     },
     ...channelList('lookalikes', 'moreLookalikes', lookalikes, options.limit),
     ...(options.includeOthers ? channelList('others', 'moreOthers', others, options.limit) : {}),
+  };
+}
+
+export interface NearMissOptions {
+  readonly limit: number;
+  /** The channel's newest video titles, or null when its videos are not stored. */
+  readonly recentTitles: (channelId: string) => readonly string[] | null;
+}
+
+/**
+ * The channels left out on title wording alone, closest match first, each with
+ * recent titles so a reader can judge whether the subject is the same.
+ */
+export function summarizeNearMisses(
+  snapshot: MapSnapshot,
+  options: NearMissOptions,
+): Record<string, unknown> {
+  const closestFirst = snapshot.channels
+    .filter(isNearMiss)
+    .sort((a, b) => b.relevance - a.relevance || b.recentViews - a.recentViews);
+  const { shown, more } = capped(closestFirst, options.limit);
+  return {
+    center: { id: snapshot.center.id, title: snapshot.center.title },
+    shown: shown.length,
+    ...(more > 0 ? { more } : {}),
+    nearMisses: shown.map((channel) => {
+      const { id, title, subs, match, best } = channelEntry(channel);
+      return withoutAbsent({
+        id,
+        title,
+        subs,
+        match,
+        recentViews: channel.recentViews,
+        best,
+        titles: options.recentTitles(channel.id),
+      });
+    }),
   };
 }
 

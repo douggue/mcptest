@@ -3,7 +3,16 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { createConnectorServer } from '../src/server';
-import { ALPHA_ID, CENTER_ID, FakeEngine, jsonOf, textOf } from './fakes';
+import {
+  ALPHA_ID,
+  CENTER_ID,
+  FakeEngine,
+  GIANT_ID,
+  channel,
+  jsonOf,
+  snapshot,
+  textOf,
+} from './fakes';
 
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 9, 9]);
 
@@ -35,17 +44,23 @@ const call = async (name: string, args: Record<string, unknown>): Promise<CallTo
   (await client.callTool({ name, arguments: args })) as CallToolResult;
 
 describe('the connector over the protocol', () => {
-  test('lists the six tools, each with a description and an input schema', async () => {
+  test('lists the nine tools, each with a description and an input schema', async () => {
     const { tools } = await client.listTools();
 
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       'get_breakouts',
       'get_channel_videos',
       'get_map',
+      'get_near_misses',
       'get_thumbnail_board',
+      'list_niches',
       'make_map',
+      'set_competitor_status',
       'view_thumbnails',
     ]);
+    const setStatus = tools.find((tool) => tool.name === 'set_competitor_status');
+    expect(setStatus?.description).toMatch(/only after the owner has agreed/i);
+    expect(setStatus?.annotations).toMatchObject({ readOnlyHint: false, idempotentHint: true });
     for (const tool of tools) {
       expect(tool.description?.length).toBeGreaterThan(40);
       expect(tool.inputSchema.type).toBe('object');
@@ -83,6 +98,44 @@ describe('the connector over the protocol', () => {
 
     expect(data['shown']).toBe(2);
     expect(data['more']).toBe(1);
+  });
+
+  test('get_near_misses, set_competitor_status and list_niches answer over the protocol', async () => {
+    engine.stored = snapshot({
+      channels: [
+        channel({ id: GIANT_ID, title: 'Other Words', peer: false, outsideReason: 'titles' }),
+      ],
+    });
+
+    const nearMisses = jsonOf(await call('get_near_misses', { channel: '@mychannel' }));
+    const decided = jsonOf(
+      await call('set_competitor_status', {
+        center: '@mychannel',
+        channel: GIANT_ID,
+        status: 'kept',
+      }),
+    );
+    const after = jsonOf(await call('get_near_misses', { channel: '@mychannel' }));
+    const niches = jsonOf(await call('list_niches', {}));
+
+    expect(nearMisses['nearMisses']).toMatchObject([{ id: GIANT_ID, title: 'Other Words' }]);
+    expect(decided).toMatchObject({ status: 'kept', lookalike: true });
+    expect(engine.statusCalls).toEqual([[CENTER_ID, GIANT_ID, 'kept']]);
+    // Once kept, the channel is a look-alike and no longer a candidate.
+    expect(after['nearMisses']).toEqual([]);
+    expect(niches['niches']).toHaveLength(1);
+  });
+
+  test('set_competitor_status refuses an unknown status without changing anything', async () => {
+    const result = await call('set_competitor_status', {
+      center: '@mychannel',
+      channel: ALPHA_ID,
+      status: 'banned',
+    });
+
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toContain('status is "kept", "removed" or "auto".');
+    expect(engine.statusCalls).toEqual([]);
   });
 
   test('view_thumbnails returns images, fetched only from the thumbnail host', async () => {

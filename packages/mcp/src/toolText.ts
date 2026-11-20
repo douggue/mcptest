@@ -56,4 +56,33 @@ export const TOOL_TEXT = {
       'or when get_map says there is none. Only one runs at a time. If the call times out on your side the map is ' +
       'still being made: wait a few minutes, then call get_map.',
   },
+  get_near_misses: {
+    title: 'Near misses',
+    description:
+      'Channels on the map that fit the centre on size, upload rate and video length but were left out of the ' +
+      'look-alikes only because their titles use different words. They are candidates for "same topic, different ' +
+      'wording": read each one’s recent titles and best video and judge by meaning, not vocabulary, whether it covers ' +
+      'the same subject for the same viewer. Closest title match first, with match (0 to 100), recentViews (views on ' +
+      'uploads from the last 30 days), best and titles (newest first). Suggest the convincing ones to the owner; if ' +
+      'they agree, record it with set_competitor_status. Reads the local store only.',
+  },
+  set_competitor_status: {
+    title: 'Keep or remove a competitor',
+    description:
+      'Records the owner’s decision about one channel on a centre channel’s latest map: kept (count it as a ' +
+      'look-alike although the filter left it out), removed (never count it) or auto (withdraw the decision). This ' +
+      'changes a stored choice: it shows in the web app and holds for every later map of that centre. Call it only ' +
+      'after the owner has agreed, in this conversation, to that change for that channel; never on your own ' +
+      'judgement and never for several channels the owner has not each agreed to. It can be undone with auto.',
+  },
+  list_niches: {
+    title: 'New niches',
+    description:
+      'New or small channels anywhere in the store (not only on one map) that have a recent video far above their ' +
+      'size: possible new niches. Most views on recent uploads first. Per channel: subs, recentViews and uploads ' +
+      '(last 30 days), viewsPerSub, channelAgeDays, why (new: first upload within newMaxAgeDays; small: at or under ' +
+      'smallMaxSubs), hits (strong videos out of scored ones), top (its videos that took off) and titles. watched ' +
+      'marks channels the owner chose to follow; qualifies false marks a watched one that no longer meets the rule. ' +
+      'Reads the local store only.',
+  },
 } as const;

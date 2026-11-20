@@ -16,6 +16,7 @@
     "test": "vitest run --coverage",
     "jgtube": "tsx packages/core/src/cli.ts",
     "api": "tsx packages/server/src/main.ts",
+    "mcp": "tsx packages/mcp/src/main.ts",
     "web": "vite --config apps/web/vite.config.ts",
     "build": "vite build --config apps/web/vite.config.ts",
     "start": "npm run build && npm run api"

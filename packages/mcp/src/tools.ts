@@ -1,14 +1,18 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { createMakeMap } from './crawlTool';
 import { ToolFailure, plainMessage } from './failure';
+import { getNearMisses, listNiches, setCompetitorStatus } from './ownerTools';
 import { getBreakouts, getChannelVideos, getMap, getThumbnailBoard } from './readTools';
 import { failureResult } from './results';
 import type {
   GetBreakoutsArgs,
   GetChannelVideosArgs,
   GetMapArgs,
+  GetNearMissesArgs,
   GetThumbnailBoardArgs,
+  ListNichesArgs,
   MakeMapArgs,
+  SetCompetitorStatusArgs,
   ViewThumbnailsArgs,
 } from './schemas';
 import type { FetchImage } from './thumbnailImages';
@@ -30,6 +34,9 @@ export interface ToolHandlers {
   viewThumbnails(args: ViewThumbnailsArgs): Promise<CallToolResult>;
   getChannelVideos(args: GetChannelVideosArgs): Promise<CallToolResult>;
   makeMap(args: MakeMapArgs, context?: ToolContext): Promise<CallToolResult>;
+  getNearMisses(args: GetNearMissesArgs): Promise<CallToolResult>;
+  setCompetitorStatus(args: SetCompetitorStatusArgs): Promise<CallToolResult>;
+  listNiches(args: ListNichesArgs): Promise<CallToolResult>;
 }
 
 /** The default place for diagnostics. */
@@ -38,8 +45,8 @@ export const logToStderr = (line: string): void => {
 };
 
 /**
- * The six tools as plain functions. Every failure, expected or not, comes back
- * as an error result holding one clean sentence; unexpected ones are also logged.
+ * The tools as plain functions. Every failure, expected or not, comes back as
+ * an error result holding one clean sentence; unexpected ones are also logged.
  */
 export function createToolHandlers(deps: ToolDeps): ToolHandlers {
   const { engine, fetchImage } = deps;
@@ -67,5 +74,9 @@ export function createToolHandlers(deps: ToolDeps): ToolHandlers {
     viewThumbnails: (args) => guarded('view_thumbnails', () => viewThumbnails(fetchImage, args)),
     getChannelVideos: (args) => guarded('get_channel_videos', () => getChannelVideos(engine, args)),
     makeMap: (args, context) => guarded('make_map', () => makeMap(args, context)),
+    getNearMisses: (args) => guarded('get_near_misses', () => getNearMisses(engine, args)),
+    setCompetitorStatus: (args) =>
+      guarded('set_competitor_status', () => setCompetitorStatus(engine, args)),
+    listNiches: (args) => guarded('list_niches', () => listNiches(engine, args)),
   };
 }

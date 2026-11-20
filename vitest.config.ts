@@ -13,6 +13,8 @@ export default defineConfig({
         'packages/*/src/**/types.ts',
         // The process entry point: exercised by running the server.
         'packages/server/src/main.ts',
+        // The connector's entry point: exercised by running it from a client.
+        'packages/mcp/src/main.ts',
       ],
       reporter: ['text'],
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },

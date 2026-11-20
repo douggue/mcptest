@@ -37,6 +37,7 @@ describe('get_map', () => {
         channels: 4,
         lookalikes: 2,
         others: 1,
+        nearMisses: 0,
         removed: 1,
         breakouts: 2,
         otherBreakouts: 1,
@@ -82,6 +83,20 @@ describe('get_map', () => {
     expect(data['others']).toEqual([
       { id: GIANT_ID, title: 'Giant', subs: 9_000_000, match: 10, tier: 'far', why: 'larger' },
     ]);
+  });
+
+  test('marks a channel the owner kept, and counts the ones left out on titles alone', async () => {
+    engine.stored = snapshot({
+      channels: [
+        channel({ outsideReason: 'titles', kept: true }),
+        channel({ id: BETA_ID, title: 'Beta', peer: false, outsideReason: 'titles' }),
+      ],
+    });
+
+    const data = jsonOf(await tools.getMap({ channel: '@mychannel' }));
+
+    expect((data['lookalikes'] as object[])[0]).toMatchObject({ why: 'titles', kept: true });
+    expect(data['counts']).toMatchObject({ lookalikes: 1, others: 1, nearMisses: 1 });
   });
 
   test('caps each list and says how many more there are', async () => {
