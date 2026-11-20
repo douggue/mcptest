@@ -50,5 +50,5 @@ Built so far: ingest, outlier scoring and the competitor map (phases 0 to 3 of t
 | [Architecture](docs/ARCHITECTURE.md) | Components, stack, repository layout, data flow |
 | [System design](docs/SYSTEM_DESIGN.md) | Data model, scoring and relevance algorithms, model and tool contracts, testing |
 | [Crawl](docs/CRAWL.md) | How the recommendation map is gathered, with evidence, request budget and risks |
-| [UI design](docs/UI_DESIGN.md) | Candidate visual directions, screens, components |
+| [UI design](docs/UI_DESIGN.md) | The owner's design (stored in `design/`), and how each screen maps to real data |
 | [Task list](docs/TASK_LIST.md) | Phased build order with a check for each phase |

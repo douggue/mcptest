@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "outline": "#859399", "space-deep": "#05070E", "surface-variant": "#32343d", "on-tertiary-fixed": "#2a1700", "on-surface": "#e1e2ed", "on-primary-fixed-variant": "#004e60", "secondary-fixed": "#c4e7ff", "surface-glass": "rgba(15, 22, 38, 0.72)", "tertiary-fixed": "#ffddb8", "secondary-container": "#00a6e0", "tertiary-container": "#ffb148", "radar-beam": "rgba(56, 189, 248, 0.35)", "tertiary-fixed-dim": "#ffb95f", "on-secondary-container": "#00374d", "on-tertiary-container": "#704500", "secondary": "#7bd0ff", "error": "#ffb4ab", "metric-amber-bg": "rgba(245, 158, 11, 0.12)", "surface-container": "#1d1f27", "on-primary-container": "#00566a", "error-container": "#93000a", "metric-amber": "#FBBF24", "inverse-primary": "#00677f", "primary-fixed-dim": "#47d6ff", "tertiary": "#ffd6a7", "on-secondary-fixed-variant": "#004c69", "on-secondary": "#00354a", "surface-container-highest": "#32343d", "primary-container": "#00d2ff", "on-error": "#690005", "on-tertiary": "#472a00", "surface-card": "#0F1626", "on-surface-variant": "#bbc9cf", "on-primary": "#003543", "on-background": "#e1e2ed", "inverse-on-surface": "#2e3039", "on-tertiary-fixed-variant": "#653e00", "primary-fixed": "#b6ebff", "on-error-container": "#ffdad6", "surface-tint": "#47d6ff", "space-canvas": "#0B0F19", "radar-arc": "rgba(0, 210, 255, 0.18)", "primary": "#a5e7ff", "surface-container-low": "#191b23", "on-secondary-fixed": "#001e2c", "border-highlight": "rgba(0, 210, 255, 0.4)", "surface-dim": "#11131b", "border-subtle": "rgba(56, 189, 248, 0.12)", "secondary-fixed-dim": "#7bd0ff", "outline-variant": "#3c494e", "node-glow": "rgba(0, 210, 255, 0.45)", "surface-container-high": "#272a32", "surface-bright": "#373942", "surface": "#11131b", "surface-container-lowest": "#0b0e16", "inverse-surface": "#e1e2ed", "background": "#11131b", "on-primary-fixed": "#001f28" }, "borderRadius": { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" }, "spacing": { "gutter": "1rem", "margin-tablet": "1.5rem", "space-lg": "1.5rem", "gutter-tablet": "1.25rem", "space-md": "1rem", "margin-desktop": "2.5rem", "space-sm": "0.5rem", "gutter-desktop": "1.5rem", "margin": "1rem", "space-xl": "2.5rem", "space-xs": "0.25rem" }, "fontFamily": { "headline-md": ["Geist"], "metric-badge": ["Geist"], "headline-lg-mobile": ["Geist"], "headline-lg": ["Geist"], "body-lg": ["Geist"], "body-md": ["Geist"], "display-mobile": ["Geist"], "label-caps": ["Geist"], "display": ["Geist"], "body-sm": ["Geist"], "title-md": ["Geist"] }, "fontSize": { "headline-md": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.015em", "fontWeight": "600" }], "metric-badge": ["12px", { "lineHeight": "14px", "letterSpacing": "0.01em", "fontWeight": "700" }], "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }], "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "display-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.025em", "fontWeight": "700" }], "label-caps": ["11px", { "lineHeight": "16px", "letterSpacing": "0.08em", "fontWeight": "600" }], "display": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.03em", "fontWeight": "700" }], "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600" }] } } } };</script></head><body class="bg-space-deep font-body-md text-body-md text-on-surface antialiased min-h-screen"><header class="fixed top-0 left-0 w-full z-50 bg-space-canvas/90 backdrop-blur-xl border-b border-border-subtle shadow-[0_4px_24px_rgba(5,7,14,0.6)]"><div class="h-16 w-full px-gutter-desktop flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-xl"><a class="flex items-center gap-space-sm group" data-path="map" href="#"><div class="relative w-9 h-9 rounded-lg bg-surface-card flex items-center justify-center border border-border-subtle group-hover:border-border-highlight transition-all"><span class="material-symbols-outlined text-primary text-[20px]">radar</span><span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary-container shadow-[0_0_8px_#00d2ff]"></span></div><div class="flex items-baseline gap-space-xs"><span class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">Makina</span><span class="font-label-caps text-label-caps text-secondary uppercase">Studio</span></div></a><nav class="hidden lg:flex items-center gap-space-lg h-16" data-active-classes="text-primary border-b-2 border-primary-container font-semibold"><a class="h-full flex items-center text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md" data-path="topics" href="#">Topics</a><a class="h-full flex items-center text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md" data-path="map" href="#">Map</a><a class="h-full flex items-center text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md" data-path="map-chat" href="#">Map Chat</a><a class="h-full flex items-center text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md" data-path="results" href="#">Results</a><a class="h-full flex items-center text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md" data-path="yt-dashboard" href="#">YT Dashboard</a><a aria-current="page" class="h-full flex items-center transition-colors text-primary border-b-2 border-primary-container font-semibold" data-path="tools" href="#">Tools</a></nav></div><div class="flex items-center gap-space-md flex-1 max-w-2xl justify-end"><div class="relative hidden sm:block w-full max-w-sm"><span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span><input class="w-full bg-surface-card/80 border border-border-subtle focus:border-border-highlight rounded-full pl-10 pr-4 py-1.5 text-body-sm font-body-sm text-on-surface placeholder-outline focus:outline-none focus:ring-1 focus:ring-primary-container transition-all shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)]" placeholder="Search channels, topics, or links..." type="text"/></div><a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-card border border-border-subtle hover:border-border-highlight text-on-surface transition-all" data-path="credits-billing" href="#"><span class="w-2 h-2 rounded-full bg-metric-amber shadow-[0_0_8px_#fbbf24]"></span><span class="font-metric-badge text-metric-badge text-metric-amber">100</span><span class="font-body-sm text-body-sm text-on-surface-variant">credits</span><span class="material-symbols-outlined text-primary text-[14px]">add</span></a><button class="relative p-2 rounded-full hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary-container"></span></button><a class="flex items-center gap-space-sm pl-2 border-l border-border-subtle group" data-path="settings" href="#"><div class="relative"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-[0_0_12px_rgba(0,210,255,0.25)]"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-secondary border-2 border-space-canvas"></span></div><div class="hidden xl:flex flex-col text-left"><span class="font-body-sm text-body-sm font-semibold text-on-surface group-hover:text-primary transition-colors leading-tight">Creator</span><span class="font-label-caps text-label-caps text-outline leading-none">Creator Pro</span></div></a></div></div></header><aside class="fixed left-0 top-16 bottom-0 w-64 bg-space-canvas border-r border-border-subtle z-40 hidden md:flex flex-col justify-between py-space-md"><div class="flex flex-col gap-space-xs px-space-sm"><div class="px-3 py-2"><span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Intelligence Radar</span></div><nav class="flex flex-col gap-1" data-active-classes="bg-surface-card text-primary border border-border-highlight shadow-[0_0_14px_rgba(0,210,255,0.15)] font-semibold"><a class="flex items-center px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-body-md text-body-md" data-path="map" href="#">Radar Field</a><a class="flex items-center px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-body-md text-body-md" data-path="topics" href="#">Topic Streams</a><a class="flex items-center px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-body-md text-body-md" data-path="map-chat" href="#">Tactical AI Chat</a><a class="flex items-center px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-body-md text-body-md" data-path="results" href="#">Breakout Signals</a><a class="flex items-center px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-body-md text-body-md" data-path="yt-dashboard" href="#">Channel Telemetry</a><a aria-current="page" class="flex items-center px-3 py-2 rounded-DEFAULT transition-all bg-surface-card text-primary border border-border-highlight shadow-[0_0_14px_rgba(0,210,255,0.15)] font-semibold" data-path="tools" href="#">Creator Toolkit</a></nav></div><div class="px-space-sm pt-space-sm border-t border-border-subtle flex flex-col gap-1"><nav class="flex flex-col gap-1" data-active-classes="bg-surface-card text-primary border border-border-highlight"><a class="flex items-center px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-body-md text-body-md" data-path="credits-billing" href="#">Plans &amp; Credits</a><a class="flex items-center px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-body-md text-body-md" data-path="settings" href="#">Account Settings</a></nav><div class="mt-2 p-3 rounded-DEFAULT bg-surface-card border border-border-subtle flex items-center justify-between"><div class="flex flex-col"><span class="font-label-caps text-label-caps text-outline uppercase">Stream status</span><span class="font-body-sm text-body-sm text-secondary flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse shadow-[0_0_8px_#00d2ff]"></span>Live Sync</span></div><span class="material-symbols-outlined text-outline text-[18px]">wifi_tethering</span></div></div></aside><div class="md:pl-64"><main class="relative pt-16 min-h-screen bg-space-deep"><div class="flex flex-col w-full">
+<div class="w-full max-w-[1360px] mx-auto px-gutter-tablet lg:px-gutter-desktop py-space-lg lg:py-space-xl flex flex-col gap-space-xl">
+<!-- Top Header & Ingestion HUD -->
+<div class="relative overflow-hidden rounded-lg bg-surface-card p-space-lg lg:p-space-xl shadow-xl flex flex-col gap-space-lg">
+<div class="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-primary-container/10 blur-[100px] pointer-events-none"></div>
+<div class="absolute -bottom-24 -left-20 w-80 h-80 rounded-full bg-secondary-container/10 blur-[90px] pointer-events-none"></div>
+<div class="flex flex-col lg:flex-row lg:items-end justify-between gap-space-md z-10">
+<div class="flex flex-col gap-space-xs max-w-2xl">
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-metric-amber-bg text-metric-amber font-metric-badge text-metric-badge">
+<span class="w-1.5 h-1.5 rounded-full bg-metric-amber animate-pulse"></span>
+              REVERSE-ENGINEERING ENGINE v3.4
+            </span>
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Makina Telemetry</span>
+</div>
+<h1 class="font-display text-display text-on-surface tracking-tight">Creator Toolkit</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">High-performance AI extraction and deep behavioral reverse-engineering for any YouTube asset.</p>
+</div>
+<!-- Telemetry Status Pills -->
+<div class="flex items-center gap-space-sm flex-wrap">
+<div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container-high text-on-surface text-body-sm font-body-sm shadow-sm">
+<span class="material-symbols-outlined text-secondary text-[16px]">bolt</span>
+<span>Parsing Latency: <strong class="text-primary font-semibold">180ms</strong></span>
+</div>
+<div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container-high text-on-surface text-body-sm font-body-sm shadow-sm">
+<span class="material-symbols-outlined text-metric-amber text-[16px]">token</span>
+<span>Est. Cost: <strong class="text-on-surface font-semibold">1 Credit/job</strong></span>
+</div>
+</div>
+</div>
+<!-- URL Ingestion Capsule Bar -->
+<div class="relative z-10 w-full mt-space-xs">
+<form class="flex flex-col md:flex-row items-center gap-space-sm p-1.5 bg-space-canvas rounded-full shadow-inner" onsubmit="event.preventDefault(); triggerAnalysisAnimation();">
+<div class="relative flex-1 w-full flex items-center pl-space-md pr-space-sm py-2">
+<span class="material-symbols-outlined text-secondary text-[22px] mr-3">link</span>
+<input class="w-full bg-transparent text-on-surface placeholder:text-outline font-body-md text-body-md focus:outline-none" id="video-url-input" placeholder="Paste any YouTube video URL or Channel link (e.g., https://youtube.com/watch?v=...)" type="text" value="https://youtube.com/watch?v=kY6f92XzQ_4"/>
+<button class="text-outline hover:text-on-surface text-label-caps font-label-caps px-2 py-1 rounded bg-surface-container-high transition-colors" onclick="document.getElementById('video-url-input').value='https://youtube.com/watch?v=Tito100_ViralMax'; this.classList.add('text-primary');" type="button">
+              PASTE SAMPLE
+            </button>
+</div>
+<button class="w-full md:w-auto px-space-lg py-3 rounded-full bg-primary-container text-on-primary-container font-headline-md text-title-md font-semibold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,210,255,0.4)] hover:shadow-[0_0_28px_rgba(0,210,255,0.65)] hover:bg-primary transition-all" id="analyze-btn" type="submit">
+<span class="material-symbols-outlined text-[20px]">troubleshoot</span>
+<span>Analyze Video</span>
+</button>
+</form>
+</div>
+</div>
+<!-- Quick Tools Grid (6 Precision Tool Modules) -->
+<div class="flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="font-headline-md text-headline-md font-bold text-on-surface">Intelligence Modules</span>
+<span class="text-body-sm font-body-sm text-outline">/ 6 tactical decoders active</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">Hardware Accelerated</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-space-md">
+<!-- Card 1: Transcript & Script Breakdown -->
+<div class="group relative rounded-lg bg-surface-card p-space-md flex flex-col justify-between gap-space-md shadow-lg hover:shadow-[0_0_20px_rgba(0,210,255,0.2)] transition-all cursor-pointer" onclick="switchActiveTab('tab-transcript')">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[26px]">description</span>
+</div>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-high text-primary font-label-caps text-label-caps uppercase">Text AI v4</span>
+</div>
+<div class="flex flex-col gap-1">
+<h2 class="font-headline-md text-title-md text-on-surface group-hover:text-primary transition-colors">Transcript &amp; Script Breakdown</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Full timestamped transcript extraction, retention drop-off points, hook pacing score, and core story beat clustering.</p>
+</div>
+</div>
+<div class="flex items-center justify-between pt-space-sm mt-auto">
+<div class="flex items-center gap-1.5 text-secondary font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[15px]">timer</span> 2.4s Deep Scan
+            </div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary group-hover:translate-x-1 transition-all text-[20px]">arrow_forward</span>
+</div>
+</div>
+<!-- Card 2: HD Thumbnail & Saliency -->
+<div class="group relative rounded-lg bg-surface-card p-space-md flex flex-col justify-between gap-space-md shadow-lg hover:shadow-[0_0_20px_rgba(0,210,255,0.2)] transition-all cursor-pointer" onclick="switchActiveTab('tab-thumbnail')">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center text-secondary group-hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[26px]">image_search</span>
+</div>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-high text-secondary font-label-caps text-label-caps uppercase">Computer Vision</span>
+</div>
+<div class="flex flex-col gap-1">
+<h2 class="font-headline-md text-title-md text-on-surface group-hover:text-secondary transition-colors">HD Thumbnail &amp; Visual Saliency</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Extract pristine MaxRes covers, generate eye-tracking saliency heatmaps, mobile contrast tests, and competitor overlay audits.</p>
+</div>
+</div>
+<div class="flex items-center justify-between pt-space-sm mt-auto">
+<div class="flex items-center gap-1.5 text-secondary font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[15px]">hd</span> 4K MaxRes Ready
+            </div>
+<span class="material-symbols-outlined text-outline group-hover:text-secondary group-hover:translate-x-1 transition-all text-[20px]">arrow_forward</span>
+</div>
+</div>
+<!-- Card 3: Title & Hook Simulator -->
+<div class="group relative rounded-lg bg-surface-card p-space-md flex flex-col justify-between gap-space-md shadow-lg hover:shadow-[0_0_20px_rgba(0,210,255,0.2)] transition-all cursor-pointer" onclick="switchActiveTab('tab-hook')">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center text-tertiary-container group-hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[26px]">psychology_alt</span>
+</div>
+<span class="px-2.5 py-0.5 rounded-full bg-metric-amber-bg text-metric-amber font-label-caps text-label-caps uppercase">CTR Predictor</span>
+</div>
+<div class="flex flex-col gap-1">
+<h2 class="font-headline-md text-title-md text-on-surface group-hover:text-tertiary transition-colors">Title &amp; Hook Simulator</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Simulate CTR across 24 packaging variants, curiosity gap scores, negative emotional bias ratings, and character count truncations.</p>
+</div>
+</div>
+<div class="flex items-center justify-between pt-space-sm mt-auto">
+<div class="flex items-center gap-1.5 text-metric-amber font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[15px]">model_training</span> 94.2% Acc.
+            </div>
+<span class="material-symbols-outlined text-outline group-hover:text-tertiary group-hover:translate-x-1 transition-all text-[20px]">arrow_forward</span>
+</div>
+</div>
+<!-- Card 4: Competitor Video Dissector -->
+<div class="group relative rounded-lg bg-surface-card p-space-md flex flex-col justify-between gap-space-md shadow-lg hover:shadow-[0_0_20px_rgba(0,210,255,0.2)] transition-all cursor-pointer">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center text-primary-fixed-dim group-hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[26px]">movie_edit</span>
+</div>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-caps text-label-caps uppercase">Frame Sensor</span>
+</div>
+<div class="flex flex-col gap-1">
+<h2 class="font-headline-md text-title-md text-on-surface group-hover:text-primary transition-colors">Competitor Video Dissector</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Frame-by-frame pacing telemetry, visual pattern interrupts per minute, B-roll density percentages, and audio SFX distribution.</p>
+</div>
+</div>
+<div class="flex items-center justify-between pt-space-sm mt-auto">
+<div class="flex items-center gap-1.5 text-outline font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[15px]">speed</span> 24 cuts / min
+            </div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary group-hover:translate-x-1 transition-all text-[20px]">arrow_forward</span>
+</div>
+</div>
+<!-- Card 5: Tag & Metadata Inspector -->
+<div class="group relative rounded-lg bg-surface-card p-space-md flex flex-col justify-between gap-space-md shadow-lg hover:shadow-[0_0_20px_rgba(0,210,255,0.2)] transition-all cursor-pointer">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center text-secondary group-hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[26px]">label_important</span>
+</div>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-high text-secondary font-label-caps text-label-caps uppercase">SEO Deep Link</span>
+</div>
+<div class="flex flex-col gap-1">
+<h2 class="font-headline-md text-title-md text-on-surface group-hover:text-secondary transition-colors">Tag &amp; Metadata Inspector</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Extract hidden system tags, topic categorizations, auto-generated semantic entities, language tracks, and description links.</p>
+</div>
+</div>
+<div class="flex items-center justify-between pt-space-sm mt-auto">
+<div class="flex items-center gap-1.5 text-secondary font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[15px]">travel_explore</span> 48 hidden tags
+            </div>
+<span class="material-symbols-outlined text-outline group-hover:text-secondary group-hover:translate-x-1 transition-all text-[20px]">arrow_forward</span>
+</div>
+</div>
+<!-- Card 6: Outlier Multiplier Calculator -->
+<div class="group relative rounded-lg bg-surface-card p-space-md flex flex-col justify-between gap-space-md shadow-lg hover:shadow-[0_0_20px_rgba(251,191,36,0.2)] transition-all cursor-pointer">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center text-metric-amber group-hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[26px]">flare</span>
+</div>
+<span class="px-2.5 py-0.5 rounded-full bg-metric-amber-bg text-metric-amber font-metric-badge text-metric-badge">BREAKOUT SENSOR</span>
+</div>
+<div class="flex flex-col gap-1">
+<h2 class="font-headline-md text-title-md text-on-surface group-hover:text-metric-amber transition-colors">Outlier Multiplier Calculator</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Compute instantaneous statistical divergence against a channel’s trailing 90-day baseline view velocity and subscriber baseline.</p>
+</div>
+</div>
+<div class="flex items-center justify-between pt-space-sm mt-auto">
+<div class="flex items-center gap-1.5 text-metric-amber font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-[15px]">trending_up</span> 323,533x Top Baseline
+            </div>
+<span class="material-symbols-outlined text-outline group-hover:text-metric-amber group-hover:translate-x-1 transition-all text-[20px]">arrow_forward</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Active Tool Workspace & Live Deconstruction Stage -->
+<div class="flex flex-col gap-space-md mt-space-sm">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-space-sm">
+<div>
+<span class="font-label-caps text-label-caps text-primary uppercase tracking-widest">Active Dissection Session</span>
+<h2 class="font-headline-lg text-headline-lg text-on-surface font-semibold tracking-tight">Signal Analysis Workspace</h2>
+</div>
+<!-- Tab selector controls -->
+<div class="inline-flex p-1 rounded-full bg-surface-card shadow-inner max-w-full overflow-x-auto">
+<button class="workspace-tab-btn px-4 py-2 rounded-full font-body-sm text-body-sm text-on-primary-container bg-primary-container font-semibold transition-all" id="btn-tab-transcript" onclick="switchActiveTab('tab-transcript')">
+            Transcript &amp; Beats
+          </button>
+<button class="workspace-tab-btn px-4 py-2 rounded-full font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-all" id="btn-tab-thumbnail" onclick="switchActiveTab('tab-thumbnail')">
+            Thumbnail Saliency
+          </button>
+<button class="workspace-tab-btn px-4 py-2 rounded-full font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-all" id="btn-tab-hook" onclick="switchActiveTab('tab-hook')">
+            Hook Pacing (0:00 - 0:30)
+          </button>
+<button class="workspace-tab-btn px-4 py-2 rounded-full font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-all" id="btn-tab-export" onclick="switchActiveTab('tab-export')">
+            Telemetry Export
+          </button>
+</div>
+</div>
+<!-- Main Telemetry Card Layout: Left Video Summary Pill, Right Active Tab Content -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
+<!-- Video Brief Card (Left 4 Columns) -->
+<div class="lg:col-span-4 rounded-lg bg-surface-card p-space-md flex flex-col gap-space-md shadow-xl">
+<div class="relative w-full aspect-video rounded-DEFAULT overflow-hidden bg-space-canvas group">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="Cinematic still of an artisanal craft cocktail bottle with golden amber lighting on dark textured slate background, high contrast studio photography with neon rim lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAwyWSQxA-bz0KQfva5e-KjgPeHK2CAPmuCeDJc6DvfryA30bQ24_jqtISxkhbj6nav_Jd8zhiNFSLOKHPyWMBzbjDQB5SWczSz3pNtuHo51QZlJUKKWA14y9dfog25KEvrus4s3sXsqYQOnC70Qdh1m3PGdC4R8Od2oZpPGTD5KBbnDBt8TZ0rEVmB-9RFDp86PAyM8yTc1g8-7PjIVixvJLZN53VT0__YI5YSCKA"/>
+<div class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-space-deep/90 text-on-surface font-metric-badge text-metric-badge">
+              03:42
+            </div>
+<div class="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-metric-amber text-space-deep font-metric-badge text-metric-badge shadow-[0_0_12px_rgba(251,191,36,0.6)]">
+              323,533x Outlier
+            </div>
+</div>
+<div class="flex flex-col gap-space-xs">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Channel Target</span>
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center font-bold text-primary font-body-sm">
+                TH
+              </div>
+<div class="flex flex-col">
+<span class="font-title-md text-title-md text-on-surface font-semibold leading-tight">Tito's Handmade Vodka</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">21.4K subscribers • Verified</span>
+</div>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface font-semibold mt-1">
+              Here's to 100 with Tito's: Legacy &amp; Distillation
+            </h3>
+</div>
+<!-- Quick Telemetry Vitals Grid -->
+<div class="grid grid-cols-2 gap-2 pt-2">
+<div class="p-3 rounded-DEFAULT bg-surface-container-high flex flex-col">
+<span class="font-label-caps text-label-caps text-outline uppercase">Total Views</span>
+<span class="font-headline-md text-headline-md font-bold text-on-surface">6.84M</span>
+<span class="font-body-sm text-body-sm text-secondary font-medium">Top 0.01% on channel</span>
+</div>
+<div class="p-3 rounded-DEFAULT bg-surface-container-high flex flex-col">
+<span class="font-label-caps text-label-caps text-outline uppercase">Avg Watch Duration</span>
+<span class="font-headline-md text-headline-md font-bold text-on-surface">2m 48s</span>
+<span class="font-body-sm text-body-sm text-primary font-medium">75.6% Retention</span>
+</div>
+<div class="p-3 rounded-DEFAULT bg-surface-container-high flex flex-col">
+<span class="font-label-caps text-label-caps text-outline uppercase">Estimated CTR</span>
+<span class="font-headline-md text-headline-md font-bold text-metric-amber">14.2%</span>
+<span class="font-body-sm text-body-sm text-outline">Impressions: 48M</span>
+</div>
+<div class="p-3 rounded-DEFAULT bg-surface-container-high flex flex-col">
+<span class="font-label-caps text-label-caps text-outline uppercase">Hook Retention (0:30)</span>
+<span class="font-headline-md text-headline-md font-bold text-secondary">88.4%</span>
+<span class="font-body-sm text-body-sm text-primary">+34% vs category</span>
+</div>
+</div>
+<!-- Video Download & Raw Action Buttons -->
+<div class="flex flex-col gap-2 pt-2">
+<button class="w-full py-2.5 px-4 rounded-DEFAULT bg-surface-container-highest hover:bg-surface-variant text-on-surface font-body-sm text-body-sm font-semibold flex items-center justify-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-[18px]">download</span>
+<span>Download Original Thumbnail (4K JPG)</span>
+</button>
+<button class="w-full py-2.5 px-4 rounded-DEFAULT bg-surface-container-highest hover:bg-surface-variant text-on-surface font-body-sm text-body-sm font-semibold flex items-center justify-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-[18px]">subtitles</span>
+<span>Export Raw Timed Captions (.SRT / .VTT)</span>
+</button>
+</div>
+</div>
+<!-- Dynamic Detailed View (Right 8 Columns) -->
+<div class="lg:col-span-8 rounded-lg bg-surface-card p-space-lg flex flex-col gap-space-md shadow-xl min-h-[560px]">
+<!-- TAB 1: Transcript & Story Beats -->
+<div class="workspace-tab-content flex flex-col gap-space-md" id="tab-transcript">
+<div class="flex items-center justify-between flex-wrap gap-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[22px]">segment</span>
+<span class="font-headline-md text-headline-md text-on-surface font-semibold">Decoded Script &amp; Narrative Segments</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1 rounded bg-surface-container-high text-on-surface font-body-sm text-body-sm hover:bg-surface-variant transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">content_copy</span> Copy All
+                </button>
+<button class="px-3 py-1 rounded bg-surface-container-high text-on-surface font-body-sm text-body-sm hover:bg-surface-variant transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">translate</span> AI Summary
+                </button>
+</div>
+</div>
+<!-- Hook & Topic breakdown badge pill list -->
+<div class="flex items-center gap-2 flex-wrap">
+<span class="font-label-caps text-label-caps text-outline uppercase">Key Themes Detected:</span>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-high text-secondary font-body-sm text-body-sm">Heritage Crafting</span>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-high text-primary font-body-sm text-body-sm">Copper Pot Stills</span>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-high text-metric-amber font-body-sm text-body-sm">Austin Founder Lore</span>
+<span class="px-2.5 py-0.5 rounded-full bg-surface-container-high text-tertiary font-body-sm text-body-sm">Blind Taste Victory</span>
+</div>
+<!-- Interactive Transcript Stream -->
+<div class="flex flex-col gap-2 max-h-[460px] overflow-y-auto pr-1">
+<!-- Segment 0:00 (Hook) -->
+<div class="p-3.5 rounded-DEFAULT bg-surface-container-high/60 hover:bg-surface-container-high transition-colors flex gap-space-sm items-start border-l-2 border-primary-container">
+<span class="px-2 py-0.5 rounded bg-space-canvas text-primary font-metric-badge text-metric-badge font-mono shrink-0">
+                  00:00
+                </span>
+<div class="flex flex-col gap-1 flex-1">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-primary font-semibold uppercase">The Cold Open / Sensory Hook</span>
+<span class="font-metric-badge text-metric-badge text-metric-amber">Retention: 99.2%</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface">
+                    "When people said a guy from Texas couldn't distill the smoothest vodka in the world on a 16-gallon pot still, they didn't know how stubborn we really were."
+                  </p>
+<span class="font-body-sm text-body-sm text-outline italic">Pattern Interrupt: Immediate copper still audio clang + micro-zoom on vintage Polaroid photo.</span>
+</div>
+</div>
+<!-- Segment 0:18 -->
+<div class="p-3.5 rounded-DEFAULT bg-surface-container-high/40 hover:bg-surface-container-high transition-colors flex gap-space-sm items-start">
+<span class="px-2 py-0.5 rounded bg-space-canvas text-secondary font-metric-badge text-metric-badge font-mono shrink-0">
+                  00:18
+                </span>
+<div class="flex flex-col gap-1 flex-1">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-outline font-semibold uppercase">Origin Narrative Arc</span>
+<span class="font-metric-badge text-metric-badge text-on-surface-variant">Retention: 91.4%</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface">
+                    "Back in 1995, there was no legal permit for a micro-distillery in the entire state. Every banker turned down the loan. Nineteen credit cards maxed out to zero."
+                  </p>
+</div>
+</div>
+<!-- Segment 0:54 -->
+<div class="p-3.5 rounded-DEFAULT bg-surface-container-high/40 hover:bg-surface-container-high transition-colors flex gap-space-sm items-start">
+<span class="px-2 py-0.5 rounded bg-space-canvas text-secondary font-metric-badge text-metric-badge font-mono shrink-0">
+                  00:54
+                </span>
+<div class="flex flex-col gap-1 flex-1">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-outline font-semibold uppercase">The Breakthrough Moment</span>
+<span class="font-metric-badge text-metric-badge text-on-surface-variant">Retention: 87.1%</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface">
+                    "We slept with a sleeping bag right next to the boiler. One degree off and the whole batch burned. But the smell that came out of that condenser at 3 AM... that changed everything."
+                  </p>
+</div>
+</div>
+<!-- Segment 01:42 -->
+<div class="p-3.5 rounded-DEFAULT bg-surface-container-high/40 hover:bg-surface-container-high transition-colors flex gap-space-sm items-start">
+<span class="px-2 py-0.5 rounded bg-space-canvas text-secondary font-metric-badge text-metric-badge font-mono shrink-0">
+                  01:42
+                </span>
+<div class="flex flex-col gap-1 flex-1">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-outline font-semibold uppercase">Blind Taste Test Climax</span>
+<span class="font-metric-badge text-metric-badge text-on-surface-variant">Retention: 82.0%</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface">
+                    "San Francisco World Spirits Competition. Double Gold. Unanimous. Tito’s beat out 72 heritage brands that had been around for two centuries."
+                  </p>
+</div>
+</div>
+</div>
+</div>
+<!-- TAB 2: Thumbnail Saliency Heatmap (Hidden by default, switched via JS) -->
+<div class="workspace-tab-content hidden flex flex-col gap-space-md" id="tab-thumbnail">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[22px]">visibility</span>
+<span class="font-headline-md text-headline-md text-on-surface font-semibold">Visual Attention &amp; Saliency Heatmap</span>
+</div>
+<span class="font-metric-badge text-metric-badge text-metric-amber px-2.5 py-0.5 rounded-full bg-metric-amber-bg">
+                Score: 92/100 (Optimal Attention Anchor)
+              </span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+<div class="relative aspect-video rounded-DEFAULT overflow-hidden bg-space-canvas">
+<img class="w-full h-full object-cover" data-alt="YouTube thumbnail visual saliency simulation with glowing neon thermal heatmap gradient circles in electric cyan, red, and amber over a craft spirits bottle" src="https://lh3.googleusercontent.com/aida-public/AB6AXuClGfgvsiZwL6-HbfnYrLNSj-myJqttqauNoBexSK3w33nWBOF9lxWBtGWFvBM1G90bgiUV9wOs9oV8qR_Oy0Oi8Ae27o9uAq_g1hcn6j1gG7zX8EUnsMy_PvXsW7o-hUAb2l58SZmKSTapEc70DAmkVNgbEhUMK9mqLoomhif_pb0kJ3pGo7_JtJKqw36xdEpNCU_boqxc_id69riu_HGweMJ9qG1j8MFGSbb3170"/>
+<div class="absolute inset-0 bg-gradient-to-t from-space-deep/80 via-transparent to-transparent flex items-end p-3">
+<span class="font-label-caps text-label-caps text-primary uppercase">Predicted First-Fixation Cluster (0.3s)</span>
+</div>
+</div>
+<div class="flex flex-col justify-between gap-space-sm">
+<div class="flex flex-col gap-2">
+<span class="font-title-md text-title-md text-on-surface font-semibold">Cognitive Processing Breakdown</span>
+<div class="flex flex-col gap-2">
+<div>
+<div class="flex justify-between font-body-sm text-body-sm mb-1">
+<span class="text-on-surface-variant">Focal Contrast Ratio</span>
+<span class="text-primary font-semibold">14.8:1 (Exceptional)</span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-container-high overflow-hidden">
+<div class="h-full bg-primary-container rounded-full" style="width: 88%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between font-body-sm text-body-sm mb-1">
+<span class="text-on-surface-variant">Text Readability at 120px (Mobile Feed)</span>
+<span class="text-secondary font-semibold">96% Legibility</span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-container-high overflow-hidden">
+<div class="h-full bg-secondary rounded-full" style="width: 96%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between font-body-sm text-body-sm mb-1">
+<span class="text-on-surface-variant">Emotional Expressiveness Index</span>
+<span class="text-metric-amber font-semibold">78% Intrigue</span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-container-high overflow-hidden">
+<div class="h-full bg-metric-amber rounded-full" style="width: 78%"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="p-3 rounded-DEFAULT bg-surface-container-high text-body-sm font-body-sm text-on-surface-variant">
+<strong class="text-on-surface">AI Recommendation:</strong> The heavy focal weight on the copper reflection produces 3.2x higher dwell time than conventional human face thumbnails in this spirits category.
+                </div>
+</div>
+</div>
+</div>
+<!-- TAB 3: Hook Pacing (0:00 - 0:30) (Hidden by default) -->
+<div class="workspace-tab-content hidden flex flex-col gap-space-md" id="tab-hook">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary-container text-[22px]">ssid_chart</span>
+<span class="font-headline-md text-headline-md text-on-surface font-semibold">First 30 Seconds Retention Telemetry</span>
+</div>
+<span class="text-body-sm font-body-sm text-secondary">88.4% Viewer Hold at second 30</span>
+</div>
+<!-- Inline SVG Retention Sparkline & Pacing Graph -->
+<div class="w-full h-44 rounded-DEFAULT bg-space-canvas p-space-sm flex flex-col justify-between relative overflow-hidden">
+<div class="flex justify-between text-label-caps font-label-caps text-outline z-10">
+<span>00:00 (100%)</span>
+<span>00:10 (94%)</span>
+<span>00:20 (91%)</span>
+<span>00:30 (88.4%)</span>
+</div>
+<!-- Sparkline SVG -->
+<svg class="w-full h-28 text-primary overflow-visible" preserveaspectratio="none" viewbox="0 0 500 100">
+<defs>
+<lineargradient id="chartGlow" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#00d2ff" stop-opacity="0.35"></stop>
+<stop offset="100%" stop-color="#00d2ff" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<path d="M 0 5 Q 70 8, 140 18 T 280 24 T 420 32 L 500 36 L 500 100 L 0 100 Z" fill="url(#chartGlow)"></path>
+<path d="M 0 5 Q 70 8, 140 18 T 280 24 T 420 32 L 500 36" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="3"></path>
+<circle cx="140" cy="18" fill="#fbbf24" r="4"></circle>
+<circle cx="280" cy="24" fill="#00d2ff" r="4"></circle>
+<circle cx="500" cy="36" fill="#7bd0ff" r="5"></circle>
+</svg>
+<div class="flex justify-between text-body-sm font-body-sm text-on-surface-variant z-10 pt-1">
+<span>[Anchor Statement]</span>
+<span class="text-metric-amber">[Credit Card Debt Reveal]</span>
+<span class="text-primary">[Boiler Room Soundbite]</span>
+<span class="text-secondary">[Trophy Proof]</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-sm">
+<div class="p-3 rounded-DEFAULT bg-surface-container-high flex flex-col">
+<span class="font-label-caps text-label-caps text-outline">Pattern Interrupts</span>
+<span class="font-headline-md text-headline-md font-bold text-on-surface">5 in 30s</span>
+<span class="font-body-sm text-body-sm text-primary">Every 6.0s average</span>
+</div>
+<div class="p-3 rounded-DEFAULT bg-surface-container-high flex flex-col">
+<span class="font-label-caps text-label-caps text-outline">Words Per Minute</span>
+<span class="font-headline-md text-headline-md font-bold text-on-surface">172 WPM</span>
+<span class="font-body-sm text-body-sm text-secondary">Optimal narrative rhythm</span>
+</div>
+<div class="p-3 rounded-DEFAULT bg-surface-container-high flex flex-col">
+<span class="font-label-caps text-label-caps text-outline">Curiosity Unresolved</span>
+<span class="font-headline-md text-headline-md font-bold text-metric-amber">High (Level 4)</span>
+<span class="font-body-sm text-body-sm text-outline">Kept open until 02:15</span>
+</div>
+</div>
+</div>
+<!-- TAB 4: Export Data (Hidden by default) -->
+<div class="workspace-tab-content hidden flex flex-col gap-space-md" id="tab-export">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[22px]">code_blocks</span>
+<span class="font-headline-md text-headline-md text-on-surface font-semibold">Structured Telemetry Payload</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1.5 rounded-DEFAULT bg-primary-container text-on-primary-container font-body-sm text-body-sm font-semibold hover:bg-primary transition-all">
+                  Download Full JSON
+                </button>
+</div>
+</div>
+<div class="p-space-md rounded-DEFAULT bg-space-canvas font-mono text-body-sm text-primary overflow-x-auto max-h-[380px] border-l-2 border-secondary-container">
+<pre class="leading-relaxed text-secondary-fixed">{
+  "asset_id": "kY6f92XzQ_4",
+  "title": "Here's to 100 with Tito's: Legacy &amp; Distillation",
+  "channel": {
+    "name": "Tito's Handmade Vodka",
+    "subscribers": 21400,
+    "baseline_views_90d": 21.14
+  },
+  "viral_telemetry": {
+    "views_at_sample": 6840000,
+    "outlier_multiplier": 323533.2,
+    "predicted_ctr": 0.142,
+    "hook_retention_30s": 0.884
+  },
+  "narrative_blocks": [
+    { "timestamp": "00:00", "type": "cold_open_hook", "salience": 0.992 },
+    { "timestamp": "00:18", "type": "adversity_conflict", "salience": 0.914 },
+    { "timestamp": "00:54", "type": "sensory_tension", "salience": 0.871 },
+    { "timestamp": "01:42", "type": "resolution_double_gold", "salience": 0.820 }
+  ]
+}
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+  function switchActiveTab(tabId) {
+    // Hide all tabs
+    const contents = document.querySelectorAll('.workspace-tab-content');
+    contents.forEach(content => content.classList.add('hidden'));
+
+    // Reset all buttons
+    const buttons = document.querySelectorAll('.workspace-tab-btn');
+    buttons.forEach(btn => {
+      btn.classList.remove('bg-primary-container', 'text-on-primary-container', 'font-semibold');
+      btn.classList.add('text-on-surface-variant');
+    });
+
+    // Show target tab
+    const target = document.getElementById(tabId);
+    if (target) {
+      target.classList.remove('hidden');
+    }
+
+    // Set active button style
+    const activeBtn = document.getElementById('btn-' + tabId);
+    if (activeBtn) {
+      activeBtn.classList.remove('text-on-surface-variant');
+      activeBtn.classList.add('bg-primary-container', 'text-on-primary-container', 'font-semibold');
+    }
+  }
+
+  function triggerAnalysisAnimation() {
+    const btn = document.getElementById('analyze-btn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-[20px]">sync</span><span>Ingesting Node...</span>';
+    btn.disabled = true;
+
+    setTimeout(() => {
+      btn.innerHTML = '<span class="material-symbols-outlined text-[20px]">check_circle</span><span>Telemetry Decoded!</span>';
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }, 1500);
+    }, 1200);
+  }
+</script></main></div></body></html>

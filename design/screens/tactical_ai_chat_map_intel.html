@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "outline": "#859399", "space-deep": "#05070E", "surface-variant": "#32343d", "on-tertiary-fixed": "#2a1700", "on-surface": "#e1e2ed", "on-primary-fixed-variant": "#004e60", "secondary-fixed": "#c4e7ff", "surface-glass": "rgba(15, 22, 38, 0.72)", "tertiary-fixed": "#ffddb8", "secondary-container": "#00a6e0", "tertiary-container": "#ffb148", "radar-beam": "rgba(56, 189, 248, 0.35)", "tertiary-fixed-dim": "#ffb95f", "on-secondary-container": "#00374d", "on-tertiary-container": "#704500", "secondary": "#7bd0ff", "error": "#ffb4ab", "metric-amber-bg": "rgba(245, 158, 11, 0.12)", "surface-container": "#1d1f27", "on-primary-container": "#00566a", "error-container": "#93000a", "metric-amber": "#FBBF24", "inverse-primary": "#00677f", "primary-fixed-dim": "#47d6ff", "tertiary": "#ffd6a7", "on-secondary-fixed-variant": "#004c69", "on-secondary": "#00354a", "surface-container-highest": "#32343d", "primary-container": "#00d2ff", "on-error": "#690005", "on-tertiary": "#472a00", "surface-card": "#0F1626", "on-surface-variant": "#bbc9cf", "on-primary": "#003543", "on-background": "#e1e2ed", "inverse-on-surface": "#2e3039", "on-tertiary-fixed-variant": "#653e00", "primary-fixed": "#b6ebff", "on-error-container": "#ffdad6", "surface-tint": "#47d6ff", "space-canvas": "#0B0F19", "radar-arc": "rgba(0, 210, 255, 0.18)", "primary": "#a5e7ff", "surface-container-low": "#191b23", "on-secondary-fixed": "#001e2c", "border-highlight": "rgba(0, 210, 255, 0.4)", "surface-dim": "#11131b", "border-subtle": "rgba(56, 189, 248, 0.12)", "secondary-fixed-dim": "#7bd0ff", "outline-variant": "#3c494e", "node-glow": "rgba(0, 210, 255, 0.45)", "surface-container-high": "#272a32", "surface-bright": "#373942", "surface": "#11131b", "surface-container-lowest": "#0b0e16", "inverse-surface": "#e1e2ed", "background": "#11131b", "on-primary-fixed": "#001f28" }, "borderRadius": { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" }, "spacing": { "gutter": "1rem", "margin-tablet": "1.5rem", "space-lg": "1.5rem", "gutter-tablet": "1.25rem", "space-md": "1rem", "margin-desktop": "2.5rem", "space-sm": "0.5rem", "gutter-desktop": "1.5rem", "margin": "1rem", "space-xl": "2.5rem", "space-xs": "0.25rem" }, "fontFamily": { "headline-md": ["Geist"], "metric-badge": ["Geist"], "headline-lg-mobile": ["Geist"], "headline-lg": ["Geist"], "body-lg": ["Geist"], "body-md": ["Geist"], "display-mobile": ["Geist"], "label-caps": ["Geist"], "display": ["Geist"], "body-sm": ["Geist"], "title-md": ["Geist"] }, "fontSize": { "headline-md": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.015em", "fontWeight": "600" }], "metric-badge": ["12px", { "lineHeight": "14px", "letterSpacing": "0.01em", "fontWeight": "700" }], "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }], "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "display-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.025em", "fontWeight": "700" }], "label-caps": ["11px", { "lineHeight": "16px", "letterSpacing": "0.08em", "fontWeight": "600" }], "display": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.03em", "fontWeight": "700" }], "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600" }] } } } };</script></head><body class="bg-space-deep font-body-md text-body-md text-on-surface antialiased min-h-screen"><header class="fixed top-0 left-0 w-full z-50 bg-space-canvas/90 backdrop-blur-xl border-b border-border-subtle shadow-[0_4px_24px_rgba(5,7,14,0.6)]"><div class="h-16 w-full px-gutter-desktop flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-xl"><a class="flex items-center gap-space-sm group" data-path="map" href="#"><div class="relative w-9 h-9 rounded-lg bg-surface-card flex items-center justify-center border border-border-subtle group-hover:border-border-highlight transition-all"><span class="material-symbols-outlined text-primary text-[20px]">radar</span><span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary-container shadow-[0_0_8px_#00d2ff]"></span></div><div class="flex items-baseline gap-space-xs"><span class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">Makina</span><span class="font-label-caps text-label-caps text-secondary uppercase">Studio</span></div></a><nav class="hidden lg:flex items-center gap-space-lg h-16" data-active-classes="text-primary border-b-2 border-primary-container font-semibold"><a class="h-full flex items-center text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md" data-path="topics" href="#">Topics</a><a class="h-full flex items-center text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md" data-path="map" href="#">Map</a><a aria-current="page" class="h-full flex items-center transition-colors text-primary border-b-2 border-primary-container font-semibold" data-path="map-chat" href="#">Map Chat</a><a class="h-full flex items-center text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md" data-path="results" href="#">Results</a><a class="h-full flex items-center text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md" data-path="yt-dashboard" href="#">YT Dashboard</a><a class="h-full flex items-center text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md" data-path="tools" href="#">Tools</a></nav></div><div class="flex items-center gap-space-md flex-1 max-w-2xl justify-end"><div class="relative hidden sm:block w-full max-w-sm"><span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span><input class="w-full bg-surface-card/80 border border-border-subtle focus:border-border-highlight rounded-full pl-10 pr-4 py-1.5 text-body-sm font-body-sm text-on-surface placeholder-outline focus:outline-none focus:ring-1 focus:ring-primary-container transition-all shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)]" placeholder="Search channels, topics, or links..." type="text"/></div><a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-card border border-border-subtle hover:border-border-highlight text-on-surface transition-all" data-path="credits-billing" href="#"><span class="w-2 h-2 rounded-full bg-metric-amber shadow-[0_0_8px_#fbbf24]"></span><span class="font-metric-badge text-metric-badge text-metric-amber">100</span><span class="font-body-sm text-body-sm text-on-surface-variant">credits</span><span class="material-symbols-outlined text-primary text-[14px]">add</span></a><button class="relative p-2 rounded-full hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary-container"></span></button><a class="flex items-center gap-space-sm pl-2 border-l border-border-subtle group" data-path="settings" href="#"><div class="relative"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-[0_0_12px_rgba(0,210,255,0.25)]"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-secondary border-2 border-space-canvas"></span></div><div class="hidden xl:flex flex-col text-left"><span class="font-body-sm text-body-sm font-semibold text-on-surface group-hover:text-primary transition-colors leading-tight">Creator</span><span class="font-label-caps text-label-caps text-outline leading-none">Creator Pro</span></div></a></div></div></header><aside class="fixed left-0 top-16 bottom-0 w-64 bg-space-canvas border-r border-border-subtle z-40 hidden md:flex flex-col justify-between py-space-md"><div class="flex flex-col gap-space-xs px-space-sm"><div class="px-3 py-2"><span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Intelligence Radar</span></div><nav class="flex flex-col gap-1" data-active-classes="bg-surface-card text-primary border border-border-highlight shadow-[0_0_14px_rgba(0,210,255,0.15)] font-semibold"><a class="flex items-center px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-body-md text-body-md" data-path="map" href="#">Radar Field</a><a class="flex items-center px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-body-md text-body-md" data-path="topics" href="#">Topic Streams</a><a aria-current="page" class="flex items-center px-3 py-2 rounded-DEFAULT transition-all bg-surface-card text-primary border border-border-highlight shadow-[0_0_14px_rgba(0,210,255,0.15)] font-semibold" data-path="map-chat" href="#">Tactical AI Chat</a><a class="flex items-center px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-body-md text-body-md" data-path="results" href="#">Breakout Signals</a><a class="flex items-center px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-body-md text-body-md" data-path="yt-dashboard" href="#">Channel Telemetry</a><a class="flex items-center px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-body-md text-body-md" data-path="tools" href="#">Creator Toolkit</a></nav></div><div class="px-space-sm pt-space-sm border-t border-border-subtle flex flex-col gap-1"><nav class="flex flex-col gap-1" data-active-classes="bg-surface-card text-primary border border-border-highlight"><a class="flex items-center px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-body-md text-body-md" data-path="credits-billing" href="#">Plans &amp; Credits</a><a class="flex items-center px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-body-md text-body-md" data-path="settings" href="#">Account Settings</a></nav><div class="mt-2 p-3 rounded-DEFAULT bg-surface-card border border-border-subtle flex items-center justify-between"><div class="flex flex-col"><span class="font-label-caps text-label-caps text-outline uppercase">Stream status</span><span class="font-body-sm text-body-sm text-secondary flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse shadow-[0_0_8px_#00d2ff]"></span>Live Sync</span></div><span class="material-symbols-outlined text-outline text-[18px]">wifi_tethering</span></div></div></aside><div class="md:pl-64"><main class="relative pt-16 min-h-screen bg-space-deep"><div class="flex flex-col w-full">
+<!-- Intelligence Briefing Bar -->
+<div class="px-space-md lg:px-space-xl py-space-sm bg-surface-container-lowest/80 backdrop-blur-md sticky top-16 z-30 flex flex-col gap-space-sm">
+<div class="flex flex-wrap items-center justify-between gap-space-md">
+<div class="flex items-center gap-space-md">
+<div class="relative flex items-center justify-center w-11 h-11 rounded-full bg-surface-container-high ring-1 ring-primary/30 shadow-[0_0_16px_rgba(0,210,255,0.25)]">
+<div class="w-8 h-8 rounded-full bg-cover bg-center" data-alt="Circular patriotic technology logo with America Invents typography, modern red white and cyan accents on deep space background" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDvKXJLVu7etPZmWAmg9cWhgWPgzLmqZ8_j0UxvA95Vl_XxsAEGMFzB24tOyHy_Xsqwnom_IHDkUIS46FeAq16xPcBgrnU_EaEafsaOt2eWS9zqczpADfWnMcMGbJaJOiC0ZPqMX-9UlgfUEzWGahG7bvQPdYQ2rGJHd5O_cH3Hm2-IgYGxAGuSJk61fISFDL2FUKuF_bsSCeDyBorhysVkHIKvHT8fe7Zx7q9iAmk')"></div>
+<span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-primary-container ring-2 ring-space-canvas animate-pulse shadow-[0_0_8px_#00d2ff]"></span>
+</div>
+<div>
+<div class="flex items-center gap-space-xs">
+<span class="font-headline-md text-headline-md text-on-surface font-semibold tracking-tight">America Invents</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant font-mono">@americainvents2</span>
+<span class="px-2 py-0.5 rounded-full bg-primary-container/10 text-primary font-label-caps text-label-caps font-semibold uppercase tracking-wider ml-1">Focal Origin</span>
+</div>
+<div class="flex items-center gap-2 mt-0.5 font-body-sm text-body-sm text-on-surface-variant">
+<span class="flex items-center gap-1.5 text-secondary">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+              72 channels mapped
+            </span>
+<span class="text-outline-variant font-mono">/</span>
+<span class="text-metric-amber flex items-center gap-1 font-medium">
+<span class="material-symbols-outlined text-[14px]">bolt</span>
+              18 breakout anomalies detected today
+            </span>
+<span class="hidden sm:inline-block text-outline-variant font-mono">/</span>
+<span class="hidden sm:inline-flex items-center gap-1 text-on-surface-variant">
+<span>Mesh stability: 98.4%</span>
+</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-space-sm ml-auto">
+<div class="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-card text-on-surface-variant text-body-sm font-body-sm">
+<span class="material-symbols-outlined text-primary text-[16px]">sensors</span>
+<span>Sweep Radius: <strong class="text-on-surface">Level 2 Orbit</strong></span>
+</div>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-card hover:bg-surface-container-high text-primary hover:text-on-surface transition-all font-body-sm text-body-sm" id="rescanBtn">
+<span class="material-symbols-outlined text-[16px]">sync</span>
+<span>Refresh Radar</span>
+</button>
+</div>
+</div>
+<!-- Quick Tactical Query Chips -->
+<div class="flex items-center gap-space-xs overflow-x-auto pb-1 pt-0.5 text-body-sm font-body-sm scrollbar-none">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider whitespace-nowrap mr-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-primary">auto_awesome</span> Tactical prompts:
+      </span>
+<button class="prompt-chip whitespace-nowrap px-3 py-1 rounded-full bg-surface-card hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-all flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+<span>Analyze @States2050 recent surge</span>
+</button>
+<button class="prompt-chip whitespace-nowrap px-3 py-1 rounded-full bg-surface-card hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-all flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-metric-amber"></span>
+<span>Why did Tito's video hit 323,533x?</span>
+</button>
+<button class="prompt-chip whitespace-nowrap px-3 py-1 rounded-full bg-surface-card hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-all flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px] text-secondary">title</span>
+<span>Generate 5 high-CTR titles for Megaprojects</span>
+</button>
+<button class="prompt-chip whitespace-nowrap px-3 py-1 rounded-full bg-surface-card hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-all flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[14px] text-primary">radar</span>
+<span>Find low-competition whitespace in Deep Infrastructure</span>
+</button>
+</div>
+</div>
+<!-- Main Split Intelligence Workspace -->
+<div class="px-space-md lg:px-space-xl py-space-md grid grid-cols-1 lg:grid-cols-12 gap-space-lg">
+<!-- LEFT PANEL: AI Tactical Conversation (7 cols) -->
+<div class="lg:col-span-7 flex flex-col h-[calc(100vh-14rem)] min-h-[680px] bg-space-canvas rounded-DEFAULT shadow-xl overflow-hidden relative">
+<!-- Chat Header Instrument -->
+<div class="px-space-md py-space-sm bg-surface-card/90 backdrop-blur-md flex items-center justify-between z-10">
+<div class="flex items-center gap-space-sm">
+<div class="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-primary shadow-[0_0_10px_rgba(0,210,255,0.3)]">
+<span class="material-symbols-outlined text-[18px]">smart_toy</span>
+</div>
+<div>
+<div class="flex items-center gap-1.5">
+<span class="font-title-md text-title-md text-on-surface font-semibold">Makina Tactical Strategist</span>
+<span class="px-1.5 py-0.2 rounded text-[10px] bg-primary/10 text-primary font-mono font-medium">v4.2-radar</span>
+</div>
+<p class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Synchronized with live competitive vector mesh</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-low text-body-sm font-body-sm text-on-surface-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container shadow-[0_0_6px_#00d2ff]"></span>
+<span>Grounding: Channel + 72 Mesh Nodes</span>
+</span>
+<button class="p-1.5 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors" title="Clear thread">
+<span class="material-symbols-outlined text-[18px]">cleaning_services</span>
+</button>
+</div>
+</div>
+<!-- Messages Stream -->
+<div class="flex-1 overflow-y-auto px-space-md py-space-md flex flex-col gap-space-md scrollbar-none" id="chatStream">
+<!-- System Timestamp Divider -->
+<div class="flex items-center justify-center my-1">
+<span class="px-3 py-0.5 rounded-full bg-surface-container-low text-outline font-label-caps text-label-caps font-mono uppercase tracking-widest">
+            Radar telemetry synced · 14:02 UTC
+          </span>
+</div>
+<!-- User Message -->
+<div class="flex items-start gap-space-sm justify-end max-w-2xl ml-auto w-full">
+<div class="flex flex-col items-end gap-1 max-w-[85%]">
+<div class="p-4 rounded-DEFAULT bg-surface-container-high text-on-surface font-body-md text-body-md shadow-md rounded-tr-xs">
+              Analyze why <span class="text-primary font-semibold">@States2050</span> is outpacing my channel in the 25-34 demographic and what specific video hooks they used this month.
+            </div>
+<span class="font-label-caps text-label-caps text-outline font-mono mr-1">You · 14:03</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary flex-shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[18px]">person</span>
+</div>
+</div>
+<!-- AI Response -->
+<div class="flex items-start gap-space-sm max-w-full mr-auto w-full">
+<div class="w-8 h-8 rounded-lg bg-surface-card flex items-center justify-center text-primary-container shadow-[0_0_12px_rgba(0,210,255,0.3)] flex-shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[18px]">radar</span>
+</div>
+<div class="flex flex-col gap-space-sm flex-1 max-w-full">
+<div class="p-5 rounded-DEFAULT bg-surface-card text-on-surface shadow-xl rounded-tl-xs space-y-4">
+<!-- High-level Insight Banner -->
+<div class="p-3 rounded-lg bg-surface-container-lowest flex items-start gap-3">
+<span class="material-symbols-outlined text-primary text-[22px] flex-shrink-0 mt-0.5">query_stats</span>
+<div class="space-y-1">
+<div class="flex items-center gap-2">
+<span class="font-title-md text-title-md text-on-surface font-semibold">Tactical Diagnostic: States 2050 Outpacing Velocity</span>
+<span class="px-2 py-0.5 rounded-full bg-metric-amber-bg text-metric-amber font-metric-badge text-metric-badge">+38.4% Audience Migration</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+                    States 2050 <a class="text-primary hover:underline font-mono inline-flex items-center gap-0.5 font-medium" href="#targetDossier">[Node: #CloseOrbit]</a> captured 142k viewers in your core 25–34 engineering segment over the last 28 days by shifting from broad macroeconomic essays to <strong class="text-on-surface">kinetic micro-engineering post-mortems</strong>.
+                  </p>
+</div>
+</div>
+<!-- Comparative Metric Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-space-sm">
+<div class="p-3 rounded-lg bg-surface-container-low flex flex-col gap-1">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Avg 0-10s Retention</span>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-md text-headline-md text-metric-amber font-bold">78.2%</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant font-mono">vs your 54.1%</span>
+</div>
+<span class="font-body-sm text-body-sm text-secondary">+24.1% hook stickiness</span>
+</div>
+<div class="p-3 rounded-lg bg-surface-container-low flex flex-col gap-1">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Cut Frequency (Pacing)</span>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-md text-headline-md text-primary font-bold">3.2s</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant font-mono">vs your 6.8s</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Kinetic motion graph cuts</span>
+</div>
+<div class="p-3 rounded-lg bg-surface-container-low flex flex-col gap-1">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Thumbnail Visual Contrast</span>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-md text-headline-md text-on-surface font-bold">4.8:1</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant font-mono">Dual-focal ISO</span>
+</div>
+<span class="font-body-sm text-body-sm text-metric-amber">Extreme cyan/ember ratio</span>
+</div>
+</div>
+<!-- Tactical Breakdown Section -->
+<div class="space-y-2">
+<span class="font-title-md text-title-md text-on-surface font-semibold flex items-center gap-1.5">
+<span class="material-symbols-outlined text-secondary text-[18px]">troubleshoot</span>
+                  The 3 Primary Hook Frameworks Driving Their Growth
+                </span>
+<div class="space-y-2 font-body-md text-body-md text-on-surface-variant leading-relaxed">
+<div class="p-3 rounded-lg bg-surface-container-low/70 space-y-1">
+<div class="flex items-center justify-between">
+<span class="font-semibold text-on-surface flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+                        1. The "Negative Reality Inversion" Opening (Used in 4 of 5 breakouts)
+                      </span>
+<span class="font-label-caps text-label-caps text-secondary font-mono">Spike: +84% Retention</span>
+</div>
+<p class="text-body-sm text-body-sm text-on-surface-variant">
+                      Rather than stating what was built, they open with the disastrous failure: <em class="text-on-surface">"The $42B battery tunnel was supposed to power Texas for 100 years. Inside minute 4, the silicon core cracked."</em> Zero brand intro; immediate crisis stakes.
+                    </p>
+</div>
+<div class="p-3 rounded-lg bg-surface-container-low/70 space-y-1">
+<div class="flex items-center justify-between">
+<span class="font-semibold text-on-surface flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+                        2. Tactical Blueprint HUD Overlays in Seconds 0:02 to 0:07
+                      </span>
+<span class="font-label-caps text-label-caps text-secondary font-mono">Density Index: 9.4/10</span>
+</div>
+<p class="text-body-sm text-body-sm text-on-surface-variant">
+                      They flash CAD telemetry schematics with high-pitch UI ping sound effects. Demographics in 25–34 perceive this as primary engineering whistle-blower content rather than generic YouTube summaries.
+                    </p>
+</div>
+<div class="p-3 rounded-lg bg-surface-container-low/70 space-y-1">
+<div class="flex items-center justify-between">
+<span class="font-semibold text-on-surface flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+                        3. Asymmetrical Thumbnail Typography &amp; Macro Zoom
+                      </span>
+<span class="font-label-caps text-label-caps text-metric-amber font-mono">CTR: 11.2%</span>
+</div>
+<p class="text-body-sm text-body-sm text-on-surface-variant">
+                      Thumbnails use only 2 words in monospaced high-kerning all-caps (e.g. <code class="text-metric-amber bg-surface-container-highest px-1 py-0.5 rounded font-mono">CRITICAL VOID</code>, <code class="text-metric-amber bg-surface-container-highest px-1 py-0.5 rounded font-mono">FORBIDDEN GRID</code>), paired with extreme macro shots of copper melts.
+                    </p>
+</div>
+</div>
+</div>
+<!-- Actionable Counter-Strategies (3 Generated Concepts) -->
+<div class="space-y-3 pt-2">
+<div class="flex items-center justify-between">
+<span class="font-title-md text-title-md text-on-surface font-semibold flex items-center gap-1.5">
+<span class="material-symbols-outlined text-metric-amber text-[18px]">lightbulb</span>
+                    3 Counter-Offensive Concepts for America Invents
+                  </span>
+<span class="font-label-caps text-label-caps text-outline uppercase">Calculated Outlier Probability</span>
+</div>
+<div class="space-y-2">
+<!-- Concept 1 -->
+<div class="p-3.5 rounded-lg bg-surface-container-low hover:bg-surface-container transition-all group flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+<div class="space-y-1 flex-1">
+<div class="flex items-center gap-2">
+<span class="font-semibold text-on-surface group-hover:text-primary transition-colors text-body-md font-body-md">
+                          "The Secret Foundry Rebuilding the US Nuclear Triad"
+                        </span>
+<span class="px-2 py-0.5 rounded-full bg-metric-amber-bg text-metric-amber font-metric-badge text-metric-badge">91% Affinity</span>
+</div>
+<p class="text-body-sm text-body-sm text-on-surface-variant">
+                        Exploit their current topic gap: States 2050 focuses on civil grids; your demographic is hungry for sovereign defense tooling.
+                      </p>
+</div>
+<div class="flex items-center gap-2 flex-shrink-0">
+<button class="px-3 py-1.5 rounded-full bg-surface-card hover:bg-primary hover:text-on-primary text-secondary transition-all font-body-sm text-body-sm flex items-center gap-1" onclick="addToScratchpad('The Secret Foundry Rebuilding the US Nuclear Triad')">
+<span class="material-symbols-outlined text-[16px]">bookmark_add</span>
+<span>Pin Strategy</span>
+</button>
+</div>
+</div>
+<!-- Concept 2 -->
+<div class="p-3.5 rounded-lg bg-surface-container-low hover:bg-surface-container transition-all group flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+<div class="space-y-1 flex-1">
+<div class="flex items-center gap-2">
+<span class="font-semibold text-on-surface group-hover:text-primary transition-colors text-body-md font-body-md">
+                          "Why America Abandoned Its $900M Floating Reactor"
+                        </span>
+<span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-metric-badge text-metric-badge">87% Affinity</span>
+</div>
+<p class="text-body-sm text-body-sm text-on-surface-variant">
+                        Leverages the high-performing "Negative Inversion" hook format while staying authentic to historical archives.
+                      </p>
+</div>
+<div class="flex items-center gap-2 flex-shrink-0">
+<button class="px-3 py-1.5 rounded-full bg-surface-card hover:bg-primary hover:text-on-primary text-secondary transition-all font-body-sm text-body-sm flex items-center gap-1" onclick="addToScratchpad('Why America Abandoned Its $900M Floating Reactor')">
+<span class="material-symbols-outlined text-[16px]">bookmark_add</span>
+<span>Pin Strategy</span>
+</button>
+</div>
+</div>
+<!-- Concept 3 -->
+<div class="p-3.5 rounded-lg bg-surface-container-low hover:bg-surface-container transition-all group flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+<div class="space-y-1 flex-1">
+<div class="flex items-center gap-2">
+<span class="font-semibold text-on-surface group-hover:text-primary transition-colors text-body-md font-body-md">
+                          "The 1-Micron Patent War Crippling California Chips"
+                        </span>
+<span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-metric-badge text-metric-badge">82% Affinity</span>
+</div>
+<p class="text-body-sm text-body-sm text-on-surface-variant">
+                        High patent search spike (+240% last 7d) combined with demographic affinity for semiconductor supply chains.
+                      </p>
+</div>
+<div class="flex items-center gap-2 flex-shrink-0">
+<button class="px-3 py-1.5 rounded-full bg-surface-card hover:bg-primary hover:text-on-primary text-secondary transition-all font-body-sm text-body-sm flex items-center gap-1" onclick="addToScratchpad('The 1-Micron Patent War Crippling California Chips')">
+<span class="material-symbols-outlined text-[16px]">bookmark_add</span>
+<span>Pin Strategy</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Context Citation Badges -->
+<div class="pt-2 flex flex-wrap items-center gap-2">
+<span class="font-label-caps text-label-caps text-outline uppercase">Synthesized From Radar Sensors:</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-low text-primary text-body-sm font-body-sm flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+                  @States2050 (Outlier Telemetry)
+                </span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-low text-on-surface-variant text-body-sm font-body-sm">
+                  @TitoMegaprojects (323k Vector)
+                </span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-low text-on-surface-variant text-body-sm font-body-sm">
+                  US Patent Bureau Public Flow
+                </span>
+</div>
+</div>
+<span class="font-label-caps text-label-caps text-outline font-mono ml-2">Makina Radar AI · 14:03 (0.82s inference)</span>
+</div>
+</div>
+</div>
+<!-- Tactical Prompt Input Dock -->
+<div class="p-space-md bg-surface-card/95 backdrop-blur-xl border-t border-border-subtle/50 flex flex-col gap-space-xs z-20">
+<div class="relative flex items-center w-full">
+<textarea class="w-full bg-surface-container-lowest text-on-surface placeholder-outline focus:outline-none focus:ring-1 focus:ring-primary-container rounded-DEFAULT p-3 pr-24 font-body-md text-body-md resize-none shadow-[inset_0_2px_6px_rgba(0,0,0,0.5)]" id="promptInput" placeholder="Ask tactical query or paste competitor URL (e.g. Why did their latest thumbnail spike CTR?)..." rows="2"></textarea>
+<div class="absolute right-3 bottom-3 flex items-center gap-1.5">
+<button class="p-1.5 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors" title="Voice input">
+<span class="material-symbols-outlined text-[18px]">mic</span>
+</button>
+<button class="p-1.5 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-primary transition-colors" title="Attach competitor node">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+</button>
+<button class="flex items-center justify-center w-8 h-8 rounded-full bg-primary-container text-on-primary-container hover:brightness-110 shadow-[0_0_12px_rgba(0,210,255,0.4)] transition-all" id="sendPromptBtn">
+<span class="material-symbols-outlined text-[18px]">arrow_upward</span>
+</button>
+</div>
+</div>
+<div class="flex items-center justify-between text-body-sm font-body-sm text-outline px-1">
+<div class="flex items-center gap-3">
+<span class="flex items-center gap-1 text-on-surface-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+              Model: <span class="text-on-surface font-mono font-medium">Makina Radar-v4.2 Pro</span>
+</span>
+<span class="hidden sm:inline-block text-outline-variant font-mono">|</span>
+<span class="hidden sm:inline-flex items-center gap-1">
+<span>Token cost:</span>
+<span class="text-metric-amber font-mono font-semibold">2 credits / tactical turn</span>
+</span>
+</div>
+<span class="font-label-caps text-label-caps text-outline">Shift + Enter for new line</span>
+</div>
+</div>
+</div>
+<!-- RIGHT PANEL: Context & Radar HUD Panel (5 cols) -->
+<div class="lg:col-span-5 flex flex-col gap-space-md">
+<!-- Mini Interactive Orbital Radar Map Component -->
+<div class="bg-surface-card rounded-DEFAULT shadow-xl overflow-hidden relative flex flex-col">
+<div class="px-space-md py-space-sm bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]">explore</span>
+<span class="font-title-md text-title-md text-on-surface font-semibold">Target Node Orbit: Meshing States 2050</span>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-surface-card text-secondary font-label-caps text-label-caps font-mono uppercase">
+            Cluster Affinity 98%
+          </span>
+</div>
+<!-- Radar Canvas Simulation Visual -->
+<div class="relative w-full h-72 bg-space-deep overflow-hidden flex items-center justify-center select-none">
+<!-- Ambient sweep beam -->
+<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+<!-- Concentric Range Rings -->
+<div class="w-64 h-64 rounded-full border border-primary/10 absolute"></div>
+<div class="w-48 h-48 rounded-full border border-primary/20 absolute"></div>
+<div class="w-32 h-32 rounded-full border border-primary/30 absolute"></div>
+<div class="w-16 h-16 rounded-full border border-primary/40 absolute"></div>
+<!-- Rotating Radar Sweep Cone -->
+<div class="absolute w-64 h-64 rounded-full animate-spin [animation-duration:8s] [animation-timing-function:linear] pointer-events-none" style="background: conic-gradient(from 0deg, rgba(0, 210, 255, 0.28) 0deg, transparent 60deg, transparent 360deg);"></div>
+<!-- Dynamic Connecting Vectors -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+<!-- Center to States 2050 -->
+<line stroke="rgba(0, 210, 255, 0.7)" stroke-dasharray="4 2" stroke-width="2" x1="50%" x2="68%" y1="50%" y2="40%"></line>
+<!-- States 2050 to Tito -->
+<line stroke="rgba(56, 189, 248, 0.35)" stroke-width="1.5" x1="68%" x2="78%" y1="40%" y2="28%"></line>
+<!-- Center to Mega Builds -->
+<line stroke="rgba(56, 189, 248, 0.25)" stroke-width="1" x1="50%" x2="35%" y1="50%" y2="68%"></line>
+<!-- Center to Britain X -->
+<line stroke="rgba(56, 189, 248, 0.2)" stroke-width="1" x1="50%" x2="28%" y1="50%" y2="35%"></line>
+<!-- States 2050 to High Outlier -->
+<line stroke="rgba(251, 191, 36, 0.5)" stroke-width="1.5" x1="68%" x2="72%" y1="40%" y2="68%"></line>
+</svg>
+</div>
+<!-- Central Focal Node (America Invents) -->
+<div class="relative z-10 flex flex-col items-center group cursor-pointer">
+<div class="w-10 h-10 rounded-full bg-cover bg-center ring-2 ring-primary ring-offset-2 ring-offset-space-deep shadow-[0_0_16px_#00d2ff]" data-alt="High tech circular channel icon showing red white blue emblem for America Invents against black cyber backdrop" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAo6CwJaNyeEfAWiGh5oOvP_spDH_vXPqT74jXqCcpwSz247jXdaH-CYeoD5iC6_VMCzPEIHTGbOiBHgk7Z-Y5OGcC87VXn8nbtW6RGs8qFvu6hRl-U0TPHDgw5pMvZ-HSMwsqbvT_5i9XEMxIxgZ5u2h_kTUCm1iZtLU_OA6Ym6jYT0OIrC5BYrOXy6e48Lev4Q_VjRgGBE0FJumogoJ5u5x5wU89t24vIP0Z8Jfw')"></div>
+<span class="mt-1 px-1.5 py-0.5 rounded bg-surface-container-lowest/90 font-label-caps text-label-caps text-on-surface font-semibold tracking-tight shadow">Origin</span>
+</div>
+<!-- Highlighted Competitor Node: States 2050 -->
+<div class="absolute z-20 flex flex-col items-center cursor-pointer transition-transform hover:scale-110" style="left: 64%; top: 30%;">
+<div class="relative">
+<div class="w-9 h-9 rounded-full bg-cover bg-center ring-2 ring-metric-amber ring-offset-2 ring-offset-space-deep shadow-[0_0_18px_#fbbf24]" data-alt="States 2050 futuristic logo with cyber blue and red typography in a glossy circle for infrastructure channel" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB-Wm7jGaT6rRScmQ_xU3Uzjx2puocuL1L2oxTsWUKuKhgcCaCOLVpnY96a40HLwK5Ju9JiUIQWsIBLMIkOQRzrOEyBHR5-XO5FymT1z9e1pxR4aqHlKlcX5O4xqtAcCH6f5C8KLtHLbktE1x027wXhCGT7bRPZ0FLDrWdRs_jxxJFY4lY4YDX71ctoqO1XtMe8C6U80IFdA5KQp8Hz3EIIBArhDgcJVrfAJUbl09k')"></div>
+<span class="absolute -top-2 -right-2 px-1 rounded-full bg-metric-amber text-on-tertiary-fixed font-metric-badge text-metric-badge font-bold">83x</span>
+</div>
+<span class="mt-1 px-1.5 py-0.2 rounded bg-surface-container-lowest/90 font-label-caps text-label-caps text-primary font-bold">States 2050</span>
+</div>
+<!-- Outlier Node: Tito Megaprojects -->
+<div class="absolute z-10 flex flex-col items-center cursor-pointer transition-transform hover:scale-105" style="left: 74%; top: 18%;">
+<div class="relative">
+<div class="w-7 h-7 rounded-full bg-cover bg-center ring-1 ring-secondary" data-alt="Portrait avatar of Tito with outdoor explorer hat and beard in natural lighting against modern engineering backdrop" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC2i6ZaAI6uxoJNqqi3CVRXSmW9Wux0d-LFyNQtmEwINKEJjPtLFNQwjUySYAKu2MRfveHqOevSJ1LqXCSrbdav45ptbwckI8CbUBPCrLeVD-GLa7n_nVeDveKIHjMRwiDOisbea3Uv7lF8SmwRPFsBlWEjfB8sYK3LS9N5JyygKWRIF3LFtBGNCHfRgmZNeTYW00pRigoqkAI3yBjC-X9UtYwMP8bip2iDOEJeA5U')"></div>
+<span class="absolute -top-1.5 -right-2 px-1 rounded-full bg-metric-amber text-on-tertiary-fixed font-metric-badge text-metric-badge text-[10px]">323k</span>
+</div>
+<span class="mt-0.5 font-label-caps text-label-caps text-outline text-[10px]">Tito</span>
+</div>
+<!-- Peripheral Mesh Competitors -->
+<div class="absolute z-10 flex flex-col items-center" style="left: 24%; top: 28%;">
+<div class="w-6 h-6 rounded-full bg-cover bg-center ring-1 ring-outline" data-alt="Britain X channel badge with minimalist union jack vector on dark matte finish" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCUxSVCn-m-G-Slprdz3feyDRQ56p2fK8b2oygyCxOnf2tPnI1KCKKZ6TcTKbzIzLeWYhnUsSw6FJDUT2d6ucgUM3hRDTcOBLu2BrUh_KfKeSbJhKXDq4YkayaA-bdtVuFquwwXTrtRgOd1eFH-wrSZIgrU5LW92TWO6T0FumMc38cyq3EEvYROaqXNAlNRThBU77OdHslNC7Ul_PfoCos007LDh-ZrE7RKaj9Fj3A')"></div>
+<span class="font-label-caps text-label-caps text-outline text-[9px] mt-0.5">Britain X</span>
+</div>
+<div class="absolute z-10 flex flex-col items-center" style="left: 30%; top: 62%;">
+<div class="w-7 h-7 rounded-full bg-cover bg-center ring-1 ring-outline" data-alt="Mega Builds channel icon with bold purple and cyan typography for heavy civil construction" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDD5u5Ddk5kJklQCTpKQQ9VNOkAKEzTJ0PenTWCdDUjvQLPdPwCPEmlxwZvYKGq49GQHl9x46cC1ujfSYcX4hvOjfEu8AiyFH9ElJol0E-TYDBTyXDNAL5w1q9Vfja-FclYoOSagsmWvHOJo3YBhzO22XO_DxHVSquwH3yPcpCBo6KTDZ2HALqi7THaIFVqLrW-c2D0TM8XBSLuk0YSbkfqMDLuh3-Yq90T6SeERBI')"></div>
+<span class="font-label-caps text-label-caps text-outline text-[9px] mt-0.5">MegaBuilds</span>
+</div>
+<div class="absolute z-10 flex flex-col items-center" style="left: 68%; top: 64%;">
+<div class="w-7 h-7 rounded-full bg-cover bg-center ring-1 ring-metric-amber/70" data-alt="The Tesla Space channel circular icon with red high contrast rocket and grid imagery" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCOL90a26eWsucZURt0q4YUDcDC9hb8mAiWZk0PRbsgHRdXFiWR5ge1Sr_x9tDh-O0RJlxAhY3kU-MZ7xpllopZ2RgTVxr-3gnOF33Vbyq9a2_lwUNCa12tyl21RdhG-gFblq1YPDRb4DhWMiREyQNNanHHcJZPoODMkKHL4AqF4Cpa0cvOHQyKwnpKHtaOy7HIa2YNwmjB5tDWhLXNkTjdnE0BRhYdbSCj6qXBJD0')"></div>
+<span class="font-label-caps text-label-caps text-metric-amber text-[9px] mt-0.5">TeslaSpace (73x)</span>
+</div>
+<!-- Radar Controls Overlay -->
+<div class="absolute bottom-3 left-3 flex items-center gap-1.5 bg-surface-card/90 backdrop-blur-md px-2.5 py-1 rounded-full text-on-surface-variant font-label-caps text-label-caps">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span>Focus: States 2050 (Meshed)</span>
+</div>
+<div class="absolute top-3 right-3 flex items-center gap-1 bg-surface-card/90 backdrop-blur-md p-1 rounded-lg">
+<button class="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface" title="Zoom in">
+<span class="material-symbols-outlined text-[16px]">add</span>
+</button>
+<button class="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface" title="Zoom out">
+<span class="material-symbols-outlined text-[16px]">remove</span>
+</button>
+<button class="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-container text-on-surface-variant hover:text-on-surface" title="Recenter">
+<span class="material-symbols-outlined text-[16px]">center_focus_strong</span>
+</button>
+</div>
+</div>
+<div class="p-3 bg-surface-card flex items-center justify-between text-body-sm font-body-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[16px]">insights</span>
+<span class="text-on-surface-variant">Cross-Audience Overlap: <strong class="text-on-surface font-semibold">64.3% Shared Viewers</strong></span>
+</div>
+<button class="text-primary hover:underline font-label-caps text-label-caps font-semibold uppercase">Expand Full Radar</button>
+</div>
+</div>
+<!-- Referenced Competitor Dossier: States 2050 -->
+<div class="bg-space-canvas rounded-DEFAULT p-space-md shadow-xl flex flex-col gap-space-sm" id="targetDossier">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-full bg-cover bg-center ring-2 ring-primary shadow-[0_0_12px_rgba(0,210,255,0.3)]" data-alt="States 2050 logo badge with high contrast glowing technical lines and modern flag motifs" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAyug86zs-ohyxgyyY_tbbRqCtcjKO0oOqrIx1A5a93YXd1kt53l3rtNIajL5RPXcmMCegJ_2ASldynjwzDlSiXENP0j17qKPgod1N5wSyfzXT5-HihHiTaDsJvia5GYpmZdQ5XLvbfCWB1GPHhzkz2uo0GXWBEgAMLgFVvEoFdSVwQ4xa_Y0RNUvx-ZP5QHuA0Aeomms-NVVsp2P2QUyo0sCuwPE815V4XFDLStg4')"></div>
+<div>
+<div class="flex items-center gap-2">
+<span class="font-title-md text-title-md text-on-surface font-semibold">States 2050</span>
+<span class="px-2 py-0.5 rounded-full bg-metric-amber-bg text-metric-amber font-metric-badge text-metric-badge">Breakout Outlier</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant font-mono">@States2050 · 840K Subscribers</p>
+</div>
+</div>
+<span class="px-2.5 py-1 rounded-full bg-surface-container text-secondary font-label-caps text-label-caps uppercase tracking-wider font-semibold">
+            Velocity: +120k/mo
+          </span>
+</div>
+<!-- Metric Stat Strip -->
+<div class="grid grid-cols-3 gap-2 py-1">
+<div class="p-2.5 rounded-lg bg-surface-container-low flex flex-col">
+<span class="font-label-caps text-label-caps text-outline uppercase">30d Views</span>
+<span class="font-title-md text-title-md text-on-surface font-bold">4.8M</span>
+<span class="font-body-sm text-body-sm text-secondary font-mono">↑ 64% MoM</span>
+</div>
+<div class="p-2.5 rounded-lg bg-surface-container-low flex flex-col">
+<span class="font-label-caps text-label-caps text-outline uppercase">Est. RPM</span>
+<span class="font-title-md text-title-md text-on-surface font-bold">$9.40</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant font-mono">US/Tech heavy</span>
+</div>
+<div class="p-2.5 rounded-lg bg-surface-container-low flex flex-col">
+<span class="font-label-caps text-label-caps text-outline uppercase">Breakout Multiple</span>
+<span class="font-title-md text-title-md text-metric-amber font-bold">83.4x</span>
+<span class="font-body-sm text-body-sm text-metric-amber font-mono">Peak anomaly</span>
+</div>
+</div>
+<!-- Recent Outlier Uploads List -->
+<div class="space-y-2 mt-1">
+<span class="font-label-caps text-label-caps text-outline uppercase tracking-wider flex items-center justify-between">
+<span>Recent High-Affinity Outliers</span>
+<span>Retention Velocity</span>
+</span>
+<!-- Outlier Row 1 -->
+<div class="p-2 rounded-lg bg-surface-card hover:bg-surface-container-high transition-all flex items-center gap-3">
+<div class="relative w-20 h-12 rounded bg-cover bg-center flex-shrink-0" data-alt="Engineering thumbnail showing an underground mega battery tunnel disaster with glowing red warning lights and cyan cables" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB1ViM9mB1PBpFDhfQptBHnzFKbAS3sSm6M5WiVTunFEP4QQyDv2Y133ZXj4hiynH6LVOywF8byg05IqVivOpC5DRH8s6B9z_E5As5oSQ28VLVxv0oWP7M5cmwzF3_SSLrU_Unnwmel_cx27AR1TOGOqK0zJcfoxlqUVo5KdgBiA9jAPwjYM-0FYsGp8FbyCbnNGS_FgumzkqdXHjf02WOkMweMzWWfWgy9ndIPGxU')">
+<span class="absolute bottom-1 right-1 px-1 rounded bg-space-deep/90 font-mono text-[10px] text-on-surface font-semibold">18:24</span>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="font-body-sm text-body-sm text-on-surface font-semibold truncate">Why Texas Abandoned The $42B Power Vault</h4>
+<div class="flex items-center gap-2 mt-0.5 text-body-sm font-body-sm text-on-surface-variant font-mono text-[11px]">
+<span class="text-metric-amber font-semibold">1.4M views</span>
+<span>•</span>
+<span>6 days ago</span>
+<span>•</span>
+<span class="text-secondary">78% Retention</span>
+</div>
+</div>
+<button class="p-1 rounded text-on-surface-variant hover:text-primary" title="Inspect video breakdown">
+<span class="material-symbols-outlined text-[18px]">query_stats</span>
+</button>
+</div>
+<!-- Outlier Row 2 -->
+<div class="p-2 rounded-lg bg-surface-card hover:bg-surface-container-high transition-all flex items-center gap-3">
+<div class="relative w-20 h-12 rounded bg-cover bg-center flex-shrink-0" data-alt="High tech dark satellite blueprint blueprint for orbital defense weapons array with glowing cyan HUD vectors" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAKbOvk1l5qlC2qmbx6ZCUM38iPr25ZA1WBsgnZmL89Fqj5WKQkxRQoLG7sjh0DDkTc8hkfdYZynwUsSR4gU3ToH2Rc1EsIMa49Pzqx4mVVw8lX1VFlHoZhU7WpA4yPKui0WOoHdTUOHPGJIchn0BzQMwY09wb29Kc1j1iN4E8c_Bw6ha8xruLdNr3G5-7qoBBTOwHImkLiq48mYgmSAY-URg9tMcdm4xc2XSzacuA')">
+<span class="absolute bottom-1 right-1 px-1 rounded bg-space-deep/90 font-mono text-[10px] text-on-surface font-semibold">14:02</span>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="font-body-sm text-body-sm text-on-surface font-semibold truncate">America's Secret Black-Project Orbital Grid</h4>
+<div class="flex items-center gap-2 mt-0.5 text-body-sm font-body-sm text-on-surface-variant font-mono text-[11px]">
+<span class="text-metric-amber font-semibold">940K views</span>
+<span>•</span>
+<span>2 weeks ago</span>
+<span>•</span>
+<span class="text-secondary">74% Retention</span>
+</div>
+</div>
+<button class="p-1 rounded text-on-surface-variant hover:text-primary" title="Inspect video breakdown">
+<span class="material-symbols-outlined text-[18px]">query_stats</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Strategy Scratchpad & Pinned Action Items -->
+<div class="bg-surface-card rounded-DEFAULT p-space-md shadow-xl flex flex-col gap-space-sm flex-1">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-metric-amber text-[18px]">push_pin</span>
+<span class="font-title-md text-title-md text-on-surface font-semibold">Strategy Scratchpad</span>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-label-caps text-label-caps font-mono" id="scratchpadCount">
+            2 items
+          </span>
+</div>
+<div class="flex flex-col gap-2" id="scratchpadList">
+<!-- Pinned item 1 -->
+<div class="p-2.5 rounded-lg bg-surface-container-low flex items-start justify-between gap-2 group">
+<div class="flex items-start gap-2">
+<span class="material-symbols-outlined text-primary text-[16px] mt-0.5">arrow_right</span>
+<div>
+<span class="font-body-sm text-body-sm text-on-surface font-medium block">Negative Reality Inversion Hook for next nuclear script</span>
+<span class="font-label-caps text-label-caps text-outline">Target: 0-10s spike retention above 75%</span>
+</div>
+</div>
+<button class="delete-pin-btn text-outline hover:text-error opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+<!-- Pinned item 2 -->
+<div class="p-2.5 rounded-lg bg-surface-container-low flex items-start justify-between gap-2 group">
+<div class="flex items-start gap-2">
+<span class="material-symbols-outlined text-primary text-[16px] mt-0.5">arrow_right</span>
+<div>
+<span class="font-body-sm text-body-sm text-on-surface font-medium block">Concept: The Secret Foundry Rebuilding the US Nuclear Triad</span>
+<span class="font-label-caps text-label-caps text-metric-amber">Est. Breakout Affinity: 91%</span>
+</div>
+</div>
+<button class="delete-pin-btn text-outline hover:text-error opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-2 pt-2 mt-auto">
+<button class="flex-1 py-2 px-3 rounded-full bg-primary-container text-on-primary-container hover:brightness-110 font-body-sm text-body-sm font-semibold flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(0,210,255,0.3)] transition-all">
+<span class="material-symbols-outlined text-[16px]">description</span>
+<span>Export to Script Outline</span>
+</button>
+<button class="py-2 px-3 rounded-full bg-surface-container-high hover:bg-surface-bright text-on-surface font-body-sm text-body-sm font-semibold flex items-center justify-center gap-1 transition-all">
+<span class="material-symbols-outlined text-[16px]">folder_special</span>
+<span>Idea Backlog</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+  // Tactical Scratchpad Interaction
+  function addToScratchpad(title) {
+    const list = document.getElementById('scratchpadList');
+    const countBadge = document.getElementById('scratchpadCount');
+    if (!list) return;
+
+    const newItem = document.createElement('div');
+    newItem.className = 'p-2.5 rounded-lg bg-surface-container-low flex items-start justify-between gap-2 group animate-fadeIn';
+    newItem.innerHTML = `
+      <div class="flex items-start gap-2">
+        <span class="material-symbols-outlined text-primary text-[16px] mt-0.5">arrow_right</span>
+        <div>
+          <span class="font-body-sm text-body-sm text-on-surface font-medium block">Concept: ${title}</span>
+          <span class="font-label-caps text-label-caps text-secondary font-mono">Pinned from Tactical AI Chat</span>
+        </div>
+      </div>
+      <button class="delete-pin-btn text-outline hover:text-error opacity-0 group-hover:opacity-100 transition-opacity">
+        <span class="material-symbols-outlined text-[16px]">close</span>
+      </button>
+    `;
+
+    list.appendChild(newItem);
+    const items = list.querySelectorAll('.group');
+    if (countBadge) countBadge.textContent = items.length + ' items';
+
+    attachDeleteEvents();
+  }
+
+  function attachDeleteEvents() {
+    document.querySelectorAll('.delete-pin-btn').forEach(btn => {
+      btn.onclick = function() {
+        const item = this.closest('.group');
+        if (item) item.remove();
+        const list = document.getElementById('scratchpadList');
+        const countBadge = document.getElementById('scratchpadCount');
+        if (list && countBadge) {
+          countBadge.textContent = list.querySelectorAll('.group').length + ' items';
+        }
+      };
+    });
+  }
+
+  attachDeleteEvents();
+
+  // Prompt chips fill input
+  document.querySelectorAll('.prompt-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const text = chip.querySelector('span:last-child')?.textContent || '';
+      const input = document.getElementById('promptInput');
+      if (input) {
+        input.value = text;
+        input.focus();
+      }
+    });
+  });
+
+  // Prompt Send Simulation
+  const sendBtn = document.getElementById('sendPromptBtn');
+  const promptInput = document.getElementById('promptInput');
+  const chatStream = document.getElementById('chatStream');
+
+  function handleSend() {
+    const val = promptInput?.value.trim();
+    if (!val || !chatStream) return;
+
+    // Append User Message
+    const userBubble = document.createElement('div');
+    userBubble.className = 'flex items-start gap-space-sm justify-end max-w-2xl ml-auto w-full';
+    userBubble.innerHTML = `
+      <div class="flex flex-col items-end gap-1 max-w-[85%]">
+        <div class="p-4 rounded-DEFAULT bg-surface-container-high text-on-surface font-body-md text-body-md shadow-md rounded-tr-xs">
+          ${val}
+        </div>
+        <span class="font-label-caps text-label-caps text-outline font-mono mr-1">You · Just now</span>
+      </div>
+      <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary flex-shrink-0 mt-0.5">
+        <span class="material-symbols-outlined text-[18px]">person</span>
+      </div>
+    `;
+    chatStream.appendChild(userBubble);
+    promptInput.value = '';
+    chatStream.scrollTop = chatStream.scrollHeight;
+
+    // Simulate AI synthesis state
+    const synthBubble = document.createElement('div');
+    synthBubble.className = 'flex items-start gap-space-sm max-w-full mr-auto w-full';
+    synthBubble.innerHTML = `
+      <div class="w-8 h-8 rounded-lg bg-surface-card flex items-center justify-center text-primary flex-shrink-0 mt-0.5">
+        <span class="material-symbols-outlined text-[18px] animate-spin">refresh</span>
+      </div>
+      <div class="p-4 rounded-DEFAULT bg-surface-card text-on-surface-variant font-body-md text-body-md shadow rounded-tl-xs flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+        Synthesizing telemetry across 72 mapped mesh nodes for America Invents...
+      </div>
+    `;
+    chatStream.appendChild(synthBubble);
+    chatStream.scrollTop = chatStream.scrollHeight;
+
+    setTimeout(() => {
+      synthBubble.innerHTML = `
+        <div class="w-8 h-8 rounded-lg bg-surface-card flex items-center justify-center text-primary-container shadow-[0_0_12px_rgba(0,210,255,0.3)] flex-shrink-0 mt-0.5">
+          <span class="material-symbols-outlined text-[18px]">radar</span>
+        </div>
+        <div class="flex flex-col gap-2 flex-1 max-w-full">
+          <div class="p-5 rounded-DEFAULT bg-surface-card text-on-surface shadow-xl rounded-tl-xs space-y-3">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-metric-amber text-[20px]">bolt</span>
+              <span class="font-title-md text-title-md text-on-surface font-semibold">Immediate Tactical Recommendation</span>
+            </div>
+            <p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+              Based on the real-time velocity shift detected in this cluster, your top opportunity is capitalizing on the <strong class="text-on-surface">deep industrial supply chain crisis</strong> that States 2050 left unaddressed.
+            </p>
+            <div class="p-3 rounded-lg bg-surface-container-low flex items-center justify-between">
+              <div>
+                <span class="font-body-sm text-body-sm text-primary font-semibold block">Suggested Title: "How One Forgotten US Factory Controls Every Navy Submarine"</span>
+                <span class="font-label-caps text-label-caps text-outline">Expected CTR uplift: +3.2% vs channel baseline</span>
+              </div>
+              <button onclick="addToScratchpad('How One Forgotten US Factory Controls Every Navy Submarine')" class="px-3 py-1 rounded-full bg-primary-container text-on-primary-container font-body-sm text-body-sm font-semibold">Pin</button>
+            </div>
+          </div>
+          <span class="font-label-caps text-label-caps text-outline font-mono ml-2">Makina Radar AI · Just now</span>
+        </div>
+      `;
+      chatStream.scrollTop = chatStream.scrollHeight;
+    }, 1200);
+  }
+
+  if (sendBtn && promptInput) {
+    sendBtn.addEventListener('click', handleSend);
+    promptInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    });
+  }
+
+  // Refresh radar notification
+  const rescanBtn = document.getElementById('rescanBtn');
+  if (rescanBtn) {
+    rescanBtn.addEventListener('click', function() {
+      const original = this.innerHTML;
+      this.innerHTML = '<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span><span>Scanning...</span>';
+      setTimeout(() => {
+        this.innerHTML = '<span class="material-symbols-outlined text-[16px] text-metric-amber">check_circle</span><span>Telemetry Live</span>';
+        setTimeout(() => { this.innerHTML = original; }, 2000);
+      }, 1000);
+    });
+  }
+</script></main></div></body></html>

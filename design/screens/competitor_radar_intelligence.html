@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "outline": "#859399", "space-deep": "#05070E", "surface-variant": "#32343d", "on-tertiary-fixed": "#2a1700", "on-surface": "#e1e2ed", "on-primary-fixed-variant": "#004e60", "secondary-fixed": "#c4e7ff", "surface-glass": "rgba(15, 22, 38, 0.72)", "tertiary-fixed": "#ffddb8", "secondary-container": "#00a6e0", "tertiary-container": "#ffb148", "radar-beam": "rgba(56, 189, 248, 0.35)", "tertiary-fixed-dim": "#ffb95f", "on-secondary-container": "#00374d", "on-tertiary-container": "#704500", "secondary": "#7bd0ff", "error": "#ffb4ab", "metric-amber-bg": "rgba(245, 158, 11, 0.12)", "surface-container": "#1d1f27", "on-primary-container": "#00566a", "error-container": "#93000a", "metric-amber": "#FBBF24", "inverse-primary": "#00677f", "primary-fixed-dim": "#47d6ff", "tertiary": "#ffd6a7", "on-secondary-fixed-variant": "#004c69", "on-secondary": "#00354a", "surface-container-highest": "#32343d", "primary-container": "#00d2ff", "on-error": "#690005", "on-tertiary": "#472a00", "surface-card": "#0F1626", "on-surface-variant": "#bbc9cf", "on-primary": "#003543", "on-background": "#e1e2ed", "inverse-on-surface": "#2e3039", "on-tertiary-fixed-variant": "#653e00", "primary-fixed": "#b6ebff", "on-error-container": "#ffdad6", "surface-tint": "#47d6ff", "space-canvas": "#0B0F19", "radar-arc": "rgba(0, 210, 255, 0.18)", "primary": "#a5e7ff", "surface-container-low": "#191b23", "on-secondary-fixed": "#001e2c", "border-highlight": "rgba(0, 210, 255, 0.4)", "surface-dim": "#11131b", "border-subtle": "rgba(56, 189, 248, 0.12)", "secondary-fixed-dim": "#7bd0ff", "outline-variant": "#3c494e", "node-glow": "rgba(0, 210, 255, 0.45)", "surface-container-high": "#272a32", "surface-bright": "#373942", "surface": "#11131b", "surface-container-lowest": "#0b0e16", "inverse-surface": "#e1e2ed", "background": "#11131b", "on-primary-fixed": "#001f28" }, "borderRadius": { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" }, "spacing": { "gutter": "1rem", "margin-tablet": "1.5rem", "space-lg": "1.5rem", "gutter-tablet": "1.25rem", "space-md": "1rem", "margin-desktop": "2.5rem", "space-sm": "0.5rem", "gutter-desktop": "1.5rem", "margin": "1rem", "space-xl": "2.5rem", "space-xs": "0.25rem" }, "fontFamily": { "headline-md": ["Geist"], "metric-badge": ["Geist"], "headline-lg-mobile": ["Geist"], "headline-lg": ["Geist"], "body-lg": ["Geist"], "body-md": ["Geist"], "display-mobile": ["Geist"], "label-caps": ["Geist"], "display": ["Geist"], "body-sm": ["Geist"], "title-md": ["Geist"] }, "fontSize": { "headline-md": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.015em", "fontWeight": "600" }], "metric-badge": ["12px", { "lineHeight": "14px", "letterSpacing": "0.01em", "fontWeight": "700" }], "headline-lg-mobile": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }], "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "display-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.025em", "fontWeight": "700" }], "label-caps": ["11px", { "lineHeight": "16px", "letterSpacing": "0.08em", "fontWeight": "600" }], "display": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.03em", "fontWeight": "700" }], "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600" }] } } } };</script></head><body class="bg-space-deep font-body-md text-body-md text-on-surface antialiased min-h-screen"><header class="fixed top-0 left-0 w-full z-50 bg-space-canvas/90 backdrop-blur-xl border-b border-border-subtle shadow-[0_4px_24px_rgba(5,7,14,0.6)]"><div class="h-16 w-full px-gutter-desktop flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-xl"><a class="flex items-center gap-space-sm group" data-path="map" href="#"><div class="relative w-9 h-9 rounded-lg bg-surface-card flex items-center justify-center border border-border-subtle group-hover:border-border-highlight transition-all"><span class="material-symbols-outlined text-primary text-[20px]">radar</span><span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary-container shadow-[0_0_8px_#00d2ff]"></span></div><div class="flex items-baseline gap-space-xs"><span class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">Makina</span><span class="font-label-caps text-label-caps text-secondary uppercase">Studio</span></div></a><nav class="hidden lg:flex items-center gap-space-lg h-16" data-active-classes="text-primary border-b-2 border-primary-container font-semibold"><a class="h-full flex items-center text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md" data-path="topics" href="#">Topics</a><a aria-current="page" class="h-full flex items-center transition-colors text-primary border-b-2 border-primary-container font-semibold" data-path="map" href="#">Map</a><a class="h-full flex items-center text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md" data-path="map-chat" href="#">Map chat</a><a class="h-full flex items-center text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md" data-path="results" href="#">Results</a><a class="h-full flex items-center text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md" data-path="yt-dashboard" href="#">YT Dashboard</a><a class="h-full flex items-center text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md" data-path="tools" href="#">Tools</a></nav></div><div class="flex items-center gap-space-md flex-1 max-w-2xl justify-end"><div class="relative hidden sm:block w-full max-w-sm"><span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span><input class="w-full bg-surface-card/80 border border-border-subtle focus:border-border-highlight rounded-full pl-10 pr-4 py-1.5 text-body-sm font-body-sm text-on-surface placeholder-outline focus:outline-none focus:ring-1 focus:ring-primary-container transition-all shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)]" placeholder="Search channels, topics, or links..." type="text"/></div><a class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-card border border-border-subtle hover:border-border-highlight text-on-surface transition-all" data-path="credits-billing" href="#"><span class="w-2 h-2 rounded-full bg-metric-amber shadow-[0_0_8px_#fbbf24]"></span><span class="font-metric-badge text-metric-badge text-metric-amber">100</span><span class="font-body-sm text-body-sm text-on-surface-variant">credits</span><span class="material-symbols-outlined text-primary text-[14px]">add</span></a><button class="relative p-2 rounded-full hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary-container"></span></button><div class="flex items-center gap-space-sm pl-2 border-l border-border-subtle"><div class="relative"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-[0_0_12px_rgba(0,210,255,0.25)]"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-secondary border-2 border-space-canvas"></span></div><div class="hidden xl:flex flex-col text-left"><span class="font-body-sm text-body-sm font-semibold text-on-surface leading-tight">Creator</span><span class="font-label-caps text-label-caps text-outline leading-none">Creator Pro</span></div></div></div></div></header><aside class="fixed left-0 top-16 bottom-0 w-64 bg-space-canvas border-r border-border-subtle z-40 hidden md:flex flex-col justify-between py-space-md"><div class="flex flex-col gap-space-xs px-space-sm"><div class="px-3 py-2"><span class="font-label-caps text-label-caps text-outline uppercase tracking-wider">Intelligence Radar</span></div><nav class="flex flex-col gap-1" data-active-classes="bg-surface-card text-primary border border-border-highlight"><a aria-current="page" class="flex items-center gap-3 px-3 py-2 rounded-DEFAULT transition-all bg-surface-card text-primary border border-border-highlight" data-path="map" href="#"><span class="material-symbols-outlined text-[18px]">explore</span><span class="font-body-sm text-body-sm">Radar Field</span></a><a class="flex items-center gap-3 px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="topics" href="#"><span class="material-symbols-outlined text-[18px]">trending_up</span><span class="font-body-sm text-body-sm">Topic Streams</span></a><a class="flex items-center gap-3 px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="map-chat" href="#"><span class="material-symbols-outlined text-[18px]">forum</span><span class="font-body-sm text-body-sm">Tactical AI Chat</span></a><a class="flex items-center gap-3 px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="results" href="#"><span class="material-symbols-outlined text-[18px]">insights</span><span class="font-body-sm text-body-sm">Breakout Signals</span></a><a class="flex items-center gap-3 px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="yt-dashboard" href="#"><span class="material-symbols-outlined text-[18px]">analytics</span><span class="font-body-sm text-body-sm">Channel Telemetry</span></a><a class="flex items-center gap-3 px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="tools" href="#"><span class="material-symbols-outlined text-[18px]">smart_toy</span><span class="font-body-sm text-body-sm">Creator Toolkit</span></a></nav></div><div class="px-space-sm pt-space-sm border-t border-border-subtle flex flex-col gap-1"><a class="flex items-center gap-3 px-3 py-2 rounded-DEFAULT text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="settings" href="#"><span class="material-symbols-outlined text-[18px]">tune</span><span class="font-body-sm text-body-sm">Radar Calibration</span></a><div class="mt-2 p-3 rounded-DEFAULT bg-surface-card border border-border-subtle flex items-center justify-between"><div class="flex flex-col"><span class="font-label-caps text-label-caps text-outline">Stream status</span><span class="font-body-sm text-body-sm text-secondary flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>Live Sync</span></div><span class="material-symbols-outlined text-outline text-[18px]">wifi_tethering</span></div></div></aside><div class="md:pl-64"><main class="relative pt-16 min-h-screen bg-space-deep"><div class="flex flex-col w-full">
+<!-- Command Telemetry Header & Query Bar -->
+<section class="relative w-full bg-space-canvas px-gutter-desktop py-space-md border-b-0 shadow-lg">
+<div class="max-w-[1440px] mx-auto flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-space-md">
+<!-- Input Group & Identity -->
+<div class="flex flex-wrap items-center gap-space-md flex-1">
+<div class="flex items-center gap-space-sm bg-surface-card/90 px-space-md py-2 rounded-full shadow-[0_2px_12px_rgba(0,0,0,0.5)]">
+<div class="relative w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-surface-container-high">
+<span class="material-symbols-outlined text-primary text-[20px]">public</span>
+<span class="absolute inset-0 bg-primary-container/20 rounded-full animate-ping"></span>
+</div>
+<div class="flex flex-col">
+<span class="font-body-sm text-body-sm font-semibold text-on-surface leading-tight">America Invents</span>
+<span class="font-label-caps text-label-caps text-outline">@americainvents2</span>
+</div>
+</div>
+<div class="relative flex-1 min-w-[280px] max-w-xl">
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-4 text-outline text-[18px]">search</span>
+<input class="w-full bg-surface-card rounded-full pl-11 pr-36 py-2.5 text-body-sm font-body-sm text-on-surface placeholder-outline focus:outline-none shadow-[inset_0_2px_6px_rgba(0,0,0,0.6)]" id="channelQuery" placeholder="Search or paste channel link..." type="text" value="@americainvents2"/>
+<button class="absolute right-1.5 px-4 py-1.5 rounded-full bg-on-surface text-space-deep hover:bg-white font-body-sm text-body-sm font-semibold shadow-[0_0_16px_rgba(0,210,255,0.35)] transition-all">
+              Find competitors
+            </button>
+</div>
+</div>
+</div>
+<!-- Live Telemetry Meshing Capsule & Controls -->
+<div class="flex items-center flex-wrap gap-space-sm justify-between xl:justify-end">
+<div class="flex items-center gap-space-sm bg-surface-card/90 px-4 py-2 rounded-full">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary-container animate-pulse shadow-[0_0_8px_#00d2ff]"></span>
+<span class="font-body-sm text-body-sm text-on-surface">Meshing <strong class="text-primary font-semibold">States 2050</strong></span>
+<span class="font-label-caps text-label-caps text-outline">+4 more</span>
+</div>
+<div class="h-4 w-px bg-surface-container-highest mx-1"></div>
+<span class="font-metric-badge text-metric-badge text-primary-fixed-dim">98%</span>
+<button class="ml-1 px-3 py-1 rounded-full bg-surface-container-high hover:bg-surface-variant text-on-surface font-label-caps text-label-caps uppercase transition-colors" id="centerCanvasBtn">
+            Center on it
+          </button>
+</div>
+<!-- Radar Layer Depth Control -->
+<div class="hidden sm:flex items-center gap-2 bg-surface-card/90 px-3 py-2 rounded-full">
+<span class="material-symbols-outlined text-outline text-[16px]">layers</span>
+<span class="font-label-caps text-label-caps text-outline uppercase">Depth</span>
+<div class="flex items-center gap-1.5 px-2">
+<span class="w-2 h-2 rounded-full bg-primary-container shadow-[0_0_6px_#00d2ff]"></span>
+<span class="w-2 h-2 rounded-full bg-primary-container/80"></span>
+<span class="w-2 h-2 rounded-full bg-surface-variant"></span>
+<span class="w-2 h-2 rounded-full bg-surface-variant"></span>
+</div>
+<span class="font-metric-badge text-metric-badge text-secondary">L2</span>
+</div>
+<button class="p-2 rounded-full bg-surface-card text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" title="Export graph">
+<span class="material-symbols-outlined text-[18px]">download</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Interactive Constellation & Radar Canvas Space -->
+<section class="relative w-full h-[620px] bg-space-deep overflow-hidden select-none">
+<!-- Background Grid & Orbital Range Discs -->
+<div class="absolute inset-0 pointer-events-none flex items-center justify-center">
+<!-- Outer Orbit Ring -->
+<div class="w-[840px] h-[840px] rounded-full border border-dashed border-radar-arc opacity-60"></div>
+<!-- Mid Orbit Ring -->
+<div class="absolute w-[560px] h-[560px] rounded-full border border-dashed border-radar-arc opacity-80"></div>
+<!-- Inner Target Ring -->
+<div class="absolute w-[280px] h-[280px] rounded-full border border-border-subtle"></div>
+<!-- Radar Sweeping Beam Vector -->
+<div class="absolute w-[560px] h-[560px] rounded-full opacity-30 animate-[spin_12s_linear_infinite]" style="background: conic-gradient(from 0deg, rgba(0,210,255,0.4) 0deg, rgba(0,210,255,0.05) 45deg, transparent 60deg);">
+</div>
+<!-- Fine Crosshair Center -->
+<div class="absolute w-full h-[1px] bg-gradient-to-r from-transparent via-radar-arc to-transparent"></div>
+<div class="absolute h-full w-[1px] bg-gradient-to-b from-transparent via-radar-arc to-transparent"></div>
+</div>
+<!-- Active Floating Canvas Canvas (Network Nodes & Links) -->
+<div class="absolute inset-0 transition-transform duration-700 ease-out" id="radarMapViewport">
+<!-- Network Vectors (SVG Conduit Layer) -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none stroke-current" style="overflow: visible;">
+<defs>
+<lineargradient id="linkGlow" x1="0%" x2="100%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#00d2ff" stop-opacity="0.9"></stop>
+<stop offset="100%" stop-color="#38bdf8" stop-opacity="0.2"></stop>
+</lineargradient>
+<lineargradient id="linkSecondary" x1="0%" x2="100%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#7bd0ff" stop-opacity="0.4"></stop>
+<stop offset="100%" stop-color="#00d2ff" stop-opacity="0.1"></stop>
+</lineargradient>
+</defs>
+<!-- Strong vectors to primary cluster -->
+<line stroke="url(#linkGlow)" stroke-dasharray="4 2" stroke-width="2.5" x1="50%" x2="68%" y1="52%" y2="34%"></line>
+<line stroke="url(#linkGlow)" stroke-width="2.2" x1="50%" x2="33%" y1="52%" y2="60%"></line>
+<line stroke="url(#linkSecondary)" stroke-width="1.5" x1="50%" x2="38%" y1="52%" y2="30%"></line>
+<line stroke="url(#linkGlow)" stroke-width="1.8" x1="50%" x2="62%" y1="52%" y2="72%"></line>
+<line stroke="url(#linkSecondary)" stroke-width="1.2" x1="50%" x2="78%" y1="52%" y2="58%"></line>
+<line stroke="url(#linkSecondary)" stroke-width="1.2" x1="50%" x2="22%" y1="52%" y2="44%"></line>
+<!-- Inter-competitor affinity links -->
+<line stroke="url(#linkSecondary)" stroke-width="1" x1="68%" x2="78%" y1="34%" y2="58%"></line>
+<line stroke="url(#linkSecondary)" stroke-dasharray="2 3" stroke-width="0.8" x1="68%" x2="85%" y1="34%" y2="28%"></line>
+<line stroke="url(#linkSecondary)" stroke-width="1" x1="33%" x2="22%" y1="60%" y2="44%"></line>
+<line stroke="url(#linkGlow)" stroke-width="1.4" x1="33%" x2="42%" y1="60%" y2="78%"></line>
+<line stroke="url(#linkSecondary)" stroke-width="1" x1="62%" x2="72%" y1="72%" y2="82%"></line>
+</svg>
+<!-- Center Anchor Node: America Invents (User) -->
+<div class="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group cursor-pointer z-30">
+<div class="relative w-16 h-16 rounded-full bg-space-card flex items-center justify-center shadow-[0_0_32px_rgba(0,210,255,0.6)]">
+<div class="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center bg-space-deep shadow-inner">
+<span class="material-symbols-outlined text-primary-container text-[28px]">stars</span>
+</div>
+<span class="absolute -inset-2 rounded-full border border-primary-container/40 animate-ping pointer-events-none"></span>
+<span class="absolute -inset-3 rounded-full border border-primary-container/20 pointer-events-none"></span>
+</div>
+<div class="mt-2 px-3 py-1 rounded-full bg-space-canvas/90 shadow-md flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">America Invents</span>
+</div>
+</div>
+<!-- High Breakout Competitor Node: States 2050 (Hover/Selected) -->
+<div class="absolute left-[68%] top-[34%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer group z-20 transition-transform hover:scale-110" id="nodeStates2050" onclick="toggleQuickInspect(true)">
+<div class="relative w-14 h-14 rounded-full bg-surface-card flex items-center justify-center shadow-[0_0_24px_rgba(0,210,255,0.45)]">
+<div class="w-11 h-11 rounded-full overflow-hidden bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary text-[24px]">flag</span>
+</div>
+<!-- Viral multiplier badge pin -->
+<span class="absolute -top-1 -right-2 px-1.5 py-0.5 rounded-full bg-metric-amber-bg text-metric-amber font-metric-badge text-metric-badge shadow-[0_0_8px_rgba(251,191,36,0.3)]">
+            83×
+          </span>
+</div>
+<div class="mt-1.5 px-2.5 py-0.5 rounded-full bg-space-canvas/80 flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+<span class="font-label-caps text-label-caps text-on-surface">States 2050</span>
+</div>
+</div>
+<!-- Competitor Node: The Tesla Space -->
+<div class="absolute left-[33%] top-[60%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer group z-20 transition-transform hover:scale-105">
+<div class="relative w-12 h-12 rounded-full bg-surface-card flex items-center justify-center shadow-[0_0_16px_rgba(255,180,171,0.2)]">
+<div class="w-9 h-9 rounded-full overflow-hidden bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary-fixed-dim text-[20px]">bolt</span>
+</div>
+<span class="absolute -top-1 -right-2 px-1.5 py-0.5 rounded-full bg-metric-amber-bg text-metric-amber font-metric-badge text-metric-badge">
+            43×
+          </span>
+</div>
+<div class="mt-1 px-2 py-0.5 rounded-full bg-space-canvas/80">
+<span class="font-label-caps text-label-caps text-on-surface-variant group-hover:text-on-surface">The Tesla Space</span>
+</div>
+</div>
+<!-- Competitor Node: American Breakthroughs -->
+<div class="absolute left-[38%] top-[30%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer group z-10 transition-transform hover:scale-105">
+<div class="w-10 h-10 rounded-full bg-surface-card flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-outline text-[18px]">lightbulb</span>
+</div>
+<span class="mt-1 font-label-caps text-label-caps text-outline group-hover:text-on-surface">American Breakthroughs</span>
+</div>
+<!-- Competitor Node: MegaBuilds -->
+<div class="absolute left-[62%] top-[72%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer group z-10 transition-transform hover:scale-105">
+<div class="relative w-11 h-11 rounded-full bg-surface-card flex items-center justify-center shadow-md">
+<span class="material-symbols-outlined text-primary text-[20px]">domain</span>
+<span class="absolute -top-1 -right-2 px-1 py-0.5 rounded-full bg-metric-amber-bg text-metric-amber font-metric-badge text-metric-badge">12×</span>
+</div>
+<span class="mt-1 font-label-caps text-label-caps text-on-surface-variant">MegaBuilds</span>
+</div>
+<!-- Competitor Node: Future Files -->
+<div class="absolute left-[78%] top-[58%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer group z-10 transition-transform hover:scale-105">
+<div class="w-10 h-10 rounded-full bg-surface-card flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-secondary-fixed text-[18px]">folder_special</span>
+</div>
+<span class="mt-1 font-label-caps text-label-caps text-outline">Future Files</span>
+</div>
+<!-- Competitor Node: Core Memory -->
+<div class="absolute left-[22%] top-[44%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer group z-10 transition-transform hover:scale-105">
+<div class="w-9 h-9 rounded-full bg-surface-card flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-outline text-[16px]">memory</span>
+</div>
+<span class="mt-1 font-label-caps text-label-caps text-outline">Core Memory</span>
+</div>
+<!-- Distant Satellite Outliers -->
+<div class="absolute left-[42%] top-[78%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center opacity-80 cursor-pointer hover:opacity-100">
+<div class="w-8 h-8 rounded-full bg-surface-card flex items-center justify-center">
+<span class="material-symbols-outlined text-outline text-[14px]">science</span>
+</div>
+<span class="font-label-caps text-label-caps text-outline">Smart Invention</span>
+</div>
+<div class="absolute left-[85%] top-[28%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center opacity-70 cursor-pointer hover:opacity-100">
+<div class="w-8 h-8 rounded-full bg-surface-card flex items-center justify-center">
+<span class="material-symbols-outlined text-outline text-[14px]">travel_explore</span>
+</div>
+<span class="font-label-caps text-label-caps text-outline">Australia Orbit</span>
+</div>
+</div>
+<!-- Floating Map Controls HUD (Bottom Left) -->
+<div class="absolute bottom-5 left-6 z-40 flex flex-col gap-2">
+<div class="flex flex-col bg-surface-card/90 backdrop-blur-md rounded-DEFAULT shadow-xl overflow-hidden p-1">
+<button class="p-2 hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors rounded-DEFAULT flex items-center justify-center" id="zoomInBtn">
+<span class="material-symbols-outlined text-[18px]">add</span>
+</button>
+<div class="h-px w-full bg-surface-container"></div>
+<button class="p-2 hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors rounded-DEFAULT flex items-center justify-center" id="zoomOutBtn">
+<span class="material-symbols-outlined text-[18px]">remove</span>
+</button>
+<div class="h-px w-full bg-surface-container"></div>
+<button class="p-2 hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors rounded-DEFAULT flex items-center justify-center" id="zoomResetBtn">
+<span class="material-symbols-outlined text-[18px]">fit_screen</span>
+</button>
+</div>
+<!-- Quick Legend Pill -->
+<div class="bg-surface-card/90 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-3 shadow-lg">
+<div class="flex items-center gap-1.5">
+<span class="w-3 h-0.5 bg-primary-container rounded"></span>
+<span class="font-label-caps text-label-caps text-outline">Strong link</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span class="font-label-caps text-label-caps text-outline">Center</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="font-label-caps text-label-caps text-outline">Meshed</span>
+</div>
+</div>
+</div>
+<!-- Quick Inspect Floating Inspector Modal (Pinned on Right) -->
+<div class="absolute top-6 right-6 z-40 w-80 bg-surface-card/95 backdrop-blur-xl rounded-DEFAULT p-space-md shadow-[0_8px_32px_rgba(0,0,0,0.7)] transition-all" id="inspectorCard">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center shadow-md">
+<span class="material-symbols-outlined text-secondary text-[22px]">flag</span>
+</div>
+<div>
+<span class="font-headline-md text-headline-md font-semibold text-on-surface block leading-tight">States 2050</span>
+<span class="font-label-caps text-label-caps text-outline">Competitor Cluster · Close</span>
+</div>
+</div>
+<button class="text-outline hover:text-on-surface" onclick="toggleQuickInspect(false)">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<div class="mt-space-md grid grid-cols-2 gap-2">
+<div class="bg-space-deep p-2.5 rounded-DEFAULT">
+<span class="font-label-caps text-label-caps text-outline uppercase block">Audience Overlap</span>
+<span class="font-headline-md text-headline-md font-bold text-primary mt-0.5 block">84.2%</span>
+</div>
+<div class="bg-space-deep p-2.5 rounded-DEFAULT">
+<span class="font-label-caps text-label-caps text-outline uppercase block">Breakout Velocity</span>
+<span class="font-headline-md text-headline-md font-bold text-metric-amber mt-0.5 block">83× Peak</span>
+</div>
+</div>
+<div class="mt-space-sm bg-space-deep p-2.5 rounded-DEFAULT flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps text-outline">Subscribers</span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">94.7K</span>
+</div>
+<div class="flex flex-col text-right">
+<span class="font-label-caps text-label-caps text-outline">Signal Match</span>
+<span class="font-body-sm text-body-sm font-semibold text-secondary">High affinity</span>
+</div>
+</div>
+<div class="mt-space-md flex gap-2">
+<button class="flex-1 py-2 rounded-full bg-primary-container text-on-primary-container font-body-sm text-body-sm font-semibold hover:opacity-90 shadow-[0_0_12px_rgba(0,210,255,0.4)] transition-all">
+          Inspect Topics
+        </button>
+<button class="p-2 rounded-full bg-surface-container-high hover:bg-surface-variant text-on-surface transition-colors" title="Bookmark">
+<span class="material-symbols-outlined text-[18px]">bookmark</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Lower Intelligence Grid (Outlier Feed & Benchmark Bench) -->
+<section class="w-full bg-space-deep px-gutter-desktop py-space-xl">
+<div class="max-w-[1440px] mx-auto grid grid-cols-1 xl:grid-cols-12 gap-space-xl">
+<!-- Primary Column: 'Breaking out right now' Outlier Feed -->
+<div class="xl:col-span-8 flex flex-col gap-space-lg">
+<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-space-md pb-space-sm">
+<div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-metric-amber text-[22px]">local_fire_department</span>
+<h2 class="font-headline-lg text-headline-lg font-bold text-on-surface tracking-tight">Breaking out right now</h2>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">
+              Recent videos far above their channel's usual views, on channels Makina follows.
+            </p>
+</div>
+<!-- Outlier Threshold Filter Badges -->
+<div class="flex items-center gap-1.5 overflow-x-auto pb-1">
+<button class="px-3 py-1 rounded-full bg-surface-card text-primary font-label-caps text-label-caps font-semibold shadow-sm">All Outliers</button>
+<button class="px-3 py-1 rounded-full bg-surface-container hover:bg-surface-card text-on-surface-variant hover:text-on-surface font-label-caps text-label-caps transition-colors">100x+</button>
+<button class="px-3 py-1 rounded-full bg-surface-container hover:bg-surface-card text-on-surface-variant hover:text-on-surface font-label-caps text-label-caps transition-colors">50x+</button>
+<button class="px-3 py-1 rounded-full bg-surface-container hover:bg-surface-card text-on-surface-variant hover:text-on-surface font-label-caps text-label-caps transition-colors">Under 10K</button>
+</div>
+</div>
+<!-- Outlier Feed Cards List -->
+<div class="flex flex-col gap-space-md">
+<!-- Card 1: Tito's Vodka -->
+<div class="group bg-surface-card hover:bg-surface-container-low transition-all duration-300 rounded-DEFAULT p-space-md shadow-md flex flex-col sm:flex-row gap-space-md items-start">
+<div class="relative w-full sm:w-56 aspect-video rounded-DEFAULT overflow-hidden flex-shrink-0 bg-surface-container-high">
+<div class="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500" data-alt="A bottle of artisanal vodka resting on a rustic oak bar with warm copper distillery kettles in the background, soft volumetric golden hour lighting, cinematic film grain aesthetic." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAA0nYSnY9wG6FsVVCZSb98nph_i6GlYFNXbIY3m9wFx0NfMRxaH3nEsXcELqtz-wbhx8c6g3izSMrdNGnI2gjvxWYReG-NN0wUqTuK1dP8EdWxyDrKe6G-UCk8fRGIoAxKsXKBrAk4O3zceYqpdKjx1X80_kD2EoMRXA9v4heIrSzrgy0dsVtTa7Sgg-7o9zDr9i_dNgveild_CYi4fYbatG1ItM0uuo3ugiIIQJQ')"></div>
+<span class="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-space-deep/90 text-on-surface font-label-caps text-label-caps font-semibold">
+                0:31
+              </span>
+</div>
+<div class="flex flex-col flex-1 min-w-0 justify-between h-full py-0.5">
+<div>
+<div class="flex items-center gap-2 mb-1.5 flex-wrap">
+<span class="px-2 py-0.5 rounded-full bg-metric-amber-bg text-metric-amber font-metric-badge text-metric-badge flex items-center gap-1 shadow-sm">
+<span class="material-symbols-outlined text-[13px]">trending_up</span>
+                    323533×
+                  </span>
+<span class="font-label-caps text-label-caps text-outline">18.5M views · 2 weeks ago</span>
+</div>
+<h3 class="font-title-md text-title-md font-semibold text-on-surface group-hover:text-primary transition-colors line-clamp-2">
+                  Here's to 100 with Tito's
+                </h3>
+</div>
+<div class="mt-space-sm pt-2 flex items-center justify-between text-body-sm font-body-sm text-on-surface-variant">
+<div class="flex items-center gap-2">
+<span class="w-5 h-5 rounded-full bg-surface-container-high flex items-center justify-center text-[10px] text-outline font-bold">T</span>
+<span>titosvodka</span>
+<span class="text-outline">· 6,680 subscribers</span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[18px]">north_east</span>
+</div>
+</div>
+</div>
+<!-- Card 2: EUClimateAction -->
+<div class="group bg-surface-card hover:bg-surface-container-low transition-all duration-300 rounded-DEFAULT p-space-md shadow-md flex flex-col sm:flex-row gap-space-md items-start">
+<div class="relative w-full sm:w-56 aspect-video rounded-DEFAULT overflow-hidden flex-shrink-0 bg-surface-container-high">
+<div class="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500" data-alt="Modern geometric European conference flags floating above a high-tech climate summit pavilion, futuristic blue lighting, crisp architectural symmetry, clean editorial styling." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCZNdtN_CdjKRxeTjFAstnfK0eg-9MxBK1vz3U2StpiSCvKeywjQoaU0YuUi_hRp7UvxdOEJNQKTHEhWfeRdN_cawrH9LwoRmforWEHR82TUDLWy55_t0ANzkSMUjaKkOZVMcPbku3qiU51AJKXIlVBtzZFUtW1BpHe2IrtlF5ewA2mOglatARfRl1HQ2KUirmfSvVWJDOxN3cbdoodVzCRirpvHTpNuL_yINd2QGw')"></div>
+<span class="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-space-deep/90 text-on-surface font-label-caps text-label-caps font-semibold">
+                0:30
+              </span>
+</div>
+<div class="flex flex-col flex-1 min-w-0 justify-between h-full py-0.5">
+<div>
+<div class="flex items-center gap-2 mb-1.5 flex-wrap">
+<span class="px-2 py-0.5 rounded-full bg-metric-amber-bg text-metric-amber font-metric-badge text-metric-badge flex items-center gap-1 shadow-sm">
+<span class="material-symbols-outlined text-[13px]">trending_up</span>
+                    148398×
+                  </span>
+<span class="font-label-caps text-label-caps text-outline">8.3M views · 2 weeks ago</span>
+</div>
+<h3 class="font-title-md text-title-md font-semibold text-on-surface group-hover:text-primary transition-colors line-clamp-2">
+                  Act. Adapt. Advance. Together with global partners, the EU moves...
+                </h3>
+</div>
+<div class="mt-space-sm pt-2 flex items-center justify-between text-body-sm font-body-sm text-on-surface-variant">
+<div class="flex items-center gap-2">
+<span class="w-5 h-5 rounded-full bg-surface-container-high flex items-center justify-center text-[10px] text-secondary font-bold">EU</span>
+<span>EUClimateAction</span>
+<span class="text-outline">· 6,670 subscribers</span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[18px]">north_east</span>
+</div>
+</div>
+</div>
+<!-- Card 3: Downfall Parody -->
+<div class="group bg-surface-card hover:bg-surface-container-low transition-all duration-300 rounded-DEFAULT p-space-md shadow-md flex flex-col sm:flex-row gap-space-md items-start">
+<div class="relative w-full sm:w-56 aspect-video rounded-DEFAULT overflow-hidden flex-shrink-0 bg-surface-container-high">
+<div class="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500" data-alt="Dramatic bunker strategy room bathed in dramatic low-key tungsten light, retro military telecommunications equipment, intense cinematic shadows and tense theatrical framing." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAbj0LKIk7vOqByIHe5FQzNoIuRO1IX1npseDDqgCx0XqZqTdqh-SCTQWwa3moQb6yGAU0NdOLRAWIsRd79k5yShTevUXVbsQS9j8_5-S47iRfl_AMOATjlH9HWuoFChPVN6e97fOlSkTqKk-JP0qxTfGan4oqyRRAKchUJnPNwZIXqOP0NplkwRWiqN0U20_x517hpUBpSyUEMsrly0tYvD9ziwqDnvs3yZCxsk7E')"></div>
+<span class="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-space-deep/90 text-on-surface font-label-caps text-label-caps font-semibold">
+                2:33
+              </span>
+</div>
+<div class="flex flex-col flex-1 min-w-0 justify-between h-full py-0.5">
+<div>
+<div class="flex items-center gap-2 mb-1.5 flex-wrap">
+<span class="px-2 py-0.5 rounded-full bg-metric-amber-bg text-metric-amber font-metric-badge text-metric-badge flex items-center gap-1 shadow-sm">
+<span class="material-symbols-outlined text-[13px]">trending_up</span>
+                    81452×
+                  </span>
+<span class="font-label-caps text-label-caps text-outline">2.8M views · 2 weeks ago</span>
+</div>
+<h3 class="font-title-md text-title-md font-semibold text-on-surface group-hover:text-primary transition-colors line-clamp-2">
+                  Trump Reacts to the Midterms - Downfall parody
+                </h3>
+</div>
+<div class="mt-space-sm pt-2 flex items-center justify-between text-body-sm font-body-sm text-on-surface-variant">
+<div class="flex items-center gap-2">
+<span class="w-5 h-5 rounded-full bg-surface-container-high flex items-center justify-center text-[10px] text-outline font-bold">J</span>
+<span>Javier Jarquin Comedian</span>
+<span class="text-outline">· 11.8K subscribers</span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[18px]">north_east</span>
+</div>
+</div>
+</div>
+<!-- Card 4: Learjet Crash Audio -->
+<div class="group bg-surface-card hover:bg-surface-container-low transition-all duration-300 rounded-DEFAULT p-space-md shadow-md flex flex-col sm:flex-row gap-space-md items-start">
+<div class="relative w-full sm:w-56 aspect-video rounded-DEFAULT overflow-hidden flex-shrink-0 bg-surface-container-high">
+<div class="w-full h-full bg-cover bg-center group-hover:scale-105 transition-transform duration-500" data-alt="Digital audio waveform telemetry visualizer oscillating on dark obsidian avionics screen, green and cyan radar grids, cockpit telemetry HUD overlay." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAoiwqG28meRKGHlaXYkJjUa1wmeJlawoBHiIxpsNoNNzfFpAIVzozdudpNaltF07YKZDmeXRT9bnW9DjVYWzEEG5vNEigoaZaYaloJWNAHtVNv3Vaj0G1-91MfG9Mg_lPH56h4qymuj83bg5GBIlQH0KyiqGiWCPGmTyjLRLjWEhqU5rS8SKaq8yfWqV9Jpcpw8ajvmNXsD1cmu1mvqhB680Vs1D8Ojzxqe6eTZNU')"></div>
+<span class="absolute bottom-2 right-2 px-1.5 py-0.5 rounded bg-space-deep/90 text-on-surface font-label-caps text-label-caps font-semibold">
+                1:57
+              </span>
+</div>
+<div class="flex flex-col flex-1 min-w-0 justify-between h-full py-0.5">
+<div>
+<div class="flex items-center gap-2 mb-1.5 flex-wrap">
+<span class="px-2 py-0.5 rounded-full bg-metric-amber-bg text-metric-amber font-metric-badge text-metric-badge flex items-center gap-1 shadow-sm">
+<span class="material-symbols-outlined text-[13px]">trending_up</span>
+                    26313×
+                  </span>
+<span class="font-label-caps text-label-caps text-outline">2.7M views · 2 weeks ago</span>
+</div>
+<h3 class="font-title-md text-title-md font-semibold text-on-surface group-hover:text-primary transition-colors line-clamp-2">
+                  Chilling Audio Captures The Last Moments of Learjet 60 Plane Crash
+                </h3>
+</div>
+<div class="mt-space-sm pt-2 flex items-center justify-between text-body-sm font-body-sm text-on-surface-variant">
+<div class="flex items-center gap-2">
+<span class="w-5 h-5 rounded-full bg-surface-container-high flex items-center justify-center text-[10px] text-outline font-bold">S</span>
+<span>SpaceCoastDaily</span>
+<span class="text-outline">· 4,390 subscribers</span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors text-[18px]">north_east</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Secondary Column: Discovered Competitor Benchmark Console -->
+<div class="xl:col-span-4 flex flex-col gap-space-lg">
+<!-- Benchmark List Header -->
+<div class="flex items-center justify-between pb-space-sm">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">hub</span>
+<h3 class="font-title-md text-title-md font-semibold text-on-surface">Radar Benchmarks</h3>
+</div>
+<span class="font-label-caps text-label-caps text-outline">6 tracked channels</span>
+</div>
+<!-- Competitors List Card -->
+<div class="bg-surface-card rounded-DEFAULT p-space-md shadow-xl flex flex-col gap-3">
+<!-- Competitor Item 1 -->
+<div class="flex items-center justify-between p-2.5 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-8 h-8 rounded-full bg-space-deep flex items-center justify-center text-secondary font-bold text-xs">
+                S
+              </div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-sm text-body-sm font-semibold text-on-surface truncate">States 2050</span>
+<span class="font-label-caps text-label-caps text-outline">Close Orbit · 94.7K subs</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded-full bg-metric-amber-bg text-metric-amber font-metric-badge text-metric-badge">83×</span>
+<button class="text-outline hover:text-on-surface">
+<span class="material-symbols-outlined text-[16px]">visibility</span>
+</button>
+</div>
+</div>
+<!-- Competitor Item 2 -->
+<div class="flex items-center justify-between p-2.5 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-8 h-8 rounded-full bg-space-deep flex items-center justify-center text-primary font-bold text-xs">
+                T
+              </div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-sm text-body-sm font-semibold text-on-surface truncate">The Tesla Space</span>
+<span class="font-label-caps text-label-caps text-outline">Mid Orbit · 540K subs</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded-full bg-metric-amber-bg text-metric-amber font-metric-badge text-metric-badge">43×</span>
+<button class="text-outline hover:text-on-surface">
+<span class="material-symbols-outlined text-[16px]">visibility</span>
+</button>
+</div>
+</div>
+<!-- Competitor Item 3 -->
+<div class="flex items-center justify-between p-2.5 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-8 h-8 rounded-full bg-space-deep flex items-center justify-center text-tertiary font-bold text-xs">
+                M
+              </div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-sm text-body-sm font-semibold text-on-surface truncate">MegaBuilds</span>
+<span class="font-label-caps text-label-caps text-outline">Mid Orbit · 125K subs</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 rounded-full bg-metric-amber-bg text-metric-amber font-metric-badge text-metric-badge">12×</span>
+<button class="text-outline hover:text-on-surface">
+<span class="material-symbols-outlined text-[16px]">visibility</span>
+</button>
+</div>
+</div>
+<!-- Competitor Item 4 -->
+<div class="flex items-center justify-between p-2.5 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-8 h-8 rounded-full bg-space-deep flex items-center justify-center text-outline font-bold text-xs">
+                C
+              </div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-sm text-body-sm font-semibold text-on-surface truncate">Core Memory</span>
+<span class="font-label-caps text-label-caps text-outline">Distant Orbit · 79.3K</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-caps text-label-caps text-outline">Tracking</span>
+<button class="text-outline hover:text-on-surface">
+<span class="material-symbols-outlined text-[16px]">visibility</span>
+</button>
+</div>
+</div>
+<!-- Competitor Item 5 -->
+<div class="flex items-center justify-between p-2.5 rounded-DEFAULT bg-surface-container-low hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-8 h-8 rounded-full bg-space-deep flex items-center justify-center text-outline font-bold text-xs">
+                F
+              </div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-sm text-body-sm font-semibold text-on-surface truncate">Future Files</span>
+<span class="font-label-caps text-label-caps text-outline">Mid Orbit · 26.8K</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-caps text-label-caps text-outline">Meshed</span>
+<button class="text-outline hover:text-on-surface">
+<span class="material-symbols-outlined text-[16px]">visibility</span>
+</button>
+</div>
+</div>
+<!-- Add Competitor Button -->
+<button class="w-full mt-2 py-2 rounded-full bg-surface-container-high hover:bg-surface-variant text-on-surface text-body-sm font-body-sm font-semibold flex items-center justify-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[16px]">add</span>
+            Add channel to radar
+          </button>
+</div>
+<!-- Telemetry Graph Summary Widget -->
+<div class="bg-surface-card rounded-DEFAULT p-space-md shadow-xl flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-outline uppercase">Niche Velocity Index</span>
+<span class="font-metric-badge text-metric-badge text-primary">+28.4% this week</span>
+</div>
+<!-- Inline Telemetry SVG Sparkline -->
+<div class="h-20 w-full pt-2">
+<svg class="w-full h-full text-primary" fill="none" viewbox="0 0 300 80">
+<path d="M0,60 Q40,55 70,40 T140,45 T210,20 T260,25 T300,5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2.5"></path>
+<path d="M0,60 Q40,55 70,40 T140,45 T210,20 T260,25 T300,5 L300,80 L0,80 Z" fill="url(#sparkGradient)" opacity="0.15"></path>
+<defs>
+<lineargradient id="sparkGradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#00d2ff"></stop>
+<stop offset="100%" stop-color="transparent"></stop>
+</lineargradient>
+</defs>
+</svg>
+</div>
+<div class="flex items-center justify-between pt-1">
+<span class="font-body-sm text-body-sm text-on-surface-variant">273 total channels mapped</span>
+<a class="font-label-caps text-label-caps text-secondary hover:underline" href="#">Explore full cluster</a>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+<script>
+  let currentZoom = 1;
+  const viewport = document.getElementById('radarMapViewport');
+  const inspector = document.getElementById('inspectorCard');
+
+  document.getElementById('zoomInBtn')?.addEventListener('click', () => {
+    currentZoom = Math.min(currentZoom + 0.15, 1.6);
+    updateViewportTransform();
+  });
+
+  document.getElementById('zoomOutBtn')?.addEventListener('click', () => {
+    currentZoom = Math.max(currentZoom - 0.15, 0.7);
+    updateViewportTransform();
+  });
+
+  document.getElementById('zoomResetBtn')?.addEventListener('click', () => {
+    currentZoom = 1;
+    updateViewportTransform();
+  });
+
+  document.getElementById('centerCanvasBtn')?.addEventListener('click', () => {
+    currentZoom = 1.2;
+    updateViewportTransform('-10%', '5%');
+    setTimeout(() => {
+      toggleQuickInspect(true);
+    }, 400);
+  });
+
+  function updateViewportTransform(offsetX = '0px', offsetY = '0px') {
+    if (viewport) {
+      viewport.style.transform = `scale(${currentZoom}) translate(${offsetX}, ${offsetY})`;
+    }
+  }
+
+  function toggleQuickInspect(show) {
+    if (!inspector) return;
+    if (show) {
+      inspector.classList.remove('opacity-0', 'pointer-events-none', 'translate-x-4');
+      inspector.classList.add('opacity-100', 'translate-x-0');
+    } else {
+      inspector.classList.add('opacity-0', 'pointer-events-none', 'translate-x-4');
+      inspector.classList.remove('opacity-100', 'translate-x-0');
+    }
+  }
+</script></main></div></body></html>

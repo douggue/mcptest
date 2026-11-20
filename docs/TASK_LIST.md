@@ -74,10 +74,12 @@ every phase; coverage floor is 80%.
 
 **Done when:** "What should my next video be?" in Claude produces topics through the connector with no manual steps.
 
-## Phase 7: web UI (waits for the owner's design)
+## Phase 7: web UI (design received, stored in `design/`)
 
-- [ ] Design tokens and components from the supplied design
-- [ ] Topics, Map, Channel detail, run progress
+- [ ] Theme from `design/DESIGN.md`; app shell (top bar, left rail)
+- [ ] Competitor radar screen on real crawl data (can start now)
+- [ ] Results feed and topic streams (need phase 5)
+- [ ] Channel detail, run progress
 - [ ] Star, hide, copy; competitor remove and restore
 - [ ] Follow-up chat over a stored run
 - [ ] Keyboard and screen-reader pass; phone layout
