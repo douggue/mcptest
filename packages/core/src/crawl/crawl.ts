@@ -1,11 +1,12 @@
 import { ingestChannel, type IngestDeps } from '../ingest';
 import type { EdgeRepo, MapMember, MapRepo, RecEdge } from '../repos/types';
 import type { SidebarItem } from '../sources/types';
+import { titleSimilarity } from '../map/relevance';
 import { freezeMapSnapshot } from '../map/snapshot';
 import { buildEdges } from './edges';
 
 export const DEFAULT_DEPTH = 2;
-export const MAX_DEPTH = 2;
+export const MAX_DEPTH = 3;
 export const DEFAULT_SAMPLE_SIZE = 10;
 export const DEFAULT_TOP_CHANNELS = 15;
 export const DEFAULT_MAX_CHANNELS = 150;
@@ -33,7 +34,7 @@ export interface CrawlProgress {
 }
 
 export interface CrawlOptions {
-  /** How many recommendation hops to follow: 1 or 2. */
+  /** How many recommendation hops to follow: 1 to 3. */
   readonly depth?: number;
   /**
    * A channel the owner wants to be like. The crawl also explores outwards from
@@ -196,12 +197,49 @@ async function readEdges(
   };
 }
 
-/** New channels reached from this step, strongest recommendation first. */
-function rankCandidates(edges: readonly RecEdge[], known: ReadonlySet<string>): readonly string[] {
+/** Titles per channel used to judge how alike two channels are. */
+const TITLES_FOR_WEIGHT = 30;
+/** A recommendation from a channel nothing like the reference still counts for this much. */
+const UNLIKE_SOURCE_WEIGHT = 0.25;
+
+/**
+ * How much each channel's recommendations count when places are limited: more
+ * for channels whose titles look like the reference's (the model channel, or
+ * the centre). Without this the limit fills with whatever YouTube pushes hardest.
+ */
+function sourceWeights(
+  deps: CrawlDeps,
+  referenceId: string,
+  frontier: readonly string[],
+): ReadonlyMap<string, number> {
+  const titlesOf = (channelId: string): readonly string[] =>
+    deps.videos
+      .listByChannel(channelId)
+      .slice(0, TITLES_FOR_WEIGHT)
+      .map((video) => video.title);
+  const match = titleSimilarity(
+    titlesOf(referenceId),
+    new Map(frontier.map((channelId) => [channelId, titlesOf(channelId)])),
+  );
+  return new Map(
+    frontier.map((channelId) => [
+      channelId,
+      channelId === referenceId ? 1 : UNLIKE_SOURCE_WEIGHT + (match.get(channelId) ?? 0),
+    ]),
+  );
+}
+
+/** New channels reached from this step, strongest weighted recommendation first. */
+function rankCandidates(
+  edges: readonly RecEdge[],
+  known: ReadonlySet<string>,
+  weights: ReadonlyMap<string, number>,
+): readonly string[] {
   const strength = new Map<string, number>();
   for (const edge of edges) {
     if (known.has(edge.toChannelId)) continue;
-    strength.set(edge.toChannelId, (strength.get(edge.toChannelId) ?? 0) + edge.share);
+    const weighted = edge.share * (weights.get(edge.fromChannelId) ?? 1);
+    strength.set(edge.toChannelId, (strength.get(edge.toChannelId) ?? 0) + weighted);
   }
   return [...strength]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -310,6 +348,8 @@ export async function crawlMap(
     const candidates = rankCandidates(
       readings.flatMap((reading) => reading.edges),
       new Set(members.map((member) => member.channelId)),
+      // The first step starts from the centre and the model, which count in full.
+      step === 1 ? new Map() : sourceWeights(deps, modelChannelId ?? centerChannelId, frontier),
     );
     const room = Math.max(0, settings.maxChannels - members.length);
     const chosen = candidates.slice(0, room);

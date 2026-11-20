@@ -4,11 +4,21 @@ import type { JobStore } from './jobs';
 
 const MAX_BODY_CHARACTERS = 2000;
 const DEFAULT_DEPTH = 2;
+const MAX_DEPTH = 3;
+const MIN_CHANNELS_PER_MAP = 10;
+const MAX_CHANNELS_PER_MAP = 600;
 const CHANNEL_ID = /^UC[\w-]{22}$/;
 
 export interface CrawlOutcome {
   readonly centerChannelId: string;
   readonly warnings: readonly string[];
+}
+
+export interface CrawlChoices {
+  /** A channel the owner wants to be like; the map is measured against it. */
+  readonly model?: string | undefined;
+  /** The most channels the map may hold, centre included. */
+  readonly maxChannels?: number | undefined;
 }
 
 /** What the API needs from the engine, so tests can stand in for it. */
@@ -19,8 +29,7 @@ export interface Engine {
     channel: string,
     depth: number,
     onProgress: (progress: CrawlProgress) => void,
-    /** A channel the owner wants to be like; the map is measured against it. */
-    model?: string,
+    choices?: CrawlChoices,
   ): Promise<CrawlOutcome>;
   /** Removes a channel or restores it. False when it is not on the centre's latest map. */
   setCompetitorRemoved(centerChannelId: string, channelId: string, removed: boolean): boolean;
@@ -35,8 +44,9 @@ export interface AppOptions {
 
 const crawlRequest = z.object({
   channel: z.string().min(1).max(200),
-  depth: z.number().int().min(1).max(2).optional(),
+  depth: z.number().int().min(1).max(MAX_DEPTH).optional(),
   model: z.string().min(1).max(200).optional(),
+  maxChannels: z.number().int().min(MIN_CHANNELS_PER_MAP).max(MAX_CHANNELS_PER_MAP).optional(),
 });
 
 const removalRequest = z.object({
@@ -127,14 +137,21 @@ async function startCrawl(options: AppOptions, request: Request): Promise<Respon
   const body = await readJson(options, request);
   if (body instanceof Response) return body;
   const parsed = crawlRequest.safeParse(body);
-  if (!parsed.success) return fail(400, 'Give a channel and, optionally, a depth of 1 or 2');
-  const { channel, depth = DEFAULT_DEPTH, model } = parsed.data;
+  if (!parsed.success) {
+    return fail(
+      400,
+      `Give a channel and, optionally, a depth of 1 to ${MAX_DEPTH} and a size of ${MIN_CHANNELS_PER_MAP} to ${MAX_CHANNELS_PER_MAP} channels`,
+    );
+  }
+  const { channel, depth = DEFAULT_DEPTH, model, maxChannels } = parsed.data;
   const problem = channelProblem(channel);
   if (problem) return fail(400, problem);
   const modelProblem = model === undefined ? null : channelProblem(model);
   if (modelProblem) return fail(400, `Model channel: ${modelProblem}`);
 
-  const job = options.jobs.start((report) => options.engine.crawl(channel, depth, report, model));
+  const job = options.jobs.start((report) =>
+    options.engine.crawl(channel, depth, report, { model, maxChannels }),
+  );
   if (!job) return fail(409, 'A map is already being made. Wait for it to finish.');
   return ok({ jobId: job.id }, 202);
 }

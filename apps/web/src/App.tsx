@@ -15,6 +15,7 @@ const STORAGE_KEY = 'jgtube.channel';
 const MODEL_STORAGE_KEY = 'jgtube.model';
 const POLL_INTERVAL_MS = 1500;
 const DEFAULT_DEPTH = 2;
+const DEFAULT_SIZE = 150;
 
 /** The browser may refuse storage (private windows); the app works without it. */
 function recall(key = STORAGE_KEY): string {
@@ -56,6 +57,7 @@ export function App() {
   const [depth, setDepth] = useState(DEFAULT_DEPTH);
   const [scope, setScope] = useState<Scope>('peers');
   const [model, setModel] = useState(() => recall(MODEL_STORAGE_KEY));
+  const [size, setSize] = useState(DEFAULT_SIZE);
 
   const load = useCallback(
     async (channel: string): Promise<boolean> => {
@@ -104,7 +106,7 @@ export function App() {
     remember(channel);
     remember(model.trim(), MODEL_STORAGE_KEY);
     try {
-      const id = await api.startCrawl(channel, depth, model);
+      const id = await api.startCrawl(channel, depth, model, size);
       setJob({ id, status: 'running', progress: null, result: null, error: null });
     } catch (error) {
       setMessage(messageOf(error));
@@ -144,6 +146,8 @@ export function App() {
         message={message}
         depth={depth}
         onDepthChange={setDepth}
+        size={size}
+        onSizeChange={setSize}
         onExport={snapshot ? () => download(snapshot) : null}
       />
       <Radar

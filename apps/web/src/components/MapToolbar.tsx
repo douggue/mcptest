@@ -8,7 +8,13 @@ const STAGE_LABEL: Readonly<Record<string, string>> = {
   'reading-channels': 'Reading channels',
   done: 'Finishing',
 };
-const DEPTHS = [1, 2] as const;
+const DEPTHS = [1, 2, 3] as const;
+/** Channel limits on offer, with roughly how long a fresh map of that size takes. */
+const SIZES = [
+  { channels: 150, minutes: 5 },
+  { channels: 300, minutes: 10 },
+  { channels: 600, minutes: 20 },
+] as const;
 
 interface Props {
   readonly center: MapSnapshot['center'] | null;
@@ -24,6 +30,9 @@ interface Props {
   readonly message: string | null;
   readonly depth: number;
   readonly onDepthChange: (depth: number) => void;
+  /** The most channels the next map may hold. */
+  readonly size: number;
+  readonly onSizeChange: (size: number) => void;
   readonly onExport: (() => void) | null;
 }
 
@@ -160,6 +169,29 @@ export function MapToolbar(props: Props) {
                 }`}
               >
                 L{depth}
+              </button>
+            ))}
+          </div>
+          <div
+            role="group"
+            aria-label="How many channels the map may hold"
+            className="hidden items-center gap-2 rounded-full bg-surface-card/90 px-3 py-1.5 sm:flex"
+          >
+            <span className="text-label-caps uppercase text-outline">Size</span>
+            {SIZES.map((option) => (
+              <button
+                key={option.channels}
+                type="button"
+                aria-pressed={props.size === option.channels}
+                title={`Up to ${option.channels} channels: about ${option.minutes} minutes for a new map`}
+                onClick={() => props.onSizeChange(option.channels)}
+                className={`rounded-full px-2.5 py-1 text-metric-badge transition-colors ${
+                  props.size === option.channels
+                    ? 'bg-primary-container text-on-primary-container'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                {option.channels}
               </button>
             ))}
           </div>

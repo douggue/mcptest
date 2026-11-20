@@ -304,10 +304,12 @@ describe('api', () => {
 
     await api.startCrawl('@mine', 2, '  @model ');
     await api.startCrawl('@mine', 2, '  ');
+    await api.startCrawl('@mine', 3, '', 300);
 
     expect(bodies.map((body) => JSON.parse(body))).toEqual([
       { channel: '@mine', depth: 2, model: '@model' },
       { channel: '@mine', depth: 2 },
+      { channel: '@mine', depth: 3, maxChannels: 300 },
     ]);
   });
 

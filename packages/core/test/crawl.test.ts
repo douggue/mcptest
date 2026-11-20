@@ -229,8 +229,73 @@ describe('crawlMap', () => {
     expect(events.at(-1)).toMatchObject({ stage: 'done', channels: 4 });
   });
 
-  test('rejects a depth outside one or two', async () => {
+  test('follows a third step when asked', async () => {
+    const result = await crawlMap(deps, '@handleC', { depth: 3 });
+
+    expect(result.members.map((m) => [m.channelId.charAt(2), m.steps])).toEqual([
+      ['C', 0],
+      ['A', 1],
+      ['B', 1],
+      ['D', 2],
+      ['E', 3],
+    ]);
+  });
+
+  test('rejects a depth outside one to three', async () => {
     await expect(crawlMap(deps, '@handleC', { depth: 5 })).rejects.toThrow(/depth/i);
+  });
+});
+
+describe('crawlMap when the channel limit cannot fit every candidate', () => {
+  /** C → A, B. A looks like C and weakly recommends X; B does not and strongly recommends Y. */
+  const titles: Record<string, readonly string[]> = {
+    C: ['America Just Built a Reactor', 'America Just Found Lithium'],
+    A: ['America Just Built a Bridge', 'America Just Found Gas'],
+    B: ['Ten Rifles Ranked', 'Tigers Avoid Elephants'],
+  };
+  const sidebars: Record<string, readonly string[]> = {
+    [vid('C', 1)]: ['A', 'B'],
+    [vid('C', 2)]: ['A', 'B'],
+    [vid('A', 1)]: ['X'],
+    [vid('B', 1)]: ['Y'],
+    [vid('B', 2)]: ['Y'],
+  };
+  const lookalikeSource: YouTubeSource = {
+    resolveChannelId: async () => cid('C'),
+    fetchChannel: async (channelId) => {
+      const letter = channelId.charAt(2);
+      return {
+        channel: {
+          id: channelId,
+          title: `Channel ${letter}`,
+          handle: null,
+          subscribers: 1000,
+          subscribersHidden: false,
+          videoCount: 2,
+        },
+        videos: [1, 2].map((n) => ({
+          id: vid(letter, n),
+          channelId,
+          title: titles[letter]?.[n - 1] ?? `Something else ${n}`,
+          views: 1000,
+          durationSeconds: 600,
+          published: {
+            date: new Date(NOW.getTime() - n * DAY_MS),
+            precision: 'day' as const,
+            raw: `${n}d ago`,
+          },
+        })),
+      };
+    },
+    getSidebar: async (videoId) => (sidebars[videoId] ?? []).map((letter) => rec(letter)),
+  };
+
+  test('gives the remaining places to channels recommended by look-alikes', async () => {
+    const result = await crawlMap({ ...deps, source: lookalikeSource }, '@handleC', {
+      maxChannels: 4,
+    });
+
+    expect(result.members.map((m) => m.channelId.charAt(2))).toEqual(['C', 'A', 'B', 'X']);
   });
 });
 

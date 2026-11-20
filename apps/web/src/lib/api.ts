@@ -66,12 +66,22 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
 
     /** Starts a crawl and returns the id of the job to poll. */
     /** Starts a new map. `model` is a channel the owner wants to be like, if any. */
-    async startCrawl(channel: string, depth: number, model = ''): Promise<string> {
+    async startCrawl(
+      channel: string,
+      depth: number,
+      model = '',
+      maxChannels?: number,
+    ): Promise<string> {
       const wanted = model.trim();
       const envelope = await call('/api/maps', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ channel, depth, ...(wanted ? { model: wanted } : {}) }),
+        body: JSON.stringify({
+          channel,
+          depth,
+          ...(wanted ? { model: wanted } : {}),
+          ...(maxChannels ? { maxChannels } : {}),
+        }),
       });
       return unwrap<{ jobId: string }>(envelope).jobId;
     },

@@ -24,8 +24,16 @@ class FakeEngine implements Engine {
     return this.stored;
   }
 
-  crawl(channel: string, depth: number, onProgress: Parameters<Engine['crawl']>[2]) {
+  choices: Parameters<Engine['crawl']>[3];
+
+  crawl(
+    channel: string,
+    depth: number,
+    onProgress: Parameters<Engine['crawl']>[2],
+    choices?: Parameters<Engine['crawl']>[3],
+  ) {
     this.crawls.push({ channel, depth });
+    this.choices = choices;
     onProgress({ stage: 'reading-channels', channels: 3, step: 1 });
     return this.outcome;
   }
@@ -126,9 +134,19 @@ describe('POST /api/maps', () => {
     expect(engine.crawls).toHaveLength(1);
   });
 
+  test('passes a deeper, larger crawl through to the engine', async () => {
+    const response = await post({ channel: '@veritasium', depth: 3, maxChannels: 300 });
+    await settle();
+
+    expect(response.status).toBe(202);
+    expect(engine.crawls).toEqual([{ channel: '@veritasium', depth: 3 }]);
+    expect(engine.choices).toMatchObject({ maxChannels: 300 });
+  });
+
   test.each([
     [{ channel: 'https://evil.example/@x' }, 'a host that is not YouTube'],
-    [{ channel: '@veritasium', depth: 3 }, 'a depth that is not supported'],
+    [{ channel: '@veritasium', depth: 4 }, 'a depth that is not supported'],
+    [{ channel: '@veritasium', maxChannels: 5000 }, 'a size that is not supported'],
     [{}, 'a missing channel'],
     ['{not json', 'a body that is not JSON'],
     [{ channel: 'x'.repeat(5000) }, 'an oversized body'],

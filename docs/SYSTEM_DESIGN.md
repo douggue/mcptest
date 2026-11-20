@@ -142,6 +142,15 @@ channel, one they want to be like.
 - The model is stored on the map (`maps.model_channel`) and shown in the snapshot
   as `model`, so a reopened map says what it was measured against.
 
+### Filling a limited map
+
+A map holds at most `maxChannels` channels (150 by default; the screen offers 150,
+300 and 600, the API 10 to 600) and follows 1 to 3 steps. From the second step on
+there are usually more candidates than places. Each recommendation is therefore
+weighted by its source: `share × (0.25 + titleMatch(source, reference))`, where the
+reference is the model channel or, without one, the centre. Channels recommended
+by look-alikes are read first; the rest are reported as left out.
+
 ### Relevance filter
 
 The crawl alone is too noisy for small channels, so every candidate gets a
