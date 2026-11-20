@@ -19,7 +19,7 @@ export type Work<T> = (report: (progress: CrawlProgress) => void) => Promise<T>;
 /** Matches things that look like file paths, which have no business reaching the browser. */
 const PATH_LIKE = /(?:[A-Za-z]:)?[\\/][^\s:"']*[\\/][^\s:"']*/g;
 
-function cleanMessage(error: unknown): string {
+export function cleanMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   return message
     .replace(UNSAFE_CHARACTERS, ' ')

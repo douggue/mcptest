@@ -4,6 +4,8 @@ import { createApi } from '../src/lib/api';
 import {
   NICHE_FILTERS,
   describeChannel,
+  describeEarnings,
+  describeSearch,
   describeHits,
   describeList,
   filterNiches,
@@ -23,6 +25,13 @@ const niche = (n: number, overrides: Partial<NicheChannel> = {}): NicheChannel =
   recentViews: 100_000 * n,
   recentUploads: 10,
   viewsPerSubscriber: 100,
+  earnings: {
+    low: 200 * n,
+    high: 800 * n,
+    longFormViews: 100_000 * n,
+    shortsViews: 0,
+    belowAdThreshold: false,
+  },
   channelAgeDays: 30,
   reasons: ['new', 'small'],
   outperformers: [],
@@ -194,5 +203,93 @@ describe('api for niches', () => {
     );
 
     await expect(api.setNicheWatched(cid(1), true)).rejects.toThrow(/not been read/);
+  });
+});
+
+describe('describeEarnings', () => {
+  const worth = (low: number, high: number, belowAdThreshold: boolean | null = false) => ({
+    low,
+    high,
+    longFormViews: 1,
+    shortsViews: 0,
+    belowAdThreshold,
+  });
+
+  test('gives the monthly range in short dollar figures', () => {
+    expect(describeEarnings(worth(84, 338))).toBe('About $84–$338 a month');
+    expect(describeEarnings(worth(1200, 4900))).toBe('About $1.2K–$4.9K a month');
+  });
+
+  test('says when a channel is too small to earn from ads yet', () => {
+    expect(describeEarnings(worth(84, 338, true))).toBe(
+      'Views worth about $84–$338 a month, but under 1,000 subscribers it cannot earn from ads yet',
+    );
+  });
+
+  test('says so when there is nothing to estimate from', () => {
+    expect(describeEarnings(worth(0, 0))).toBe('No recent views to estimate from');
+  });
+});
+
+describe('describeSearch', () => {
+  test('sums up what a keyword search found', () => {
+    expect(
+      describeSearch({
+        keyword: 'new invention',
+        videosFound: 50,
+        channelsFound: 30,
+        added: 14,
+        alreadyKnown: 1,
+        failed: 0,
+      }),
+    ).toBe(
+      'Found 50 videos from 30 channels for "new invention": 14 new to Jgtube, 1 already known.',
+    );
+  });
+
+  test('mentions channels that could not be read, and a search that found nothing', () => {
+    expect(
+      describeSearch({
+        keyword: 'x',
+        videosFound: 3,
+        channelsFound: 2,
+        added: 1,
+        alreadyKnown: 0,
+        failed: 1,
+      }),
+    ).toBe(
+      'Found 3 videos from 2 channels for "x": 1 new to Jgtube, 0 already known, 1 could not be read.',
+    );
+    expect(
+      describeSearch({
+        keyword: 'x',
+        videosFound: 0,
+        channelsFound: 0,
+        added: 0,
+        alreadyKnown: 0,
+        failed: 0,
+      }),
+    ).toBe('No recent videos were found for "x".');
+  });
+});
+
+describe('the niche calls of the API client', () => {
+  test('asks for a keyword search and returns its counts', async () => {
+    const bodies: string[] = [];
+    const summary = {
+      keyword: 'k',
+      videosFound: 1,
+      channelsFound: 1,
+      added: 1,
+      alreadyKnown: 0,
+      failed: 0,
+    };
+    const api = createApi(async (url, init) => {
+      bodies.push(`${String(url)} ${String(init?.body)}`);
+      return new Response(JSON.stringify({ success: true, data: summary, error: null }));
+    });
+
+    expect(await api.discoverNiches('k')).toEqual(summary);
+    expect(bodies).toEqual(['/api/niches/discover {"keyword":"k"}']);
   });
 });

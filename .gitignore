@@ -6,6 +6,7 @@ dist/
 *.db-wal
 .env
 .env.*
+!.env.example
 
 # Working copies made for background agents
 .claude/worktrees/

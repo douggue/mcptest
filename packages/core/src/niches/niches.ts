@@ -3,6 +3,7 @@ import { PEER_MAX_UPLOADS_PER_WEEK, medianDurationSeconds, uploadsPerWeek } from
 import type { BoardVideo } from '../map/thumbnails';
 import { RECENT_DAYS } from '../map/view';
 import { buildVideoReport, type VideoReportRow } from '../report';
+import { estimateEarnings, type EarningsEstimate } from '../scoring/earnings';
 import type {
   ChannelRepo,
   MapRepo,
@@ -72,6 +73,11 @@ export interface NicheChannel {
   readonly recentUploads: number;
   /** `recentViews` for each subscriber; null when the count is hidden or zero. */
   readonly viewsPerSubscriber: number | null;
+  /**
+   * What the views on the last 30 days' uploads are worth in ad revenue: a
+   * rough monthly range for comparing channels, not a measurement.
+   */
+  readonly earnings: EarningsEstimate;
   /** Days since the channel's first upload; null when older videos may not have been read. */
   readonly channelAgeDays: number | null;
   /** Which of new and small the channel is; both when it is both. */
@@ -170,6 +176,7 @@ function describe(source: NicheSource, now: Date): Omit<NicheChannel, 'qualifies
   const recent = report.filter((row) => row.ageDays <= RECENT_DAYS);
   const recentViews = recent.reduce((sum, row) => sum + row.views, 0);
   const ageDays = channelAgeDays(report);
+  const recentIds = new Set(recent.map((row) => row.id));
   return {
     id: channel.id,
     title: channel.title,
@@ -178,6 +185,10 @@ function describe(source: NicheSource, now: Date): Omit<NicheChannel, 'qualifies
     recentViews,
     recentUploads: recent.length,
     viewsPerSubscriber: channel.subscribers ? recentViews / channel.subscribers : null,
+    earnings: estimateEarnings(
+      source.videos.filter((video) => recentIds.has(video.id)),
+      channel.subscribers,
+    ),
     channelAgeDays: ageDays,
     reasons: reasonsFor(channel.subscribers, ageDays),
     outperformers: outperformers(source, report),

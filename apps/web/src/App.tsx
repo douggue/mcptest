@@ -69,6 +69,11 @@ export function App() {
         const found = await api.latestMap(channel);
         setSnapshot(found);
         setSelectedId(null);
+        if (found === null) {
+          setMessage(
+            `No map has been made for ${channel} yet. Press Find competitors to make one.`,
+          );
+        }
         return found !== null;
       } catch (error) {
         setMessage(messageOf(error));

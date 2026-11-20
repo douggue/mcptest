@@ -3,7 +3,13 @@ import { Bookmark, BookmarkCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { scoreTone } from '../lib/board';
 import { channelUrl, formatCount, initials, watchUrl } from '../lib/format';
-import { describeChannel, describeHits, formatPerSubscriber, otherTitles } from '../lib/niches';
+import {
+  describeChannel,
+  describeEarnings,
+  describeHits,
+  formatPerSubscriber,
+  otherTitles,
+} from '../lib/niches';
 import { ThumbnailTile } from './ThumbnailTile';
 
 /** The multiple from which a score is drawn in amber, as on the thumbnail board. */
@@ -170,6 +176,12 @@ export function NicheCard({ channel, onSetWatched }: Props) {
       </div>
       <Evidence channel={channel} />
       <Numbers channel={channel} />
+      <p
+        className="text-label-caps text-outline"
+        title="A rough range from typical ad rates for the views on this channel's uploads of the last 30 days. Jgtube cannot see whether the channel is monetised or where its viewers live."
+      >
+        {describeEarnings(channel.earnings)} · estimate
+      </p>
       <Videos channel={channel} />
     </article>
   );

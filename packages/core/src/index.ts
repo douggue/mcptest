@@ -53,3 +53,11 @@ export {
 export { SqliteWatchlistRepo } from './repos/sqliteWatchlistRepo';
 export type { WatchlistRepo } from './repos/types';
 export { COMPETITOR_STATUSES, type CompetitorStatus } from './map/choices';
+export { estimateEarnings, type EarningsEstimate } from './scoring/earnings';
+export {
+  fetchChannelFacts,
+  searchRecentVideos,
+  type ChannelFacts,
+  type SearchHit,
+} from './sources/dataApi';
+export { discoverByKeyword, type DiscoveryResult } from './discovery/keyword';

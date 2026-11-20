@@ -3,6 +3,7 @@ import { Sprout } from 'lucide-react';
 import { useState } from 'react';
 import { NICHE_FILTERS, describeList, filterNiches, type NicheFilter } from '../lib/niches';
 import { NicheCard } from './NicheCard';
+import { NicheSearch } from './NicheSearch';
 import type { Niches as NichesData } from './useNiches';
 
 const PAGE_SIZE = 6;
@@ -99,9 +100,11 @@ interface Props {
 /** New or small channels anywhere in the store with a video that took off, and the watched ones. */
 export function Niches({ niches, hasMap }: Props) {
   const [filter, setFilter] = useState<NicheFilter>('all');
-  const { state, setWatched } = niches;
+  const { state, setWatched, search, discover } = niches;
   const list = state.status === 'ready' ? state.list : null;
-  if (!hasMap && (list === null || list.channels.length === 0)) return null;
+  const canDiscover = state.status === 'ready' && state.canDiscover;
+  // With nothing read and no way to search, there is nothing to offer here yet.
+  if (!hasMap && !canDiscover && (list === null || list.channels.length === 0)) return null;
 
   return (
     <section
@@ -129,6 +132,9 @@ export function Niches({ niches, hasMap }: Props) {
           {list && list.channels.length > 0 && <Filter filter={filter} onChange={setFilter} />}
         </div>
 
+        {state.status === 'ready' && (
+          <NicheSearch canDiscover={canDiscover} search={search} onSearch={discover} />
+        )}
         {state.status === 'loading' && (
           <p role="status" className={`flex items-center gap-2 ${NOTE}`}>
             <span className="h-2 w-2 animate-pulse rounded-full bg-primary-container shadow-[0_0_8px_#00d2ff]" />

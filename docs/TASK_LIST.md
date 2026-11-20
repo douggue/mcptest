@@ -118,3 +118,13 @@ every phase; coverage floor is 80%.
 Phases 0 to 3 are strictly sequential. Phase 4 needs 3. Phase 5 needs 2 and 4.
 Phase 6 is built on phases 2 to 4 and grows as later phases land.
 Phase 7 needs 5.
+
+## Niche finder
+
+- [x] "New niches to watch": new or small channels across the whole store with a recent video that outperforms; watchlist
+- [x] Channel facts from the official API (exact creation date, country, totals), with the owner's key
+- [x] Keyword discovery: official search for recent most-viewed videos on a subject, channels read into the store; search box on the niches section
+- [x] Earnings range per niche channel (long videos $2-8 per 1,000 views, Shorts $0.10-0.50; flagged under 1,000 subscribers)
+- [x] Settings from a `.env` file, including `YOUTUBE_API_KEY`
+- [ ] Scheduled refresh so growth history builds up
+- [ ] Niche labels and "same topic, different wording" judged by Claude through the connector

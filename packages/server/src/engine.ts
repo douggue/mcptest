@@ -7,13 +7,16 @@ import {
   SqliteVideoRepo,
   SqliteWatchlistRepo,
   crawlMap,
+  discoverByKeyword,
   loadMapSnapshot,
   loadNicheList,
   loadThumbnailBoard,
   openDatabase,
   parseChannelRef,
+  searchRecentVideos,
   transactionRunner,
   type Config,
+  type SearchHit,
   type StoredChannel,
   type YouTubeSource,
 } from '@jgtube/core';
@@ -29,6 +32,11 @@ export interface EngineOptions {
   /** Replaces the connection to YouTube; used by tests. */
   readonly createSource?: () => Promise<YouTubeSource>;
   readonly now?: () => Date;
+  /** Replaces the official API's search; used by tests. */
+  readonly search?: (
+    query: string,
+    options: { readonly publishedAfter: Date },
+  ) => Promise<readonly SearchHit[]>;
 }
 
 function youtubeSource(config: Config): Promise<YouTubeSource> {
@@ -126,6 +134,29 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       if (!repos.channels.findById(channelId)) return false;
       repos.watchlist.setWatched(channelId, watched, now());
       return true;
+    },
+
+    canDiscover() {
+      return config.youtubeApiKey !== undefined;
+    },
+
+    async discover(keyword) {
+      const apiKey = config.youtubeApiKey;
+      if (apiKey === undefined) throw new Error('Keyword search needs a YouTube API key');
+      source ??= createSource();
+      return discoverByKeyword(
+        {
+          channels: repos.channels,
+          videos: repos.videos,
+          source: await source,
+          transact: transactionRunner(db),
+          now,
+          search:
+            options.search ??
+            ((query, { publishedAfter }) => searchRecentVideos(query, { apiKey, publishedAfter })),
+        },
+        keyword,
+      );
     },
 
     close() {

@@ -181,6 +181,13 @@ describe('buildNicheList', () => {
       recentViews: 40_000 + 1000 + 1200,
       recentUploads: 3,
       viewsPerSubscriber: 21.1,
+      earnings: {
+        low: 84,
+        high: 338,
+        longFormViews: 42_200,
+        shortsViews: 0,
+        belowAdThreshold: false,
+      },
       channelAgeDays: 40,
       reasons: ['new', 'small'],
       outperformers: [

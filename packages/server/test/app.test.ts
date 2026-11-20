@@ -1,4 +1,10 @@
-import type { CompetitorStatus, MapSnapshot, NicheList, ThumbnailBoard } from '@jgtube/core';
+import type {
+  CompetitorStatus,
+  MapSnapshot,
+  NicheList,
+  ThumbnailBoard,
+  DiscoveryResult,
+} from '@jgtube/core';
 import { beforeEach, describe, expect, test } from 'vitest';
 import type { ChannelSnapshot, SidebarItem, YouTubeSource } from '@jgtube/core';
 import { createApp, type CrawlOutcome, type Engine } from '../src/app';
@@ -37,6 +43,26 @@ class FakeEngine implements Engine {
   listNiches(): NicheList {
     this.nicheReads += 1;
     return niches;
+  }
+
+  hasKey = true;
+  searched: string[] = [];
+  searchOutcome: Promise<DiscoveryResult> = Promise.resolve({
+    keyword: 'new invention',
+    videosFound: 50,
+    channelsFound: 30,
+    added: [CHANNEL_ID],
+    alreadyKnown: [],
+    failed: [],
+  });
+
+  canDiscover(): boolean {
+    return this.hasKey;
+  }
+
+  discover(keyword: string): Promise<DiscoveryResult> {
+    this.searched.push(keyword);
+    return this.searchOutcome;
   }
 
   setNicheWatched(channel: string, watched: boolean): boolean {
@@ -432,7 +458,12 @@ describe('GET /api/niches', () => {
     const response = await get('/api/niches');
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ success: true, data: niches, error: null, meta: null });
+    expect(await response.json()).toEqual({
+      success: true,
+      data: { ...niches, canDiscover: true },
+      error: null,
+      meta: null,
+    });
     expect(engine.nicheReads).toBe(1);
   });
 
@@ -872,6 +903,148 @@ describe('the server, the store and the engine together', () => {
 
     await call('/api/niches/watch', { channel: cid('B'), watched: false });
     expect((await readNiches()).channels.filter((entry) => entry.watched)).toEqual([]);
+    real.close();
+  });
+});
+
+describe('POST /api/niches/discover', () => {
+  const send = (body: unknown, headers: Record<string, string> = {}) =>
+    app(
+      new Request(`http://${HOST}/api/niches/discover`, {
+        method: 'POST',
+        headers: { host: HOST, 'content-type': 'application/json', ...headers },
+        body: JSON.stringify(body),
+      }),
+    );
+
+  test('searches for the keyword and reports what was found as counts', async () => {
+    const response = await send({ keyword: '  new invention ' });
+
+    expect(response.status).toBe(200);
+    expect(engine.searched).toEqual(['new invention']);
+    expect(((await response.json()) as { data: unknown }).data).toEqual({
+      keyword: 'new invention',
+      videosFound: 50,
+      channelsFound: 30,
+      added: 1,
+      alreadyKnown: 0,
+      failed: 0,
+    });
+  });
+
+  test('explains that a key is needed when none is set', async () => {
+    engine.hasKey = false;
+
+    const response = await send({ keyword: 'new invention' });
+
+    expect(response.status).toBe(400);
+    expect(((await response.json()) as { error: string }).error).toMatch(/YOUTUBE_API_KEY/);
+    expect(engine.searched).toEqual([]);
+  });
+
+  test.each([[{}], [{ keyword: '   ' }], [{ keyword: 'x'.repeat(201) }], [{ keyword: 5 }]])(
+    'rejects %j',
+    async (body) => {
+      expect((await send(body)).status).toBe(400);
+      expect(engine.searched).toEqual([]);
+    },
+  );
+
+  test('runs one search at a time', async () => {
+    let finish: (result: DiscoveryResult) => void = () => {};
+    engine.searchOutcome = new Promise((resolve) => {
+      finish = resolve;
+    });
+
+    const first = send({ keyword: 'one' });
+    await settle();
+    const second = await send({ keyword: 'two' });
+    finish({
+      keyword: 'one',
+      videosFound: 0,
+      channelsFound: 0,
+      added: [],
+      alreadyKnown: [],
+      failed: [],
+    });
+
+    expect(second.status).toBe(409);
+    expect((await first).status).toBe(200);
+    expect((await send({ keyword: 'three' })).status).toBe(200);
+  });
+
+  test('reports a search that fails without leaking where files live', async () => {
+    engine.searchOutcome = Promise.reject(new Error('quota gone at /home/someone/jgtube/x.ts'));
+
+    const response = await send({ keyword: 'new invention' });
+
+    expect(response.status).toBe(502);
+    expect(((await response.json()) as { error: string }).error).not.toContain('/home/someone');
+  });
+
+  test('rejects requests sent from another site, and anything but POST', async () => {
+    expect((await send({ keyword: 'x' }, { origin: 'https://evil.example' })).status).toBe(403);
+    expect((await get('/api/niches/discover')).status).toBe(405);
+  });
+
+  test('with the real engine, reads the channels a search finds into the store', async () => {
+    const letterOf = (id: string) => id.charAt(2);
+    const real = createEngine(
+      { dbPath: ':memory:', region: 'US', youtubeApiKey: 'a-key-of-plausible-length' },
+      {
+        now: () => new Date('2026-11-20T12:00:00Z'),
+        search: async () => [
+          {
+            videoId: 'QQQQQQQQQQ1',
+            channelId: `UC${'Q'.repeat(22)}`,
+            channelTitle: 'Channel Q',
+            title: 'A video',
+            publishedAt: new Date('2026-11-01T00:00:00Z'),
+          },
+        ],
+        createSource: async () => ({
+          resolveChannelId: async () => `UC${'Q'.repeat(22)}`,
+          getSidebar: async () => [],
+          fetchChannel: async (channelId) => ({
+            channel: {
+              id: channelId,
+              title: `Channel ${letterOf(channelId)}`,
+              handle: null,
+              subscribers: 800,
+              subscribersHidden: false,
+              videoCount: 1,
+            },
+            videos: [
+              {
+                id: 'QQQQQQQQQQ1',
+                channelId,
+                title: 'A video',
+                views: 5000,
+                durationSeconds: 600,
+                published: {
+                  date: new Date('2026-11-01T00:00:00Z'),
+                  precision: 'day',
+                  raw: '19d ago',
+                },
+              },
+            ],
+          }),
+        }),
+      },
+    );
+    const live = createApp({ engine: real, jobs: new JobStore(), allowedHosts: [HOST] });
+
+    const response = await live(
+      new Request(`http://${HOST}/api/niches/discover`, {
+        method: 'POST',
+        headers: { host: HOST, 'content-type': 'application/json' },
+        body: JSON.stringify({ keyword: 'new invention' }),
+      }),
+    );
+
+    expect(((await response.json()) as { data: { added: number } }).data.added).toBe(1);
+    expect(real.listNiches().channelsChecked).toBe(1);
+    expect(real.canDiscover()).toBe(true);
     real.close();
   });
 });
