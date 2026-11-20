@@ -53,8 +53,9 @@ export const TOOL_TEXT = {
       'from the model channel, if given), stores each channel found with its recent videos, and returns the same ' +
       'summary as get_map plus any warnings. Slow: it takes minutes (roughly 2 to 20, more with depth 3 or a large ' +
       'size) and makes hundreds of requests to YouTube, so use it only when the owner asks for a new or fresher map ' +
-      'or when get_map says there is none. Only one runs at a time. If the call times out on your side the map is ' +
-      'still being made: wait a few minutes, then call get_map.',
+      'or when get_map says there is none. Only one runs at a time, and it is refused while Jgtube is reading YouTube ' +
+      'in another window or process (the web app making a map, a refresh, a keyword search): wait and try again. If ' +
+      'the call times out on your side the map is still being made: wait a few minutes, then call get_map.',
   },
   get_near_misses: {
     title: 'Near misses',

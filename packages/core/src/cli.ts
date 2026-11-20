@@ -5,6 +5,7 @@ import { backupStore } from './db/backup';
 import { openDatabase, transactionRunner, type Db } from './db/sqlite';
 import { formatCount, formatMapTable, formatVideoTable, sanitize } from './format';
 import { ingestChannel } from './ingest';
+import { withYouTubeLease } from './lease';
 import { fillNicheFacts } from './niches/facts';
 import { loadMapView } from './map/view';
 import { refreshStalest, type RefreshProgress } from './refresh/refresh';
@@ -12,6 +13,7 @@ import { buildVideoReport } from './report';
 import { SqliteChannelRepo } from './repos/sqliteChannelRepo';
 import { SqliteEdgeRepo } from './repos/sqliteEdgeRepo';
 import { SqliteFactsRepo } from './repos/sqliteFactsRepo';
+import { SqliteLeaseRepo } from './repos/sqliteLeaseRepo';
 import { SqliteMapRepo } from './repos/sqliteMapRepo';
 import { SqliteRefreshRepo } from './repos/sqliteRefreshRepo';
 import { SqliteVideoRepo } from './repos/sqliteVideoRepo';
@@ -201,6 +203,17 @@ function loadEnvFile(): void {
   }
 }
 
+async function readYouTube(db: Db, request: Exclude<Request, { command: 'backup' }>) {
+  const deps = await openEngine(db);
+  if (request.command === 'refresh') {
+    await refreshCommand(deps, db, request.flags);
+  } else if (request.command === 'ingest') {
+    await ingestCommand(deps, request.target, request.flags.includes('--refresh'));
+  } else {
+    await mapCommand(deps, request.target, request.flags);
+  }
+}
+
 async function main(argv: readonly string[]): Promise<void> {
   loadEnvFile();
   const request = parseArguments(argv);
@@ -217,14 +230,11 @@ async function main(argv: readonly string[]): Promise<void> {
       print([`Backup written to ${resolve(backupStore(db, dbPath, new Date()))}`]);
       return;
     }
-    const deps = await openEngine(db);
-    if (request.command === 'refresh') {
-      await refreshCommand(deps, db, request.flags);
-    } else if (request.command === 'ingest') {
-      await ingestCommand(deps, request.target, request.flags.includes('--refresh'));
-    } else {
-      await mapCommand(deps, request.target, request.flags);
-    }
+    // Every other command reads YouTube, so it waits its turn behind the web
+    // app and the connector, and is refused before it connects to anything.
+    await withYouTubeLease({ leases: new SqliteLeaseRepo(db), now: () => new Date() }, () =>
+      readYouTube(db, request),
+    );
   } finally {
     db.close();
   }

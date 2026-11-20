@@ -125,6 +125,14 @@ ALTER TABLE channels ADD COLUMN facts_fetched_at TEXT;
 ALTER TABLE channels ADD COLUMN read_failures INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE channels ADD COLUMN read_failed_at TEXT;
 `,
+  // 9: the right to read YouTube, held by one piece of work at a time across every program.
+  `
+CREATE TABLE IF NOT EXISTS work_leases (
+  name        TEXT PRIMARY KEY,
+  owner       TEXT NOT NULL,
+  expires_at  TEXT NOT NULL
+);
+`,
 ];
 
 /**

@@ -2,6 +2,7 @@ import {
   SqliteChannelRepo,
   SqliteEdgeRepo,
   SqliteFactsRepo,
+  SqliteLeaseRepo,
   SqliteMapRepo,
   SqliteRefreshRepo,
   SqliteVideoRepo,
@@ -20,6 +21,7 @@ import {
   refreshStalest,
   searchRecentVideos,
   transactionRunner,
+  withYouTubeLease,
   type ChannelFacts,
   type Config,
   type FactsOutcome,
@@ -83,6 +85,14 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     runs: new SqliteRefreshRepo(db),
     facts: new SqliteFactsRepo(db),
   };
+  const leases = new SqliteLeaseRepo(db);
+  /**
+   * Runs work that reads YouTube while holding the store's lease, so it never
+   * runs beside the same kind of work in another program (the connector, the
+   * command line, a second server). Refused work rejects before it connects.
+   */
+  const reading = <T>(work: () => Promise<T>): Promise<T> =>
+    withYouTubeLease({ leases, now }, work);
   // Made on first use, so stored maps can be read with no network at all, and
   // shared by crawls, refreshes and keyword searches.
   const connected = onceUntilItWorks(createSource);
@@ -124,25 +134,27 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       return stored ? loadSameTopicList(repos, stored.id, now()) : null;
     },
 
-    async crawl(channel, depth, onProgress, choices = {}) {
+    crawl(channel, depth, onProgress, choices = {}) {
       const { model, maxChannels } = choices;
-      const result = await crawlMap(
-        {
-          ...repos,
-          source: await connected(),
-          transact: transactionRunner(db),
-          region: config.region,
-          now,
-        },
-        channel,
-        {
-          depth,
-          onProgress,
-          ...(model ? { model } : {}),
-          ...(maxChannels ? { maxChannels } : {}),
-        },
-      );
-      return { centerChannelId: result.centerChannelId, warnings: result.warnings };
+      return reading(async () => {
+        const result = await crawlMap(
+          {
+            ...repos,
+            source: await connected(),
+            transact: transactionRunner(db),
+            region: config.region,
+            now,
+          },
+          channel,
+          {
+            depth,
+            onProgress,
+            ...(model ? { model } : {}),
+            ...(maxChannels ? { maxChannels } : {}),
+          },
+        );
+        return { centerChannelId: result.centerChannelId, warnings: result.warnings };
+      });
     },
 
     setCompetitorStatus(centerChannelId, channelId, status) {
@@ -162,6 +174,10 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       return true;
     },
 
+    isReadingYouTube() {
+      return leases.holder(now()) !== null;
+    },
+
     listNiches() {
       return loadNicheList(repos, now());
     },
@@ -173,22 +189,24 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       return true;
     },
 
-    async refresh(onProgress, maxChannels) {
-      const result = await refreshStalest(
-        { ...repos, source: lazySource, transact: transactionRunner(db), now },
-        { onProgress, ...(maxChannels ? { maxChannels } : {}) },
-      );
-      // The refresh has already worked out the niche list; it is not worked out again.
-      const facts = await fillFacts(result.nicheIds);
-      return {
-        refreshed: result.refreshed.length,
-        failed: result.failed.length,
-        notAttempted: result.notAttempted,
-        stoppedEarly: result.stoppedEarly,
-        stillDue: result.stillDue,
-        factsAdded: facts?.added ?? 0,
-        factsProblem: facts?.problem ?? null,
-      };
+    refresh(onProgress, maxChannels) {
+      return reading(async () => {
+        const result = await refreshStalest(
+          { ...repos, source: lazySource, transact: transactionRunner(db), now },
+          { onProgress, ...(maxChannels ? { maxChannels } : {}) },
+        );
+        // The refresh has already worked out the niche list; it is not worked out again.
+        const facts = await fillFacts(result.nicheIds);
+        return {
+          refreshed: result.refreshed.length,
+          failed: result.failed.length,
+          notAttempted: result.notAttempted,
+          stoppedEarly: result.stoppedEarly,
+          stillDue: result.stillDue,
+          factsAdded: facts?.added ?? 0,
+          factsProblem: facts?.problem ?? null,
+        };
+      });
     },
 
     refreshStatus() {
@@ -202,20 +220,23 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     async discover(keyword) {
       const apiKey = config.youtubeApiKey;
       if (apiKey === undefined) throw new Error('Keyword search needs a YouTube API key');
-      const found = await discoverByKeyword(
-        {
-          channels: repos.channels,
-          videos: repos.videos,
-          source: await connected(),
-          transact: transactionRunner(db),
-          now,
-          search:
-            options.search ??
-            ((query, { publishedAfter }) => searchRecentVideos(query, { apiKey, publishedAfter })),
-        },
-        keyword,
-      );
-      return { ...found, facts: await fillFacts() };
+      return reading(async () => {
+        const found = await discoverByKeyword(
+          {
+            channels: repos.channels,
+            videos: repos.videos,
+            source: await connected(),
+            transact: transactionRunner(db),
+            now,
+            search:
+              options.search ??
+              ((query, { publishedAfter }) =>
+                searchRecentVideos(query, { apiKey, publishedAfter })),
+          },
+          keyword,
+        );
+        return { ...found, facts: await fillFacts() };
+      });
     },
 
     async analyse(analysis, channel) {

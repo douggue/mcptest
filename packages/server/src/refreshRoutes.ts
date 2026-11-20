@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BUSY, type AppOptions } from './app';
+import { BUSY, refusal, type AppOptions } from './app';
 import { fail, ok, readJson } from './http';
 
 /** The most channels one refresh asked for over the API may read; the engine's own limit. */
@@ -29,7 +29,8 @@ export function refreshState(options: AppOptions, tracker: RefreshTracker): Resp
 /**
  * Starts a refresh as a background job, the way a crawl starts. It shares the
  * crawls' job store, so it is refused while a map is being made and a map is
- * refused while it runs.
+ * refused while it runs. It is refused, too, while another program that shares
+ * the store is reading YouTube.
  */
 export async function startRefresh(
   options: AppOptions,
@@ -43,6 +44,8 @@ export async function startRefresh(
     return fail(400, `Optionally give maxChannels, a whole number from 1 to ${MAX_CHANNELS}`);
   }
   const { maxChannels } = parsed.data;
+  const refused = refusal(options);
+  if (refused) return refused;
   const job = options.jobs.start((report) => options.engine.refresh(report, maxChannels));
   if (!job) return fail(409, BUSY);
   tracker.jobId = job.id;

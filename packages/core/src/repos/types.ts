@@ -154,6 +154,21 @@ export interface RefreshRunRepo {
   latest(): RefreshRun | null;
 }
 
+/**
+ * The right to read YouTube. One piece of work holds it at a time, across
+ * every program that has the store open; see `withYouTubeLease`.
+ */
+export interface LeaseRepo {
+  /** Takes the lease when it is free or has run out. False when other work holds it. */
+  acquire(owner: string, now: Date, expiresAt: Date): boolean;
+  /** Holds the lease for longer. False when `owner` does not hold it. */
+  renew(owner: string, expiresAt: Date): boolean;
+  /** Gives the lease back; does nothing when `owner` does not hold it. */
+  release(owner: string): void;
+  /** Who holds the lease at `now`; null when it is free or has run out. */
+  holder(now: Date): string | null;
+}
+
 /** What the official API says about a channel, as far as the store keeps it. */
 export interface NewFacts {
   readonly id: string;

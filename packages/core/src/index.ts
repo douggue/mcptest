@@ -86,3 +86,11 @@ export { fillNicheFacts, type FactsDeps, type FactsOutcome } from './niches/fact
 export { SqliteFactsRepo } from './repos/sqliteFactsRepo';
 export type { FactsRepo, NewFacts, StoredFacts } from './repos/types';
 export { NICHE_MIN_LATIN_SHARE, latinShare } from './niches/script';
+export {
+  READING_ELSEWHERE,
+  ReadingElsewhereError,
+  withYouTubeLease,
+  type LeaseDeps,
+} from './lease';
+export { SqliteLeaseRepo } from './repos/sqliteLeaseRepo';
+export type { LeaseRepo } from './repos/types';

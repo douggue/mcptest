@@ -60,6 +60,10 @@ class FakeEngine implements Engine {
     return this.hasKey;
   }
 
+  isReadingYouTube(): boolean {
+    return false;
+  }
+
   analyse(): Promise<{ readonly text: string }> {
     return Promise.resolve({ text: '' });
   }

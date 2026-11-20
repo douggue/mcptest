@@ -17,6 +17,8 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     setCompetitorStatus: unused('setCompetitorStatus'),
     listNiches: unused('listNiches'),
     setNicheWatched: unused('setNicheWatched'),
+    // Asked before any work that reads YouTube starts; no other program is reading unless a test says so.
+    isReadingYouTube: () => false,
     canDiscover: unused('canDiscover'),
     discover: unused('discover'),
     refresh: unused('refresh'),

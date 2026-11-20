@@ -41,6 +41,11 @@ export class JobStore<T, P = CrawlProgress> {
 
   constructor(private readonly nextId: () => string = randomUUID) {}
 
+  /** Whether the one slot is taken, so nothing new can start. */
+  isBusy(): boolean {
+    return this.busy;
+  }
+
   /** Starts the work in the background. Returns null when another job is still running. */
   start(work: Work<T, P>): Job<T, P> | null {
     if (this.busy) return null;

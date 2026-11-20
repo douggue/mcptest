@@ -1,4 +1,6 @@
+import { ReadingElsewhereError } from '@jgtube/core';
 import { beforeEach, describe, expect, test } from 'vitest';
+import { TOOL_TEXT } from '../src/toolText';
 import { createToolHandlers, type ToolHandlers } from '../src/tools';
 import type { CrawlOutcome, ProgressUpdate } from '../src/types';
 import { BETA_ID, CENTER_ID, FakeEngine, jsonOf, textOf } from './fakes';
@@ -74,6 +76,21 @@ describe('make_map', () => {
     expect((await first).isError).toBeUndefined();
     engine.outcome = () => Promise.resolve({ centerChannelId: CENTER_ID, warnings: [] });
     expect((await tools.makeMap({ channel: '@mychannel' })).isError).toBeUndefined();
+  });
+
+  test('says so when Jgtube is reading YouTube in another window or process', async () => {
+    engine.outcome = () => Promise.reject(new ReadingElsewhereError());
+
+    const refused = await tools.makeMap({ channel: '@mychannel' });
+
+    expect(refused.isError).toBe(true);
+    expect(textOf(refused)).toBe(
+      'Jgtube is already reading YouTube in another window or process. Wait for it to finish, then try again.',
+    );
+  });
+
+  test('tells the reader in its description that it waits its turn', () => {
+    expect(TOOL_TEXT.make_map.description).toMatch(/another window or process/);
   });
 
   test('a failed crawl is one clean sentence and frees the way for the next', async () => {

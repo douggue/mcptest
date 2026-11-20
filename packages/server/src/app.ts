@@ -1,5 +1,7 @@
 import {
   COMPETITOR_STATUSES,
+  READING_ELSEWHERE,
+  ReadingElsewhereError,
   parseChannelRef,
   type CompetitorStatus,
   type CrawlProgress,
@@ -113,6 +115,11 @@ export interface Engine {
   ): Promise<RefreshOutcome>;
   /** When the store was last refreshed and how much of it is due; reads the store only. */
   refreshStatus(): RefreshState;
+  /**
+   * Whether work that reads YouTube is under way in any program that shares the
+   * store: this server, the connector or the command line. Reads the store only.
+   */
+  isReadingYouTube(): boolean;
   /** Whether keyword search can run: it needs the owner's YouTube API key. */
   canDiscover(): boolean;
   /** Searches for recent videos on a subject and reads the channels behind them into the store. */
@@ -150,6 +157,15 @@ const watchRequest = z.object({
   watched: z.boolean(),
 });
 
+/**
+ * Why work that reads YouTube cannot start now, or null when it can: something
+ * is running here, or another program that shares the store is reading YouTube.
+ */
+export function refusal(options: AppOptions): Response | null {
+  if (options.jobs.isBusy()) return fail(409, BUSY);
+  return options.engine.isReadingYouTube() ? fail(409, READING_ELSEWHERE) : null;
+}
+
 /** Returns the reason a channel reference is unusable, or null when it is fine. */
 function channelProblem(channel: string): string | null {
   try {
@@ -185,6 +201,8 @@ async function startCrawl(options: AppOptions, request: Request): Promise<Respon
   const modelProblem = model === undefined ? null : channelProblem(model);
   if (modelProblem) return fail(400, `Model channel: ${modelProblem}`);
 
+  const refused = refusal(options);
+  if (refused) return refused;
   const job = options.jobs.start((report) =>
     options.engine.crawl(channel, depth, report, { model, maxChannels }),
   );
@@ -238,7 +256,7 @@ function discoverySummary(found: DiscoveryOutcome): Record<string, unknown> {
 /**
  * Runs a keyword search and answers when it is done. It reads YouTube like a
  * crawl or a refresh does, so it takes the same one slot: it is refused while
- * either runs, and they are refused while it does.
+ * either runs (here or in another program), and they are refused while it does.
  */
 async function discover(options: AppOptions, request: Request): Promise<Response> {
   const body = await readJson(options.allowedHosts, request);
@@ -247,12 +265,17 @@ async function discover(options: AppOptions, request: Request): Promise<Response
   if (!parsed.success) return fail(400, `Give a keyword of 1 to ${MAX_KEYWORD_LENGTH} characters`);
   if (!options.engine.canDiscover()) return fail(400, NO_API_KEY);
 
+  const refused = refusal(options);
+  if (refused) return refused;
   const search = options.jobs.hold(() => options.engine.discover(parsed.data.keyword));
   if (!search) return fail(409, BUSY);
   try {
     return ok(discoverySummary(await search));
   } catch (error) {
-    return fail(502, `The search did not finish: ${cleanMessage(error)}`);
+    // Another program took the lease between the check above and the search.
+    return error instanceof ReadingElsewhereError
+      ? fail(409, error.message)
+      : fail(502, `The search did not finish: ${cleanMessage(error)}`);
   }
 }
 
