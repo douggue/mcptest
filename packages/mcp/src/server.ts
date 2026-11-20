@@ -15,6 +15,7 @@ import {
   getNearMissesShape,
   getThumbnailBoardShape,
   listNichesShape,
+  listTransferOpportunitiesShape,
   makeMapShape,
   setCompetitorStatusShape,
   viewThumbnailsShape,
@@ -30,7 +31,8 @@ const INSTRUCTIONS =
   'Start with get_map, then get_breakouts for what is working now. For thumbnails use get_thumbnail_board, then ' +
   'view_thumbnails to look at the pictures. get_near_misses lists channels left out only for wording their titles ' +
   'differently; set_competitor_status records a decision the owner has agreed to. list_niches shows new or small ' +
-  'channels with a video that took off. Scores are multiples of a channel’s usual views. ' +
+  'channels with a video that took off; list_transfer_opportunities shows ideas that won for another country ' +
+  'and are untried or weak for the owner’s. Scores are multiples of a channel’s usual views. ' +
   'Only make_map reads YouTube, and it takes minutes; everything else reads the local store.';
 
 /** Reads only the store. */
@@ -115,6 +117,15 @@ function registerOwnerTools(server: McpServer, tools: ToolHandlers): void {
     'list_niches',
     { ...TOOL_TEXT.list_niches, inputSchema: listNichesShape, annotations: READS_STORE },
     (args) => tools.listNiches(args),
+  );
+  server.registerTool(
+    'list_transfer_opportunities',
+    {
+      ...TOOL_TEXT.list_transfer_opportunities,
+      inputSchema: listTransferOpportunitiesShape,
+      annotations: READS_STORE,
+    },
+    (args) => tools.listTransferOpportunities(args),
   );
 }
 
