@@ -1,4 +1,5 @@
 import type { MapSnapshot, SnapshotBreakout, SnapshotChannel } from '@jgtube/core';
+import { NICHE_MIN_LATIN_SHARE, latinShare } from '@jgtube/core';
 import { capped, oneDecimal, withoutAbsent } from './results';
 
 const PERCENT = 100;
@@ -107,13 +108,22 @@ export function summarizeNearMisses(
 ): Record<string, unknown> {
   const closestFirst = snapshot.channels
     .filter(isNearMiss)
-    .sort((a, b) => b.relevance - a.relevance || b.recentViews - a.recentViews);
-  const { shown, more } = capped(closestFirst, options.limit);
+    .sort((a, b) => b.relevance - a.relevance || b.recentViews - a.recentViews)
+    .map((channel) => ({ channel, titles: options.recentTitles(channel.id) }));
+  // Titles in another alphabet fail to match because of the language, not the
+  // wording, so they are counted and left out, as the app's own list does.
+  const readable = closestFirst.filter(
+    ({ titles }) =>
+      titles === null || titles.length === 0 || latinShare(titles) >= NICHE_MIN_LATIN_SHARE,
+  );
+  const otherAlphabet = closestFirst.length - readable.length;
+  const { shown, more } = capped(readable, options.limit);
   return {
     center: { id: snapshot.center.id, title: snapshot.center.title },
     shown: shown.length,
     ...(more > 0 ? { more } : {}),
-    nearMisses: shown.map((channel) => {
+    ...(otherAlphabet > 0 ? { otherAlphabet } : {}),
+    nearMisses: shown.map(({ channel, titles }) => {
       const { id, title, subs, match, best } = channelEntry(channel);
       return withoutAbsent({
         id,
@@ -122,7 +132,7 @@ export function summarizeNearMisses(
         match,
         recentViews: channel.recentViews,
         best,
-        titles: options.recentTitles(channel.id),
+        titles,
       });
     }),
   };

@@ -85,7 +85,20 @@ describe('get_near_misses', () => {
 
     expect(data['shown']).toBe(1);
     expect(data['more']).toBe(1);
-    expect(engine.lookups).toEqual(['@mychannel', NEARER_ID]);
+    expect(engine.lookups).toEqual(['@mychannel', NEARER_ID, NEAR_ID]);
+  });
+
+  test('leaves out and counts channels written in another alphabet', async () => {
+    const stored = channelVideos(8);
+    engine.storedVideos = {
+      ...stored,
+      videos: stored.videos.map((video) => ({ ...video, title: 'Скрытый горизонт: новая машина' })),
+    };
+
+    const data = jsonOf(await tools.getNearMisses({ channel: '@mychannel' }));
+
+    expect(data['nearMisses']).toEqual([]);
+    expect(data['otherAlphabet']).toBe(2);
   });
 
   test('a channel whose videos are no longer stored is listed without titles', async () => {
