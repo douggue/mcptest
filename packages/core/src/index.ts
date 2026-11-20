@@ -167,3 +167,79 @@ export {
   type FetchedImage,
   type ImageRule,
 } from './sources/images';
+export { fetchVideoDetails, type ApiVideoDetails } from './sources/dataApi';
+export { SqliteVideoPageRepo } from './repos/sqliteVideoPageRepo';
+export { SqliteBrandRepo } from './repos/sqliteBrandRepo';
+export type {
+  BrandRepo,
+  DetailsSource,
+  StoredBrand,
+  StoredStoryboard,
+  StoredTranscript,
+  StoredVideoDetails,
+  TranscriptRepo,
+  VideoDetailsRepo,
+} from './repos/types';
+export type {
+  BrandImage,
+  ChannelBrand,
+  StoryboardLevel,
+  TranscriptSegment,
+  VideoDetails,
+  VideoPage,
+  VideoPageOptions,
+  VideoTranscript,
+} from './sources/types';
+export { parseVideoRef } from './video/ref';
+export {
+  STORYBOARD_FRESH_HOURS,
+  TRANSCRIPT_NONE_RETRY_HOURS,
+  readStoryboard,
+  readTranscript,
+  readVideoDetails,
+  type DetailsProblem,
+  type DetailsResult,
+  type StoryboardResult,
+  type TranscriptResult,
+  type VideoPageDeps,
+} from './video/pages';
+export {
+  STORYBOARD_FRAME_WIDTH,
+  chooseLevel,
+  describeSheet,
+  planSheets,
+  type FrameSheet,
+} from './video/storyboard';
+export {
+  readVideoFrames,
+  type FrameDeps,
+  type FrameSheetImage,
+  type VideoFrames,
+} from './video/frames';
+export {
+  TRANSCRIPT_STAMP_SECONDS,
+  clock,
+  formatTranscript,
+  type TranscriptText,
+  type TranscriptTextOptions,
+} from './video/transcriptText';
+export {
+  COVER_VIEWED_MIN_WIDTH,
+  LOGO_SHOWN_MIN_WIDTH,
+  LOGO_VIEWED_MIN_WIDTH,
+  pickImage,
+  readChannelBrand,
+  type BrandDeps,
+  type BrandResult,
+} from './channel/brand';
+export { DOWNLOADS_FOLDER, downloadsRoot, pathInside } from './downloads/folder';
+export {
+  THUMBNAILS_FOLDER,
+  THUMBNAIL_INDEX_FILE,
+  saveChannelThumbnails,
+  type SavedThumbnail,
+  type ThumbnailDownload,
+  type ThumbnailDownloadDeps,
+  type ThumbnailDownloadOptions,
+} from './downloads/thumbnails';
+export { boardChannel } from './map/thumbnails';

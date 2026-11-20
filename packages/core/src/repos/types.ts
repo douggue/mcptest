@@ -1,4 +1,11 @@
-import type { ChannelInfo, StorableVideo } from '../sources/types';
+import type {
+  ChannelBrand,
+  ChannelInfo,
+  StorableVideo,
+  StoryboardLevel,
+  VideoDetails,
+  VideoTranscript,
+} from '../sources/types';
 import type { RecentVideo } from '../transfer/types';
 
 export interface StoredChannel extends ChannelInfo {
@@ -222,4 +229,60 @@ export interface FactsRepo {
    * the API does not know is not asked about again on every run.
    */
   record(askedIds: readonly string[], facts: readonly NewFacts[], fetchedAt: Date): void;
+}
+
+/** What was found when a video's captions were asked for. */
+export interface StoredTranscript {
+  readonly videoId: string;
+  /** Null when the video had no captions at the time. */
+  readonly transcript: VideoTranscript | null;
+  readonly fetchedAt: Date;
+}
+
+/** Video captions, kept so that each video's are read once. */
+export interface TranscriptRepo {
+  /** Null when the video's captions were never asked for. */
+  find(videoId: string): StoredTranscript | null;
+  /** Pass null for a video that has no captions, so that is remembered too. */
+  save(videoId: string, transcript: VideoTranscript | null, fetchedAt: Date): void;
+}
+
+/** Where a video's description and tags were read from: the official API or its watch page. */
+export type DetailsSource = 'api' | 'web';
+
+export interface StoredVideoDetails extends VideoDetails {
+  readonly videoId: string;
+  readonly source: DetailsSource;
+  readonly fetchedAt: Date;
+}
+
+export interface StoredStoryboard {
+  /** Empty when the video has no storyboard. */
+  readonly levels: readonly StoryboardLevel[];
+  readonly fetchedAt: Date;
+}
+
+/** Video descriptions, tags and storyboards. A video need not be in the videos table. */
+export interface VideoDetailsRepo {
+  findDetails(videoId: string): StoredVideoDetails | null;
+  /**
+   * A length already stored is kept when the new reading has none: the
+   * official API, read with the snippet alone, does not give one.
+   */
+  saveDetails(videoId: string, details: VideoDetails, source: DetailsSource, fetchedAt: Date): void;
+  findStoryboard(videoId: string): StoredStoryboard | null;
+  saveStoryboard(videoId: string, levels: readonly StoryboardLevel[], fetchedAt: Date): void;
+}
+
+export interface StoredBrand extends ChannelBrand {
+  readonly channelId: string;
+  readonly fetchedAt: Date;
+}
+
+/** How each channel presents itself, kept on the channel's own row. */
+export interface BrandRepo {
+  /** Null when the channel's branding was never read. */
+  find(channelId: string): StoredBrand | null;
+  /** Does nothing for a channel that is not in the store. */
+  save(channelId: string, brand: ChannelBrand, fetchedAt: Date): void;
 }

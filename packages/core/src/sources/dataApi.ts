@@ -241,3 +241,72 @@ export async function searchRecentVideos(
     return hit ? [hit] : [];
   });
 }
+
+/** A video's title, description and tags as the official API gives them. */
+export interface ApiVideoDetails {
+  readonly videoId: string;
+  readonly title: string;
+  readonly description: string;
+  readonly tags: readonly string[];
+}
+
+/** YouTube's own limit on a description. */
+const MAX_DESCRIPTION_LENGTH = 5000;
+const MAX_TAGS = 60;
+const MAX_TAG_LENGTH = 100;
+
+const videoSchema = z.object({
+  id: z.string().regex(VIDEO_ID_PATTERN),
+  snippet: z.object({
+    title: z.string(),
+    description: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+  }),
+});
+
+function toVideoDetails(raw: unknown): ApiVideoDetails | null {
+  const parsed = videoSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const { id, snippet } = parsed.data;
+  return {
+    videoId: id,
+    title: snippet.title.slice(0, MAX_TEXT_LENGTH),
+    description: (snippet.description ?? '').slice(0, MAX_DESCRIPTION_LENGTH),
+    tags: (snippet.tags ?? []).slice(0, MAX_TAGS).map((tag) => tag.slice(0, MAX_TAG_LENGTH)),
+  };
+}
+
+/**
+ * Reads the title, description and tags of the given videos, fifty per
+ * request at one unit of the key's daily allowance each. A video the API does
+ * not know, or an entry that cannot be read, is absent from the result; a
+ * refused request fails the whole call.
+ */
+export async function fetchVideoDetails(
+  videoIds: readonly string[],
+  options: DataApiOptions,
+): Promise<readonly ApiVideoDetails[]> {
+  const apiKey = requireKey(options.apiKey);
+  const invalid = videoIds.find((id) => !VIDEO_ID_PATTERN.test(id));
+  if (invalid !== undefined) {
+    throw new Error(`Not a valid YouTube video id: "${invalid.slice(0, 40)}"`);
+  }
+  const fetcher = options.fetch ?? fetch;
+  let details: readonly ApiVideoDetails[] = [];
+  for (let start = 0; start < videoIds.length; start += MAX_IDS_PER_REQUEST) {
+    const query = new URLSearchParams({
+      part: 'snippet',
+      id: videoIds.slice(start, start + MAX_IDS_PER_REQUEST).join(','),
+      maxResults: String(MAX_IDS_PER_REQUEST),
+    });
+    const items = await getItems('videos', query, apiKey, fetcher);
+    details = [
+      ...details,
+      ...items.flatMap((raw) => {
+        const entry = toVideoDetails(raw);
+        return entry ? [entry] : [];
+      }),
+    ];
+  }
+  return details;
+}

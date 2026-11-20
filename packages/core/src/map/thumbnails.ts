@@ -105,7 +105,12 @@ const isScoredVideo = (video: BoardVideo): video is ScoredBoardVideo => video.sc
 const newestFirst = <T extends BoardVideo>(videos: readonly T[]): readonly T[] =>
   [...videos].sort((a, b) => a.ageDays - b.ageDays);
 
-function boardChannel(source: BoardSource, now: Date, options: BoardOptions): BoardChannel {
+/** One channel's winners and ordinary videos, by the board's rules. */
+export function boardChannel(
+  source: BoardSource,
+  now: Date,
+  options: BoardOptions = {},
+): BoardChannel {
   const scored = boardVideos(source.videos, now).filter(isScoredVideo);
   const winners = scored.filter((video) => video.score >= WINNER_MIN_SCORE);
   const ordinary = scored.filter(

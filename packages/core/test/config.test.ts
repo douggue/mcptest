@@ -37,6 +37,14 @@ describe('loadConfig', () => {
     },
   );
 
+  test('saves downloads beside the store unless a folder is named', () => {
+    expect('downloadsPath' in loadConfig({})).toBe(false);
+    expect(loadConfig({ JGTUBE_DOWNLOADS_PATH: 'D:\\research\\files' }).downloadsPath).toBe(
+      'D:\\research\\files',
+    );
+    expect(() => loadConfig({ JGTUBE_DOWNLOADS_PATH: '' })).toThrow(/JGTUBE_DOWNLOADS_PATH/);
+  });
+
   test('rejects a region that is not a two-letter code', () => {
     expect(() => loadConfig({ JGTUBE_REGION: 'United States' })).toThrow(/JGTUBE_REGION/);
   });

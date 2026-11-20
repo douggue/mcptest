@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { fetchChannelFacts, searchRecentVideos } from '../src/sources/dataApi';
+import { fetchChannelFacts, fetchVideoDetails, searchRecentVideos } from '../src/sources/dataApi';
 
 const KEY = 'test-key-not-a-real-one';
 const cid = (letter: string) => `UC${letter.repeat(22)}`;
@@ -212,5 +212,101 @@ describe('searchRecentVideos', () => {
     await expect(
       searchRecentVideos('x', { apiKey: KEY, fetch: fetcher, publishedAfter: AFTER }),
     ).rejects.toThrow(/daily allowance/);
+  });
+});
+
+describe('fetchVideoDetails', () => {
+  const vid = (n: number) => `video${String(n).padStart(6, '0')}`;
+  const snippet = (n: number, overrides: Record<string, unknown> = {}) => ({
+    id: vid(n),
+    snippet: {
+      title: `Video ${n}`,
+      description: `What video ${n} is about`,
+      tags: ['bread', 'sourdough'],
+      ...overrides,
+    },
+  });
+
+  test('reads each video’s title, description and tags', async () => {
+    const { fetcher } = fakeFetch([
+      { body: { items: [snippet(1), snippet(2, { tags: undefined })] } },
+    ]);
+
+    const details = await fetchVideoDetails([vid(1), vid(2)], { apiKey: KEY, fetch: fetcher });
+
+    expect(details).toEqual([
+      {
+        videoId: vid(1),
+        title: 'Video 1',
+        description: 'What video 1 is about',
+        tags: ['bread', 'sourdough'],
+      },
+      { videoId: vid(2), title: 'Video 2', description: 'What video 2 is about', tags: [] },
+    ]);
+  });
+
+  test('asks for the snippet only, fifty videos a request, with the key in a header', async () => {
+    const ids = Array.from({ length: 120 }, (_, n) => vid(n));
+    const { fetcher, calls } = fakeFetch([{ body: { items: [] } }]);
+
+    await fetchVideoDetails(ids, { apiKey: KEY, fetch: fetcher });
+
+    expect(calls).toHaveLength(3);
+    const first = new URL(calls[0]?.url ?? '');
+    expect(`${first.origin}${first.pathname}`).toBe('https://www.googleapis.com/youtube/v3/videos');
+    expect(first.searchParams.get('part')).toBe('snippet');
+    expect(first.searchParams.get('id')?.split(',')).toHaveLength(50);
+    expect(calls.every((call) => !call.url.includes(KEY))).toBe(true);
+    expect(calls[0]?.headers['x-goog-api-key']).toBe(KEY);
+  });
+
+  test('leaves out a video the API does not know or an entry it cannot read', async () => {
+    const { fetcher } = fakeFetch([
+      { body: { items: [snippet(1), { id: 'not a video id', snippet: {} }, null] } },
+    ]);
+
+    const details = await fetchVideoDetails([vid(1), vid(2)], { apiKey: KEY, fetch: fetcher });
+
+    expect(details.map((entry) => entry.videoId)).toEqual([vid(1)]);
+  });
+
+  test('keeps untrusted text within bounds', async () => {
+    const long = snippet(1, {
+      description: 'x'.repeat(9000),
+      tags: Array.from({ length: 90 }, (_, n) => `t${n}`),
+    });
+    const { fetcher } = fakeFetch([{ body: { items: [long] } }]);
+
+    const [details] = await fetchVideoDetails([vid(1)], { apiKey: KEY, fetch: fetcher });
+
+    expect(details?.description).toHaveLength(5000);
+    expect(details?.tags).toHaveLength(60);
+  });
+
+  test('refuses an id that is not a video id, and makes no request for an empty list', async () => {
+    const { fetcher, calls } = fakeFetch([{ body: { items: [] } }]);
+
+    await expect(fetchVideoDetails(['../etc'], { apiKey: KEY, fetch: fetcher })).rejects.toThrow(
+      /video id/,
+    );
+    await expect(fetchVideoDetails([], { apiKey: KEY, fetch: fetcher })).resolves.toEqual([]);
+    expect(calls).toEqual([]);
+  });
+
+  test('says so when the daily allowance is used up, without the key in the message', async () => {
+    const { fetcher } = fakeFetch([
+      {
+        status: 403,
+        body: { error: { message: `bad key ${KEY}`, errors: [{ reason: 'quotaExceeded' }] } },
+      },
+    ]);
+
+    await expect(fetchVideoDetails([vid(1)], { apiKey: KEY, fetch: fetcher })).rejects.toThrow(
+      /daily allowance/,
+    );
+  });
+
+  test('needs a key', async () => {
+    await expect(fetchVideoDetails([vid(1)], { apiKey: ' ' })).rejects.toThrow(/YOUTUBE_API_KEY/);
   });
 });

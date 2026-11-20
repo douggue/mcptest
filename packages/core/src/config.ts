@@ -20,6 +20,7 @@ const envSchema = z.object({
       message: `must be from ${MIN_REFRESH_HOURS} to ${MAX_REFRESH_HOURS} hours`,
     })
     .optional(),
+  JGTUBE_DOWNLOADS_PATH: z.string().min(1).max(1000).optional(),
 });
 
 export interface Config {
@@ -34,6 +35,11 @@ export interface Config {
    * runs. Absent means off: channels are read again only when asked.
    */
   readonly refreshHours?: number;
+  /**
+   * The folder that downloaded files (thumbnails, temporary video copies) are
+   * saved under. Absent means a "downloads" folder beside the store.
+   */
+  readonly downloadsPath?: string;
 }
 
 /** Reads settings from the environment and fails fast, naming the bad variable. */
@@ -54,5 +60,8 @@ export function loadConfig(
     ...(parsed.data.JGTUBE_REFRESH_HOURS === undefined
       ? {}
       : { refreshHours: parsed.data.JGTUBE_REFRESH_HOURS }),
+    ...(parsed.data.JGTUBE_DOWNLOADS_PATH
+      ? { downloadsPath: parsed.data.JGTUBE_DOWNLOADS_PATH }
+      : {}),
   };
 }
