@@ -1,3 +1,4 @@
+import { PEER_MIN_TITLE_MATCH } from '../src/map/peers';
 import { describe, expect, test } from 'vitest';
 import { buildMapView, type MapMemberData, type MapRow } from '../src/map/view';
 import fixture from './fixtures/peer-map.json';
@@ -107,7 +108,14 @@ describe('peers on a real map measured against a model channel', () => {
   });
 
   test('leaves out channels that share only subjects or stock phrases with the model', () => {
-    expect(peerStatus(LOUD_OUTSIDERS)).toEqual(allWith(LOUD_OUTSIDERS, 'titles'));
+    // Some of these are also too large to be peers. What matters here is that
+    // their titles alone would reject them, whatever the size rule says.
+    const passingOnTitles = LOUD_OUTSIDERS.filter(
+      (title) => row(title).relevance >= PEER_MIN_TITLE_MATCH,
+    );
+
+    expect(passingOnTitles).toEqual([]);
+    expect(LOUD_OUTSIDERS.filter((title) => row(title).peer)).toEqual([]);
   });
 
   test('leaves out channels from other niches', () => {

@@ -8,6 +8,13 @@ import type { StoredVideo } from '../repos/types';
 
 /** Beyond this size a channel is an institution, not a peer of a small channel. */
 export const PEER_MAX_SUBSCRIBERS = 1_000_000;
+/** A channel this many times the reference's size is in another league, whatever its titles say. */
+export const PEER_MAX_SIZE_RATIO = 20;
+/**
+ * The size ratio never brings the limit below this. Under it every channel is
+ * still small: one with 30 subscribers can learn from one with 100,000.
+ */
+export const PEER_SIZE_RATIO_FLOOR = 150_000;
 /** News desks and clip channels publish many times a day; a made-to-order video channel does not. */
 export const PEER_MAX_UPLOADS_PER_WEEK = 14;
 /** A peer's typical video is within this factor of the centre's, shorter or longer. */
@@ -54,6 +61,19 @@ export function uploadsPerWeek(videos: readonly StoredVideo[], now: Date): numbe
 }
 
 /**
+ * The most subscribers a peer of a channel this size can have. Title matching
+ * alone let channels of 400,000 to 800,000 subscribers through as look-alikes
+ * of one with 8,000; a channel that much larger is not competing on the same terms.
+ */
+export function maxPeerSubscribers(referenceSubscribers: number | null): number {
+  if (referenceSubscribers === null) return PEER_MAX_SUBSCRIBERS;
+  return Math.min(
+    PEER_MAX_SUBSCRIBERS,
+    Math.max(PEER_SIZE_RATIO_FLOOR, referenceSubscribers * PEER_MAX_SIZE_RATIO),
+  );
+}
+
+/**
  * Why a channel cannot be a peer on its shape alone (size, publishing rate,
  * video length), or null when its shape fits. Titles are judged separately.
  */
@@ -62,7 +82,10 @@ export function shapeMismatch(
   candidate: PeerSubject,
   now: Date,
 ): Exclude<OutsideReason, 'titles'> | null {
-  if (candidate.subscribers !== null && candidate.subscribers > PEER_MAX_SUBSCRIBERS) {
+  if (
+    candidate.subscribers !== null &&
+    candidate.subscribers > maxPeerSubscribers(center.subscribers)
+  ) {
     return 'larger';
   }
   if (uploadsPerWeek(candidate.videos, now) > PEER_MAX_UPLOADS_PER_WEEK) return 'cadence';

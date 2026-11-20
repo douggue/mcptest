@@ -111,12 +111,12 @@ nothing out.
 Built. A channel on the map counts as a peer of the centre when all of these hold;
 otherwise it is kept but marked with the first reason it failed:
 
-| Check           | Rule                                            | Reason shown               |
-| --------------- | ----------------------------------------------- | -------------------------- |
-| Size            | At most 1M subscribers                          | Far larger                 |
-| Publishing rate | At most 14 uploads a week over the last 14 days | Publishes many times a day |
-| Video length    | Median within 0.4× to 4× of the centre's        | Very different length      |
-| Titles          | Anchored title match of at least 14%            | Titles unlike yours        |
+| Check           | Rule                                                                  | Reason shown               |
+| --------------- | --------------------------------------------------------------------- | -------------------------- |
+| Size            | At most 20× the reference's subscribers, never under 150K nor over 1M | Far larger                 |
+| Publishing rate | At most 14 uploads a week over the last 14 days                       | Publishes many times a day |
+| Video length    | Median within 0.4× to 4× of the centre's                              | Very different length      |
+| Titles          | Anchored title match of at least 14%                                  | Titles unlike yours        |
 
 **Title match** (`packages/core/src/map/relevance.ts`). The reference is the model
 channel when the owner named one, otherwise the centre. A title is a format plus a

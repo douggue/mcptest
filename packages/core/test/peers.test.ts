@@ -4,6 +4,7 @@ import {
   PEER_MIN_TITLE_MATCH,
   shapeMismatch,
   uploadsPerWeek,
+  maxPeerSubscribers,
 } from '../src/map/peers';
 import { anchoredTitleSimilarity, MAX_ANCHOR_TITLE_VOTES } from '../src/map/relevance';
 import { buildMapView, type MapMemberData } from '../src/map/view';
@@ -40,6 +41,23 @@ const centre = subject(null, weekly('Centre', 3));
 describe('shapeMismatch', () => {
   test('accepts a small channel that publishes at a similar pace and length', () => {
     expect(shapeMismatch(centre, subject(2200, weekly('Twin', 6, 28)), NOW)).toBeNull();
+  });
+
+  test.each([
+    [null, 1_000_000],
+    [30, 150_000],
+    [8_100, 162_000],
+    [40_000, 800_000],
+    [500_000, 1_000_000],
+  ])('for a reference with %s subscribers, a peer has at most %d', (own, most) => {
+    expect(maxPeerSubscribers(own)).toBe(most);
+  });
+
+  test('rules out a channel many times the size of the reference', () => {
+    const small = { ...centre, subscribers: 8_100 };
+
+    expect(shapeMismatch(small, subject(479_000, weekly('Big', 1)), NOW)).toBe('larger');
+    expect(shapeMismatch(small, subject(94_800, weekly('Mid', 1)), NOW)).toBeNull();
   });
 
   test('rules out a channel far larger than a peer could be', () => {
