@@ -110,12 +110,13 @@ describe('the connection to YouTube', () => {
     // Long enough that a channel which failed once is tried again.
     later(40);
     const second = await engine.refresh(() => {});
+    // Tidied before anything is checked, so a failure leaves no folder behind.
+    engine.close();
+    rmSync(dirname(dbPath), { recursive: true, force: true });
 
     expect(first).toMatchObject({ refreshed: 0, failed: 1 });
     expect(second).toMatchObject({ refreshed: 1, failed: 0 });
     expect(attempts()).toBe(2);
-    engine.close();
-    rmSync(dirname(dbPath), { recursive: true, force: true });
   });
 
   test('one connection serves a crawl, a search and a refresh alike', async () => {
