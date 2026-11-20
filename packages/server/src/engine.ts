@@ -1,6 +1,4 @@
 import {
-  InnertubeSource,
-  RateLimiter,
   SqliteChannelRepo,
   SqliteEdgeRepo,
   SqliteFactsRepo,
@@ -41,9 +39,9 @@ import {
   type ClaudeRunRequest,
   type ClaudeRunResult,
 } from './claudeRunner';
+import { connectOnUse, onceUntilItWorks, youtubeSource } from './connection';
 import { cleanMessage } from './jobs';
 
-const REQUEST_TIMEOUT_MS = 30_000;
 const IN_MEMORY = ':memory:';
 /** The Jgtube folder: the connector Claude is given lives under it. */
 const PROJECT_ROOT = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
@@ -71,20 +69,6 @@ export interface EngineOptions {
   readonly fetchFacts?: (channelIds: readonly string[]) => Promise<readonly ChannelFacts[]>;
 }
 
-function youtubeSource(config: Config): Promise<YouTubeSource> {
-  return InnertubeSource.create({
-    region: config.region,
-    limiter: new RateLimiter({
-      concurrency: 2,
-      minDelayMs: 300,
-      maxDelayMs: 600,
-      maxRetries: 3,
-      baseBackoffMs: 2000,
-      taskTimeoutMs: REQUEST_TIMEOUT_MS,
-    }),
-  });
-}
-
 /** Wires the API to the store and to YouTube. */
 export function createEngine(config: Config, options: EngineOptions = {}): RunningEngine {
   const db = openDatabase(config.dbPath);
@@ -99,20 +83,11 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     runs: new SqliteRefreshRepo(db),
     facts: new SqliteFactsRepo(db),
   };
-  // Created on the first crawl, so stored maps can be read with no network at all.
-  let source: Promise<YouTubeSource> | null = null;
+  // Made on first use, so stored maps can be read with no network at all, and
+  // shared by crawls, refreshes and keyword searches.
+  const connected = onceUntilItWorks(createSource);
+  const lazySource = connectOnUse(connected);
   let claudeWorkDir: string | null = null;
-  /**
-   * A source that connects on first use. A refresh that finds nothing due then
-   * makes no request at all, which matters to a timer that fires every few hours.
-   */
-  const connected = (): Promise<YouTubeSource> => (source ??= createSource());
-  const lazySource: YouTubeSource = {
-    resolveChannelId: async (handle) => (await connected()).resolveChannelId(handle),
-    fetchChannel: async (channelId, maxVideos) =>
-      (await connected()).fetchChannel(channelId, maxVideos),
-    getSidebar: async (videoId) => (await connected()).getSidebar(videoId),
-  };
   /**
    * Reads the account dates and countries the niche list lacks, from the
    * official API. Without the owner's key there is nothing to ask with, so it
@@ -151,11 +126,10 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
 
     async crawl(channel, depth, onProgress, choices = {}) {
       const { model, maxChannels } = choices;
-      source ??= createSource();
       const result = await crawlMap(
         {
           ...repos,
-          source: await source,
+          source: await connected(),
           transact: transactionRunner(db),
           region: config.region,
           now,
@@ -227,12 +201,11 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     async discover(keyword) {
       const apiKey = config.youtubeApiKey;
       if (apiKey === undefined) throw new Error('Keyword search needs a YouTube API key');
-      source ??= createSource();
       const found = await discoverByKeyword(
         {
           channels: repos.channels,
           videos: repos.videos,
-          source: await source,
+          source: await connected(),
           transact: transactionRunner(db),
           now,
           search:
