@@ -5,6 +5,7 @@ import {
   CRAWL_MAX_CHANNELS_ASKED,
   CRAWL_MAX_DEPTH,
   CRAWL_MIN_CHANNELS_ASKED,
+  PEER_DORMANT_AFTER_DAYS,
   VIDEO_ID_PATTERN,
 } from '@jgtube/core';
 import { z } from 'zod';
@@ -56,7 +57,8 @@ export const getMapShape = {
   include_others: flag('include_others')
     .optional()
     .describe(
-      'Also list the channels on the map that are not look-alikes, each with why. Default false.',
+      'Also list the channels on the map that are not look-alikes, each with why: larger, dormant (no upload in ' +
+        `the last ${PEER_DORMANT_AFTER_DAYS} days), cadence (publishes many times a day), length or titles. Default false.`,
     ),
   limit: wholeNumber('limit', 1, MAX_MAP_CHANNELS)
     .optional()

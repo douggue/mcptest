@@ -1,4 +1,4 @@
-import { DEFAULT_BREAKOUT_LIMIT, listBreakouts } from './breakouts';
+import { DEFAULT_BREAKOUT_LIMIT, capPerChannel, listBreakouts } from './breakouts';
 import type { MapSnapshot, SnapshotBreakout, SnapshotChannel, SnapshotDeps } from './snapshot';
 import type { MapMemberData } from './view';
 
@@ -36,7 +36,7 @@ function memberOf(deps: SnapshotDeps, channel: UnmarkedChannel): MapMemberData[]
  * may not be in it at all. They are read from the store as it is now instead,
  * as the thumbnail board's are. Removed channels are taken out before the feed
  * is cut to its length, so the places they held go to the next videos instead
- * of leaving the feed short.
+ * of leaving the feed short. No channel holds more than a few places.
  */
 function feedWith(
   deps: SnapshotDeps,
@@ -45,7 +45,9 @@ function feedWith(
   removed: ReadonlySet<string>,
   now: Date,
 ): readonly SnapshotBreakout[] {
-  const shown = snapshot.breakouts.filter((video) => !removed.has(video.channelId));
+  // A copy frozen before channels were limited to a few places each still holds
+  // one channel's whole series; the limit is applied here, on every read.
+  const shown = capPerChannel(snapshot.breakouts.filter((video) => !removed.has(video.channelId)));
   if (pulledIn.length === 0) return shown;
   const pulledIds = new Set(pulledIn.map((channel) => channel.id));
   const fresh = listBreakouts(

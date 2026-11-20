@@ -2,8 +2,10 @@ import { describe, expect, test } from 'vitest';
 import {
   LONG_FORM_RATE,
   MIN_SUBSCRIBERS_FOR_ADS,
+  RATE_TIER_MULTIPLIER,
   SHORTS_RATE,
   estimateEarnings,
+  rateTierFor,
 } from '../src/scoring/earnings';
 
 const long = (views: number, minutes = 15) => ({ views, durationSeconds: minutes * 60 });
@@ -19,6 +21,7 @@ describe('estimateEarnings', () => {
       longFormViews: 1_000_000,
       shortsViews: 0,
       belowAdThreshold: false,
+      rateTier: { id: 'unknown', multiplier: 1, country: null },
     });
   });
 
@@ -54,10 +57,74 @@ describe('estimateEarnings', () => {
 
   test('uses the rates it is given', () => {
     const estimate = estimateEarnings([long(1_000_000)], 5000, {
-      longForm: { low: 10, high: 20 },
-      shorts: SHORTS_RATE,
+      rates: { longForm: { low: 10, high: 20 }, shorts: SHORTS_RATE },
     });
 
     expect([estimate.low, estimate.high]).toEqual([10_000, 20_000]);
+  });
+});
+
+describe('the ad rate by the channel’s country', () => {
+  test.each([
+    ['US', 'top'],
+    ['GB', 'top'],
+    ['AU', 'top'],
+    ['DE', 'top'],
+    ['FR', 'developed'],
+    ['JP', 'developed'],
+    ['ZA', 'emerging'],
+    ['IN', 'emerging'],
+    ['BR', 'emerging'],
+    ['JM', 'emerging'],
+  ])('puts %s in the %s tier', (country, tier) => {
+    expect(rateTierFor(country)).toEqual({
+      id: tier,
+      multiplier: RATE_TIER_MULTIPLIER[tier as keyof typeof RATE_TIER_MULTIPLIER],
+      country,
+    });
+  });
+
+  test('orders the tiers from the full rate down', () => {
+    expect(RATE_TIER_MULTIPLIER.top).toBe(1);
+    expect(RATE_TIER_MULTIPLIER.developed).toBeLessThan(RATE_TIER_MULTIPLIER.top);
+    expect(RATE_TIER_MULTIPLIER.emerging).toBeLessThan(RATE_TIER_MULTIPLIER.developed);
+    expect(RATE_TIER_MULTIPLIER.emerging).toBeGreaterThan(0);
+  });
+
+  test('assumes the top rate, and says so, when the country is not known', () => {
+    expect(rateTierFor(null)).toEqual({ id: 'unknown', multiplier: 1, country: null });
+    expect(rateTierFor(undefined)).toEqual({ id: 'unknown', multiplier: 1, country: null });
+    // Not a country code: nothing can be read from it.
+    expect(rateTierFor('Narnia')).toEqual({ id: 'unknown', multiplier: 1, country: null });
+  });
+
+  test('reads a code in either case', () => {
+    expect(rateTierFor('us').id).toBe('top');
+  });
+
+  test('scales the long-video rate and leaves the Shorts rate alone', () => {
+    const videos = [long(1_000_000), short(2_000_000)];
+    const top = estimateEarnings(videos, 5000, { country: 'US' });
+    const lower = estimateEarnings(videos, 5000, { country: 'ZA' });
+    const shortsLow = 2000 * SHORTS_RATE.low;
+
+    expect(top.low).toBe(Math.round(1000 * LONG_FORM_RATE.low + shortsLow));
+    expect(lower.low).toBe(
+      Math.round(1000 * LONG_FORM_RATE.low * RATE_TIER_MULTIPLIER.emerging + shortsLow),
+    );
+    expect(lower.rateTier).toEqual({
+      id: 'emerging',
+      multiplier: RATE_TIER_MULTIPLIER.emerging,
+      country: 'ZA',
+    });
+  });
+
+  test('gives the same range for an unknown country as for a top-rate one', () => {
+    const videos = [long(400_000)];
+    const unknown = estimateEarnings(videos, 5000);
+    const top = estimateEarnings(videos, 5000, { country: 'CA' });
+
+    expect([unknown.low, unknown.high]).toEqual([top.low, top.high]);
+    expect(unknown.rateTier.id).toBe('unknown');
   });
 });

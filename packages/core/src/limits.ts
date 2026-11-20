@@ -34,3 +34,12 @@ export const REFRESH_MAX_CHANNELS = 500;
  * topic and packaging, which is what the owner can copy.
  */
 export const SMALL_CHANNEL_MAX_SUBSCRIBERS = 10_000;
+
+/**
+ * A channel whose newest upload is older than this has stopped, for now at
+ * least, and is not competing for anyone's viewers, so a map does not count it
+ * as a look-alike. Six weeks is past any ordinary gap: the slowest channels
+ * worth copying publish monthly, and one missed month still leaves them inside
+ * it. The owner can keep such a channel by hand.
+ */
+export const PEER_DORMANT_AFTER_DAYS = 45;

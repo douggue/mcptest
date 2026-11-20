@@ -17,6 +17,8 @@ import {
 const cid = (n: number) => `UC${String(n).padStart(22, '0')}`;
 const vid = (n: number) => `video${String(n).padStart(6, '0')}`;
 
+const UNKNOWN_TIER = { id: 'unknown', multiplier: 1, country: null } as const;
+
 const niche = (n: number, overrides: Partial<NicheChannel> = {}): NicheChannel => ({
   id: cid(n),
   title: `Channel ${n}`,
@@ -31,7 +33,19 @@ const niche = (n: number, overrides: Partial<NicheChannel> = {}): NicheChannel =
     longFormViews: 100_000 * n,
     shortsViews: 0,
     belowAdThreshold: false,
+    rateTier: UNKNOWN_TIER,
   },
+  ninetyDayViews: 250_000 * n,
+  ninetyDayUploads: 25,
+  ninetyDayEarnings: {
+    low: 500 * n,
+    high: 2000 * n,
+    longFormViews: 250_000 * n,
+    shortsViews: 0,
+    belowAdThreshold: false,
+    rateTier: UNKNOWN_TIER,
+  },
+  otherLanguage: null,
   channelAgeDays: 30,
   reasons: ['new', 'small'],
   outperformers: [],
@@ -254,6 +268,7 @@ describe('describeEarnings', () => {
     longFormViews: 1,
     shortsViews: 0,
     belowAdThreshold,
+    rateTier: UNKNOWN_TIER,
   });
 
   test('gives the monthly range in short dollar figures', () => {

@@ -80,12 +80,16 @@ export const TOOL_TEXT = {
     title: 'New niches',
     description:
       'New or small channels anywhere in the store (not only on one map) that have a recent video far above their ' +
-      'size: possible new niches. Most views on recent uploads first. Per channel: subs, recentViews and uploads ' +
-      '(last 30 days), viewsPerSub, earnsUsd (a rough low and high guess, in US dollars, at the ad money those ' +
-      '30 days of views are worth: for comparing channels, not a payout; notPaidYet marks a channel too small to be ' +
-      'paid for ads), channelAgeDays, why (new: first upload within newMaxAgeDays; small: at or under ' +
-      'smallMaxSubs), hits (strong videos out of scored ones), top (its videos that took off) and titles. watched ' +
-      'marks channels the owner chose to follow; qualifies false marks a watched one that no longer meets the rule. ' +
+      'size: possible new niches. Most views on the last 90 days of uploads first. Per channel: subs, recentViews ' +
+      'and uploads (last 30 days), views90d and uploads90d (last 90 days), viewsPerSub, earnsUsd and earns90dUsd ' +
+      '(a rough low and high guess, in US dollars, at the ad money those views are worth: for comparing channels, ' +
+      'not a payout; adRate says which rough country tier the rate was scaled by, or that the top rate was assumed ' +
+      'because the country is unknown; notPaidYet marks a channel too small to be paid for ads), country, ' +
+      'otherLanguage (the channel writes in another alphabet, named when known: an idea that works there may not ' +
+      'have been made in the owner’s language yet), channelAgeDays, why (new: first upload within newMaxAgeDays; ' +
+      'small: at or under smallMaxSubs), hits (strong videos out of scored ones), top (its videos that took off) ' +
+      'and titles. watched marks channels the owner chose to follow; qualifies false marks a watched one that no ' +
+      'longer meets the rule. ' +
       'Reads the local store only.',
   },
 } as const;
