@@ -100,7 +100,7 @@ every phase; coverage floor is 80%.
 - [x] Thumbnail board: per channel like yours, the thumbnails that took off beside ordinary ones and the owner's own, with a switch between winners only and winners next to ordinary (`GET /api/maps/latest/thumbnails`)
 - [x] "Same topic, different wording?" section on the map page: six channels at a time, one-press keep, a "Kept by you" row with undo
 - [x] "New niches to watch" section: a card per channel with why it is listed, its numbers, the thumbnails that took off and its hit rate; filters for new, small and watched
-- [ ] Thumbnail patterns in words on the screen: a model looks at the board's winners and ordinary videos and says what to copy (available in Claude through the connector's `view_thumbnails`)
+- [x] Thumbnail patterns in words on the screen: the "Ask Claude" thumbnail review looks at the winners, the ordinary ones and the owner's own, and says what to change
 - [ ] Star, hide, copy
 - [ ] Follow-up chat over a stored run
 - [ ] Keyboard and screen-reader pass; phone layout
