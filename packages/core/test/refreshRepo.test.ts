@@ -67,9 +67,9 @@ describe('SqliteVideoRepo.listChannelReadings', () => {
     videos.upsertMany([video('A', 1, 700), video('A', 2, 60)], T3);
 
     expect(videos.listChannelReadings(cid('A'), T2)).toEqual([
-      { videoId: 'AAAAAAAAAA1', capturedAt: T2, views: 300 },
-      { videoId: 'AAAAAAAAAA1', capturedAt: T3, views: 700 },
-      { videoId: 'AAAAAAAAAA2', capturedAt: T3, views: 60 },
+      { videoId: 'AAAAAAAAAA1', capturedAt: T2, views: 300, publishedAt: T1 },
+      { videoId: 'AAAAAAAAAA1', capturedAt: T3, views: 700, publishedAt: T1 },
+      { videoId: 'AAAAAAAAAA2', capturedAt: T3, views: 60, publishedAt: T1 },
     ]);
   });
 

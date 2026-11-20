@@ -21,6 +21,7 @@ interface SnapshotRow {
 
 interface ReadingRow extends SnapshotRow {
   video_id: string;
+  published_at: string;
 }
 
 function toVideo(row: VideoRow): StoredVideo {
@@ -106,7 +107,7 @@ export class SqliteVideoRepo implements VideoRepo {
   listChannelReadings(channelId: string, since: Date): readonly VideoReading[] {
     return this.db
       .prepare<[string, string], ReadingRow>(
-        `SELECT s.video_id, s.captured_at, s.views
+        `SELECT s.video_id, s.captured_at, s.views, v.published_at
          FROM video_snapshots s JOIN videos v ON v.id = s.video_id
          WHERE v.channel_id = ? AND s.captured_at >= ?
          ORDER BY s.captured_at, s.video_id`,
@@ -116,6 +117,7 @@ export class SqliteVideoRepo implements VideoRepo {
         videoId: row.video_id,
         capturedAt: new Date(row.captured_at),
         views: row.views,
+        publishedAt: new Date(row.published_at),
       }));
   }
 }

@@ -18,6 +18,8 @@ export interface VideoReading {
   readonly videoId: string;
   readonly capturedAt: Date;
   readonly views: number;
+  /** When the video was published, so a new video can be told from one merely not read before. */
+  readonly publishedAt: Date;
 }
 
 /** Runs a group of writes so that either all of them are stored or none is. */
