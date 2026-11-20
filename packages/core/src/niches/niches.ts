@@ -16,7 +16,7 @@ import type {
   WatchlistRepo,
 } from '../repos/types';
 import { GROWTH_WINDOW_DAYS, viewsGained, type NicheGrowth } from './growth';
-import { hitRate, isOutperformer } from './outperform';
+import { NICHE_OUTPERFORM_WINDOW_DAYS, hitRate, isOutperformer } from './outperform';
 import { NICHE_MIN_LATIN_SHARE, latinShare } from './script';
 
 /**
@@ -142,6 +142,11 @@ export interface NicheInput {
   readonly readingsOf?: (channelId: string) => readonly VideoReading[];
   /** A channel's stored facts from the official API, asked for only for listed channels. */
   readonly factsOf?: (channelId: string) => StoredFacts | null;
+  /**
+   * How many stored channels the sources were chosen from, when they are not
+   * the whole store. Left out, the sources are taken to be all of it.
+   */
+  readonly channelsChecked?: number;
 }
 
 function channelAgeDays(report: readonly VideoReportRow[]): number | null {
@@ -262,7 +267,7 @@ export function buildNicheList(input: NicheInput, now: Date): NicheList {
   });
   return {
     channels: [...channels].sort(byDemand),
-    channelsChecked: input.sources.length,
+    channelsChecked: input.channelsChecked ?? input.sources.length,
     smallMaxSubscribers: NICHE_SMALL_MAX_SUBSCRIBERS,
     newMaxAgeDays: NICHE_NEW_MAX_AGE_DAYS,
   };
@@ -277,15 +282,43 @@ export interface NicheDeps {
   readonly facts?: FactsRepo;
 }
 
-/** The niche list over everything in the store, as it stands now. */
+const byId = (a: StoredChannel, b: StoredChannel): number =>
+  a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+
+/**
+ * The stored channels that could be on the list, picked out by the store
+ * without reading a single video: those the owner watches, and those not too
+ * large to list that uploaded inside the window an outperforming video must
+ * fall in. Every listed channel meets one of the two, so leaving the rest out
+ * changes nothing but the work done. On a store of thousands of channels, most
+ * of them large, this is a small fraction.
+ */
+function nicheCandidates(deps: NicheDeps, watchedIds: readonly string[], now: Date) {
+  const uploadedSince = new Date(now.getTime() - NICHE_OUTPERFORM_WINDOW_DAYS * DAY_MS);
+  const active = deps.channels.listActiveUpTo(NICHE_MAX_SUBSCRIBERS, uploadedSince);
+  const activeIds = new Set(active.map((channel) => channel.id));
+  const watchedOnly = watchedIds
+    .filter((id) => !activeIds.has(id))
+    .flatMap((id) => deps.channels.findById(id) ?? []);
+  // In the order the whole store would come in, so ties sort as they always did.
+  return [...active, ...watchedOnly].sort(byId);
+}
+
+/**
+ * The niche list over everything in the store, as it stands now. Only the
+ * channels that could be listed have their videos loaded.
+ */
 export function loadNicheList(deps: NicheDeps, now: Date): NicheList {
   const since = new Date(now.getTime() - GROWTH_WINDOW_DAYS * DAY_MS);
+  const watchedIds = deps.watchlist.listWatched();
   return buildNicheList(
     {
-      sources: deps.channels
-        .listAll()
-        .map((channel) => ({ channel, videos: deps.videos.listByChannel(channel.id) })),
-      watchedIds: new Set(deps.watchlist.listWatched()),
+      sources: nicheCandidates(deps, watchedIds, now).map((channel) => ({
+        channel,
+        videos: deps.videos.listByChannel(channel.id),
+      })),
+      channelsChecked: deps.channels.count(),
+      watchedIds: new Set(watchedIds),
       excludedIds: new Set(deps.maps.listCenterIds()),
       readingsOf: (channelId) => deps.videos.listChannelReadings(channelId, since),
       factsOf: (channelId) => deps.facts?.find(channelId) ?? null,

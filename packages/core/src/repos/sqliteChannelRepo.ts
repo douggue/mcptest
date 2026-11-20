@@ -58,6 +58,26 @@ export class SqliteChannelRepo implements ChannelRepo {
       .map(toChannel);
   }
 
+  count(): number {
+    const row = this.db.prepare<[], { total: number }>('SELECT COUNT(*) AS total FROM channels');
+    return row.get()?.total ?? 0;
+  }
+
+  listActiveUpTo(maxSubscribers: number, publishedSince: Date): readonly StoredChannel[] {
+    return this.db
+      .prepare<[number, string], ChannelRow>(
+        `SELECT ${COLUMNS} FROM channels
+         WHERE (subscribers IS NULL OR subscribers <= ?)
+           AND EXISTS (
+             SELECT 1 FROM videos
+             WHERE videos.channel_id = channels.id AND videos.published_at >= ?
+           )
+         ORDER BY id`,
+      )
+      .all(maxSubscribers, publishedSince.toISOString())
+      .map(toChannel);
+  }
+
   upsert(channel: ChannelInfo, fetchedAt: Date): void {
     this.db
       .prepare(

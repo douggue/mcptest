@@ -343,6 +343,37 @@ describe('refreshStalest', () => {
     expect(deps.channels.listReadFailures()).toEqual([]);
   });
 
+  test('works the niche list out once a run, and hands on which channels were on it', async () => {
+    await seed('A', 50);
+    await seed('B', 30);
+    deps.videos.upsertMany(
+      [
+        {
+          id: vid('A', 2),
+          channelId: cid('A'),
+          title: 'America just built the machine everyone watched',
+          views: 90_000,
+          durationSeconds: 600,
+          published: { date: hoursAgo(72), precision: 'day', raw: '3d ago' },
+        },
+      ],
+      hoursAgo(50),
+    );
+    let listsMade = 0;
+    const channels = Object.assign(Object.create(deps.channels) as typeof deps.channels, {
+      listActiveUpTo: (maxSubscribers: number, publishedSince: Date) => {
+        listsMade += 1;
+        return deps.channels.listActiveUpTo(maxSubscribers, publishedSince);
+      },
+    });
+
+    const result = await refreshStalest({ ...deps, channels });
+
+    expect(result.nicheIds).toEqual([cid('A')]);
+    expect(listsMade).toBe(1);
+    expect(source.fetched).toEqual(['A', 'B']);
+  });
+
   test('reports progress after each channel', async () => {
     await seed('A', 50);
     await seed('B', 40);

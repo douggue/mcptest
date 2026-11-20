@@ -126,7 +126,11 @@ function showRefreshProgress(progress: RefreshProgress): void {
  * Reads the account dates the niche list lacks from the official API. Without
  * the owner's key there is nothing to ask with, so it says nothing.
  */
-async function factsLines(deps: CrawlDeps, db: Db): Promise<readonly string[]> {
+async function factsLines(
+  deps: CrawlDeps,
+  db: Db,
+  listedIds: readonly string[],
+): Promise<readonly string[]> {
   const apiKey = loadConfig().youtubeApiKey;
   if (apiKey === undefined) return [];
   const outcome = await fillNicheFacts(
@@ -137,6 +141,7 @@ async function factsLines(deps: CrawlDeps, db: Db): Promise<readonly string[]> {
       fetchFacts: (ids) => fetchChannelFacts(ids, { apiKey }),
     },
     new Date(),
+    listedIds,
   );
   return outcome.problem
     ? [`Account dates could not be read: ${sanitize(outcome.problem)}`]
@@ -155,7 +160,7 @@ async function refreshCommand(deps: CrawlDeps, db: Db, flags: readonly string[])
     },
     { onProgress: showRefreshProgress, ...(maxChannels === undefined ? {} : { maxChannels }) },
   );
-  const facts = await factsLines(deps, db);
+  const facts = await factsLines(deps, db, result.nicheIds);
   print([
     `Read ${result.refreshed.length} of ${result.picked} channels again; ${result.failed.length} could not be read.`,
     ...(result.stoppedEarly

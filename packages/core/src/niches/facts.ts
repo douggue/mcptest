@@ -36,9 +36,17 @@ export interface FactsOutcome {
  * allowance left, no connection) is reported in the outcome, not thrown: the
  * refresh or search it follows has already done its work, and the channels
  * stay unasked for the next run.
+ *
+ * `listedIds` are the channels on the niche list, when the caller has already
+ * worked the list out (a refresh has, to decide what to read first). Left out,
+ * the list is worked out here.
  */
-export async function fillNicheFacts(deps: FactsDeps, now: Date): Promise<FactsOutcome> {
-  const listed = loadNicheList(deps, now).channels.map((channel) => channel.id);
+export async function fillNicheFacts(
+  deps: FactsDeps,
+  now: Date,
+  listedIds?: readonly string[],
+): Promise<FactsOutcome> {
+  const listed = listedIds ?? loadNicheList(deps, now).channels.map((channel) => channel.id);
   const missing = deps.facts.listMissing(listed).slice(0, MAX_FACTS_PER_RUN);
   if (missing.length === 0) return { asked: 0, added: 0, problem: null };
   try {

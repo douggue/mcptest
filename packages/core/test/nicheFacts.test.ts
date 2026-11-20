@@ -125,6 +125,24 @@ describe('SqliteFactsRepo', () => {
 });
 
 describe('fillNicheFacts', () => {
+  test('uses the list of channels it is handed instead of working the niche list out again', async () => {
+    store('A');
+    store('B', false);
+    let videoReads = 0;
+    const videos = Object.assign(Object.create(deps.videos) as typeof deps.videos, {
+      listByChannel: (channelId: string) => {
+        videoReads += 1;
+        return deps.videos.listByChannel(channelId);
+      },
+    });
+
+    const outcome = await fillNicheFacts({ ...deps, videos }, NOW, [cid('B')]);
+
+    expect(asked).toEqual([[cid('B')]]);
+    expect(outcome).toEqual({ asked: 1, added: 1, problem: null });
+    expect(videoReads).toBe(0);
+  });
+
   test('asks only for the channels on the niche list, and stores what comes back', async () => {
     store('A');
     store('B', false);

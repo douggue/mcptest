@@ -93,11 +93,11 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
    * official API. Without the owner's key there is nothing to ask with, so it
    * does nothing and says nothing. Error text goes to the browser, so it is cleaned.
    */
-  const fillFacts = async (): Promise<FactsOutcome | null> => {
+  const fillFacts = async (listedIds?: readonly string[]): Promise<FactsOutcome | null> => {
     const apiKey = config.youtubeApiKey;
     if (apiKey === undefined) return null;
     const fetchFacts = options.fetchFacts ?? ((ids) => fetchChannelFacts(ids, { apiKey }));
-    const outcome = await fillNicheFacts({ ...repos, fetchFacts }, now());
+    const outcome = await fillNicheFacts({ ...repos, fetchFacts }, now(), listedIds);
     return { ...outcome, problem: outcome.problem === null ? null : cleanMessage(outcome.problem) };
   };
   /** The stored channel a handle, link or id refers to; reads the store only. */
@@ -178,7 +178,8 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
         { ...repos, source: lazySource, transact: transactionRunner(db), now },
         { onProgress, ...(maxChannels ? { maxChannels } : {}) },
       );
-      const facts = await fillFacts();
+      // The refresh has already worked out the niche list; it is not worked out again.
+      const facts = await fillFacts(result.nicheIds);
       return {
         refreshed: result.refreshed.length,
         failed: result.failed.length,

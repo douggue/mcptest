@@ -85,6 +85,12 @@ export interface RefreshResult {
   readonly stoppedEarly: boolean;
   /** Channels still due for a read when the run ended; a later run takes them. */
   readonly stillDue: number;
+  /**
+   * The channels on the niche list when the run began. The list is worked out
+   * once a run, to decide what to read first; whatever follows the run (reading
+   * account dates) uses this instead of working it out again.
+   */
+  readonly nicheIds: readonly string[];
 }
 
 export interface PickInput {
@@ -149,20 +155,21 @@ function countDue(deps: Pick<RefreshDeps, 'channels'>, now: Date): number {
 
 /**
  * The channels whose history the owner will look at: the ones they watch, the
- * ones on the niche list, and for each map its centre and the channels counted
- * as like it (the filter's own and the ones the owner kept, less any removed).
+ * ones on the niche list (`nicheIds`), and for each map its centre and the
+ * channels counted as like it (the filter's own and the ones the owner kept,
+ * less any removed).
  */
-export function refreshPriorityIds(deps: RefreshDeps, now: Date): ReadonlySet<string> {
+export function refreshPriorityIds(
+  deps: RefreshDeps,
+  now: Date,
+  nicheIds: readonly string[],
+): ReadonlySet<string> {
   const onMaps = deps.maps.listCenterIds().flatMap((centerId) => {
     const snapshot = loadMapSnapshot(deps, centerId, now);
     const peers = (snapshot?.channels ?? []).filter((channel) => channel.peer && !channel.removed);
     return [centerId, ...peers.map((channel) => channel.id)];
   });
-  return new Set([
-    ...deps.watchlist.listWatched(),
-    ...loadNicheList(deps, now).channels.map((channel) => channel.id),
-    ...onMaps,
-  ]);
+  return new Set([...deps.watchlist.listWatched(), ...nicheIds, ...onMaps]);
 }
 
 const messageOf = (error: unknown): string =>
@@ -221,10 +228,11 @@ export async function refreshStalest(
   const maxChannels = options.maxChannels ?? DEFAULT_REFRESH_MAX_CHANNELS;
   assertMaxChannels(maxChannels);
   const startedAt = deps.now();
+  const nicheIds = loadNicheList(deps, startedAt).channels.map((channel) => channel.id);
   const picked = pickStalest({
     channels: deps.channels.listAll(),
     failures: deps.channels.listReadFailures(),
-    priorityIds: refreshPriorityIds(deps, startedAt),
+    priorityIds: refreshPriorityIds(deps, startedAt, nicheIds),
     now: startedAt,
     maxChannels,
   });
@@ -246,6 +254,7 @@ export async function refreshStalest(
     notAttempted,
     stoppedEarly,
     stillDue: countDue(deps, finishedAt),
+    nicheIds,
   };
 }
 

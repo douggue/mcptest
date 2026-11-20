@@ -36,6 +36,13 @@ export interface ChannelRepo {
   findByHandle(handle: string): StoredChannel | null;
   /** Every stored channel, whichever crawl read it. */
   listAll(): readonly StoredChannel[];
+  /** How many channels the store holds. */
+  count(): number;
+  /**
+   * The channels with at most `maxSubscribers` (or a hidden count) that have a
+   * video published at or after `publishedSince`, in the order of `listAll`.
+   */
+  listActiveUpTo(maxSubscribers: number, publishedSince: Date): readonly StoredChannel[];
   /** Storing a channel also forgets its failed reads: it has just been read. */
   upsert(channel: ChannelInfo, fetchedAt: Date): void;
   /** Notes that a stored channel could not be read; does nothing for one not in the store. */
