@@ -132,3 +132,20 @@ Phase 7 needs 5.
 - [x] Refresh so growth history builds up: the stalest stored channels are read again, 50 a run, watched and niche channels and map look-alikes first (`npm run refresh`, `POST /api/refresh`, a timer when `JGTUBE_REFRESH_HOURS` is set); "Refresh now" and the last run at the foot of the page
 - [x] Measured growth on the niche card: views gained between a channel's first reading of the last 30 days and its latest, once it has been read twice
 - [ ] Niche labels and "same topic, different wording" judged by Claude through the connector
+
+## Claude's judgement
+
+- [x] Claude connector (`packages/mcp`): nine tools and a thumbnail-review prompt
+- [x] "Ask Claude" on the page: thumbnail review, video ideas, same-topic channels, each one boxed-in run of Claude Code
+- [x] Thumbnail patterns in words (through Ask Claude and the connector; Claude sees the real images)
+- [ ] Connector tried in the Claude desktop app on the owner's computer (checked here only through a test client and Claude Code)
+- [ ] Ask Claude on Windows (checked on macOS-style and Linux environments only)
+
+## Not built from the original plan
+
+- [ ] Stored topic runs, novelty check, fact check with web search, follow-up chat in the app (PRD stories 4 to 8); video ideas come from Claude on demand instead
+- [ ] View ranges computed in code (the idea generator cites evidence at the owner's size instead of forecasting)
+- [ ] Manual add of a competitor that the crawl did not reach
+- [ ] Topic grouping across channels as a screen of its own
+- [ ] Fixtures from a small and an empty channel
+- [ ] Moving the engine into core so the connector no longer imports the server

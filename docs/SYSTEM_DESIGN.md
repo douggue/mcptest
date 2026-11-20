@@ -5,8 +5,9 @@ crawl itself is in `CRAWL.md`.
 
 ## Data model
 
-Tables marked _built_ exist today (`packages/core/src/db/sqlite.ts`, applied as
-numbered migrations tracked in `PRAGMA user_version`). The rest are the plan.
+Every table below exists today (`packages/core/src/db/sqlite.ts`, applied as
+numbered migrations tracked in `PRAGMA user_version`). The tables planned for a
+stored topic writer were never built; see "Not built" at the end of this section.
 
 ```
 channels        id PK (UC…), handle, title, subscribers NULL, subs_hidden,   -- built
@@ -17,12 +18,14 @@ videos          id PK, channel_id FK, title, views, duration_s,
                 published_at, published_precision (day|week|month|year),
                 published_raw ("2w ago"), fetched_at                    -- built
 video_snapshots video_id FK, captured_at, views   -- built; PK (video_id, captured_at)
-rec_edges       from_channel FK, to_channel FK, sampled, hits, share   -- built
+rec_edges       from_channel FK, to_channel (no FK: the target may not be stored yet),
+                sampled, hits, share                                   -- built
 edge_crawls     channel_id PK, region, crawled_at   -- built; latest reading only, no history
 maps            id PK, center_channel FK, model_channel NULL, depth, region,  -- built
                 created_at,
                 snapshot_json   -- the map as it was when made: scores, tiers, peers
-map_channels    map_id FK, channel_id FK, steps                       -- built
+map_channels    map_id FK, channel_id FK, steps, position             -- built; position keeps
+                -- the order channels were added in
 map_removals    center_channel FK, channel_id, removed_at             -- built; the owner's
                 -- "not a competitor" choices, kept across new maps of the same centre
 map_keeps       center_channel FK, channel_id, kept_at                -- built; the owner's
@@ -32,27 +35,23 @@ niche_watchlist channel_id PK FK, watched_at                          -- built; 
                 (source crawl|search|manual and judged relevance: planned)
 refresh_runs    id PK, started_at, finished_at, refreshed, failed,    -- built; one row per
                 stopped_early                  -- finished refresh, whoever started it
-topic_runs      id PK, map_id FK, status, model, input_tokens, output_tokens,
-                started_at, finished_at, memo_json
-topics          id PK, run_id FK, rank, name, score, views_low, views_high,
-                range_sample_n, rationale_json, nearest_video_id NULL,
-                novelty (new|adjacent|covered), starred, hidden
-topic_titles    id PK, topic_id FK, position, text, why_json, flags_json,
-                starred, hidden
-fact_claims     id PK, topic_id FK, claim, verdict (supported|unverified|wrong),
-                source_url NULL
 ```
 
-Built so far: `channels`, `videos` and `video_snapshots`. There is no HTTP cache
-table; freshness is decided from `fetched_at` (a channel younger than 24 hours is
-served from the store with no request).
+There is no HTTP cache table; freshness is decided from `fetched_at` (a channel
+younger than 24 hours is served from the store with no request).
+
+**Not built.** The original plan had `topic_runs`, `topics`, `topic_titles` and
+`fact_claims` for a topic writer that stored its runs. Video ideas now come from
+Claude on demand (see "Ask Claude") and are not stored.
 
 `video_snapshots` exists so that true views-per-day can be computed once a video
 has been seen twice. That data calibrates the age ramp below and replaces the
 "views on recent uploads" proxy for 30-day views.
 
-Rows are never mutated in place by the pipeline: a re-crawl inserts new edge and
-snapshot rows, and derived values are computed from the latest ones.
+A re-read adds a row to `video_snapshots` each time, so view history builds up.
+Channels, videos and recommendation edges are updated in place: only the latest
+reading of each is kept (`edge_crawls` records when a channel's edges were last
+read).
 
 ## Algorithms
 
@@ -634,15 +633,43 @@ Not built: `suggest_topics` and `find_lanes` (they need the topic writer, phase 
 until then the model on the other end of the connector does that judging from
 `get_breakouts`), a manual add of a competitor, and remote access over HTTP.
 
+## Ask Claude
+
+Built (`packages/server/src/claudeRunner.ts`, `analyses.ts`, `analysisRoutes.ts`,
+`POST /api/analyses`). Three fixed analyses can be put to Claude from the page:
+`thumbnails`, `topics` and `near-misses`.
+
+- `POST /api/analyses {analysis, channel}` waits for the answer (up to five
+  minutes) and returns `{analysis, text}`. One runs at a time (409 otherwise).
+  The channel must parse as a handle, link or id, and goes into the question as
+  `@handle` or the id, never as typed.
+- The server starts Claude Code once (`claude -p --output-format json`) with the
+  connector as its only tool server (`--strict-mcp-config`), no built-in tools
+  (`--tools ""`), an allow list of the connector's read-only tools,
+  `--permission-mode dontAsk`, only project-level settings, a private working
+  folder, and `ANTHROPIC_API_KEY` and `YOUTUBE_API_KEY` removed from its
+  environment so that the owner's Claude login is used. It is stopped on a
+  timeout or runaway output.
+- Failures map to a status and a plain message: Claude Code not found 503, a plan
+  limit 429, a timeout 504, anything else 502.
+- Claude is asked to cite numbers the tools return and not to forecast. Its
+  answer is plain text and is rendered as text.
+- `set_competitor_status` and `make_map` are never on an analysis's allow list:
+  an analysis cannot change stored choices or start a crawl.
+
 ## Testing
 
-- **Parsers:** recorded InnerTube payloads as fixtures, including the old and new
-  list-item shapes and an empty channel.
-- **Scoring:** table-driven unit tests; one fixture reproduces scores from the
-  Makina export to within 15%.
-- **Crawl:** a fake `YouTubeSource` backed by a small graph; asserts edges, shares,
-  floors, depth limits and request counts.
-- **Topic writer:** a fake `TopicWriter` for pipeline tests; schema and id-integrity
-  tests on recorded model output.
-- **End to end:** one test runs the full pipeline against fakes and checks the
-  envelope. A manual smoke test runs it live against one channel.
+- **Parsers:** recorded InnerTube payloads as fixtures. Only a large channel is
+  recorded; small and empty channel fixtures are still missing.
+- **Scoring and matching:** table-driven unit tests, and a regression test built
+  from 40 channels of a real map.
+- **Crawl, refresh, discovery:** fake `YouTubeSource`, search and facts; asserts
+  edges, limits, failure handling and request counts.
+- **Server:** each route through `createApp`, and end-to-end tests that run the
+  real engine and store against fake sources.
+- **Connector:** tool handlers against a fake engine, and a real client connected
+  over the SDK's in-memory transport.
+- **Claude runner:** a stand-in process; the real command line was checked by hand.
+- **Not covered by automated tests:** React components and hooks, the two
+  `main.ts` entry points, the refresh timer in a running process, and a real
+  Claude Code run. These were exercised by driving the app in a browser.
