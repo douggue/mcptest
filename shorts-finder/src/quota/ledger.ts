@@ -9,7 +9,7 @@
  * time, which is when Google resets the allowance.
  */
 import { z } from 'zod';
-import type { QuotaRepo } from '../repos/types';
+import type { QuotaRepo, SpendLimits } from '../repos/types';
 import { QUOTA_KINDS, type QuotaKind } from './kinds';
 
 /** Where Google's day starts and ends. A named zone, so daylight saving is followed. */
@@ -18,6 +18,20 @@ const QUOTA_TIME_ZONE = 'America/Los_Angeles';
 /** The starting split from the plan: most of the day goes on searching. */
 const PERCENT_OF_DAY = { search: 60, reading: 20, channel: 10 } as const;
 const WHOLE = 100;
+
+const SECONDS_PER_HOUR = 3600;
+const HOURS_PER_DAY = 24;
+/**
+ * In the last three hours of the Pacific day, units the searches and the
+ * channel reads have not spent may be spent on readings. By then the day's
+ * searching is done or will not be, units left at midnight are lost, and the
+ * readings are what run short late in the day. Three hours is three rounds of
+ * readings: enough to use what is left, late enough that a search due in the
+ * afternoon has had its turn. Until then every share is a hard wall.
+ */
+export const LATE_DAY_FLOW_HOURS = 3;
+/** The kinds whose unspent units can flow to the readings, and the readings themselves. */
+const FLOW_POOL: readonly QuotaKind[] = ['search', 'channel', 'reading'];
 
 /** What a kind is called in a message to the owner. */
 const KIND_LABELS: Readonly<Record<QuotaKind, string>> = {
@@ -38,7 +52,11 @@ export interface Remaining {
   /** The calendar day in Pacific time, as YYYY-MM-DD. */
   readonly day: string;
   readonly total: number;
-  /** What each kind may still spend: the rest of its share, or of the day if that is less. */
+  /**
+   * What each kind may still spend: the rest of its share, or of the day if
+   * that is less. Late in the Pacific day the readings' figure also counts
+   * what the searches and the channel reads have left.
+   */
   readonly byKind: Readonly<Record<QuotaKind, number>>;
 }
 
@@ -94,6 +112,32 @@ export function pacificDay(at: Date): string {
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
+const clockFormat = new Intl.DateTimeFormat('en-US', {
+  timeZone: QUOTA_TIME_ZONE,
+  hourCycle: 'h23',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});
+
+/**
+ * The hours left of the Pacific day at an instant, by the clock on the wall:
+ * 24 at midnight, a little above 0 just before the next. On the two days a
+ * year the clocks change it is an hour out until the change has happened,
+ * which only moves the late-day window by that hour.
+ */
+export function pacificHoursLeft(at: Date): number {
+  const parts = clockFormat.formatToParts(at);
+  const part = (type: Intl.DateTimeFormatPartTypes): number =>
+    Number(parts.find((entry) => entry.type === type)?.value ?? '0');
+  const elapsed = part('hour') * SECONDS_PER_HOUR + part('minute') * 60 + part('second');
+  return HOURS_PER_DAY - elapsed / SECONDS_PER_HOUR;
+}
+
+/** Whether unspent search and channel units may be spent on readings at this instant. */
+export const isLateInPacificDay = (at: Date): boolean =>
+  pacificHoursLeft(at) <= LATE_DAY_FLOW_HOURS;
+
 /** Thrown when a spend would pass the plan. Nothing is recorded and no request should follow. */
 export class AllowanceSpentError extends Error {
   constructor(
@@ -111,7 +155,9 @@ export class AllowanceSpentError extends Error {
 export interface QuotaLedger {
   /**
    * Records `units` against today and its kind. Throws an AllowanceSpentError,
-   * recording nothing, when the kind's share or the day's total would be passed.
+   * recording nothing, when the kind's share or the day's total would be
+   * passed. In the last hours of the Pacific day a reading may also be paid
+   * from what the searches and the channel reads have not spent.
    */
   spend(kind: QuotaKind, units: number): void;
   /**
@@ -138,21 +184,38 @@ function requireUnits(units: number): void {
   }
 }
 
+const sumOf = (figures: Readonly<Record<QuotaKind, number>>, kinds: readonly QuotaKind[]): number =>
+  kinds.reduce((sum, kind) => sum + figures[kind], 0);
+
 function remainingOn(deps: QuotaLedgerDeps, now: Date): Remaining {
   const usage = deps.repo.usage(pacificDay(now));
   const total = Math.max(0, deps.plan.total - usage.unitsSpent);
-  const left = (kind: QuotaKind): number =>
-    Math.max(0, Math.min(total, deps.plan.shares[kind] - usage.byKind[kind]));
+  // What the three kinds that share units late in the day have left between
+  // them. It bounds each of them at all times, so units the readings have
+  // borrowed are not also spent by the kind that lent them.
+  const pool = sumOf(deps.plan.shares, FLOW_POOL) - sumOf(usage.byKind, FLOW_POOL);
+  const own = (kind: QuotaKind): number => deps.plan.shares[kind] - usage.byKind[kind];
+  const left = (kind: QuotaKind, most: number): number =>
+    Math.max(0, Math.min(total, most, kind === 'reserve' ? most : pool));
   return {
     day: usage.day,
     total,
     byKind: {
-      search: left('search'),
-      reading: left('reading'),
-      channel: left('channel'),
-      reserve: left('reserve'),
+      search: left('search', own('search')),
+      reading: left('reading', isLateInPacificDay(now) ? pool : own('reading')),
+      channel: left('channel', own('channel')),
+      reserve: left('reserve', own('reserve')),
     },
   };
+}
+
+/** The limits one spend is held to. Late in the day only the shared limit binds the readings. */
+function limitsFor(deps: QuotaLedgerDeps, kind: QuotaKind, now: Date): SpendLimits {
+  const { shares, total } = deps.plan;
+  if (kind === 'reserve') return { kind: shares.reserve, total };
+  const pooled = { kinds: FLOW_POOL, limit: sumOf(shares, FLOW_POOL) };
+  const lent = kind === 'reading' && isLateInPacificDay(now);
+  return { kind: lent ? pooled.limit : shares[kind], total, pooled };
 }
 
 /** The ledger over a store and a plan. `spend` is what the API client is given to call. */
@@ -160,9 +223,9 @@ export function createQuotaLedger(deps: QuotaLedgerDeps): QuotaLedger {
   return {
     spend(kind, units) {
       requireUnits(units);
-      const day = pacificDay(deps.now());
-      const limits = { kind: deps.plan.shares[kind], total: deps.plan.total };
-      if (!deps.repo.spendWithin(day, kind, units, limits)) {
+      const now = deps.now();
+      const day = pacificDay(now);
+      if (!deps.repo.spendWithin(day, kind, units, limitsFor(deps, kind, now))) {
         throw new AllowanceSpentError(kind, units, day);
       }
     },

@@ -90,7 +90,11 @@ A new key has 10,000 units a day; a search costs 100, most other requests 1.
 The ledger records every request before it is sent and refuses, by itself,
 once a share of the day's plan is used: searches 60%, readings of tracked
 videos 20%, channel facts and upload lists 10%, and 10% kept back. The day is
-the calendar day in Pacific time, when Google resets the allowance.
+the calendar day in Pacific time, when Google resets the allowance. The
+shares are hard walls, with one exception: in the last three hours of the
+Pacific day, units the searches and the channel reads have not spent may be
+spent on readings, since they would otherwise be lost at midnight. The 10%
+kept back is never lent.
 
 ## How the day runs
 

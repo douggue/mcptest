@@ -6,9 +6,12 @@ import { openDatabase, type Db } from '../src/db/sqlite';
 import {
   AllowanceSpentError,
   DEFAULT_PLAN,
+  LATE_DAY_FLOW_HOURS,
   createQuotaLedger,
   createQuotaPlan,
+  isLateInPacificDay,
   pacificDay,
+  pacificHoursLeft,
   planFor,
   type QuotaLedger,
   type QuotaPlan,
@@ -321,5 +324,107 @@ describe('two programs with the same store open', () => {
     one.markExhausted();
 
     expect(other.canSpend('reading', 1, NOON)).toBe(false);
+  });
+});
+
+describe('the late-day flow of unspent units to the readings', () => {
+  /** 21:00 in Los Angeles: three hours of the Pacific day are left. */
+  const LATE = new Date('2026-11-21T05:00:00Z');
+  /** A second earlier: outside the window. */
+  const NOT_YET = new Date('2026-11-21T04:59:59Z');
+  const plan = planFor(1000);
+
+  test('counts the hours left of the Pacific day by the clock on the wall', () => {
+    expect(pacificHoursLeft(new Date('2026-11-20T08:00:00Z'))).toBe(24);
+    expect(pacificHoursLeft(NOON)).toBe(12);
+    expect(pacificHoursLeft(LATE)).toBe(3);
+    expect(pacificHoursLeft(new Date('2026-11-21T07:59:59Z'))).toBeCloseTo(1 / 3600, 6);
+    expect(pacificHoursLeft(new Date('2026-07-01T06:30:00Z'))).toBe(0.5);
+    expect(isLateInPacificDay(LATE)).toBe(true);
+    expect(isLateInPacificDay(NOT_YET)).toBe(false);
+    expect(LATE_DAY_FLOW_HOURS).toBe(3);
+  });
+
+  test('keeps the reading share a hard wall until the last three hours', () => {
+    clock = NOT_YET;
+    const ledger = ledgerWith(plan);
+    ledger.spend('reading', 200);
+
+    expect(ledger.remaining(clock).byKind.reading).toBe(0);
+    expect(ledger.canSpend('reading', 1, clock)).toBe(false);
+    expect(() => ledger.spend('reading', 1)).toThrow(AllowanceSpentError);
+  });
+
+  test('lets readings spend what the searches and the channel reads have left, in the last three hours', () => {
+    clock = NOT_YET;
+    const ledger = ledgerWith(plan);
+    ledger.spend('reading', 200);
+    ledger.spend('search', 500);
+    ledger.spend('channel', 20);
+    clock = LATE;
+
+    // 100 of the search share and 80 of the channel share are unspent.
+    expect(ledger.remaining(clock).byKind.reading).toBe(180);
+    ledger.spend('reading', 180);
+
+    expect(repo.usage('2026-11-20').byKind).toEqual({
+      search: 500,
+      reading: 380,
+      channel: 20,
+      reserve: 0,
+    });
+    expect(() => ledger.spend('reading', 1)).toThrow(AllowanceSpentError);
+  });
+
+  test('does not let the lender spend again what the readings borrowed', () => {
+    clock = LATE;
+    const ledger = ledgerWith(plan);
+    ledger.spend('reading', 850);
+
+    // The readings took their own 200 and 650 of the 700 the others had.
+    expect(ledger.remaining(clock).byKind).toEqual({
+      search: 50,
+      reading: 50,
+      channel: 50,
+      reserve: 100,
+    });
+    expect(() => ledger.spend('search', 100)).toThrow(AllowanceSpentError);
+    ledger.spend('channel', 50);
+    expect(ledger.remaining(clock).byKind).toMatchObject({ search: 0, reading: 0, channel: 0 });
+  });
+
+  test('never lends the units kept back, nor lets them be borrowed against', () => {
+    clock = LATE;
+    const ledger = ledgerWith(plan);
+
+    ledger.spend('reading', 900);
+
+    expect(() => ledger.spend('reading', 1)).toThrow(AllowanceSpentError);
+    expect(ledger.remaining(clock).byKind.reserve).toBe(100);
+    ledger.spend('reserve', 100);
+    expect(ledger.remaining(clock).total).toBe(0);
+  });
+
+  test('lends nothing in the other direction: searches stay within their own share late in the day', () => {
+    clock = LATE;
+    const ledger = ledgerWith(plan);
+    ledger.spend('search', 600);
+
+    expect(() => ledger.spend('search', 1)).toThrow(AllowanceSpentError);
+    expect(ledger.remaining(clock).byKind.search).toBe(0);
+  });
+
+  test('starts the next Pacific day with every share whole again', () => {
+    clock = LATE;
+    const ledger = ledgerWith(plan);
+    ledger.spend('reading', 900);
+    clock = new Date('2026-11-21T08:00:00Z');
+
+    expect(ledger.remaining(clock).byKind).toEqual({
+      search: 600,
+      reading: 200,
+      channel: 100,
+      reserve: 100,
+    });
   });
 });

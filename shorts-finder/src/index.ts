@@ -123,9 +123,12 @@ export { QUOTA_KINDS, type QuotaKind } from './quota/kinds';
 export {
   AllowanceSpentError,
   DEFAULT_PLAN,
+  LATE_DAY_FLOW_HOURS,
   createQuotaLedger,
   createQuotaPlan,
+  isLateInPacificDay,
   pacificDay,
+  pacificHoursLeft,
   planFor,
   type QuotaLedger,
   type QuotaPlan,

@@ -54,6 +54,9 @@ export class SqliteQuotaRepo implements QuotaRepo {
         const total = before.unitsSpent + amount;
         const ofKind = before.byKind[kind] + amount;
         if (total > limits.total || ofKind > limits.kind) return false;
+        const pool = limits.pooled;
+        const inPool = (pool?.kinds ?? []).reduce((sum, each) => sum + before.byKind[each], 0);
+        if (pool !== undefined && inPool + amount > pool.limit) return false;
         this.write(day, total, { ...before.byKind, [kind]: ofKind });
         return true;
       })

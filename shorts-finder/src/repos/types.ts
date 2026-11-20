@@ -32,6 +32,12 @@ export interface DayUsage {
 export interface SpendLimits {
   readonly kind: number;
   readonly total: number;
+  /**
+   * A limit several kinds share: what they have spent between them, with this
+   * spend, may not pass it. Used so that units one kind lends another are
+   * not also spent by the lender.
+   */
+  readonly pooled?: { readonly kinds: readonly QuotaKind[]; readonly limit: number };
 }
 
 /** The record of units spent, one row a day. */
@@ -39,8 +45,8 @@ export interface QuotaRepo {
   /** What was spent on `day`; all zeros for a day nothing was spent on. */
   usage(day: string): DayUsage;
   /**
-   * Adds `units` to the day and to its kind, unless either would pass its
-   * limit: then nothing is added and the answer is false. Checked and written
+   * Adds `units` to the day and to its kind, unless any limit given would be
+   * passed: then nothing is added and the answer is false. Checked and written
    * as one step, so two programs cannot both spend the last units.
    */
   spendWithin(day: string, kind: QuotaKind, units: number, limits: SpendLimits): boolean;
