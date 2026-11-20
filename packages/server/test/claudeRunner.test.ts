@@ -1,10 +1,13 @@
 import { EventEmitter } from 'node:events';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 import {
   ClaudeRunError,
   buildClaudeArgs,
   runClaude,
   type ClaudeChild,
+  type ClaudeRunDeps,
   type ClaudeRunRequest,
   type SpawnClaude,
 } from '../src/claudeRunner';
@@ -26,9 +29,12 @@ class FakeChild extends EventEmitter implements ClaudeChild {
   readonly stdout = new EventEmitter();
   readonly stderr = new EventEmitter();
   killed = false;
+  /** The signal of each request to stop, in order. */
+  signals: Array<string | undefined> = [];
 
-  kill(): void {
+  kill(signal?: string): void {
     this.killed = true;
+    this.signals.push(signal);
   }
 
   finish(output: unknown, code = 0, errorText = ''): void {
@@ -54,8 +60,18 @@ function harness(env: Record<string, string | undefined> = { PATH: '/bin' }) {
     started.push({ command, args, cwd: options.cwd, env: options.env });
     return child;
   };
-  return { child, started, run: (r = request) => runClaude(r, { spawn, env }) };
+  return {
+    child,
+    started,
+    run: (r = request, more: Partial<ClaudeRunDeps> = {}) => runClaude(r, { spawn, env, ...more }),
+  };
 }
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** What Claude Code really printed, saved from a run and trimmed of its timing fields. */
+const fixture = (name: string): Buffer =>
+  readFileSync(fileURLToPath(new URL(`./fixtures/${name}.json`, import.meta.url)));
 
 const success = (result: string) => ({
   type: 'result',
@@ -193,6 +209,88 @@ describe('runClaude', () => {
     expect((failure as ClaudeRunError).message).not.toContain('/home/someone');
   });
 
+  test('reads characters that arrive split across two pieces', async () => {
+    const { child, run } = harness();
+    const pending = run();
+    const answer = 'Señor café — 日本語のタイトル 🚀';
+    const bytes = Buffer.from(JSON.stringify(success(answer)));
+    // Cut inside the four bytes of the rocket, and inside a three-byte character.
+    const rocket = bytes.indexOf(Buffer.from('🚀')) + 2;
+    const kanji = bytes.indexOf(Buffer.from('日')) + 1;
+    child.stdout.emit('data', bytes.subarray(0, kanji));
+    child.stdout.emit('data', bytes.subarray(kanji, rocket));
+    child.stdout.emit('data', bytes.subarray(rocket));
+    child.emit('close', 0);
+
+    await expect(pending).resolves.toMatchObject({ text: answer });
+  });
+
+  test('reads split characters in the error text too', async () => {
+    const { child, run } = harness();
+    const pending = run();
+    const bytes = Buffer.from('Erreur: clé refusée');
+    const cut = bytes.indexOf(Buffer.from('é')) + 1;
+    child.stderr.emit('data', bytes.subarray(0, cut));
+    child.stderr.emit('data', bytes.subarray(cut));
+    child.emit('close', 1);
+
+    await expect(pending).rejects.toMatchObject({
+      message: expect.stringContaining('clé refusée'),
+    });
+  });
+
+  test('asks it to stop, then forces it when it has not gone after a short while', async () => {
+    const { child, run } = harness();
+
+    await expect(run({ ...request, timeoutMs: 10 }, { killGraceMs: 15 })).rejects.toMatchObject({
+      reason: 'timeout',
+    });
+    expect(child.signals).toEqual(['SIGTERM']);
+    await wait(40);
+
+    expect(child.signals).toEqual(['SIGTERM', 'SIGKILL']);
+  });
+
+  test('does not force a process that went when asked', async () => {
+    const { child, run } = harness();
+
+    await expect(run({ ...request, timeoutMs: 10 }, { killGraceMs: 15 })).rejects.toMatchObject({
+      reason: 'timeout',
+    });
+    child.emit('close', null);
+    await wait(40);
+
+    expect(child.signals).toEqual(['SIGTERM']);
+  });
+
+  test('reads nothing more once it has given its verdict', async () => {
+    const { child, run } = harness();
+    let read = false;
+    const late = {
+      toString: () => {
+        read = true;
+        return 'more';
+      },
+    };
+
+    await expect(run({ ...request, timeoutMs: 10 })).rejects.toMatchObject({ reason: 'timeout' });
+    child.stdout.emit('data', late);
+    child.stderr.emit('data', late);
+
+    expect(read).toBe(false);
+  });
+
+  test('says on Windows that the buttons are verified on macOS and Linux only', async () => {
+    const { child, run } = harness();
+    const pending = run(request, { platform: 'win32' });
+    child.emit('error', Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT' }));
+
+    await expect(pending).rejects.toMatchObject({
+      reason: 'not-installed',
+      message: expect.stringMatching(/reachable as `claude`.*macOS and Linux only/),
+    });
+  });
+
   test('gives up on a reply that grows without end', async () => {
     const { child, run } = harness();
     const pending = run();
@@ -201,4 +299,56 @@ describe('runClaude', () => {
     await expect(pending).rejects.toMatchObject({ reason: 'failed' });
     expect(child.killed).toBe(true);
   });
+});
+
+describe('runClaude, against what Claude Code really prints', () => {
+  test('reads a real successful result', async () => {
+    const { child, run } = harness();
+    const pending = run();
+    child.stdout.emit('data', fixture('claude-result-success'));
+    child.emit('close', 0);
+
+    await expect(pending).resolves.toEqual({ text: 'ok', turns: 1 });
+  });
+
+  test('reads a result that ran out of steps', async () => {
+    const { child, run } = harness();
+    const pending = run();
+    child.stdout.emit('data', fixture('claude-result-max-turns'));
+    child.emit('close', 1);
+
+    await expect(pending).rejects.toMatchObject({
+      reason: 'failed',
+      message: expect.stringMatching(/ran out of steps/),
+    });
+  });
+
+  test('reads a result that hit the plan’s usage limit', async () => {
+    const { child, run } = harness();
+    const pending = run();
+    child.stdout.emit('data', fixture('claude-result-usage-limit'));
+    child.emit('close', 1);
+
+    await expect(pending).rejects.toMatchObject({
+      reason: 'limit',
+      message: 'You’ve hit your session limit · resets 4pm',
+    });
+  });
+
+  test.each(['claude-result-success', 'claude-result-max-turns', 'claude-result-usage-limit'])(
+    '%s keeps the fields the saved result had, less its timings',
+    (name) => {
+      const saved = JSON.parse(fixture(name).toString('utf8')) as Record<string, unknown>;
+
+      expect(saved).toMatchObject({
+        type: 'result',
+        subtype: expect.any(String),
+        is_error: expect.any(Boolean),
+        num_turns: expect.any(Number),
+        session_id: expect.any(String),
+        total_cost_usd: expect.any(Number),
+        usage: expect.any(Object),
+      });
+    },
+  );
 });
