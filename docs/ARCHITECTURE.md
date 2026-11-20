@@ -58,7 +58,7 @@ packages/
       topics/         (planned) evidence builder, prompt, schema, novelty and fact checks
     test/fixtures/    recorded InnerTube payloads
   server/             local JSON API and static file server (127.0.0.1 only)
-  mcp/                (planned) tool definitions over core
+  mcp/                the Claude connector: tools over the server's engine (stdio)
 apps/
   web/                the radar screen
 docs/

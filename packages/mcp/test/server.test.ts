@@ -175,6 +175,33 @@ describe('the connector over the protocol', () => {
     expect(result.isError).toBeFalsy();
   });
 
+  test('a crawl goes on after the client stops waiting, and blocks a second one until it ends', async () => {
+    let finish: () => void = () => {};
+    engine.outcome = () =>
+      new Promise((resolve) => {
+        finish = () => resolve({ centerChannelId: CENTER_ID, warnings: [] });
+      });
+    const waiting = new AbortController();
+    const abandoned = client.callTool(
+      { name: 'make_map', arguments: { channel: '@mychannel' } },
+      undefined,
+      { signal: waiting.signal },
+    );
+    await expect.poll(() => engine.crawls.length).toBe(1);
+
+    waiting.abort();
+    await expect(abandoned).rejects.toThrow();
+    const second = await call('make_map', { channel: '@mychannel' });
+
+    expect(textOf(second)).toMatch(/^A map is already being made/);
+    engine.outcome = () => Promise.resolve({ centerChannelId: CENTER_ID, warnings: [] });
+    finish();
+    await expect
+      .poll(async () => (await call('make_map', { channel: '@mychannel' })).isError)
+      .toBeFalsy();
+    expect(engine.crawls).toHaveLength(2);
+  });
+
   test('input that breaks the rules comes back as an error result in plain words', async () => {
     const tooDeep = await call('make_map', { channel: '@mychannel', depth: 9 });
     const badId = await call('view_thumbnails', { video_ids: ['nope'] });

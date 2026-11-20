@@ -425,20 +425,58 @@ depend on a `wrong` claim are hidden by default.
 
 ## MCP tools
 
-All return `{ success, data, error, meta }`.
+Built as `packages/mcp`: a Model Context Protocol server over stdio
+(`@modelcontextprotocol/sdk` 1.x), started with `npm run mcp`. It wraps the same
+engine as the local API (`createEngine`) and opens the same store, so the owner's
+Claude reads what the app shows. Setup for the owner is in
+[CONNECTOR.md](CONNECTOR.md).
 
-| Tool               | Input                         | Returns                                                                  |
-| ------------------ | ----------------------------- | ------------------------------------------------------------------------ |
-| `research_channel` | `handle`, `refresh?`          | Channel summary, its videos with scores, top title frames                |
-| `map_niche`        | `handle`, `depth?` (1..2)     | Competitors with tier, relevance, size, best breakout; filtered-out list |
-| `set_competitors`  | `map_id`, `remove[]`, `add[]` | Updated competitor list                                                  |
-| `suggest_topics`   | `map_id`, `direction?`        | Five topics with titles, evidence, range, novelty; the memo              |
-| `get_channel`      | `channel_id`, `sort?`         | One channel's stats and videos (latest, breakouts, popular)              |
-| `find_lanes`       | `map_id`                      | Adjacent sub-niches ranked by fit with proof videos                      |
+| Tool                    | Input                                                           | Returns                                                                                                      |
+| ----------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `get_map`               | `channel`, `include_others?`, `limit?` (30)                     | Latest map: centre, model channel, counts, look-alikes (id, title, subs, match, tier, rising, best breakout) |
+| `get_breakouts`         | `channel`, `lookalikes_only?` (true), `limit?` (15)             | Recent videos far above usual, with score, views, usual, sample, hit rate, channel age, caution              |
+| `get_thumbnail_board`   | `channel`, `channels?` (8), `per_channel?` (4)                  | Per look-alike with a winner: winners and ordinary videos (id, title, views, score); the centre's own videos |
+| `view_thumbnails`       | `video_ids` (1 to 8)                                            | The thumbnails as image content, each under a line naming its video; a failed one is a line of text          |
+| `get_channel_videos`    | `channel`, `order?`, `limit?` (20)                              | One stored channel's videos with scores (`buildVideoReport`)                                                 |
+| `get_near_misses`       | `channel`, `limit?` (25)                                        | Channels left out on titles alone (`outsideReason: 'titles'`, not kept or removed) with five recent titles   |
+| `set_competitor_status` | `center`, `channel`, `status` (kept, removed, auto)             | Records the owner's choice (`setCompetitorStatus`) and says whether the channel now counts as a look-alike   |
+| `list_niches`           | `limit?` (15), `watched_only?`                                  | New or small channels with a video that took off (`listNiches`)                                              |
+| `make_map`              | `channel`, `model?`, `depth?` (1..3), `max_channels?` (10..600) | Crawls a new map, then the same summary as `get_map` plus warnings                                           |
 
-Tool descriptions state what each is for and when to call it. Long tools stream
-progress notifications. Outputs are compact JSON with ids, so Claude can follow up
-without another crawl.
+One prompt, `thumbnail_review` (argument `channel`), tells the model to read the
+board, look at the owner's thumbnails and the winners with `view_thumbnails`, and
+give specific changes.
+
+Rules the tools keep:
+
+- **Channel references** are a handle, a youtube.com URL or a channel id, checked
+  with `parseChannelRef` before anything is read. Video ids are checked against
+  `VIDEO_ID_PATTERN`.
+- **Answers** are one line of JSON with short keys, explained once in each tool's
+  description. Absent optional values are left out (no nulls), scores are rounded
+  to one decimal, and every list is capped with a count of what was left out
+  (`more`, `moreLookalikes`, `moreChannels`).
+- **Failures** are a protocol error result (`isError`) holding one plain sentence:
+  the first line of the message only, with file paths and control characters
+  removed. Input that breaks a rule is refused by the same Zod schema the tool
+  list is generated from, with the rule as the message.
+- **Thumbnails** are fetched only from `https://i.ytimg.com/vi/<id>/hqdefault.jpg`,
+  with redirects refused, a 10 second limit, JPEG only and at most 400 KB each. No
+  image is stored.
+- **Crawls** run one at a time within the connector. `make_map` sends a progress
+  notification for each crawl event when the client asked for progress. A crawl is
+  not stopped when the client gives up waiting; the map is stored and `get_map`
+  returns it. The connector and the app do not know about each other's crawls.
+- **Standard output** carries only the protocol. Diagnostics go to standard error.
+- **Store location** is `loadConfig` (`JGTUBE_DB_PATH`, `JGTUBE_REGION`). A path
+  that is not absolute is taken from the project folder, because Claude starts the
+  connector from another directory. `get_channel_videos` and the titles in
+  `get_near_misses` read through a second connection to the same file (WAL mode),
+  since the server's engine does not expose its repositories.
+
+Not built: `suggest_topics` and `find_lanes` (they need the topic writer, phase 5;
+until then the model on the other end of the connector does that judging from
+`get_breakouts`), a manual add of a competitor, and remote access over HTTP.
 
 ## Testing
 

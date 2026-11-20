@@ -77,10 +77,14 @@ every phase; coverage floor is 80%.
 
 ## Phase 6: MCP server
 
-- [ ] Six tools from `SYSTEM_DESIGN.md` with Zod input schemas
-- [ ] Progress notifications on long tools
-- [ ] Compact outputs with ids
-- [ ] Install instructions for Claude
+- [x] `packages/mcp`: stdio connector on the engine the local API uses, same store; `npm run mcp`
+- [x] Nine tools with Zod input schemas: `get_map`, `get_breakouts`, `get_thumbnail_board`, `view_thumbnails` (real thumbnail images), `get_channel_videos`, `get_near_misses`, `set_competitor_status`, `list_niches`, `make_map`
+- [x] Progress notifications on `make_map`
+- [x] Compact outputs with ids; lists capped with a count of what was left out
+- [x] `thumbnail_review` prompt
+- [x] Install instructions for Claude (`docs/CONNECTOR.md`)
+- [ ] Try it in the Claude desktop app and Claude Code on the owner's computer (so far driven by a test client over stdio)
+- [ ] `suggest_topics` and `find_lanes` (need phase 5); manual add of a competitor
 
 **Done when:** "What should my next video be?" in Claude produces topics through the connector with no manual steps.
 
@@ -94,7 +98,7 @@ every phase; coverage floor is 80%.
 - [x] Competitor remove and restore; keep and undo for a channel the filter left out
 - [x] Thumbnail board: per channel like yours, the thumbnails that took off beside ordinary ones and the owner's own, with a switch between winners only and winners next to ordinary (`GET /api/maps/latest/thumbnails`)
 - [x] "New niches to watch" section: a card per channel with why it is listed, its numbers, the thumbnails that took off and its hit rate; filters for new, small and watched
-- [ ] Thumbnail patterns in words: a model looks at the board's winners and ordinary videos and says what to copy
+- [ ] Thumbnail patterns in words on the screen: a model looks at the board's winners and ordinary videos and says what to copy (available in Claude through the connector's `view_thumbnails`)
 - [ ] Star, hide, copy
 - [ ] Follow-up chat over a stored run
 - [ ] Keyboard and screen-reader pass; phone layout
@@ -112,5 +116,5 @@ every phase; coverage floor is 80%.
 ## Order and dependencies
 
 Phases 0 to 3 are strictly sequential. Phase 4 needs 3. Phase 5 needs 2 and 4.
-Phase 6 can start after 2 with `research_channel` alone and grow as later phases land.
+Phase 6 is built on phases 2 to 4 and grows as later phases land.
 Phase 7 needs 5.
