@@ -13,7 +13,14 @@ export const PEER_MAX_UPLOADS_PER_WEEK = 14;
 /** A peer's typical video is within this factor of the centre's, shorter or longer. */
 export const PEER_MAX_DURATION_RATIO = 4;
 export const PEER_MIN_DURATION_RATIO = 0.4;
-/** Title match (0 to 1) needed to count as making the same kind of video. */
+/**
+ * Title match (0 to 1) needed to count as making the same kind of video.
+ *
+ * It sits where outsiders run out on the one large map measured so far (285
+ * channels against a model): 11 channels score 10-12%, 7 score 12-14%, only 3
+ * score 14-18%, and the clear look-alikes start at 18%. Channels within a
+ * point or two of it are not settled by titles.
+ */
 export const PEER_MIN_TITLE_MATCH = 0.14;
 
 const CADENCE_WINDOW_DAYS = 14;

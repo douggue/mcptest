@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import { outsideReason, shapeMismatch, uploadsPerWeek } from '../src/map/peers';
-import { anchoredTitleSimilarity } from '../src/map/relevance';
+import {
+  outsideReason,
+  PEER_MIN_TITLE_MATCH,
+  shapeMismatch,
+  uploadsPerWeek,
+} from '../src/map/peers';
+import { anchoredTitleSimilarity, MAX_ANCHOR_TITLE_VOTES } from '../src/map/relevance';
 import { buildMapView, type MapMemberData } from '../src/map/view';
 import type { StoredVideo } from '../src/repos/types';
 
@@ -91,7 +96,8 @@ describe('anchoredTitleSimilarity', () => {
 
     expect(alone.scores.get('cousin')).toBe(0);
     expect(anchored.anchors).toEqual(['twin']);
-    expect(anchored.scores.get('cousin')).toBeGreaterThan(0.2);
+    // Lifted from nothing to a match that counts as a peer.
+    expect(anchored.scores.get('cousin')).toBeGreaterThan(PEER_MIN_TITLE_MATCH);
     expect(anchored.scores.get('news')).toBe(0);
   });
 
@@ -99,6 +105,38 @@ describe('anchoredTitleSimilarity', () => {
     const result = anchoredTitleSimilarity(centreTitles, candidates, ['news', 'cousin']);
 
     expect(result.anchors).toEqual([]);
+  });
+
+  test('does not let extra look-alike titles outvote a reference with a full set of its own', () => {
+    const fullSet = Array.from({ length: MAX_ANCHOR_TITLE_VOTES }, () => 'Could Replace Forever');
+    const lookAlike = Array.from({ length: MAX_ANCHOR_TITLE_VOTES }, () => 'Could Bombshell');
+    const crowded = new Map([
+      ['first', lookAlike],
+      ['second', lookAlike],
+      ['third', lookAlike],
+      ['own-word', ['Forever']],
+    ]);
+
+    const one = anchoredTitleSimilarity(fullSet, crowded, ['first']);
+    const three = anchoredTitleSimilarity(fullSet, crowded, ['first', 'second', 'third']);
+
+    expect(three.anchors).toHaveLength(3);
+    expect(three.scores.get('own-word')).toBeCloseTo(one.scores.get('own-word') ?? 0, 5);
+  });
+
+  test('lets look-alikes lead when the reference has only a few titles', () => {
+    const lookAlike = Array.from({ length: MAX_ANCHOR_TITLE_VOTES }, () => 'Robot Bombshell');
+    const scores = anchoredTitleSimilarity(
+      ['Robot Army'],
+      new Map([
+        ['anchor', lookAlike],
+        ['lent-word', ['Bombshell']],
+        ['own-word', ['Army']],
+      ]),
+      ['anchor'],
+    ).scores;
+
+    expect(scores.get('lent-word')).toBeGreaterThan((scores.get('own-word') ?? 0) * 5);
   });
 });
 
@@ -142,5 +180,25 @@ describe('buildMapView with outsiders', () => {
 
   test('lists peers before everything else', () => {
     expect(rows[0]?.channel.title).toBe('Channel T');
+  });
+
+  test('does not spend a look-alike place on the model channel itself', () => {
+    const withModel = buildMapView({
+      center: member('C', 0, weekly('My First Vlog', 3), 0),
+      members: [
+        member('M', 2000, weekly('America Just Built a Reactor', 6)),
+        member('P', 2000, weekly('America Just Built a Bridge', 6)),
+        member('Q', 2000, weekly('America Just Launched a Rocket', 6)),
+        member('R', 2000, weekly('America Hovercraft Breakthrough', 6)),
+        member('Z', 2000, weekly('Hovercraft Breakthrough', 6), 2),
+      ],
+      edges: [],
+      now: NOW,
+      modelId: cid('M'),
+    });
+    const hovercraft = withModel.find((row) => row.channel.title === 'Channel Z');
+
+    // Channel R is the third closest neighbour; only as a look-alike can it vouch for Channel Z.
+    expect(hovercraft?.relevance).toBeGreaterThan(0);
   });
 });
