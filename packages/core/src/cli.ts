@@ -1,5 +1,7 @@
 import { loadConfig } from './config';
+import { resolve } from 'node:path';
 import { crawlMap, type CrawlDeps, type CrawlProgress } from './crawl/crawl';
+import { backupStore } from './db/backup';
 import { openDatabase, transactionRunner, type Db } from './db/sqlite';
 import { formatCount, formatMapTable, formatVideoTable, sanitize } from './format';
 import { ingestChannel } from './ingest';
@@ -23,9 +25,11 @@ const USAGE = [
   '  npm run jgtube -- ingest <channel> [--refresh]',
   '  npm run jgtube -- map <channel> [--depth 1|2] [--sample N] [--max-channels N]',
   '  npm run refresh [-- --max N]',
+  '  npm run backup',
   '',
   '<channel> is an @handle, a channel id or a youtube.com URL.',
   'refresh reads the stored channels read longest ago again (50 unless --max says otherwise).',
+  'backup writes a dated copy of the store beside it and prints where.',
 ].join('\n');
 const FAILURES_SHOWN = 10;
 const VIDEO_ROWS_SHOWN = 25;
@@ -166,6 +170,7 @@ async function refreshCommand(deps: CrawlDeps, db: Db, flags: readonly string[])
 }
 
 type Request =
+  | { readonly command: 'backup' }
   | { readonly command: 'refresh'; readonly flags: readonly string[] }
   | {
       readonly command: 'ingest' | 'map';
@@ -176,6 +181,7 @@ type Request =
 /** What the arguments ask for, or null when they do not make a command. */
 function parseArguments(argv: readonly string[]): Request | null {
   const [command, target, ...flags] = argv;
+  if (command === 'backup') return { command };
   if (command === 'refresh') return { command, flags: argv.slice(1) };
   if ((command !== 'ingest' && command !== 'map') || !target) return null;
   return { command, target, flags };
@@ -198,8 +204,14 @@ async function main(argv: readonly string[]): Promise<void> {
     process.exitCode = 1;
     return;
   }
-  const db = openDatabase(loadConfig().dbPath);
+  const { dbPath } = loadConfig();
+  const db = openDatabase(dbPath);
   try {
+    if (request.command === 'backup') {
+      // Needs no connection to YouTube, so it is done before one is made.
+      print([`Backup written to ${resolve(backupStore(db, dbPath, new Date()))}`]);
+      return;
+    }
     const deps = await openEngine(db);
     if (request.command === 'refresh') {
       await refreshCommand(deps, db, request.flags);

@@ -1,5 +1,6 @@
-import { rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { beforeEach, describe, expect, test } from 'vitest';
 import { migrate, openDatabase, type Db } from '../src/db/sqlite';
 import { SqliteChannelRepo } from '../src/repos/sqliteChannelRepo';
@@ -208,7 +209,8 @@ describe('opening a store made by an earlier version', () => {
     ['before versions were recorded', 0],
     ['at version 1', 1],
   ])('adds what is missing and keeps what is there (store %s)', (_what, version) => {
-    const path = `${tmpdir()}/jgtube-migrate-${process.pid}-${Date.now()}-${version}.db`;
+    const folder = mkdtempSync(join(tmpdir(), 'jgtube-migrate-'));
+    const path = join(folder, 'store.db');
     const first = openDatabase(path);
     new SqliteChannelRepo(first).upsert(
       {
@@ -241,7 +243,11 @@ describe('opening a store made by an earlier version', () => {
     expect(new SqliteMapRepo(reopened).listRemoved(cid('C'))).toEqual([]);
     expect(new SqliteMapRepo(reopened).listKept(cid('C'))).toEqual([]);
     reopened.close();
-    rmSync(path, { force: true });
+    // The store held a channel, so it was copied as it was before being updated.
+    expect(readdirSync(folder).filter((name) => name.includes('.backup-'))).toEqual([
+      expect.stringMatching(new RegExp(`^store\\.backup-v${version}-\\d{8}-\\d{6}\\.db$`)),
+    ]);
+    rmSync(folder, { recursive: true, force: true });
   });
 
   test('refuses a store made by a newer version instead of guessing at it', () => {

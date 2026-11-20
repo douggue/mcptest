@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import type { Transact } from '../repos/types';
+import { backupStore, isFileStore } from './backup';
 
 export type Db = Database.Database;
 
@@ -145,13 +146,49 @@ export function migrate(db: Db, steps: readonly string[] = MIGRATIONS): void {
   });
 }
 
-/** Opens the store and brings its tables up to date. Pass ":memory:" for tests. */
-export function openDatabase(path: string): Db {
+/** Whether the store holds anything worth keeping: at least one channel. */
+function hasData(db: Db): boolean {
+  const table = db
+    .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'channels'")
+    .get();
+  return table !== undefined && db.prepare('SELECT 1 FROM channels LIMIT 1').get() !== undefined;
+}
+
+/**
+ * Writes a dated copy of a store that is about to be updated. A store in
+ * memory, a new empty one and one already up to date are left alone. If the
+ * copy cannot be written this throws, so the store is never updated without one.
+ */
+function backupBeforeUpdating(db: Db, path: string, now: Date): void {
+  const version = Number(db.pragma('user_version', { simple: true }));
+  if (!isFileStore(path) || version >= MIGRATIONS.length || !hasData(db)) return;
+  try {
+    backupStore(db, path, now);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `The store could not be backed up before updating it, so it was left as it is: ${reason}`,
+      { cause: error },
+    );
+  }
+}
+
+/**
+ * Opens the store and brings its tables up to date, after copying a store
+ * that holds data and needs updating. Pass ":memory:" for tests.
+ */
+export function openDatabase(path: string, now: Date = new Date()): Db {
   const db = new Database(path);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-  migrate(db);
-  return db;
+  try {
+    db.pragma('journal_mode = WAL');
+    db.pragma('foreign_keys = ON');
+    backupBeforeUpdating(db, path, now);
+    migrate(db);
+    return db;
+  } catch (error) {
+    db.close();
+    throw error;
+  }
 }
 
 export function transactionRunner(db: Db): Transact {

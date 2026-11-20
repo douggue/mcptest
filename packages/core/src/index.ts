@@ -1,5 +1,6 @@
 export { loadConfig, type Config } from './config';
 export { openDatabase, type Db } from './db/sqlite';
+export { backupPathFor, backupStore } from './db/backup';
 export { ingestChannel, type IngestDeps, type IngestOptions, type IngestResult } from './ingest';
 export { buildVideoReport, type VideoReportRow } from './report';
 export { SqliteChannelRepo } from './repos/sqliteChannelRepo';
