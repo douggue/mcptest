@@ -8,6 +8,7 @@ import type {
   RefreshStatus,
   SameTopicList,
   ThumbnailBoard,
+  TransferList,
 } from '@jgtube/core';
 
 /** The niche list, plus whether keyword search can run (it needs a YouTube API key). */
@@ -211,6 +212,26 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ channel, watched }),
+        }),
+      );
+    },
+
+    /**
+     * Ideas several channels made, judged as transfer opportunities for the
+     * place of the channel on screen (or of the mapped channels, with none).
+     */
+    async transfers(channel: string | null): Promise<TransferList> {
+      const query = channel ? `?channel=${encodeURIComponent(channel)}` : '';
+      return unwrap<TransferList>(await call(`/api/transfers${query}`));
+    },
+
+    /** Saves an idea as a transfer opportunity, or stops saving it. */
+    async setTransferSaved(key: string, saved: boolean): Promise<void> {
+      unwrap<unknown>(
+        await call('/api/transfers/save', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ key, saved }),
         }),
       );
     },

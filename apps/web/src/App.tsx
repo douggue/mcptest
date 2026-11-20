@@ -11,12 +11,14 @@ import { Radar } from './components/Radar';
 import { RefreshBar } from './components/RefreshBar';
 import { Shell } from './components/Shell';
 import { ThumbnailBoard } from './components/ThumbnailBoard';
+import { Transfers } from './components/Transfers';
 import { AskClaude } from './components/AskClaude';
 import { useAnalysis } from './components/useAnalysis';
 import { useNiches } from './components/useNiches';
 import { useRefresh } from './components/useRefresh';
 import { useSameTopic } from './components/useSameTopic';
 import { useThumbnailBoard } from './components/useThumbnailBoard';
+import { useTransfers } from './components/useTransfers';
 import { CRAWL_DEFAULT_DEPTH, CRAWL_DEFAULT_MAX_CHANNELS } from '@jgtube/core/src/limits';
 import { createApi, type JobState } from './lib/api';
 import { inScope, type Scope } from './lib/feed';
@@ -145,9 +147,17 @@ export function App() {
   const board = useThumbnailBoard(api, snapshot);
   const sameTopic = useSameTopic(api, snapshot);
   const niches = useNiches(api, snapshot?.mapId ?? null);
+  const transfers = useTransfers(api, snapshot?.center.id ?? null, snapshot?.mapId ?? null);
   const analysis = useAnalysis(api);
-  // A refresh stores new view counts, which the niche list turns into measured growth.
-  const refresh = useRefresh(api, niches.reload);
+  const reloadNiches = niches.reload;
+  const reloadTransfers = transfers.reload;
+  // A refresh stores new view counts and videos: the niche list turns them into
+  // measured growth, and the transfer list may find new versions of an idea.
+  const afterRefresh = useCallback(() => {
+    reloadNiches();
+    reloadTransfers();
+  }, [reloadNiches, reloadTransfers]);
+  const refresh = useRefresh(api, afterRefresh);
   const selected = snapshot?.channels.find((channel) => channel.id === selectedId) ?? null;
   /** Records the owner's say on a channel of the map on screen, then reads the map again. */
   const setStatus = async (channelId: string, status: CompetitorStatus): Promise<void> => {
@@ -241,6 +251,7 @@ export function App() {
           centerTitle={snapshot.center.title}
         />
       )}
+      <Transfers transfers={transfers} hasMap={snapshot !== null} />
       <Niches niches={niches} hasMap={snapshot !== null} />
       <RefreshBar refresh={refresh} />
       <p className="mx-auto w-full max-w-[1440px] px-gutter-desktop pb-space-xl text-label-caps text-outline">

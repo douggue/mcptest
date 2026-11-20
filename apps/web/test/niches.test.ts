@@ -5,6 +5,8 @@ import {
   NICHE_FILTERS,
   describeOrigin,
   describeEarnings,
+  describeLanguage,
+  describeRateTier,
   describeSearch,
   describeHits,
   describeList,
@@ -78,7 +80,19 @@ describe('filterNiches', () => {
     filterNiches(channels, filter).map((channel) => channel.id);
 
   test('offers every channel, the new ones, the small ones, or the watched ones', () => {
-    expect(NICHE_FILTERS.map((option) => option.id)).toEqual(['all', 'new', 'small', 'watched']);
+    expect(NICHE_FILTERS.map((option) => option.id)).toEqual([
+      'all',
+      'new',
+      'small',
+      'language',
+      'watched',
+    ]);
+  });
+
+  test('keeps the channels that write in another alphabet', () => {
+    const mixed = [niche(1), niche(2, { otherLanguage: { script: 'Cyrillic' } })];
+
+    expect(filterNiches(mixed, 'language').map((channel) => channel.id)).toEqual([cid(2)]);
   });
 
   test('keeps everything by default, in the order given', () => {
@@ -167,10 +181,10 @@ describe('describing niches in words', () => {
 
   test('says how many channels were found, what new and small mean, and among how many', () => {
     expect(describeList(listOf([niche(1), niche(2)]))).toBe(
-      '2 channels that are new (first upload in the last 90 days) or small (10K subscribers or fewer) with a recent video far above their size or their usual views, found among the 286 channels Jgtube has read. Most views first.',
+      '2 channels that are new (first upload in the last 90 days) or small (10K subscribers or fewer) with a recent video far above their size or their usual views, found among the 286 channels Jgtube has read. Most views on the last 90 days of uploads first.',
     );
     expect(describeList(listOf([niche(1)], 1))).toBe(
-      '1 channel that is new (first upload in the last 90 days) or small (10K subscribers or fewer) with a recent video far above its size or its usual views, found among the 1 channel Jgtube has read. Most views first.',
+      '1 channel that is new (first upload in the last 90 days) or small (10K subscribers or fewer) with a recent video far above its size or its usual views, found among the 1 channel Jgtube has read. Most views on the last 90 days of uploads first.',
     );
   });
 
@@ -288,6 +302,40 @@ describe('describeEarnings', () => {
 
   test('says so when there is nothing to estimate from', () => {
     expect(describeEarnings(worth(0, 0))).toBe('No uploads in the last 30 days to estimate from');
+  });
+
+  test('speaks of the 90 days when given the longer window', () => {
+    expect(describeEarnings(worth(500, 2000), 90)).toBe(
+      'Views on the last 90 days of uploads are worth about $500–$2K',
+    );
+    expect(describeEarnings(worth(0, 0), 90)).toBe(
+      'No uploads in the last 90 days to estimate from',
+    );
+  });
+});
+
+describe('describeRateTier', () => {
+  test('says the top rate was assumed when the country is not known', () => {
+    expect(describeRateTier(UNKNOWN_TIER)).toBe('Country unknown, so the top ad rate was assumed');
+  });
+
+  test('names the tier and the country it was read from', () => {
+    expect(describeRateTier({ id: 'top', multiplier: 1, country: 'US' })).toBe(
+      'Top ad-rate tier (United States)',
+    );
+    expect(describeRateTier({ id: 'developed', multiplier: 0.5, country: 'FR' })).toBe(
+      'Middle ad-rate tier (France): counted at 50% of the top rate',
+    );
+    expect(describeRateTier({ id: 'emerging', multiplier: 0.2, country: 'ZA' })).toBe(
+      'Lower ad-rate tier (South Africa): counted at 20% of the top rate',
+    );
+  });
+});
+
+describe('describeLanguage', () => {
+  test('names the alphabet when it is known', () => {
+    expect(describeLanguage({ script: 'Cyrillic' })).toBe('Other language · Cyrillic');
+    expect(describeLanguage({ script: null })).toBe('Other language');
   });
 });
 

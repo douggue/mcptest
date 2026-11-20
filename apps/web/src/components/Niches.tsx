@@ -12,6 +12,7 @@ const NOTE = 'rounded bg-surface-card p-space-lg text-body-md text-on-surface-va
 const NO_MATCH: Readonly<Record<Exclude<NicheFilter, 'all'>, string>> = {
   new: 'None of the channels listed is new.',
   small: 'None of the channels listed is small.',
+  language: 'None of the channels listed writes in another alphabet than Latin.',
   watched: 'You are not watching any channel yet. Press Watch on one to keep it here.',
 };
 
