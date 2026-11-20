@@ -1,3 +1,4 @@
+import type { AnalysisId } from './analyses';
 import type {
   CompetitorStatus,
   CrawlProgress,
@@ -179,6 +180,17 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
     /** New or small channels across everything stored with a video that took off, and the watched ones. */
     async niches(): Promise<NichesReply> {
       return unwrap<NichesReply>(await call('/api/niches'));
+    },
+
+    /** Asks Claude for one of the fixed analyses of a channel; resolves with its answer as text. */
+    async analyse(analysis: AnalysisId, channel: string): Promise<string> {
+      return unwrap<{ text: string }>(
+        await call('/api/analyses', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ analysis, channel }),
+        }),
+      ).text;
     },
 
     /** Searches YouTube for recent videos on a subject and reads the channels behind them. */

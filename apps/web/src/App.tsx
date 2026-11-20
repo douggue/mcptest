@@ -11,6 +11,8 @@ import { Radar } from './components/Radar';
 import { RefreshBar } from './components/RefreshBar';
 import { Shell } from './components/Shell';
 import { ThumbnailBoard } from './components/ThumbnailBoard';
+import { AskClaude } from './components/AskClaude';
+import { useAnalysis } from './components/useAnalysis';
 import { useNiches } from './components/useNiches';
 import { useRefresh } from './components/useRefresh';
 import { useSameTopic } from './components/useSameTopic';
@@ -142,6 +144,7 @@ export function App() {
   const board = useThumbnailBoard(api, snapshot);
   const sameTopic = useSameTopic(api, snapshot);
   const niches = useNiches(api, snapshot?.mapId ?? null);
+  const analysis = useAnalysis(api);
   // A refresh stores new view counts, which the niche list turns into measured growth.
   const refresh = useRefresh(api, niches.reload);
   const selected = snapshot?.channels.find((channel) => channel.id === selectedId) ?? null;
@@ -228,6 +231,13 @@ export function App() {
           state={board}
           centerTitle={snapshot.center.title}
           modelId={snapshot.model?.id ?? null}
+        />
+      )}
+      {snapshot && (
+        <AskClaude
+          analysis={analysis}
+          centerId={snapshot.center.id}
+          centerTitle={snapshot.center.title}
         />
       )}
       <Niches niches={niches} hasMap={snapshot !== null} />
