@@ -79,7 +79,7 @@ export function NicheSearch({ canDiscover, search, onSearch }: Props) {
           type="text"
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
-          placeholder="Look for niches by keyword, such as: new invention could replace"
+          placeholder="Look for niches by keyword: a few words that titles in a niche share"
           autoComplete="off"
           spellCheck={false}
           maxLength={MAX_KEYWORD_LENGTH}
