@@ -176,7 +176,12 @@ function start(): void {
   const stop = (): void => {
     timer?.stop();
     server.close();
-    engine.close();
+    // Claude is stopped and work under way winds down before the store is
+    // closed, so nothing is cut off in the middle of a write and no Claude
+    // process is left behind.
+    engine.shutdown().catch((error: unknown) => {
+      process.stderr.write(`Jgtube did not close cleanly: ${String(error)}\n`);
+    });
   };
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);

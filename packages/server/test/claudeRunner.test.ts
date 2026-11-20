@@ -291,6 +291,31 @@ describe('runClaude', () => {
     });
   });
 
+  test('stops the process when Jgtube is closing', async () => {
+    const { child, run } = harness();
+    const closing = new AbortController();
+    const pending = run(request, { signal: closing.signal });
+
+    closing.abort();
+
+    await expect(pending).rejects.toMatchObject({
+      reason: 'failed',
+      message: expect.stringMatching(/Jgtube is closing/),
+    });
+    expect(child.signals).toEqual(['SIGTERM']);
+  });
+
+  test('does not start at all once Jgtube is closing', async () => {
+    const { started, run } = harness();
+    const closing = new AbortController();
+    closing.abort();
+
+    await expect(run(request, { signal: closing.signal })).rejects.toMatchObject({
+      message: expect.stringMatching(/Jgtube is closing/),
+    });
+    expect(started).toEqual([]);
+  });
+
   test('gives up on a reply that grows without end', async () => {
     const { child, run } = harness();
     const pending = run();

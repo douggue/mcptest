@@ -30,6 +30,7 @@ import {
   type StoredChannel,
   type YouTubeSource,
 } from '@jgtube/core';
+import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -42,17 +43,33 @@ import {
   type ClaudeRunRequest,
   type ClaudeRunResult,
 } from './claudeRunner';
-import { connectOnUse, onceUntilItWorks, youtubeSource } from './connection';
+import { connectOnUse, onceUntilItWorks, stopWhen, youtubeSource } from './connection';
 import { cleanMessage } from './jobs';
+import { trackWork, type WorkTracker } from './running';
 
 const IN_MEMORY = ':memory:';
 /** The Jgtube folder: the connector Claude is given lives under it. */
 const PROJECT_ROOT = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 /** Prefix of the private folder Claude starts in. */
 const CLAUDE_WORK_PREFIX = join(tmpdir(), 'jgtube-claude-');
+/**
+ * How long shutting down waits for work under way. Work that reads YouTube
+ * finishes the request it is on (thirty seconds at the very most) and is
+ * refused the next, so it ends well inside this.
+ */
+const CLOSE_GRACE_MS = 10_000;
 
 export interface RunningEngine extends Engine {
+  /**
+   * Closes the store at once, giving back any lease still held. Work under way
+   * fails at its next use of the store; use `shutdown` when there may be some.
+   */
   close(): void;
+  /**
+   * Stops Claude, starts no new work, lets work under way wind down, and then
+   * closes the store. Safe to call more than once.
+   */
+  shutdown(): Promise<void>;
 }
 
 export interface EngineOptions {
@@ -64,8 +81,10 @@ export interface EngineOptions {
     query: string,
     options: { readonly publishedAfter: Date },
   ) => Promise<readonly SearchHit[]>;
-  /** Replaces running Claude Code; used by tests. */
-  readonly runClaude?: (request: ClaudeRunRequest) => Promise<ClaudeRunResult>;
+  /** Replaces running Claude Code; used by tests. The signal aborts when the engine shuts down. */
+  readonly runClaude?: (request: ClaudeRunRequest, stop: AbortSignal) => Promise<ClaudeRunResult>;
+  /** How long shutting down waits for work under way; tests shorten it. */
+  readonly closeGraceMs?: number;
   /** The store as the connector should open it; defaults to the configured path made absolute. */
   readonly storePath?: string;
   /** Replaces the official API's channel facts; used by tests. It is only called when a key is set. */
@@ -102,15 +121,31 @@ interface Wiring {
    * command line, a second server). Refused work rejects before it connects.
    */
   readonly reading: <T>(work: () => Promise<T>) => Promise<T>;
+  /** The work under way, so shutting down can wait for it. */
+  readonly work: WorkTracker;
+  /** Gives back every lease this engine still holds. */
+  readonly releaseLeases: () => void;
 }
 
 function wire(config: Config, options: EngineOptions): Wiring {
   const db = openDatabase(config.dbPath);
   const now = options.now ?? (() => new Date());
   const leases = new SqliteLeaseRepo(db);
+  const work = trackWork();
   // Made on first use, so stored maps can be read with no network at all, and
-  // shared by crawls, refreshes and keyword searches.
-  const connected = onceUntilItWorks(options.createSource ?? (() => youtubeSource(config)));
+  // shared by crawls, refreshes and keyword searches. Once the engine is
+  // shutting down it asks YouTube for nothing more.
+  const connect = onceUntilItWorks(options.createSource ?? (() => youtubeSource(config)));
+  const connected = async (): Promise<YouTubeSource> => stopWhen(await connect(), work.isClosing);
+  // The leases this engine holds now, by owner, so closing can give them back.
+  let held: ReadonlySet<string> = new Set();
+  const holding = <T>(reads: () => Promise<T>): Promise<T> => {
+    const owner = randomUUID();
+    held = new Set([...held, owner]);
+    return withYouTubeLease({ leases, now, newOwner: () => owner }, reads).finally(() => {
+      held = new Set([...held].filter((other) => other !== owner));
+    });
+  };
   return {
     config,
     options,
@@ -120,7 +155,9 @@ function wire(config: Config, options: EngineOptions): Wiring {
     leases,
     connected,
     lazySource: connectOnUse(connected),
-    reading: (work) => withYouTubeLease({ leases, now }, work),
+    reading: (reads) => work.run(() => holding(reads)),
+    work,
+    releaseLeases: () => held.forEach((owner) => leases.release(owner)),
   };
 }
 
@@ -300,32 +337,34 @@ interface ClaudeAnalyses extends Pick<Engine, 'analyse'> {
   cleanUp(): void;
 }
 
-/** The fixed analyses, each one boxed-in run of Claude Code. */
-function claudeAnalyses({ config, options }: Wiring): ClaudeAnalyses {
+/** The fixed analyses, each one boxed-in run of Claude Code that `stop` can end. */
+function claudeAnalyses({ config, options, work }: Wiring, stop: AbortSignal): ClaudeAnalyses {
   let workDir: string | null = null;
   const run =
     options.runClaude ??
-    ((wanted: ClaudeRunRequest) => runClaude(wanted, { spawn: spawnClaude, env: process.env }));
+    ((wanted: ClaudeRunRequest, signal: AbortSignal) =>
+      runClaude(wanted, { spawn: spawnClaude, env: process.env, signal }));
+  const analyse: Engine['analyse'] = async (analysis, channel) => {
+    const storePath =
+      options.storePath ?? (config.dbPath === IN_MEMORY ? null : resolve(config.dbPath));
+    if (storePath === null) {
+      throw new Error(
+        'Claude needs the store to be a file on disk, and this one is only in memory',
+      );
+    }
+    // Made on first use, owner-only and with a name nobody can guess, so no other
+    // account on the computer can plant settings for Claude to pick up there.
+    workDir ??= mkdtempSync(CLAUDE_WORK_PREFIX);
+    const request = analysisRequest(analysis, channel, {
+      projectRoot: PROJECT_ROOT,
+      dbPath: storePath,
+      workDir,
+    });
+    const { text } = await run(request, stop);
+    return { text };
+  };
   return {
-    async analyse(analysis, channel) {
-      const storePath =
-        options.storePath ?? (config.dbPath === IN_MEMORY ? null : resolve(config.dbPath));
-      if (storePath === null) {
-        throw new Error(
-          'Claude needs the store to be a file on disk, and this one is only in memory',
-        );
-      }
-      // Made on first use, owner-only and with a name nobody can guess, so no other
-      // account on the computer can plant settings for Claude to pick up there.
-      workDir ??= mkdtempSync(CLAUDE_WORK_PREFIX);
-      const request = analysisRequest(analysis, channel, {
-        projectRoot: PROJECT_ROOT,
-        dbPath: storePath,
-        workDir,
-      });
-      const { text } = await run(request);
-      return { text };
-    },
+    analyse: (analysis, channel) => work.run(() => analyse(analysis, channel)),
 
     cleanUp() {
       if (workDir !== null) rmSync(workDir, { recursive: true, force: true });
@@ -337,7 +376,18 @@ function claudeAnalyses({ config, options }: Wiring): ClaudeAnalyses {
 export function createEngine(config: Config, options: EngineOptions = {}): RunningEngine {
   const wiring = wire(config, options);
   const fillFacts = factsFiller(wiring);
-  const claude = claudeAnalyses(wiring);
+  const stopClaude = new AbortController();
+  const claude = claudeAnalyses(wiring, stopClaude.signal);
+  let closed = false;
+  let shuttingDown: Promise<void> | null = null;
+  const close = (): void => {
+    if (closed) return;
+    closed = true;
+    // Work cut short cannot give its lease back once the store is closed.
+    wiring.releaseLeases();
+    claude.cleanUp();
+    wiring.db.close();
+  };
   return {
     ...mapReads(wiring),
     ...ownerChoices(wiring),
@@ -350,9 +400,15 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       return wiring.leases.holder(wiring.now()) !== null;
     },
 
-    close() {
-      claude.cleanUp();
-      wiring.db.close();
+    close,
+
+    shutdown() {
+      shuttingDown ??= (async () => {
+        stopClaude.abort();
+        await wiring.work.windDown(options.closeGraceMs ?? CLOSE_GRACE_MS);
+        close();
+      })();
+      return shuttingDown;
     },
   };
 }

@@ -102,6 +102,8 @@ export interface ClaudeRunDeps {
   readonly killGraceMs?: number;
   /** The operating system, which changes the wording of one message; tests set it. */
   readonly platform?: string;
+  /** Aborted when Jgtube is closing: the run is stopped, or never started. */
+  readonly signal?: AbortSignal;
 }
 
 const replySchema = z.object({
@@ -231,11 +233,15 @@ function stopProcess(child: ClaudeChild, graceMs: number): void {
   child.on('close', () => clearTimeout(force));
 }
 
+const closingError = (): ClaudeRunError =>
+  new ClaudeRunError('failed', 'Claude was stopped because Jgtube is closing.');
+
 /** Runs Claude Code once and resolves with its answer. Rejects with a ClaudeRunError. */
 export function runClaude(
   request: ClaudeRunRequest,
   deps: ClaudeRunDeps,
 ): Promise<ClaudeRunResult> {
+  if (deps.signal?.aborted) return Promise.reject(closingError());
   return new Promise((resolve, reject) => {
     const child = deps.spawn(COMMAND, buildClaudeArgs(request), {
       cwd: request.cwd,
@@ -259,6 +265,8 @@ export function runClaude(
       () => stop(new ClaudeRunError('timeout', 'Claude took too long and was stopped. Try again.')),
       request.timeoutMs,
     );
+
+    deps.signal?.addEventListener('abort', () => stop(closingError()), { once: true });
 
     // Once the verdict is in, whatever else the process prints is not kept.
     child.stdout.on('data', (chunk: unknown) => {

@@ -35,6 +35,33 @@ export function onceUntilItWorks<T>(make: () => Promise<T>): () => Promise<T> {
   };
 }
 
+export const NOT_READING = 'Jgtube is closing, so nothing more is read from YouTube.';
+
+/**
+ * A source that asks YouTube for nothing more once `isStopped` says so. Work
+ * under way then finishes the request it is on, finds every further one
+ * refused, and winds down by its own rules for failures in a row.
+ */
+export function stopWhen(source: YouTubeSource, isStopped: () => boolean): YouTubeSource {
+  const check = (): void => {
+    if (isStopped()) throw new Error(NOT_READING);
+  };
+  return {
+    resolveChannelId: async (handle) => {
+      check();
+      return source.resolveChannelId(handle);
+    },
+    fetchChannel: async (channelId, maxVideos) => {
+      check();
+      return source.fetchChannel(channelId, maxVideos);
+    },
+    getSidebar: async (videoId) => {
+      check();
+      return source.getSidebar(videoId);
+    },
+  };
+}
+
 /**
  * A source that connects on first use. Work that finds nothing to read then
  * makes no request at all, which matters to a timer that fires every few hours.
