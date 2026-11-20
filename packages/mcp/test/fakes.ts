@@ -254,6 +254,9 @@ export function niche(overrides: Partial<NicheChannel> = {}): NicheChannel {
     ],
     qualifies: true,
     watched: false,
+    growth: null,
+    createdAt: null,
+    country: null,
     ...overrides,
   };
 }
