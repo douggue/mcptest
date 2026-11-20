@@ -2,6 +2,7 @@ import type { MapSnapshot } from '@jgtube/core';
 import { Eye, Network } from 'lucide-react';
 import { useState } from 'react';
 import { formatCount, formatScore, initials } from '../lib/format';
+import { GROUP_LABEL } from '../lib/mix';
 import { TIER_LABEL } from './tiers';
 
 const ROWS_SHOWN = 8;
@@ -55,6 +56,15 @@ export function Benchmarks({ snapshot, selectedId, onSelect }: Props) {
                     {channel.title}
                   </span>
                   <span className="truncate text-label-caps text-outline">
+                    {channel.peer && (
+                      <span
+                        className={
+                          channel.group === 'neither' ? undefined : 'text-primary-fixed-dim'
+                        }
+                      >
+                        {GROUP_LABEL[channel.group]} ·{' '}
+                      </span>
+                    )}
                     {TIER_LABEL[channel.tier]} · {formatCount(channel.subscribers)} subs
                   </span>
                 </div>
@@ -64,7 +74,7 @@ export function Benchmarks({ snapshot, selectedId, onSelect }: Props) {
                   <span className="rounded-full bg-metric-amber-bg px-2 py-0.5 text-metric-badge text-metric-amber">
                     {formatScore(score)}
                   </span>
-                ) : channel.rising ? (
+                ) : channel.rising && !channel.peer ? (
                   <span className="text-label-caps text-secondary">Rising</span>
                 ) : null}
                 <button

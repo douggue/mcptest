@@ -255,6 +255,9 @@ describe('loadMapSnapshot', () => {
       subscribers: 900,
       recentViews: 43_000,
       rising: true,
+      group: 'rising',
+      ninetyDayViews: 43_000,
+      widelySeenUploads: 1,
     });
     expect(snapshot?.channels[0]?.breakout?.videoId).toBe(vid('A', 1));
     expect(snapshot?.channels[1]).toMatchObject({
@@ -324,6 +327,15 @@ describe('loadMapSnapshot', () => {
       (id: number) =>
         JSON.stringify({
           format: 4,
+          snapshot: { mapId: id, center: { id: cid('C') }, channels: [], breakouts: [], edges: [] },
+        }),
+    ],
+    [
+      // Format 5: before each channel said whether it has taken off or is rising.
+      'does not say which group each channel is in',
+      (id: number) =>
+        JSON.stringify({
+          format: 5,
           snapshot: { mapId: id, center: { id: cid('C') }, channels: [], breakouts: [], edges: [] },
         }),
     ],
@@ -596,5 +608,105 @@ describe('a channel the owner keeps as a competitor', () => {
     deps.maps.saveSnapshot(mapId, JSON.stringify(frozen));
 
     expect(load()?.channels.map((entry) => entry.kept)).toEqual([false, false]);
+  });
+});
+
+describe('the look-alikes of a stored map', () => {
+  let deps: SnapshotDeps;
+
+  /** Four uploads inside the last three months and one long before: an established channel. */
+  const established = (letter: string, views: number): StorableVideo[] => [
+    ...[5, 10, 15, 20].map((daysAgo, n) => storable(letter, n + 1, views, daysAgo)),
+    storable(letter, 5, views, 200),
+  ];
+
+  beforeEach(() => {
+    const db = openDatabase(':memory:');
+    deps = {
+      channels: new SqliteChannelRepo(db),
+      videos: new SqliteVideoRepo(db),
+      edges: new SqliteEdgeRepo(db),
+      maps: new SqliteMapRepo(db),
+    };
+    deps.channels.upsert(channel('C', 1000), NOW);
+    deps.videos.upsertMany(established('C', 1000), NOW);
+    for (const letter of ['T', 'U', 'V']) {
+      deps.channels.upsert(channel(letter, 5000), NOW);
+      deps.videos.upsertMany(established(letter, 40_000), NOW);
+    }
+    deps.channels.upsert(channel('R', 900), NOW);
+    deps.videos.upsertMany(
+      [1, 2, 3, 4].map((n) => storable('R', n, 12_000, 5 * n)),
+      NOW,
+    );
+    deps.channels.upsert(channel('N', 5000), NOW);
+    deps.videos.upsertMany(established('N', 100), NOW);
+    deps.channels.upsert(channel('X', 5_000_000), NOW);
+    deps.videos.upsertMany(established('X', 2_000_000), NOW);
+    deps.maps.create(
+      {
+        centerChannelId: cid('C'),
+        depth: 2,
+        region: 'US',
+        members: ['C', 'N', 'R', 'T', 'U', 'V', 'X'].map((letter) => ({
+          channelId: cid(letter),
+          steps: letter === 'C' ? 0 : 1,
+        })),
+      },
+      NOW,
+    );
+  });
+
+  const peers = () =>
+    (loadMapSnapshot(deps, cid('C'), NOW)?.channels ?? []).filter((entry) => entry.peer);
+  const groups = () => peers().map((entry) => `${entry.title.slice(-1)}:${entry.group}`);
+
+  test('come about seven taken off to three rising, with the rest last', () => {
+    expect(groups()).toEqual([
+      'T:taken-off',
+      'R:rising',
+      'U:taken-off',
+      'V:taken-off',
+      'N:neither',
+    ]);
+  });
+
+  test('keep that order on a frozen copy, with each channel’s group stored', () => {
+    freezeMapSnapshot(deps, cid('C'), NOW);
+
+    expect(groups()).toEqual([
+      'T:taken-off',
+      'R:rising',
+      'U:taken-off',
+      'V:taken-off',
+      'N:neither',
+    ]);
+  });
+
+  test('are mixed again without a channel the owner removed, which is listed after them', () => {
+    freezeMapSnapshot(deps, cid('C'), NOW);
+    deps.maps.setRemoved(cid('C'), cid('T'), true, NOW);
+
+    expect(peers().map((entry) => [entry.title.slice(-1), entry.removed])).toEqual([
+      ['U', false],
+      ['R', false],
+      ['V', false],
+      ['N', false],
+      ['T', true],
+    ]);
+  });
+
+  test('take in a channel the owner kept, in its own group', () => {
+    freezeMapSnapshot(deps, cid('C'), NOW);
+    deps.maps.setKept(cid('C'), cid('X'), true, NOW);
+
+    expect(groups()).toEqual([
+      'T:taken-off',
+      'R:rising',
+      'U:taken-off',
+      'V:taken-off',
+      'X:taken-off',
+      'N:neither',
+    ]);
   });
 });

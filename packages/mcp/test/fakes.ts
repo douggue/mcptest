@@ -40,6 +40,9 @@ export function channel(overrides: Partial<SnapshotChannel> = {}): SnapshotChann
     recentViews: 120_000,
     recentUploads: 4,
     rising: false,
+    group: 'neither',
+    ninetyDayViews: 0,
+    widelySeenUploads: 0,
     breakout: null,
     recommendedBy: [],
     peer: true,
@@ -91,6 +94,7 @@ export function snapshot(overrides: Partial<MapSnapshot> = {}): MapSnapshot {
     channels: [
       channel({
         rising: true,
+        group: 'rising',
         breakout: {
           videoId: 'aaaaaaaaaa1',
           title: 'America Just Built The Impossible',

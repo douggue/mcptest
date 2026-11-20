@@ -13,6 +13,20 @@ export { parseChannelRef, VIDEO_ID_PATTERN } from './sources/parse';
 export type { ChannelInfo, SidebarItem, VideoItem, YouTubeSource } from './sources/types';
 export { crawlMap, type CrawlDeps, type CrawlOptions, type CrawlResult } from './crawl/crawl';
 export { buildMapView, loadMapView, type MapRow, type Tier } from './map/view';
+export {
+  MIX_TAKEN_OFF_PERCENT,
+  TAKEN_OFF_MIN_VIDEOS,
+  TAKEN_OFF_MIN_VIDEO_VIEWS,
+  TAKEN_OFF_MIN_VIEWS_PER_SUBSCRIBER,
+  TAKEN_OFF_MIN_WINDOW_VIEWS,
+  TAKEN_OFF_WINDOW_DAYS,
+  channelGroup,
+  mixOrder,
+  mixSplit,
+  type ChannelGroup,
+  type GroupEvidence,
+  type MixSplit,
+} from './map/mix';
 export { SqliteEdgeRepo } from './repos/sqliteEdgeRepo';
 export { SqliteMapRepo } from './repos/sqliteMapRepo';
 export { listBreakouts, type BreakoutVideo } from './map/breakouts';

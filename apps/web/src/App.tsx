@@ -22,6 +22,7 @@ import { useTransfers } from './components/useTransfers';
 import { CRAWL_DEFAULT_DEPTH, CRAWL_DEFAULT_MAX_CHANNELS } from '@jgtube/core/src/limits';
 import { createApi, type JobState } from './lib/api';
 import { inScope, type Scope } from './lib/feed';
+import { describeMix } from './lib/mix';
 import { layoutRadar } from './lib/radarLayout';
 
 const STORAGE_KEY = 'jgtube.channel';
@@ -226,6 +227,7 @@ export function App() {
             }}
             peerCount={peerCount}
             totalCount={snapshot.channels.length}
+            mix={describeMix(snapshot.channels)}
           />
         )}
         {selected && snapshot && (

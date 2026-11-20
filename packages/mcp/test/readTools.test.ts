@@ -42,6 +42,7 @@ describe('get_map', () => {
         removed: 1,
         breakouts: 2,
         otherBreakouts: 1,
+        mix: { takenOff: 0, rising: 1, neither: 1 },
       },
       lookalikes: [
         {
@@ -51,6 +52,7 @@ describe('get_map', () => {
           match: 62,
           tier: 'close',
           rising: true,
+          group: 'rising',
           best: {
             video: 'aaaaaaaaaa1',
             title: 'America Just Built The Impossible',
@@ -61,6 +63,25 @@ describe('get_map', () => {
         { id: BETA_ID, title: 'Beta', match: 41, tier: 'medium' },
       ],
     });
+  });
+
+  test('says which look-alikes have taken off and counts the mix among them', async () => {
+    engine.stored = snapshot({
+      channels: [
+        channel({ group: 'taken-off' }),
+        channel({ id: BETA_ID, title: 'Beta', group: 'rising', rising: true }),
+        channel({ id: GIANT_ID, title: 'Giant', group: 'taken-off', peer: false }),
+      ],
+    });
+
+    const data = jsonOf(await tools.getMap({ channel: '@mychannel', include_others: true }));
+
+    expect(
+      (data['lookalikes'] as object[]).map((entry) => (entry as { group?: string }).group),
+    ).toEqual(['taken-off', 'rising']);
+    expect(data['counts']).toMatchObject({ mix: { takenOff: 1, rising: 1, neither: 0 } });
+    // The mix is about the look-alikes: a channel that is not one carries no group.
+    expect((data['others'] as object[])[0]).not.toHaveProperty('group');
   });
 
   test('leaves absent optional data out instead of sending nulls', async () => {

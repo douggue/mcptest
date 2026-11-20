@@ -37,6 +37,9 @@ const channel = (n: number, overrides: Partial<SnapshotChannel> = {}): SnapshotC
   recentViews: 1000,
   recentUploads: 2,
   rising: false,
+  group: 'neither',
+  ninetyDayViews: 0,
+  widelySeenUploads: 0,
   breakout: null,
   recommendedBy: [],
   peer: true,
@@ -289,6 +292,32 @@ describe('layoutRadar', () => {
     expect(layout.nodes.length).toBeLessThan(40);
     expect(layout.nodes[0]?.id).toBe(cid(1));
     expect(layout.hidden).toBe(40 - layout.nodes.length);
+  });
+
+  test('fills each ring with look-alikes in the taken-off-and-rising mix', () => {
+    // Ten that have taken off are listed before the two that are rising, as a
+    // list cut down to one ring is: the ring's eight places must still hold both.
+    const channels = [
+      ...Array.from({ length: 10 }, (_, n) => channel(n + 1, { group: 'taken-off' })),
+      channel(11, { group: 'rising' }),
+      channel(12, { group: 'rising' }),
+    ];
+
+    const shown = layoutRadar(snapshotOf(channels)).nodes.map((node) => node.id);
+
+    expect(shown).toEqual([1, 11, 2, 3, 4, 12, 5, 6].map(cid));
+  });
+
+  test('places look-alikes on a ring before the channels that are not', () => {
+    const channels = [
+      channel(1, { peer: false, group: 'rising' }),
+      channel(2, { group: 'neither' }),
+      channel(3, { group: 'taken-off' }),
+    ];
+
+    const shown = layoutRadar(snapshotOf(channels)).nodes.map((node) => node.id);
+
+    expect(shown).toEqual([3, 2, 1].map(cid));
   });
 
   test('gives the same positions every time', () => {

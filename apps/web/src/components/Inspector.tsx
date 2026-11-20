@@ -3,6 +3,7 @@ import type { CompetitorStatus, SnapshotChannel } from '@jgtube/core';
 import { ExternalLink, X } from 'lucide-react';
 import { competitorActions, unsettledNote } from '../lib/feed';
 import { channelUrl, formatCount, formatScore, initials, percent, watchUrl } from '../lib/format';
+import { GROUP_LABEL, describeGroup } from '../lib/mix';
 import { OUTSIDE_LABEL, TIER_LABEL } from './tiers';
 
 interface Props {
@@ -53,7 +54,11 @@ export function Inspector({ channel, onClose, onSetStatus }: Props) {
             <span className="text-label-caps text-outline">
               {TIER_LABEL[channel.tier]} ·{' '}
               {channel.steps === 1 ? '1 step' : `${channel.steps} steps`}
-              {channel.rising ? ' · Rising' : ''}
+              {channel.peer
+                ? ` · ${GROUP_LABEL[channel.group]}`
+                : channel.rising
+                  ? ' · Rising'
+                  : ''}
               {channel.kept ? ' · Kept by you' : ''}
             </span>
           </div>
@@ -109,6 +114,12 @@ export function Inspector({ channel, onClose, onSetStatus }: Props) {
           </span>
         </div>
       </div>
+
+      {channel.peer && (
+        <p className="mt-space-sm rounded bg-space-deep p-2.5 text-body-sm text-on-surface-variant">
+          {describeGroup(channel)}
+        </p>
+      )}
 
       {channel.outsideReason && (
         <p className="mt-space-sm rounded bg-space-deep p-2.5 text-body-sm text-on-surface-variant">
