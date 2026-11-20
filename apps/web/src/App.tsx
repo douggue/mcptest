@@ -195,11 +195,25 @@ export function App() {
         onSelect={select}
         emptyState={
           <div className="max-w-md rounded bg-space-canvas/80 p-space-lg backdrop-blur-md">
-            <h1 className="text-headline-lg text-on-surface">Map who you compete with</h1>
-            <p className="mt-2 text-body-lg text-on-surface-variant">
-              Paste your channel above and press Find competitors. Jgtube follows YouTube&rsquo;s
-              recommendations out from your videos; a full map takes a few minutes.
-            </p>
+            {job?.status === 'running' ? (
+              <div role="status">
+                <h1 className="text-headline-lg text-on-surface">Making your map</h1>
+                <p className="mt-2 text-body-lg text-on-surface-variant">
+                  Jgtube is following YouTube&rsquo;s recommendations out from the channel and
+                  reading the channels it finds. This takes a few minutes; the map appears here when
+                  it is done. Keep this page open.
+                </p>
+              </div>
+            ) : (
+              <>
+                <h1 className="text-headline-lg text-on-surface">Map who you compete with</h1>
+                <p className="mt-2 text-body-lg text-on-surface-variant">
+                  Paste your channel above and press Find competitors. Jgtube follows
+                  YouTube&rsquo;s recommendations out from your videos; a full map takes a few
+                  minutes.
+                </p>
+              </>
+            )}
           </div>
         }
       >
