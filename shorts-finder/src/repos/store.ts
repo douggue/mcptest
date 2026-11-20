@@ -4,6 +4,7 @@ import { SqliteFindingRepo } from './sqliteFindingRepo';
 import { SqliteFollowRepo } from './sqliteFollowRepo';
 import { SqliteGrowthRepo } from './sqliteGrowthRepo';
 import { SqliteReadingRepo } from './sqliteReadingRepo';
+import { SqliteReportRepo } from './sqliteReportRepo';
 import { SqlitePassedOverRepo, SqlitePendingHitRepo } from './sqliteSearchMemoryRepo';
 import { SqliteServiceStateRepo } from './sqliteServiceStateRepo';
 import { SqliteSubjectHitRepo, SqliteSubjectRepo } from './sqliteSubjectRepo';
@@ -26,6 +27,7 @@ export function openStore(db: Db): Store {
     tracking: new SqliteTrackingRepo(db),
     findings: new SqliteFindingRepo(db),
     state: new SqliteServiceStateRepo(db),
+    report: new SqliteReportRepo(db),
     transact: transactionRunner(db),
   };
 }

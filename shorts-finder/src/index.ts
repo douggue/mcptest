@@ -148,6 +148,14 @@ export {
   type QuotaPlan,
   type Remaining,
 } from './quota/ledger';
+export {
+  buildEvidence,
+  formatEvidence,
+  type Evidence,
+  type RegionOverlap,
+  type SubjectEvidence,
+  type SubjectVideo,
+} from './report/evidence';
 export { SqliteChannelRepo } from './repos/sqliteChannelRepo';
 export { SqliteFindingRepo } from './repos/sqliteFindingRepo';
 export { SqliteLeaseRepo } from './repos/sqliteLeaseRepo';

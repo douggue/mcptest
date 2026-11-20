@@ -7,7 +7,7 @@ import { openDatabase } from '../src/db/sqlite';
 import { SqliteQuotaRepo } from '../src/repos/sqliteQuotaRepo';
 import { openStore } from '../src/repos/store';
 import { noteOutcome } from '../src/status';
-import { NOW } from './fixtures/facts';
+import { NOW, channelFacts, videoFacts } from './fixtures/facts';
 import { newFinding } from './fixtures/findings';
 
 let folder: string;
@@ -222,5 +222,57 @@ describe('npm run status', () => {
     expect(run(['status'], { SHORTS_DAILY_UNITS: 'lots' })).toBe(EXIT_FAILED);
     expect(err).toHaveLength(1);
     expect(err[0]).toMatch(/Invalid configuration\. SHORTS_DAILY_UNITS/);
+  });
+});
+
+describe('npm run report', () => {
+  test('says so when nothing has been found yet', () => {
+    const code = run(['report']);
+
+    expect(code).toBe(EXIT_OK);
+    expect(out).toEqual([
+      'Nothing has been found yet. Run the service for a while, then ask again.',
+    ]);
+  });
+
+  test('prints what the searches have found, by subject and country', () => {
+    run(['subjects', 'add', 'night sky', '--regions', 'CA,AU']);
+    const db = openDatabase(dbPath, NOW);
+    const store = openStore(db);
+    store.channels.upsert(channelFacts('A'), NOW);
+    store.videos.upsert(videoFacts(1, 'A'), NOW);
+    store.growth.save(videoFacts(1, 'A').id, {
+      views1h: null,
+      views6h: null,
+      views24h: 4450,
+      views72h: null,
+      views7d: null,
+    });
+    [1, 2].forEach((subjectId) =>
+      store.hits.add({
+        subjectId,
+        videoId: videoFacts(1, 'A').id,
+        kind: 'newest',
+        rank: 2,
+        ageHours: 1,
+        firstSeenAt: NOW,
+      }),
+    );
+    db.close();
+    out.length = 0;
+
+    const code = run(['report']);
+
+    expect(code).toBe(EXIT_OK);
+    expect(out).toContain('"night sky" in CA: 1 videos found');
+    expect(out).toContain(
+      '  views at 24 h per subscriber: min 5.00, quartiles 5.00 / 5.00 / 5.00, max 5.00 (1 videos)',
+    );
+    expect(out.at(-1)).toBe('"night sky" AU and CA: 1 shared of 1 and 1 (100% of the smaller)');
+  });
+
+  test('takes no further words', () => {
+    expect(run(['report', 'everything'])).toBe(EXIT_USAGE);
+    expect(USAGE).toContain('npm run report');
   });
 });

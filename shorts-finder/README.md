@@ -25,6 +25,7 @@ no finding alerts go out until that step is built. What exists:
 | The loop that runs the cycles      | `src/schedule/scheduler.ts`                       |
 | The service, and its entry point   | `src/service.ts`, `src/main.ts`                   |
 | Commands run by hand               | `src/cli/run.ts`, `src/cli.ts`                    |
+| The evidence report                | `src/report/evidence.ts`                          |
 | The one logger                     | `src/log.ts`                                      |
 | Earnings range for Shorts          | `src/scoring/earnings.ts`                         |
 | Server set-up                      | `deploy/` (see `deploy/README.md`)                |
@@ -60,11 +61,20 @@ npm run subjects -- add "a keyword" [--regions US,GB] [--every 24] [--newest-eve
 npm run subjects -- list
 npm run subjects -- disable 3              # and: enable 3
 npm run status                             # units spent, subjects, tracked videos, last runs
+npm run report                             # what the searches have found, for reading the evidence
 ```
 
-All three load `.env` if it is there (`node --env-file-if-exists=.env`) and
+`npm run report` prints, for each subject and country, how many videos were
+found, how they spread over the age bands (the cohort sizes), the spread
+(least, quartiles, most) of their views at 24 hours and of views at 24 hours
+per subscriber, and how much each keyword's finds overlap between countries.
+It sets no threshold: `src/rank/cohort.ts` returns positions in a group and
+nothing else, and the cut-offs for "outperforms" are to be chosen from these
+figures by a later step.
+
+All of them load `.env` if it is there (`node --env-file-if-exists=.env`) and
 run the TypeScript directly through `tsx`; there is no build step, so what
-runs is what is in `src/`. `subjects` and `status` need no key or token.
+runs is what is in `src/`. `subjects`, `status` and `report` need no key or token.
 
 The service writes one line of JSON per event to standard output and nothing
 else; under systemd that is the journal. It stops on SIGTERM or SIGINT by

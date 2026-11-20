@@ -1,6 +1,6 @@
 /**
- * The commands the owner runs by hand: the list of subjects, and a look at
- * how the service is doing. They open the same store as the service and read
+ * The commands the owner runs by hand: the list of subjects, a look at how
+ * the service is doing, and a report of what the searches have gathered. They open the same store as the service and read
  * nothing from YouTube or Telegram, so they need neither key nor token.
  */
 import { parseArgs } from 'node:util';
@@ -8,6 +8,7 @@ import { sizeInWords, wholeNumber } from '../alerts/text';
 import { loadStoreConfig, type StoreConfig } from '../config';
 import { reasonOf } from '../cycleStop';
 import { openDatabase } from '../db/sqlite';
+import { buildEvidence, formatEvidence } from '../report/evidence';
 import { SqliteQuotaRepo } from '../repos/sqliteQuotaRepo';
 import { openStore } from '../repos/store';
 import type { Store, Subject } from '../repos/types';
@@ -25,6 +26,7 @@ export const USAGE = [
   '  npm run subjects -- disable <id>',
   '  npm run subjects -- enable <id>',
   '  npm run status',
+  '  npm run report',
 ].join('\n');
 
 export interface CliDeps {
@@ -168,10 +170,18 @@ function status(session: Session): number {
   return EXIT_OK;
 }
 
+/** What the searches have gathered so far, for the owner to read the evidence off. */
+function report(session: Session): number {
+  const evidence = buildEvidence(session.store.report.subjectVideos(), session.deps.now());
+  formatEvidence(evidence).forEach((line) => session.deps.out(line));
+  return EXIT_OK;
+}
+
 function dispatch(session: Session, args: readonly string[]): number {
   const [command, ...rest] = args;
   if (command === 'subjects') return subjects(session, rest);
   if (command === 'status' && rest.length === 0) return status(session);
+  if (command === 'report' && rest.length === 0) return report(session);
   throw new UsageError('Unknown command');
 }
 

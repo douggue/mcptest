@@ -5,6 +5,7 @@
 #   sudo shorts-finder status
 #   sudo shorts-finder subjects add "a keyword"
 #   sudo shorts-finder subjects list
+#   sudo shorts-finder report
 #
 # Only the SHORTS_ settings are passed on. The API key and the Telegram token
 # are not: these commands do not need them.

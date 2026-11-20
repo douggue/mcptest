@@ -1,4 +1,5 @@
 import type { QuotaKind } from '../quota/kinds';
+import type { SubjectVideo } from '../report/evidence';
 import type { NewSubject } from '../subjects/subject';
 import type { GrowthSummary } from '../track/growth';
 import type { ChannelFacts, VideoFacts } from '../youtube/dataApi';
@@ -524,6 +525,12 @@ export interface ServiceStateRepo {
   set(key: string, value: string, at: Date): void;
 }
 
+/** What the evidence report reads from the store. */
+export interface ReportRepo {
+  /** Every stored video a subject's searches found, once for each subject, with its figures. */
+  subjectVideos(): readonly SubjectVideo[];
+}
+
 /** Every repository over one store, and the means to write to several as one. */
 export interface Store {
   readonly channels: ChannelRepo;
@@ -538,5 +545,6 @@ export interface Store {
   readonly tracking: TrackingRepo;
   readonly findings: FindingRepo;
   readonly state: ServiceStateRepo;
+  readonly report: ReportRepo;
   readonly transact: Transact;
 }
