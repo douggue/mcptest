@@ -137,8 +137,10 @@ describe('running Antigravity with tools', () => {
     expect(started[0]?.command).toBe('agy');
     expect(started[0]?.args.slice(0, 2)).toEqual([
       '-p',
-      'You are a YouTube analyst.\n\nWhich videos should I make next?',
+      'You are a YouTube analyst. Which videos should I make next?',
     ]);
+    // One line: a line break is the one thing a Windows `.cmd` program cannot be passed.
+    expect(started[0]?.args[1]).not.toMatch(/[\r\n]/);
     expect(seen).toMatchObject({ config: agyMcpConfig(request()), mode: 0 });
     expect(seen!.cwd.startsWith(join(work, 'run-'))).toBe(true);
   });

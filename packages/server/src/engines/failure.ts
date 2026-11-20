@@ -83,6 +83,12 @@ export function toolsOf(server: string, allowedTools: readonly string[]): readon
   });
 }
 
-/** For engines with no place for a system prompt: it goes ahead of the question. */
-export const promptWithInstructions = (systemPrompt: string, prompt: string): string =>
-  `${systemPrompt}\n\n${prompt}`;
+/**
+ * For engines with no place for a system prompt: it goes ahead of the
+ * question. `between` is a blank line unless the text must stay on one line.
+ */
+export const promptWithInstructions = (
+  systemPrompt: string,
+  prompt: string,
+  between = '\n\n',
+): string => `${systemPrompt}${between}${prompt}`;

@@ -4,8 +4,11 @@
 
 One TypeScript codebase in three layers. The research engine is a library
 (`packages/core`). Two thin shells sit over it: a local web server with a page
-(`packages/server`, `apps/web`) and a Claude connector (`packages/mcp`). Claude
-does the judging, on the owner's own plan; Jgtube never calls a model API itself.
+(`packages/server`, `apps/web`) and a Claude connector (`packages/mcp`). An AI
+the owner already pays for does the judging: Antigravity, Claude Code or Codex,
+started by the server, or Claude in a chat through the connector. The one model
+API Jgtube calls itself is Gemini's, to watch a video, and only with the owner's
+own key.
 
 ```mermaid
 flowchart LR
@@ -25,8 +28,9 @@ flowchart LR
   WEB --> SRV
   SRV --> Core
   MCP --> SRV
-  SRV -- starts --> CC[Claude Code<br/>one boxed-in run]
+  SRV -- starts --> CC[An AI engine: Antigravity,<br/>Claude Code or Codex,<br/>one boxed-in run]
   CC -- tools --> MCP
+  SRV -- video link, owner's key --> GEM[Gemini API]
   CRAWL --> IT[InnertubeSource<br/>youtubei.js]
   DISC --> DA[Official YouTube Data API<br/>owner's key]
   REPO --> DB[(SQLite file)]
@@ -39,17 +43,18 @@ not done.
 
 ## Stack
 
-| Concern       | Choice                                                                                                   | Why                                                                                               |
-| ------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Language      | TypeScript, Node 22                                                                                      | One language for engine, connector, server and page                                               |
-| YouTube pages | `youtubei.js` behind the `YouTubeSource` interface                                                       | Returns the needed fields; replaceable in tests and if it breaks                                  |
-| Official API  | Plain `fetch` to the YouTube Data API with the owner's key                                               | Only for keyword search and exact channel facts; it cannot read recommendations                   |
-| Storage       | SQLite (`better-sqlite3`), numbered migrations                                                           | Single user, one file, no setup                                                                   |
-| Validation    | Zod at every boundary                                                                                    | Request bodies, scraped pages, API replies, stored JSON and Claude Code's reply are all untrusted |
-| Judgement     | The owner's Claude: in chat through the connector, or one-shot runs of Claude Code started by the server | No API key and no separate bill; the run is limited to Jgtube's read-only tools                   |
-| Connector     | `@modelcontextprotocol/sdk`, stdio                                                                       | Enough for a tool on the owner's own computer                                                     |
-| Web           | Vite + React + Tailwind, served by a small local Node server                                             | No server rendering needed; the API is a plain request-to-response function that is easy to test  |
-| Tests         | Vitest, 80% coverage floor                                                                               | Fixture-driven parsers, pure scoring, routes through the real engine with fake sources            |
+| Concern       | Choice                                                                                                                                  | Why                                                                                               |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Language      | TypeScript, Node 22                                                                                                                     | One language for engine, connector, server and page                                               |
+| YouTube pages | `youtubei.js` behind the `YouTubeSource` interface                                                                                      | Returns the needed fields; replaceable in tests and if it breaks                                  |
+| Official API  | Plain `fetch` to the YouTube Data API with the owner's key                                                                              | Only for keyword search and exact channel facts; it cannot read recommendations                   |
+| Storage       | SQLite (`better-sqlite3`), numbered migrations                                                                                          | Single user, one file, no setup                                                                   |
+| Validation    | Zod at every boundary                                                                                                                   | Request bodies, scraped pages, API replies, stored JSON and Claude Code's reply are all untrusted |
+| Judgement     | The owner's AI plans: one-shot runs of Antigravity, Claude Code or Codex started by the server, or Claude in chat through the connector | No separate bill; each run is limited to Jgtube's read-only tools as far as that program allows   |
+| Video         | Antigravity on a local file, or plain `fetch` to the Gemini API with the owner's key                                                    | The two documented or proven ways to have a model watch picture and sound                         |
+| Connector     | `@modelcontextprotocol/sdk`, stdio                                                                                                      | Enough for a tool on the owner's own computer                                                     |
+| Web           | Vite + React + Tailwind, served by a small local Node server                                                                            | No server rendering needed; the API is a plain request-to-response function that is easy to test  |
+| Tests         | Vitest, 80% coverage floor                                                                                                              | Fixture-driven parsers, pure scoring, routes through the real engine with fake sources            |
 
 ## Repository layout
 
@@ -73,17 +78,22 @@ packages/
     app.ts        the JSON API as a function from request to response
     engine.ts     wires the API to the store, YouTube and Claude
     jobs.ts       long-running crawls and refreshes, one at a time
-    claudeRunner.ts, analyses.ts, analysisRoutes.ts
-                  the three "Ask Claude" analyses: a fixed question, read-only tools,
-                  one boxed-in run of Claude Code
+    analyses.ts, analysisEngine.ts, analysisRoutes.ts
+                  the three "Ask AI" analyses: a fixed question, read-only tools,
+                  one boxed-in run of the first engine that is ready
+    engines/      the engine interface; Claude Code, Codex CLI and Antigravity CLI
+                  behind it; trying them in order; watching a video (Antigravity on a
+                  file, the Gemini API on a link); starting programs safely on Windows
+    cli.ts        `npm run engines`: what is installed and signed in, and `--try`
   mcp/src/        the connector: ten tools and one prompt over the same store
 apps/web/src/     one page: radar, breakouts, same-topic list, thumbnail board,
-                  Ask Claude, niches, refresh bar
+                  Ask AI, niches, refresh bar
 docs/  design/
 ```
 
 Business logic depends on interfaces (`YouTubeSource`, the repositories, the
-injected search, facts and Claude runner) so each can be faked in tests.
+injected search, facts, engines, program starter and video downloader) so each
+can be faked in tests.
 
 ## Data flow
 
@@ -102,10 +112,18 @@ stored videos.
 "new or small, with a recent video that outperforms". Keyword discovery and
 refresh add to the store; the list reflects them on the next read.
 
-**Asking Claude.** The server builds a fixed question for a validated channel and
-starts Claude Code once, with only the connector's read-only tools, no built-in
-tools, the owner's API keys withheld, and a private working folder. Claude reads
-the store through the tools and returns plain text, which the page shows as text.
+**Asking an AI.** The server builds a fixed question for a validated channel and
+tries the engines in the owner's order (Antigravity, Claude Code, Codex by
+default). Each is started once with only the connector's read-only tools, the
+owner's API keys withheld, and a private working folder of its own. An engine
+that is not installed, not signed in or out of allowance is passed over; one
+that runs and fails is reported. The engine reads the store through the tools
+and returns plain text, which the page shows as text with the engine's name.
+
+**Watching a video.** Antigravity watches a copy of the file placed in a fresh
+folder, when it is installed and a downloader has provided the file; otherwise
+the Gemini API watches the public video by its link, when the owner has set a
+key. No downloader is connected yet.
 
 ## Cross-cutting
 
@@ -118,11 +136,15 @@ the store through the tools and returns plain text, which the page shows as text
   plain sentence on failure. File paths are stripped from messages.
 - **Secrets.** The optional `YOUTUBE_API_KEY` comes from `.env`, is validated for
   shape, sent only as a request header, stripped from errors, and withheld from
-  Claude and from the connector. There is no Anthropic API key anywhere.
+  every AI engine and from the connector. The optional `GEMINI_API_KEY` is read
+  from the environment by the server, checked for shape, sent only as a request
+  header to Google, stripped from errors and withheld from the engines. There
+  is no Anthropic or OpenAI API key anywhere.
 - **Untrusted text.** Video titles and channel names are attacker-controlled.
   The page renders them, and Claude's answers, as text only; links and images are
-  built from validated ids. A hostile title could at most steer Claude among
-  read-only tools.
+  built from validated ids. A hostile title could at most steer an engine among
+  read-only tools; what else each engine could still do is listed per engine in
+  the system design.
 - **Local only.** The server binds to 127.0.0.1, answers only to its own Host,
   refuses cross-site writes, and has no login. It must not be exposed to a network
   as it is.

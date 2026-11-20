@@ -123,31 +123,35 @@ function nobodyFor(analysis: AnalysisId, order: readonly EngineId[], engines: En
   return `${title} needs ${names}, and the JGTUBE_ENGINES setting leaves that out.`;
 }
 
-/** The fixed analyses and video watching, each a boxed-in run that `stop` can end. */
-export function analysisEngines(
-  { config, options, work }: AnalysisWiring,
-  stop: AbortSignal,
-): AnalysisParts {
-  const settings = options.engines ?? DEFAULT_ENGINE_SETTINGS;
-  const engines = createEngines(settings, SERVER_NAME);
-  const deps: EngineDeps = { spawn: options.spawn ?? spawnProcess, env: process.env, signal: stop };
-  const folders = privateFolders();
-  const run =
-    options.runEngine ??
-    ((id: EngineId, request: EngineRunRequest) => engines[id].run(request, deps));
-  const statuses = remembered(
-    () => options.checkEngines?.() ?? checkEngines(engines, settings, deps),
-    STATUS_FRESH_MS,
-  );
+/** What the analyses and video watching are both built from. */
+interface Shared {
+  readonly settings: EngineSettings;
+  readonly engines: Engines;
+  readonly deps: EngineDeps;
+  readonly folders: ReturnType<typeof privateFolders>;
+  /** What is known about the engines, found out at most once a minute. */
+  readonly statuses: () => Promise<readonly EngineStatus[]>;
+}
 
-  const analyse: Engine['analyse'] = async (analysis, channel) => {
-    const dbPath =
-      options.storePath ?? (config.dbPath === IN_MEMORY ? null : resolve(config.dbPath));
-    if (dbPath === null) {
-      throw new Error(
-        'An AI engine needs the store to be a file on disk, and this one is only in memory',
-      );
-    }
+/** The store as a file an engine's connector can open. Throws when it is only in memory. */
+function storeFile({ config, options }: AnalysisWiring): string {
+  if (options.storePath !== undefined) return options.storePath;
+  if (config.dbPath === IN_MEMORY) {
+    throw new Error(
+      'An AI engine needs the store to be a file on disk, and this one is only in memory',
+    );
+  }
+  return resolve(config.dbPath);
+}
+
+/** One fixed analysis, put to the engines in order until one answers. */
+function analyser(shared: Shared, wiring: AnalysisWiring, stop: AbortSignal): Engine['analyse'] {
+  const { settings, engines, deps, folders } = shared;
+  const run =
+    wiring.options.runEngine ??
+    ((id: EngineId, request: EngineRunRequest) => engines[id].run(request, deps));
+  return async (analysis, channel) => {
+    const dbPath = storeFile(wiring);
     const order = enginesFor(analysis, settings.order);
     const requestFor = (engine: EngineId): EngineRunRequest =>
       analysisRequest(analysis, channel, {
@@ -160,8 +164,12 @@ export function analysisEngines(
       nobodyFor(analysis, order, engines),
     );
   };
+}
 
-  const watch: Engine['watchVideo'] = (videoId, question) =>
+/** One video, watched by the first engine that can. */
+function watcher(shared: Shared, options: AnalysisOptions): Engine['watchVideo'] {
+  const { settings, deps, folders, statuses } = shared;
+  return (videoId, question) =>
     watchVideo(
       { videoId, question, systemPrompt: VIDEO_SYSTEM_PROMPT },
       {
@@ -174,12 +182,26 @@ export function analysisEngines(
         geminiFetch: options.geminiFetch,
       },
     );
+}
 
+/** The fixed analyses and video watching, each a boxed-in run that `stop` can end. */
+export function analysisEngines(wiring: AnalysisWiring, stop: AbortSignal): AnalysisParts {
+  const { options, work } = wiring;
+  const settings = options.engines ?? DEFAULT_ENGINE_SETTINGS;
+  const engines = createEngines(settings, SERVER_NAME);
+  const deps: EngineDeps = { spawn: options.spawn ?? spawnProcess, env: process.env, signal: stop };
+  const statuses = remembered(
+    () => options.checkEngines?.() ?? checkEngines(engines, settings, deps),
+    STATUS_FRESH_MS,
+  );
+  const shared: Shared = { settings, engines, deps, folders: privateFolders(), statuses };
+  const analyse = analyser(shared, wiring, stop);
+  const watch = watcher(shared, options);
   return {
     analyse: (analysis, channel) => work.run(() => analyse(analysis, channel)),
     watchVideo: (videoId, question) => work.run(() => watch(videoId, question)),
     engineStatus: () =>
       work.run(async () => ({ engines: await statuses(), order: settings.order })),
-    cleanUp: folders.remove,
+    cleanUp: shared.folders.remove,
   };
 }

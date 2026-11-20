@@ -151,14 +151,27 @@ Phase 7 needs 5.
 - [x] "Ask Claude" on the page: thumbnail review, video ideas, same-topic channels, each one boxed-in run of Claude Code
 - [x] Thumbnail patterns in words (through Ask Claude and the connector; Claude sees the real images)
 - [ ] Connector tried in the Claude desktop app on the owner's computer (checked here only through a test client and Claude Code)
-- [ ] Ask Claude on Windows (checked on macOS-style and Linux environments only)
+- [x] Ask AI: Codex CLI and Antigravity CLI beside Claude Code behind one engine interface, tried in the owner's order (`JGTUBE_ENGINES`, default Antigravity, Claude, Codex), moving on from one that is not installed, not signed in or out of allowance; the answer names the engine and the ones passed over
+- [x] `GET /api/engines` and `npm run engines`: which engines are installed and signed in; `-- --try` asks each one small question
+- [x] Starting a program installed as a `.cmd` shim on Windows without a shell string (through Node, or `cmd.exe` with quoted arguments)
+- [x] Watching a video: Antigravity on a local MP4 named with `@`, the Gemini API on a public YouTube link with the owner's key; `engine.watchVideo` picks between them
+- [ ] Codex CLI run for real (built to its documentation, tested with stand-ins only)
+- [ ] Antigravity CLI run for real, with tools and on a video file (same)
+- [ ] Gemini API called with a real key (same)
+- [ ] Ask AI on a real Windows computer (the start-up code is tested with a stand-in disk only)
+- [ ] A video downloader connected to `EngineOptions.downloadVideo` (until then video is watched through the Gemini API only)
+- [ ] An analysis or route that uses `watchVideo` (the niche breakdown)
+- [ ] Whether Antigravity sees pictures returned by a tool (until known, the thumbnail review uses Claude Code or Codex)
+- [ ] Whether Antigravity can watch a YouTube link without the file (`npm run engines -- --try --youtube <link>`; off unless `JGTUBE_AGY_YOUTUBE_LINKS=on`)
+- [ ] Splitting a long video into parts for Antigravity (would need ffmpeg)
+- [ ] The navigation link on the page still says "Ask Claude" (`Shell.tsx`); the section itself is "Ask AI"
 
 ## Safety, from the final reviews
 
 - [x] Backup of the store before every upgrade, and `npm run backup`
 - [x] One reader of YouTube at a time across the app, the connector and the command line
 - [x] Refresh backs off from channels that can no longer be read
-- [x] Claude runs: no built-in tools, private working folder, API keys withheld
+- [x] Engine runs: read-only tools only, a private working folder per engine, API keys withheld; what each program cannot be held to is written down per engine in the system design
 
 ## Not built from the original plan
 

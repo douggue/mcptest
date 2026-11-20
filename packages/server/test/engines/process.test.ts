@@ -1,3 +1,4 @@
+import { getEventListeners } from 'node:events';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
@@ -115,6 +116,40 @@ describe('runProcess with a real process', () => {
     });
     await expect(failure).rejects.not.toMatchObject({
       message: expect.stringContaining('/home/someone'),
+    });
+  });
+});
+
+describe('runProcess and the signal that Jgtube is closing', () => {
+  test('lets go of the signal once the run is over, however many runs share it', async () => {
+    const closing = new AbortController();
+    const shared = { ...deps, signal: closing.signal };
+
+    for (let run = 0; run < 12; run += 1) {
+      await runProcess(
+        { program: NODE, args: ['-e', ''], cwd: tmpdir(), timeoutMs: 10_000 },
+        shared,
+      );
+    }
+
+    expect(getEventListeners(closing.signal, 'abort')).toHaveLength(0);
+  });
+
+  test('stops a real process when Jgtube is closing', async () => {
+    const closing = new AbortController();
+    const pending = runProcess(
+      {
+        program: NODE,
+        args: ['-e', 'setInterval(() => {}, 1000)'],
+        cwd: tmpdir(),
+        timeoutMs: 10_000,
+      },
+      { ...deps, signal: closing.signal },
+    );
+    closing.abort();
+
+    await expect(pending).rejects.toMatchObject({
+      message: 'Stand-in was stopped because Jgtube is closing.',
     });
   });
 });

@@ -14,7 +14,8 @@
  *    line break, which no quoting can carry.
  *
  * Route 3 follows the long-used cross-spawn rules but has not been run on a
- * real Windows computer from here.
+ * real Windows computer from here. It has one known weakness: stopping a run
+ * stops `cmd.exe`, and the program it started may live on until it finishes.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { win32 } from 'node:path';

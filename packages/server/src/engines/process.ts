@@ -91,6 +91,8 @@ function waitFor(child: ProcessChild, run: ProcessRun, deps: EngineDeps): Promis
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      // The same signal outlives many runs; a finished run must not stay attached to it.
+      deps.signal?.removeEventListener('abort', onClosing);
       finish();
     };
     const stop = (error: EngineRunError): void =>
@@ -98,9 +100,10 @@ function waitFor(child: ProcessChild, run: ProcessRun, deps: EngineDeps): Promis
         stopProcess(child, deps.killGraceMs ?? KILL_GRACE_MS);
         reject(error);
       });
+    const onClosing = (): void => stop(closingError(program));
     const timer = setTimeout(() => stop(timeoutError(program)), run.timeoutMs);
 
-    deps.signal?.addEventListener('abort', () => stop(closingError(program)), { once: true });
+    deps.signal?.addEventListener('abort', onClosing, { once: true });
 
     // Once the verdict is in, whatever else the process prints is not kept.
     child.stdout.on('data', (chunk: unknown) => {

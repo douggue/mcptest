@@ -51,7 +51,7 @@ younger than 24 hours is served from the store with no request).
 
 **Not built.** The original plan had `topic_runs`, `topics`, `topic_titles` and
 `fact_claims` for a topic writer that stored its runs. Video ideas now come from
-Claude on demand (see "Ask Claude") and are not stored.
+an AI engine on demand (see "Ask AI") and are not stored.
 
 `video_snapshots` exists so that true views-per-day can be computed once a video
 has been seen twice. That data calibrates the age ramp below and replaces the
@@ -946,29 +946,210 @@ Not built: `suggest_topics` and `find_lanes` (they need the topic writer, phase 
 until then the model on the other end of the connector does that judging from
 `get_breakouts`), a manual add of a competitor, and remote access over HTTP.
 
-## Ask Claude
+## Ask AI
 
-Built (`packages/server/src/claudeRunner.ts`, `analyses.ts`, `analysisRoutes.ts`,
-`POST /api/analyses`). Three fixed analyses can be put to Claude from the page:
-`thumbnails`, `topics` and `near-misses`.
+Built (`packages/server/src/engines/`, `analyses.ts`, `analysisEngine.ts`,
+`analysisRoutes.ts`, `POST /api/analyses`, `GET /api/engines`). Three fixed
+analyses can be put to an AI engine from the page: `thumbnails`, `topics` and
+`near-misses`. An analysis is one entry in `ANALYSES`: a title, a fixed
+question, the read-only tools it may use, a step limit and, when it cannot be
+left to the owner's usual order, the engines that may answer it.
 
-- `POST /api/analyses {analysis, channel}` waits for the answer (up to five
-  minutes) and returns `{analysis, text}`. One runs at a time (409 otherwise).
-  The channel must parse as a handle, link or id, and goes into the question as
-  `@handle` or the id, never as typed.
-- The server starts Claude Code once (`claude -p --output-format json`) with the
-  connector as its only tool server (`--strict-mcp-config`), no built-in tools
-  (`--tools ""`), an allow list of the connector's read-only tools,
-  `--permission-mode dontAsk`, only project-level settings, a private working
-  folder, and `ANTHROPIC_API_KEY` and `YOUTUBE_API_KEY` removed from its
-  environment so that the owner's Claude login is used. It is stopped on a
-  timeout or runaway output.
-- Failures map to a status and a plain message: Claude Code not found 503, a plan
-  limit 429, a timeout 504, anything else 502.
-- Claude is asked to cite numbers the tools return and not to forecast. Its
+### The engine interface
+
+An engine is a program on the owner's computer that answers one question with
+Jgtube's tools (`engines/types.ts`):
+
+- **In:** an `EngineRunRequest`: the prompt, a system prompt, the tool server
+  to offer, the allowed tool names (`mcp__jgtube__get_map`), a step limit, a
+  time limit and a private working folder. The same request goes to any engine.
+- **Out:** the answer as text, or an `EngineRunError` with one of five reasons:
+  `not-installed`, `not-signed-in`, `limit`, `timeout`, `failed`.
+- Every engine also has `check`, which says whether it is installed and signed
+  in and its version, by asking the program only about itself.
+
+Shared by all engines (`process.ts`): the owner's API keys are withheld from
+the program's environment (`ANTHROPIC_API_KEY`, `CODEX_API_KEY`,
+`OPENAI_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `YOUTUBE_API_KEY`), so the
+owner's login is used and no key is billed; the run is stopped with SIGTERM
+and, two seconds later, SIGKILL when it passes its time limit, prints more than
+two million characters, or Jgtube is closing.
+
+### Choosing and falling back
+
+`JGTUBE_ENGINES` (default `agy,claude,codex`) names the engines Jgtube may use,
+most preferred first. For one analysis the engines are tried in that order
+(`engines/fallback.ts`):
+
+- `not-installed`, `not-signed-in` or `limit`: the engine is passed over and the
+  next is tried.
+- `timeout` or `failed`: reported as it is. Trying the next engine would spend a
+  second plan's allowance on what is probably the same problem.
+- When every engine was passed over, the failure lists each one's reason.
+
+`thumbnails` names its own engines, Claude Code then Codex: the pictures arrive
+as tool results, and nothing documents that Antigravity passes a tool's
+pictures to its model. An engine the owner's setting leaves out is never used.
+
+`POST /api/analyses {analysis, channel}` waits for the answer (up to five
+minutes) and returns `{analysis, text, engine, skipped}`, where `skipped` lists
+the engines passed over with the reason. One runs at a time (409 otherwise).
+The channel must parse as a handle, link or id, and goes into the question as
+`@handle` or the id, never as typed. Failures map to a status and a plain
+message: not installed or not signed in 503, a plan limit 429, a timeout 504,
+anything else 502.
+
+`GET /api/engines` returns `{engines, order}`: for `agy`, `claude`, `codex` and
+`gemini-api`, whether it is installed, whether someone is signed in (null when
+that cannot be told without asking it a question), its version, whether Jgtube
+would use it, and one sentence when something needs doing. The answer is reused
+for a minute. `npm run engines` prints the same; with `-- --try` it puts one
+question that needs one tool (`list_niches`) to each installed engine.
+
+### Claude Code (`engines/claude.ts`)
+
+```
+claude -p <prompt> --output-format json --max-turns <n> --system-prompt <text>
+  --strict-mcp-config --mcp-config <json> --setting-sources project
+  --permission-mode dontAsk --tools "" --allowedTools <tools...>
+  --disallowedTools <built-in tools...>
+```
+
+The connector is its only tool server, it has no built-in tools at all, only
+the allowed tools may be called, and the owner's other Claude settings are not
+read. A reply saying to run `/login` maps to `not-signed-in`, a plan limit in
+Claude's words to `limit`. `check` runs `claude --version` and, from version 2.1,
+`claude auth status`, of which only "signed in or not" is kept.
+
+### Codex CLI (`engines/codex.ts`)
+
+Built to the documentation for v0.171.0; never run from here.
+
+```
+codex exec --json --ephemeral --skip-git-repo-check --ignore-user-config
+  --sandbox read-only -C <folder>
+  -c web_search="disabled" -c features.shell_tool=false -c features.view_image=false
+  -c mcp_servers.jgtube.command="node" -c mcp_servers.jgtube.args=[...]
+  -c mcp_servers.jgtube.env={ JGTUBE_DB_PATH = "..." }
+  -c mcp_servers.jgtube.required=true -c mcp_servers.jgtube.startup_timeout_sec=30
+  -c mcp_servers.jgtube.default_tools_approval_mode="approve"
+  -c mcp_servers.jgtube.enabled_tools=[...] -
+```
+
+- The prompt goes to the program's input, with the system prompt ahead of it:
+  Codex has no flag for one. The `-c` values are TOML written by `toml.ts`,
+  because Windows paths are full of backslashes.
+- `codex login status` is asked first; a non-zero exit is `not-signed-in`.
+- The output is one JSON event per line. The answer is the text of the last
+  `item.completed` whose item is an `agent_message`. A `turn.failed`, or a bad
+  exit code, is a failure with the message of the last `turn.failed` or `error`.
+- Box: no user configuration, read-only sandbox, no shell tool, no web search,
+  no opening of image files, the connector as the only and required tool
+  server with only the allowed tools. Not prevented: Codex still reads the
+  owner's `AGENTS.md`, and has no step limit.
+- Caveats from its documentation: a non-interactive run refuses a tool that is
+  not marked read-only unless its approval is set ahead of time (hence
+  `default_tools_approval_mode`); a picture in a tool result is dropped when the
+  result also has structured content (the connector's picture tool sends none);
+  it takes pictures but not video; OpenAI recommends an API key for use from a
+  program and describes using the ChatGPT login only for trusted private
+  automation.
+
+### Antigravity CLI (`engines/agy.ts`, `agyReply.ts`)
+
+Built to the documentation for v1.5.12; never run from here.
+
+```
+agy -p <system prompt + prompt> --output-format json --sandbox
+  --print-timeout <minutes>m [--model <name>]
+```
+
+- `agy` has no flag for tool servers. It reads `.agents/mcp_config.json` in its
+  working folder, so that file (`{"mcpServers": {"jgtube": {"command", "args",
+  "env", "enabledTools"}}}`) is written into a fresh folder made for the one
+  run and removed with it.
+- A tool with no rule is "ask", and a headless run cannot ask: the call is
+  quietly refused, the run goes on and exits 0. The documented way to allow it
+  is the rule `mcp(jgtube/*)` under `permissions.allow` in the owner's own
+  `settings.json` (`.gemini/antigravity-cli` in the home folder). The
+  documentation shows no settings file for a single folder. Jgtube never writes
+  the owner's file. It reads it: while the rule is missing the engine is passed
+  over before anything is spent (reported as `not-signed-in`: one step for the
+  owner to take in the program), with the line to add. If a run is refused its
+  tools all the same (a `denied_actions` entry or a notice on its error output
+  that names the server or MCP), the run fails with the same line.
+- A run without a saved sign-in ends with "authentication required":
+  `not-signed-in`.
+- Box: only the allowed tools are offered; `--sandbox` keeps commands off the
+  network and away from files outside the working folder where the sandbox
+  exists (not on Windows 10); what would have to ask (web pages, files outside
+  the folder) is refused. Not prevented: the owner's other tool servers,
+  plugins and hooks load as in any session; since v1.5.7 a run may edit files
+  in its working folder and run commands inside the sandbox without asking.
+  Deny rules for those exist only in the owner's settings, where they would
+  apply to every use of `agy`.
+- Google's FAQ says wrapping `agy` in other applications "is not supported
+  under consumer plans" and recommends an API key. The owner has been told.
+
+### Watching a video (`engines/agyVideo.ts`, `geminiVideo.ts`, `videoWatch.ts`)
+
+A second capability beside "answer with tools": watch one video, picture and
+sound, and answer a question about it. `engine.watchVideo(videoId, question)`
+is built and tested but no route or analysis uses it yet.
+
+- **Antigravity, a file on this computer.** A headless run watches a local file
+  named with `@` in the prompt; the owner has done it with
+  `agy -p "Watch @clip.mp4 and say ..." --output-format json`. Jgtube copies the
+  file into a fresh folder as `clip.mp4`, so nothing from outside reaches the
+  prompt, runs `agy -p <prompt> --output-format json --print-timeout 12m` there
+  and removes the copy. Only `.mp4` is taken; a file over 95 MB (`agy` refuses
+  over 100 MB) or one whose MP4 boxes do not add up to a whole file (a download
+  that stopped part-way) is refused before the run. A run that times out says
+  the video may be too long for one pass. None of this is in `agy`'s
+  documentation; the assumptions are listed at the top of `agyVideo.ts`.
+- **The Gemini API, a public YouTube link.** With `GEMINI_API_KEY` set, a POST
+  to `https://generativelanguage.googleapis.com/v1beta/interactions` with the
+  key in the `x-goog-api-key` header and the body `{"model", "input": [{"type":
+  "text", "text": <question>}, {"type": "video", "uri": <link>}],
+  "system_instruction", "store": false}`. The answer is the text in the content
+  of the reply's `model_output` step when `status` is `completed`. 429 is
+  `limit`, 401 and 403 `not-signed-in`, 504 `timeout`. The default model is
+  `gemini-4-hydrogen`, the one in Google's examples. Limits, from Google's
+  "Video understanding" page: public videos only; 8 hours of YouTube video a
+  day on the free tier; about an hour of video per request at the usual detail.
+  Never called with a real key.
+- **Order.** Antigravity when it is installed and the downloader hands back a
+  whole file; otherwise the Gemini API when a key is set; otherwise
+  `not-installed`, "No engine on this computer can watch a video", so the
+  caller can fall back to frames and a transcript. A timeout or failure of the
+  engine that ran is reported, not retried on the other.
+- **The downloader** is an injected dependency of the server engine
+  (`EngineOptions.downloadVideo`): `(videoId, stop) => Promise<{ok: true, path}
+  | {ok: false, reason}>`. None is connected yet, so today video is watched
+  through the Gemini API only.
+- **A YouTube link given to Antigravity** with no file is unproven: `agy` reads
+  a link as a web page. It is off unless `JGTUBE_AGY_YOUTUBE_LINKS=on`, and
+  `npm run engines -- --try --youtube <link>` asks a question only someone who
+  watched could answer, so the owner can check first.
+
+### Starting a program on Windows (`engines/executable.ts`)
+
+`spawn` without a shell cannot start the `.cmd` file npm installs, and a prompt
+is never handed to a shell as text. On Windows the program is looked for on the
+path as `.exe`, `.cmd`, `.bat`: an `.exe` is started directly; an npm `.cmd`
+shim is read for the script it runs, which is started with Node directly; any
+other `.cmd` goes through `cmd.exe /d /s /c` with every argument quoted and its
+special characters escaped, and is refused if an argument holds a line break.
+Written for Windows, tested with a stand-in disk, never run on Windows.
+
+### What does not change between engines
+
+- The engine is asked to cite numbers the tools return and not to forecast. Its
   answer is plain text and is rendered as text.
 - `set_competitor_status` and `make_map` are never on an analysis's allow list:
   an analysis cannot change stored choices or start a crawl.
+- Each engine starts in a private folder of its own, inside one owner-only
+  folder that is removed when Jgtube closes.
 
 ## Testing
 
@@ -982,7 +1163,11 @@ Built (`packages/server/src/claudeRunner.ts`, `analyses.ts`, `analysisRoutes.ts`
   real engine and store against fake sources.
 - **Connector:** tool handlers against a fake engine, and a real client connected
   over the SDK's in-memory transport.
-- **Claude runner:** a stand-in process; the real command line was checked by hand.
+- **Engines:** each engine against a scripted stand-in process, and through a
+  real child process (Node running a small script) for input, arguments and
+  time limits. Claude Code's real command line was checked by hand before it
+  moved behind the engine interface; Codex, Antigravity and the Gemini API have
+  never been run for real. Windows start-up is tested with a stand-in disk.
 - **Not covered by automated tests:** React components and hooks, the two
   `main.ts` entry points, the refresh timer in a running process, and a real
-  Claude Code run. These were exercised by driving the app in a browser.
+  run of any AI engine. These were exercised by driving the app in a browser.

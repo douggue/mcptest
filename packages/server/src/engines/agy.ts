@@ -72,6 +72,12 @@ const OWNER_ONLY_FILE = 0o600;
 const MS_PER_MINUTE = 60_000;
 /** `agy` is given its own time limit; it is stopped from here this long after, if it is still going. */
 const STOP_MARGIN_MS = 15_000;
+/**
+ * The prompt is a command-line argument, so the instructions and the question
+ * are joined on one line: a line break is the one thing that cannot be passed
+ * to a program installed as a Windows `.cmd` file.
+ */
+export const ONE_LINE = ' ';
 /** The setting under which `agy` asks about nothing at all. */
 const ALLOW_EVERYTHING = 'always-proceed';
 
@@ -211,7 +217,7 @@ async function runAgy(
   const refused = refusedServer(request, deps);
   // Like a missing sign-in, this is one step for the owner to take in the program itself.
   if (refused !== null) throw new EngineRunError('not-signed-in', permissionHelp(refused));
-  const prompt = promptWithInstructions(request.systemPrompt, request.prompt);
+  const prompt = promptWithInstructions(request.systemPrompt, request.prompt, ONE_LINE);
   return inRunFolder(request.cwd, async (folder) => {
     await writeMcpConfig(folder, request);
     const output = await runProcess(

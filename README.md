@@ -2,8 +2,9 @@
 
 Jgtube is a research tool for a YouTube creator. Give it your channel and it
 finds the channels like yours, the videos on them that took off, the thumbnails
-that worked, and new or small channels in niches worth watching. Your own Claude
-can then read all of it and tell you what to make next.
+that worked, and new or small channels in niches worth watching. An AI you
+already use (Antigravity, Claude or Codex) can then read all of it and tell you
+what to make next.
 
 It runs on your own computer. Nothing is uploaded anywhere, and there is no
 account to create.
@@ -21,9 +22,12 @@ Three things to know first.
   usual views. Earnings are a rough range from typical ad rates applied to the
   views on a channel's recent uploads; Jgtube cannot see whether a channel is
   monetised or where its viewers live.
-- **"Ask Claude" uses your Claude plan.** Each press of a button in that section
-  runs Claude Code on your computer and counts against your plan's allowance, the
-  same as a chat would.
+- **"Ask AI" uses your AI plans.** Each press of a button in that section runs
+  Antigravity, Claude Code or Codex on your computer, whichever is ready first,
+  and counts against that plan's allowance, the same as a chat would. Google
+  says its consumer plans do not support using Antigravity this way, and OpenAI
+  recommends a paid key for Codex instead; see "Ask AI" below before you rely
+  on either.
 
 ## First run
 
@@ -100,27 +104,122 @@ compiler:
   their titles differently. Keep the ones that really make your kind of video.
 - **Thumbnails that worked**: winners next to ordinary ones from the same
   channels, and your own.
-- **Ask Claude**: three one-press questions (thumbnail review, video ideas, and
-  judging the same-topic channels). See below for what it needs.
+- **Ask AI**: three one-press questions (thumbnail review, video ideas, and
+  judging the same-topic channels). Under each answer it says which AI gave it.
+  See below for what it needs.
 - **New niches to watch**: new or small channels, from everything Jgtube has
   read, with a recent video that took off. With an API key you can also search
   YouTube by keyword here. Press **Watch** to keep a channel on the list.
 - **View history / Refresh now**: reads stored channels again so that growth
   over time builds up.
 
-## Ask Claude, and using Jgtube in a Claude chat
+## Ask AI, and using Jgtube in a Claude chat
 
-Both let your own Claude do the judging, on the Claude plan you already have. No
-extra API key is needed.
+Both let an AI you already pay for do the judging. Jgtube has no AI of its own.
 
-- **The Ask Claude buttons** need [Claude Code](https://code.claude.com) installed
-  on the same computer and signed in. Each press takes up to a couple of minutes.
-  This has been checked on macOS and Linux. On Windows it works only if the
-  `claude` command can be started directly; if the buttons say Claude Code is not
-  installed, use the chat route below instead.
-- **In a chat**, the connector gives Claude the same information as tools, so you
-  can ask follow-up questions. Setting it up in the Claude desktop app or Claude
-  Code takes a few minutes: see [the connector guide](docs/CONNECTOR.md).
+### The Ask AI buttons
+
+The buttons can use three programs. You need at least one of them installed on
+the same computer and signed in. Jgtube tries them in order and uses the first
+that is ready; if one is missing, signed out or out of allowance for now, it
+moves on to the next and tells you so under the answer.
+
+| Engine          | What to install and do once                                                       | Notes                                                                    |
+| --------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Antigravity CLI | Install it, run `agy` once and sign in, then add one line to its settings (below) | Tried first. Not used for the thumbnail review (see "What is not known") |
+| Claude Code     | Install [Claude Code](https://code.claude.com), run `claude` once and sign in     | The only one that has been run with Jgtube from start to finish          |
+| Codex CLI       | Install it, then type `codex login` and follow it                                 | Tried last                                                               |
+
+To see what Jgtube finds on your computer, open a terminal in the Jgtube folder
+and type:
+
+```
+npm run engines
+```
+
+It lists each engine, whether it is installed and whether someone is signed in.
+To prove that each one really works, type `npm run engines -- --try`. That asks
+each engine one small question through Jgtube's tools and prints the answer or
+the reason it failed. It uses a little of each plan's allowance.
+
+**The one line Antigravity needs.** Antigravity asks before it uses a new tool,
+and a run started by Jgtube cannot answer, so the tool is quietly refused. Open
+the file `settings.json` in the folder `.gemini`, then `antigravity-cli`, inside
+your home folder (create it if it is not there) and make sure it has this:
+
+```json
+{
+  "permissions": {
+    "allow": ["mcp(jgtube/*)"]
+  }
+}
+```
+
+If the file already has an `"allow"` list, add `"mcp(jgtube/*)"` to it. Jgtube
+never changes this file itself. Until the line is there, Antigravity is passed
+over and the next engine is used.
+
+**Changing the order.** Set `JGTUBE_ENGINES` in `.env` to the engines you want,
+most preferred first, separated by commas: for example `JGTUBE_ENGINES=claude,codex`.
+An engine you leave out is never started.
+
+**What each run is allowed to do.** Every run is given only Jgtube's read-only
+tools, a private empty folder to start in, and none of your API keys. How tightly
+each program can be held to that differs:
+
+- Claude Code: no other tools exist in the run at all, and your other Claude
+  settings are ignored.
+- Codex: no commands, no web search, read-only, and your other Codex settings are
+  ignored. It still reads your own instruction file (`AGENTS.md` in Codex's
+  folder) if you have one.
+- Antigravity: only Jgtube's tools are offered and its sandbox is on, but it
+  cannot be told to ignore your other Antigravity tools, plugins and hooks, and
+  it may write files inside its private folder, which Jgtube deletes after every
+  run. To hold it tighter you can add `"deny": ["command(*)", "write_file(*)",
+"read_url(*)", "execute_url(*)"]` beside the `"allow"` list, but that applies
+  to everything you do with Antigravity, not only to Jgtube.
+
+**Watching a whole video.** Two engines can watch a video, picture and sound:
+
+- Antigravity watches a video file on your computer. The file must be an MP4 of
+  at most 95 MB, and long videos (beyond roughly 15 to 30 minutes) may be too
+  much for one pass. To try it on a small file of your own:
+  `npm run engines -- --try --video C:\path\to\small.mp4`
+- The Gemini API watches a public YouTube video from its link, with no download.
+  It needs a key: create one in Google AI Studio and put it on the
+  `GEMINI_API_KEY` line of `.env`. Private and unlisted videos do not work, and
+  the free tier allows 8 hours of video a day.
+
+Antigravity is used when it is installed and a copy of the video is on the
+computer; otherwise the Gemini API when a key is set. Nothing on the page uses
+this yet: it is the groundwork for the full video breakdown.
+
+**What is not known, said plainly.**
+
+- Only Claude Code has been run with Jgtube. Codex and Antigravity were built
+  from their documentation and tested against stand-ins, and the Gemini API was
+  never called with a real key. `npm run engines -- --try` is how you find out.
+- Whether Antigravity can see the pictures a tool returns is not documented, so
+  the thumbnail review uses Claude Code or Codex only.
+- Whether Antigravity can watch a YouTube video from a link alone, without the
+  file, is unproven. To see for yourself:
+  `npm run engines -- --try --youtube https://www.youtube.com/watch?v=...`
+  It asks for the first sentence spoken and the first three seconds on screen.
+  If the answer matches the video, you can set `JGTUBE_AGY_YOUTUBE_LINKS=on`.
+- Google's FAQ says that running Antigravity from inside another application
+  "is not supported under consumer plans" and recommends an API key. OpenAI
+  recommends an API key for Codex used from a program, and describes using a
+  ChatGPT login this way only for trusted private automation. Using them from
+  Jgtube on your own computer is your call.
+- On Windows a program installed through npm is started through Node or
+  `cmd.exe` with every argument quoted. That part was written for Windows but
+  has not been run on a Windows computer.
+
+### In a chat
+
+The connector gives Claude the same information as tools, so you can ask
+follow-up questions. Setting it up in the Claude desktop app or Claude Code
+takes a few minutes: see [the connector guide](docs/CONNECTOR.md).
 
 ## Keeping your research safe
 
@@ -140,13 +239,18 @@ Deleting or replacing the folder deletes it.
 
 All optional, in `.env`:
 
-| Setting                | What it does                                                          | Default                          |
-| ---------------------- | --------------------------------------------------------------------- | -------------------------------- |
-| `JGTUBE_DB_PATH`       | Where the store file lives                                            | `jgtube.db` in the Jgtube folder |
-| `JGTUBE_REGION`        | Two-letter country that recommendations are read from                 | `US`                             |
-| `JGTUBE_PORT`          | The port in the address you open                                      | `4317`                           |
-| `YOUTUBE_API_KEY`      | Your YouTube Data API key, for keyword search and exact channel dates | none                             |
-| `JGTUBE_REFRESH_HOURS` | Read stored channels again every this many hours while Jgtube runs    | off                              |
+| Setting                    | What it does                                                            | Default                          |
+| -------------------------- | ----------------------------------------------------------------------- | -------------------------------- |
+| `JGTUBE_DB_PATH`           | Where the store file lives                                              | `jgtube.db` in the Jgtube folder |
+| `JGTUBE_REGION`            | Two-letter country that recommendations are read from                   | `US`                             |
+| `JGTUBE_PORT`              | The port in the address you open                                        | `4317`                           |
+| `YOUTUBE_API_KEY`          | Your YouTube Data API key, for keyword search and exact channel dates   | none                             |
+| `JGTUBE_REFRESH_HOURS`     | Read stored channels again every this many hours while Jgtube runs      | off                              |
+| `JGTUBE_ENGINES`           | Which AI engines Ask AI may use, most preferred first                   | `agy,claude,codex`               |
+| `JGTUBE_AGY_MODEL`         | A model for Antigravity to use (`agy models` lists them)                | Antigravity's own choice         |
+| `GEMINI_API_KEY`           | Your Gemini API key, for watching public YouTube videos                 | none                             |
+| `JGTUBE_GEMINI_MODEL`      | The Gemini model that watches                                           | `gemini-4-hydrogen`              |
+| `JGTUBE_AGY_YOUTUBE_LINKS` | `on` lets Antigravity try a YouTube link when it has no file (unproven) | `off`                            |
 
 ## Command line
 
@@ -158,10 +262,12 @@ npm run jgtube -- map @somechannel      # map the channels around it
 npm run refresh                         # read the stalest stored channels again
 npm run backup                          # write a dated copy of the store
 npm run mcp                             # start the Claude connector by hand
+npm run engines                         # which AI engines are installed and signed in
 ```
 
 `map` accepts `--depth 1`, `--sample N` and `--max-channels N`. `refresh` accepts
-`-- --max N`.
+`-- --max N`. `engines` accepts `-- --try`, and with it `--video FILE` and
+`--youtube LINK`.
 
 ## For developers
 

@@ -45,7 +45,7 @@
  */
 import { copyFile, stat } from 'node:fs/promises';
 import { extname, join } from 'node:path';
-import { AGY, inRunFolder, printTimeout } from './agy';
+import { AGY, ONE_LINE, inRunFolder, printTimeout } from './agy';
 import { readAgyReply } from './agyReply';
 import { EngineRunError, promptWithInstructions } from './failure';
 import { isWholeMp4 } from './mp4';
@@ -122,6 +122,7 @@ function watch(
   const prompt = promptWithInstructions(
     request.systemPrompt,
     `Watch ${subject} from start to end, picture and sound. ${request.question}`,
+    ONE_LINE,
   );
   return inRunFolder(request.cwd, async (folder) => {
     await prepare(folder);
