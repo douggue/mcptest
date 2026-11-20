@@ -1,3 +1,4 @@
+import { LOGO_SHOWN_MIN_WIDTH, pickImage } from '../channel/brand';
 import { DEFAULT_MAX_VIDEOS } from '../ingest';
 import { SMALL_CHANNEL_MAX_SUBSCRIBERS } from '../limits';
 import { PEER_MAX_UPLOADS_PER_WEEK, medianDurationSeconds, uploadsPerWeek } from '../map/peers';
@@ -6,6 +7,7 @@ import { RECENT_DAYS } from '../map/view';
 import { buildVideoReport, type VideoReportRow } from '../report';
 import { estimateEarnings, type EarningsEstimate } from '../scoring/earnings';
 import type {
+  BrandRepo,
   ChannelRepo,
   FactsRepo,
   MapRepo,
@@ -168,6 +170,7 @@ type ListedOnly =
   | 'growth'
   | 'createdAt'
   | 'country'
+  | 'logoUrl'
   | 'recentViews'
   | 'recentUploads'
   | 'viewsPerSubscriber'
@@ -250,7 +253,8 @@ export function buildNicheList(input: NicheInput, now: Date): NicheList {
     const createdAt = facts?.createdAt.toISOString() ?? null;
     const country = facts?.country ?? null;
     const counted = figures(source, country, now);
-    return [{ ...entry, ...counted, qualifies, watched, growth, createdAt, country }];
+    const logoUrl = input.logoOf?.(id) ?? null;
+    return [{ ...entry, ...counted, qualifies, watched, growth, createdAt, country, logoUrl }];
   });
   return {
     channels: [...channels].sort(byDemand),
@@ -267,6 +271,8 @@ export interface NicheDeps {
   readonly watchlist: WatchlistRepo;
   /** Where channel facts from the official API are kept. Without it entries carry none. */
   readonly facts?: FactsRepo;
+  /** Where channel logos are kept. Without it entries carry none. */
+  readonly brands?: BrandRepo;
 }
 
 const byId = (a: StoredChannel, b: StoredChannel): number =>
@@ -309,6 +315,8 @@ export function loadNicheList(deps: NicheDeps, now: Date): NicheList {
       excludedIds: new Set(deps.maps.listCenterIds()),
       readingsOf: (channelId) => deps.videos.listChannelReadings(channelId, since),
       factsOf: (channelId) => deps.facts?.find(channelId) ?? null,
+      logoOf: (channelId) =>
+        pickImage(deps.brands?.find(channelId)?.avatar ?? [], LOGO_SHOWN_MIN_WIDTH)?.url ?? null,
     },
     now,
   );

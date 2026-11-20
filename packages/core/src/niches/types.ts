@@ -71,6 +71,12 @@ export interface NicheChannel {
   readonly createdAt: string | null;
   /** Two-letter country the channel's owner set; null when none or not asked for. */
   readonly country: string | null;
+  /**
+   * The address of the channel's logo, at a size for showing beside its name,
+   * on the host channel images are served from. Null until the channel has
+   * been read since logos were kept.
+   */
+  readonly logoUrl: string | null;
   /** False only on a watched channel that no longer meets the rule. */
   readonly qualifies: boolean;
   /** The owner marked it to keep an eye on. */
@@ -106,6 +112,8 @@ export interface NicheInput {
   readonly readingsOf?: (channelId: string) => readonly VideoReading[];
   /** A channel's stored facts from the official API, asked for only for listed channels. */
   readonly factsOf?: (channelId: string) => StoredFacts | null;
+  /** The address of a channel's stored logo, asked for only for listed channels. */
+  readonly logoOf?: (channelId: string) => string | null;
   /**
    * How many stored channels the sources were chosen from, when they are not
    * the whole store. Left out, the sources are taken to be all of it.

@@ -54,6 +54,18 @@ export class SqliteVideoRepo implements VideoRepo {
       .map(toVideo);
   }
 
+  /** One stored video by its id; null when no crawl has read it. */
+  findById(videoId: string): StoredVideo | null {
+    const row = this.db
+      .prepare<[string], VideoRow>(
+        `SELECT id, channel_id, title, views, duration_s, published_at,
+                published_precision, published_raw, fetched_at
+         FROM videos WHERE id = ?`,
+      )
+      .get(videoId);
+    return row ? toVideo(row) : null;
+  }
+
   /**
    * The publish date is kept from the first time a video is seen. Relative dates
    * get coarser as a video ages, so the first reading is the most precise.

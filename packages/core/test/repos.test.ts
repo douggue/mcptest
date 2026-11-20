@@ -122,6 +122,13 @@ describe('SqliteVideoRepo', () => {
     expect(videos.listByChannel(channel.id).map((v) => v.id)).toEqual(['new', 'old']);
   });
 
+  test('finds one video by its id, and nothing for an id it has not stored', () => {
+    videos.upsertMany([makeVideo('abc', 1234, 3)], T1);
+
+    expect(videos.findById('abc')).toEqual({ ...makeVideo('abc', 1234, 3), fetchedAt: T1 });
+    expect(videos.findById('missing')).toBeNull();
+  });
+
   test('round-trips every field of a video', () => {
     const video = makeVideo('abc', 1234, 3);
     videos.upsertMany([video], T1);
