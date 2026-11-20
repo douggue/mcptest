@@ -29,10 +29,26 @@ import {
   type StoredChannel,
   type YouTubeSource,
 } from '@jgtube/core';
+import { mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { analysisRequest } from './analyses';
 import type { Engine } from './app';
+import {
+  runClaude,
+  spawnClaude,
+  type ClaudeRunRequest,
+  type ClaudeRunResult,
+} from './claudeRunner';
 import { cleanMessage } from './jobs';
 
 const REQUEST_TIMEOUT_MS = 30_000;
+const IN_MEMORY = ':memory:';
+/** The Jgtube folder: the connector Claude is given lives under it. */
+const PROJECT_ROOT = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
+/** An empty folder for Claude to start in, so it picks up no project settings. */
+const CLAUDE_WORK_DIR = join(tmpdir(), 'jgtube-claude');
 
 export interface RunningEngine extends Engine {
   close(): void;
@@ -47,6 +63,10 @@ export interface EngineOptions {
     query: string,
     options: { readonly publishedAfter: Date },
   ) => Promise<readonly SearchHit[]>;
+  /** Replaces running Claude Code; used by tests. */
+  readonly runClaude?: (request: ClaudeRunRequest) => Promise<ClaudeRunResult>;
+  /** The store as the connector should open it; defaults to the configured path made absolute. */
+  readonly storePath?: string;
   /** Replaces the official API's channel facts; used by tests. It is only called when a key is set. */
   readonly fetchFacts?: (channelIds: readonly string[]) => Promise<readonly ChannelFacts[]>;
 }
@@ -221,6 +241,27 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
         keyword,
       );
       return { ...found, facts: await fillFacts() };
+    },
+
+    async analyse(analysis, channel) {
+      const storePath =
+        options.storePath ?? (config.dbPath === IN_MEMORY ? null : resolve(config.dbPath));
+      if (storePath === null) {
+        throw new Error(
+          'Claude needs the store to be a file on disk, and this one is only in memory',
+        );
+      }
+      mkdirSync(CLAUDE_WORK_DIR, { recursive: true });
+      const request = analysisRequest(analysis, channel, {
+        projectRoot: PROJECT_ROOT,
+        dbPath: storePath,
+        workDir: CLAUDE_WORK_DIR,
+      });
+      const run =
+        options.runClaude ??
+        ((wanted: ClaudeRunRequest) => runClaude(wanted, { spawn: spawnClaude, env: process.env }));
+      const { text } = await run(request);
+      return { text };
     },
 
     close() {

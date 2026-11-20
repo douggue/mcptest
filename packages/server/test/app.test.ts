@@ -60,6 +60,10 @@ class FakeEngine implements Engine {
     return this.hasKey;
   }
 
+  analyse(): Promise<{ readonly text: string }> {
+    return Promise.resolve({ text: '' });
+  }
+
   discover(keyword: string): Promise<DiscoveryResult> {
     this.searched.push(keyword);
     return this.searchOutcome;

@@ -15,6 +15,8 @@ import {
 import { z } from 'zod';
 import { fail, isTrustedHost, ok, readJson } from './http';
 import { cleanMessage, type JobStore } from './jobs';
+import type { AnalysisId } from './analyses';
+import { runAnalysis, type AnalysisTracker } from './analysisRoutes';
 import { refreshState, startRefresh, type RefreshTracker } from './refreshRoutes';
 
 const DEFAULT_DEPTH = 2;
@@ -114,6 +116,11 @@ export interface Engine {
   canDiscover(): boolean;
   /** Searches for recent videos on a subject and reads the channels behind them into the store. */
   discover(keyword: string): Promise<DiscoveryOutcome>;
+  /**
+   * Puts one of the fixed analyses to Claude for a channel and returns its
+   * answer as plain text. Rejects with a ClaudeRunError when Claude cannot run.
+   */
+  analyse(analysis: AnalysisId, channel: string): Promise<{ readonly text: string }>;
 }
 
 export interface AppOptions {
@@ -260,6 +267,7 @@ function jobStatus(options: AppOptions, id: string): Response {
 export function createApp(options: AppOptions): (request: Request) => Promise<Response> {
   const search: SearchState = { running: false };
   const refreshing: RefreshTracker = { jobId: null };
+  const analysing: AnalysisTracker = { running: false };
   return async (request) => {
     if (!isTrustedHost(request, options.allowedHosts)) {
       return fail(403, 'This server only answers to its own address');
@@ -305,6 +313,9 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
       return method === 'POST'
         ? startRefresh(options, request, refreshing)
         : fail(405, 'Use GET or POST');
+    }
+    if (pathname === '/api/analyses') {
+      return method === 'POST' ? runAnalysis(options, request, analysing) : fail(405, 'Use POST');
     }
     if (pathname.startsWith('/api/jobs/')) {
       const id = pathname.slice('/api/jobs/'.length);

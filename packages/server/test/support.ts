@@ -21,6 +21,7 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     discover: unused('discover'),
     refresh: unused('refresh'),
     refreshStatus: unused('refreshStatus'),
+    analyse: unused('analyse'),
     ...parts,
   };
 }
