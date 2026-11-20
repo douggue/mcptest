@@ -81,3 +81,6 @@ export {
 } from './refresh/refresh';
 export { SqliteRefreshRepo } from './repos/sqliteRefreshRepo';
 export type { RefreshRun, RefreshRunRepo, VideoReading } from './repos/types';
+export { fillNicheFacts, type FactsDeps, type FactsOutcome } from './niches/facts';
+export { SqliteFactsRepo } from './repos/sqliteFactsRepo';
+export type { FactsRepo, NewFacts, StoredFacts } from './repos/types';

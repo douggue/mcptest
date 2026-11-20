@@ -4,6 +4,7 @@ import {
   type CompetitorStatus,
   type CrawlProgress,
   type DiscoveryResult,
+  type FactsOutcome,
   type MapSnapshot,
   type NicheList,
   type RefreshProgress,
@@ -40,6 +41,16 @@ export interface RefreshOutcome {
   readonly stoppedEarly: boolean;
   /** Channels still due for a read; a later refresh takes them. */
   readonly stillDue: number;
+  /** Niche channels whose account date and country were read from the official API. */
+  readonly factsAdded: number;
+  /** Why those could not be read; null when they were, or when no API key is set. */
+  readonly factsProblem: string | null;
+}
+
+/** What a keyword search found, and how reading the new channels' account dates went. */
+export interface DiscoveryOutcome extends DiscoveryResult {
+  /** Absent or null when no facts were asked for. */
+  readonly facts?: FactsOutcome | null;
 }
 
 /** When the store was last refreshed, how much is due, and whether a timer does it. */
@@ -102,7 +113,7 @@ export interface Engine {
   /** Whether keyword search can run: it needs the owner's YouTube API key. */
   canDiscover(): boolean;
   /** Searches for recent videos on a subject and reads the channels behind them into the store. */
-  discover(keyword: string): Promise<DiscoveryResult>;
+  discover(keyword: string): Promise<DiscoveryOutcome>;
 }
 
 export interface AppOptions {
@@ -230,6 +241,8 @@ async function discover(
       added: found.added.length,
       alreadyKnown: found.alreadyKnown.length,
       failed: found.failed.length,
+      factsAdded: found.facts?.added ?? 0,
+      factsProblem: found.facts?.problem ?? null,
     });
   } catch (error) {
     return fail(502, `The search did not finish: ${cleanMessage(error)}`);

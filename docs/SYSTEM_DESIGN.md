@@ -11,6 +11,8 @@ numbered migrations tracked in `PRAGMA user_version`). The rest are the plan.
 ```
 channels        id PK (UC…), handle, title, subscribers NULL, subs_hidden,   -- built
                 video_count, fetched_at        (language: planned)
+                created_at NULL, country NULL, total_views NULL,   -- from the official API;
+                facts_fetched_at NULL          -- set once the API has been asked
 videos          id PK, channel_id FK, title, views, duration_s,
                 published_at, published_precision (day|week|month|year),
                 published_raw ("2w ago"), fetched_at                    -- built
@@ -367,7 +369,9 @@ NicheList { channelsChecked, smallMaxSubscribers, newMaxAgeDays,
   channels [{ id, title, handle, subscribers, recentViews, recentUploads,
               viewsPerSubscriber, channelAgeDays, reasons: ('new'|'small')[],
               outperformers: BoardVideo[], hitCount, scoredCount,
-              sampleTitles: [{ videoId, title, views }], qualifies, watched }] }
+              sampleTitles: [{ videoId, title, views }], qualifies, watched,
+              earnings, growth: { views, days, since } | null,
+              createdAt: string | null, country: string | null }] }
 ```
 
 The owner can mark a channel as watched (`niche_watchlist`, one row per channel, no
@@ -456,6 +460,38 @@ growth: { views, days, since } | null
 ```
 
 Not built: a views-per-day chart, and using the readings to calibrate the age ramp.
+
+### Exact channel dates
+
+Built (`packages/core/src/niches/facts.ts`, `packages/core/src/repos/sqliteFactsRepo.ts`).
+The web pages do not show when a channel account was created, and "first upload" is
+only the oldest video Jgtube has read. The official API gives the exact creation
+date, the country the owner set and the total views, fifty channels per request at
+one unit of the key's daily allowance (`fetchChannelFacts`).
+
+- They are kept in four columns of `channels` (migration 7) that the web ingest
+  never writes, so reading a channel again leaves them alone.
+- `fillNicheFacts` asks only about channels on the niche list that have never been
+  asked about, at most 200 at a time, and notes every channel asked, so one the API
+  does not know is not asked about on every run.
+- It runs after a refresh (button, timer or command line) and after a keyword
+  search. Opening the page never calls the API: `GET /api/niches` reads stored
+  columns only.
+- Without `YOUTUBE_API_KEY` it is skipped and nothing is said. A refusal (allowance
+  used up, no connection) does not fail the refresh or the search it follows: it
+  comes back as `factsProblem` beside `factsAdded` in the refresh outcome and the
+  search summary, with paths and control characters removed, and the channels are
+  asked about again next time.
+
+Each niche entry carries `createdAt` (ISO-8601 or null) and `country` (two letters or
+null). The card says "Account from 2018, restarted 2 months ago" when the account is
+more than 60 days older than the first upload and the whole channel was read,
+"First upload about 2 months ago" otherwise, and the account's year alone when the
+first upload is not known; the country's English name follows when it is one.
+
+"New" on the niche list is still measured from the first upload, not from
+`createdAt`: an old account that restarted is new as a channel, which is what the
+owner is looking for.
 
 ### Earnings range
 

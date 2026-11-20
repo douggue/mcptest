@@ -3,12 +3,15 @@ import {
   RateLimiter,
   SqliteChannelRepo,
   SqliteEdgeRepo,
+  SqliteFactsRepo,
   SqliteMapRepo,
   SqliteRefreshRepo,
   SqliteVideoRepo,
   SqliteWatchlistRepo,
   crawlMap,
   discoverByKeyword,
+  fetchChannelFacts,
+  fillNicheFacts,
   loadMapSnapshot,
   loadNicheList,
   loadRefreshStatus,
@@ -19,12 +22,15 @@ import {
   refreshStalest,
   searchRecentVideos,
   transactionRunner,
+  type ChannelFacts,
   type Config,
+  type FactsOutcome,
   type SearchHit,
   type StoredChannel,
   type YouTubeSource,
 } from '@jgtube/core';
 import type { Engine } from './app';
+import { cleanMessage } from './jobs';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -41,6 +47,8 @@ export interface EngineOptions {
     query: string,
     options: { readonly publishedAfter: Date },
   ) => Promise<readonly SearchHit[]>;
+  /** Replaces the official API's channel facts; used by tests. It is only called when a key is set. */
+  readonly fetchFacts?: (channelIds: readonly string[]) => Promise<readonly ChannelFacts[]>;
 }
 
 function youtubeSource(config: Config): Promise<YouTubeSource> {
@@ -69,6 +77,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     maps: new SqliteMapRepo(db),
     watchlist: new SqliteWatchlistRepo(db),
     runs: new SqliteRefreshRepo(db),
+    facts: new SqliteFactsRepo(db),
   };
   // Created on the first crawl, so stored maps can be read with no network at all.
   let source: Promise<YouTubeSource> | null = null;
@@ -82,6 +91,18 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     fetchChannel: async (channelId, maxVideos) =>
       (await connected()).fetchChannel(channelId, maxVideos),
     getSidebar: async (videoId) => (await connected()).getSidebar(videoId),
+  };
+  /**
+   * Reads the account dates and countries the niche list lacks, from the
+   * official API. Without the owner's key there is nothing to ask with, so it
+   * does nothing and says nothing. Error text goes to the browser, so it is cleaned.
+   */
+  const fillFacts = async (): Promise<FactsOutcome | null> => {
+    const apiKey = config.youtubeApiKey;
+    if (apiKey === undefined) return null;
+    const fetchFacts = options.fetchFacts ?? ((ids) => fetchChannelFacts(ids, { apiKey }));
+    const outcome = await fillNicheFacts({ ...repos, fetchFacts }, now());
+    return { ...outcome, problem: outcome.problem === null ? null : cleanMessage(outcome.problem) };
   };
   /** The stored channel a handle, link or id refers to; reads the store only. */
   const findStored = (channel: string): StoredChannel | null => {
@@ -162,12 +183,15 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
         { ...repos, source: lazySource, transact: transactionRunner(db), now },
         { onProgress, ...(maxChannels ? { maxChannels } : {}) },
       );
+      const facts = await fillFacts();
       return {
         refreshed: result.refreshed.length,
         failed: result.failed.length,
         notAttempted: result.notAttempted,
         stoppedEarly: result.stoppedEarly,
         stillDue: result.stillDue,
+        factsAdded: facts?.added ?? 0,
+        factsProblem: facts?.problem ?? null,
       };
     },
 
@@ -183,7 +207,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       const apiKey = config.youtubeApiKey;
       if (apiKey === undefined) throw new Error('Keyword search needs a YouTube API key');
       source ??= createSource();
-      return discoverByKeyword(
+      const found = await discoverByKeyword(
         {
           channels: repos.channels,
           videos: repos.videos,
@@ -196,6 +220,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
         },
         keyword,
       );
+      return { ...found, facts: await fillFacts() };
     },
 
     close() {

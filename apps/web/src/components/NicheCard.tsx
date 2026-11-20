@@ -4,10 +4,10 @@ import type { ReactNode } from 'react';
 import { scoreTone } from '../lib/board';
 import { channelUrl, formatCount, initials, watchUrl } from '../lib/format';
 import {
-  describeChannel,
   describeEarnings,
   describeGrowth,
   describeHits,
+  describeOrigin,
   formatPerSubscriber,
   otherTitles,
 } from '../lib/niches';
@@ -84,19 +84,30 @@ function WatchToggle({ channel, onSetWatched }: Props) {
   );
 }
 
-/** Why the channel is listed, and how often its videos take off. */
+/** Why the channel is listed, how often its videos take off, and when and where it started. */
 function Evidence({ channel }: { readonly channel: NicheChannel }) {
+  const origin = describeOrigin(channel);
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {channel.reasons.map((reason) => (
-        <span key={reason} className={`${PILL} text-primary-fixed-dim`}>
-          {REASON_LABEL[reason]}
-        </span>
-      ))}
-      {!channel.qualifies && (
-        <span className={`${PILL} text-on-surface-variant`}>No longer outperforming</span>
+    <div className="flex flex-col gap-space-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        {channel.reasons.map((reason) => (
+          <span key={reason} className={`${PILL} text-primary-fixed-dim`}>
+            {REASON_LABEL[reason]}
+          </span>
+        ))}
+        {!channel.qualifies && (
+          <span className={`${PILL} text-on-surface-variant`}>No longer outperforming</span>
+        )}
+        <span className="text-label-caps text-outline">{describeHits(channel)}</span>
+      </div>
+      {origin && (
+        <p
+          className="text-label-caps text-outline"
+          title="The first upload is the oldest video Jgtube has read. The account's year and the country come from YouTube's official records, once a refresh or a search has asked for them."
+        >
+          {origin}
+        </p>
       )}
-      <span className="text-label-caps text-outline">{describeHits(channel)}</span>
     </div>
   );
 }
@@ -162,7 +173,6 @@ function Videos({ channel }: { readonly channel: NicheChannel }) {
 
 /** One channel worth a look: why it is here, its numbers, and the videos that took off. */
 export function NicheCard({ channel, onSetWatched }: Props) {
-  const about = describeChannel(channel);
   return (
     <article
       className={`flex min-w-0 flex-col gap-space-md rounded bg-surface-card p-space-md shadow-md ${
@@ -177,7 +187,9 @@ export function NicheCard({ channel, onSetWatched }: Props) {
           <h3 className="truncate text-title-md text-on-surface">
             <Outbound href={channelUrl(channel.id)}>{channel.title}</Outbound>
           </h3>
-          {about && <span className="truncate text-label-caps text-outline">{about}</span>}
+          {channel.handle && (
+            <span className="truncate text-label-caps text-outline">@{channel.handle}</span>
+          )}
         </div>
         <WatchToggle channel={channel} onSetWatched={onSetWatched} />
       </div>

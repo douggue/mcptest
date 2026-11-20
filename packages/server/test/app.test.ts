@@ -941,6 +941,8 @@ describe('POST /api/niches/discover', () => {
       added: 1,
       alreadyKnown: 0,
       failed: 0,
+      factsAdded: 0,
+      factsProblem: null,
     });
   });
 

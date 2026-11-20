@@ -55,8 +55,16 @@ export function describeProgress(progress: RefreshProgress | null): string {
     : 'Choosing the channels read longest ago';
 }
 
-/** What a finished refresh did, in a sentence or two. */
-export function describeOutcome(summary: RefreshSummary): string {
+/** How reading the account dates went, as a sentence to append; empty when there is nothing to say. */
+function describeFacts(summary: RefreshSummary): string {
+  if (summary.factsProblem) return ` Account dates could not be read: ${summary.factsProblem}`;
+  return summary.factsAdded > 0
+    ? ` Account dates read for ${count(summary.factsAdded, 'channel')}.`
+    : '';
+}
+
+/** What reading the channels again did, in a sentence. */
+function describeReads(summary: RefreshSummary): string {
   if (summary.refreshed === 0 && summary.failed === 0) {
     return 'Nothing was due: every stored channel has been read in the last day.';
   }
@@ -65,4 +73,9 @@ export function describeOutcome(summary: RefreshSummary): string {
     ? ` Stopped early because YouTube was refusing requests; ${summary.notAttempted} were not tried.`
     : '';
   return `Read ${count(summary.refreshed, 'channel')} again${unread}.${stopped}`;
+}
+
+/** What a finished refresh did, in a sentence or two. */
+export function describeOutcome(summary: RefreshSummary): string {
+  return `${describeReads(summary)}${describeFacts(summary)}`;
 }

@@ -211,6 +211,8 @@ describe('buildNicheList', () => {
       qualifies: true,
       watched: false,
       growth: null,
+      createdAt: null,
+      country: null,
     });
     expect(entry?.outperformers[0]?.score).toBeGreaterThan(40);
   });

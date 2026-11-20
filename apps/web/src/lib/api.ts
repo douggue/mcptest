@@ -22,6 +22,10 @@ export interface SearchSummary {
   readonly added: number;
   readonly alreadyKnown: number;
   readonly failed: number;
+  /** Channels whose account date and country were read from the official API afterwards. */
+  readonly factsAdded: number;
+  /** Why those could not be read; null when they were. */
+  readonly factsProblem: string | null;
 }
 
 export interface JobState {
@@ -51,6 +55,10 @@ export interface RefreshSummary {
   readonly notAttempted: number;
   readonly stoppedEarly: boolean;
   readonly stillDue: number;
+  /** Niche channels whose account date and country were read from the official API. */
+  readonly factsAdded: number;
+  /** Why those could not be read; null when they were, or when no API key is set. */
+  readonly factsProblem: string | null;
 }
 
 export interface RefreshJobState {

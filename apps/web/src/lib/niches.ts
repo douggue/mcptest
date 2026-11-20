@@ -37,14 +37,50 @@ export function withWatched(list: NicheList, channelId: string, watched: boolean
   };
 }
 
-/** A channel's handle and how long ago it first published, as far as either is known. */
-export function describeChannel(channel: NicheChannel): string {
-  return [
-    ...(channel.handle ? [`@${channel.handle}`] : []),
-    ...(channel.channelAgeDays === null
-      ? []
-      : [`first upload about ${formatAge(channel.channelAgeDays)} ago`]),
-  ].join(' · ');
+const DAY_MS = 24 * 60 * 60 * 1000;
+/**
+ * An account this much older than its first upload was not made for these
+ * videos: it sat unused, or had its old videos removed, and started again.
+ * Under two months is the ordinary gap between making an account and posting.
+ */
+const RESTART_MIN_GAP_DAYS = 60;
+const COUNTRY_CODE = /^[A-Z]{2}$/;
+/** The standard's own code for "no known country", which has a name but says nothing. */
+const UNKNOWN_REGION = 'ZZ';
+const regionNames = new Intl.DisplayNames(['en'], { type: 'region', fallback: 'none' });
+
+/** The country's name in English, or null for a code that is not a known country. */
+function countryName(code: string | null): string | null {
+  if (code === null || code === UNKNOWN_REGION || !COUNTRY_CODE.test(code)) return null;
+  try {
+    return regionNames.of(code) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** When the channel started: the account's year beside the first upload when the two are far apart. */
+function describeStart(channel: NicheChannel, now: Date): string | null {
+  const created = channel.createdAt === null ? Number.NaN : new Date(channel.createdAt).getTime();
+  const account = Number.isNaN(created)
+    ? null
+    : { year: new Date(created).getUTCFullYear(), ageDays: (now.getTime() - created) / DAY_MS };
+  if (channel.channelAgeDays === null) return account ? `Account from ${account.year}` : null;
+  const age = formatAge(channel.channelAgeDays);
+  return account && account.ageDays - channel.channelAgeDays > RESTART_MIN_GAP_DAYS
+    ? `Account from ${account.year}, restarted ${age} ago`
+    : `First upload about ${age} ago`;
+}
+
+/**
+ * When a channel started and where it is from, as far as each is known; empty
+ * when neither is. The account's creation date and the country come from the
+ * official API, so they are missing until a refresh or a search has asked.
+ */
+export function describeOrigin(channel: NicheChannel, now: Date = new Date()): string {
+  const start = describeStart(channel, now);
+  const country = countryName(channel.country);
+  return [...(start ? [start] : []), ...(country ? [country] : [])].join(' · ');
 }
 
 /** In words, what the list holds and how much was gone through to make it. */
@@ -108,7 +144,10 @@ export function describeEarnings(estimate: EarningsEstimate): string {
 export function describeSearch(summary: SearchSummary): string {
   if (summary.videosFound === 0) return `No recent videos were found for "${summary.keyword}".`;
   const unread = summary.failed > 0 ? `, ${summary.failed} could not be read` : '';
-  return `Found ${summary.videosFound} videos from ${summary.channelsFound} channels for "${summary.keyword}": ${summary.added} new to Jgtube, ${summary.alreadyKnown} already known${unread}.`;
+  const dates = summary.factsProblem
+    ? ` Account dates could not be read: ${summary.factsProblem}`
+    : '';
+  return `Found ${summary.videosFound} videos from ${summary.channelsFound} channels for "${summary.keyword}": ${summary.added} new to Jgtube, ${summary.alreadyKnown} already known${unread}.${dates}`;
 }
 
 /** What a channel's videos gained between its first and latest stored reading, in words. */

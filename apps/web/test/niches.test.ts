@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 import { createApi } from '../src/lib/api';
 import {
   NICHE_FILTERS,
-  describeChannel,
+  describeOrigin,
   describeEarnings,
   describeSearch,
   describeHits,
@@ -41,6 +41,8 @@ const niche = (n: number, overrides: Partial<NicheChannel> = {}): NicheChannel =
   qualifies: true,
   watched: false,
   growth: null,
+  createdAt: null,
+  country: null,
   ...overrides,
 });
 
@@ -102,13 +104,51 @@ describe('withWatched', () => {
 });
 
 describe('describing niches in words', () => {
-  test('says who a channel is and how new it is', () => {
-    expect(describeChannel(niche(1))).toBe('@handle1 · first upload about 4 weeks ago');
-    expect(describeChannel(niche(1, { handle: null, channelAgeDays: 9 }))).toBe(
-      'first upload about 9 days ago',
+  test('says how new a channel is, when that is known', () => {
+    expect(describeOrigin(niche(1))).toBe('First upload about 4 weeks ago');
+    expect(describeOrigin(niche(1, { channelAgeDays: 9 }))).toBe('First upload about 9 days ago');
+    expect(describeOrigin(niche(1, { channelAgeDays: null }))).toBe('');
+  });
+
+  test('says when the account is much older than the channel that restarted on it', () => {
+    const now = new Date('2026-11-20T12:00:00Z');
+    const old = niche(1, { channelAgeDays: 61, createdAt: '2018-03-04T10:00:00.000Z' });
+
+    expect(describeOrigin(old, now)).toBe('Account from 2018, restarted 2 months ago');
+    expect(describeOrigin({ ...old, country: 'US' }, now)).toBe(
+      'Account from 2018, restarted 2 months ago · United States',
     );
-    expect(describeChannel(niche(1, { channelAgeDays: null }))).toBe('@handle1');
-    expect(describeChannel(niche(1, { handle: null, channelAgeDays: null }))).toBe('');
+  });
+
+  test('keeps to the first upload when the account was made around the same time', () => {
+    const now = new Date('2026-11-20T12:00:00Z');
+    const fresh = niche(1, { channelAgeDays: 30, createdAt: '2026-09-01T00:00:00.000Z' });
+    const justOver = niche(1, { channelAgeDays: 30, createdAt: '2026-08-20T00:00:00.000Z' });
+
+    expect(describeOrigin(fresh, now)).toBe('First upload about 4 weeks ago');
+    expect(describeOrigin(justOver, now)).toBe('Account from 2026, restarted 4 weeks ago');
+  });
+
+  test('gives the account year alone when the first upload is not known', () => {
+    const capped = niche(1, { channelAgeDays: null, createdAt: '2015-06-01T00:00:00.000Z' });
+
+    expect(describeOrigin(capped)).toBe('Account from 2015');
+  });
+
+  test('names the country when it is known, and leaves out a code it cannot read', () => {
+    expect(describeOrigin(niche(1, { country: 'GB' }))).toBe(
+      'First upload about 4 weeks ago · United Kingdom',
+    );
+    expect(describeOrigin(niche(1, { country: 'not a country' }))).toBe(
+      'First upload about 4 weeks ago',
+    );
+    expect(describeOrigin(niche(1, { country: 'ZZ', channelAgeDays: null }))).toBe('');
+  });
+
+  test('ignores an account date it cannot read', () => {
+    expect(describeOrigin(niche(1, { createdAt: 'yesterday-ish' }))).toBe(
+      'First upload about 4 weeks ago',
+    );
   });
 
   test('says how many channels were found, what new and small mean, and among how many', () => {
@@ -242,6 +282,8 @@ describe('describeSearch', () => {
         added: 14,
         alreadyKnown: 1,
         failed: 0,
+        factsAdded: 0,
+        factsProblem: null,
       }),
     ).toBe(
       'Found 50 videos from 30 channels for "new invention": 14 new to Jgtube, 1 already known.',
@@ -257,6 +299,8 @@ describe('describeSearch', () => {
         added: 1,
         alreadyKnown: 0,
         failed: 1,
+        factsAdded: 0,
+        factsProblem: null,
       }),
     ).toBe(
       'Found 3 videos from 2 channels for "x": 1 new to Jgtube, 0 already known, 1 could not be read.',
@@ -269,8 +313,35 @@ describe('describeSearch', () => {
         added: 0,
         alreadyKnown: 0,
         failed: 0,
+        factsAdded: 0,
+        factsProblem: null,
       }),
     ).toBe('No recent videos were found for "x".');
+  });
+});
+
+describe('account dates read after a search', () => {
+  const found = {
+    keyword: 'x',
+    videosFound: 3,
+    channelsFound: 2,
+    added: 2,
+    alreadyKnown: 0,
+    failed: 0,
+    factsAdded: 0,
+    factsProblem: null,
+  };
+
+  test('are not mentioned when they were read, or not asked for', () => {
+    expect(describeSearch({ ...found, factsAdded: 2 })).toBe(
+      'Found 3 videos from 2 channels for "x": 2 new to Jgtube, 0 already known.',
+    );
+  });
+
+  test('say why when they could not be read', () => {
+    expect(describeSearch({ ...found, factsProblem: 'No allowance left.' })).toBe(
+      'Found 3 videos from 2 channels for "x": 2 new to Jgtube, 0 already known. Account dates could not be read: No allowance left.',
+    );
   });
 });
 
@@ -284,6 +355,8 @@ describe('the niche calls of the API client', () => {
       added: 1,
       alreadyKnown: 0,
       failed: 0,
+      factsAdded: 0,
+      factsProblem: null,
     };
     const api = createApi(async (url, init) => {
       bodies.push(`${String(url)} ${String(init?.body)}`);

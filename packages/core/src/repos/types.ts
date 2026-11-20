@@ -131,3 +131,35 @@ export interface RefreshRunRepo {
   /** The run that finished last, or null when there has been none. */
   latest(): RefreshRun | null;
 }
+
+/** What the official API says about a channel, as far as the store keeps it. */
+export interface NewFacts {
+  readonly id: string;
+  /** When the channel account was created, which can be long before its first upload. */
+  readonly createdAt: Date;
+  /** Two-letter country the owner of the channel set, or null when they set none. */
+  readonly country: string | null;
+  readonly totalViews: number | null;
+}
+
+export interface StoredFacts {
+  readonly channelId: string;
+  readonly createdAt: Date;
+  readonly country: string | null;
+  readonly totalViews: number | null;
+  /** When the facts were read from the official API. */
+  readonly fetchedAt: Date;
+}
+
+/** Channel facts from the official API, kept on the channel's own row. */
+export interface FactsRepo {
+  /** Null when the channel has no stored facts. */
+  find(channelId: string): StoredFacts | null;
+  /** Of these channels, the stored ones the official API has never been asked about. */
+  listMissing(channelIds: readonly string[]): readonly string[];
+  /**
+   * Stores what the API returned and notes every channel asked about, so one
+   * the API does not know is not asked about again on every run.
+   */
+  record(askedIds: readonly string[], facts: readonly NewFacts[], fetchedAt: Date): void;
+}

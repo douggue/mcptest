@@ -121,6 +121,7 @@ Phase 7 needs 5.
 
 - [x] "New niches to watch": new or small channels across the whole store with a recent video that outperforms; watchlist
 - [x] Channel facts from the official API (exact creation date, country, totals), with the owner's key
+- [x] Those facts stored on channels and read for niche-list channels that lack them, after a refresh and after a keyword search (never on a page load); the card shows the account's year beside the first upload when they are more than 60 days apart, and the country
 - [x] Keyword discovery: official search for recent most-viewed videos on a subject, channels read into the store; search box on the niches section
 - [x] Earnings range per niche channel (long videos $2-8 per 1,000 views, Shorts $0.10-0.50; flagged under 1,000 subscribers)
 - [x] Settings from a `.env` file, including `YOUTUBE_API_KEY`

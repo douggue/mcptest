@@ -90,7 +90,15 @@ describe('a refresh under way and its outcome', () => {
   });
 
   test('sums up a finished run', () => {
-    const outcome = { refreshed: 48, failed: 2, notAttempted: 0, stoppedEarly: false, stillDue: 9 };
+    const outcome = {
+      refreshed: 48,
+      failed: 2,
+      notAttempted: 0,
+      stoppedEarly: false,
+      stillDue: 9,
+      factsAdded: 0,
+      factsProblem: null,
+    };
 
     expect(describeOutcome(outcome)).toBe('Read 48 channels again; 2 could not be read.');
     expect(describeOutcome({ ...outcome, failed: 0 })).toBe('Read 48 channels again.');
@@ -99,6 +107,33 @@ describe('a refresh under way and its outcome', () => {
     );
     expect(describeOutcome({ ...outcome, stoppedEarly: true, notAttempted: 40 })).toBe(
       'Read 48 channels again; 2 could not be read. Stopped early because YouTube was refusing requests; 40 were not tried.',
+    );
+  });
+});
+
+describe('account dates read during a refresh', () => {
+  const quiet = {
+    refreshed: 48,
+    failed: 0,
+    notAttempted: 0,
+    stoppedEarly: false,
+    stillDue: 0,
+    factsAdded: 0,
+    factsProblem: null,
+  };
+
+  test('are mentioned when some were read', () => {
+    expect(describeOutcome({ ...quiet, factsAdded: 12 })).toBe(
+      'Read 48 channels again. Account dates read for 12 channels.',
+    );
+    expect(describeOutcome({ ...quiet, refreshed: 0, factsAdded: 1 })).toBe(
+      'Nothing was due: every stored channel has been read in the last day. Account dates read for 1 channel.',
+    );
+  });
+
+  test('say why when they could not be read', () => {
+    expect(describeOutcome({ ...quiet, factsProblem: 'The key has no allowance left.' })).toBe(
+      'Read 48 channels again. Account dates could not be read: The key has no allowance left.',
     );
   });
 });

@@ -112,6 +112,13 @@ CREATE TABLE IF NOT EXISTS refresh_runs (
   stopped_early  INTEGER NOT NULL
 );
 `,
+  // 7: channel facts from the official API: the exact creation date, the country and total views.
+  `
+ALTER TABLE channels ADD COLUMN created_at TEXT;
+ALTER TABLE channels ADD COLUMN country TEXT;
+ALTER TABLE channels ADD COLUMN total_views INTEGER;
+ALTER TABLE channels ADD COLUMN facts_fetched_at TEXT;
+`,
 ];
 
 /**

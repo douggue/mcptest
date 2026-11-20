@@ -158,7 +158,15 @@ describe('startRefreshTimer', () => {
 });
 
 describe('startThroughApi', () => {
-  const outcome = { refreshed: 0, failed: 0, notAttempted: 0, stoppedEarly: false, stillDue: 0 };
+  const outcome = {
+    refreshed: 0,
+    failed: 0,
+    notAttempted: 0,
+    stoppedEarly: false,
+    stillDue: 0,
+    factsAdded: 0,
+    factsProblem: null,
+  };
 
   test('starts a refresh through the same route as the button, one at a time', async () => {
     let runs = 0;

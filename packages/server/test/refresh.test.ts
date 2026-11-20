@@ -14,6 +14,8 @@ const outcome: RefreshOutcome = {
   notAttempted: 0,
   stoppedEarly: false,
   stillDue: 120,
+  factsAdded: 0,
+  factsProblem: null,
 };
 
 const idle: RefreshState = {
@@ -251,6 +253,8 @@ describe('a refresh with the real engine and store', () => {
       notAttempted: 0,
       stoppedEarly: false,
       stillDue: 0,
+      factsAdded: 0,
+      factsProblem: null,
     });
     expect(seen.at(-1)).toEqual({ stage: 'refreshing', done: 1, total: 1 });
     expect((await read(await get(live, PATH))).data).toMatchObject({
