@@ -193,6 +193,56 @@ measured before it is promised.
 Each step is written tests-first and reviewed by a code reviewer, a senior
 supervisor and a creator's-eye reviewer before the next begins.
 
+## Changes from the design review (accepted, not yet built)
+
+A senior review of the design after the search and read cycles were built found
+that the plumbing is sound but the two things that decide what can be found are
+aimed wrongly. These replace the matching parts of the plan above.
+
+- **Search net.** `order=viewCount` over seven days returns the biggest videos
+  of the week from big channels, and after day one finds few new ones. Instead,
+  two kinds of search per subject: "top recent" (`order=viewCount` over the last
+  48 hours, where total views roughly follow views per hour) and "newest"
+  (`order=date` from the end of the previous sweep to now; a sweep that comes
+  back full makes that subject's next sweep sooner).
+- **How a video was found** is stored on each hit: search kind, rank in the
+  results, and the video's age when found, so the mix can be judged on evidence.
+- **Known channels' uploads.** The channel share is nearly unused. Spend it on
+  each followed small channel's uploads list once a day (1 unit, against 100 for
+  a search); it finds their new Shorts and builds each channel's own history.
+  The Shorts-only list is tested here first.
+- **Tracking by promise, not age.** Reading every found video hourly for three
+  days runs the reading share out in week two (about 116 reads a video; 100,000
+  reads a day). Hourly only while a video is in the top half of its group (same
+  subject and region, same age band); finished after three readings in a row in
+  the bottom half without speeding up; videos from channels too big to count as
+  small are read only at about 24 and 72 hours, for the baseline. Each hour's
+  cycle takes at most the share left divided by the hours left in the Pacific
+  day, best candidates first, so readings never stop for hours late in the day.
+- **More per reading.** Likes and comments are stored (the same request returns
+  them), and each tracked video gets a growth summary (views at 1 h, 6 h, 24 h,
+  72 h, 7 d) so group percentiles are a simple query and raw readings can be
+  deleted when tracking ends. This replaces the 14-day roll-up.
+- **"Outperforms" is a position in a group, not a number.** A finding needs, at
+  the same age: speed in the top share of its group; views per subscriber in the
+  top share; several times the channel's own median when it has about five
+  tracked Shorts; a channel in the bottom share of its group by subscribers or
+  age; the speed test holding on two readings in a row; and one money floor in
+  dollars, which is the owner's choice. The shares are fixed only after two to
+  three weeks of readings from about ten small established channels in each of
+  three or more unrelated niches, chosen on two niches and checked on a third.
+- **Earnings label.** A Short's public view count may include every start and
+  replay while payment is on engaged views; to be checked against YouTube's
+  current policy, and the range labelled an upper bound if so.
+- **Regions.** Measure in week one how much each subject's results overlap
+  between US, GB, CA and AU; where high, search the other three less often.
+  Transfer across four English-speaking regions will be thin; the rule needs
+  only stored hits with their rank, channel country and titles.
+- **Unattended running.** Unspent search and channel units flow to readings late
+  in the Pacific day; a daily clean-up removes videos and channels no longer
+  read; the daily "still running" message reports units by kind, videos due but
+  unread, tracked-set size and disk use; a swap file on the 1 GB droplet.
+
 ## Decisions (owner, 20 November 2026)
 
 1. **Countries:** the ones with high ad rates. Start with US, GB, CA and AU in
