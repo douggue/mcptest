@@ -80,6 +80,14 @@ class FakeEngine implements Engine {
     return this.searchOutcome;
   }
 
+  listTransfers(): never {
+    throw new Error('not used in these tests');
+  }
+
+  setTransferSaved(): never {
+    throw new Error('not used in these tests');
+  }
+
   setNicheWatched(channel: string, watched: boolean): boolean {
     if (!this.known.includes(channel)) return false;
     this.watches.push([channel, watched]);

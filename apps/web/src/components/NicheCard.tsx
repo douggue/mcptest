@@ -7,7 +7,9 @@ import {
   describeEarnings,
   describeGrowth,
   describeHits,
+  describeLanguage,
   describeOrigin,
+  describeRateTier,
   formatPerSubscriber,
   otherTitles,
 } from '../lib/niches';
@@ -95,6 +97,14 @@ function Evidence({ channel }: { readonly channel: NicheChannel }) {
             {REASON_LABEL[reason]}
           </span>
         ))}
+        {channel.otherLanguage && (
+          <span
+            className={`${PILL} text-secondary`}
+            title="Most of its titles are in another alphabet. An idea that works there may not have been made in your language yet. Jgtube does not translate."
+          >
+            {describeLanguage(channel.otherLanguage)}
+          </span>
+        )}
         {!channel.qualifies && (
           <span className={`${PILL} text-on-surface-variant`}>No longer outperforming</span>
         )}
@@ -112,18 +122,40 @@ function Evidence({ channel }: { readonly channel: NicheChannel }) {
   );
 }
 
+/**
+ * Size, then the two windows. On a wide card the pairs stand as three columns;
+ * on a phone as three rows, so each window's views and uploads stay together.
+ */
 function Numbers({ channel }: { readonly channel: NicheChannel }) {
   return (
-    <dl className="grid grid-cols-2 gap-2 rounded bg-space-deep p-2.5 sm:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-2 rounded bg-space-deep p-2.5 sm:grid-flow-col sm:grid-cols-3 sm:grid-rows-2">
       <Stat label="Subscribers">{formatCount(channel.subscribers)}</Stat>
+      <Stat label="Per subscriber">
+        <span className="text-secondary">{formatPerSubscriber(channel.viewsPerSubscriber)}</span>
+      </Stat>
+      <Stat label="90-day views">
+        <span className="text-primary">{formatCount(channel.ninetyDayViews)}</span>
+      </Stat>
+      <Stat label="90-day uploads">{channel.ninetyDayUploads}</Stat>
       <Stat label="30-day views">
         <span className="text-primary">{formatCount(channel.recentViews)}</span>
       </Stat>
       <Stat label="30-day uploads">{channel.recentUploads}</Stat>
-      <Stat label="Per subscriber">
-        <span className="text-secondary">{formatPerSubscriber(channel.viewsPerSubscriber)}</span>
-      </Stat>
     </dl>
+  );
+}
+
+/** What the views are worth over both windows, and which ad rate that was worked out at. */
+function Earnings({ channel }: { readonly channel: NicheChannel }) {
+  return (
+    <div
+      className="flex flex-col gap-0.5 text-label-caps text-outline"
+      title="A rough range from typical ad rates for the views on this channel's uploads. Jgtube cannot see whether the channel is monetised or where its viewers live; the rate is scaled by a rough tier for the channel's own country when YouTube's records give one."
+    >
+      <p>{describeEarnings(channel.ninetyDayEarnings, 90)} · estimate</p>
+      <p>{describeEarnings(channel.earnings)} · estimate</p>
+      <p>{describeRateTier(channel.earnings.rateTier)}</p>
+    </div>
   );
 }
 
@@ -195,12 +227,7 @@ export function NicheCard({ channel, onSetWatched }: Props) {
       </div>
       <Evidence channel={channel} />
       <Numbers channel={channel} />
-      <p
-        className="text-label-caps text-outline"
-        title="A rough range from typical ad rates for the views on this channel's uploads of the last 30 days. Jgtube cannot see whether the channel is monetised or where its viewers live."
-      >
-        {describeEarnings(channel.earnings)} · estimate
-      </p>
+      <Earnings channel={channel} />
       {channel.growth && (
         <p
           className="text-label-caps text-outline"

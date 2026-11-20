@@ -1,4 +1,5 @@
 import type { ChannelInfo, StorableVideo } from '../sources/types';
+import type { RecentVideo } from '../transfer/types';
 
 export interface StoredChannel extends ChannelInfo {
   readonly fetchedAt: Date;
@@ -135,6 +136,28 @@ export interface WatchlistRepo {
   listWatched(): readonly string[];
   /** The channel must be in the store. */
   setWatched(channelId: string, watched: boolean, at: Date): void;
+}
+
+/** An idea the owner saved as a transfer opportunity. */
+export interface SavedIdea {
+  /** The words of the idea's title template; see `Idea.key`. */
+  readonly key: string;
+  /** The template as it read when it was saved, to show once its videos are too old to list. */
+  readonly template: string;
+  readonly savedAt: Date;
+}
+
+/** What the transfer list reads from the store, and the ideas the owner saved. */
+export interface TransferRepo {
+  /**
+   * Every stored video published at or after `since`, whichever channel it is
+   * from, with its channel's title, size and country. Older videos are left
+   * out by the store, not read and dropped.
+   */
+  listRecentVideos(since: Date): readonly RecentVideo[];
+  listSaved(): readonly SavedIdea[];
+  /** Saving an idea twice keeps the first save. */
+  setSaved(key: string, template: string, saved: boolean, at: Date): void;
 }
 
 /** One finished refresh: how many stored channels were read again, and how it went. */

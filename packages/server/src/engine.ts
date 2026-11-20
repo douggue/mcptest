@@ -5,6 +5,7 @@ import {
   SqliteLeaseRepo,
   SqliteMapRepo,
   SqliteRefreshRepo,
+  SqliteTransferRepo,
   SqliteVideoRepo,
   SqliteWatchlistRepo,
   crawlMap,
@@ -46,6 +47,7 @@ import {
 import { connectOnUse, onceUntilItWorks, stopWhen, youtubeSource } from './connection';
 import { cleanMessage } from './jobs';
 import { trackWork, type WorkTracker } from './running';
+import { transfers } from './transferEngine';
 
 const IN_MEMORY = ':memory:';
 /** The Jgtube folder: the connector Claude is given lives under it. */
@@ -100,6 +102,7 @@ function openRepos(db: Db) {
     watchlist: new SqliteWatchlistRepo(db),
     runs: new SqliteRefreshRepo(db),
     facts: new SqliteFactsRepo(db),
+    transfers: new SqliteTransferRepo(db),
   };
 }
 
@@ -391,6 +394,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
   return {
     ...mapReads(wiring),
     ...ownerChoices(wiring),
+    ...transfers(wiring),
     ...crawling(wiring),
     ...refreshing(wiring, fillFacts),
     ...discovery(wiring, fillFacts),

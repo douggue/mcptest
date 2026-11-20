@@ -1,3 +1,4 @@
+import { PEER_DORMANT_AFTER_DAYS } from '../limits';
 import type { StoredVideo } from '../repos/types';
 
 /**
@@ -29,11 +30,13 @@ export const PEER_MIN_DURATION_RATIO = 0.4;
  * point or two of it are not settled by titles.
  */
 export const PEER_MIN_TITLE_MATCH = 0.14;
+export { PEER_DORMANT_AFTER_DAYS };
 
 const CADENCE_WINDOW_DAYS = 14;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export type OutsideReason = 'larger' | 'cadence' | 'length' | 'titles';
+/** 'dormant': no upload in the last `PEER_DORMANT_AFTER_DAYS` days. */
+export type OutsideReason = 'larger' | 'dormant' | 'cadence' | 'length' | 'titles';
 
 export interface PeerSubject {
   readonly subscribers: number | null;
@@ -61,6 +64,17 @@ export function uploadsPerWeek(videos: readonly StoredVideo[], now: Date): numbe
 }
 
 /**
+ * Whether a channel's newest stored upload is older than the dormancy limit.
+ * A channel with no stored video is not called dormant: nothing was read to
+ * show it has stopped.
+ */
+export function isDormant(videos: readonly StoredVideo[], now: Date): boolean {
+  if (videos.length === 0) return false;
+  const newest = Math.max(...videos.map((video) => video.published.date.getTime()));
+  return now.getTime() - newest > PEER_DORMANT_AFTER_DAYS * DAY_MS;
+}
+
+/**
  * The most subscribers a peer of a channel this size can have. Title matching
  * alone let channels of 400,000 to 800,000 subscribers through as look-alikes
  * of one with 8,000; a channel that much larger is not competing on the same terms.
@@ -74,8 +88,8 @@ export function maxPeerSubscribers(referenceSubscribers: number | null): number 
 }
 
 /**
- * Why a channel cannot be a peer on its shape alone (size, publishing rate,
- * video length), or null when its shape fits. Titles are judged separately.
+ * Why a channel cannot be a peer on its shape alone (size, whether it still
+ * uploads, publishing rate, video length), or null when its shape fits. Titles are judged separately.
  */
 export function shapeMismatch(
   center: PeerSubject,
@@ -88,6 +102,7 @@ export function shapeMismatch(
   ) {
     return 'larger';
   }
+  if (isDormant(candidate.videos, now)) return 'dormant';
   if (uploadsPerWeek(candidate.videos, now) > PEER_MAX_UPLOADS_PER_WEEK) return 'cadence';
   const own = medianDurationSeconds(center.videos);
   const theirs = medianDurationSeconds(candidate.videos);

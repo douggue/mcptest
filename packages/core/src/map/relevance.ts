@@ -90,7 +90,11 @@ const STOPWORDS: ReadonlySet<string> = new Set([
 
 type Vector = ReadonlyMap<string, number>;
 
-function tokenize(title: string): readonly string[] {
+/**
+ * A title's words in lower case, in order, without the short and the common
+ * ones that say nothing about what the video is.
+ */
+export function tokenize(title: string): readonly string[] {
   return title
     .toLowerCase()
     .split(/[^\p{L}\p{N}]+/u)

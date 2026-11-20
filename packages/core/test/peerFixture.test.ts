@@ -141,6 +141,13 @@ describe('peers on a real map measured against a model channel', () => {
     });
   });
 
+  test('says a channel that stopped uploading is dormant, whatever its titles', () => {
+    // TECH WAVE's newest upload in the fixture is 180 days old. No other channel's is past 45.
+    const dormant = rows.filter((candidate) => candidate.outsideReason === 'dormant');
+
+    expect(dormant.map((candidate) => candidate.channel.title)).toEqual(['TECH WAVE']);
+  });
+
   // Titles alone do not settle these two; see "Peers" in docs/SYSTEM_DESIGN.md.
   test.todo(
     'tells How It Occurs (a look-alike with seven videos) from Arran Rice (airline analysis)',

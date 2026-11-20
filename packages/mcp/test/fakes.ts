@@ -7,9 +7,19 @@ import type {
   SnapshotBreakout,
   SnapshotChannel,
   ThumbnailBoard,
+  TransferFormat,
+  TransferIdea,
+  TransferList,
+  TransferVersion,
 } from '@jgtube/core';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import type { ChannelVideos, ConnectorEngine, CrawlChoices, CrawlOutcome } from '../src/types';
+import type {
+  ChannelVideos,
+  ConnectorEngine,
+  CrawlChoices,
+  CrawlOutcome,
+  TransferChoices,
+} from '../src/types';
 
 export const CENTER_ID = 'UCcccccccccccccccccccccc';
 export const ALPHA_ID = 'UCaaaaaaaaaaaaaaaaaaaaaa';
@@ -232,7 +242,19 @@ export function niche(overrides: Partial<NicheChannel> = {}): NicheChannel {
       longFormViews: 420_000,
       shortsViews: 0,
       belowAdThreshold: false,
+      rateTier: { id: 'unknown', multiplier: 1, country: null },
     },
+    ninetyDayViews: 990_000,
+    ninetyDayUploads: 14,
+    ninetyDayEarnings: {
+      low: 1980,
+      high: 7920,
+      longFormViews: 990_000,
+      shortsViews: 0,
+      belowAdThreshold: false,
+      rateTier: { id: 'unknown', multiplier: 1, country: null },
+    },
+    otherLanguage: null,
     channelAgeDays: 41.7,
     reasons: ['new', 'small'],
     outperformers: [
@@ -263,6 +285,103 @@ export function niche(overrides: Partial<NicheChannel> = {}): NicheChannel {
 
 export function nicheList(channels: readonly NicheChannel[] = [niche()]): NicheList {
   return { channels, channelsChecked: 320, smallMaxSubscribers: 10_000, newMaxAgeDays: 90 };
+}
+
+export function version(overrides: Partial<TransferVersion> = {}): TransferVersion {
+  return {
+    videoId: 'sssssssssss',
+    title: 'South Africa Just Found A Fuel That Shouldn’t Exist',
+    channelId: ALPHA_ID,
+    channelTitle: 'Alpha',
+    subscribers: 7440,
+    place: { key: 'ZA', name: 'South Africa', source: 'title' },
+    views: 521_000,
+    score: 22.8431,
+    ageDays: 21.4,
+    durationSeconds: 840,
+    strong: true,
+    ...overrides,
+  };
+}
+
+export function idea(overrides: Partial<TransferIdea> = {}): TransferIdea {
+  const winner = version();
+  const other = version({
+    videoId: 'uuuuuuuuuuu',
+    title: 'UK Just Found A Fuel That Shouldn’t Exist',
+    channelId: BETA_ID,
+    channelTitle: 'Beta',
+    subscribers: null,
+    place: { key: 'GB', name: 'UK', source: 'title' },
+    views: 596,
+    score: null,
+    strong: false,
+  });
+  return {
+    key: '{place} just found fuel shouldn exist',
+    template: "{place} just found a fuel that shouldn't exist",
+    verdict: { status: 'open', winner, own: null },
+    opportunity: true,
+    versions: [winner, other],
+    versionCount: 2,
+    channelCount: 2,
+    best: winner,
+    worst: other,
+    places: [
+      { key: 'ZA', name: 'South Africa', versions: 1, bestViews: 521_000 },
+      { key: 'GB', name: 'UK', versions: 1, bestViews: 596 },
+    ],
+    variants: [
+      {
+        videoId: 'vvvvvvvvvvv',
+        title: 'America Just Detected A Fuel That Shouldn’t Exist',
+        channelTitle: 'Valtrum',
+        views: 2600,
+        word: 'detected',
+      },
+    ],
+    saved: false,
+    ...overrides,
+  };
+}
+
+export function format(overrides: Partial<TransferFormat> = {}): TransferFormat {
+  return {
+    key: '{place} new invention could make {subject} obsolete forever',
+    template: '{place} new invention could make {subject} obsolete forever',
+    subjectCount: 4,
+    channelCount: 3,
+    videoCount: 5,
+    bestViews: 129_000,
+    medianViews: 34_700.5,
+    places: [{ key: 'US', name: 'America', versions: 5, bestViews: 129_000 }],
+    subjects: [
+      {
+        subject: 'carbon fiber',
+        videos: 2,
+        channels: 2,
+        bestViews: 129_000,
+        videoId: 'ccccccccccc',
+        title: 'America’s New Invention Could Make Carbon Fiber Obsolete Forever',
+        channelTitle: 'Modern Frontier',
+      },
+    ],
+    ...overrides,
+  };
+}
+
+export function transferList(overrides: Partial<TransferList> = {}): TransferList {
+  return {
+    ownerPlace: { key: 'US', name: 'America', source: 'titles' },
+    windowDays: 90,
+    videosChecked: 15_092,
+    ideas: [idea()],
+    ideaCount: 1,
+    opportunityCount: 1,
+    formats: [format()],
+    formatCount: 1,
+    ...overrides,
+  };
 }
 
 type Crawl = ConnectorEngine['crawl'];
@@ -324,6 +443,14 @@ export class FakeEngine implements ConnectorEngine {
       ),
     };
     return true;
+  }
+
+  transfers: TransferList = transferList();
+  transferReads: TransferChoices[] = [];
+
+  listTransfers(choices: TransferChoices = {}): TransferList {
+    this.transferReads.push(choices);
+    return this.transfers;
   }
 
   niches: NicheList = nicheList();

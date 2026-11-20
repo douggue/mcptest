@@ -44,7 +44,7 @@ const call = async (name: string, args: Record<string, unknown>): Promise<CallTo
   (await client.callTool({ name, arguments: args })) as CallToolResult;
 
 describe('the connector over the protocol', () => {
-  test('lists the nine tools, each with a description and an input schema', async () => {
+  test('lists the ten tools, each with a description and an input schema', async () => {
     const { tools } = await client.listTools();
 
     expect(tools.map((tool) => tool.name).sort()).toEqual([
@@ -54,6 +54,7 @@ describe('the connector over the protocol', () => {
       'get_near_misses',
       'get_thumbnail_board',
       'list_niches',
+      'list_transfer_opportunities',
       'make_map',
       'set_competitor_status',
       'view_thumbnails',
@@ -70,6 +71,15 @@ describe('the connector over the protocol', () => {
     expect(makeMap?.description).toMatch(/minutes/);
     expect(makeMap?.annotations?.readOnlyHint).toBe(false);
     expect(tools.find((tool) => tool.name === 'get_map')?.annotations?.readOnlyHint).toBe(true);
+    const transfers = tools.find((tool) => tool.name === 'list_transfer_opportunities');
+    expect(transfers?.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: false });
+  });
+
+  test('list_transfer_opportunities answers over the protocol', async () => {
+    const data = jsonOf(await call('list_transfer_opportunities', { limit: 1 }));
+
+    expect(data['place']).toBe('America');
+    expect(data['list']).toHaveLength(1);
   });
 
   test('get_map answers with compact JSON', async () => {

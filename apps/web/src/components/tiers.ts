@@ -1,4 +1,5 @@
 import type { ScoreCaution, SnapshotChannel } from '@jgtube/core';
+import { PEER_DORMANT_AFTER_DAYS } from '@jgtube/core/src/limits';
 
 /** The design's names for the three closeness tiers. */
 export const TIER_LABEL: Readonly<Record<SnapshotChannel['tier'], string>> = {
@@ -12,6 +13,7 @@ export const OUTSIDE_LABEL: Readonly<
   Record<NonNullable<SnapshotChannel['outsideReason']>, string>
 > = {
   larger: 'Far larger than a channel like yours',
+  dormant: `No upload in the last ${PEER_DORMANT_AFTER_DAYS} days`,
   cadence: 'Publishes many times a day',
   length: 'Its videos are a very different length',
   titles: 'Its titles are unlike yours',

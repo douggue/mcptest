@@ -10,15 +10,21 @@ import type {
   FactsRepo,
   MapRepo,
   StoredChannel,
-  StoredFacts,
   StoredVideo,
-  VideoReading,
   VideoRepo,
   WatchlistRepo,
 } from '../repos/types';
-import { GROWTH_WINDOW_DAYS, viewsGained, type NicheGrowth } from './growth';
+import { GROWTH_WINDOW_DAYS, viewsGained } from './growth';
 import { NICHE_OUTPERFORM_WINDOW_DAYS, hitRate, isOutperformer } from './outperform';
-import { NICHE_MIN_LATIN_SHARE, latinShare } from './script';
+import { NICHE_MIN_LATIN_SHARE, dominantScript, latinShare } from './script';
+import type {
+  NicheChannel,
+  NicheInput,
+  NicheLanguage,
+  NicheList,
+  NicheReason,
+  NicheSource,
+} from './types';
 
 /**
  * New niches to watch: channels anywhere in the store that are new or small
@@ -46,6 +52,13 @@ export const NICHE_SMALL_MAX_SUBSCRIBERS = SMALL_CHANNEL_MAX_SUBSCRIBERS;
  * and the next one up has 876,000.
  */
 export const NICHE_MAX_SUBSCRIBERS = 100_000;
+/**
+ * The longer of the two windows a channel's views are counted over. The owner
+ * judges a niche by three months of uploads: one month swings with a single
+ * video, and three is as far back as "what works now" still means now. It is
+ * also how far back a channel's hit rate looks.
+ */
+export const NICHE_LONG_WINDOW_DAYS = 90;
 /** Above this a channel is cutting clips, not making videos; the same line the peer rules draw. */
 export const NICHE_MAX_UPLOADS_PER_WEEK = PEER_MAX_UPLOADS_PER_WEEK;
 /** A channel whose usual upload runs over an hour is re-posting films or streams. */
@@ -57,96 +70,15 @@ const SAMPLE_TITLES = 3;
 const OUTPERFORMERS_SHOWN = 3;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** 'new': first upload in the last 90 days. 'small': 10,000 subscribers or fewer. */
-export type NicheReason = 'new' | 'small';
-
-export interface NicheSample {
-  readonly videoId: string;
-  readonly title: string;
-  readonly views: number;
-}
-
-export interface NicheChannel {
-  readonly id: string;
-  readonly title: string;
-  readonly handle: string | null;
-  /** Null when the channel hides its count. */
-  readonly subscribers: number | null;
-  /** Views on videos uploaded in the last 30 days. Not the same as views in the last 30 days. */
-  readonly recentViews: number;
-  readonly recentUploads: number;
-  /** `recentViews` for each subscriber; null when the count is hidden or zero. */
-  readonly viewsPerSubscriber: number | null;
-  /**
-   * What the views on the last 30 days' uploads are worth in ad revenue: a
-   * rough monthly range for comparing channels, not a measurement.
-   */
-  readonly earnings: EarningsEstimate;
-  /** Days since the channel's first upload; null when older videos may not have been read. */
-  readonly channelAgeDays: number | null;
-  /** Which of new and small the channel is; both when it is both. */
-  readonly reasons: readonly NicheReason[];
-  /** Its recent videos that outperform, most viewed first; a few at most. */
-  readonly outperformers: readonly BoardVideo[];
-  /** Of its scored videos from the last 90 days, how many were strong outliers. */
-  readonly hitCount: number;
-  readonly scoredCount: number;
-  /** Its most viewed uploads of the last 30 days. */
-  readonly sampleTitles: readonly NicheSample[];
-  /**
-   * Views its videos gained between its earliest reading of the last 30 days
-   * and its latest: a measurement, unlike `recentViews`. Null until the channel
-   * has been read twice in that time.
-   */
-  readonly growth: NicheGrowth | null;
-  /**
-   * When the channel account was created, from the official API, as an
-   * ISO-8601 string. Often years before the first upload. Null until asked for.
-   */
-  readonly createdAt: string | null;
-  /** Two-letter country the channel's owner set; null when none or not asked for. */
-  readonly country: string | null;
-  /** False only on a watched channel that no longer meets the rule. */
-  readonly qualifies: boolean;
-  /** The owner marked it to keep an eye on. */
-  readonly watched: boolean;
-}
-
-/** Plain values, ready to serialise. */
-export interface NicheList {
-  /** Most views on recent uploads first. */
-  readonly channels: readonly NicheChannel[];
-  /** How many stored channels were gone through. */
-  readonly channelsChecked: number;
-  /** The limits the list was made with, so a reader can say what new and small mean. */
-  readonly smallMaxSubscribers: number;
-  readonly newMaxAgeDays: number;
-}
-
-/** A stored channel with its videos, newest first. */
-export interface NicheSource {
-  readonly channel: StoredChannel;
-  readonly videos: readonly StoredVideo[];
-}
-
-export interface NicheInput {
-  readonly sources: readonly NicheSource[];
-  readonly watchedIds: ReadonlySet<string>;
-  /** Channels never offered as a niche: the ones the owner maps from. */
-  readonly excludedIds: ReadonlySet<string>;
-  /**
-   * A channel's stored view readings, asked for only for the channels that end
-   * up listed. Without it no growth is worked out.
-   */
-  readonly readingsOf?: (channelId: string) => readonly VideoReading[];
-  /** A channel's stored facts from the official API, asked for only for listed channels. */
-  readonly factsOf?: (channelId: string) => StoredFacts | null;
-  /**
-   * How many stored channels the sources were chosen from, when they are not
-   * the whole store. Left out, the sources are taken to be all of it.
-   */
-  readonly channelsChecked?: number;
-}
+export type {
+  NicheChannel,
+  NicheInput,
+  NicheLanguage,
+  NicheList,
+  NicheReason,
+  NicheSample,
+  NicheSource,
+} from './types';
 
 function channelAgeDays(report: readonly VideoReportRow[]): number | null {
   // Hitting the fetch cap means older videos may exist that were never read.
@@ -165,17 +97,48 @@ function reasonsFor(subscribers: number | null, ageDays: number | null): readonl
 }
 
 /**
- * Whether a channel is a large institution, a clip or film re-poster, or in
- * another alphabet: none of which the owner could learn a niche from.
+ * Whether a channel is a large institution or a clip or film re-poster:
+ * neither of which the owner could learn a niche from.
  */
 function isJunk(source: NicheSource, now: Date): boolean {
   const { channel, videos } = source;
   if (channel.subscribers !== null && channel.subscribers > NICHE_MAX_SUBSCRIBERS) return true;
   if (uploadsPerWeek(videos, now) > NICHE_MAX_UPLOADS_PER_WEEK) return true;
   const usualLength = medianDurationSeconds(videos);
-  if (usualLength !== null && usualLength > NICHE_MAX_MEDIAN_DURATION_SECONDS) return true;
+  return usualLength !== null && usualLength > NICHE_MAX_MEDIAN_DURATION_SECONDS;
+}
+
+/**
+ * The mark for a channel whose titles are mostly in another alphabet, or null
+ * for one in Latin letters. A channel with no stored title is not marked:
+ * nothing shows what it is written in.
+ */
+function otherLanguage(videos: readonly StoredVideo[]): NicheLanguage | null {
   const titles = videos.slice(0, TITLES_CHECKED).map((video) => video.title);
-  return latinShare(titles) < NICHE_MIN_LATIN_SHARE;
+  if (titles.length === 0 || latinShare(titles) >= NICHE_MIN_LATIN_SHARE) return null;
+  return { script: dominantScript(titles) };
+}
+
+interface WindowFigures {
+  readonly views: number;
+  readonly uploads: number;
+  readonly earnings: EarningsEstimate;
+}
+
+/** Views, uploads and what the views are worth, for the videos uploaded in the last `days` days. */
+function windowFigures(
+  source: NicheSource,
+  days: number,
+  country: string | null,
+  now: Date,
+): WindowFigures {
+  const cutoff = now.getTime() - days * DAY_MS;
+  const uploaded = source.videos.filter((video) => video.published.date.getTime() >= cutoff);
+  return {
+    views: uploaded.reduce((sum, video) => sum + video.views, 0),
+    uploads: uploaded.length,
+    earnings: estimateEarnings(uploaded, source.channel.subscribers, { country }),
+  };
 }
 
 const byViews = (a: VideoReportRow, b: VideoReportRow): number => b.views - a.views;
@@ -198,29 +161,33 @@ function outperformers(source: NicheSource, report: readonly VideoReportRow[]): 
     }));
 }
 
+/** What is known about a listed channel only once it is known to be listed. */
+type ListedOnly =
+  | 'qualifies'
+  | 'watched'
+  | 'growth'
+  | 'createdAt'
+  | 'country'
+  | 'recentViews'
+  | 'recentUploads'
+  | 'viewsPerSubscriber'
+  | 'earnings'
+  | 'ninetyDayViews'
+  | 'ninetyDayUploads'
+  | 'ninetyDayEarnings';
+
 /** What one stored channel looks like as a niche, whether or not it is listed. */
-function describe(
-  source: NicheSource,
-  now: Date,
-): Omit<NicheChannel, 'qualifies' | 'watched' | 'growth' | 'createdAt' | 'country'> {
+function describe(source: NicheSource, now: Date): Omit<NicheChannel, ListedOnly> {
   const { channel } = source;
   const report = buildVideoReport(source.videos, now);
   const recent = report.filter((row) => row.ageDays <= RECENT_DAYS);
-  const recentViews = recent.reduce((sum, row) => sum + row.views, 0);
   const ageDays = channelAgeDays(report);
-  const recentIds = new Set(recent.map((row) => row.id));
   return {
     id: channel.id,
     title: channel.title,
     handle: channel.handle,
     subscribers: channel.subscribers,
-    recentViews,
-    recentUploads: recent.length,
-    viewsPerSubscriber: channel.subscribers ? recentViews / channel.subscribers : null,
-    earnings: estimateEarnings(
-      source.videos.filter((video) => recentIds.has(video.id)),
-      channel.subscribers,
-    ),
+    otherLanguage: otherLanguage(source.videos),
     channelAgeDays: ageDays,
     reasons: reasonsFor(channel.subscribers, ageDays),
     outperformers: outperformers(source, report),
@@ -233,12 +200,30 @@ function describe(
   };
 }
 
+/** The views, uploads and earnings of a listed channel, over 30 days and over 90. */
+function figures(source: NicheSource, country: string | null, now: Date) {
+  const month = windowFigures(source, RECENT_DAYS, country, now);
+  const quarter = windowFigures(source, NICHE_LONG_WINDOW_DAYS, country, now);
+  const { subscribers } = source.channel;
+  return {
+    recentViews: month.views,
+    recentUploads: month.uploads,
+    viewsPerSubscriber: subscribers ? month.views / subscribers : null,
+    earnings: month.earnings,
+    ninetyDayViews: quarter.views,
+    ninetyDayUploads: quarter.uploads,
+    ninetyDayEarnings: quarter.earnings,
+  };
+}
+
 /**
- * Most views on recent uploads first: the niche with the most proven demand
- * leads. Views per subscriber would not do, since it puts a channel with one
- * subscriber and 300 views above one with 9,000 and three million.
+ * Most views on the uploads of the last 90 days first: the niche with the most
+ * proven demand leads, and three months is steadier than one. Views per
+ * subscriber would not do, since it puts a channel with one subscriber and 300
+ * views above one with 9,000 and three million.
  */
 const byDemand = (a: NicheChannel, b: NicheChannel): number =>
+  b.ninetyDayViews - a.ninetyDayViews ||
   b.recentViews - a.recentViews ||
   (b.outperformers[0]?.views ?? 0) - (a.outperformers[0]?.views ?? 0) ||
   a.title.localeCompare(b.title);
@@ -246,7 +231,8 @@ const byDemand = (a: NicheChannel, b: NicheChannel): number =>
 /**
  * The channels that are new or small and have a recent video that outperforms,
  * plus every channel the owner is watching: a watched channel stays listed
- * after it stops qualifying.
+ * after it stops qualifying. A channel in another alphabet is held to the same
+ * rule and listed with its mark.
  */
 export function buildNicheList(input: NicheInput, now: Date): NicheList {
   const channels = input.sources.flatMap((source): NicheChannel[] => {
@@ -262,7 +248,9 @@ export function buildNicheList(input: NicheInput, now: Date): NicheList {
     const growth = input.readingsOf ? viewsGained(input.readingsOf(id), now) : null;
     const facts = input.factsOf?.(id) ?? null;
     const createdAt = facts?.createdAt.toISOString() ?? null;
-    return [{ ...entry, qualifies, watched, growth, createdAt, country: facts?.country ?? null }];
+    const country = facts?.country ?? null;
+    const counted = figures(source, country, now);
+    return [{ ...entry, ...counted, qualifies, watched, growth, createdAt, country }];
   });
   return {
     channels: [...channels].sort(byDemand),

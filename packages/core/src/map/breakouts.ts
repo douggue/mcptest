@@ -6,6 +6,14 @@ import type { MapMemberData } from './view';
 export const DEFAULT_BREAKOUT_WINDOW_DAYS = 30;
 export const DEFAULT_MIN_BREAKOUT_SCORE = 2;
 export const DEFAULT_BREAKOUT_LIMIT = 60;
+/**
+ * The most videos one channel may hold in a feed. A channel with a series that
+ * is working would otherwise fill the feed with one idea. Four is enough to
+ * show that it is a series and not one lucky video, and keeps a full feed at
+ * least fifteen channels wide. It is also how many winners the thumbnail board
+ * shows for a channel.
+ */
+export const MAX_BREAKOUTS_PER_CHANNEL = 4;
 /** A baseline taken from fewer videos than this moves too easily to lean on. */
 export const THIN_SAMPLE_SIZE = 5;
 /** Below this many usual views, a large multiple is still a small number of people. */
@@ -49,6 +57,23 @@ export interface BreakoutOptions {
   readonly limit?: number;
 }
 
+/**
+ * The list with each channel's videos after its first `most` left out, in the
+ * order given: on a list sorted strongest first, each channel keeps its
+ * strongest. The list passed in is not changed.
+ */
+export function capPerChannel<T extends { readonly channelId: string }>(
+  videos: readonly T[],
+  most: number = MAX_BREAKOUTS_PER_CHANNEL,
+): readonly T[] {
+  const taken = new Map<string, number>();
+  return videos.filter((video) => {
+    const count = (taken.get(video.channelId) ?? 0) + 1;
+    taken.set(video.channelId, count);
+    return count <= most;
+  });
+}
+
 function cautionFor(sampleSize: number, baseline: number): ScoreCaution | null {
   if (sampleSize < THIN_SAMPLE_SIZE) return 'few-videos';
   return baseline < THIN_BASELINE_VIEWS ? 'low-baseline' : null;
@@ -76,7 +101,11 @@ function channelEvidence(
   };
 }
 
-/** Recent videos across the map that are far above their channel's usual views, strongest first. */
+/**
+ * Recent videos across the map that are far above their channel's usual views,
+ * strongest first. No channel holds more than `MAX_BREAKOUTS_PER_CHANNEL`
+ * places; the places that frees go to the next strongest videos of the others.
+ */
 export function listBreakouts(
   members: readonly MapMemberData[],
   now: Date,
@@ -117,7 +146,6 @@ export function listBreakouts(
     );
   });
 
-  return [...candidates]
-    .sort((a, b) => b.score - a.score || b.views - a.views)
-    .slice(0, options.limit ?? DEFAULT_BREAKOUT_LIMIT);
+  const strongestFirst = [...candidates].sort((a, b) => b.score - a.score || b.views - a.views);
+  return capPerChannel(strongestFirst).slice(0, options.limit ?? DEFAULT_BREAKOUT_LIMIT);
 }

@@ -11,12 +11,14 @@ import type {
   GetNearMissesArgs,
   GetThumbnailBoardArgs,
   ListNichesArgs,
+  ListTransferOpportunitiesArgs,
   MakeMapArgs,
   SetCompetitorStatusArgs,
   ViewThumbnailsArgs,
 } from './schemas';
 import type { FetchImage } from './thumbnailImages';
 import { viewThumbnails } from './thumbnailTool';
+import { listTransferOpportunities } from './transferTool';
 import type { ConnectorEngine, ToolContext } from './types';
 
 export interface ToolDeps {
@@ -37,6 +39,7 @@ export interface ToolHandlers {
   getNearMisses(args: GetNearMissesArgs): Promise<CallToolResult>;
   setCompetitorStatus(args: SetCompetitorStatusArgs): Promise<CallToolResult>;
   listNiches(args: ListNichesArgs): Promise<CallToolResult>;
+  listTransferOpportunities(args: ListTransferOpportunitiesArgs): Promise<CallToolResult>;
 }
 
 /** The default place for diagnostics. */
@@ -78,5 +81,7 @@ export function createToolHandlers(deps: ToolDeps): ToolHandlers {
     setCompetitorStatus: (args) =>
       guarded('set_competitor_status', () => setCompetitorStatus(engine, args)),
     listNiches: (args) => guarded('list_niches', () => listNiches(engine, args)),
+    listTransferOpportunities: (args) =>
+      guarded('list_transfer_opportunities', () => listTransferOpportunities(engine, args)),
   };
 }

@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { openDatabase } from '../src/db/sqlite';
-import { DEFAULT_BREAKOUT_LIMIT, listBreakouts } from '../src/map/breakouts';
+import {
+  DEFAULT_BREAKOUT_LIMIT,
+  MAX_BREAKOUTS_PER_CHANNEL,
+  capPerChannel,
+  listBreakouts,
+} from '../src/map/breakouts';
 import {
   SNAPSHOT_FORMAT,
   freezeMapSnapshot,
@@ -128,6 +133,42 @@ describe('listBreakouts', () => {
     const members = ['A', 'B', 'D'].map((letter) => member(letter, withHit(letter, 30)));
 
     expect(listBreakouts(members, NOW, { limit: 2 })).toHaveLength(2);
+  });
+
+  /** A series: `hits` videos of one age, far above the channel's twenty ordinary ones. */
+  const series = (letter: string, hits: number, multiple: number): StoredVideo[] => [
+    ...Array.from({ length: hits }, (_, n) => stored(letter, n, 1000 * (multiple + n), 5)),
+    ...Array.from({ length: 20 }, (_, n) => stored(letter, 50 + n, 1000, 12 + n)),
+  ];
+
+  test('lets one channel hold only a few places, and gives the rest to the next strongest', () => {
+    const feed = listBreakouts(
+      [member('A', series('A', 9, 50)), member('B', series('B', 2, 10))],
+      NOW,
+      { limit: 6 },
+    );
+
+    expect(MAX_BREAKOUTS_PER_CHANNEL).toBe(4);
+    // The four strongest of the nine, then the other channel's two, which nine would have crowded out.
+    expect(feed.map((item) => item.channelId)).toEqual([
+      ...new Array<string>(MAX_BREAKOUTS_PER_CHANNEL).fill(cid('A')),
+      cid('B'),
+      cid('B'),
+    ]);
+    expect(feed.slice(0, 4).map((item) => item.videoId)).toEqual(
+      [8, 7, 6, 5].map((n) => vid('A', n)),
+    );
+  });
+
+  test('capPerChannel keeps the order and does not change the list it is given', () => {
+    const feed = ['A', 'A', 'B', 'A', 'B'].map((letter, index) => ({
+      channelId: cid(letter),
+      videoId: `v${index}`,
+    }));
+    const before = [...feed];
+
+    expect(capPerChannel(feed, 2).map((item) => item.videoId)).toEqual(['v0', 'v1', 'v2', 'v4']);
+    expect(feed).toEqual(before);
   });
 });
 
@@ -257,6 +298,15 @@ describe('loadMapSnapshot', () => {
         JSON.stringify({
           format: SNAPSHOT_FORMAT,
           snapshot: { mapId: id, channels: [null], breakouts: [{}], edges: [] },
+        }),
+    ],
+    [
+      // Format 3: before dormant channels were left out and the feed was limited per channel.
+      'was frozen under the earlier peer rules',
+      (id: number) =>
+        JSON.stringify({
+          format: 3,
+          snapshot: { mapId: id, center: { id: cid('C') }, channels: [], breakouts: [], edges: [] },
         }),
     ],
     [
@@ -411,7 +461,8 @@ describe('a channel the owner keeps as a competitor', () => {
     frozen.snapshot.breakouts = Array.from({ length: DEFAULT_BREAKOUT_LIMIT }, (_, index) => ({
       ...template,
       videoId: `frozen${String(index).padStart(5, '0')}`,
-      channelId: index < 5 ? cid('R') : cid('A'),
+      // Five from the channel to be removed, the rest from as many other channels.
+      channelId: index < 5 ? cid('R') : `UC${String(index).padStart(22, '0')}`,
       score: 10_000 - index,
       peer: true,
     }));
@@ -437,7 +488,7 @@ describe('a channel the owner keeps as a competitor', () => {
     frozen.snapshot.breakouts = Array.from({ length: DEFAULT_BREAKOUT_LIMIT }, (_, index) => ({
       ...template,
       videoId: `frozen${String(index).padStart(5, '0')}`,
-      channelId: cid('A'),
+      channelId: `UC${String(index).padStart(22, '0')}`,
       score: 10_000 - index,
       peer: true,
     }));
@@ -448,6 +499,31 @@ describe('a channel the owner keeps as a competitor', () => {
 
     expect(peers).toHaveLength(DEFAULT_BREAKOUT_LIMIT);
     expect(peers.some((video) => video.channelId === cid('X'))).toBe(false);
+  });
+
+  test('cuts a channel down to its few places in a feed frozen before there was a limit', () => {
+    const mapId = deps.maps.latestForCenter(cid('C'))?.id ?? 0;
+    freezeMapSnapshot(deps, cid('C'), NOW);
+    const frozen = JSON.parse(deps.maps.findSnapshot(mapId) ?? '{}') as {
+      snapshot: { breakouts: Array<Record<string, unknown>> };
+    };
+    const template = frozen.snapshot.breakouts[0] ?? {};
+    // One channel's series holds seventeen places, as it did on the owner's map.
+    frozen.snapshot.breakouts = Array.from({ length: 20 }, (_, index) => ({
+      ...template,
+      videoId: `frozen${String(index).padStart(5, '0')}`,
+      channelId: index < 17 ? cid('A') : `UC${String(index).padStart(22, '0')}`,
+      score: 10_000 - index,
+      peer: true,
+    }));
+    deps.maps.saveSnapshot(mapId, JSON.stringify(frozen));
+
+    const feed = load()?.breakouts ?? [];
+
+    expect(feed.filter((video) => video.channelId === cid('A')).map((v) => v.videoId)).toEqual(
+      [0, 1, 2, 3].map((index) => `frozen${String(index).padStart(5, '0')}`),
+    );
+    expect(feed).toHaveLength(MAX_BREAKOUTS_PER_CHANNEL + 3);
   });
 
   test('stays in the order of the map: channels like the centre first', () => {

@@ -2,19 +2,25 @@ import type {
   EarningsEstimate,
   NicheChannel,
   NicheGrowth,
+  NicheLanguage,
   NicheList,
   NicheSample,
+  RateTier,
 } from '@jgtube/core';
 import type { SearchSummary } from './api';
-import { formatAge, formatCount } from './format';
+import { formatAge, formatCount, percent } from './format';
 
-/** 'new' and 'small' show the channels listed for that reason; 'watched' the ones the owner marked. */
-export type NicheFilter = 'all' | 'new' | 'small' | 'watched';
+/**
+ * 'new' and 'small' show the channels listed for that reason, 'language' the
+ * ones that write in another alphabet, 'watched' the ones the owner marked.
+ */
+export type NicheFilter = 'all' | 'new' | 'small' | 'language' | 'watched';
 
 export const NICHE_FILTERS: readonly { readonly id: NicheFilter; readonly label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'new', label: 'New' },
   { id: 'small', label: 'Small' },
+  { id: 'language', label: 'Other language' },
   { id: 'watched', label: 'Watched only' },
 ];
 
@@ -24,6 +30,7 @@ export function filterNiches(
 ): readonly NicheChannel[] {
   if (filter === 'all') return channels;
   if (filter === 'watched') return channels.filter((channel) => channel.watched);
+  if (filter === 'language') return channels.filter((channel) => channel.otherLanguage !== null);
   return channels.filter((channel) => channel.reasons.includes(filter));
 }
 
@@ -97,7 +104,7 @@ export function describeList(list: NicheList): string {
     `new (first upload in the last ${list.newMaxAgeDays} days)`,
     `or small (${formatCount(list.smallMaxSubscribers)} subscribers or fewer)`,
     `with a recent video far above ${its} size or ${its} usual views,`,
-    `found among the ${read} Jgtube has read. Most views first.`,
+    `found among the ${read} Jgtube has read. Most views on the last 90 days of uploads first.`,
   ].join(' ');
 }
 
@@ -132,17 +139,37 @@ const dollars = new Intl.NumberFormat('en-US', {
 });
 
 /**
- * What the views on a channel's last 30 days of uploads are worth, in words.
- * It is not called monthly income: these are the views those videos have so
- * far, not views received in a month.
+ * What the views on a channel's uploads of the last 30 or 90 days are worth,
+ * in words. It is not called income for the period: these are the views those
+ * videos have so far, not views received in that time.
  */
-export function describeEarnings(estimate: EarningsEstimate): string {
-  if (estimate.high <= 0) return 'No uploads in the last 30 days to estimate from';
+export function describeEarnings(estimate: EarningsEstimate, days: 30 | 90 = 30): string {
+  if (estimate.high <= 0) return `No uploads in the last ${days} days to estimate from`;
   const range = `${dollars.format(estimate.low)}–${dollars.format(estimate.high)}`;
-  const worth = `Views on the last 30 days of uploads are worth about ${range}`;
+  const worth = `Views on the last ${days} days of uploads are worth about ${range}`;
   return estimate.belowAdThreshold
     ? `${worth}, but under 1,000 subscribers it cannot earn from ads yet`
     : worth;
+}
+
+const TIER_NAME: Readonly<Record<Exclude<RateTier['id'], 'unknown'>, string>> = {
+  top: 'Top ad-rate tier',
+  developed: 'Middle ad-rate tier',
+  emerging: 'Lower ad-rate tier',
+};
+
+/** Which ad-rate tier an estimate was made at, or that the top rate was assumed. */
+export function describeRateTier(tier: RateTier): string {
+  if (tier.id === 'unknown') return 'Country unknown, so the top ad rate was assumed';
+  const name = `${TIER_NAME[tier.id]} (${countryName(tier.country) ?? tier.country})`;
+  return tier.multiplier === 1
+    ? name
+    : `${name}: counted at ${percent(tier.multiplier)} of the top rate`;
+}
+
+/** The mark on a channel that writes in another alphabet, with the alphabet when it is known. */
+export function describeLanguage(language: NicheLanguage): string {
+  return language.script ? `Other language · ${language.script}` : 'Other language';
 }
 
 /** What a keyword search found, in one sentence. */

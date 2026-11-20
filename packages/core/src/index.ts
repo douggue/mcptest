@@ -47,6 +47,7 @@ export {
   loadNicheList,
   type NicheChannel,
   type NicheDeps,
+  type NicheLanguage,
   type NicheList,
   type NicheReason,
   type NicheSample,
@@ -54,7 +55,14 @@ export {
 export { SqliteWatchlistRepo } from './repos/sqliteWatchlistRepo';
 export type { WatchlistRepo } from './repos/types';
 export { COMPETITOR_STATUSES, type CompetitorStatus } from './map/choices';
-export { estimateEarnings, type EarningsEstimate } from './scoring/earnings';
+export {
+  RATE_TIER_MULTIPLIER,
+  estimateEarnings,
+  rateTierFor,
+  type EarningsEstimate,
+  type RateTier,
+  type RateTierId,
+} from './scoring/earnings';
 export {
   fetchChannelFacts,
   searchRecentVideos,
@@ -85,7 +93,7 @@ export type { RefreshRun, RefreshRunRepo, VideoReading } from './repos/types';
 export { fillNicheFacts, type FactsDeps, type FactsOutcome } from './niches/facts';
 export { SqliteFactsRepo } from './repos/sqliteFactsRepo';
 export type { FactsRepo, NewFacts, StoredFacts } from './repos/types';
-export { NICHE_MIN_LATIN_SHARE, latinShare } from './niches/script';
+export { NICHE_MIN_LATIN_SHARE, dominantScript, latinShare } from './niches/script';
 export {
   READING_ELSEWHERE,
   ReadingElsewhereError,
@@ -99,8 +107,34 @@ export {
   CRAWL_MAX_CHANNELS_ASKED,
   CRAWL_MAX_DEPTH,
   CRAWL_MIN_CHANNELS_ASKED,
+  PEER_DORMANT_AFTER_DAYS,
   REFRESH_DEFAULT_MAX_CHANNELS,
   REFRESH_MAX_CHANNELS,
   SMALL_CHANNEL_MAX_SUBSCRIBERS,
 } from './limits';
 export type { LeaseRepo } from './repos/types';
+export {
+  TRANSFER_WINDOW_DAYS,
+  buildTransferList,
+  findRecentIdea,
+  loadTransferList,
+  type TransferDeps,
+  type TransferOptions,
+} from './transfer/transfers';
+export { findPlaces, placeForCountry, placeNamed, type Place } from './transfer/places';
+export { PLACE_SLOT, NUMBER_SLOT, SUBJECT_SLOT } from './transfer/template';
+export type {
+  FormatSubject,
+  OwnerPlace,
+  PlaceResult,
+  TransferFormat,
+  TransferIdea,
+  TransferList,
+  TransferStatus,
+  TransferVariant,
+  TransferVerdict,
+  TransferVersion,
+  VersionPlace,
+} from './transfer/types';
+export { SqliteTransferRepo } from './repos/sqliteTransferRepo';
+export type { SavedIdea, TransferRepo } from './repos/types';

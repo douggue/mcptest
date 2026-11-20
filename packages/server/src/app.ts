@@ -13,10 +13,12 @@ import {
   type FactsOutcome,
   type MapSnapshot,
   type NicheList,
+  type Place,
   type RefreshProgress,
   type RefreshStatus,
   type SameTopicList,
   type ThumbnailBoard,
+  type TransferList,
 } from '@jgtube/core';
 import { z } from 'zod';
 import { fail, isTrustedHost, ok, readJson } from './http';
@@ -24,6 +26,7 @@ import { cleanMessage, type JobStore } from './jobs';
 import type { AnalysisId } from './analyses';
 import { runAnalysis, type AnalysisTracker } from './analysisRoutes';
 import { refreshState, startRefresh, type RefreshTracker } from './refreshRoutes';
+import { readTransfers, saveTransfer } from './transferRoutes';
 
 const CHANNEL_ID = /^UC[\w-]{22}$/;
 const MAX_KEYWORD_LENGTH = 200;
@@ -75,6 +78,14 @@ export interface CrawlChoices {
   readonly maxChannels?: number | undefined;
 }
 
+/** What the transfer list is judged for. */
+export interface TransferChoices {
+  /** The channel on screen: its own place is taken as the owner's, when it can be told. */
+  readonly channel?: string;
+  /** The owner's place, when they name it themselves. */
+  readonly place?: Place;
+}
+
 /** What the API needs from the engine, so tests can stand in for it. */
 export interface Engine {
   /** The latest stored map around a channel; reads the store only. */
@@ -105,6 +116,16 @@ export interface Engine {
   listNiches(): NicheList;
   /** Marks a channel as a niche to watch, or unmarks it. False when it is not in the store. */
   setNicheWatched(channelId: string, watched: boolean): boolean;
+  /**
+   * Ideas several channels made, each judged as a transfer opportunity for the
+   * owner's place, and the title formats used for several subjects; reads the store only.
+   */
+  listTransfers(choices?: TransferChoices): TransferList;
+  /**
+   * Saves an idea as a transfer opportunity, or stops saving it. False when
+   * asked to save an idea no recent video has.
+   */
+  setTransferSaved(key: string, saved: boolean): boolean;
   /**
    * Reads the stalest stored channels again so history builds up; `maxChannels`
    * bounds the run. Resolves when the run is over.
@@ -332,6 +353,12 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     }
     if (pathname === '/api/niches/watch') {
       return method === 'POST' ? setWatched(options, request) : fail(405, 'Use POST');
+    }
+    if (pathname === '/api/transfers') {
+      return method === 'GET' ? readTransfers(options, url, channelProblem) : fail(405, 'Use GET');
+    }
+    if (pathname === '/api/transfers/save') {
+      return method === 'POST' ? saveTransfer(options, request) : fail(405, 'Use POST');
     }
     if (pathname === '/api/refresh') {
       if (method === 'GET') return refreshState(options, refreshing);

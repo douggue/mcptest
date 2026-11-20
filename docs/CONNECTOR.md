@@ -52,7 +52,7 @@ claude mcp add --scope user jgtube -- node /ABSOLUTE/PATH/TO/JGTUBE/node_modules
 ## Check that it worked
 
 - **Desktop app:** start a new chat and open the tools (connectors) menu by the
-  message box. **jgtube** should be listed, with nine tools. Where exactly that menu
+  message box. **jgtube** should be listed, with ten tools. Where exactly that menu
   sits changes between versions of the app; **Settings → Developer** also shows
   whether jgtube is running.
 - **Claude Code:** run `claude mcp list`; the line for `jgtube` should say it is
@@ -96,6 +96,7 @@ If something is wrong:
 | `get_near_misses`       | Channels left out only because their titles use different words; Claude reads the titles and judges the topic. |
 | `set_competitor_status` | Records your decision to keep or remove a channel. Claude is told to do this only after you agree in the chat. |
 | `list_niches`           | New or small channels with a video far above their size.                                                       |
+| `list_transfer_opportunities` | Ideas that took off for another country and are untried or weak for yours, with each version's numbers. |
 | `make_map`              | Makes a new map by reading YouTube. Takes minutes; only one at a time.                                         |
 
 Only `set_competitor_status` and `make_map` change anything, and both only add to or

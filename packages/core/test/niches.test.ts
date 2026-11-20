@@ -4,6 +4,7 @@ import {
   NICHE_MAX_MEDIAN_DURATION_SECONDS,
   NICHE_MAX_SUBSCRIBERS,
   NICHE_MAX_UPLOADS_PER_WEEK,
+  NICHE_LONG_WINDOW_DAYS,
   NICHE_NEW_MAX_AGE_DAYS,
   NICHE_SMALL_MAX_SUBSCRIBERS,
   buildNicheList,
@@ -17,7 +18,8 @@ import {
   NICHE_OUTPERFORM_WINDOW_DAYS,
   isOutperformer,
 } from '../src/niches/outperform';
-import { NICHE_MIN_LATIN_SHARE, latinShare } from '../src/niches/script';
+import { NICHE_MIN_LATIN_SHARE, dominantScript, latinShare } from '../src/niches/script';
+import { RATE_TIER_MULTIPLIER } from '../src/scoring/earnings';
 import type { VideoReportRow } from '../src/report';
 import { SqliteChannelRepo } from '../src/repos/sqliteChannelRepo';
 import { SqliteMapRepo } from '../src/repos/sqliteMapRepo';
@@ -120,6 +122,37 @@ describe('latinShare', () => {
   });
 });
 
+describe('dominantScript', () => {
+  test.each([
+    ['Почему уголь — самое странное топливо Земли?', 'Cyrillic'],
+    ['لماذا اختفت القطارات البخارية', 'Arabic'],
+    ['भारत ने बनाया नया इंजन', 'Devanagari'],
+    ['なぜ蒸気機関車は消えたのか', 'CJK'],
+    ['중국의 새로운 발명', 'Korean'],
+    ['ทำไมรถไฟไอน้ำถึงหายไป', 'Thai'],
+    ['Γιατί χάθηκαν τα τρένα', 'Greek'],
+    ['למה נעלמו הרכבות', 'Hebrew'],
+  ])('names the script of %s as %s', (title, script) => {
+    expect(dominantScript([title])).toBe(script);
+  });
+
+  test('names the script most of the letters are in, Latin left aside', () => {
+    expect(dominantScript(['Subaru сделала то, что не решился никто', 'BYD 比亚迪'])).toBe(
+      'Cyrillic',
+    );
+  });
+
+  test('is null for Latin titles and when there is nothing to judge by', () => {
+    expect(dominantScript(['How 3 Engineers Built a Bridge'])).toBeNull();
+    expect(dominantScript(['2026 !!!'])).toBeNull();
+    expect(dominantScript([])).toBeNull();
+  });
+
+  test('is null for a script it has no name for', () => {
+    expect(dominantScript(['ᚠᚢᚦᚨᚱᚲ ᚷᚹᚺᚾ'])).toBeNull();
+  });
+});
+
 describe('isOutperformer', () => {
   const BIG_CHANNEL = 1_000_000;
   const row = (overrides: Partial<VideoReportRow> = {}): VideoReportRow => ({
@@ -187,7 +220,19 @@ describe('buildNicheList', () => {
         longFormViews: 42_200,
         shortsViews: 0,
         belowAdThreshold: false,
+        rateTier: { id: 'unknown', multiplier: 1, country: null },
       },
+      ninetyDayViews: 40_000 + 1000 + 1200 + 900 + 1100,
+      ninetyDayUploads: 5,
+      ninetyDayEarnings: {
+        low: 88,
+        high: 354,
+        longFormViews: 44_200,
+        shortsViews: 0,
+        belowAdThreshold: false,
+        rateTier: { id: 'unknown', multiplier: 1, country: null },
+      },
+      otherLanguage: null,
       channelAgeDays: 40,
       reasons: ['new', 'small'],
       outperformers: [
@@ -313,10 +358,79 @@ describe('buildNicheList', () => {
     ).toEqual(['Channel B']);
   });
 
-  test('leaves out a channel whose titles are in another script', () => {
+  test('lists a channel whose titles are in another script, marked as another language', () => {
     const russian = NEW_WITH_HIT.map((spec) => ({ ...spec, title: 'Почему исчезли паровозы' }));
 
-    expect(titlesOf([source('A', 2000, russian)])).toEqual([]);
+    const found = list([source('A', 2000, russian), source('B', 2000)]).channels;
+
+    expect(found.map((entry) => [entry.title, entry.otherLanguage])).toEqual([
+      ['Channel A', { script: 'Cyrillic' }],
+      ['Channel B', null],
+    ]);
+    expect(found[0]).toMatchObject({ qualifies: true, reasons: ['new', 'small'] });
+  });
+
+  test('marks another language without a script name when it cannot tell which', () => {
+    const runic = NEW_WITH_HIT.map((spec) => ({ ...spec, title: 'ᚠᚢᚦᚨᚱᚲ ᚷᚹᚺᚾ' }));
+
+    expect(list([source('A', 2000, runic)]).channels[0]?.otherLanguage).toEqual({ script: null });
+  });
+
+  test('still holds a channel in another language to the new-or-small rule', () => {
+    const russian = OLD_WITH_HIT.map((spec) => ({ ...spec, title: 'Почему исчезли паровозы' }));
+
+    expect(titlesOf([source('A', 50_000, russian)])).toEqual([]);
+  });
+
+  test('counts views and earnings on the uploads of the last 90 days beside the last 30', () => {
+    const specs = [
+      { views: 40_000, daysAgo: 5 },
+      { views: 1000, daysAgo: 29 },
+      { views: 7000, daysAgo: 31 },
+      { views: 2000, daysAgo: NICHE_LONG_WINDOW_DAYS - 1 },
+      { views: 500_000, daysAgo: NICHE_LONG_WINDOW_DAYS + 1 },
+      ...[100, 110, 120].map((daysAgo) => ({ views: 1000, daysAgo })),
+    ];
+
+    const [entry] = list([source('A', 2000, specs)]).channels;
+
+    expect(NICHE_LONG_WINDOW_DAYS).toBe(90);
+    expect(entry).toMatchObject({
+      recentViews: 41_000,
+      recentUploads: 2,
+      ninetyDayViews: 50_000,
+      ninetyDayUploads: 4,
+      earnings: { low: 82, high: 328 },
+      ninetyDayEarnings: { low: 100, high: 400 },
+    });
+  });
+
+  test('estimates earnings at the tier of the channel’s country once it is known', () => {
+    const found = buildNicheList(
+      {
+        sources: [source('A', 2000), source('B', 2000)],
+        watchedIds: NONE,
+        excludedIds: NONE,
+        factsOf: (channelId) =>
+          channelId === cid('A')
+            ? { channelId, createdAt: NOW, country: 'ZA', totalViews: null, fetchedAt: NOW }
+            : null,
+      },
+      NOW,
+    ).channels;
+    const [known, unknown] = [
+      found.find((c) => c.id === cid('A')),
+      found.find((c) => c.id === cid('B')),
+    ];
+
+    expect(known?.earnings.rateTier).toEqual({
+      id: 'emerging',
+      multiplier: RATE_TIER_MULTIPLIER.emerging,
+      country: 'ZA',
+    });
+    expect(known?.earnings.high).toBe(Math.round(338 * RATE_TIER_MULTIPLIER.emerging));
+    expect(known?.ninetyDayEarnings.rateTier.id).toBe('emerging');
+    expect(unknown?.earnings).toMatchObject({ high: 338, rateTier: { id: 'unknown' } });
   });
 
   test('leaves out the channels the owner maps from', () => {
@@ -325,13 +439,37 @@ describe('buildNicheList', () => {
     ).toEqual([expect.objectContaining({ id: cid('B') })]);
   });
 
-  test('puts the channel with the most views on its recent uploads first', () => {
-    const scaled = (factor: number) =>
-      NEW_WITH_HIT.map((spec) => ({ ...spec, views: spec.views * factor }));
+  test('puts the channel with the most views on its uploads of the last 90 days first', () => {
+    // B has twice the views on the last 30 days; A has far more over the 90.
+    const steady = [
+      ...NEW_WITH_HIT,
+      { views: 300_000, daysAgo: 50 },
+      { views: 300_000, daysAgo: 60 },
+    ];
+    const doubled = NEW_WITH_HIT.map((spec) => ({ ...spec, views: spec.views * 2 }));
 
-    expect(
-      titlesOf([source('A', 2000, scaled(0.5)), source('B', 2000), source('C', 2000, scaled(10))]),
-    ).toEqual(['Channel C', 'Channel B', 'Channel A']);
+    const found = list([source('A', 2000, steady), source('B', 2000, doubled)]).channels;
+
+    expect(found.map((entry) => [entry.title, entry.recentViews, entry.ninetyDayViews])).toEqual([
+      ['Channel A', 42_200, 644_200],
+      ['Channel B', 84_400, 88_400],
+    ]);
+  });
+
+  test('orders channels level on 90 days by the views on their last 30', () => {
+    // The same 44,200 views over 90 days; B has 1,000 more of them inside the last 30.
+    const earlier = NEW_WITH_HIT.map((spec) =>
+      spec.daysAgo === 20
+        ? { ...spec, views: spec.views - 1000 }
+        : spec.daysAgo === 35
+          ? { ...spec, views: spec.views + 1000 }
+          : spec,
+    );
+
+    expect(titlesOf([source('A', 2000, earlier), source('B', 2000)])).toEqual([
+      'Channel B',
+      'Channel A',
+    ]);
   });
 
   test('marks the channels the owner is watching', () => {

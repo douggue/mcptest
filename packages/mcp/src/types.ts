@@ -1,7 +1,7 @@
 import type { VideoReportRow } from '@jgtube/core';
 import type { Engine } from '@jgtube/server/src/app';
 
-export type { CrawlChoices, CrawlOutcome, Engine } from '@jgtube/server/src/app';
+export type { CrawlChoices, CrawlOutcome, Engine, TransferChoices } from '@jgtube/server/src/app';
 
 export interface ChannelVideoRow extends VideoReportRow {
   readonly durationSeconds: number | null;
@@ -21,7 +21,12 @@ export interface ChannelVideos {
 /** The parts of the server's engine the connector uses; the engine may grow without touching it. */
 type EngineParts = Pick<
   Engine,
-  'findSnapshot' | 'findThumbnailBoard' | 'crawl' | 'setCompetitorStatus' | 'listNiches'
+  | 'findSnapshot'
+  | 'findThumbnailBoard'
+  | 'crawl'
+  | 'setCompetitorStatus'
+  | 'listNiches'
+  | 'listTransfers'
 >;
 
 /** What the connector needs from the engine, so tests can stand in for it. */

@@ -80,12 +80,34 @@ export const TOOL_TEXT = {
     title: 'New niches',
     description:
       'New or small channels anywhere in the store (not only on one map) that have a recent video far above their ' +
-      'size: possible new niches. Most views on recent uploads first. Per channel: subs, recentViews and uploads ' +
-      '(last 30 days), viewsPerSub, earnsUsd (a rough low and high guess, in US dollars, at the ad money those ' +
-      '30 days of views are worth: for comparing channels, not a payout; notPaidYet marks a channel too small to be ' +
-      'paid for ads), channelAgeDays, why (new: first upload within newMaxAgeDays; small: at or under ' +
-      'smallMaxSubs), hits (strong videos out of scored ones), top (its videos that took off) and titles. watched ' +
-      'marks channels the owner chose to follow; qualifies false marks a watched one that no longer meets the rule. ' +
+      'size: possible new niches. Most views on the last 90 days of uploads first. Per channel: subs, recentViews ' +
+      'and uploads (last 30 days), views90d and uploads90d (last 90 days), viewsPerSub, earnsUsd and earns90dUsd ' +
+      '(a rough low and high guess, in US dollars, at the ad money those views are worth: for comparing channels, ' +
+      'not a payout; adRate says which rough country tier the rate was scaled by, or that the top rate was assumed ' +
+      'because the country is unknown; notPaidYet marks a channel too small to be paid for ads), country, ' +
+      'otherLanguage (the channel writes in another alphabet, named when known: an idea that works there may not ' +
+      'have been made in the owner’s language yet), channelAgeDays, why (new: first upload within newMaxAgeDays; ' +
+      'small: at or under smallMaxSubs), hits (strong videos out of scored ones), top (its videos that took off) ' +
+      'and titles. watched marks channels the owner chose to follow; qualifies false marks a watched one that no ' +
+      'longer meets the rule. ' +
       'Reads the local store only.',
+  },
+  list_transfer_opportunities: {
+    title: 'Niche transfer opportunities',
+    description:
+      'Ideas from the whole store (not one map) that several channels made as the same title for different ' +
+      'places, with the versions side by side: use it for "what is working elsewhere that I could make for my ' +
+      'country". Titles are compared as templates: {place} stands for a country, its people, a region or a US ' +
+      'state, {n} for a number. status says where the idea stands for the owner’s place: open (a version took ' +
+      'off elsewhere, none made for the owner’s place), weak (the owner’s place has one that got under a tenth of ' +
+      'the best elsewhere), done, unproven (nothing took off) or unplaced (a place is not known). verdict says ' +
+      'it in words with the view counts. Per version: video, place, channel, subs, views, score (multiple of ' +
+      'that channel’s usual views), ageDays, tookOff. oneWordOff lists titles made for the owner’s place that ' +
+      'differ from the idea by one word: judge by meaning whether that word is a synonym (so the idea was already ' +
+      'done) or another subject. show "formats" lists title formats used for several subjects ({subject} marks ' +
+      'what changes), with how many subjects, channels and videos use each: a format moving to a new subject is ' +
+      'how an idea crosses categories. place and placeFrom say which place the ideas were judged for and how it ' +
+      'was worked out; pass place when that is wrong. Only videos from the last windowDays days count. Reads the ' +
+      'local store only.',
   },
 } as const;

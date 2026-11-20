@@ -133,6 +133,17 @@ CREATE TABLE IF NOT EXISTS work_leases (
   expires_at  TEXT NOT NULL
 );
 `,
+  // 10: ideas the owner saved as transfer opportunities, kept by the words of their title so
+  //     they stay listed whatever is crawled later; and an index for reading recent videos
+  //     across every channel, which the transfer list does on each read.
+  `
+CREATE TABLE IF NOT EXISTS transfer_saves (
+  idea_key  TEXT PRIMARY KEY,
+  template  TEXT NOT NULL,
+  saved_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS videos_published ON videos (published_at);
+`,
 ];
 
 /**

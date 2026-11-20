@@ -227,6 +227,10 @@ describe('list_niches', () => {
           uploads: 6,
           viewsPerSub: 84,
           earnsUsd: [840, 3360],
+          views90d: 990_000,
+          uploads90d: 14,
+          earns90dUsd: [1980, 7920],
+          adRate: 'top rate assumed: country unknown',
           channelAgeDays: 42,
           why: ['new', 'small'],
           hits: '2/9',
@@ -258,7 +262,10 @@ describe('list_niches', () => {
           longFormViews: 300,
           shortsViews: 0,
           belowAdThreshold: true,
+          rateTier: { id: 'emerging', multiplier: 0.2, country: 'ZA' },
         },
+        country: 'ZA',
+        otherLanguage: { script: 'Cyrillic' },
         channelAgeDays: null,
         reasons: [],
         outperformers: [],
@@ -275,7 +282,13 @@ describe('list_niches', () => {
         recentViews: 420_000,
         uploads: 6,
         earnsUsd: [0, 2],
+        views90d: 990_000,
+        uploads90d: 14,
+        earns90dUsd: [1980, 7920],
+        adRate: 'emerging (ZA), 0.2 of the top rate',
         notPaidYet: true,
+        country: 'ZA',
+        otherLanguage: 'Cyrillic',
         why: [],
         hits: '2/9',
         watched: true,
@@ -283,6 +296,16 @@ describe('list_niches', () => {
         top: [],
       },
     ]);
+  });
+
+  test('marks a channel in an alphabet it cannot name', async () => {
+    engine.niches = nicheList([niche({ otherLanguage: { script: null } })]);
+
+    const data = jsonOf(await tools.listNiches({}));
+
+    expect((data['niches'] as Array<Record<string, unknown>>)[0]?.['otherLanguage']).toBe(
+      'another alphabet',
+    );
   });
 
   test('caps the list, and can show only the watched ones', async () => {

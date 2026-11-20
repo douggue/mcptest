@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   outsideReason,
+  PEER_DORMANT_AFTER_DAYS,
   PEER_MIN_TITLE_MATCH,
   shapeMismatch,
   uploadsPerWeek,
@@ -74,6 +75,25 @@ describe('shapeMismatch', () => {
   test('rules out a channel whose videos are a very different length', () => {
     expect(shapeMismatch(centre, subject(16_000, weekly('Movie', 4, 97)), NOW)).toBe('length');
     expect(shapeMismatch(centre, subject(16_000, weekly('Clip', 4, 3)), NOW)).toBe('length');
+  });
+
+  test('rules out a channel with no upload in the last 45 days', () => {
+    const quiet = [video('Old One', PEER_DORMANT_AFTER_DAYS + 1), video('Old Two', 80)];
+    const active = [video('Recent', PEER_DORMANT_AFTER_DAYS - 1), video('Old Two', 80)];
+
+    expect(PEER_DORMANT_AFTER_DAYS).toBe(45);
+    expect(shapeMismatch(centre, subject(2200, quiet), NOW)).toBe('dormant');
+    expect(shapeMismatch(centre, subject(2200, active), NOW)).toBeNull();
+  });
+
+  test('does not call a channel dormant when none of its videos were read', () => {
+    expect(shapeMismatch(centre, subject(2200, []), NOW)).toBeNull();
+  });
+
+  test('says a far larger channel is larger even when it has stopped uploading', () => {
+    const quiet = [video('Old One', 200)];
+
+    expect(shapeMismatch(centre, subject(15_600_000, quiet), NOW)).toBe('larger');
   });
 
   test('does not judge length when the centre has no videos to compare with', () => {

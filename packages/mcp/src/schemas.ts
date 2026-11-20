@@ -5,6 +5,7 @@ import {
   CRAWL_MAX_CHANNELS_ASKED,
   CRAWL_MAX_DEPTH,
   CRAWL_MIN_CHANNELS_ASKED,
+  PEER_DORMANT_AFTER_DAYS,
   VIDEO_ID_PATTERN,
 } from '@jgtube/core';
 import { z } from 'zod';
@@ -29,10 +30,17 @@ export const DEFAULT_NEAR_MISSES = 25;
 const MAX_NEAR_MISSES = 50;
 export const DEFAULT_NICHES = 15;
 const MAX_NICHES = 50;
+/** An idea carries several versions each, so fewer fit an answer than channels do. */
+export const DEFAULT_TRANSFERS = 10;
+const MAX_TRANSFERS = 30;
+const MAX_PLACE_LENGTH = 60;
 
 const CENTER_RULE = 'center is a YouTube handle such as @name, a channel URL or a channel id.';
 const CHANNEL_RULE = 'channel is a YouTube handle such as @name, a channel URL or a channel id.';
 const MODEL_RULE = 'model is a YouTube handle such as @name, a channel URL or a channel id.';
+export const PLACE_RULE =
+  'place is a country or region name such as Canada, or a two-letter country code.';
+const SHOW_RULE = 'show is "opportunities", "formats", "saved" or "all".';
 const VIDEO_ID_RULE = 'Video ids are 11 characters: letters, digits, "-" and "_".';
 const VIDEO_COUNT_RULE = `Give 1 to ${MAX_THUMBNAILS_PER_CALL} video ids at a time.`;
 
@@ -56,7 +64,8 @@ export const getMapShape = {
   include_others: flag('include_others')
     .optional()
     .describe(
-      'Also list the channels on the map that are not look-alikes, each with why. Default false.',
+      'Also list the channels on the map that are not look-alikes, each with why: larger, dormant (no upload in ' +
+        `the last ${PEER_DORMANT_AFTER_DAYS} days), cadence (publishes many times a day), length or titles. Default false.`,
     ),
   limit: wholeNumber('limit', 1, MAX_MAP_CHANNELS)
     .optional()
@@ -157,10 +166,39 @@ export const listNichesShape = {
     .describe('Only the channels the owner marked to watch. Default false.'),
 };
 
+export const listTransferOpportunitiesShape = {
+  channel: channelRef(CHANNEL_RULE)
+    .optional()
+    .describe(
+      'The owner’s channel: @handle, channel URL or channel id. The place its titles are about (or its country) ' +
+        'is taken as the owner’s place. Left out, the place is worked out from the channels the owner has mapped.',
+    ),
+  place: z
+    .string({ error: PLACE_RULE })
+    .min(1, PLACE_RULE)
+    .max(MAX_PLACE_LENGTH, PLACE_RULE)
+    .optional()
+    .describe(
+      'The place the owner makes videos for, when they say it themselves: a country or region name, or a ' +
+        'two-letter country code. Overrides what is worked out.',
+    ),
+  show: z
+    .enum(['opportunities', 'formats', 'saved', 'all'], { error: SHOW_RULE })
+    .optional()
+    .describe(
+      'opportunities (the default): ideas open or weak for the owner’s place. formats: title formats used for ' +
+        'several subjects. saved: the ideas the owner saved. all: every idea made by two or more channels.',
+    ),
+  limit: wholeNumber('limit', 1, MAX_TRANSFERS)
+    .optional()
+    .describe('Most ideas or formats returned. Default ' + String(DEFAULT_TRANSFERS) + '.'),
+};
+
 export const getMapArgs = z.object(getMapShape);
 export const getNearMissesArgs = z.object(getNearMissesShape);
 export const setCompetitorStatusArgs = z.object(setCompetitorStatusShape);
 export const listNichesArgs = z.object(listNichesShape);
+export const listTransferOpportunitiesArgs = z.object(listTransferOpportunitiesShape);
 export const getBreakoutsArgs = z.object(getBreakoutsShape);
 export const getThumbnailBoardArgs = z.object(getThumbnailBoardShape);
 export const viewThumbnailsArgs = z.object(viewThumbnailsShape);
@@ -171,6 +209,7 @@ export type GetMapArgs = z.input<typeof getMapArgs>;
 export type GetNearMissesArgs = z.input<typeof getNearMissesArgs>;
 export type SetCompetitorStatusArgs = z.input<typeof setCompetitorStatusArgs>;
 export type ListNichesArgs = z.input<typeof listNichesArgs>;
+export type ListTransferOpportunitiesArgs = z.input<typeof listTransferOpportunitiesArgs>;
 export type GetBreakoutsArgs = z.input<typeof getBreakoutsArgs>;
 export type GetThumbnailBoardArgs = z.input<typeof getThumbnailBoardArgs>;
 export type ViewThumbnailsArgs = z.input<typeof viewThumbnailsArgs>;
