@@ -116,6 +116,7 @@ export type { LeaseRepo } from './repos/types';
 export {
   TRANSFER_WINDOW_DAYS,
   buildTransferList,
+  findRecentIdea,
   loadTransferList,
   type TransferDeps,
   type TransferOptions,

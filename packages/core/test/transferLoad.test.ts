@@ -7,6 +7,7 @@ import { SqliteTransferRepo } from '../src/repos/sqliteTransferRepo';
 import { SqliteVideoRepo } from '../src/repos/sqliteVideoRepo';
 import type { StorableVideo } from '../src/sources/types';
 import {
+  findRecentIdea,
   loadTransferList,
   TRANSFER_WINDOW_DAYS,
   type TransferDeps,
@@ -229,6 +230,25 @@ describe('loadTransferList: what it reads', () => {
       ['{place} opens giant solar farm', true, 'unplaced'],
       ['a b c', true, 'gone'],
     ]);
+  });
+});
+
+describe('findRecentIdea', () => {
+  test('finds an idea among the recent videos by its key, with its title as shown', () => {
+    seedSolarIdea();
+
+    expect(findRecentIdea(store, NOW, '{place} opens giant solar farm')).toEqual({
+      key: '{place} opens giant solar farm',
+      template: '{place} opens a giant solar farm',
+    });
+  });
+
+  test('is null for a key no recent video has', () => {
+    seedSolarIdea();
+    addVideo('Chilean', 'Peru Builds The Longest Bridge Ever', 900, TRANSFER_WINDOW_DAYS + 1);
+
+    expect(findRecentIdea(store, NOW, '{place} builds longest bridge ever')).toBeNull();
+    expect(findRecentIdea(store, NOW, 'no such idea')).toBeNull();
   });
 });
 

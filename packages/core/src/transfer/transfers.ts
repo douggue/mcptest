@@ -278,3 +278,26 @@ export function loadTransferList(
     now,
   );
 }
+
+/** An idea as it is saved: the key it is kept by and its title as shown. */
+export interface RecentIdea {
+  readonly key: string;
+  readonly template: string;
+}
+
+/**
+ * The idea with this key among the recent videos, or null when no recent
+ * video has it. Used to check an idea exists before it is saved, and to keep
+ * its title with the save.
+ */
+export function findRecentIdea(
+  deps: Pick<TransferDeps, 'transfers'>,
+  now: Date,
+  key: string,
+): RecentIdea | null {
+  const since = new Date(now.getTime() - TRANSFER_WINDOW_DAYS * DAY_MS);
+  const idea = groupIdeas(deps.transfers.listRecentVideos(since)).find(
+    (candidate) => candidate.key === key,
+  );
+  return idea ? { key, template: shownTemplate(idea) } : null;
+}
