@@ -21,8 +21,11 @@ export interface EarningsRates {
 
 /** Commonly quoted creator earnings for long English-language explainer videos. */
 export const LONG_FORM_RATE: RateRange = { low: 2, high: 8 };
-/** Shorts are paid from a shared pool and earn a small fraction per view. */
-export const SHORTS_RATE: RateRange = { low: 0.03, high: 0.1 };
+/**
+ * Shorts are paid from a shared pool and earn a fraction of a long video's rate
+ * per view. The range is the owner's own figures for their kind of channel.
+ */
+export const SHORTS_RATE: RateRange = { low: 0.1, high: 0.5 };
 /**
  * Videos this short are counted as Shorts. Shorts may now run longer, but a
  * longer video cannot be told from an ordinary one without its shape, so only
