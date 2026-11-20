@@ -91,7 +91,12 @@ export interface MapRepo {
   findSnapshot(mapId: number): string | null;
   /** Channels the owner removed from this centre's competitors; survives new crawls. */
   listRemoved(centerChannelId: string): readonly string[];
+  /** Removing a channel also stops keeping it: the two choices exclude each other. */
   setRemoved(centerChannelId: string, channelId: string, removed: boolean, at: Date): void;
+  /** Channels the owner counts as competitors whatever the filter says; survives new crawls. */
+  listKept(centerChannelId: string): readonly string[];
+  /** Keeping a channel also restores it if it was removed. */
+  setKept(centerChannelId: string, channelId: string, kept: boolean, at: Date): void;
 }
 
 /** The channels the owner marked as niches to watch; not tied to any one map. */

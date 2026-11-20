@@ -352,6 +352,8 @@ describe('crawlMap and the stored snapshot', () => {
         findSnapshot: maps.findSnapshot.bind(maps),
         listRemoved: maps.listRemoved.bind(maps),
         setRemoved: maps.setRemoved.bind(maps),
+        listKept: maps.listKept.bind(maps),
+        setKept: maps.setKept.bind(maps),
         saveSnapshot: () => {
           throw new Error('disk full');
         },

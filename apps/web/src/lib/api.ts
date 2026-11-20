@@ -1,4 +1,10 @@
-import type { CrawlProgress, MapSnapshot, NicheList, ThumbnailBoard } from '@jgtube/core';
+import type {
+  CompetitorStatus,
+  CrawlProgress,
+  MapSnapshot,
+  NicheList,
+  ThumbnailBoard,
+} from '@jgtube/core';
 
 export interface JobState {
   readonly id: string;
@@ -95,18 +101,22 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
       return unwrap<{ jobId: string }>(envelope).jobId;
     },
 
-    /** Removes a channel from the centre's competitors, or restores it. */
-    async setRemoved(center: string, channel: string, removed: boolean): Promise<void> {
+    /** Keeps a channel as a competitor, removes it, or leaves it to the filter again. */
+    async setCompetitorStatus(
+      center: string,
+      channel: string,
+      status: CompetitorStatus,
+    ): Promise<void> {
       unwrap<unknown>(
         await call('/api/competitors', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ center, channel, removed }),
+          body: JSON.stringify({ center, channel, status }),
         }),
       );
     },
 
-    /** Small rising channels across everything stored, and the ones the owner watches. */
+    /** New or small channels across everything stored with a video that took off, and the watched ones. */
     async niches(): Promise<NicheList> {
       return unwrap<NicheList>(await call('/api/niches'));
     },

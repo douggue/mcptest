@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { MapRepo, StoredMap } from '../repos/types';
 import { listBreakouts, type BreakoutVideo } from './breakouts';
+import { applyOwnerChoices } from './choices';
 import type { OutsideReason } from './peers';
 import { loadMapView, type Breakout, type MapViewDeps, type Recommender, type Tier } from './view';
 
@@ -56,11 +57,14 @@ export interface SnapshotChannel {
   readonly rising: boolean;
   readonly breakout: Breakout | null;
   readonly recommendedBy: readonly Recommender[];
-  /** The same kind of channel as the centre. */
+  /** The same kind of channel as the centre, or one the owner kept as a competitor. */
   readonly peer: boolean;
+  /** Why the filter did not count it as a peer; null when it did. Stays set on a kept channel. */
   readonly outsideReason: OutsideReason | null;
   /** The owner removed this channel from their competitors. */
   readonly removed: boolean;
+  /** The owner counts this channel as a competitor, whatever the filter says. */
+  readonly kept: boolean;
 }
 
 export interface SnapshotEdge {
@@ -112,6 +116,7 @@ function buildSnapshot(deps: SnapshotDeps, map: StoredMap, now: Date): MapSnapsh
       peer: row.peer,
       outsideReason: row.outsideReason,
       removed: false,
+      kept: false,
     })),
     edges: edges.map((edge) => ({
       from: edge.fromChannelId,
@@ -180,8 +185,8 @@ export function freezeMapSnapshot(
  * The latest saved map around a channel, or null when none has been crawled.
  *
  * The frozen copy is used when there is one (maps made before snapshots were
- * stored are rebuilt from current data). The owner's removals are applied on
- * every read, so a removed channel stays removed across new crawls.
+ * stored are rebuilt from current data). The owner's choices (channels removed,
+ * channels kept) are applied on every read, so they hold across new crawls.
  */
 export function loadMapSnapshot(
   deps: SnapshotDeps,
@@ -193,15 +198,11 @@ export function loadMapSnapshot(
   const snapshot =
     parseStored(deps.maps.findSnapshot(map.id), map.id) ?? buildSnapshot(deps, map, now);
   if (!snapshot) return null;
-  const removed = new Set(deps.maps.listRemoved(centerChannelId));
-  return {
-    ...snapshot,
-    // Copies frozen before model channels existed do not carry the field.
-    model: snapshot.model ?? null,
-    channels: snapshot.channels.map((channel) => ({
-      ...channel,
-      removed: removed.has(channel.id),
-    })),
-    breakouts: snapshot.breakouts.filter((video) => !removed.has(video.channelId)),
-  };
+  // Copies frozen before model channels existed do not carry the field.
+  return applyOwnerChoices(
+    deps,
+    { ...snapshot, model: snapshot.model ?? null },
+    centerChannelId,
+    now,
+  );
 }

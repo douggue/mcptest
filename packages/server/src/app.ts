@@ -1,5 +1,7 @@
 import {
+  COMPETITOR_STATUSES,
   parseChannelRef,
+  type CompetitorStatus,
   type CrawlProgress,
   type MapSnapshot,
   type NicheList,
@@ -39,9 +41,16 @@ export interface Engine {
     onProgress: (progress: CrawlProgress) => void,
     choices?: CrawlChoices,
   ): Promise<CrawlOutcome>;
-  /** Removes a channel or restores it. False when it is not on the centre's latest map. */
-  setCompetitorRemoved(centerChannelId: string, channelId: string, removed: boolean): boolean;
-  /** Small rising channels across everything stored, and the ones the owner watches; reads the store only. */
+  /**
+   * Records the owner's say on a channel of the centre's latest map.
+   * False when the channel is not on that map, or is the centre itself.
+   */
+  setCompetitorStatus(
+    centerChannelId: string,
+    channelId: string,
+    status: CompetitorStatus,
+  ): boolean;
+  /** New or small channels in the store with a video that took off, and the watched ones; reads the store only. */
   listNiches(): NicheList;
   /** Marks a channel as a niche to watch, or unmarks it. False when it is not in the store. */
   setNicheWatched(channelId: string, watched: boolean): boolean;
@@ -61,10 +70,10 @@ const crawlRequest = z.object({
   maxChannels: z.number().int().min(MIN_CHANNELS_PER_MAP).max(MAX_CHANNELS_PER_MAP).optional(),
 });
 
-const removalRequest = z.object({
+const competitorRequest = z.object({
   center: z.string().regex(CHANNEL_ID),
   channel: z.string().regex(CHANNEL_ID),
-  removed: z.boolean(),
+  status: z.enum(COMPETITOR_STATUSES),
 });
 
 const watchRequest = z.object({
@@ -174,14 +183,19 @@ async function startCrawl(options: AppOptions, request: Request): Promise<Respon
   return ok({ jobId: job.id }, 202);
 }
 
-async function setRemoved(options: AppOptions, request: Request): Promise<Response> {
+async function setCompetitor(options: AppOptions, request: Request): Promise<Response> {
   const body = await readJson(options, request);
   if (body instanceof Response) return body;
-  const parsed = removalRequest.safeParse(body);
-  if (!parsed.success) return fail(400, 'Give the centre channel, the channel and removed');
-  const { center, channel, removed } = parsed.data;
-  return options.engine.setCompetitorRemoved(center, channel, removed)
-    ? ok({ center, channel, removed })
+  const parsed = competitorRequest.safeParse(body);
+  if (!parsed.success) {
+    return fail(
+      400,
+      `Give the centre channel, the channel and a status: ${COMPETITOR_STATUSES.join(', ')}`,
+    );
+  }
+  const { center, channel, status } = parsed.data;
+  return options.engine.setCompetitorStatus(center, channel, status)
+    ? ok({ center, channel, status })
     : fail(404, 'That channel is not on the latest map of this centre channel');
 }
 
@@ -225,7 +239,7 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
       return method === 'POST' ? startCrawl(options, request) : fail(405, 'Use POST');
     }
     if (pathname === '/api/competitors') {
-      return method === 'POST' ? setRemoved(options, request) : fail(405, 'Use POST');
+      return method === 'POST' ? setCompetitor(options, request) : fail(405, 'Use POST');
     }
     if (pathname === '/api/niches') {
       return method === 'GET' ? ok(options.engine.listNiches()) : fail(405, 'Use GET');

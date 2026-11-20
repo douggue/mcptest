@@ -284,6 +284,21 @@ describe('loadThumbnailBoard', () => {
     expect(loadThumbnailBoard(deps, cid('C'), NOW)?.channels).toHaveLength(2);
   });
 
+  test('adds a channel the owner kept as a competitor, after the ones like the centre', () => {
+    saveMap();
+    freezeMapSnapshot(deps, cid('C'), NOW);
+    deps.maps.setKept(cid('C'), cid('X'), true, NOW);
+
+    const kept = loadThumbnailBoard(deps, cid('C'), NOW);
+
+    expect(kept?.channels).toHaveLength(3);
+    expect(kept?.channels.at(-1)).toMatchObject({ id: cid('X'), subscribers: 9_000_000 });
+    expect(kept?.channels.at(-1)?.winners).toHaveLength(2);
+
+    deps.maps.setKept(cid('C'), cid('X'), false, NOW);
+    expect(loadThumbnailBoard(deps, cid('C'), NOW)?.channels).toHaveLength(2);
+  });
+
   test('reads videos as stored now, for the peers of the map as it was frozen', () => {
     saveMap();
     freezeMapSnapshot(deps, cid('C'), NOW);

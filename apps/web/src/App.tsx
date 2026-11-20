@@ -186,9 +186,9 @@ export function App() {
           <Inspector
             channel={selected}
             onClose={() => setSelectedId(null)}
-            onSetRemoved={(removed) => {
+            onSetStatus={(status) => {
               api
-                .setRemoved(snapshot.center.id, selected.id, removed)
+                .setCompetitorStatus(snapshot.center.id, selected.id, status)
                 .then(() => load(snapshot.center.id))
                 .catch((error: unknown) => setMessage(messageOf(error)));
             }}

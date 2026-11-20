@@ -52,3 +52,4 @@ export {
 } from './niches/niches';
 export { SqliteWatchlistRepo } from './repos/sqliteWatchlistRepo';
 export type { WatchlistRepo } from './repos/types';
+export { COMPETITOR_STATUSES, type CompetitorStatus } from './map/choices';

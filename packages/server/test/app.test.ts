@@ -1,4 +1,4 @@
-import type { MapSnapshot, NicheList, ThumbnailBoard } from '@jgtube/core';
+import type { CompetitorStatus, MapSnapshot, NicheList, ThumbnailBoard } from '@jgtube/core';
 import { beforeEach, describe, expect, test } from 'vitest';
 import type { ChannelSnapshot, SidebarItem, YouTubeSource } from '@jgtube/core';
 import { createApp, type CrawlOutcome, type Engine } from '../src/app';
@@ -76,11 +76,11 @@ class FakeEngine implements Engine {
     return this.outcome;
   }
 
-  removals: Array<[string, string, boolean]> = [];
+  statuses: Array<[string, string, string]> = [];
 
-  setCompetitorRemoved(center: string, channel: string, removed: boolean): boolean {
+  setCompetitorStatus(center: string, channel: string, status: CompetitorStatus): boolean {
     if (this.stored === null) return false;
-    this.removals.push([center, channel, removed]);
+    this.statuses.push([center, channel, status]);
     return true;
   }
 }
@@ -379,39 +379,51 @@ describe('POST /api/competitors', () => {
       }),
     );
 
-  test('removes a channel from the competitors and can restore it', async () => {
-    const removed = await send({ center: CHANNEL_ID, channel: OTHER, removed: true });
-    await send({ center: CHANNEL_ID, channel: OTHER, removed: false });
+  test('removes a channel, keeps one, and puts either back to the filter’s own answer', async () => {
+    const removed = await send({ center: CHANNEL_ID, channel: OTHER, status: 'removed' });
+    await send({ center: CHANNEL_ID, channel: OTHER, status: 'kept' });
+    await send({ center: CHANNEL_ID, channel: OTHER, status: 'auto' });
 
     expect(removed.status).toBe(200);
-    expect(engine.removals).toEqual([
-      [CHANNEL_ID, OTHER, true],
-      [CHANNEL_ID, OTHER, false],
+    expect(await removed.json()).toEqual({
+      success: true,
+      data: { center: CHANNEL_ID, channel: OTHER, status: 'removed' },
+      error: null,
+      meta: null,
+    });
+    expect(engine.statuses).toEqual([
+      [CHANNEL_ID, OTHER, 'removed'],
+      [CHANNEL_ID, OTHER, 'kept'],
+      [CHANNEL_ID, OTHER, 'auto'],
     ]);
   });
 
   test('answers 404 when the centre channel has no map', async () => {
     engine.stored = null;
 
-    expect((await send({ center: CHANNEL_ID, channel: OTHER, removed: true })).status).toBe(404);
+    expect((await send({ center: CHANNEL_ID, channel: OTHER, status: 'kept' })).status).toBe(404);
   });
 
   test.each([
-    [{ center: 'not-an-id', channel: OTHER, removed: true }],
-    [{ center: CHANNEL_ID, channel: OTHER, removed: 'yes' }],
+    [{ center: 'not-an-id', channel: OTHER, status: 'kept' }],
+    [{ center: CHANNEL_ID, channel: '@handle', status: 'kept' }],
+    [{ center: CHANNEL_ID, channel: OTHER, status: 'yes' }],
+    [{ center: CHANNEL_ID, channel: OTHER, removed: true }],
+    [{ center: CHANNEL_ID, channel: OTHER, status: true }],
     [{ center: CHANNEL_ID }],
   ])('rejects %j', async (body) => {
     expect((await send(body)).status).toBe(400);
-    expect(engine.removals).toEqual([]);
+    expect(engine.statuses).toEqual([]);
   });
 
   test('rejects requests sent from another site', async () => {
     const response = await send(
-      { center: CHANNEL_ID, channel: OTHER, removed: true },
+      { center: CHANNEL_ID, channel: OTHER, status: 'kept' },
       { origin: 'https://evil.example' },
     );
 
     expect(response.status).toBe(403);
+    expect(engine.statuses).toEqual([]);
   });
 });
 
@@ -616,10 +628,14 @@ describe('the server, the store and the engine together', () => {
   interface Reply {
     readonly jobId: string;
     readonly status: string;
-    readonly channels: ReadonlyArray<{ readonly title: string; readonly removed: boolean }>;
+    readonly channels: ReadonlyArray<{
+      readonly title: string;
+      readonly removed: boolean;
+      readonly kept: boolean;
+    }>;
   }
 
-  test('make a map, read it back, remove a competitor and see it stay removed', async () => {
+  test('make a map, read it back, then remove, keep and reset a competitor', async () => {
     const real = createEngine(
       { dbPath: ':memory:', region: 'US' },
       { createSource: async () => source, now: () => NOW },
@@ -655,17 +671,29 @@ describe('the server, the store and the engine together', () => {
           new Request(`http://${HOST}/api/competitors`, {
             method: 'POST',
             headers: { host: HOST, 'content-type': 'application/json' },
-            body: JSON.stringify({ center: cid('C'), channel, removed: true }),
+            body: JSON.stringify({ center: cid('C'), channel, status: 'kept' }),
           }),
         )
       ).status;
     expect(await refuse(cid('Z'))).toBe(404);
     expect(await refuse(cid('C'))).toBe(404);
 
-    await call('/api/competitors', { center: cid('C'), channel: cid('A'), removed: true });
+    await call('/api/competitors', { center: cid('C'), channel: cid('A'), status: 'removed' });
     const { data: after } = await call(`/api/maps/latest?channel=${cid('C')}`);
     const removed = after.channels.filter((c) => c.removed);
     expect(removed.map((c) => c.title)).toEqual(['Channel A']);
+
+    const choiceOn = async (title: string) => {
+      const { data } = await call(`/api/maps/latest?channel=${cid('C')}`);
+      const found = data.channels.find((c) => c.title === title);
+      return [found?.removed, found?.kept];
+    };
+    await call('/api/competitors', { center: cid('C'), channel: cid('A'), status: 'kept' });
+    expect(await choiceOn('Channel A')).toEqual([false, true]);
+    await call('/api/competitors', { center: cid('C'), channel: cid('A'), status: 'removed' });
+    expect(await choiceOn('Channel A')).toEqual([true, false]);
+    await call('/api/competitors', { center: cid('C'), channel: cid('A'), status: 'auto' });
+    expect(await choiceOn('Channel A')).toEqual([false, false]);
     real.close();
   });
 
@@ -745,7 +773,7 @@ describe('the server, the store and the engine together', () => {
       publishedRaw: '10d ago',
     });
 
-    await call('/api/competitors', { center: cid('C'), channel: cid('A'), removed: true });
+    await call('/api/competitors', { center: cid('C'), channel: cid('A'), status: 'removed' });
     const after = await readBoard(cid('C'));
     expect(after.channels.map((channel) => channel.title).sort()).toEqual([
       'Channel B',

@@ -92,6 +92,15 @@ CREATE TABLE IF NOT EXISTS niche_watchlist (
   watched_at  TEXT NOT NULL
 );
 `,
+  // 5: channels the owner pulled in as competitors although the filter left them out.
+  `
+CREATE TABLE IF NOT EXISTS map_keeps (
+  center_channel  TEXT NOT NULL REFERENCES channels (id),
+  channel_id      TEXT NOT NULL,
+  kept_at         TEXT NOT NULL,
+  PRIMARY KEY (center_channel, channel_id)
+);
+`,
 ];
 
 /**

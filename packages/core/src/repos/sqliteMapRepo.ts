@@ -10,6 +10,29 @@ interface MapRow {
   created_at: string;
 }
 
+/** The owner's two choices about a channel on a centre's maps. */
+type Choice = 'removed' | 'kept';
+
+const OTHER_CHOICE: Readonly<Record<Choice, Choice>> = { removed: 'kept', kept: 'removed' };
+
+/** Each choice has its own table; the statements are written out so no name is ever built. */
+const CHOICE_SQL: Readonly<
+  Record<Choice, { readonly list: string; readonly record: string; readonly withdraw: string }>
+> = {
+  removed: {
+    list: 'SELECT channel_id FROM map_removals WHERE center_channel = ? ORDER BY channel_id',
+    record: `INSERT INTO map_removals (center_channel, channel_id, removed_at)
+             VALUES (?, ?, ?) ON CONFLICT (center_channel, channel_id) DO NOTHING`,
+    withdraw: 'DELETE FROM map_removals WHERE center_channel = ? AND channel_id = ?',
+  },
+  kept: {
+    list: 'SELECT channel_id FROM map_keeps WHERE center_channel = ? ORDER BY channel_id',
+    record: `INSERT INTO map_keeps (center_channel, channel_id, kept_at)
+             VALUES (?, ?, ?) ON CONFLICT (center_channel, channel_id) DO NOTHING`,
+    withdraw: 'DELETE FROM map_keeps WHERE center_channel = ? AND channel_id = ?',
+  },
+};
+
 interface MemberRow {
   channel_id: string;
   steps: number;
@@ -94,26 +117,47 @@ export class SqliteMapRepo implements MapRepo {
   }
 
   listRemoved(centerChannelId: string): readonly string[] {
+    return this.listChoices('removed', centerChannelId);
+  }
+
+  setRemoved(centerChannelId: string, channelId: string, removed: boolean, at: Date): void {
+    this.setChoice('removed', centerChannelId, channelId, removed, at);
+  }
+
+  listKept(centerChannelId: string): readonly string[] {
+    return this.listChoices('kept', centerChannelId);
+  }
+
+  setKept(centerChannelId: string, channelId: string, kept: boolean, at: Date): void {
+    this.setChoice('kept', centerChannelId, channelId, kept, at);
+  }
+
+  private listChoices(choice: Choice, centerChannelId: string): readonly string[] {
     return this.db
-      .prepare<[string], { channel_id: string }>(
-        'SELECT channel_id FROM map_removals WHERE center_channel = ? ORDER BY channel_id',
-      )
+      .prepare<[string], { channel_id: string }>(CHOICE_SQL[choice].list)
       .all(centerChannelId)
       .map((row) => row.channel_id);
   }
 
-  setRemoved(centerChannelId: string, channelId: string, removed: boolean, at: Date): void {
-    if (removed) {
-      this.db
-        .prepare(
-          `INSERT INTO map_removals (center_channel, channel_id, removed_at)
-           VALUES (?, ?, ?) ON CONFLICT (center_channel, channel_id) DO NOTHING`,
-        )
-        .run(centerChannelId, channelId, at.toISOString());
-    } else {
-      this.db
-        .prepare('DELETE FROM map_removals WHERE center_channel = ? AND channel_id = ?')
-        .run(centerChannelId, channelId);
-    }
+  /**
+   * Records or withdraws one of the owner's choices about a channel. Making
+   * one withdraws the other in the same step, so a channel is never both
+   * removed and kept.
+   */
+  private setChoice(
+    choice: Choice,
+    centerChannelId: string,
+    channelId: string,
+    chosen: boolean,
+    at: Date,
+  ): void {
+    this.db.transaction(() => {
+      if (!chosen) {
+        this.db.prepare(CHOICE_SQL[choice].withdraw).run(centerChannelId, channelId);
+        return;
+      }
+      this.db.prepare(CHOICE_SQL[OTHER_CHOICE[choice]].withdraw).run(centerChannelId, channelId);
+      this.db.prepare(CHOICE_SQL[choice].record).run(centerChannelId, channelId, at.toISOString());
+    })();
   }
 }

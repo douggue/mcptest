@@ -23,6 +23,8 @@ maps            id PK, center_channel FK, model_channel NULL, depth, region,  --
 map_channels    map_id FK, channel_id FK, steps                       -- built
 map_removals    center_channel FK, channel_id, removed_at             -- built; the owner's
                 -- "not a competitor" choices, kept across new maps of the same centre
+map_keeps       center_channel FK, channel_id, kept_at                -- built; the owner's
+                -- "keep as a competitor" choices; a channel is never in both tables
 niche_watchlist channel_id PK FK, watched_at                          -- built; channels the
                 -- owner marked on "New niches to watch"; not tied to any map
                 (source crawl|search|manual and judged relevance: planned)
@@ -178,6 +180,42 @@ its old matches and peers until it is made again.
 The web app shows peers by default with a switch to everything, and the breakout
 feed lists peers' videos separately so outsiders cannot crowd them out.
 
+### The owner's say: keep and remove
+
+Built (`packages/core/src/map/choices.ts`, `POST /api/competitors`). The filter is a
+guess, and the owner can see every channel it rejected under "Everything". They can
+overrule it both ways, per centre channel:
+
+| Status    | Stored in      | Effect                                                                |
+| --------- | -------------- | --------------------------------------------------------------------- |
+| `kept`    | `map_keeps`    | Counts as a peer although the filter left it out                      |
+| `removed` | `map_removals` | Never counts; its videos leave the breakout feed in both views        |
+| `auto`    | neither        | No say: the filter decides. This is how a keep or a removal is undone |
+
+The two choices exclude each other: the repository withdraws one when the other is
+made, in one transaction. `POST /api/competitors` takes `{ center, channel, status }`
+and accepts only a channel on the centre's latest map, never the centre itself.
+
+Both are applied each time a map is read (`applyOwnerChoices`, called by
+`loadMapSnapshot`) and never frozen into it, so a choice made today shows on a map
+made last week and on every later map of the same centre. For a kept channel:
+
+- `peer` becomes true and `kept` is true. `outsideReason` stays as the filter gave
+  it, so the screen can say "Kept by you. The filter left it out: …".
+- The channel list is put back in peers-first order; a kept channel follows the
+  filter's own peers.
+- Its videos join the peers' half of the breakout feed. A frozen feed keeps only the
+  60 strongest outsiders, so on a large map a kept channel's videos are usually not
+  in it at all (true of INGENIUM on the owner's 285-channel map). They are therefore
+  read from the store as it is now, as the thumbnail board's are, merged with the
+  frozen peer videos by score, and cut to the same 60.
+- The thumbnail board lists peers from the same snapshot, so it shows the channel too.
+
+Copies frozen before this existed carry no `kept` field; it is filled in on read, as
+`removed` is. The snapshot format number is unchanged.
+
+Not built: adding a channel that is not on the map at all (phase 4, "Manual add").
+
 ### Model channel
 
 A new channel has too few videos to describe itself: three titles and whatever
@@ -224,7 +262,7 @@ BoardVideo { videoId, title, views, score, publishedRaw, ageDays, durationSecond
 ```
 
 Which channels are peers comes from the map as the owner sees it (`loadMapSnapshot`:
-frozen when made, less their removals). The videos and scores are read from the store
+frozen when made, less their removals, plus the channels they kept). The videos and scores are read from the store
 at request time. The board is therefore not part of the frozen snapshot, whose shape
 is unchanged; after a later crawl refreshes a channel's videos, the board shows the
 newer numbers while the frozen breakout feed does not.

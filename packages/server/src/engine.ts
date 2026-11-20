@@ -100,12 +100,20 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       return { centerChannelId: result.centerChannelId, warnings: result.warnings };
     },
 
-    setCompetitorRemoved(centerChannelId, channelId, removed) {
+    setCompetitorStatus(centerChannelId, channelId, status) {
       const map = repos.maps.latestForCenter(centerChannelId);
-      // Only channels on the map can be removed, and never the centre itself.
+      // Only channels on the map can be kept or removed, and never the centre itself.
       const onMap = map?.members.some((m) => m.channelId === channelId && m.steps > 0) ?? false;
       if (!onMap) return false;
-      repos.maps.setRemoved(centerChannelId, channelId, removed, now());
+      if (status === 'kept') {
+        repos.maps.setKept(centerChannelId, channelId, true, now());
+      } else if (status === 'removed') {
+        repos.maps.setRemoved(centerChannelId, channelId, true, now());
+      } else {
+        // Making a choice withdraws the other one; 'auto' withdraws whichever was made.
+        repos.maps.setRemoved(centerChannelId, channelId, false, now());
+        repos.maps.setKept(centerChannelId, channelId, false, now());
+      }
       return true;
     },
 
