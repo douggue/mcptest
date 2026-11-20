@@ -73,9 +73,14 @@ Observed in a real Makina run for a three-video channel:
 | Topic facts are wrong | Medium | Fact-check step with sources; unverified claims flagged |
 | List-item format changes break parsing | Medium | Fixture tests, defensive parsing, alert on empty results |
 
+## Decisions
+
+| Date | Decision |
+|---|---|
+| 2026-11-20 | **Personal tool.** Single user, no accounts or billing. Phase 8 is out of scope. |
+| 2026-11-20 | **The owner supplies the visual design.** The web UI (phase 7) waits for it; the engine and connector do not. |
+
 ## Open questions
 
-1. Personal tool or product to sell? This decides whether phase 8 (accounts,
-   billing, legal review) happens at all.
-2. Which region and language should recommendations be read from by default?
-3. Product name. "Scout" is a placeholder.
+1. Which region and language should recommendations be read from by default?
+2. Product name. "Scout" is a placeholder.

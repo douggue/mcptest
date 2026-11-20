@@ -26,8 +26,11 @@ topic_titles    id PK, topic_id FK, position, text, why_json, flags_json,
                 starred, hidden
 fact_claims     id PK, topic_id FK, claim, verdict (supported|unverified|wrong),
                 source_url NULL
-http_cache      key PK, body, fetched_at, ttl_s
 ```
+
+Built so far: `channels`, `videos` and `video_snapshots`. There is no HTTP cache
+table; freshness is decided from `fetched_at` (a channel younger than 24 hours is
+served from the store with no request).
 
 `video_snapshots` exists so that true views-per-day can be computed once a video
 has been seen twice. That data calibrates the age ramp below and replaces the
@@ -41,24 +44,26 @@ snapshot rows, and derived values are computed from the latest ones.
 ### Outlier score
 
 ```
-score(v) = v.views / expected(v.channel, age_days(v))
-expected(c, t) = baseline(c) * ramp(t)
-baseline(c)    = median views of c's long-form videos older than 14 days,
-                 from the last 50 uploads, excluding v itself
-ramp(t)        = 1 - exp(-(t + 1) / 4.5)        # 0.20 at day 0, 0.83 at day 7, ~1 by day 21
+score(v)    = v.views / (baseline(v) * ramp(age_days(v)))
+baseline(v) = median views of the channel's other long-form videos
+              published in the last 90 days
+ramp(t)     = 1 - exp(-(t + 1) / 4.5)        # 0.20 at day 0, 0.83 at day 7, ~1 by day 21
 ```
 
-The ramp constants are a fit to the baselines implied by Makina's export
-(54 views expected on day 0 rising to about 286 by day 13 on one channel). They are
-a starting point: once `video_snapshots` has data, fit the curve per size band.
+The 90-day window and the ramp constant were chosen by a grid search against the
+scores in Makina's export: mean error 8% across eight channels, 2 to 5% on most.
+An earlier draft (median of videos older than 14 days) matched one channel and
+missed the others by 23 to 46%. Once `video_snapshots` has data, refit the ramp
+from real view growth. Implemented in `packages/core/src/scoring/outlier.ts`.
 
 Guards:
 
-- No score if the channel has fewer than 8 qualifying videos (`null`, shown as "new").
-- If fewer than 5 videos are older than 14 days, use the median of all videos
-  with each one age-normalised first.
+- If fewer than 3 other videos fall inside 90 days, compare against the 10 most
+  recent others instead.
+- No score if there are still fewer than 3 to compare against, or if their median
+  is zero (`null`, shown as "new").
 - Cap displayed scores at 9,999× and show the baseline beside any score above 500×,
-  since tiny baselines produce absurd multiples.
+  since tiny baselines produce absurd multiples. (Display rule; not built yet.)
 
 ### Rising channels
 

@@ -1,10 +1,10 @@
 # UI design
 
-Status: **direction not chosen.** Three candidate directions for the same screen
-are on the design canvas. Nothing below the "Directions" section depends on which
-one wins.
+Status: **the owner will supply the visual design.** The three directions below
+were exploratory and are not being taken forward. The screens, components and
+rules further down still apply to whatever design arrives.
 
-## Directions
+## Directions explored (superseded)
 
 | | Name | Look | Best at | Main tradeoff |
 |---|---|---|---|---|

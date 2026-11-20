@@ -5,32 +5,32 @@ every phase; coverage floor is 80%.
 
 ## Phase 0: scaffold
 
-- [ ] npm workspaces: `packages/core`, `packages/mcp`
-- [ ] TypeScript strict, ESLint, Prettier, Vitest with coverage
-- [ ] Env validation at startup (`ANTHROPIC_API_KEY`, optional `YOUTUBE_API_KEY`)
-- [ ] CI: typecheck, lint, test
+- [x] npm workspaces: `packages/core` (`packages/mcp` is added in phase 6)
+- [x] TypeScript strict, ESLint, Prettier, Vitest with coverage
+- [x] Env validation at startup (store path, region, language; API keys join when first used)
+- [x] CI: typecheck, lint, test
 
 **Done when:** `npm test` passes on an empty suite in CI.
 
 ## Phase 1: sources and ingest
 
-- [ ] `YouTubeSource` interface: `resolveHandle`, `getChannel`, `listVideos`, `getSidebar`, `search`
-- [ ] `InnertubeSource` on `youtubei.js`, with parsers for both list-item shapes
-- [ ] Relative-date parser returning `{ date, precision, raw }`
-- [ ] Short-count parser (`1.5M` → 1500000)
-- [ ] Rate limiter, backoff, HTTP cache
-- [ ] SQLite schema and repositories for channels, videos, snapshots
-- [ ] Record fixtures from three channels (large, small, empty)
+- [x] `YouTubeSource` interface: `resolveChannelId`, `fetchChannel`, `getSidebar` (`search` joins in phase 4)
+- [x] `InnertubeSource` on `youtubei.js`, with parsers for both list-item shapes
+- [x] Relative-date parser returning `{ date, precision, raw }`
+- [x] Short-count parser (`1.5M` → 1500000)
+- [x] Rate limiter with backoff; freshness check instead of an HTTP cache
+- [x] SQLite schema and repositories for channels, videos, snapshots
+- [ ] Record fixtures from a small and an empty channel (one large channel recorded)
 
 **Done when:** `ingest("@handle")` stores a channel and up to 100 videos, and a second call makes zero requests.
 
 ## Phase 2: scoring
 
-- [ ] Baseline, age ramp and outlier score with all guards
+- [x] Baseline, age ramp and outlier score with guards
 - [ ] Rising-channel rule
 - [ ] "Views on recent uploads" and, where snapshots exist, true 30-day views
 
-**Done when:** scores for one channel from the Makina export are reproduced within 15%.
+**Done when:** scores for one channel from the Makina export are reproduced within 15%. (Met: a test checks the median error on an exported channel.)
 
 ## Phase 3: crawl and map
 
@@ -72,9 +72,9 @@ every phase; coverage floor is 80%.
 
 **Done when:** "What should my next video be?" in Claude produces topics through the connector with no manual steps.
 
-## Phase 7: web UI
+## Phase 7: web UI (waits for the owner's design)
 
-- [ ] Design tokens and components from `UI_DESIGN.md`
+- [ ] Design tokens and components from the supplied design
 - [ ] Topics, Map, Channel detail, run progress
 - [ ] Star, hide, copy; competitor remove and restore
 - [ ] Follow-up chat over a stored run
@@ -82,7 +82,7 @@ every phase; coverage floor is 80%.
 
 **Done when:** the full flow works on a phone and passes an accessibility audit.
 
-## Phase 8: product hardening (only if selling)
+## Phase 8: product hardening (out of scope: personal tool)
 
 - [ ] Accounts, usage metering, billing
 - [ ] Postgres, job queue, worker

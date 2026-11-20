@@ -1,0 +1,288 @@
+[
+ {
+  "type": "LockupView",
+  "content_image": {
+   "type": "ThumbnailView",
+   "image": [
+    {
+     "url": "https://i.ytimg.com/vi/uXuQF_PPg5U/hq720_custom_2.jpg?sqp=CL",
+     "width": 720,
+     "height": 404
+    },
+    {
+     "url": "https://i.ytimg.com/vi/uXuQF_PPg5U/hq720_custom_2.jpg?sqp=CL",
+     "width": 360,
+     "height": 202
+    }
+   ],
+   "overlays": [
+    {
+     "type": "ThumbnailBottomOverlayView",
+     "progress_bar": null,
+     "badges": [
+      {
+       "type": "ThumbnailBadgeView",
+       "text": "38:48",
+       "badge_style": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT"
+      }
+     ]
+    }
+   ]
+  },
+  "metadata": {
+   "type": "LockupMetadataView",
+   "title": {
+    "text": "The Strangest Concept in Math",
+    "rtl": false
+   },
+   "metadata": {
+    "type": "ContentMetadataView",
+    "metadata_rows": [
+     {
+      "metadata_parts": [
+       {
+        "text": {
+         "text": "1.5M",
+         "rtl": false
+        },
+        "avatar_stack": null
+       },
+       {
+        "text": {
+         "text": "1d ago",
+         "rtl": false
+        },
+        "avatar_stack": null
+       }
+      ],
+      "badges": []
+     }
+    ],
+    "delimiter": " "
+   },
+   "image": null
+  },
+  "content_id": "uXuQF_PPg5U",
+  "content_type": "VIDEO",
+  "renderer_context": {
+   "command_context": {
+    "on_tap": {
+     "type": "NavigationEndpoint",
+     "name": "watchEndpoint",
+     "payload": {
+      "videoId": "uXuQF_PPg5U",
+      "watchEndpointSupportedOnesieConfig": {
+       "html5PlaybackOnesieConfig": {
+        "commonConfig": {
+         "url": "https://rr4---sn-ajab55-5c.googlevideo.com/initplayback?sour"
+        }
+       }
+      }
+     },
+     "metadata": {
+      "url": "/watch?v=uXuQF_PPg5U",
+      "page_type": "WEB_PAGE_TYPE_WATCH",
+      "api_url": "/player"
+     },
+     "command": {
+      "type": "WatchEndpoint"
+     }
+    }
+   },
+   "accessibility_context": {
+    "label": "The Strangest Concept in Math 38 minutes"
+   }
+  }
+ },
+ {
+  "type": "LockupView",
+  "content_image": {
+   "type": "ThumbnailView",
+   "image": [
+    {
+     "url": "https://i.ytimg.com/vi/KfODG5REyss/hq720.jpg?sqp=-oaymwEcCNA",
+     "width": 720,
+     "height": 404
+    },
+    {
+     "url": "https://i.ytimg.com/vi/KfODG5REyss/hq720.jpg?sqp=-oaymwEcCOg",
+     "width": 360,
+     "height": 202
+    }
+   ],
+   "overlays": [
+    {
+     "type": "ThumbnailBottomOverlayView",
+     "progress_bar": null,
+     "badges": [
+      {
+       "type": "ThumbnailBadgeView",
+       "text": "1:05:56",
+       "badge_style": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT"
+      }
+     ]
+    }
+   ]
+  },
+  "metadata": {
+   "type": "LockupMetadataView",
+   "title": {
+    "text": "I finally saw quantum physics with my own eyes... (It's spookier than I expected)",
+    "rtl": false
+   },
+   "metadata": {
+    "type": "ContentMetadataView",
+    "metadata_rows": [
+     {
+      "metadata_parts": [
+       {
+        "text": {
+         "text": "20M",
+         "rtl": false
+        },
+        "avatar_stack": null
+       },
+       {
+        "text": {
+         "text": "2w ago",
+         "rtl": false
+        },
+        "avatar_stack": null
+       }
+      ],
+      "badges": []
+     }
+    ],
+    "delimiter": " "
+   },
+   "image": null
+  },
+  "content_id": "KfODG5REyss",
+  "content_type": "VIDEO",
+  "renderer_context": {
+   "command_context": {
+    "on_tap": {
+     "type": "NavigationEndpoint",
+     "name": "watchEndpoint",
+     "payload": {
+      "videoId": "KfODG5REyss",
+      "params": "0gYaEhgaBgoCZW4QASIGCgJlbhABKgYKAmVuEAE%3D",
+      "watchEndpointSupportedOnesieConfig": {
+       "html5PlaybackOnesieConfig": {
+        "commonConfig": {
+         "url": "https://rr2---sn-ajab55-5c.googlevideo.com/initplayback?sour"
+        }
+       }
+      }
+     },
+     "metadata": {
+      "url": "/watch?v=KfODG5REyss",
+      "page_type": "WEB_PAGE_TYPE_WATCH",
+      "api_url": "/player"
+     },
+     "command": {
+      "type": "WatchEndpoint"
+     }
+    }
+   },
+   "accessibility_context": {
+    "label": "I finally saw quantum physics with my own eyes... (It's spookier than I expected) 1 hour, 5 minutes"
+   }
+  }
+ },
+ {
+  "type": "LockupView",
+  "content_image": {
+   "type": "ThumbnailView",
+   "image": [
+    {
+     "url": "https://i.ytimg.com/vi/eyZEqSPeMwg/hq720.jpg?sqp=-oaymwEcCNA",
+     "width": 720,
+     "height": 404
+    },
+    {
+     "url": "https://i.ytimg.com/vi/eyZEqSPeMwg/hq720.jpg?sqp=-oaymwEcCOg",
+     "width": 360,
+     "height": 202
+    }
+   ],
+   "overlays": [
+    {
+     "type": "ThumbnailBottomOverlayView",
+     "progress_bar": null,
+     "badges": [
+      {
+       "type": "ThumbnailBadgeView",
+       "text": "34:28",
+       "badge_style": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT"
+      }
+     ]
+    }
+   ]
+  },
+  "metadata": {
+   "type": "LockupMetadataView",
+   "title": {
+    "text": "Relativity is so much weirder than we thought...",
+    "rtl": false
+   },
+   "metadata": {
+    "type": "ContentMetadataView",
+    "metadata_rows": [
+     {
+      "metadata_parts": [
+       {
+        "text": {
+         "text": "8.4M",
+         "rtl": false
+        },
+        "avatar_stack": null
+       },
+       {
+        "text": {
+         "text": "3w ago",
+         "rtl": false
+        },
+        "avatar_stack": null
+       }
+      ],
+      "badges": []
+     }
+    ],
+    "delimiter": " "
+   },
+   "image": null
+  },
+  "content_id": "eyZEqSPeMwg",
+  "content_type": "VIDEO",
+  "renderer_context": {
+   "command_context": {
+    "on_tap": {
+     "type": "NavigationEndpoint",
+     "name": "watchEndpoint",
+     "payload": {
+      "videoId": "eyZEqSPeMwg",
+      "watchEndpointSupportedOnesieConfig": {
+       "html5PlaybackOnesieConfig": {
+        "commonConfig": {
+         "url": "https://rr8---sn-ajab55-5c.googlevideo.com/initplayback?sour"
+        }
+       }
+      }
+     },
+     "metadata": {
+      "url": "/watch?v=eyZEqSPeMwg",
+      "page_type": "WEB_PAGE_TYPE_WATCH",
+      "api_url": "/player"
+     },
+     "command": {
+      "type": "WatchEndpoint"
+     }
+    }
+   },
+   "accessibility_context": {
+    "label": "Relativity is so much weirder than we thought... 34 minutes"
+   }
+  }
+ }
+]
