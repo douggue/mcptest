@@ -14,8 +14,11 @@ const MS_PER_SECOND = 1000;
 const MAX_ERROR_TEXT = 200;
 const KEY_PLACEHOLDER = '[key]';
 const QUOTA_REASONS: readonly string[] = ['quotaExceeded', 'dailyLimitExceeded'];
+/** Too many requests in a short time: a reason to wait a while, not the day's allowance. */
+const RATE_REASONS: readonly string[] = ['rateLimitExceeded', 'userRateLimitExceeded'];
 const QUOTA_SPENT =
   'The YouTube API key has used up its daily allowance. It resets at midnight Pacific time.';
+const RATE_LIMITED = 'The YouTube API is being asked too fast. Wait a while before asking again.';
 
 /**
  * Counts units against the day's allowance. Called before each request; when
@@ -57,6 +60,8 @@ export class YouTubeApiError extends Error {
     readonly status: number,
     /** True when the refusal is the daily allowance running out. */
     readonly quotaSpent: boolean,
+    /** True when the refusal is for asking too fast: wait, then carry on the same day. */
+    readonly rateLimited: boolean = false,
   ) {
     super(message);
     this.name = 'YouTubeApiError';
@@ -96,6 +101,9 @@ async function refusal(response: Response, apiKey: string): Promise<YouTubeApiEr
   if (reasons.some((reason) => QUOTA_REASONS.includes(reason))) {
     return new YouTubeApiError(QUOTA_SPENT, response.status, true);
   }
+  if (reasons.some((reason) => RATE_REASONS.includes(reason))) {
+    return new YouTubeApiError(RATE_LIMITED, response.status, false, true);
+  }
   const detail = withoutKey(parsed.success ? (parsed.data.error.message ?? '') : '', apiKey);
   return new YouTubeApiError(
     `The YouTube API refused the request (${response.status}): ${detail}`,
@@ -109,6 +117,8 @@ async function send(url: string, apiKey: string, fetcher: typeof fetch): Promise
   try {
     return await fetcher(url, {
       headers: { [KEY_HEADER]: apiKey },
+      // The key is sent to Google only: a reply that points elsewhere is not followed.
+      redirect: 'error',
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (error) {

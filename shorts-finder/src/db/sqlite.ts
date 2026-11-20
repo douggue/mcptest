@@ -6,11 +6,18 @@ export type Db = Database.Database;
 
 /**
  * Applied in order; SQLite's `user_version` records how many have run.
- * Never edit a migration that has shipped: add another after it.
+ * Never edit a migration that has shipped: add another after it. (The first
+ * was revised once, before any store had been made with it.)
  *
- * Times are ISO-8601 text in UTC, which sorts in time order. The one exception
- * is `quota_ledger.day`, a calendar day in Pacific time, where the API's
- * allowance resets.
+ * Times are ISO-8601 text in UTC, which sorts in time order. Two exceptions:
+ * `quota_ledger.day` is a calendar day in Pacific time, where the API's
+ * allowance resets, and `video_snapshots.captured_at` is whole seconds since
+ * 1970 (UTC), because readings are by far the most rows and a number is
+ * smaller and quicker to compare than text.
+ *
+ * What goes when a video is deleted: its readings, its tracking and the record
+ * of which searches found it. A finding does not: it carries its own copy of
+ * what it needs (ids, titles, the figures) and refers to no other row.
  */
 export const MIGRATIONS: readonly string[] = [
   // 1: channels and videos as the official API describes them, readings of
@@ -18,7 +25,7 @@ export const MIGRATIONS: readonly string[] = [
   `
 CREATE TABLE channels (
   id                   TEXT PRIMARY KEY,
-  title                TEXT NOT NULL,
+  title                TEXT,
   country              TEXT,
   created_at           TEXT,
   subscribers          INTEGER,
@@ -26,8 +33,10 @@ CREATE TABLE channels (
   video_count          INTEGER,
   total_views          INTEGER,
   uploads_playlist_id  TEXT,
-  fetched_at           TEXT NOT NULL
+  fetched_at           TEXT NOT NULL,
+  read_queued_at       TEXT
 );
+CREATE INDEX channels_read_queued ON channels (read_queued_at) WHERE read_queued_at IS NOT NULL;
 
 CREATE TABLE videos (
   id                      TEXT PRIMARY KEY,
@@ -44,11 +53,12 @@ CREATE TABLE videos (
 CREATE INDEX videos_channel_published ON videos (channel_id, published_at);
 
 CREATE TABLE video_snapshots (
-  video_id     TEXT NOT NULL REFERENCES videos (id),
-  captured_at  TEXT NOT NULL,
+  video_id     TEXT NOT NULL REFERENCES videos (id) ON DELETE CASCADE,
+  captured_at  INTEGER NOT NULL,
   views        INTEGER NOT NULL,
   PRIMARY KEY (video_id, captured_at)
-);
+) WITHOUT ROWID;
+CREATE INDEX video_snapshots_captured ON video_snapshots (captured_at);
 
 CREATE TABLE work_leases (
   name        TEXT PRIMARY KEY,
@@ -68,11 +78,12 @@ CREATE TABLE subjects (
 );
 
 CREATE TABLE subject_hits (
-  subject_id     INTEGER NOT NULL REFERENCES subjects (id),
-  video_id       TEXT NOT NULL REFERENCES videos (id),
+  subject_id     INTEGER NOT NULL REFERENCES subjects (id) ON DELETE CASCADE,
+  video_id       TEXT NOT NULL REFERENCES videos (id) ON DELETE CASCADE,
   first_seen_at  TEXT NOT NULL,
   PRIMARY KEY (subject_id, video_id)
-);
+) WITHOUT ROWID;
+CREATE INDEX subject_hits_video ON subject_hits (video_id);
 
 CREATE TABLE quota_ledger (
   day          TEXT PRIMARY KEY,
@@ -81,26 +92,31 @@ CREATE TABLE quota_ledger (
 );
 
 CREATE TABLE video_tracking (
-  video_id      TEXT PRIMARY KEY REFERENCES videos (id),
+  video_id      TEXT PRIMARY KEY REFERENCES videos (id) ON DELETE CASCADE,
   tier          TEXT NOT NULL CHECK (tier IN ('hourly', 'six_hourly', 'done')),
   next_read_at  TEXT,
-  is_short      TEXT NOT NULL CHECK (is_short IN ('yes', 'no', 'unknown'))
+  is_short      TEXT NOT NULL CHECK (is_short IN ('yes', 'no', 'unknown')),
+  missed_reads  INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX video_tracking_next_read ON video_tracking (next_read_at);
 
 CREATE TABLE findings (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  video_id        TEXT NOT NULL REFERENCES videos (id),
-  channel_id      TEXT NOT NULL REFERENCES channels (id),
+  video_id        TEXT NOT NULL,
+  channel_id      TEXT NOT NULL,
+  video_title     TEXT NOT NULL,
+  channel_title   TEXT,
+  published_at    TEXT NOT NULL,
   kind            TEXT NOT NULL CHECK (kind IN ('niche', 'transfer')),
   reason          TEXT NOT NULL,
   views_per_hour  REAL,
   earnings_low    REAL,
   earnings_high   REAL,
   found_at        TEXT NOT NULL,
-  alerted_at      TEXT
+  alerted_at      TEXT,
+  UNIQUE (video_id, kind)
 );
-CREATE INDEX findings_video ON findings (video_id);
+CREATE INDEX findings_unalerted ON findings (found_at) WHERE alerted_at IS NULL;
 `,
 ];
 
@@ -125,12 +141,18 @@ export function migrate(db: Db, steps: readonly string[] = MIGRATIONS): void {
   });
 }
 
-/** Whether the store holds anything worth keeping: at least one channel. */
+/** Whether the store holds anything worth keeping: a row in any of its tables. */
 function hasData(db: Db): boolean {
-  const table = db
-    .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'channels'")
-    .get();
-  return table !== undefined && db.prepare('SELECT 1 FROM channels LIMIT 1').get() !== undefined;
+  const tables = db
+    .prepare<[], { name: string }>(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+    )
+    .all();
+  // The names come from the store's own list of tables, quoted as identifiers.
+  return tables.some(
+    ({ name }) =>
+      db.prepare(`SELECT 1 FROM "${name.replaceAll('"', '""')}" LIMIT 1`).get() !== undefined,
+  );
 }
 
 /**

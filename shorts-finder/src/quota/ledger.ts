@@ -114,6 +114,12 @@ export interface QuotaLedger {
    * recording nothing, when the kind's share or the day's total would be passed.
    */
   spend(kind: QuotaKind, units: number): void;
+  /**
+   * Records that Google itself refused a request because today's allowance is
+   * gone: the key was used elsewhere, or the allowance is smaller than the
+   * plan. Nothing more of any kind is spent until the day turns.
+   */
+  markExhausted(): void;
   /** Whether `units` of this kind still fit in the plan on the day of `now`. */
   canSpend(kind: QuotaKind, units: number, now: Date): boolean;
   /** What is left to spend on the day of `now`. */
@@ -159,6 +165,9 @@ export function createQuotaLedger(deps: QuotaLedgerDeps): QuotaLedger {
       if (!deps.repo.spendWithin(day, kind, units, limits)) {
         throw new AllowanceSpentError(kind, units, day);
       }
+    },
+    markExhausted() {
+      deps.repo.exhaust(pacificDay(deps.now()), deps.plan.total);
     },
     canSpend(kind, units, now) {
       requireUnits(units);

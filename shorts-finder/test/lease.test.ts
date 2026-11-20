@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { openDatabase, type Db } from '../src/db/sqlite';
 import {
@@ -127,6 +130,33 @@ describe('withYouTubeLease', () => {
     });
   });
 
+  test('tells the work to stop when the lease was lost to other work', async () => {
+    const { deps, state } = manualDeps('scheduler');
+
+    const seen = await withYouTubeLease(deps, async (signal) => {
+      const before = signal.aborted;
+      // The work stalled past the lease's life, and other work took the lease.
+      state.now = after(YOUTUBE_LEASE_TTL_MS + 1);
+      leases.acquire('by-hand', state.now, after(2 * YOUTUBE_LEASE_TTL_MS));
+      state.beats[0]?.();
+      return { before, after: signal.aborted };
+    });
+
+    expect(seen).toEqual({ before: false, after: true });
+    expect(leases.holder(after(YOUTUBE_LEASE_TTL_MS + 2))).toBe('by-hand');
+  });
+
+  test('does not tell the work to stop while its lease is renewed', async () => {
+    const { deps, state } = manualDeps('scheduler');
+
+    const aborted = await withYouTubeLease(deps, async (signal) => {
+      state.beats[0]?.();
+      return signal.aborted;
+    });
+
+    expect(aborted).toBe(false);
+  });
+
   test('gives the lease back when the work fails, and passes the failure on', async () => {
     const { deps } = manualDeps('scheduler');
 
@@ -158,5 +188,45 @@ describe('withYouTubeLease', () => {
 
     expect(result).toMatch(/^[0-9a-f-]{36}$/);
     expect(leases.holder(NOW)).toBeNull();
+  });
+});
+
+describe('two programs with the same store open', () => {
+  let folder: string;
+  let first: Db;
+  let second: Db;
+
+  beforeEach(() => {
+    folder = mkdtempSync(join(tmpdir(), 'shorts-lease-'));
+    first = openDatabase(join(folder, 'shorts.db'));
+    second = openDatabase(join(folder, 'shorts.db'));
+  });
+
+  afterEach(() => {
+    first.close();
+    second.close();
+    rmSync(folder, { recursive: true, force: true });
+  });
+
+  test('cannot both hold the lease, and the second gets it once the first gives it back', () => {
+    const one = new SqliteLeaseRepo(first);
+    const other = new SqliteLeaseRepo(second);
+
+    expect(one.acquire('service', NOW, after(2 * MINUTE_MS))).toBe(true);
+    expect(other.acquire('by-hand', NOW, after(2 * MINUTE_MS))).toBe(false);
+    expect(other.holder(NOW)).toBe('service');
+    one.release('service');
+
+    expect(other.acquire('by-hand', NOW, after(2 * MINUTE_MS))).toBe(true);
+    expect(one.holder(NOW)).toBe('by-hand');
+  });
+
+  test('refuses work in one program while work in the other holds the lease', async () => {
+    const service: LeaseDeps = { leases: new SqliteLeaseRepo(first), now: () => NOW };
+    const byHand: LeaseDeps = { leases: new SqliteLeaseRepo(second), now: () => NOW };
+
+    const attempt = withYouTubeLease(service, () => withYouTubeLease(byHand, async () => 'ran'));
+
+    await expect(attempt).rejects.toBeInstanceOf(ReadingElsewhereError);
   });
 });

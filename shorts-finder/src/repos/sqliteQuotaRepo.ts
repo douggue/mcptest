@@ -60,6 +60,16 @@ export class SqliteQuotaRepo implements QuotaRepo {
       .immediate();
   }
 
+  exhaust(day: string, total: number): void {
+    this.db
+      .transaction((): void => {
+        const before = this.usage(day);
+        if (before.unitsSpent >= total) return;
+        this.write(day, total, before.byKind);
+      })
+      .immediate();
+  }
+
   private write(day: string, total: number, byKind: Readonly<Record<QuotaKind, number>>): void {
     this.db
       .prepare(

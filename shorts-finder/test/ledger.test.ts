@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { openDatabase, type Db } from '../src/db/sqlite';
 import {
@@ -42,6 +45,24 @@ describe('pacificDay', () => {
     ['the end of the day the clocks go forward', '2026-03-09T06:59:59Z', '2026-03-08'],
     ['the end of the day the clocks go back', '2026-11-02T07:59:59Z', '2026-11-01'],
     ['the first second of a year', '2027-01-01T08:00:00Z', '2027-01-01'],
+    // The clocks go forward at 2026-03-08T10:00Z: the day before it is eight hours behind UTC...
+    ['midnight on the day the clocks go forward', '2026-03-08T08:00:00Z', '2026-03-08'],
+    ['the second before that midnight', '2026-03-08T07:59:59Z', '2026-03-07'],
+    ['the instant the clocks go forward', '2026-03-08T10:00:00Z', '2026-03-08'],
+    // ...and the next midnight is seven behind: a fixed eight hours would still say the 8th.
+    ['the first midnight after the clocks go forward', '2026-03-09T07:00:00Z', '2026-03-09'],
+    // The clocks go back at 2026-11-01T09:00Z. That day starts seven hours behind UTC...
+    ['midnight on the day the clocks go back', '2026-11-01T07:00:00Z', '2026-11-01'],
+    ['the second before that midnight', '2026-11-01T06:59:59Z', '2026-10-31'],
+    ['the instant the clocks go back', '2026-11-01T09:00:00Z', '2026-11-01'],
+    ['an instant inside the hour that happens twice', '2026-11-01T09:30:00Z', '2026-11-01'],
+    // ...and ends eight behind: a fixed seven hours would already say the 2nd.
+    [
+      'an hour before the first midnight after the clocks go back',
+      '2026-11-02T07:00:00Z',
+      '2026-11-01',
+    ],
+    ['the first midnight after the clocks go back', '2026-11-02T08:00:00Z', '2026-11-02'],
   ])('reads %s', (_what, instant, day) => {
     expect(pacificDay(new Date(instant))).toBe(day);
   });
@@ -195,6 +216,40 @@ describe('the allowance ledger', () => {
     expect(repo.usage(DAY).unitsSpent).toBe(6000);
   });
 
+  test('spends nothing more on a day Google itself has called spent', () => {
+    const ledger = ledgerWith();
+    ledger.spend('search', 300);
+
+    ledger.markExhausted();
+
+    expect(ledger.remaining(NOON)).toEqual({
+      day: DAY,
+      total: 0,
+      byKind: { search: 0, reading: 0, channel: 0, reserve: 0 },
+    });
+    expect(() => ledger.spend('reading', 1)).toThrow(AllowanceSpentError);
+    expect(repo.usage(DAY).byKind.search).toBe(300);
+  });
+
+  test('never lowers what a day has cost when it is called spent twice', () => {
+    const ledger = ledgerWith(planFor(100));
+    repo.spendWithin(DAY, 'search', 500, { kind: 1000, total: 1000 });
+
+    ledger.markExhausted();
+    ledger.markExhausted();
+
+    expect(repo.usage(DAY).unitsSpent).toBe(500);
+  });
+
+  test('has the whole plan again the day after a day called spent', () => {
+    const ledger = ledgerWith();
+    ledger.markExhausted();
+
+    clock = new Date('2026-11-21T08:00:00Z');
+
+    expect(ledger.canSpend('search', 100, clock)).toBe(true);
+  });
+
   test.each([0, -5, 1.5, Number.NaN])('refuses to count %s units', (units) => {
     const ledger = ledgerWith();
 
@@ -225,5 +280,46 @@ describe('SqliteQuotaRepo', () => {
     ).run(DAY);
 
     expect(() => repo.usage(DAY)).toThrow(/allowance ledger for 2026-11-20 cannot be read/);
+  });
+});
+
+describe('two programs with the same store open', () => {
+  let folder: string;
+  let first: Db;
+  let second: Db;
+
+  beforeEach(() => {
+    folder = mkdtempSync(join(tmpdir(), 'shorts-ledger-'));
+    first = openDatabase(join(folder, 'shorts.db'));
+    second = openDatabase(join(folder, 'shorts.db'));
+  });
+
+  afterEach(() => {
+    first.close();
+    second.close();
+    rmSync(folder, { recursive: true, force: true });
+  });
+
+  test('cannot both spend the last units of a share', () => {
+    const plan = planFor(1000);
+    const one = createQuotaLedger({ repo: new SqliteQuotaRepo(first), plan, now: () => NOON });
+    const other = createQuotaLedger({ repo: new SqliteQuotaRepo(second), plan, now: () => NOON });
+    one.spend('search', 500);
+
+    other.spend('search', 100);
+
+    expect(() => one.spend('search', 100)).toThrow(AllowanceSpentError);
+    expect(other.remaining(NOON).byKind.search).toBe(0);
+    expect(new SqliteQuotaRepo(first).usage(DAY).unitsSpent).toBe(600);
+  });
+
+  test('both see a day one of them called spent', () => {
+    const plan = planFor(1000);
+    const one = createQuotaLedger({ repo: new SqliteQuotaRepo(first), plan, now: () => NOON });
+    const other = createQuotaLedger({ repo: new SqliteQuotaRepo(second), plan, now: () => NOON });
+
+    one.markExhausted();
+
+    expect(other.canSpend('reading', 1, NOON)).toBe(false);
   });
 });

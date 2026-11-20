@@ -23,8 +23,8 @@ export { SqliteLeaseRepo } from './repos/sqliteLeaseRepo';
 export { SqliteQuotaRepo } from './repos/sqliteQuotaRepo';
 export type { DayUsage, LeaseRepo, QuotaRepo, SpendLimits, Transact } from './repos/types';
 export {
-  MIN_SUBSCRIBERS_FOR_ADS,
-  SHORTS_RATE,
+  DEFAULT_SHORTS_RATE,
+  SUBSCRIBER_THRESHOLD,
   estimateShortsEarnings,
   type EarningsEstimate,
   type RateRange,

@@ -115,7 +115,8 @@ describe('openDatabase', () => {
       'INSERT INTO video_tracking (video_id, tier, next_read_at, is_short) VALUES (?, ?, ?, ?)',
     );
     const find = db.prepare(
-      `INSERT INTO findings (video_id, channel_id, kind, reason, found_at) VALUES (?, ?, ?, '{}', ?)`,
+      `INSERT INTO findings (video_id, channel_id, video_title, published_at, kind, reason, found_at)
+       VALUES (?, ?, 'Folding a crane in forty seconds', '${STAMP}', ?, '{}', ?)`,
     );
 
     expect(() => track.run(VIDEO_ID, 'weekly', STAMP, 'unknown')).toThrow(/CHECK/);
@@ -141,6 +142,85 @@ describe('openDatabase', () => {
     hit.run(VIDEO_ID, STAMP);
 
     expect(() => hit.run(VIDEO_ID, STAMP)).toThrow(/UNIQUE/);
+    db.close();
+  });
+
+  test("takes a video's readings, tracking and search hits with it when the video is deleted", () => {
+    const db = openDatabase(':memory:');
+    addChannel(db);
+    addVideo(db);
+    db.prepare(
+      'INSERT INTO video_snapshots (video_id, captured_at, views) VALUES (?, ?, 1200)',
+    ).run(VIDEO_ID, Math.floor(NOW.getTime() / 1000));
+    db.prepare(
+      `INSERT INTO video_tracking (video_id, tier, next_read_at, is_short) VALUES (?, 'hourly', ?, 'yes')`,
+    ).run(VIDEO_ID, STAMP);
+    db.prepare(
+      `INSERT INTO subjects (keyword, region, language, every_hours, enabled)
+       VALUES ('paper folding', 'US', 'en', 24, 1)`,
+    ).run();
+    db.prepare(
+      'INSERT INTO subject_hits (subject_id, video_id, first_seen_at) VALUES (1, ?, ?)',
+    ).run(VIDEO_ID, STAMP);
+
+    db.prepare('DELETE FROM videos WHERE id = ?').run(VIDEO_ID);
+
+    const left = ['video_snapshots', 'video_tracking', 'subject_hits'].map((table) =>
+      db.prepare(`SELECT count(*) FROM ${table}`).pluck().get(),
+    );
+    db.close();
+    expect(left).toEqual([0, 0, 0]);
+  });
+
+  test('keeps a finding, with what it needs to be read, after its video is deleted', () => {
+    const db = openDatabase(':memory:');
+    addChannel(db);
+    addVideo(db);
+    db.prepare(
+      `INSERT INTO findings (video_id, channel_id, video_title, channel_title, published_at, kind,
+         reason, views_per_hour, found_at)
+       VALUES (?, ?, 'Folding a crane in forty seconds', 'Paper Folds Daily', ?, 'niche', '{}', 950.5, ?)`,
+    ).run(VIDEO_ID, CHANNEL_ID, STAMP, STAMP);
+
+    db.prepare('DELETE FROM videos WHERE id = ?').run(VIDEO_ID);
+
+    const finding = db.prepare('SELECT video_id, video_title, views_per_hour FROM findings').get();
+    db.close();
+    expect(finding).toEqual({
+      video_id: VIDEO_ID,
+      video_title: 'Folding a crane in forty seconds',
+      views_per_hour: 950.5,
+    });
+  });
+
+  test('holds one finding of each kind for a video, and finds the ones not yet alerted by index', () => {
+    const db = openDatabase(':memory:');
+    const find = db.prepare(
+      `INSERT INTO findings (video_id, channel_id, video_title, published_at, kind, reason, found_at)
+       VALUES (?, ?, 'Why the moon looks bigger at the horizon', ?, ?, '{}', ?)`,
+    );
+    find.run(VIDEO_ID, CHANNEL_ID, STAMP, 'niche', STAMP);
+
+    expect(() => find.run(VIDEO_ID, CHANNEL_ID, STAMP, 'niche', STAMP)).toThrow(/UNIQUE/);
+    expect(find.run(VIDEO_ID, CHANNEL_ID, STAMP, 'transfer', STAMP).changes).toBe(1);
+    const plan = db
+      .prepare(
+        'EXPLAIN QUERY PLAN SELECT id FROM findings WHERE alerted_at IS NULL ORDER BY found_at',
+      )
+      .all() as Array<{ detail: string }>;
+    db.close();
+    expect(plan.map((step) => step.detail).join(' ')).toMatch(/findings_unalerted/);
+  });
+
+  test('stores a channel whose title is not known yet', () => {
+    const db = openDatabase(':memory:');
+
+    db.prepare(`INSERT INTO channels (id, subs_hidden, fetched_at) VALUES (?, 0, ?)`).run(
+      CHANNEL_ID,
+      STAMP,
+    );
+
+    expect(db.prepare('SELECT title FROM channels').pluck().get()).toBeNull();
     db.close();
   });
 
@@ -194,6 +274,29 @@ describe('opening a store that needs updating', () => {
     expect(backups()).toEqual([`shorts.backup-v${MIGRATIONS.length}-20261120-090507.db`]);
     expect(titlesIn(join(folder, backups()[0]!))).toEqual(['Paper Folds Daily']);
     expect(updated).toBe(MIGRATIONS.length + 1);
+  });
+
+  test('copies a store that holds only subjects and a day of the ledger', () => {
+    const first = openDatabase(storePath, NOW);
+    first
+      .prepare(
+        `INSERT INTO subjects (keyword, region, language, every_hours, enabled)
+         VALUES ('sourdough starter', 'GB', 'en', 24, 1)`,
+      )
+      .run();
+    first
+      .prepare(
+        `INSERT INTO quota_ledger (day, units_spent, by_kind) VALUES ('2026-11-20', 100, '{}')`,
+      )
+      .run();
+    first.close();
+
+    openDatabase(storePath, NOW, [...MIGRATIONS, NEXT_STEP]).close();
+
+    const copy = new Database(join(folder, backups()[0]!), { readonly: true });
+    const keywords = copy.prepare('SELECT keyword FROM subjects').pluck().all();
+    copy.close();
+    expect(keywords).toEqual(['sourdough starter']);
   });
 
   test('does not update it when the copy cannot be written', () => {

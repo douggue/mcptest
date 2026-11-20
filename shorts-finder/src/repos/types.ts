@@ -42,4 +42,9 @@ export interface QuotaRepo {
    * as one step, so two programs cannot both spend the last units.
    */
   spendWithin(day: string, kind: QuotaKind, units: number, limits: SpendLimits): boolean;
+  /**
+   * Raises what the day has cost to at least `total`, leaving the per-kind
+   * figures as they are. Never lowers it.
+   */
+  exhaust(day: string, total: number): void;
 }

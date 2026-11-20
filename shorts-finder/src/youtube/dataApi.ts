@@ -7,7 +7,7 @@
  * costs 100 units, everything else 1 unit per request of up to fifty.
  */
 import { z } from 'zod';
-import { YouTubeApiError, getPage, type Cost, type DataApiOptions } from './client';
+import { YouTubeApiError, getPage, type Cost, type DataApiOptions, type Page } from './client';
 import { parseIsoDuration } from './duration';
 import { CHANNEL_ID_PATTERN, PLAYLIST_ID_PATTERN, VIDEO_ID_PATTERN } from './ids';
 
@@ -29,10 +29,12 @@ const NOT_FOUND = 404;
 const REGION_PATTERN = /^[A-Z]{2}$/;
 const LANGUAGE_PATTERN = /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/;
 
+/** A count as the API writes it: digits in text. One too large to hold exactly is refused. */
 const count = z
   .string()
   .regex(/^\d+$/)
-  .transform((text) => Number(text));
+  .transform((text) => Number(text))
+  .refine((value) => Number.isSafeInteger(value));
 
 /** A timestamp as the API writes it, read as a date; unreadable ones fail validation. */
 const timestamp = z
@@ -42,12 +44,61 @@ const timestamp = z
 
 const shortText = z.string().transform((text) => text.slice(0, MAX_TEXT_LENGTH));
 
-/** Reads each raw item against the schema, leaving out the ones that do not fit it. */
-const readable = <T>(items: readonly unknown[], schema: z.ZodType<T>): readonly T[] =>
-  items.flatMap((raw) => {
-    const parsed = schema.safeParse(raw);
+interface Readable<T> {
+  readonly items: readonly T[];
+  /** How many entries did not fit the schema and were left out. */
+  readonly skipped: number;
+}
+
+/** Reads each raw item against the schema, leaving out and counting the ones that do not fit it. */
+function readable<T>(raw: readonly unknown[], schema: z.ZodType<T>): Readable<T> {
+  const items = raw.flatMap((entry) => {
+    const parsed = schema.safeParse(entry);
     return parsed.success ? [parsed.data] : [];
   });
+  return { items, skipped: raw.length - items.length };
+}
+
+/**
+ * What a read of many ids gave. The ids are asked for fifty at a time, and a
+ * request that fails does not lose the ones before it: `items` holds what was
+ * read, `failedIds` what was not asked for or not answered, `error` why.
+ */
+export interface ListResult<T> {
+  readonly items: readonly T[];
+  /** Entries the API sent that could not be read. Not the same as ids it left out. */
+  readonly skipped: number;
+  /** The ids of the request that failed and of every request after it. */
+  readonly failedIds: readonly string[];
+  /** Null when every request was answered. */
+  readonly error: Error | null;
+}
+
+const asError = (error: unknown): Error =>
+  error instanceof Error ? error : new Error(String(error));
+
+/** Asks for the ids fifty at a time, keeping what was read when a request fails. */
+async function readInBatches<T>(
+  ids: readonly string[],
+  schema: z.ZodType<T>,
+  ask: (batch: readonly string[]) => Promise<Page>,
+): Promise<ListResult<T>> {
+  const batches = batchesOf(ids);
+  let result: ListResult<T> = { items: [], skipped: 0, failedIds: [], error: null };
+  for (const [index, batch] of batches.entries()) {
+    try {
+      const page = readable((await ask(batch)).items, schema);
+      result = {
+        ...result,
+        items: [...result.items, ...page.items],
+        skipped: result.skipped + page.skipped,
+      };
+    } catch (error) {
+      return { ...result, failedIds: batches.slice(index).flat(), error: asError(error) };
+    }
+  }
+  return result;
+}
 
 const batchesOf = (ids: readonly string[]): readonly (readonly string[])[] =>
   Array.from({ length: Math.ceil(ids.length / MAX_PER_REQUEST) }, (_, index) =>
@@ -71,6 +122,12 @@ export interface SearchHit {
   /** As the search returns it, which may contain HTML character codes such as &#39;. */
   readonly title: string;
   readonly publishedAt: Date;
+}
+
+export interface SearchResult {
+  readonly hits: readonly SearchHit[];
+  /** Results the API sent that were not readable videos. */
+  readonly skipped: number;
 }
 
 export interface SearchOptions extends DataApiOptions {
@@ -136,15 +193,16 @@ function searchParams(text: string, options: SearchOptions): URLSearchParams {
 /**
  * The most-viewed videos on a subject published since a date, as seen from one
  * country: one page of up to fifty, for 100 units of the key's daily
- * allowance. Results that are not readable videos are left out.
+ * allowance. Results that are not readable videos are left out and counted.
  */
 export async function searchRecentVideos(
   query: string,
   options: SearchOptions,
-): Promise<readonly SearchHit[]> {
+): Promise<SearchResult> {
   const params = searchParams(query.trim(), options);
   const page = await getPage('search', params, SEARCH_COST, options);
-  return readable(page.items, hitSchema);
+  const { items, skipped } = readable(page.items, hitSchema);
+  return { hits: items, skipped };
 }
 
 // --- videos.list ---------------------------------------------------------
@@ -167,7 +225,8 @@ export interface VideoFacts {
   readonly views: number | null;
 }
 
-const code = z.string().min(1).max(20).optional();
+/** A field the uploader may leave unset; one in a shape not expected reads as unset. */
+const code = z.string().min(1).max(20).optional().catch(undefined);
 
 /** A live broadcast is written as a length of nothing; that is "not known", not "zero seconds". */
 const lengthOf = (text: string | undefined): number | null => {
@@ -186,8 +245,14 @@ const videoSchema = z
       defaultLanguage: code,
       defaultAudioLanguage: code,
     }),
-    contentDetails: z.object({ duration: z.string().optional() }).optional(),
-    statistics: z.object({ viewCount: count.optional() }).optional(),
+    contentDetails: z
+      .object({ duration: z.string().optional().catch(undefined) })
+      .optional()
+      .catch(undefined),
+    statistics: z
+      .object({ viewCount: count.optional().catch(undefined) })
+      .optional()
+      .catch(undefined),
   })
   .transform(({ id, snippet, contentDetails, statistics }): VideoFacts => ({
     id,
@@ -203,25 +268,22 @@ const videoSchema = z
 
 /**
  * Reads the facts of the given videos, fifty per request at 1 unit each. A
- * video the API does not know (deleted, private), or an entry that cannot be
- * read, is simply absent from the result; a refused request fails the whole call.
+ * video the API does not know (deleted, private) is simply absent from the
+ * result; an entry that cannot be read is absent and counted. A request that
+ * fails ends the read and is reported in the result, with what was read before it.
  */
 export async function fetchVideos(
   videoIds: readonly string[],
   options: DataApiOptions,
-): Promise<readonly VideoFacts[]> {
+): Promise<ListResult<VideoFacts>> {
   const ids = requireIds(videoIds, VIDEO_ID_PATTERN, 'video');
-  let videos: readonly VideoFacts[] = [];
-  for (const batch of batchesOf(ids)) {
+  return readInBatches(ids, videoSchema, (batch) => {
     const query = new URLSearchParams({
       part: 'snippet,contentDetails,statistics',
       id: batch.join(','),
-      maxResults: String(MAX_PER_REQUEST),
     });
-    const page = await getPage('videos', query, VIDEOS_COST, options);
-    videos = [...videos, ...readable(page.items, videoSchema)];
-  }
-  return videos;
+    return getPage('videos', query, VIDEOS_COST, options);
+  });
 }
 
 // --- channels.list -------------------------------------------------------
@@ -248,23 +310,26 @@ const channelSchema = z
     snippet: z.object({
       title: shortText,
       publishedAt: timestamp,
-      country: z.string().max(10).optional(),
+      country: z.string().max(10).optional().catch(undefined),
     }),
     statistics: z
       .object({
-        viewCount: count.optional(),
-        videoCount: count.optional(),
-        subscriberCount: count.optional(),
-        hiddenSubscriberCount: z.boolean().optional(),
+        viewCount: count.optional().catch(undefined),
+        videoCount: count.optional().catch(undefined),
+        subscriberCount: count.optional().catch(undefined),
+        hiddenSubscriberCount: z.boolean().optional().catch(undefined),
       })
-      .optional(),
+      .optional()
+      .catch(undefined),
     contentDetails: z
       .object({
         relatedPlaylists: z
           .object({ uploads: z.string().regex(PLAYLIST_ID_PATTERN).optional().catch(undefined) })
-          .optional(),
+          .optional()
+          .catch(undefined),
       })
-      .optional(),
+      .optional()
+      .catch(undefined),
   })
   .transform(({ id, snippet, statistics, contentDetails }): ChannelFacts => {
     const subscribersHidden = statistics?.hiddenSubscriberCount ?? false;
@@ -283,25 +348,22 @@ const channelSchema = z
 
 /**
  * Reads the facts of the given channels, fifty per request at 1 unit each. A
- * channel the API does not know, or an entry that cannot be read, is simply
- * absent from the result; a refused request fails the whole call.
+ * channel the API does not know is simply absent from the result; an entry
+ * that cannot be read is absent and counted. A request that fails ends the
+ * read and is reported in the result, with what was read before it.
  */
 export async function fetchChannels(
   channelIds: readonly string[],
   options: DataApiOptions,
-): Promise<readonly ChannelFacts[]> {
+): Promise<ListResult<ChannelFacts>> {
   const ids = requireIds(channelIds, CHANNEL_ID_PATTERN, 'channel');
-  let channels: readonly ChannelFacts[] = [];
-  for (const batch of batchesOf(ids)) {
+  return readInBatches(ids, channelSchema, (batch) => {
     const query = new URLSearchParams({
       part: 'snippet,statistics,contentDetails',
       id: batch.join(','),
-      maxResults: String(MAX_PER_REQUEST),
     });
-    const page = await getPage('channels', query, CHANNELS_COST, options);
-    channels = [...channels, ...readable(page.items, channelSchema)];
-  }
-  return channels;
+    return getPage('channels', query, CHANNELS_COST, options);
+  });
 }
 
 // --- playlistItems.list --------------------------------------------------
@@ -316,8 +378,10 @@ export interface PlaylistVideoIds {
   readonly videoIds: readonly string[];
   /** True when the API knows no such list. Not a failure: some lists exist only for some channels. */
   readonly notFound: boolean;
-  /** False when the page limit was reached and the list goes on. */
+  /** False when the page limit was reached, or a later page was gone, and the list goes on. */
   readonly complete: boolean;
+  /** Entries the API sent that held no readable video id. */
+  readonly skipped: number;
 }
 
 const playlistItemSchema = z
@@ -335,8 +399,9 @@ function playlistQuery(playlistId: string, pageToken: string | null): URLSearchP
 
 /**
  * The ids of the videos in a list, page by page up to `maxPages`, at 1 unit a
- * page. A list the API does not know (a 404) gives an empty result marked
- * `notFound` instead of failing; any other refusal fails the call.
+ * page. A list the API does not know (a 404 on its first page) gives an empty
+ * result marked `notFound` instead of failing. A 404 on a later page keeps the
+ * pages already read and marks the result incomplete. Any other refusal fails the call.
  */
 export async function fetchPlaylistVideoIds(
   playlistId: string,
@@ -347,24 +412,22 @@ export async function fetchPlaylistVideoIds(
     throw new Error('Give a whole number of pages, at least 1');
   }
   let videoIds: readonly string[] = [];
+  let skipped = 0;
   let pageToken: string | null = null;
   for (let read = 0; read < options.maxPages; read += 1) {
     try {
-      const page = await getPage(
-        'playlistItems',
-        playlistQuery(playlistId, pageToken),
-        PLAYLIST_COST,
-        options,
-      );
-      videoIds = [...videoIds, ...readable(page.items, playlistItemSchema)];
+      const query = playlistQuery(playlistId, pageToken);
+      const page = await getPage('playlistItems', query, PLAYLIST_COST, options);
+      const ids = readable(page.items, playlistItemSchema);
+      videoIds = [...videoIds, ...ids.items];
+      skipped += ids.skipped;
       pageToken = page.nextPageToken;
     } catch (error) {
-      if (error instanceof YouTubeApiError && error.status === NOT_FOUND) {
-        return { videoIds: [], notFound: true, complete: true };
-      }
-      throw error;
+      if (!(error instanceof YouTubeApiError) || error.status !== NOT_FOUND) throw error;
+      // Only a list unknown from its first page is "not found"; later, the list changed under the read.
+      return { videoIds, notFound: read === 0, complete: read === 0, skipped };
     }
-    if (pageToken === null) return { videoIds, notFound: false, complete: true };
+    if (pageToken === null) return { videoIds, notFound: false, complete: true, skipped };
   }
-  return { videoIds, notFound: false, complete: false };
+  return { videoIds, notFound: false, complete: false, skipped };
 }

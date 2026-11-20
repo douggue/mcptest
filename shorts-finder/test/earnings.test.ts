@@ -1,21 +1,21 @@
 import { describe, expect, test } from 'vitest';
 import {
-  MIN_SUBSCRIBERS_FOR_ADS,
-  SHORTS_RATE,
+  DEFAULT_SHORTS_RATE,
+  SUBSCRIBER_THRESHOLD,
   estimateShortsEarnings,
 } from '../src/scoring/earnings';
 
 describe('estimateShortsEarnings', () => {
-  test("turns views into a low-to-high range at the owner's Shorts rate", () => {
+  test('turns views into a low-to-high range at the default Shorts rate', () => {
     const estimate = estimateShortsEarnings(2_000_000, 5000);
 
     expect(estimate).toEqual({
-      low: 2000 * SHORTS_RATE.low,
-      high: 2000 * SHORTS_RATE.high,
+      low: 2000 * DEFAULT_SHORTS_RATE.low,
+      high: 2000 * DEFAULT_SHORTS_RATE.high,
       views: 2_000_000,
-      belowAdThreshold: false,
+      belowSubscriberThreshold: false,
     });
-    expect(SHORTS_RATE).toEqual({ low: 0.1, high: 0.5 });
+    expect(DEFAULT_SHORTS_RATE).toEqual({ low: 0.1, high: 0.5 });
   });
 
   test('keeps cents, because a small Short is worth less than a dollar', () => {
@@ -25,20 +25,20 @@ describe('estimateShortsEarnings', () => {
     expect(estimate.high).toBe(0.62);
   });
 
-  test('flags a channel too small to be paid for ads yet, and still says what the views are worth', () => {
-    const estimate = estimateShortsEarnings(300_000, MIN_SUBSCRIBERS_FOR_ADS - 1);
+  test('flags a channel below the subscriber threshold, and still says what the views are worth', () => {
+    const estimate = estimateShortsEarnings(300_000, SUBSCRIBER_THRESHOLD - 1);
 
-    expect(estimate.belowAdThreshold).toBe(true);
+    expect(estimate.belowSubscriberThreshold).toBe(true);
     expect(estimate.low).toBe(30);
     expect(estimate.high).toBe(150);
   });
 
   test('does not flag a channel that has just reached the subscriber threshold', () => {
-    expect(estimateShortsEarnings(1000, MIN_SUBSCRIBERS_FOR_ADS).belowAdThreshold).toBe(false);
+    expect(estimateShortsEarnings(1000, SUBSCRIBER_THRESHOLD).belowSubscriberThreshold).toBe(false);
   });
 
-  test('cannot say whether a channel with a hidden subscriber count is paid', () => {
-    expect(estimateShortsEarnings(1000, null).belowAdThreshold).toBeNull();
+  test('cannot say which side of the threshold a channel with a hidden subscriber count is on', () => {
+    expect(estimateShortsEarnings(1000, null).belowSubscriberThreshold).toBeNull();
   });
 
   test('values no views at nothing', () => {
