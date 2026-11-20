@@ -25,7 +25,8 @@ const MIN_CHANNELS_PER_MAP = 10;
 const MAX_CHANNELS_PER_MAP = 600;
 const CHANNEL_ID = /^UC[\w-]{22}$/;
 const MAX_KEYWORD_LENGTH = 200;
-export const BUSY = 'A map or a refresh is already running. Wait for it to finish.';
+export const BUSY =
+  'A map, a refresh or a keyword search is already running. Wait for it to finish.';
 const NO_API_KEY =
   'Keyword search needs a YouTube API key. Put YOUTUBE_API_KEY in the .env file and start Jgtube again.';
 
@@ -125,7 +126,7 @@ export interface Engine {
 
 export interface AppOptions {
   readonly engine: Engine;
-  /** Crawls and refreshes share one store, so only one of either runs at a time. */
+  /** Crawls, refreshes and keyword searches all read YouTube, so only one of them runs at a time. */
   readonly jobs: JobStore<JobOutcome, JobProgress>;
   /** The only `host:port` values this server answers to, such as `127.0.0.1:4317`. */
   readonly allowedHosts: readonly string[];
@@ -220,41 +221,38 @@ async function setWatched(options: AppOptions, request: Request): Promise<Respon
 
 const discoverRequest = z.object({ keyword: z.string().trim().min(1).max(MAX_KEYWORD_LENGTH) });
 
-/** Whether a keyword search is under way; one runs at a time. */
-interface SearchState {
-  running: boolean;
+/** The counts the screen shows for a finished keyword search. */
+function discoverySummary(found: DiscoveryOutcome): Record<string, unknown> {
+  return {
+    keyword: found.keyword,
+    videosFound: found.videosFound,
+    channelsFound: found.channelsFound,
+    added: found.added.length,
+    alreadyKnown: found.alreadyKnown.length,
+    failed: found.failed.length,
+    factsAdded: found.facts?.added ?? 0,
+    factsProblem: found.facts?.problem ?? null,
+  };
 }
 
-async function discover(
-  options: AppOptions,
-  request: Request,
-  search: SearchState,
-): Promise<Response> {
+/**
+ * Runs a keyword search and answers when it is done. It reads YouTube like a
+ * crawl or a refresh does, so it takes the same one slot: it is refused while
+ * either runs, and they are refused while it does.
+ */
+async function discover(options: AppOptions, request: Request): Promise<Response> {
   const body = await readJson(options.allowedHosts, request);
   if (body instanceof Response) return body;
   const parsed = discoverRequest.safeParse(body);
   if (!parsed.success) return fail(400, `Give a keyword of 1 to ${MAX_KEYWORD_LENGTH} characters`);
   if (!options.engine.canDiscover()) return fail(400, NO_API_KEY);
-  if (search.running)
-    return fail(409, 'A keyword search is already running. Wait for it to finish.');
 
-  search.running = true;
+  const search = options.jobs.hold(() => options.engine.discover(parsed.data.keyword));
+  if (!search) return fail(409, BUSY);
   try {
-    const found = await options.engine.discover(parsed.data.keyword);
-    return ok({
-      keyword: found.keyword,
-      videosFound: found.videosFound,
-      channelsFound: found.channelsFound,
-      added: found.added.length,
-      alreadyKnown: found.alreadyKnown.length,
-      failed: found.failed.length,
-      factsAdded: found.facts?.added ?? 0,
-      factsProblem: found.facts?.problem ?? null,
-    });
+    return ok(discoverySummary(await search));
   } catch (error) {
     return fail(502, `The search did not finish: ${cleanMessage(error)}`);
-  } finally {
-    search.running = false;
   }
 }
 
@@ -265,7 +263,6 @@ function jobStatus(options: AppOptions, id: string): Response {
 
 /** The JSON API as a plain function from request to response. */
 export function createApp(options: AppOptions): (request: Request) => Promise<Response> {
-  const search: SearchState = { running: false };
   const refreshing: RefreshTracker = { jobId: null };
   const analysing: AnalysisTracker = { running: false };
   return async (request) => {
@@ -303,7 +300,7 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
         : fail(405, 'Use GET');
     }
     if (pathname === '/api/niches/discover') {
-      return method === 'POST' ? discover(options, request, search) : fail(405, 'Use POST');
+      return method === 'POST' ? discover(options, request) : fail(405, 'Use POST');
     }
     if (pathname === '/api/niches/watch') {
       return method === 'POST' ? setWatched(options, request) : fail(405, 'Use POST');
