@@ -298,3 +298,159 @@ describe('loadMapSnapshot', () => {
     expect(loadMapSnapshot(deps, cid('C'), NOW)?.channels[0]?.removed).toBe(true);
   });
 });
+
+describe('a channel the owner keeps as a competitor', () => {
+  let deps: SnapshotDeps;
+  /** Far too large to count as a channel like the centre. */
+  const GIANT = 5_000_000;
+
+  beforeEach(() => {
+    const db = openDatabase(':memory:');
+    deps = {
+      channels: new SqliteChannelRepo(db),
+      videos: new SqliteVideoRepo(db),
+      edges: new SqliteEdgeRepo(db),
+      maps: new SqliteMapRepo(db),
+    };
+    deps.channels.upsert(channel('C', 1000), NOW);
+    deps.channels.upsert(channel('A', 900), NOW);
+    deps.channels.upsert(channel('X', GIANT), NOW);
+    deps.videos.upsertMany(
+      [1, 2, 3, 4].map((n) => storable('C', n, 1000, 5 * n)),
+      NOW,
+    );
+    deps.videos.upsertMany(
+      withHit('A', 20).map((video) => storable('A', Number(video.id.slice(-1)), video.views, 10)),
+      NOW,
+    );
+    deps.videos.upsertMany(
+      [storable('X', 1, 90_000, 10), ...[2, 3, 4].map((n) => storable('X', n, 1000, 15 + n))],
+      NOW,
+    );
+    deps.maps.create(
+      {
+        centerChannelId: cid('C'),
+        depth: 2,
+        region: 'US',
+        members: [
+          { channelId: cid('C'), steps: 0 },
+          { channelId: cid('X'), steps: 1 },
+          { channelId: cid('A'), steps: 1 },
+        ],
+      },
+      NOW,
+    );
+  });
+
+  const load = () => loadMapSnapshot(deps, cid('C'), NOW);
+  const find = (letter: string) => load()?.channels.find((entry) => entry.id === cid(letter));
+  const feedOf = (letter: string) =>
+    load()?.breakouts.filter((video) => video.channelId === cid(letter)) ?? [];
+
+  test('is an outsider until the owner says otherwise', () => {
+    freezeMapSnapshot(deps, cid('C'), NOW);
+
+    expect(find('X')).toMatchObject({ peer: false, kept: false, outsideReason: 'larger' });
+    expect(feedOf('X').map((video) => video.peer)).toEqual([false]);
+  });
+
+  test('counts as a peer on a frozen map, and still says why the filter left it out', () => {
+    freezeMapSnapshot(deps, cid('C'), NOW);
+    deps.maps.setKept(cid('C'), cid('X'), true, NOW);
+
+    expect(find('X')).toMatchObject({
+      peer: true,
+      kept: true,
+      removed: false,
+      outsideReason: 'larger',
+    });
+    expect(find('A')).toMatchObject({ kept: false });
+  });
+
+  test('has its videos treated as peer videos in the breakout feed', () => {
+    freezeMapSnapshot(deps, cid('C'), NOW);
+    deps.maps.setKept(cid('C'), cid('X'), true, NOW);
+
+    const feed = load()?.breakouts ?? [];
+
+    expect(feedOf('X')).toEqual([
+      expect.objectContaining({ videoId: vid('X', 1), peer: true, channelSubscribers: GIANT }),
+    ]);
+    expect(feed.filter((video) => video.videoId === vid('X', 1))).toHaveLength(1);
+    const peers = feed.filter((video) => video.peer);
+    expect(peers.map((video) => video.score)).toEqual(
+      [...peers.map((video) => video.score)].sort((a, b) => b - a),
+    );
+  });
+
+  test('brings in videos the frozen feed had no room for', () => {
+    const mapId = deps.maps.latestForCenter(cid('C'))?.id ?? 0;
+    freezeMapSnapshot(deps, cid('C'), NOW);
+    const frozen = JSON.parse(deps.maps.findSnapshot(mapId) ?? '{}') as {
+      snapshot: { breakouts: Array<{ channelId: string }> };
+    };
+    frozen.snapshot.breakouts = frozen.snapshot.breakouts.filter(
+      (video) => video.channelId !== cid('X'),
+    );
+    deps.maps.saveSnapshot(mapId, JSON.stringify(frozen));
+    expect(feedOf('X')).toEqual([]);
+
+    deps.maps.setKept(cid('C'), cid('X'), true, NOW);
+
+    expect(feedOf('X').map((video) => [video.videoId, video.peer])).toEqual([[vid('X', 1), true]]);
+  });
+
+  test('stays in the order of the map: channels like the centre first', () => {
+    freezeMapSnapshot(deps, cid('C'), NOW);
+    const before = load()?.channels.map((entry) => [entry.title, entry.peer]);
+    deps.maps.setKept(cid('C'), cid('X'), true, NOW);
+
+    const after = load()?.channels ?? [];
+
+    expect(before?.at(-1)).toEqual(['Channel X', false]);
+    expect(after.map((entry) => entry.peer)).toEqual(after.map(() => true));
+    expect(after.at(-1)?.title).toBe('Channel X');
+  });
+
+  test('stays kept when a new map is made for the same channel, until it is undone', () => {
+    deps.maps.setKept(cid('C'), cid('X'), true, NOW);
+    deps.maps.create(
+      {
+        centerChannelId: cid('C'),
+        depth: 1,
+        region: 'US',
+        members: [
+          { channelId: cid('C'), steps: 0 },
+          { channelId: cid('X'), steps: 1 },
+        ],
+      },
+      new Date(NOW.getTime() + DAY_MS),
+    );
+
+    expect(find('X')).toMatchObject({ peer: true, kept: true });
+
+    deps.maps.setKept(cid('C'), cid('X'), false, NOW);
+    expect(find('X')).toMatchObject({ peer: false, kept: false });
+    expect(feedOf('X').map((video) => video.peer)).toEqual([false]);
+  });
+
+  test('is not kept once the owner removes it instead', () => {
+    deps.maps.setKept(cid('C'), cid('X'), true, NOW);
+    deps.maps.setRemoved(cid('C'), cid('X'), true, NOW);
+
+    expect(find('X')).toMatchObject({ peer: false, kept: false, removed: true });
+    expect(feedOf('X')).toEqual([]);
+  });
+
+  test('reads a copy frozen before channels could be kept', () => {
+    const mapId = deps.maps.latestForCenter(cid('C'))?.id ?? 0;
+    freezeMapSnapshot(deps, cid('C'), NOW);
+    const frozen = JSON.parse(deps.maps.findSnapshot(mapId) ?? '{}') as {
+      snapshot: { channels: Array<{ kept?: boolean }> };
+    };
+    frozen.snapshot.channels = frozen.snapshot.channels.map(({ kept: _kept, ...rest }) => rest);
+    deps.maps.saveSnapshot(mapId, JSON.stringify(frozen));
+
+    expect(load()?.channels.map((entry) => entry.kept)).toEqual([false, false]);
+  });
+});

@@ -8,7 +8,7 @@ import { SqliteMapRepo } from '../src/repos/sqliteMapRepo';
 import type { RecEdge } from '../src/repos/types';
 
 /** The number of the newest schema step. */
-const LATEST = 3;
+const LATEST = 5;
 const T1 = new Date('2026-11-20T12:00:00Z');
 const T2 = new Date('2026-11-25T12:00:00Z');
 const cid = (letter: string) => `UC${letter.repeat(22)}`;
@@ -125,6 +125,16 @@ describe('SqliteMapRepo', () => {
     expect(maps.latestForCenter(cid('C'))?.id).toBe(newer);
   });
 
+  test('lists each channel a map was made around, once', () => {
+    expect(maps.listCenterIds()).toEqual([]);
+
+    maps.create({ centerChannelId: cid('C'), depth: 1, region: 'US', members }, T1);
+    maps.create({ centerChannelId: cid('C'), depth: 2, region: 'US', members }, T2);
+    maps.create({ centerChannelId: cid('A'), depth: 1, region: 'US', members: [] }, T2);
+
+    expect(maps.listCenterIds()).toEqual([cid('A'), cid('C')]);
+  });
+
   test('starts with no stored snapshot and no removals', () => {
     const id = maps.create({ centerChannelId: cid('C'), depth: 2, region: 'US', members }, T1);
 
@@ -142,6 +152,53 @@ describe('SqliteMapRepo', () => {
     expect(maps.listRemoved(cid('A'))).toEqual([]);
 
     maps.setRemoved(cid('C'), cid('A'), false, T2);
+    expect(maps.listRemoved(cid('C'))).toEqual([cid('B')]);
+  });
+});
+
+describe('channels the owner keeps as competitors', () => {
+  test('starts with none kept', () => {
+    expect(maps.listKept(cid('C'))).toEqual([]);
+  });
+
+  test('remembers kept channels per centre channel and forgets them on undo', () => {
+    maps.setKept(cid('C'), cid('B'), true, T1);
+    maps.setKept(cid('C'), cid('A'), true, T1);
+    maps.setKept(cid('C'), cid('A'), true, T2);
+
+    expect(maps.listKept(cid('C'))).toEqual([cid('A'), cid('B')]);
+    expect(maps.listKept(cid('A'))).toEqual([]);
+
+    maps.setKept(cid('C'), cid('A'), false, T2);
+    expect(maps.listKept(cid('C'))).toEqual([cid('B')]);
+  });
+
+  test('keeping a removed channel restores it', () => {
+    maps.setRemoved(cid('C'), cid('A'), true, T1);
+
+    maps.setKept(cid('C'), cid('A'), true, T2);
+
+    expect(maps.listKept(cid('C'))).toEqual([cid('A')]);
+    expect(maps.listRemoved(cid('C'))).toEqual([]);
+  });
+
+  test('removing a kept channel stops keeping it', () => {
+    maps.setKept(cid('C'), cid('A'), true, T1);
+
+    maps.setRemoved(cid('C'), cid('A'), true, T2);
+
+    expect(maps.listRemoved(cid('C'))).toEqual([cid('A')]);
+    expect(maps.listKept(cid('C'))).toEqual([]);
+  });
+
+  test('undoing one choice leaves the other alone', () => {
+    maps.setKept(cid('C'), cid('A'), true, T1);
+    maps.setRemoved(cid('C'), cid('B'), true, T1);
+
+    maps.setRemoved(cid('C'), cid('A'), false, T2);
+    maps.setKept(cid('C'), cid('B'), false, T2);
+
+    expect(maps.listKept(cid('C'))).toEqual([cid('A')]);
     expect(maps.listRemoved(cid('C'))).toEqual([cid('B')]);
   });
 });
@@ -175,6 +232,7 @@ describe('opening a store made by an earlier version', () => {
     expect(reopened.pragma('user_version', { simple: true })).toBe(LATEST);
     expect(new SqliteChannelRepo(reopened).findById(cid('C'))?.title).toBe('Kept');
     expect(new SqliteMapRepo(reopened).listRemoved(cid('C'))).toEqual([]);
+    expect(new SqliteMapRepo(reopened).listKept(cid('C'))).toEqual([]);
     reopened.close();
     rmSync(path, { force: true });
   });

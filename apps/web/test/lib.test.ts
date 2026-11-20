@@ -1,7 +1,7 @@
 import type { BreakoutVideo, MapSnapshot, SnapshotChannel } from '@jgtube/core';
 import { describe, expect, test } from 'vitest';
 import { ApiError, createApi } from '../src/lib/api';
-import { describeEvidence, filterBreakouts, inScope } from '../src/lib/feed';
+import { competitorActions, describeEvidence, filterBreakouts, inScope } from '../src/lib/feed';
 import {
   formatCount,
   formatDuration,
@@ -34,6 +34,7 @@ const channel = (n: number, overrides: Partial<SnapshotChannel> = {}): SnapshotC
   peer: true,
   outsideReason: null,
   removed: false,
+  kept: false,
   ...overrides,
 });
 
@@ -145,6 +146,42 @@ describe('inScope', () => {
 
   test('keeps everything otherwise', () => {
     expect(inScope(items, 'all')).toHaveLength(3);
+  });
+});
+
+describe('competitorActions', () => {
+  const offered = (overrides: Partial<SnapshotChannel>) =>
+    competitorActions(channel(1, overrides)).map((action) => [action.status, action.label]);
+
+  test('offers to remove a channel that counts as like the centre', () => {
+    expect(offered({})).toEqual([['removed', 'Not a competitor: remove']]);
+  });
+
+  test('offers to keep a channel the filter left out, or to remove it for good', () => {
+    expect(offered({ peer: false, outsideReason: 'titles' })).toEqual([
+      ['kept', 'Keep as a competitor'],
+      ['removed', 'Not a competitor: remove'],
+    ]);
+  });
+
+  test('offers to undo a keep, or to remove the channel instead', () => {
+    expect(offered({ kept: true, outsideReason: 'larger' })).toEqual([
+      ['auto', 'Kept by you: undo'],
+      ['removed', 'Not a competitor: remove'],
+    ]);
+  });
+
+  test('offers only to restore a removed channel', () => {
+    expect(offered({ removed: true })).toEqual([['auto', 'Restore to my competitors']]);
+    expect(offered({ removed: true, peer: false, outsideReason: 'titles' })).toEqual([
+      ['auto', 'Restore to my competitors'],
+    ]);
+  });
+
+  test('treats a copy without the kept mark as not kept', () => {
+    const older = { peer: false };
+
+    expect(competitorActions(older).map((action) => action.status)).toEqual(['kept', 'removed']);
   });
 });
 
@@ -313,16 +350,21 @@ describe('api', () => {
     ]);
   });
 
-  test('sends a removal for a competitor', async () => {
-    const bodies: string[] = [];
-    const api = createApi(async (_url, init) => {
-      bodies.push(String(init?.body));
+  test('sends the owner’s say on a competitor', async () => {
+    const calls: Array<{ url: string; body: string }> = [];
+    const api = createApi(async (url, init) => {
+      calls.push({ url, body: String(init?.body) });
       return new Response(JSON.stringify({ success: true, data: {}, error: null }));
     });
 
-    await api.setRemoved('UCa', 'UCb', true);
+    await api.setCompetitorStatus('UCa', 'UCb', 'kept');
+    await api.setCompetitorStatus('UCa', 'UCb', 'auto');
 
-    expect(JSON.parse(bodies[0] ?? '{}')).toEqual({ center: 'UCa', channel: 'UCb', removed: true });
+    expect(calls.map((entry) => entry.url)).toEqual(['/api/competitors', '/api/competitors']);
+    expect(calls.map((entry) => JSON.parse(entry.body))).toEqual([
+      { center: 'UCa', channel: 'UCb', status: 'kept' },
+      { center: 'UCa', channel: 'UCb', status: 'auto' },
+    ]);
   });
 
   test('encodes the channel in the address when reading a map', async () => {

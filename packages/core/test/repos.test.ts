@@ -69,6 +69,20 @@ describe('SqliteChannelRepo', () => {
       subscribersHidden: true,
     });
   });
+
+  test('lists every stored channel in a steady order', () => {
+    const other = { ...channel, id: 'UCAAAAAAAAAAAAAAAAAAAAAA', title: 'Other', handle: null };
+
+    expect(channels.listAll()).toEqual([]);
+
+    channels.upsert(channel, T1);
+    channels.upsert(other, T2);
+
+    expect(channels.listAll()).toEqual([
+      { ...other, fetchedAt: T2 },
+      { ...channel, fetchedAt: T1 },
+    ]);
+  });
 });
 
 describe('SqliteVideoRepo', () => {

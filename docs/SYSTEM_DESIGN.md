@@ -23,6 +23,10 @@ maps            id PK, center_channel FK, model_channel NULL, depth, region,  --
 map_channels    map_id FK, channel_id FK, steps                       -- built
 map_removals    center_channel FK, channel_id, removed_at             -- built; the owner's
                 -- "not a competitor" choices, kept across new maps of the same centre
+map_keeps       center_channel FK, channel_id, kept_at                -- built; the owner's
+                -- "keep as a competitor" choices; a channel is never in both tables
+niche_watchlist channel_id PK FK, watched_at                          -- built; channels the
+                -- owner marked on "New niches to watch"; not tied to any map
                 (source crawl|search|manual and judged relevance: planned)
 topic_runs      id PK, map_id FK, status, model, input_tokens, output_tokens,
                 started_at, finished_at, memo_json
@@ -176,6 +180,42 @@ its old matches and peers until it is made again.
 The web app shows peers by default with a switch to everything, and the breakout
 feed lists peers' videos separately so outsiders cannot crowd them out.
 
+### The owner's say: keep and remove
+
+Built (`packages/core/src/map/choices.ts`, `POST /api/competitors`). The filter is a
+guess, and the owner can see every channel it rejected under "Everything". They can
+overrule it both ways, per centre channel:
+
+| Status    | Stored in      | Effect                                                                |
+| --------- | -------------- | --------------------------------------------------------------------- |
+| `kept`    | `map_keeps`    | Counts as a peer although the filter left it out                      |
+| `removed` | `map_removals` | Never counts; its videos leave the breakout feed in both views        |
+| `auto`    | neither        | No say: the filter decides. This is how a keep or a removal is undone |
+
+The two choices exclude each other: the repository withdraws one when the other is
+made, in one transaction. `POST /api/competitors` takes `{ center, channel, status }`
+and accepts only a channel on the centre's latest map, never the centre itself.
+
+Both are applied each time a map is read (`applyOwnerChoices`, called by
+`loadMapSnapshot`) and never frozen into it, so a choice made today shows on a map
+made last week and on every later map of the same centre. For a kept channel:
+
+- `peer` becomes true and `kept` is true. `outsideReason` stays as the filter gave
+  it, so the screen can say "Kept by you. The filter left it out: …".
+- The channel list is put back in peers-first order; a kept channel follows the
+  filter's own peers.
+- Its videos join the peers' half of the breakout feed. A frozen feed keeps only the
+  60 strongest outsiders, so on a large map a kept channel's videos are usually not
+  in it at all (true of INGENIUM on the owner's 285-channel map). They are therefore
+  read from the store as it is now, as the thumbnail board's are, merged with the
+  frozen peer videos by score, and cut to the same 60.
+- The thumbnail board lists peers from the same snapshot, so it shows the channel too.
+
+Copies frozen before this existed carry no `kept` field; it is filled in on read, as
+`removed` is. The snapshot format number is unchanged.
+
+Not built: adding a channel that is not on the map at all (phase 4, "Manual add").
+
 ### Model channel
 
 A new channel has too few videos to describe itself: three titles and whatever
@@ -222,7 +262,7 @@ BoardVideo { videoId, title, views, score, publishedRaw, ageDays, durationSecond
 ```
 
 Which channels are peers comes from the map as the owner sees it (`loadMapSnapshot`:
-frozen when made, less their removals). The videos and scores are read from the store
+frozen when made, less their removals, plus the channels they kept). The videos and scores are read from the store
 at request time. The board is therefore not part of the frozen snapshot, whose shape
 is unchanged; after a later crawl refreshes a channel's videos, the board shows the
 newer numbers while the frozen breakout feed does not.
@@ -230,6 +270,71 @@ newer numbers while the frozen breakout feed does not.
 Next step: have a model look at the same videos by `videoId` and say what the winners
 share that the ordinary ones lack. The board's ids, scores and titles are the evidence
 pack for that call.
+
+### New niches to watch
+
+Built (`packages/core/src/niches/`, `GET /api/niches`, `POST /api/niches/watch`). A
+crawl reads hundreds of channels and a map shows only the ones like the centre. The
+owner asked that a new or small channel with a video that outperforms be kept as a
+possible niche, so this list goes through every stored channel, whichever map read it.
+
+A channel is listed when all of these hold:
+
+| Check                | Rule                                                                                                                                                                                                                          | Constant                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| New or small         | First stored upload within 90 days and the whole channel was read (under the 100-video cap), or 10,000 subscribers or fewer at any age. A hidden count cannot be shown to be small, so such a channel is listed only when new | `NICHE_NEW_MAX_AGE_DAYS`, `NICHE_SMALL_MAX_SUBSCRIBERS`                              |
+| Outperforms          | At least one video from the last 30 days with 10,000 views or more that is either 5× the channel's usual views (outlier score) or seen by 10× its subscribers                                                                 | `NICHE_MIN_VIDEO_VIEWS`, `NICHE_MIN_OUTLIER_SCORE`, `NICHE_MIN_VIEWS_PER_SUBSCRIBER` |
+| Not large            | 100,000 subscribers or fewer, new or not                                                                                                                                                                                      | `NICHE_MAX_SUBSCRIBERS`                                                              |
+| Makes its own videos | At most 14 uploads a week, and a median length of an hour or less                                                                                                                                                             | `NICHE_MAX_UPLOADS_PER_WEEK`, `NICHE_MAX_MEDIAN_DURATION_SECONDS`                    |
+| Readable             | At least 80% of the letters in its 30 newest titles are Latin                                                                                                                                                                 | `NICHE_MIN_LATIN_SHARE`                                                              |
+| Not the owner's      | Never a channel a map was made around                                                                                                                                                                                         |                                                                                      |
+
+Why these numbers:
+
+- "New" is measured from the first upload, not the account's creation date: accounts
+  are often years older than the channel that restarted on them.
+- 10,000 is the line the breakout feed already calls small. Below it a channel cannot
+  carry a video on its subscribers, so one that takes off did so on topic and
+  packaging. 100,000 is where YouTube stops calling a channel small; a channel under
+  90 days old past it is an established brand's new outlet (Fox News Clips: 876,000).
+- The view floor is the answer to tiny baselines: 800× on a channel that usually gets
+  a dozen views, or 300 views on a channel with one subscriber, is a few hundred
+  people. 5× sits between the feed's 2×, which a good week reaches, and the rising
+  rule's 10× twice over. The 10× subscribers path also catches a channel with too few
+  videos to score.
+- The Latin-letter share tells alphabets apart, not languages: a channel in Spanish
+  passes. On the owner's store listed channels score 0.96 or more and the rest 0.73
+  or less. No language detector was added.
+
+Each entry carries why it is listed (`reasons`: `new`, `small` or both), up to three
+outperforming videos as `BoardVideo`s (so the screen shows the thumbnails that took
+off), the hit rate over scored videos from the last 90 days (a one-off against a
+pattern), views and uploads from the last 30 days, views per subscriber, days since
+the first upload when the whole channel was read, and its three most viewed recent
+titles. The order is views on the last 30 days' uploads, most first: the niche with
+the most proven demand leads. Views per subscriber would put a channel with one
+subscriber and 300 views on top.
+
+```
+NicheList { channelsChecked, smallMaxSubscribers, newMaxAgeDays,
+  channels [{ id, title, handle, subscribers, recentViews, recentUploads,
+              viewsPerSubscriber, channelAgeDays, reasons: ('new'|'small')[],
+              outperformers: BoardVideo[], hitCount, scoredCount,
+              sampleTitles: [{ videoId, title, views }], qualifies, watched }] }
+```
+
+The owner can mark a channel as watched (`niche_watchlist`, one row per channel, no
+map involved). A watched channel stays on the list after it stops qualifying, with
+`qualifies: false`. `POST /api/niches/watch` takes `{ channel, watched }`, accepts
+only a well-formed channel id of a stored channel (404 otherwise), and goes through
+the same Host, Origin, content-type and size checks as every other write.
+
+On the owner's 286-channel store the list holds 55 channels: 45 new and 10 small
+ones that are older. It is computed on each request (about 0.2 s there) and is not
+frozen with any map.
+
+Not built: a model's reading of what the listed channels have in common, and a
+language check beyond the alphabet.
 
 ### Filling a limited map
 

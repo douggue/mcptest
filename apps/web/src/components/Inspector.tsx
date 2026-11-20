@@ -1,13 +1,14 @@
-import type { SnapshotChannel } from '@jgtube/core';
+import type { CompetitorStatus, SnapshotChannel } from '@jgtube/core';
 import { ExternalLink, X } from 'lucide-react';
+import { competitorActions } from '../lib/feed';
 import { channelUrl, formatCount, formatScore, initials, percent, watchUrl } from '../lib/format';
 import { OUTSIDE_LABEL, TIER_LABEL } from './tiers';
 
 interface Props {
   readonly channel: SnapshotChannel;
   readonly onClose: () => void;
-  /** Removes the channel from the owner's competitors, or restores it. */
-  readonly onSetRemoved: (removed: boolean) => void;
+  /** Keeps the channel as a competitor, removes it, or leaves it to the filter again. */
+  readonly onSetStatus: (status: CompetitorStatus) => void;
 }
 
 function Tile({ label, children }: { readonly label: string; readonly children: React.ReactNode }) {
@@ -20,7 +21,7 @@ function Tile({ label, children }: { readonly label: string; readonly children: 
 }
 
 /** The panel for one selected channel: how it relates to you and how it is doing. */
-export function Inspector({ channel, onClose, onSetRemoved }: Props) {
+export function Inspector({ channel, onClose, onSetStatus }: Props) {
   const link = channelUrl(channel.id);
   const breakoutLink = channel.breakout ? watchUrl(channel.breakout.videoId) : null;
   const topSource = channel.recommendedBy[0];
@@ -43,6 +44,7 @@ export function Inspector({ channel, onClose, onSetRemoved }: Props) {
               {TIER_LABEL[channel.tier]} ·{' '}
               {channel.steps === 1 ? '1 step' : `${channel.steps} steps`}
               {channel.rising ? ' · Rising' : ''}
+              {channel.kept ? ' · Kept by you' : ''}
             </span>
           </div>
         </div>
@@ -100,7 +102,9 @@ export function Inspector({ channel, onClose, onSetRemoved }: Props) {
 
       {channel.outsideReason && (
         <p className="mt-space-sm rounded bg-space-deep p-2.5 text-body-sm text-on-surface-variant">
-          <span className="text-outline">Not counted as like yours: </span>
+          <span className="text-outline">
+            {channel.kept ? 'Kept by you. The filter left it out: ' : 'Not counted as like yours: '}
+          </span>
           {OUTSIDE_LABEL[channel.outsideReason]}
         </p>
       )}
@@ -134,13 +138,16 @@ export function Inspector({ channel, onClose, onSetRemoved }: Props) {
           <ExternalLink aria-hidden="true" className="h-4 w-4" />
         </a>
       )}
-      <button
-        type="button"
-        onClick={() => onSetRemoved(!channel.removed)}
-        className="mt-2 w-full rounded-full bg-surface-container-high py-2.5 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-variant"
-      >
-        {channel.removed ? 'Restore to my competitors' : 'Not a competitor: remove'}
-      </button>
+      {competitorActions(channel).map((action) => (
+        <button
+          key={action.status}
+          type="button"
+          onClick={() => onSetStatus(action.status)}
+          className="mt-2 w-full rounded-full bg-surface-container-high py-2.5 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-variant"
+        >
+          {action.label}
+        </button>
+      ))}
     </aside>
   );
 }

@@ -41,3 +41,15 @@ export {
   type ScoredBoardVideo,
   type ThumbnailBoard,
 } from './map/thumbnails';
+export {
+  buildNicheList,
+  loadNicheList,
+  type NicheChannel,
+  type NicheDeps,
+  type NicheList,
+  type NicheReason,
+  type NicheSample,
+} from './niches/niches';
+export { SqliteWatchlistRepo } from './repos/sqliteWatchlistRepo';
+export type { WatchlistRepo } from './repos/types';
+export { COMPETITOR_STATUSES, type CompetitorStatus } from './map/choices';

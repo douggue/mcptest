@@ -85,6 +85,22 @@ CREATE TABLE IF NOT EXISTS map_removals (
 `,
   // 3: the channel the owner wants to be like, which a map is measured against.
   `ALTER TABLE maps ADD COLUMN model_channel TEXT;`,
+  // 4: small rising channels the owner marked as niches to watch, whatever map they came from.
+  `
+CREATE TABLE IF NOT EXISTS niche_watchlist (
+  channel_id  TEXT PRIMARY KEY REFERENCES channels (id),
+  watched_at  TEXT NOT NULL
+);
+`,
+  // 5: channels the owner pulled in as competitors although the filter left them out.
+  `
+CREATE TABLE IF NOT EXISTS map_keeps (
+  center_channel  TEXT NOT NULL REFERENCES channels (id),
+  channel_id      TEXT NOT NULL,
+  kept_at         TEXT NOT NULL,
+  PRIMARY KEY (center_channel, channel_id)
+);
+`,
 ];
 
 /**
