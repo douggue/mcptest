@@ -1,12 +1,17 @@
-import { COMPETITOR_STATUSES, VIDEO_ID_PATTERN } from '@jgtube/core';
+import {
+  COMPETITOR_STATUSES,
+  CRAWL_DEFAULT_DEPTH,
+  CRAWL_DEFAULT_MAX_CHANNELS,
+  CRAWL_MAX_CHANNELS_ASKED,
+  CRAWL_MAX_DEPTH,
+  CRAWL_MIN_CHANNELS_ASKED,
+  VIDEO_ID_PATTERN,
+} from '@jgtube/core';
 import { z } from 'zod';
 import { ToolFailure } from './failure';
 
 const MAX_CHANNEL_REF_LENGTH = 200;
-export const DEFAULT_DEPTH = 2;
-const MAX_DEPTH = 3;
-const MIN_CHANNELS_PER_MAP = 10;
-const MAX_CHANNELS_PER_MAP = 600;
+export const DEFAULT_DEPTH = CRAWL_DEFAULT_DEPTH;
 export const MAX_THUMBNAILS_PER_CALL = 8;
 
 export const DEFAULT_MAP_CHANNELS = 30;
@@ -112,14 +117,14 @@ export const makeMapShape = {
     .describe(
       'A channel the owner wants to be like. The crawl also explores from it and look-alikes are measured against it.',
     ),
-  depth: wholeNumber('depth', 1, MAX_DEPTH)
+  depth: wholeNumber('depth', 1, CRAWL_MAX_DEPTH)
     .optional()
     .describe(
-      `How many recommendation steps to follow. Default ${DEFAULT_DEPTH}; 3 is much slower.`,
+      `How many recommendation steps to follow. Default ${DEFAULT_DEPTH}; ${CRAWL_MAX_DEPTH} is much slower.`,
     ),
-  max_channels: wholeNumber('max_channels', MIN_CHANNELS_PER_MAP, MAX_CHANNELS_PER_MAP)
+  max_channels: wholeNumber('max_channels', CRAWL_MIN_CHANNELS_ASKED, CRAWL_MAX_CHANNELS_ASKED)
     .optional()
-    .describe('Most channels on the map, centre included. Default 150.'),
+    .describe(`Most channels on the map, centre included. Default ${CRAWL_DEFAULT_MAX_CHANNELS}.`),
 };
 
 export const getNearMissesShape = {

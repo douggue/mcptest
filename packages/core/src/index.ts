@@ -93,4 +93,14 @@ export {
   type LeaseDeps,
 } from './lease';
 export { SqliteLeaseRepo } from './repos/sqliteLeaseRepo';
+export {
+  CRAWL_DEFAULT_DEPTH,
+  CRAWL_DEFAULT_MAX_CHANNELS,
+  CRAWL_MAX_CHANNELS_ASKED,
+  CRAWL_MAX_DEPTH,
+  CRAWL_MIN_CHANNELS_ASKED,
+  REFRESH_DEFAULT_MAX_CHANNELS,
+  REFRESH_MAX_CHANNELS,
+  SMALL_CHANNEL_MAX_SUBSCRIBERS,
+} from './limits';
 export type { LeaseRepo } from './repos/types';

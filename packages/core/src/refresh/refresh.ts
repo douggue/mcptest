@@ -7,6 +7,7 @@
  * read longest ago and reads each one again, a bounded number per run.
  */
 import { ingestChannel, type IngestDeps } from '../ingest';
+import { REFRESH_DEFAULT_MAX_CHANNELS, REFRESH_MAX_CHANNELS } from '../limits';
 import { loadMapSnapshot } from '../map/snapshot';
 import { loadNicheList } from '../niches/niches';
 import type {
@@ -18,13 +19,9 @@ import type {
   WatchlistRepo,
 } from '../repos/types';
 
-/**
- * Channels read per run. Each costs a few page requests, taken one channel at
- * a time, so fifty is a few minutes of gentle traffic. Four runs a day cover a
- * store of 200 channels daily.
- */
-export const DEFAULT_REFRESH_MAX_CHANNELS = 50;
-export const MAX_REFRESH_CHANNELS = 500;
+/** Channels read per run, and the most a run may be asked to read; see `limits.ts`. */
+export const DEFAULT_REFRESH_MAX_CHANNELS = REFRESH_DEFAULT_MAX_CHANNELS;
+export const MAX_REFRESH_CHANNELS = REFRESH_MAX_CHANNELS;
 /**
  * A channel read more recently than this is left alone. Growth is read off
  * daily readings; reading a channel more often than about once a day adds

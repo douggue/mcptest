@@ -1,5 +1,9 @@
 import {
   COMPETITOR_STATUSES,
+  CRAWL_DEFAULT_DEPTH,
+  CRAWL_MAX_CHANNELS_ASKED,
+  CRAWL_MAX_DEPTH,
+  CRAWL_MIN_CHANNELS_ASKED,
   READING_ELSEWHERE,
   ReadingElsewhereError,
   parseChannelRef,
@@ -21,10 +25,6 @@ import type { AnalysisId } from './analyses';
 import { runAnalysis, type AnalysisTracker } from './analysisRoutes';
 import { refreshState, startRefresh, type RefreshTracker } from './refreshRoutes';
 
-const DEFAULT_DEPTH = 2;
-const MAX_DEPTH = 3;
-const MIN_CHANNELS_PER_MAP = 10;
-const MAX_CHANNELS_PER_MAP = 600;
 const CHANNEL_ID = /^UC[\w-]{22}$/;
 const MAX_KEYWORD_LENGTH = 200;
 export const BUSY =
@@ -141,9 +141,14 @@ export interface AppOptions {
 
 const crawlRequest = z.object({
   channel: z.string().min(1).max(200),
-  depth: z.number().int().min(1).max(MAX_DEPTH).optional(),
+  depth: z.number().int().min(1).max(CRAWL_MAX_DEPTH).optional(),
   model: z.string().min(1).max(200).optional(),
-  maxChannels: z.number().int().min(MIN_CHANNELS_PER_MAP).max(MAX_CHANNELS_PER_MAP).optional(),
+  maxChannels: z
+    .number()
+    .int()
+    .min(CRAWL_MIN_CHANNELS_ASKED)
+    .max(CRAWL_MAX_CHANNELS_ASKED)
+    .optional(),
 });
 
 const competitorRequest = z.object({
@@ -192,10 +197,10 @@ async function startCrawl(options: AppOptions, request: Request): Promise<Respon
   if (!parsed.success) {
     return fail(
       400,
-      `Give a channel and, optionally, a depth of 1 to ${MAX_DEPTH} and a size of ${MIN_CHANNELS_PER_MAP} to ${MAX_CHANNELS_PER_MAP} channels`,
+      `Give a channel and, optionally, a depth of 1 to ${CRAWL_MAX_DEPTH} and a size of ${CRAWL_MIN_CHANNELS_ASKED} to ${CRAWL_MAX_CHANNELS_ASKED} channels`,
     );
   }
-  const { channel, depth = DEFAULT_DEPTH, model, maxChannels } = parsed.data;
+  const { channel, depth = CRAWL_DEFAULT_DEPTH, model, maxChannels } = parsed.data;
   const problem = channelProblem(channel);
   if (problem) return fail(400, problem);
   const modelProblem = model === undefined ? null : channelProblem(model);

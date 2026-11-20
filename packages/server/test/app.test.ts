@@ -6,7 +6,14 @@ import type {
   DiscoveryResult,
 } from '@jgtube/core';
 import { beforeEach, describe, expect, test } from 'vitest';
-import type { ChannelSnapshot, SidebarItem, YouTubeSource } from '@jgtube/core';
+import {
+  CRAWL_MAX_CHANNELS_ASKED,
+  CRAWL_MAX_DEPTH,
+  CRAWL_MIN_CHANNELS_ASKED,
+  type ChannelSnapshot,
+  type SidebarItem,
+  type YouTubeSource,
+} from '@jgtube/core';
 import { createApp, type CrawlOutcome, type Engine } from '../src/app';
 import { createEngine } from '../src/engine';
 import { JobStore } from '../src/jobs';
@@ -271,6 +278,25 @@ describe('POST /api/maps', () => {
 
     expect(second.status).toBe(409);
     expect(engine.crawls).toHaveLength(1);
+  });
+
+  test('takes its limits on depth and size from the engine, not from a copy of them', async () => {
+    const most = { depth: CRAWL_MAX_DEPTH, maxChannels: CRAWL_MAX_CHANNELS_ASKED };
+
+    expect((await post({ channel: '@veritasium', ...most })).status).toBe(202);
+    await settle();
+    for (const tooMuch of [
+      { depth: CRAWL_MAX_DEPTH + 1 },
+      { maxChannels: CRAWL_MAX_CHANNELS_ASKED + 1 },
+      { maxChannels: CRAWL_MIN_CHANNELS_ASKED - 1 },
+    ]) {
+      const response = await post({ channel: '@veritasium', ...tooMuch });
+      expect(response.status).toBe(400);
+      expect(((await response.json()) as { error: string }).error).toContain(
+        `a depth of 1 to ${CRAWL_MAX_DEPTH} and a size of ${CRAWL_MIN_CHANNELS_ASKED} to ${CRAWL_MAX_CHANNELS_ASKED} channels`,
+      );
+    }
+    expect(engine.crawls).toEqual([{ channel: '@veritasium', depth: CRAWL_MAX_DEPTH }]);
   });
 
   test('passes a deeper, larger crawl through to the engine', async () => {

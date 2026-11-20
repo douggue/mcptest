@@ -1,4 +1,5 @@
 import { DEFAULT_MAX_VIDEOS } from '../ingest';
+import { SMALL_CHANNEL_MAX_SUBSCRIBERS } from '../limits';
 import { PEER_MAX_UPLOADS_PER_WEEK, medianDurationSeconds, uploadsPerWeek } from '../map/peers';
 import type { BoardVideo } from '../map/thumbnails';
 import { RECENT_DAYS } from '../map/view';
@@ -34,11 +35,9 @@ import { NICHE_MIN_LATIN_SHARE, latinShare } from './script';
 export const NICHE_NEW_MAX_AGE_DAYS = 90;
 /**
  * A channel at or under this is small, whatever its age. It is the line the
- * breakout feed already draws ("Under 10K"). Below it a channel has too few
- * subscribers to carry a video on its own, so one that takes off did so on its
- * topic and packaging, which is what the owner can copy.
+ * breakout feed draws too ("Under 10K"); the number is kept in `limits.ts`.
  */
-export const NICHE_SMALL_MAX_SUBSCRIBERS = 10_000;
+export const NICHE_SMALL_MAX_SUBSCRIBERS = SMALL_CHANNEL_MAX_SUBSCRIBERS;
 /**
  * No channel above this is listed, new or not. 100,000 is where YouTube itself
  * stops calling a channel small (its first creator award); a channel under 90

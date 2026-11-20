@@ -1,5 +1,13 @@
-import { ReadingElsewhereError } from '@jgtube/core';
+import {
+  CRAWL_DEFAULT_DEPTH,
+  CRAWL_DEFAULT_MAX_CHANNELS,
+  CRAWL_MAX_CHANNELS_ASKED,
+  CRAWL_MAX_DEPTH,
+  CRAWL_MIN_CHANNELS_ASKED,
+  ReadingElsewhereError,
+} from '@jgtube/core';
 import { beforeEach, describe, expect, test } from 'vitest';
+import { makeMapShape } from '../src/schemas';
 import { TOOL_TEXT } from '../src/toolText';
 import { createToolHandlers, type ToolHandlers } from '../src/tools';
 import type { CrawlOutcome, ProgressUpdate } from '../src/types';
@@ -117,6 +125,25 @@ describe('make_map', () => {
     expect(result.isError).toBe(true);
     expect(textOf(result)).toMatch(message);
     expect(engine.crawls).toEqual([]);
+  });
+
+  test('takes its limits and defaults from the engine, not from a copy of them', async () => {
+    const most = { depth: CRAWL_MAX_DEPTH, max_channels: CRAWL_MAX_CHANNELS_ASKED };
+    expect((await tools.makeMap({ channel: '@mychannel', ...most })).isError).toBeUndefined();
+    const tooDeep = await tools.makeMap({ channel: '@mychannel', depth: CRAWL_MAX_DEPTH + 1 });
+    const tooLarge = await tools.makeMap({
+      channel: '@mychannel',
+      max_channels: CRAWL_MAX_CHANNELS_ASKED + 1,
+    });
+
+    expect(textOf(tooDeep)).toBe(`depth is a whole number from 1 to ${CRAWL_MAX_DEPTH}.`);
+    expect(textOf(tooLarge)).toBe(
+      `max_channels is a whole number from ${CRAWL_MIN_CHANNELS_ASKED} to ${CRAWL_MAX_CHANNELS_ASKED}.`,
+    );
+    expect(makeMapShape.max_channels.description).toContain(
+      `Default ${CRAWL_DEFAULT_MAX_CHANNELS}.`,
+    );
+    expect(makeMapShape.depth.description).toContain(`Default ${CRAWL_DEFAULT_DEPTH};`);
   });
 
   test('says so when the new map cannot be read back', async () => {
