@@ -56,6 +56,15 @@ describe('the analyses on offer', () => {
     expect(question).toMatch(/NEEDS A REAL STORY/);
   });
 
+  test('the idea generator draws on ideas that took off elsewhere and are open for the owner', () => {
+    const question = ANALYSES.topics.question('@americainvents2');
+
+    expect(ANALYSES.topics.allowedTools).toContain('mcp__jgtube__list_transfer_opportunities');
+    expect(question).toMatch(/list_transfer_opportunities/);
+    expect(question).toMatch(/TRANSFER/);
+    expect(question).toMatch(/one word/i);
+  });
+
   test('only the thumbnail analysis looks at images', () => {
     const looks = (id: (typeof ANALYSIS_IDS)[number]) =>
       ANALYSES[id].allowedTools.includes('mcp__jgtube__view_thumbnails');
