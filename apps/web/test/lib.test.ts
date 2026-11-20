@@ -295,6 +295,22 @@ describe('api', () => {
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ channel: '@veritasium', depth: 2 });
   });
 
+  test('sends the model channel with a new map only when one is given', async () => {
+    const bodies: string[] = [];
+    const api = createApi(async (_url, init) => {
+      bodies.push(String(init?.body));
+      return new Response(JSON.stringify({ success: true, data: { jobId: 'j' }, error: null }));
+    });
+
+    await api.startCrawl('@mine', 2, '  @model ');
+    await api.startCrawl('@mine', 2, '  ');
+
+    expect(bodies.map((body) => JSON.parse(body))).toEqual([
+      { channel: '@mine', depth: 2, model: '@model' },
+      { channel: '@mine', depth: 2 },
+    ]);
+  });
+
   test('sends a removal for a competitor', async () => {
     const bodies: string[] = [];
     const api = createApi(async (_url, init) => {

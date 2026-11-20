@@ -106,20 +106,29 @@ export interface MapViewInput {
   readonly members: readonly MapMemberData[];
   readonly edges: readonly RecEdge[];
   readonly now: Date;
+  /** A member the owner wants to be like; channels are then measured against it, not the centre. */
+  readonly modelId?: string | null;
 }
 
+/**
+ * `hubs` are the channels the map was explored from at the first step: the
+ * centre and, when the owner named one, the model channel.
+ */
 function tierFor(
   member: MapMemberData,
-  centerId: string,
+  hubs: ReadonlySet<string>,
   inbound: readonly RecEdge[],
   edges: readonly RecEdge[],
 ): Tier {
   if (member.steps === 1) {
-    const fromCenter = inbound.find((edge) => edge.fromChannelId === centerId);
-    const mutual = edges.some(
-      (edge) => edge.fromChannelId === member.channel.id && edge.toChannelId === centerId,
+    const strongest = Math.max(
+      0,
+      ...inbound.filter((edge) => hubs.has(edge.fromChannelId)).map((edge) => edge.share),
     );
-    return (fromCenter?.share ?? 0) >= CLOSE_SHARE || mutual ? 'close' : 'medium';
+    const mutual = edges.some(
+      (edge) => edge.fromChannelId === member.channel.id && hubs.has(edge.toChannelId),
+    );
+    return strongest >= CLOSE_SHARE || mutual ? 'close' : 'medium';
   }
   return inbound.length >= MEDIUM_MIN_INBOUND ? 'medium' : 'far';
 }
@@ -130,6 +139,9 @@ const matchRank = (relevance: number): number => Math.round(relevance * 1000);
 /** The channels around the centre: peers first, then by title match, then by distance. */
 export function buildMapView(input: MapViewInput): readonly MapRow[] {
   const { center, members, edges, now } = input;
+  const model = members.find((member) => member.channel.id === input.modelId) ?? null;
+  const reference = model ?? center;
+  const hubs = new Set([center.channel.id, ...(model ? [model.channel.id] : [])]);
   const titles = new Map(
     [center, ...members].map((member) => [member.channel.id, member.channel.title]),
   );
@@ -140,7 +152,7 @@ export function buildMapView(input: MapViewInput): readonly MapRow[] {
   const shapes = new Map(
     members.map((member) => [
       member.channel.id,
-      shapeMismatch(subject(center), subject(member), now),
+      shapeMismatch(subject(reference), subject(member), now),
     ]),
   );
   const fits = members.filter((member) => shapes.get(member.channel.id) === null);
@@ -148,7 +160,7 @@ export function buildMapView(input: MapViewInput): readonly MapRow[] {
   const recentTitles = (member: MapMemberData): readonly string[] =>
     member.videos.slice(0, TITLES_COMPARED).map((video) => video.title);
   const { scores } = anchoredTitleSimilarity(
-    recentTitles(center),
+    recentTitles(reference),
     new Map(members.map((member) => [member.channel.id, recentTitles(member)])),
     (direct.length > 0 ? direct : fits).map((member) => member.channel.id),
   );
@@ -158,11 +170,13 @@ export function buildMapView(input: MapViewInput): readonly MapRow[] {
       (edge) => edge.toChannelId === member.channel.id && titles.has(edge.fromChannelId),
     );
     const relevance = scores.get(member.channel.id) ?? 0;
-    const reason = outsideReason(shapes.get(member.channel.id) ?? null, relevance);
+    // The model is by definition what the owner wants to be like.
+    const reason =
+      member === model ? null : outsideReason(shapes.get(member.channel.id) ?? null, relevance);
     return {
       channel: member.channel,
       steps: member.steps,
-      tier: tierFor(member, center.channel.id, inbound, edges),
+      tier: member === model ? 'close' : tierFor(member, hubs, inbound, edges),
       relevance,
       recommendedBy: inbound
         .map((edge) => ({
@@ -213,6 +227,7 @@ export function loadMapView(
   members: readonly MapMember[],
   depth: number,
   now: Date,
+  modelChannelId: string | null = null,
 ): LoadedMapView | null {
   const loaded = members.flatMap((member): MapMemberData[] => {
     const channel = deps.channels.findById(member.channelId);
@@ -224,7 +239,10 @@ export function loadMapView(
   if (!center) return null;
   const others = loaded.filter((member) => member.steps > 0);
   const expanded = new Set(
-    loaded.filter((member) => member.steps < depth).map((member) => member.channel.id),
+    loaded
+      // The model is explored at the first step whatever the depth.
+      .filter((member) => member.steps < depth || member.channel.id === modelChannelId)
+      .map((member) => member.channel.id),
   );
   const edges = deps.edges
     .listAmong(loaded.map((member) => member.channel.id))
@@ -233,6 +251,6 @@ export function loadMapView(
     center,
     members: others,
     edges,
-    rows: buildMapView({ center, members: others, edges, now }),
+    rows: buildMapView({ center, members: others, edges, now, modelId: modelChannelId }),
   };
 }

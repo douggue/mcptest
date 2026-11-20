@@ -83,6 +83,8 @@ CREATE TABLE IF NOT EXISTS map_removals (
   PRIMARY KEY (center_channel, channel_id)
 );
 `,
+  // 3: the channel the owner wants to be like, which a map is measured against.
+  `ALTER TABLE maps ADD COLUMN model_channel TEXT;`,
 ];
 
 /**

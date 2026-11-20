@@ -54,7 +54,8 @@ every phase; coverage floor is 80%.
 - [ ] Judged relevance pass (batched model call)
 - [x] Closeness tiers; filtered-out list ("Everything" view); manual remove and restore, kept across new maps
 - [x] Each map stored as it was when made; schema migrations
-- [ ] Manual add; seed from a model channel
+- [x] Seed from a model channel: the crawl also explores from it and "like yours" is measured against it
+- [ ] Manual add
 
 **Done when:** for the owner's channel, at least 8 of the top 12 competitors are judged same-format by the owner, and the closest look-alike from the export is included.
 

@@ -14,6 +14,11 @@ interface Props {
   readonly center: MapSnapshot['center'] | null;
   readonly query: string;
   readonly onQueryChange: (value: string) => void;
+  /** A channel the owner wants to be like; optional. */
+  readonly model: string;
+  readonly onModelChange: (value: string) => void;
+  /** The model channel the map on screen was measured against, if any. */
+  readonly measuredAgainst: string | null;
   readonly onSubmit: () => void;
   readonly job: JobState | null;
   readonly message: string | null;
@@ -77,6 +82,33 @@ export function MapToolbar(props: Props) {
               {running ? 'Mapping…' : 'Find competitors'}
             </button>
           </form>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <label htmlFor="model-query" className="text-label-caps text-outline">
+              Channel you want to be like (optional)
+            </label>
+            <input
+              id="model-query"
+              type="text"
+              value={props.model}
+              onChange={(event) => props.onModelChange(event.target.value)}
+              onKeyDown={(event) => {
+                // Enter also confirms text typed through an input method; that must not start a map.
+                if (event.key === 'Enter' && !event.nativeEvent.isComposing && !running) {
+                  props.onSubmit();
+                }
+              }}
+              placeholder="@handle or link"
+              autoComplete="off"
+              spellCheck={false}
+              maxLength={200}
+              className="min-w-0 flex-1 rounded-full bg-surface-card px-4 py-1.5 text-body-sm text-on-surface placeholder-outline shadow-[inset_0_2px_6px_rgba(0,0,0,0.6)] focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
+            />
+            {props.measuredAgainst && (
+              <span className="text-label-caps text-primary-fixed-dim">
+                This map is measured against {props.measuredAgainst}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-space-sm xl:justify-end">

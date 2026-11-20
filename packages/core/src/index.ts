@@ -31,3 +31,4 @@ export type { SnapshotBreakout } from './map/snapshot';
 export { freezeMapSnapshot } from './map/snapshot';
 export type { ChannelSnapshot } from './sources/types';
 export type { ScoreCaution } from './map/breakouts';
+export type { SnapshotModel } from './map/snapshot';

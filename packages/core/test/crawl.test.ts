@@ -234,6 +234,35 @@ describe('crawlMap', () => {
   });
 });
 
+describe('crawlMap with a model channel', () => {
+  const ids = (members: readonly { channelId: string }[]) =>
+    members.map((member) => member.channelId.charAt(2)).sort();
+
+  test('also explores from the model, one step out like the centre', async () => {
+    const plain = await crawlMap(deps, '@handleC', { depth: 1 });
+    const seeded = await crawlMap(deps, '@handleC', { depth: 1, model: cid('D') });
+
+    expect(ids(plain.members)).toEqual(['A', 'B', 'C']);
+    expect(ids(seeded.members)).toEqual(['A', 'B', 'C', 'D', 'E']);
+    expect(seeded.modelChannelId).toBe(cid('D'));
+    expect(deps.maps.latestForCenter(cid('C'))?.modelChannelId).toBe(cid('D'));
+  });
+
+  test('ignores a model that is the centre itself', async () => {
+    const result = await crawlMap(deps, '@handleC', { depth: 1, model: cid('C') });
+
+    expect(result.modelChannelId).toBeNull();
+    expect(result.warnings.join(' ')).toMatch(/model channel is the same/i);
+    expect(ids(result.members)).toEqual(['A', 'B', 'C']);
+  });
+
+  test('fails with a clear message when the model cannot be read', async () => {
+    source.failing.add('D');
+
+    await expect(crawlMap(deps, '@handleC', { model: cid('D') })).rejects.toThrow(/model channel/i);
+  });
+});
+
 describe('crawlMap and the stored snapshot', () => {
   test('freezes the map it made so it can be reopened unchanged', async () => {
     const result = await crawlMap(deps, '@handleC');

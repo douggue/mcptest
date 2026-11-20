@@ -349,6 +349,36 @@ describe('the server, the store and the engine together', () => {
       })),
   };
 
+  test('a map seeded with a model channel includes it and says so', async () => {
+    const real = createEngine(
+      { dbPath: ':memory:', region: 'US' },
+      { createSource: async () => source, now: () => NOW },
+    );
+    const live = createApp({ engine: real, jobs: new JobStore(), allowedHosts: [HOST] });
+    const post = (body: unknown) =>
+      live(
+        new Request(`http://${HOST}/api/maps`, {
+          method: 'POST',
+          headers: { host: HOST, 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        }),
+      );
+
+    const refused = await post({ channel: '@handleC', model: 'not a channel!' });
+    expect(refused.status).toBe(400);
+    expect(((await refused.json()) as { error: string }).error).toMatch(/^Model channel: /);
+    expect((await post({ channel: '@handleC', model: cid('E') })).status).toBe(202);
+    let map = real.findSnapshot(cid('C'));
+    for (let tries = 0; map === null && tries < 50; tries += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      map = real.findSnapshot(cid('C'));
+    }
+
+    expect(map?.model).toEqual({ id: cid('E'), title: 'Channel E' });
+    expect(map?.channels.map((c) => c.title)).toContain('Channel E');
+    real.close();
+  });
+
   /** The fields this test reads from any of the API's answers. */
   interface Reply {
     readonly jobId: string;

@@ -194,6 +194,38 @@ describe('buildMapView', () => {
     expect(scores['Channel E']).toBe(0);
   });
 
+  test('measures channels against the model channel when one is given', () => {
+    const input = {
+      center: member('C', 0, ['My First Vlog', 'A Quiet Walk']),
+      members: [
+        member('M', 1, ['America Just Built a Reactor', 'America Just Found Gas']),
+        member('A', 2, ['America Just Launched a Rocket', 'America Just Built a Bridge']),
+        member('B', 2, ['Ten Rifles Ranked', 'Tigers Avoid Elephants']),
+      ],
+      edges: [edge('C', 'M', 0.5), edge('M', 'A', 0.5), edge('M', 'B', 0.5)],
+      now: NOW,
+    };
+
+    const rows = buildMapView({ ...input, modelId: cid('M') });
+    const peers = rows.filter((row) => row.peer).map((row) => row.channel.title);
+
+    expect(peers).toEqual(expect.arrayContaining(['Channel M', 'Channel A']));
+    expect(peers).not.toContain('Channel B');
+  });
+
+  test('counts a strong link from the model as close, like one from the centre', () => {
+    const rows = buildMapView({
+      center: member('C', 0),
+      members: [member('M', 1), member('A', 1), member('B', 1)],
+      edges: [edge('M', 'A', 0.7), edge('M', 'B', 0.1)],
+      now: NOW,
+      modelId: cid('M'),
+    });
+    const tier = (letter: string) => rows.find((row) => row.channel.id === cid(letter))?.tier;
+
+    expect([tier('M'), tier('A'), tier('B')]).toEqual(['close', 'close', 'medium']);
+  });
+
   test('treats a mutual recommendation as close', () => {
     const rows = buildMapView({
       center: member('C', 0),

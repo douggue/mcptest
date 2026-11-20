@@ -65,7 +65,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       return stored ? loadMapSnapshot(repos, stored.id, now()) : null;
     },
 
-    async crawl(channel, depth, onProgress) {
+    async crawl(channel, depth, onProgress, model) {
       source ??= createSource();
       const result = await crawlMap(
         {
@@ -76,7 +76,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
           now,
         },
         channel,
-        { depth, onProgress },
+        { depth, onProgress, ...(model ? { model } : {}) },
       );
       return { centerChannelId: result.centerChannelId, warnings: result.warnings };
     },

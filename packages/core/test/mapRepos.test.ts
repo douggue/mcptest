@@ -7,6 +7,8 @@ import { SqliteEdgeRepo } from '../src/repos/sqliteEdgeRepo';
 import { SqliteMapRepo } from '../src/repos/sqliteMapRepo';
 import type { RecEdge } from '../src/repos/types';
 
+/** The number of the newest schema step. */
+const LATEST = 3;
 const T1 = new Date('2026-11-20T12:00:00Z');
 const T2 = new Date('2026-11-25T12:00:00Z');
 const cid = (letter: string) => `UC${letter.repeat(22)}`;
@@ -103,7 +105,17 @@ describe('SqliteMapRepo', () => {
       region: 'US',
       createdAt: T1,
       members,
+      modelChannelId: null,
     });
+  });
+
+  test('remembers the model channel a map was measured against', () => {
+    maps.create(
+      { centerChannelId: cid('C'), modelChannelId: cid('A'), depth: 2, region: 'US', members },
+      T1,
+    );
+
+    expect(maps.latestForCenter(cid('C'))?.modelChannelId).toBe(cid('A'));
   });
 
   test('returns the most recent map for a channel', () => {
@@ -153,12 +165,14 @@ describe('opening a store made by an earlier version', () => {
       T1,
     );
     first.pragma(`user_version = ${version}`);
-    first.exec('ALTER TABLE maps DROP COLUMN snapshot_json; DROP TABLE map_removals;');
+    first.exec(
+      'ALTER TABLE maps DROP COLUMN snapshot_json; ALTER TABLE maps DROP COLUMN model_channel; DROP TABLE map_removals;',
+    );
     first.close();
 
     const reopened = openDatabase(path);
 
-    expect(reopened.pragma('user_version', { simple: true })).toBe(2);
+    expect(reopened.pragma('user_version', { simple: true })).toBe(LATEST);
     expect(new SqliteChannelRepo(reopened).findById(cid('C'))?.title).toBe('Kept');
     expect(new SqliteMapRepo(reopened).listRemoved(cid('C'))).toEqual([]);
     reopened.close();
@@ -172,11 +186,14 @@ describe('opening a store made by an earlier version', () => {
   });
 
   test('leaves the store as it was when a step fails halfway', () => {
-    const steps = ['', '', 'CREATE TABLE half_made (a TEXT); THIS IS NOT SQL;'];
+    const steps = [
+      ...new Array<string>(LATEST).fill(''),
+      'CREATE TABLE half_made (a TEXT); THIS IS NOT SQL;',
+    ];
 
     expect(() => migrate(db, steps)).toThrow();
 
-    expect(db.pragma('user_version', { simple: true })).toBe(2);
+    expect(db.pragma('user_version', { simple: true })).toBe(LATEST);
     expect(
       db.prepare("SELECT name FROM sqlite_master WHERE name = 'half_made'").get(),
     ).toBeUndefined();
@@ -185,6 +202,6 @@ describe('opening a store made by an earlier version', () => {
   test('does nothing when the store is already up to date', () => {
     migrate(db);
 
-    expect(db.pragma('user_version', { simple: true })).toBe(2);
+    expect(db.pragma('user_version', { simple: true })).toBe(LATEST);
   });
 });

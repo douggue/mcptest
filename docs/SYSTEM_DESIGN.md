@@ -17,7 +17,8 @@ videos          id PK, channel_id FK, title, views, duration_s,
 video_snapshots video_id FK, captured_at, views   -- built; PK (video_id, captured_at)
 rec_edges       from_channel FK, to_channel FK, sampled, hits, share   -- built
 edge_crawls     channel_id PK, region, crawled_at   -- built; latest reading only, no history
-maps            id PK, center_channel FK, depth, region, created_at,  -- built
+maps            id PK, center_channel FK, model_channel NULL, depth, region,  -- built
+                created_at,
                 snapshot_json   -- the map as it was when made: scores, tiers, peers
 map_channels    map_id FK, channel_id FK, steps                       -- built
 map_removals    center_channel FK, channel_id, removed_at             -- built; the owner's
@@ -127,6 +128,19 @@ networks under 10%, leaving 13 peers of 149.
 
 The web app shows peers by default with a switch to everything, and the breakout
 feed lists peers' videos separately so outsiders cannot crowd them out.
+
+### Model channel
+
+A new channel has too few videos to describe itself: three titles and whatever
+YouTube happens to show beside them. The owner can therefore name a model
+channel, one they want to be like.
+
+- The crawl reads the model, adds it to the map at step 1 and explores outwards
+  from it at the first step alongside the centre, whatever the depth.
+- Shape checks (video length) and title matching use the model's videos as the
+  reference instead of the centre's. The model itself always counts as a peer.
+- The model is stored on the map (`maps.model_channel`) and shown in the snapshot
+  as `model`, so a reopened map says what it was measured against.
 
 ### Relevance filter
 

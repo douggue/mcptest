@@ -89,7 +89,7 @@ async function mapCommand(
     maxChannels: numberFlag(flags, 'max-channels'),
     onProgress: showProgress,
   });
-  const view = loadMapView(deps, result.members, result.depth, deps.now());
+  const view = loadMapView(deps, result.members, result.depth, deps.now(), result.modelChannelId);
   if (!view) throw new Error('The map was saved but its centre channel could not be loaded');
   print([
     `Map of ${sanitize(view.center.channel.title)}: ${view.rows.length} channels`,

@@ -15,9 +15,16 @@ export interface MapSnapshot {
   /** When the map was crawled, as an ISO-8601 string. */
   readonly createdAt: string;
   readonly center: SnapshotCenter;
+  /** The channel the map is measured against instead of the centre, when the owner named one. */
+  readonly model: SnapshotModel | null;
   readonly channels: readonly SnapshotChannel[];
   readonly edges: readonly SnapshotEdge[];
   readonly breakouts: readonly SnapshotBreakout[];
+}
+
+export interface SnapshotModel {
+  readonly id: string;
+  readonly title: string;
 }
 
 export interface SnapshotBreakout extends BreakoutVideo {
@@ -68,9 +75,10 @@ export interface SnapshotDeps extends MapViewDeps {
 
 /** Builds a map's snapshot from what the store holds right now. */
 function buildSnapshot(deps: SnapshotDeps, map: StoredMap, now: Date): MapSnapshot | null {
-  const view = loadMapView(deps, map.members, map.depth, now);
+  const view = loadMapView(deps, map.members, map.depth, now, map.modelChannelId);
   if (!view) return null;
   const { center, rows, members, edges } = view;
+  const model = members.find((member) => member.channel.id === map.modelChannelId) ?? null;
   const peerIds = new Set(rows.filter((row) => row.peer).map((row) => row.channel.id));
 
   return {
@@ -85,6 +93,7 @@ function buildSnapshot(deps: SnapshotDeps, map: StoredMap, now: Date): MapSnapsh
       subscribers: center.channel.subscribers,
       storedVideos: center.videos.length,
     },
+    model: model ? { id: model.channel.id, title: model.channel.title } : null,
     channels: rows.map((row) => ({
       id: row.channel.id,
       title: row.channel.title,
@@ -186,6 +195,8 @@ export function loadMapSnapshot(
   const removed = new Set(deps.maps.listRemoved(centerChannelId));
   return {
     ...snapshot,
+    // Copies frozen before model channels existed do not carry the field.
+    model: snapshot.model ?? null,
     channels: snapshot.channels.map((channel) => ({
       ...channel,
       removed: removed.has(channel.id),

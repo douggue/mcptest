@@ -66,6 +66,8 @@ export interface MapMember {
 
 export interface NewMap {
   readonly centerChannelId: string;
+  /** The channel the owner wants to be like; "like yours" is measured against it. */
+  readonly modelChannelId?: string | null;
   readonly depth: number;
   readonly region: string;
   readonly members: readonly MapMember[];
@@ -73,6 +75,7 @@ export interface NewMap {
 
 export interface StoredMap extends NewMap {
   readonly id: number;
+  readonly modelChannelId: string | null;
   readonly createdAt: Date;
 }
 

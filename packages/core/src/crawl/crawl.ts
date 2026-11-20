@@ -35,6 +35,11 @@ export interface CrawlProgress {
 export interface CrawlOptions {
   /** How many recommendation hops to follow: 1 or 2. */
   readonly depth?: number;
+  /**
+   * A channel the owner wants to be like. The crawl also explores outwards from
+   * it, and the map is measured against it instead of the centre.
+   */
+  readonly model?: string;
   /** Newest videos per channel whose sidebars are read. */
   readonly sampleSize?: number;
   /** Recommended channels kept per channel. */
@@ -47,6 +52,7 @@ export interface CrawlOptions {
 export interface CrawlResult {
   readonly mapId: number;
   readonly centerChannelId: string;
+  readonly modelChannelId: string | null;
   readonly depth: number;
   readonly members: readonly MapMember[];
   readonly warnings: readonly string[];
@@ -245,6 +251,21 @@ function stepWarnings(
   ];
 }
 
+/** Reads the model channel into the store; null when none was given or it is the centre. */
+async function ingestModel(
+  deps: CrawlDeps,
+  model: string | undefined,
+  centerChannelId: string,
+): Promise<string | null> {
+  if (model === undefined) return null;
+  try {
+    const { channel } = await ingestChannel(deps, model);
+    return channel.id === centerChannelId ? null : channel.id;
+  } catch (error) {
+    throw new Error(`Could not read the model channel: ${messageOf(error)}`);
+  }
+}
+
 /**
  * Builds the map of channels around one channel by following YouTube's
  * recommendations outwards (see docs/CRAWL.md).
@@ -265,9 +286,18 @@ export async function crawlMap(
   const center = await ingestChannel(deps, input);
   const centerChannelId = center.channel.id;
 
-  let members: readonly MapMember[] = [{ channelId: centerChannelId, steps: 0 }];
-  let frontier: readonly string[] = [centerChannelId];
-  let warnings: readonly string[] = [];
+  const modelChannelId = await ingestModel(deps, options.model, centerChannelId);
+
+  let members: readonly MapMember[] = [
+    { channelId: centerChannelId, steps: 0 },
+    ...(modelChannelId ? [{ channelId: modelChannelId, steps: 1 }] : []),
+  ];
+  // The model is explored at the first step alongside the centre.
+  let frontier: readonly string[] = members.map((member) => member.channelId);
+  let warnings: readonly string[] =
+    options.model !== undefined && modelChannelId === null
+      ? ['The model channel is the same as the centre channel, so it was ignored']
+      : [];
 
   for (let step = 1; step <= settings.depth && frontier.length > 0 && !guard.tripped; step += 1) {
     report({ stage: 'reading-recommendations', step, channels: members.length });
@@ -304,7 +334,7 @@ export async function crawlMap(
   }
 
   const mapId = deps.maps.create(
-    { centerChannelId, depth: settings.depth, region: deps.region, members },
+    { centerChannelId, modelChannelId, depth: settings.depth, region: deps.region, members },
     deps.now(),
   );
   try {
@@ -317,5 +347,5 @@ export async function crawlMap(
     ];
   }
   report({ stage: 'done', channels: members.length });
-  return { mapId, centerChannelId, depth: settings.depth, members, warnings };
+  return { mapId, centerChannelId, modelChannelId, depth: settings.depth, members, warnings };
 }

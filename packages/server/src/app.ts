@@ -19,6 +19,8 @@ export interface Engine {
     channel: string,
     depth: number,
     onProgress: (progress: CrawlProgress) => void,
+    /** A channel the owner wants to be like; the map is measured against it. */
+    model?: string,
   ): Promise<CrawlOutcome>;
   /** Removes a channel or restores it. False when it is not on the centre's latest map. */
   setCompetitorRemoved(centerChannelId: string, channelId: string, removed: boolean): boolean;
@@ -34,6 +36,7 @@ export interface AppOptions {
 const crawlRequest = z.object({
   channel: z.string().min(1).max(200),
   depth: z.number().int().min(1).max(2).optional(),
+  model: z.string().min(1).max(200).optional(),
 });
 
 const removalRequest = z.object({
@@ -125,11 +128,13 @@ async function startCrawl(options: AppOptions, request: Request): Promise<Respon
   if (body instanceof Response) return body;
   const parsed = crawlRequest.safeParse(body);
   if (!parsed.success) return fail(400, 'Give a channel and, optionally, a depth of 1 or 2');
-  const { channel, depth = DEFAULT_DEPTH } = parsed.data;
+  const { channel, depth = DEFAULT_DEPTH, model } = parsed.data;
   const problem = channelProblem(channel);
   if (problem) return fail(400, problem);
+  const modelProblem = model === undefined ? null : channelProblem(model);
+  if (modelProblem) return fail(400, `Model channel: ${modelProblem}`);
 
-  const job = options.jobs.start((report) => options.engine.crawl(channel, depth, report));
+  const job = options.jobs.start((report) => options.engine.crawl(channel, depth, report, model));
   if (!job) return fail(409, 'A map is already being made. Wait for it to finish.');
   return ok({ jobId: job.id }, 202);
 }

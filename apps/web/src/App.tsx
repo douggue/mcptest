@@ -12,21 +12,22 @@ import { inScope, type Scope } from './lib/feed';
 import { layoutRadar } from './lib/radarLayout';
 
 const STORAGE_KEY = 'jgtube.channel';
+const MODEL_STORAGE_KEY = 'jgtube.model';
 const POLL_INTERVAL_MS = 1500;
 const DEFAULT_DEPTH = 2;
 
 /** The browser may refuse storage (private windows); the app works without it. */
-function recall(): string {
+function recall(key = STORAGE_KEY): string {
   try {
-    return window.localStorage.getItem(STORAGE_KEY) ?? '';
+    return window.localStorage.getItem(key) ?? '';
   } catch {
     return '';
   }
 }
 
-function remember(channel: string): void {
+function remember(channel: string, key = STORAGE_KEY): void {
   try {
-    window.localStorage.setItem(STORAGE_KEY, channel);
+    window.localStorage.setItem(key, channel);
   } catch {
     // Nothing to do: remembering the channel is only a convenience.
   }
@@ -54,6 +55,7 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [depth, setDepth] = useState(DEFAULT_DEPTH);
   const [scope, setScope] = useState<Scope>('peers');
+  const [model, setModel] = useState(() => recall(MODEL_STORAGE_KEY));
 
   const load = useCallback(
     async (channel: string): Promise<boolean> => {
@@ -100,8 +102,9 @@ export function App() {
     if (!channel) return;
     setMessage(null);
     remember(channel);
+    remember(model.trim(), MODEL_STORAGE_KEY);
     try {
-      const id = await api.startCrawl(channel, depth);
+      const id = await api.startCrawl(channel, depth, model);
       setJob({ id, status: 'running', progress: null, result: null, error: null });
     } catch (error) {
       setMessage(messageOf(error));
@@ -133,6 +136,9 @@ export function App() {
         center={snapshot?.center ?? null}
         query={query}
         onQueryChange={setQuery}
+        model={model}
+        onModelChange={setModel}
+        measuredAgainst={snapshot?.model?.title ?? null}
         onSubmit={() => void submit()}
         job={job}
         message={message}

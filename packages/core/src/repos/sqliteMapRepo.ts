@@ -4,6 +4,7 @@ import type { MapMember, MapRepo, NewMap, StoredMap } from './types';
 interface MapRow {
   id: number;
   center_channel: string;
+  model_channel: string | null;
   depth: number;
   region: string;
   created_at: string;
@@ -19,8 +20,8 @@ export class SqliteMapRepo implements MapRepo {
 
   create(map: NewMap, createdAt: Date): number {
     const insertMap = this.db.prepare(
-      `INSERT INTO maps (center_channel, depth, region, created_at)
-       VALUES (@center, @depth, @region, @createdAt)`,
+      `INSERT INTO maps (center_channel, model_channel, depth, region, created_at)
+       VALUES (@center, @model, @depth, @region, @createdAt)`,
     );
     const insertMember = this.db.prepare(
       `INSERT INTO map_channels (map_id, channel_id, steps, position)
@@ -30,6 +31,7 @@ export class SqliteMapRepo implements MapRepo {
       const mapId = Number(
         insertMap.run({
           center: map.centerChannelId,
+          model: map.modelChannelId ?? null,
           depth: map.depth,
           region: map.region,
           createdAt: createdAt.toISOString(),
@@ -46,7 +48,7 @@ export class SqliteMapRepo implements MapRepo {
   latestForCenter(centerChannelId: string): StoredMap | null {
     const row = this.db
       .prepare<[string], MapRow>(
-        `SELECT id, center_channel, depth, region, created_at FROM maps
+        `SELECT id, center_channel, model_channel, depth, region, created_at FROM maps
          WHERE center_channel = ? ORDER BY created_at DESC, id DESC LIMIT 1`,
       )
       .get(centerChannelId);
@@ -61,6 +63,7 @@ export class SqliteMapRepo implements MapRepo {
     return {
       id: row.id,
       centerChannelId: row.center_channel,
+      modelChannelId: row.model_channel,
       depth: row.depth,
       region: row.region,
       createdAt: new Date(row.created_at),
