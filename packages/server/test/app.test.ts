@@ -71,8 +71,16 @@ class FakeEngine implements Engine {
     return false;
   }
 
-  analyse(): Promise<{ readonly text: string }> {
-    return Promise.resolve({ text: '' });
+  analyse(): never {
+    throw new Error('not used in these tests');
+  }
+
+  watchVideo(): never {
+    throw new Error('not used in these tests');
+  }
+
+  engineStatus(): never {
+    throw new Error('not used in these tests');
   }
 
   discover(keyword: string): Promise<DiscoveryResult> {

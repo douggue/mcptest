@@ -24,7 +24,11 @@ import { z } from 'zod';
 import { fail, isTrustedHost, ok, readJson } from './http';
 import { cleanMessage, type JobStore } from './jobs';
 import type { AnalysisId } from './analyses';
-import { runAnalysis, type AnalysisTracker } from './analysisRoutes';
+import { readEngines, runAnalysis, type AnalysisTracker } from './analysisRoutes';
+import type { EngineReport } from './engines/catalog';
+import type { EngineAnswer } from './engines/fallback';
+import type { EngineId } from './engines/types';
+import type { VideoAnswer } from './engines/videoWatch';
 import { refreshState, startRefresh, type RefreshTracker } from './refreshRoutes';
 import { readTransfers, saveTransfer } from './transferRoutes';
 
@@ -146,10 +150,19 @@ export interface Engine {
   /** Searches for recent videos on a subject and reads the channels behind them into the store. */
   discover(keyword: string): Promise<DiscoveryOutcome>;
   /**
-   * Puts one of the fixed analyses to Claude for a channel and returns its
-   * answer as plain text. Rejects with a ClaudeRunError when Claude cannot run.
+   * Puts one of the fixed analyses to the first AI engine that can run, for a
+   * channel, and returns its answer as plain text. Rejects with an
+   * EngineRunError when none can, or when the one that ran failed.
    */
-  analyse(analysis: AnalysisId, channel: string): Promise<{ readonly text: string }>;
+  analyse(analysis: AnalysisId, channel: string): Promise<EngineAnswer<EngineId>>;
+  /**
+   * Has an engine watch one YouTube video, picture and sound, and answer a
+   * question about it. Rejects with an EngineRunError: 'not-installed' when no
+   * engine on this computer can watch video.
+   */
+  watchVideo(videoId: string, question: string): Promise<VideoAnswer>;
+  /** Which AI engines are installed and signed in. Starts nothing that spends allowance. */
+  engineStatus(): Promise<EngineReport>;
 }
 
 export interface AppOptions {
@@ -368,6 +381,9 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     }
     if (pathname === '/api/analyses') {
       return method === 'POST' ? runAnalysis(options, request, analysing) : fail(405, 'Use POST');
+    }
+    if (pathname === '/api/engines') {
+      return method === 'GET' ? readEngines(options) : fail(405, 'Use GET');
     }
     if (pathname.startsWith('/api/jobs/')) {
       const id = pathname.slice('/api/jobs/'.length);

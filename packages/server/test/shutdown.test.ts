@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import type { ClaudeRunResult } from '../src/claudeRunner';
+import type { EngineRunResult } from '../src/engines/types';
 import { createEngine, type EngineOptions, type RunningEngine } from '../src/engine';
 import { CHANNEL_ID } from './support';
 
@@ -93,13 +93,13 @@ describe('shutting the engine down', () => {
     expect(() => engine.listNiches()).toThrow();
   });
 
-  test('stops Claude and waits for the analysis to end before closing the store', async () => {
+  test('stops the engine that is running and waits for the analysis to end before closing the store', async () => {
     const signals: AbortSignal[] = [];
     start({
       storePath: dbPath,
-      runClaude: (_request, signal) => {
+      runEngine: (_id, _request, signal) => {
         signals.push(signal);
-        return new Promise<ClaudeRunResult>((_resolve, reject) => {
+        return new Promise<EngineRunResult>((_resolve, reject) => {
           signal.addEventListener('abort', () => reject(new Error('stopped')));
         });
       },
@@ -147,7 +147,7 @@ describe('shutting the engine down', () => {
   });
 
   test('starts nothing new once it has begun', async () => {
-    start({ storePath: dbPath, runClaude: async () => ({ text: 'late', turns: 1 }) });
+    start({ storePath: dbPath, runEngine: async () => ({ text: 'late', turns: 1 }) });
     await engine.shutdown();
 
     await expect(engine.crawl(CHANNEL_ID, 1, () => {})).rejects.toThrow(/closing/);

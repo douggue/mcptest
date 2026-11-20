@@ -26,6 +26,8 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     refresh: unused('refresh'),
     refreshStatus: unused('refreshStatus'),
     analyse: unused('analyse'),
+    watchVideo: unused('watchVideo'),
+    engineStatus: unused('engineStatus'),
     ...parts,
   };
 }

@@ -2,13 +2,14 @@ import { parseChannelRef } from '@jgtube/core';
 import { z } from 'zod';
 import { ANALYSIS_IDS } from './analyses';
 import type { AppOptions } from './app';
-import { ClaudeRunError, type ClaudeFailure } from './claudeRunner';
+import { EngineRunError } from './engines/failure';
+import type { EngineFailure } from './engines/types';
 import { fail, ok, readJson } from './http';
 import { cleanMessage } from './jobs';
 
 const MAX_CHANNEL_LENGTH = 200;
 
-/** Whether Claude is working on an analysis; one runs at a time. */
+/** Whether an AI engine is working on an analysis; one runs at a time. */
 export interface AnalysisTracker {
   running: boolean;
 }
@@ -19,8 +20,9 @@ const analysisRequest = z.object({
 });
 
 /** The HTTP status that best tells a client what kind of failure it was. */
-const STATUS: Readonly<Record<ClaudeFailure, number>> = {
+const STATUS: Readonly<Record<EngineFailure, number>> = {
   'not-installed': 503,
+  'not-signed-in': 503,
   limit: 429,
   timeout: 504,
   failed: 502,
@@ -36,9 +38,10 @@ function isChannel(text: string): boolean {
 }
 
 /**
- * Asks Claude one of the fixed analyses about a channel and waits for the
- * answer, which takes up to a few minutes. The channel is checked here so that
- * nothing but a handle, link or id can reach the question put to Claude.
+ * Puts one of the fixed analyses about a channel to an AI engine and waits for
+ * the answer, which takes up to a few minutes. The channel is checked here so
+ * that nothing but a handle, link or id can reach the question. The reply
+ * names the engine that answered and the ones passed over, with the reason.
  */
 export async function runAnalysis(
   options: AppOptions,
@@ -52,19 +55,31 @@ export async function runAnalysis(
     return fail(400, `Name an analysis (${ANALYSIS_IDS.join(', ')}) and a channel`);
   }
   if (tracker.running) {
-    return fail(409, 'Claude is already working on an analysis. Wait for it to finish.');
+    return fail(409, 'An analysis is already running. Wait for it to finish.');
   }
 
   tracker.running = true;
   try {
     const { analysis, channel } = parsed.data;
-    const { text } = await options.engine.analyse(analysis, channel);
-    return ok({ analysis, text });
+    const { text, engine, skipped } = await options.engine.analyse(analysis, channel);
+    return ok({ analysis, text, engine, skipped });
   } catch (error) {
-    return error instanceof ClaudeRunError
+    return error instanceof EngineRunError
       ? fail(STATUS[error.reason], error.message)
       : fail(502, `The analysis did not finish: ${cleanMessage(error)}`);
   } finally {
     tracker.running = false;
+  }
+}
+
+/**
+ * Which AI engines are installed and signed in on this computer, and the
+ * order they are tried in. Asks each program only about itself.
+ */
+export async function readEngines(options: AppOptions): Promise<Response> {
+  try {
+    return ok(await options.engine.engineStatus());
+  } catch (error) {
+    return fail(502, `The engines could not be checked: ${cleanMessage(error)}`);
   }
 }

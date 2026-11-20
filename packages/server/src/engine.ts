@@ -32,28 +32,13 @@ import {
   type YouTubeSource,
 } from '@jgtube/core';
 import { randomUUID } from 'node:crypto';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { analysisRequest } from './analyses';
+import { analysisEngines, type AnalysisOptions } from './analysisEngine';
 import type { Engine } from './app';
-import {
-  runClaude,
-  spawnClaude,
-  type ClaudeRunRequest,
-  type ClaudeRunResult,
-} from './claudeRunner';
 import { connectOnUse, onceUntilItWorks, stopWhen, youtubeSource } from './connection';
 import { cleanMessage } from './jobs';
 import { trackWork, type WorkTracker } from './running';
 import { transfers } from './transferEngine';
 
-const IN_MEMORY = ':memory:';
-/** The Jgtube folder: the connector Claude is given lives under it. */
-const PROJECT_ROOT = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
-/** Prefix of the private folder Claude starts in. */
-const CLAUDE_WORK_PREFIX = join(tmpdir(), 'jgtube-claude-');
 /**
  * How long shutting down waits for work under way. Work that reads YouTube
  * finishes the request it is on (thirty seconds at the very most) and is
@@ -68,13 +53,13 @@ export interface RunningEngine extends Engine {
    */
   close(): void;
   /**
-   * Stops Claude, starts no new work, lets work under way wind down, and then
-   * closes the store. Safe to call more than once.
+   * Stops any AI engine that is running, starts no new work, lets work under
+   * way wind down, and then closes the store. Safe to call more than once.
    */
   shutdown(): Promise<void>;
 }
 
-export interface EngineOptions {
+export interface EngineOptions extends AnalysisOptions {
   /** Replaces the connection to YouTube; used by tests. */
   readonly createSource?: () => Promise<YouTubeSource>;
   readonly now?: () => Date;
@@ -83,12 +68,8 @@ export interface EngineOptions {
     query: string,
     options: { readonly publishedAfter: Date },
   ) => Promise<readonly SearchHit[]>;
-  /** Replaces running Claude Code; used by tests. The signal aborts when the engine shuts down. */
-  readonly runClaude?: (request: ClaudeRunRequest, stop: AbortSignal) => Promise<ClaudeRunResult>;
   /** How long shutting down waits for work under way; tests shorten it. */
   readonly closeGraceMs?: number;
-  /** The store as the connector should open it; defaults to the configured path made absolute. */
-  readonly storePath?: string;
   /** Replaces the official API's channel facts; used by tests. It is only called when a key is set. */
   readonly fetchFacts?: (channelIds: readonly string[]) => Promise<readonly ChannelFacts[]>;
 }
@@ -335,52 +316,12 @@ function discovery(wiring: Wiring, fillFacts: FillFacts): Discovery {
   };
 }
 
-interface ClaudeAnalyses extends Pick<Engine, 'analyse'> {
-  /** Removes the private folder Claude was started in, if one was made. */
-  cleanUp(): void;
-}
-
-/** The fixed analyses, each one boxed-in run of Claude Code that `stop` can end. */
-function claudeAnalyses({ config, options, work }: Wiring, stop: AbortSignal): ClaudeAnalyses {
-  let workDir: string | null = null;
-  const run =
-    options.runClaude ??
-    ((wanted: ClaudeRunRequest, signal: AbortSignal) =>
-      runClaude(wanted, { spawn: spawnClaude, env: process.env, signal }));
-  const analyse: Engine['analyse'] = async (analysis, channel) => {
-    const storePath =
-      options.storePath ?? (config.dbPath === IN_MEMORY ? null : resolve(config.dbPath));
-    if (storePath === null) {
-      throw new Error(
-        'Claude needs the store to be a file on disk, and this one is only in memory',
-      );
-    }
-    // Made on first use, owner-only and with a name nobody can guess, so no other
-    // account on the computer can plant settings for Claude to pick up there.
-    workDir ??= mkdtempSync(CLAUDE_WORK_PREFIX);
-    const request = analysisRequest(analysis, channel, {
-      projectRoot: PROJECT_ROOT,
-      dbPath: storePath,
-      workDir,
-    });
-    const { text } = await run(request, stop);
-    return { text };
-  };
-  return {
-    analyse: (analysis, channel) => work.run(() => analyse(analysis, channel)),
-
-    cleanUp() {
-      if (workDir !== null) rmSync(workDir, { recursive: true, force: true });
-    },
-  };
-}
-
 /** Wires the API to the store and to YouTube. */
 export function createEngine(config: Config, options: EngineOptions = {}): RunningEngine {
   const wiring = wire(config, options);
   const fillFacts = factsFiller(wiring);
-  const stopClaude = new AbortController();
-  const claude = claudeAnalyses(wiring, stopClaude.signal);
+  const stopEngines = new AbortController();
+  const asking = analysisEngines(wiring, stopEngines.signal);
   let closed = false;
   let shuttingDown: Promise<void> | null = null;
   const close = (): void => {
@@ -388,7 +329,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     closed = true;
     // Work cut short cannot give its lease back once the store is closed.
     wiring.releaseLeases();
-    claude.cleanUp();
+    asking.cleanUp();
     wiring.db.close();
   };
   return {
@@ -398,7 +339,9 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     ...crawling(wiring),
     ...refreshing(wiring, fillFacts),
     ...discovery(wiring, fillFacts),
-    analyse: claude.analyse,
+    analyse: asking.analyse,
+    watchVideo: asking.watchVideo,
+    engineStatus: asking.engineStatus,
 
     isReadingYouTube() {
       return wiring.leases.holder(wiring.now()) !== null;
@@ -408,7 +351,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
 
     shutdown() {
       shuttingDown ??= (async () => {
-        stopClaude.abort();
+        stopEngines.abort();
         await wiring.work.windDown(options.closeGraceMs ?? CLOSE_GRACE_MS);
         close();
       })();

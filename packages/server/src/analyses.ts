@@ -1,18 +1,19 @@
 /**
- * The questions the app can put to Claude with one press: what the winning
- * thumbnails do, which videos to make next, and which rejected channels cover
- * the same ground in other words.
+ * The questions the app can put to an AI engine with one press: what the
+ * winning thumbnails do, which videos to make next, and which rejected
+ * channels cover the same ground in other words.
  *
- * Each is a fixed question plus the tools it may use. Claude is asked to cite
- * numbers the tools return, never to produce its own: forecasts belong to code
- * that can show its working, and there is none yet. The tools only read: an
- * analysis never changes the owner's stored choices and never starts a crawl.
- * The only thing taken from the outside is the channel, and it goes into the
- * question in a fixed form after validation, never as the text that was typed.
+ * Each is a fixed question plus the tools it may use, and is one entry in
+ * `ANALYSES`. The engine is asked to cite numbers the tools return, never to
+ * produce its own: forecasts belong to code that can show its working, and
+ * there is none yet. The tools only read: an analysis never changes the
+ * owner's stored choices and never starts a crawl. The only thing taken from
+ * the outside is the channel, and it goes into the question in a fixed form
+ * after validation, never as the text that was typed.
  */
 import { join } from 'node:path';
 import { parseChannelRef } from '@jgtube/core';
-import type { ClaudeRunRequest } from './claudeRunner';
+import type { EngineId, EngineRunRequest, McpServerSpec } from './engines/types';
 
 export const ANALYSIS_IDS = ['thumbnails', 'topics', 'near-misses'] as const;
 export type AnalysisId = (typeof ANALYSIS_IDS)[number];
@@ -25,6 +26,12 @@ export interface AnalysisSpec {
   readonly maxTurns: number;
   /** The question, for a channel already put into its fixed form. */
   readonly question: (channel: string) => string;
+  /**
+   * The engines that may answer, most preferred first, when the analysis
+   * cannot be left to the owner's usual order. An engine the owner's settings
+   * leave out is still never used.
+   */
+  readonly engines?: readonly EngineId[];
 }
 
 export interface AnalysisSettings {
@@ -36,10 +43,15 @@ export interface AnalysisSettings {
   readonly workDir: string;
 }
 
-const SERVER_NAME = 'jgtube';
+/** The connector's name as every engine knows it. */
+export const SERVER_NAME = 'jgtube';
 const tool = (name: string): string => `mcp__${SERVER_NAME}__${name}`;
 /** Long enough for several tool calls and a considered answer; short enough to notice a hang. */
 const TIMEOUT_MS = 5 * 60 * 1000;
+
+/** One tool call is enough to prove an engine can reach the connector. */
+const CHECK_TIMEOUT_MS = 2 * 60 * 1000;
+const CHECK_MAX_TURNS = 4;
 
 const SYSTEM_PROMPT = [
   'You are an analyst working for the owner of a small faceless YouTube channel.',
@@ -50,13 +62,26 @@ const SYSTEM_PROMPT = [
   'Answer in plain text. Put section titles in CAPITALS on their own line and start list items with "- ". Do not use markdown symbols such as #, * or backticks.',
 ].join(' ');
 
+/** Who the engine is when it watches a video: there are no tools, only what is seen and heard. */
+export const VIDEO_SYSTEM_PROMPT = [
+  'You are an analyst working for the owner of a small faceless YouTube channel.',
+  'Say only what you see and hear in the video, and give the time in the video for each point.',
+  'If you could not watch the video itself, say so in the first line instead of guessing from its title or page.',
+  'Write for a creator, not an engineer: short sentences, no jargon, no preamble.',
+  'Answer in plain text. Put section titles in CAPITALS on their own line and start list items with "- ". Do not use markdown symbols such as #, * or backticks.',
+].join(' ');
+
 export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
   thumbnails: {
     title: 'Thumbnail review',
     description:
-      'Claude looks at the thumbnails that took off on channels like yours, and at yours, names the styles that are winning and says what to test.',
+      'Looks at the thumbnails that took off on channels like yours, and at yours, names the styles that are winning and says what to test.',
     allowedTools: [tool('get_map'), tool('get_thumbnail_board'), tool('view_thumbnails')],
     maxTurns: 12,
+    // The pictures reach the engine as tool results. Claude Code is known to see
+    // them and Codex documents that it does; nothing says Antigravity passes a
+    // tool's pictures on, and a review written without seeing them would be invented.
+    engines: ['claude', 'codex'],
     question: (channel) =>
       [
         `For the channel ${channel}: call get_map to learn which channel is the owner's model, if there is one, and which look-alikes match most closely. Then call get_thumbnail_board.`,
@@ -69,7 +94,7 @@ export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
   topics: {
     title: 'Video ideas',
     description:
-      'Claude reads the breakouts around your channel and proposes videos to make next, with the evidence for each.',
+      'Reads the breakouts around your channel and proposes videos to make next, with the evidence for each.',
     allowedTools: [
       tool('get_map'),
       tool('get_breakouts'),
@@ -92,7 +117,7 @@ export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
   'near-misses': {
     title: 'Same topic, different words',
     description:
-      'Claude reads the titles of channels the filter rejected for their wording and says which really make your kind of video.',
+      'Reads the titles of channels the filter rejected for their wording and says which really make your kind of video.',
     allowedTools: [tool('get_near_misses'), tool('get_map')],
     maxTurns: 8,
     question: (channel) =>
@@ -111,30 +136,65 @@ function fixedForm(channel: string): string {
   return ref.kind === 'id' ? ref.id : `@${ref.handle}`;
 }
 
-/** One analysis for one channel, as a boxed-in run of Claude Code with the connector. */
+/** How an engine starts the connector on the owner's store. */
+function connectorServer(settings: AnalysisSettings): McpServerSpec {
+  return {
+    command: 'node',
+    args: [
+      join(settings.projectRoot, 'node_modules/tsx/dist/cli.mjs'),
+      join(settings.projectRoot, 'packages/mcp/src/main.ts'),
+    ],
+    env: { JGTUBE_DB_PATH: settings.dbPath },
+  };
+}
+
+function specOf(id: AnalysisId): AnalysisSpec {
+  const spec = ANALYSES[id] as AnalysisSpec | undefined;
+  if (!spec) throw new Error('There is no such analysis');
+  return spec;
+}
+
+/** One analysis for one channel, as a boxed-in run of an engine with the connector. */
 export function analysisRequest(
   id: AnalysisId,
   channel: string,
   settings: AnalysisSettings,
-): ClaudeRunRequest {
-  const spec = ANALYSES[id] as AnalysisSpec | undefined;
-  if (!spec) throw new Error('There is no such analysis');
+): EngineRunRequest {
+  const spec = specOf(id);
   return {
     prompt: spec.question(fixedForm(channel)),
     systemPrompt: SYSTEM_PROMPT,
-    mcpServers: {
-      [SERVER_NAME]: {
-        command: 'node',
-        args: [
-          join(settings.projectRoot, 'node_modules/tsx/dist/cli.mjs'),
-          join(settings.projectRoot, 'packages/mcp/src/main.ts'),
-        ],
-        env: { JGTUBE_DB_PATH: settings.dbPath },
-      },
-    },
+    mcpServers: { [SERVER_NAME]: connectorServer(settings) },
     allowedTools: spec.allowedTools,
     maxTurns: spec.maxTurns,
     timeoutMs: TIMEOUT_MS,
+    cwd: settings.workDir,
+  };
+}
+
+/**
+ * The engines to try for an analysis, most preferred first: the analysis's
+ * own list when it has one, else the owner's, and never an engine the owner's
+ * settings leave out.
+ */
+export function enginesFor(id: AnalysisId, allowed: readonly EngineId[]): readonly EngineId[] {
+  return (specOf(id).engines ?? allowed).filter((engine) => allowed.includes(engine));
+}
+
+/**
+ * A one-line question that needs one read-only tool: enough to prove on the
+ * owner's computer that an engine starts, is signed in and can reach the
+ * connector, at the cost of a few words of allowance.
+ */
+export function connectionCheck(settings: AnalysisSettings): EngineRunRequest {
+  return {
+    prompt:
+      'Call the list_niches tool once. Then answer in one short line: how many channels did it list?',
+    systemPrompt: 'You are checking that a tool works. Answer in one short line of plain text.',
+    mcpServers: { [SERVER_NAME]: connectorServer(settings) },
+    allowedTools: [tool('list_niches')],
+    maxTurns: CHECK_MAX_TURNS,
+    timeoutMs: CHECK_TIMEOUT_MS,
     cwd: settings.workDir,
   };
 }

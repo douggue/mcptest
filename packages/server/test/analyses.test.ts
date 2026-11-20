@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'vitest';
-import { ANALYSES, ANALYSIS_IDS, analysisRequest, type AnalysisSettings } from '../src/analyses';
+import {
+  ANALYSES,
+  ANALYSIS_IDS,
+  VIDEO_SYSTEM_PROMPT,
+  analysisRequest,
+  connectionCheck,
+  enginesFor,
+  type AnalysisSettings,
+} from '../src/analyses';
 
 const settings: AnalysisSettings = {
   projectRoot: '/app/jgtube',
@@ -118,5 +126,43 @@ describe('analysisRequest', () => {
     expect(() => analysisRequest('everything' as never, '@americainvents2', settings)).toThrow(
       /analysis/i,
     );
+  });
+});
+
+describe('enginesFor', () => {
+  test('leaves most analyses to the owner’s order', () => {
+    expect(enginesFor('topics', ['agy', 'claude', 'codex'])).toEqual(['agy', 'claude', 'codex']);
+    expect(enginesFor('near-misses', ['codex', 'agy'])).toEqual(['codex', 'agy']);
+  });
+
+  test('gives the thumbnail review to engines known to see pictures from tools, Claude first', () => {
+    expect(enginesFor('thumbnails', ['agy', 'claude', 'codex'])).toEqual(['claude', 'codex']);
+    expect(enginesFor('thumbnails', ['codex', 'claude'])).toEqual(['claude', 'codex']);
+  });
+
+  test('never names an engine the owner’s settings leave out', () => {
+    expect(enginesFor('thumbnails', ['agy', 'codex'])).toEqual(['codex']);
+    expect(enginesFor('thumbnails', ['agy'])).toEqual([]);
+  });
+});
+
+describe('connectionCheck', () => {
+  test('asks one short question that needs one tool that only reads', () => {
+    const request = connectionCheck(settings);
+    const analysis = analysisRequest('topics', CHANNEL_ID, settings);
+
+    expect(request.allowedTools).toEqual(['mcp__jgtube__list_niches']);
+    expect(request.prompt).toMatch(/list_niches/);
+    expect(request.mcpServers).toEqual(analysis.mcpServers);
+    expect(request.timeoutMs).toBeLessThan(analysis.timeoutMs);
+  });
+});
+
+describe('the instructions for watching a video', () => {
+  test('ask for what is seen and heard, with times, and for honesty when it could not watch', () => {
+    expect(VIDEO_SYSTEM_PROMPT).toMatch(/see and hear/);
+    expect(VIDEO_SYSTEM_PROMPT).toMatch(/time in the video/);
+    expect(VIDEO_SYSTEM_PROMPT).toMatch(/could not watch the video itself, say so/);
+    expect(VIDEO_SYSTEM_PROMPT).toMatch(/plain text/i);
   });
 });

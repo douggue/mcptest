@@ -1,18 +1,12 @@
-import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
-import {
-  ClaudeRunError,
-  buildClaudeArgs,
-  runClaude,
-  type ClaudeChild,
-  type ClaudeRunDeps,
-  type ClaudeRunRequest,
-  type SpawnClaude,
-} from '../src/claudeRunner';
+import { buildClaudeArgs, claudeEngine, runClaude } from '../../src/engines/claude';
+import { EngineRunError } from '../../src/engines/failure';
+import type { EngineDeps, EngineRunRequest } from '../../src/engines/types';
+import { harness as standIn, scripted, wait } from './standIn';
 
-const request: ClaudeRunRequest = {
+const request: EngineRunRequest = {
   prompt: 'Compare my thumbnails with the winners.',
   systemPrompt: 'You are a YouTube analyst.',
   mcpServers: {
@@ -24,54 +18,18 @@ const request: ClaudeRunRequest = {
   cwd: '/tmp/work',
 };
 
-/** A stand-in for the Claude Code process that the test drives by hand. */
-class FakeChild extends EventEmitter implements ClaudeChild {
-  readonly stdout = new EventEmitter();
-  readonly stderr = new EventEmitter();
-  killed = false;
-  /** The signal of each request to stop, in order. */
-  signals: Array<string | undefined> = [];
-
-  kill(signal?: string): void {
-    this.killed = true;
-    this.signals.push(signal);
-  }
-
-  finish(output: unknown, code = 0, errorText = ''): void {
-    if (output !== undefined) {
-      this.stdout.emit('data', typeof output === 'string' ? output : JSON.stringify(output));
-    }
-    if (errorText) this.stderr.emit('data', errorText);
-    this.emit('close', code);
-  }
-}
-
-interface Started {
-  readonly command: string;
-  readonly args: readonly string[];
-  readonly cwd: string;
-  readonly env: Readonly<Record<string, string | undefined>>;
-}
-
 function harness(env: Record<string, string | undefined> = { PATH: '/bin' }) {
-  const child = new FakeChild();
-  const started: Started[] = [];
-  const spawn: SpawnClaude = (command, args, options) => {
-    started.push({ command, args, cwd: options.cwd, env: options.env });
-    return child;
-  };
+  const { child, started, deps } = standIn(env);
   return {
     child,
     started,
-    run: (r = request, more: Partial<ClaudeRunDeps> = {}) => runClaude(r, { spawn, env, ...more }),
+    run: (r = request, more: Partial<EngineDeps> = {}) => runClaude(r, { ...deps, ...more }),
   };
 }
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 /** What Claude Code really printed, saved from a run and trimmed of its timing fields. */
 const fixture = (name: string): Buffer =>
-  readFileSync(fileURLToPath(new URL(`./fixtures/${name}.json`, import.meta.url)));
+  readFileSync(fileURLToPath(new URL(`../fixtures/${name}.json`, import.meta.url)));
 
 const success = (result: string) => ({
   type: 'result',
@@ -158,7 +116,7 @@ describe('runClaude', () => {
     child.emit('error', Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT' }));
 
     await expect(pending).rejects.toMatchObject({ reason: 'not-installed' });
-    await expect(pending).rejects.toBeInstanceOf(ClaudeRunError);
+    await expect(pending).rejects.toBeInstanceOf(EngineRunError);
   });
 
   test('stops it and says so when it takes too long', async () => {
@@ -203,10 +161,10 @@ describe('runClaude', () => {
     const pending = run();
     child.finish('not json at all', 2, 'Error at /home/someone/.claude/x.js: bad flag');
 
-    const failure = await pending.catch((error: unknown) => error as ClaudeRunError);
+    const failure = await pending.catch((error: unknown) => error as EngineRunError);
 
     expect(failure).toMatchObject({ reason: 'failed' });
-    expect((failure as ClaudeRunError).message).not.toContain('/home/someone');
+    expect((failure as EngineRunError).message).not.toContain('/home/someone');
   });
 
   test('reads characters that arrive split across two pieces', async () => {
@@ -280,15 +238,50 @@ describe('runClaude', () => {
     expect(read).toBe(false);
   });
 
-  test('says on Windows that the buttons are verified on macOS and Linux only', async () => {
+  test('says someone has to sign in when Claude Code says so', async () => {
     const { child, run } = harness();
-    const pending = run(request, { platform: 'win32' });
-    child.emit('error', Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT' }));
+    const pending = run();
+    child.finish(
+      {
+        type: 'result',
+        subtype: 'success',
+        is_error: true,
+        result: 'Not logged in · Please run /login',
+      },
+      1,
+    );
 
     await expect(pending).rejects.toMatchObject({
-      reason: 'not-installed',
-      message: expect.stringMatching(/reachable as `claude`.*macOS and Linux only/),
+      reason: 'not-signed-in',
+      message: expect.stringContaining('Please run /login'),
     });
+  });
+
+  test('on Windows, starts a Claude Code installed as claude.cmd through Node, with no shell', async () => {
+    const npm = 'C:\\Users\\Jo\\AppData\\Roaming\\npm';
+    const entry = `${npm}\\node_modules\\@anthropic-ai\\claude-code\\cli.js`;
+    const shim = `"%_prog%"  "%dp0%\\node_modules\\@anthropic-ai\\claude-code\\cli.js" %*`;
+    const files: Readonly<Record<string, string>> = { [`${npm}\\claude.cmd`]: shim, [entry]: '' };
+    const { child, started, run } = harness({ Path: npm });
+    const pending = run(request, {
+      platform: 'win32',
+      files: { exists: (path) => path in files, read: (path) => files[path] ?? '' },
+    });
+    child.finish(success('ok'));
+
+    await expect(pending).resolves.toMatchObject({ text: 'ok' });
+    expect(started[0]?.command).toBe(process.execPath);
+    expect(started[0]?.args.slice(0, 3)).toEqual([entry, '-p', request.prompt]);
+    expect(started[0]?.verbatim).toBeUndefined();
+  });
+
+  test('on Windows, says Claude Code is not installed when it is nowhere on the path', async () => {
+    const { started, run } = harness({ Path: 'C:\\Windows' });
+
+    await expect(
+      run(request, { platform: 'win32', files: { exists: () => false, read: () => '' } }),
+    ).rejects.toMatchObject({ reason: 'not-installed' });
+    expect(started).toEqual([]);
   });
 
   test('stops the process when Jgtube is closing', async () => {
@@ -376,4 +369,66 @@ describe('runClaude, against what Claude Code really prints', () => {
       });
     },
   );
+});
+
+describe('checking Claude Code', () => {
+  const answers = (auth: { stdout?: string; code?: number }, version = '2.1.330 (Claude Code)') =>
+    scripted((start) => (start.args[0] === '--version' ? { stdout: version } : auth));
+
+  test('reports the version and that someone is signed in, without keeping who', async () => {
+    const { started, deps } = answers({
+      stdout: JSON.stringify({ loggedIn: true, email: 'owner@example.com' }),
+    });
+
+    const status = await claudeEngine.check(deps);
+
+    expect(status).toEqual({
+      id: 'claude',
+      label: 'Claude Code',
+      installed: true,
+      signedIn: true,
+      version: '2.1.330',
+      ready: true,
+      note: null,
+    });
+    expect(JSON.stringify(status)).not.toContain('owner@example.com');
+    expect(started.map((start) => start.args)).toEqual([['--version'], ['auth', 'status']]);
+  });
+
+  test('reports that nobody is signed in, from the reply or from the exit code', async () => {
+    const told = await claudeEngine.check(answers({ stdout: '{"loggedIn":false}', code: 1 }).deps);
+    const exited = await claudeEngine.check(answers({ stdout: 'Not logged in', code: 1 }).deps);
+
+    expect(told).toMatchObject({ installed: true, signedIn: false, ready: false });
+    expect(exited).toMatchObject({ signedIn: false, ready: false });
+  });
+
+  test('does not ask an old Claude Code, which would take the words as a question', async () => {
+    const { started, deps } = answers({ stdout: '{"loggedIn":true}' }, '1.0.44 (Claude Code)');
+
+    expect(await claudeEngine.check(deps)).toMatchObject({ signedIn: null, ready: true });
+    expect(started).toHaveLength(1);
+  });
+
+  test('reports that it is not installed', async () => {
+    const { deps } = scripted(() => ({ startError: 'ENOENT' }));
+
+    expect(await claudeEngine.check(deps)).toEqual({
+      id: 'claude',
+      label: 'Claude Code',
+      installed: false,
+      signedIn: null,
+      version: null,
+      ready: false,
+      note: null,
+    });
+  });
+
+  test('leaves sign-in unknown when the question cannot be put', async () => {
+    const { deps } = scripted((start) =>
+      start.args[0] === '--version' ? { stdout: '2.1.330' } : { startError: 'EACCES' },
+    );
+
+    expect(await claudeEngine.check(deps)).toMatchObject({ installed: true, signedIn: null });
+  });
 });
