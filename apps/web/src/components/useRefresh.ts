@@ -1,6 +1,7 @@
 import type { RefreshProgress } from '@jgtube/core';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Api, RefreshReply, RefreshSummary } from '../lib/api';
+import { followJob, oneAtATime } from '../lib/requests';
 
 const POLL_INTERVAL_MS = 1500;
 
@@ -29,6 +30,7 @@ const messageOf = (error: unknown, fallback: string): string =>
 export interface Refresh {
   readonly view: RefreshView;
   readonly run: RefreshRun;
+  /** Starts a refresh; a press while one is being started is ignored. */
   readonly start: () => void;
 }
 
@@ -73,37 +75,50 @@ export function useRefresh(api: Api, onDone: () => void): Refresh {
 
   const jobId = run.status === 'running' ? run.jobId : null;
   // While a refresh runs, poll it; when it ends, read the status and the lists again.
+  // Each reading waits for the last, and the end is acted on once.
   useEffect(() => {
     if (jobId === null) return;
-    const finish = (next: RefreshRun) => {
+    const finish = (next: RefreshRun): boolean => {
       setRun(next);
       void readStatus();
       onDone();
+      return true;
     };
-    const timer = window.setInterval(() => {
-      api
-        .refreshJob(jobId)
-        .then((job) => {
-          if (job.status === 'done' && job.result) finish({ status: 'done', summary: job.result });
-          else if (job.status !== 'running') {
-            finish({ status: 'failed', message: job.error ?? 'The refresh did not finish' });
-          } else setRun({ status: 'running', jobId, progress: job.progress });
-        })
-        .catch((error: unknown) =>
-          finish({ status: 'failed', message: messageOf(error, 'The refresh was lost track of') }),
-        );
-    }, POLL_INTERVAL_MS);
-    return () => window.clearInterval(timer);
+    return followJob({
+      intervalMs: POLL_INTERVAL_MS,
+      read: () => api.refreshJob(jobId),
+      onReading: (job) => {
+        if (job.status === 'done' && job.result) {
+          return finish({ status: 'done', summary: job.result });
+        }
+        if (job.status !== 'running') {
+          return finish({ status: 'failed', message: job.error ?? 'The refresh did not finish' });
+        }
+        setRun({ status: 'running', jobId, progress: job.progress });
+        return false;
+      },
+      onLost: (error) =>
+        finish({ status: 'failed', message: messageOf(error, 'The refresh was lost track of') }),
+    });
   }, [api, jobId, onDone, readStatus]);
 
-  const start = useCallback(() => {
-    api
-      .startRefresh()
-      .then((id) => setRun({ status: 'running', jobId: id, progress: null }))
-      .catch((error: unknown) =>
-        setRun({ status: 'failed', message: messageOf(error, 'The refresh could not be started') }),
-      );
-  }, [api]);
+  // A second press while the first is still being sent does nothing. A refusal
+  // never replaces a refresh this page is following: the server refuses a start
+  // because one is running, and the status read picks that one up.
+  const start = useMemo(
+    () =>
+      oneAtATime(() =>
+        api.startRefresh().then(
+          (id) => setRun({ status: 'running', jobId: id, progress: null }),
+          (error: unknown) => {
+            const message = messageOf(error, 'The refresh could not be started');
+            setRun((now) => (now.status === 'running' ? now : { status: 'failed', message }));
+            return readStatus();
+          },
+        ),
+      ),
+    [api, readStatus],
+  );
 
   return { view, run, start };
 }

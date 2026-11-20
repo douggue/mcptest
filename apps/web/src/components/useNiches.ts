@@ -1,7 +1,8 @@
 import type { NicheList } from '@jgtube/core';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Api, SearchSummary } from '../lib/api';
 import { withWatched } from '../lib/niches';
+import { oneAtATime, requestCounter } from '../lib/requests';
 
 export type NichesState =
   | { readonly status: 'loading' }
@@ -46,19 +47,25 @@ export function useNiches(api: Api, mapId: number | null): Niches {
   const [state, setState] = useState<NichesState>(LOADING);
   const [search, setSearch] = useState<SearchState>(IDLE);
 
+  // The list is read from several places (a new map, a search, a refresh). Only
+  // the answer to the newest read is shown, so a slow older one cannot replace it.
+  const requests = useMemo(() => requestCounter(), []);
   const read = useCallback(
-    (isCurrent: () => boolean) =>
-      api
+    (isCurrent: () => boolean) => {
+      const isNewest = requests.begin();
+      const stillWanted = (): boolean => isCurrent() && isNewest();
+      return api
         .niches()
         .then((reply) => {
-          if (!isCurrent()) return;
+          if (!stillWanted()) return;
           setState({ status: 'ready', list: reply, problem: null, canDiscover: reply.canDiscover });
         })
         .catch((error: unknown) => {
-          if (!isCurrent()) return;
+          if (!stillWanted()) return;
           setState({ status: 'failed', message: messageOf(error, 'The list could not be loaded') });
-        }),
-    [api],
+        });
+    },
+    [api, requests],
   );
 
   useEffect(() => {
@@ -88,19 +95,21 @@ export function useNiches(api: Api, mapId: number | null): Niches {
     [api],
   );
 
-  const discover = useCallback(
-    (keyword: string) => {
-      setSearch({ status: 'running', keyword });
-      api
-        .discoverNiches(keyword)
-        .then((summary) => {
-          setSearch({ status: 'done', summary });
-          return read(() => true);
-        })
-        .catch((error: unknown) =>
-          setSearch({ status: 'failed', message: messageOf(error, 'The search did not finish') }),
-        );
-    },
+  // A second search asked for while one runs is ignored; the server would refuse it.
+  const discover = useMemo(
+    () =>
+      oneAtATime((keyword: string) => {
+        setSearch({ status: 'running', keyword });
+        return api
+          .discoverNiches(keyword)
+          .then((summary) => {
+            setSearch({ status: 'done', summary });
+            return read(() => true);
+          })
+          .catch((error: unknown) =>
+            setSearch({ status: 'failed', message: messageOf(error, 'The search did not finish') }),
+          );
+      }),
     [api, read],
   );
 
