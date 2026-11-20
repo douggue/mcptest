@@ -354,3 +354,33 @@ in it be adapted. What is taken, what is deferred and what is left out:
    key is set.
 
 Still open: the first list of subjects (keywords) to watch.
+
+### Proposed first subjects (a draft for the owner to edit)
+
+Chosen by method, not from any channel: broad interests in unrelated areas, plus
+format words that cross topics. Two places are left for niches the owner already
+knows, as controls: if the finder does not flag what the owner knows is working
+there, the rules are wrong. Each week the emptiest subjects are replaced with
+words from that week's unexpected winners.
+
+| Area                | Subject                          |
+| ------------------- | -------------------------------- |
+| Control             | (the owner's own niche)          |
+| Control             | (a second niche the owner knows) |
+| Home and repair     | home repair                      |
+| Food                | budget meals                     |
+| Money and work      | side hustle                      |
+| Science and nature  | animal facts                     |
+| History and places  | abandoned places                 |
+| Vehicles            | car detailing                    |
+| Health              | stretching routine               |
+| Tech                | phone tips                       |
+| Crafts              | woodworking                      |
+| Cross-topic formats | restoration                      |
+| Cross-topic formats | before and after                 |
+| Cross-topic formats | what happens if                  |
+| Cross-topic formats | explained in 60 seconds          |
+
+Fifteen subjects in four countries is the search budget's limit. If the first
+week shows the four countries return largely the same videos, the list grows to
+about thirty subjects in two countries.
