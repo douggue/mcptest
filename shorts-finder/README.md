@@ -188,7 +188,11 @@ kept back is never lent.
 - Each finding gets one Telegram message: why it is listed, views per hour,
   total views, age, the channel's size and age when known, an earnings range
   at the configured rate, the subject and country that found it, and links
-  to the Short and the channel. Oldest first, at most
+  to the Short and the channel. The range is labelled "up to" while
+  `SHORTS_ENGAGED_SHARE` is 1: a Short's public view count may count every
+  start and replay while payment is on engaged views, which is still to be
+  checked against YouTube's current policy. A share below 1 is applied to the
+  views before the rate, and the alert then says which share it counted. Oldest first, at most
   `SHORTS_MAX_ALERTS_PER_DAY` (10) in a day of the owner's time zone.
 - A finding is marked as sent only after Telegram accepts the message. When
   Telegram asks for a pause, or a message fails, sending stops and is tried

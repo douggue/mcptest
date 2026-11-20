@@ -79,6 +79,7 @@ function messagesFor(
       digestHour: config.digestHour,
       timeZone: config.timeZone,
       rate: config.shortsRate,
+      engagedShare: config.engagedShare,
     },
   };
   const sources = {

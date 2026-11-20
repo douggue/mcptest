@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
+  DEFAULT_ENGAGED_SHARE,
   DEFAULT_SHORTS_RATE,
   SUBSCRIBER_THRESHOLD,
   estimateShortsEarnings,
@@ -13,6 +14,7 @@ describe('estimateShortsEarnings', () => {
       low: 2000 * DEFAULT_SHORTS_RATE.low,
       high: 2000 * DEFAULT_SHORTS_RATE.high,
       views: 2_000_000,
+      upperBound: true,
       belowSubscriberThreshold: false,
     });
     expect(DEFAULT_SHORTS_RATE).toEqual({ low: 0.1, high: 0.5 });
@@ -50,6 +52,21 @@ describe('estimateShortsEarnings', () => {
 
     expect(estimate.low).toBe(2);
     expect(estimate.high).toBe(7);
+  });
+
+  test('takes the engaged share off the views before the rate, and then is no longer an upper bound', () => {
+    const half = estimateShortsEarnings(300_000, 5000, DEFAULT_SHORTS_RATE, 0.5);
+    const none = estimateShortsEarnings(300_000, 5000, DEFAULT_SHORTS_RATE, 0);
+
+    expect(half).toMatchObject({ low: 15, high: 75, views: 300_000, upperBound: false });
+    expect(none).toMatchObject({ low: 0, high: 0, upperBound: false });
+    expect(DEFAULT_ENGAGED_SHARE).toBe(1);
+  });
+
+  test.each([-0.1, 1.01, Number.NaN])('refuses an engaged share of %s', (share) => {
+    expect(() => estimateShortsEarnings(1000, 5000, DEFAULT_SHORTS_RATE, share)).toThrow(
+      RangeError,
+    );
   });
 
   test.each([-1, Number.NaN, Number.POSITIVE_INFINITY])('refuses a view count of %s', (views) => {

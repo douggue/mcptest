@@ -8,7 +8,7 @@
  */
 import type { QuotaKind } from '../quota/kinds';
 import type { Finding } from '../repos/types';
-import { estimateShortsEarnings, type RateRange } from '../scoring/earnings';
+import { DEFAULT_ENGAGED_SHARE, estimateShortsEarnings, type RateRange } from '../scoring/earnings';
 import {
   ageInWords,
   channelUrl,
@@ -44,6 +44,8 @@ export interface FindingContext {
   readonly now: Date;
   /** The configured Shorts rate, in dollars per 1,000 views. */
   readonly rate: RateRange;
+  /** The share of counted views taken as paid for; every view when not given. */
+  readonly engagedShare?: number | undefined;
 }
 
 const channelName = (finding: Finding, max: number): string =>
@@ -67,17 +69,30 @@ function channelLine(finding: Finding, now: Date): string | null {
   return parts.length === 0 ? null : `Channel: ${parts.join(', ')}`;
 }
 
-/** The stored range, or one worked out from the views when none was stored. */
-function earningsLine(finding: Finding, rate: RateRange): string | null {
+const PERCENT = 100;
+
+/**
+ * The stored range, or one worked out from the views when none was stored.
+ * With every counted view taken as paid for the range is the most the views
+ * could be worth, and the line says "up to"; with a smaller share it says
+ * which share was counted.
+ */
+function earningsLine(finding: Finding, context: FindingContext): string | null {
+  const { rate } = context;
+  const share = context.engagedShare ?? DEFAULT_ENGAGED_SHARE;
   const views = finding.reason.totalViews;
   const stored =
     finding.earningsLow !== null && finding.earningsHigh !== null
       ? { low: finding.earningsLow, high: finding.earningsHigh }
       : null;
-  const range = stored ?? (views === null ? null : estimateShortsEarnings(views, null, rate));
+  const range =
+    stored ?? (views === null ? null : estimateShortsEarnings(views, null, rate, share));
   if (range === null) return null;
   const at = `at ${rateDollars(rate.low)} to ${rateDollars(rate.high)} per 1,000 views`;
-  return `Could have earned so far: ${dollars(range.low)} to ${dollars(range.high)} (${at})`;
+  const amount = `${dollars(range.low)} to ${dollars(range.high)}`;
+  return share === 1
+    ? `Could have earned so far: up to ${amount} (${at}, if every counted view is paid for)`
+    : `Could have earned so far: ${amount} (${at}, counting ${Math.round(share * PERCENT)}% of views as paid for)`;
 }
 
 function sourceLine(finding: Finding): string | null {
@@ -100,7 +115,7 @@ function numberLines(finding: Finding, context: FindingContext): readonly string
     views === null ? null : `Total views: ${compactNumber(views)}`,
     `Posted: ${ageInWords(finding.publishedAt, context.now)} ago`,
     channelLine(finding, context.now),
-    earningsLine(finding, context.rate),
+    earningsLine(finding, context),
     sourceLine(finding),
   ];
   return lines.filter((line) => line !== null);

@@ -31,6 +31,18 @@ export const DEFAULT_SHORTS_RATE: RateRange = { low: 0.1, high: 0.5 };
  */
 export const SUBSCRIBER_THRESHOLD = 1000;
 
+/**
+ * The share of a Short's counted views taken to be paid for; `SHORTS_ENGAGED_SHARE`.
+ *
+ * A Short's public view count may count every start and replay, while
+ * YouTube pays on "engaged views", which are fewer. How the two relate is to
+ * be checked against YouTube's current policy text; until then the default
+ * is 1, every counted view, which makes the range an upper bound, and the
+ * alert says "up to". Once the owner has a figure from a channel's own
+ * analytics, a share below 1 turns the range into an estimate.
+ */
+export const DEFAULT_ENGAGED_SHARE = 1;
+
 const VIEWS_PER_RATE_UNIT = 1000;
 const CENTS_PER_DOLLAR = 100;
 
@@ -39,6 +51,11 @@ export interface EarningsEstimate {
   readonly low: number;
   readonly high: number;
   readonly views: number;
+  /**
+   * True when every counted view was taken as paid for: the range is then
+   * the most the views could be worth at the rate, not an estimate of it.
+   */
+  readonly upperBound: boolean;
   /**
    * True when the channel has fewer subscribers than the threshold. The range
    * is what the views would be worth at the rate either way, never what was
@@ -50,21 +67,27 @@ export interface EarningsEstimate {
 const toCents = (dollars: number): number =>
   Math.round(dollars * CENTS_PER_DOLLAR) / CENTS_PER_DOLLAR;
 
-/** The ad revenue range for a number of Shorts views. */
+/** The ad revenue range for a number of Shorts views, of which a share is taken as paid for. */
 export function estimateShortsEarnings(
   views: number,
   subscribers: number | null,
   rate: RateRange = DEFAULT_SHORTS_RATE,
+  engagedShare: number = DEFAULT_ENGAGED_SHARE,
 ): EarningsEstimate {
   if (!Number.isFinite(views) || views < 0) {
     throw new RangeError('A view count must be zero or more');
   }
+  if (!Number.isFinite(engagedShare) || engagedShare < 0 || engagedShare > 1) {
+    throw new RangeError('The engaged share must be from 0 to 1');
+  }
+  // The share comes off the views before the rate: it is views that are or are not paid for.
   const worth = (perThousand: number): number =>
-    toCents((views / VIEWS_PER_RATE_UNIT) * perThousand);
+    toCents(((views * engagedShare) / VIEWS_PER_RATE_UNIT) * perThousand);
   return {
     low: worth(rate.low),
     high: worth(rate.high),
     views,
+    upperBound: engagedShare === 1,
     belowSubscriberThreshold: subscribers === null ? null : subscribers < SUBSCRIBER_THRESHOLD,
   };
 }

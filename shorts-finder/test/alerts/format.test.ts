@@ -174,7 +174,7 @@ describe('formatFinding', () => {
       'Total views: 300K',
       'Posted: 5 hours ago',
       'Channel: 890 subscribers, started 3 months ago',
-      'Could have earned so far: $30.00 to $150 (at $0.10 to $0.50 per 1,000 views)',
+      'Could have earned so far: up to $30.00 to $150 (at $0.10 to $0.50 per 1,000 views, if every counted view is paid for)',
       'Found by searching "bicycle repair" in CA · channel based in US',
       '',
       `<a href="https://www.youtube.com/shorts/${videoId(3)}">Watch the Short</a> · <a href="https://www.youtube.com/channel/${channelId('C')}">Open the channel</a>`,
@@ -229,8 +229,20 @@ describe('formatFinding', () => {
     const message = formatFinding(unpriced, { now: NOW, rate: { low: 0.05, high: 0.3 } });
 
     expect(message).toContain(
-      'Could have earned so far: $10.00 to $60.00 (at $0.05 to $0.30 per 1,000 views)',
+      'Could have earned so far: up to $10.00 to $60.00 (at $0.05 to $0.30 per 1,000 views, if every counted view is paid for)',
     );
+  });
+
+  test('says which share of views it counted, and drops "up to", when the engaged share is below one', () => {
+    const unpriced = finding(2, 'B', { earningsLow: null, earningsHigh: null });
+    const rate = { low: 0.05, high: 0.3 };
+
+    const message = formatFinding(unpriced, { now: NOW, rate, engagedShare: 0.6 });
+
+    expect(message).toContain(
+      'Could have earned so far: $6.00 to $36.00 (at $0.05 to $0.30 per 1,000 views, counting 60% of views as paid for)',
+    );
+    expect(message).not.toContain('up to');
   });
 
   test('tells of a channel by whichever of its size and age is known', () => {

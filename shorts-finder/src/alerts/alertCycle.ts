@@ -45,6 +45,8 @@ export interface AlertSettings {
   /** The owner's time zone, such as Europe/London. */
   readonly timeZone: string;
   readonly rate: RateRange;
+  /** The share of counted views taken as paid for; 1 when not given. */
+  readonly engagedShare?: number;
 }
 
 export interface AlertDeps {
@@ -113,7 +115,8 @@ export async function runAlertCycle(deps: AlertDeps): Promise<AlertCycleReport |
   if (room === 0) return null;
   let report: AlertCycleReport = { sent: 0, skipped: 0, waiting: 0, stopped: null, failure: null };
   for (const finding of deps.findings.listWaiting(room)) {
-    const html = formatFinding(finding, { now: deps.now(), rate: deps.settings.rate });
+    const { rate, engagedShare } = deps.settings;
+    const html = formatFinding(finding, { now: deps.now(), rate, engagedShare });
     const result = await deps.send(html, { preview: true });
     if (result.kind === 'sent') {
       deps.findings.markAlerted(finding.id, deps.now());

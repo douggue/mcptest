@@ -8,7 +8,7 @@ import {
   DEFAULT_FOLLOW_MAX_SUBSCRIBERS,
   type FollowSettings,
 } from './discover/follow';
-import { DEFAULT_SHORTS_RATE, type RateRange } from './scoring/earnings';
+import { DEFAULT_ENGAGED_SHARE, DEFAULT_SHORTS_RATE, type RateRange } from './scoring/earnings';
 
 /** The countries watched first: English-speaking ones where ads pay most. */
 export const DEFAULT_REGIONS: readonly string[] = ['US', 'GB', 'CA', 'AU'];
@@ -49,6 +49,12 @@ const rate = z
   .regex(/^\d{1,3}(\.\d{1,4})?$/, 'must be dollars per 1,000 views, such as 0.10')
   .transform((text) => Number(text))
   .refine((value) => value <= MAX_RATE, { message: `must be at most ${MAX_RATE}` });
+
+/** A share from 0 to 1, written with up to three decimals. */
+const share = z
+  .string()
+  .regex(/^(0(\.\d{1,3})?|1(\.0{1,3})?)$/, 'must be a share from 0 to 1, such as 0.6')
+  .transform((text) => Number(text));
 
 const regions = z
   .string()
@@ -115,6 +121,7 @@ const envSchema = storeSchema.extend({
     .max(200, 'is too long to be an API key'),
   SHORTS_RATE_LOW: rate.default(DEFAULT_SHORTS_RATE.low),
   SHORTS_RATE_HIGH: rate.default(DEFAULT_SHORTS_RATE.high),
+  SHORTS_ENGAGED_SHARE: share.default(DEFAULT_ENGAGED_SHARE),
   TELEGRAM_BOT_TOKEN: optionalSecret(
     z.string().regex(BOT_TOKEN_PATTERN, 'is not shaped like a bot token from @BotFather'),
   ),
@@ -157,6 +164,11 @@ export interface Config extends StoreConfig {
   readonly youtubeApiKey: string;
   /** What 1,000 Shorts views are taken to be worth, in US dollars, low to high. */
   readonly shortsRate: RateRange;
+  /**
+   * The share of counted views taken as paid for, 0 to 1. At 1 the earnings
+   * range is an upper bound and is labelled so; see `scoring/earnings.ts`.
+   */
+  readonly engagedShare: number;
   /** Which channels are followed for their new uploads; starting values, to be revisited. */
   readonly follow: FollowSettings;
   /** Null when neither Telegram setting is given: alerts are off. */
@@ -223,6 +235,7 @@ export function loadConfig(env: Env = process.env): Config {
     ...storeConfigOf(parsed.data),
     youtubeApiKey: parsed.data.YOUTUBE_API_KEY,
     shortsRate,
+    engagedShare: parsed.data.SHORTS_ENGAGED_SHARE,
     follow: {
       maxSubscribers: parsed.data.SHORTS_FOLLOW_MAX_SUBSCRIBERS,
       maxAccountAgeDays: parsed.data.SHORTS_FOLLOW_MAX_ACCOUNT_AGE_DAYS,

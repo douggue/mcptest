@@ -221,6 +221,7 @@ export {
   type StatsSources,
 } from './status';
 export {
+  DEFAULT_ENGAGED_SHARE,
   DEFAULT_SHORTS_RATE,
   SUBSCRIBER_THRESHOLD,
   estimateShortsEarnings,
