@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { buildMapView, type MapMemberData, type MapRow } from '../src/map/view';
-import businessDecline from './fixtures/peer-map-business-decline.json';
-import retroTech from './fixtures/peer-map-retro-tech.json';
+import { NICHES, type Fixture, type FixtureChannel } from './peerMaps';
 
 /**
  * The look-alike rules must not depend on which channel is on screen: a
@@ -10,26 +9,6 @@ import retroTech from './fixtures/peer-map-retro-tech.json';
  * on a small established channel with no model channel. The groups were sorted
  * by reading the titles, not by the scores.
  */
-
-interface FixtureVideo {
-  readonly title: string;
-  readonly durationSeconds: number | null;
-  readonly daysAgo: number;
-}
-
-interface FixtureChannel {
-  readonly id: string;
-  readonly title: string;
-  readonly subscribers: number | null;
-  readonly steps: number;
-  readonly videos: readonly FixtureVideo[];
-}
-
-interface Fixture {
-  readonly now: string;
-  readonly centre: FixtureChannel;
-  readonly channels: readonly FixtureChannel[];
-}
 
 const DAY_MS = 86_400_000;
 
@@ -72,75 +51,6 @@ function rowsOf(fixture: Fixture): (title: string) => MapRow {
     return found;
   };
 }
-
-interface Niche {
-  readonly name: string;
-  readonly fixture: Fixture;
-  /** Make the centre's kind of video, judged by reading their titles. */
-  readonly lookAlikes: readonly string[];
-  /** Other niches altogether. */
-  readonly otherNiches: readonly string[];
-  /** Make the centre's kind of video but have stopped uploading. */
-  readonly dormant: readonly string[];
-}
-
-const NICHES: readonly Niche[] = [
-  {
-    name: 'retro technology: what happened to old software, chips and companies',
-    fixture: retroTech,
-    lookAlikes: [
-      'Tech Fallout',
-      'Byte & Fall',
-      'Jason Stewards',
-      'Tech Rewind',
-      'Silicon Hindsight',
-      'Ctrl+Alt+Fail',
-      'The Great Bet',
-      'Gadget Afterlife',
-    ],
-    otherNiches: [
-      'Paper Globe',
-      'Nick',
-      'Uncle Nav',
-      'Hysterical History',
-      'polymatt',
-      'Neural Nutshell',
-      'Cece Carmen',
-      'Animated Physics',
-      'Kate Kite',
-      'TerraDecoded',
-      'StandFirm',
-      'biplav',
-    ],
-    dormant: ['Tech Assembly'],
-  },
-  {
-    name: 'companies and brands in decline',
-    fixture: businessDecline,
-    lookAlikes: [
-      'John Harrison',
-      'SHUTTER DESK',
-      'Snake Oil Inc',
-      'Final Sale',
-      'Burnt Empires',
-      'Business Behind Brands',
-    ],
-    otherNiches: [
-      'Money Rehab with Nicole Lapin',
-      'Paycheckology',
-      'Depression Era Secrets',
-      'rooked.',
-      'Michael Bordenaro Clips',
-      'Jake Morrison',
-      'Brits React',
-      'BuiltOnMargins',
-      'pulp.',
-      'Kitco Mining',
-      'Canadian Chronicler',
-    ],
-    dormant: [],
-  },
-];
 
 describe.each(NICHES)(
   'look-alikes in another niche: $name',

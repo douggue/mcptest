@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import type { CompetitorStatus, SnapshotChannel } from '@jgtube/core';
 import { ExternalLink, X } from 'lucide-react';
-import { competitorActions } from '../lib/feed';
+import { competitorActions, unsettledNote } from '../lib/feed';
 import { channelUrl, formatCount, formatScore, initials, percent, watchUrl } from '../lib/format';
 import { OUTSIDE_LABEL, TIER_LABEL } from './tiers';
 
@@ -34,6 +34,7 @@ export function Inspector({ channel, onClose, onSetStatus }: Props) {
   const link = channelUrl(channel.id);
   const breakoutLink = channel.breakout ? watchUrl(channel.breakout.videoId) : null;
   const topSource = channel.recommendedBy[0];
+  const unsettled = unsettledNote(channel);
 
   return (
     <aside
@@ -115,6 +116,12 @@ export function Inspector({ channel, onClose, onSetStatus }: Props) {
             {channel.kept ? 'Kept by you. The filter left it out: ' : 'Not counted as like yours: '}
           </span>
           {OUTSIDE_LABEL[channel.outsideReason]}
+        </p>
+      )}
+
+      {unsettled && (
+        <p className="mt-space-sm rounded border border-border-highlight p-2.5 text-body-sm text-on-surface-variant">
+          {unsettled}
         </p>
       )}
 

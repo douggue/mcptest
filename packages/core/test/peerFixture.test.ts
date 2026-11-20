@@ -2,6 +2,7 @@ import { PEER_MIN_TITLE_MATCH } from '../src/map/peers';
 import { describe, expect, test } from 'vitest';
 import { buildMapView, type MapMemberData, type MapRow } from '../src/map/view';
 import fixture from './fixtures/peer-map.json';
+import { LOOK_ALIKES, LOUD_OUTSIDERS, OTHER_NICHES } from './peerMaps';
 
 /**
  * Forty channels from one real map, measured against the model channel the
@@ -12,43 +13,6 @@ import fixture from './fixtures/peer-map.json';
  * Entropy Files), a Russian-language copy of the format, and the three that
  * fail on shape.
  */
-
-/** Make the model's kind of video: a nation's or company's new invention, told as a breakthrough. */
-const LOOK_ALIKES = [
-  'Modern Frontier',
-  'Jaime Heinecke',
-  'Williamson',
-  'States 2050',
-  'Frontier States',
-  'Hans Bender',
-  'Marcus Bennett',
-  'America Invents 2050',
-  'Gael',
-  'Valtrum',
-  'Snap Shift',
-];
-
-/** Share subjects (aircraft, Tesla, rockets, batteries) or stock phrases with the model, not its format. */
-const LOUD_OUTSIDERS = ['Mentour Now!', 'Farzad', 'JoshSullivanSpace', 'Wild Line'];
-
-/** Every tenth channel the map had already rejected on titles; other niches altogether. */
-const OTHER_NICHES = [
-  'All Out Aviation',
-  'Astron17',
-  'Beyond Sky',
-  'C Spinner Watch Restorations',
-  'GOLOVOLOM TV',
-  'GREAT SPACE',
-  'Jake Broe',
-  'KRAFTY',
-  'Part That Changed American History',
-  'TECH HUB',
-  'TECH WAVE',
-  'TerraDecoded',
-  'Uncharted Mysteries',
-  'Vanished Gears & Dials',
-  'World Travel Doc',
-];
 
 const NOW = new Date(fixture.now);
 const DAY_MS = 86_400_000;

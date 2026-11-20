@@ -38,6 +38,7 @@ describe('get_map', () => {
         lookalikes: 2,
         others: 1,
         nearMisses: 0,
+        unsettled: 0,
         removed: 1,
         breakouts: 2,
         otherBreakouts: 1,
@@ -97,6 +98,31 @@ describe('get_map', () => {
 
     expect((data['lookalikes'] as object[])[0]).toMatchObject({ why: 'titles', kept: true });
     expect(data['counts']).toMatchObject({ lookalikes: 1, others: 1, nearMisses: 1 });
+  });
+
+  test('marks a call that changes with the rest of the map, among look-alikes and others', async () => {
+    engine.stored = snapshot({
+      channels: [
+        channel({ settled: false }),
+        channel({
+          id: BETA_ID,
+          title: 'Beta',
+          peer: false,
+          outsideReason: 'titles',
+          settled: false,
+        }),
+        channel({ id: GIANT_ID, title: 'Giant', peer: false, outsideReason: 'larger' }),
+      ],
+    });
+
+    const data = jsonOf(await tools.getMap({ channel: '@mychannel', include_others: true }));
+
+    expect((data['lookalikes'] as object[])[0]).toMatchObject({ unsettled: true });
+    expect(data['others']).toEqual([
+      expect.objectContaining({ id: BETA_ID, why: 'titles', unsettled: true }),
+      expect.not.objectContaining({ unsettled: true }),
+    ]);
+    expect(data['counts']).toMatchObject({ lookalikes: 1, others: 2, unsettled: 2 });
   });
 
   test('caps each list and says how many more there are', async () => {

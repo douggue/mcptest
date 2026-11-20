@@ -61,6 +61,11 @@ export interface SnapshotChannel {
   readonly peer: boolean;
   /** Why the filter did not count it as a peer; null when it did. Stays set on a kept channel. */
   readonly outsideReason: OutsideReason | null;
+  /**
+   * False when the filter's call changed on a random half of the map: it hangs
+   * on which other channels are on the map, not only on this one and the reference.
+   */
+  readonly settled: boolean;
   /** The owner removed this channel from their competitors. */
   readonly removed: boolean;
   /** The owner counts this channel as a competitor, whatever the filter says. */
@@ -115,6 +120,7 @@ function buildSnapshot(deps: SnapshotDeps, map: StoredMap, now: Date): MapSnapsh
       recommendedBy: row.recommendedBy,
       peer: row.peer,
       outsideReason: row.outsideReason,
+      settled: row.settled,
       removed: false,
       kept: false,
     })),
@@ -141,7 +147,9 @@ function buildSnapshot(deps: SnapshotDeps, map: StoredMap, now: Date): MapSnapsh
 // 3: title matching changed, so the peers in older frozen copies are out of date.
 // 4: a channel that stopped uploading is no longer a peer, and a feed holds only a
 //    few videos per channel; older copies name the wrong peers and a flooded feed.
-export const SNAPSHOT_FORMAT = 4;
+// 5: each channel says whether its look-alike call is settled; older copies do not,
+//    and would show every call as a confident yes or no. The calls themselves are the same.
+export const SNAPSHOT_FORMAT = 5;
 
 /** Checks the parts every reader relies on; the rest is carried through as stored. */
 const storedSnapshot = z.object({
@@ -149,7 +157,7 @@ const storedSnapshot = z.object({
   snapshot: z.looseObject({
     mapId: z.number(),
     center: z.looseObject({ id: z.string() }),
-    channels: z.array(z.looseObject({ id: z.string(), peer: z.boolean() })),
+    channels: z.array(z.looseObject({ id: z.string(), peer: z.boolean(), settled: z.boolean() })),
     breakouts: z.array(z.looseObject({ channelId: z.string(), peer: z.boolean() })),
     edges: z.array(z.looseObject({ from: z.string(), to: z.string() })),
   }),

@@ -44,6 +44,7 @@ export function channel(overrides: Partial<SnapshotChannel> = {}): SnapshotChann
     recommendedBy: [],
     peer: true,
     outsideReason: null,
+    settled: true,
     removed: false,
     kept: false,
     ...overrides,

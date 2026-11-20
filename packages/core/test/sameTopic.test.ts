@@ -52,6 +52,7 @@ const entry = (letter: string, overrides: Partial<SnapshotChannel> = {}): Snapsh
   recommendedBy: [],
   peer: false,
   outsideReason: 'titles',
+  settled: true,
   removed: false,
   kept: false,
   ...overrides,

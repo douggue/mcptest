@@ -3,7 +3,13 @@ import { SMALL_CHANNEL_MAX_SUBSCRIBERS } from '@jgtube/core/src/limits';
 import { NICHE_SMALL_MAX_SUBSCRIBERS } from '@jgtube/core/src/niches/niches';
 import { describe, expect, test } from 'vitest';
 import { ApiError, createApi } from '../src/lib/api';
-import { competitorActions, describeEvidence, filterBreakouts, inScope } from '../src/lib/feed';
+import {
+  competitorActions,
+  describeEvidence,
+  filterBreakouts,
+  inScope,
+  unsettledNote,
+} from '../src/lib/feed';
 import {
   formatCount,
   formatDuration,
@@ -35,6 +41,7 @@ const channel = (n: number, overrides: Partial<SnapshotChannel> = {}): SnapshotC
   recommendedBy: [],
   peer: true,
   outsideReason: null,
+  settled: true,
   removed: false,
   kept: false,
   ...overrides,
@@ -162,6 +169,38 @@ describe('inScope', () => {
 
   test('keeps everything otherwise', () => {
     expect(inScope(items, 'all')).toHaveLength(3);
+  });
+});
+
+describe('unsettledNote', () => {
+  const note = (overrides: Partial<SnapshotChannel>) => unsettledNote(channel(1, overrides));
+
+  test('says nothing about a call that holds whoever else is on the map', () => {
+    expect(note({})).toBeNull();
+    expect(note({ peer: false, outsideReason: 'larger' })).toBeNull();
+  });
+
+  test('says a look-alike is not a firm yes when its call changes with the map', () => {
+    expect(note({ settled: false })).toMatch(
+      /^Not settled: counted as like yours on this map, but/,
+    );
+  });
+
+  test('says a channel left out is not a firm no when its call changes with the map', () => {
+    expect(note({ settled: false, peer: false, outsideReason: 'titles' })).toMatch(
+      /^Not settled: left out on this map, but/,
+    );
+  });
+
+  test('says nothing once the owner has decided', () => {
+    expect(note({ settled: false, kept: true, outsideReason: 'titles' })).toBeNull();
+    expect(note({ settled: false, removed: true })).toBeNull();
+  });
+
+  test('treats a copy without the mark as settled', () => {
+    const older = { peer: true };
+
+    expect(unsettledNote(older)).toBeNull();
   });
 });
 

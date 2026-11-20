@@ -11,8 +11,10 @@ export const TOOL_TEXT = {
       'if the owner named one, counts, and the look-alike channels (the same kind of channel as the centre), best ' +
       'match first. Per channel: id, title, subs, match (title match with the centre, 0 to 100), tier (close, medium ' +
       'or far: how strongly YouTube recommends it beside the centre), rising (a young channel already well above its ' +
-      'size) and best (its strongest recent video; score is a multiple of that channel’s usual views). Reads the ' +
-      'local store only, so it is fast. Fails when no map exists yet: use make_map.',
+      'size) and best (its strongest recent video; score is a multiple of that channel’s usual views). unsettled ' +
+      'marks a channel whose look-alike call (in or out) changed when a random half of the other channels was left ' +
+      'off the map: treat it as undecided and judge it from its titles, not as a firm yes or no. Reads the local ' +
+      'store only, so it is fast. Fails when no map exists yet: use make_map.',
   },
   get_breakouts: {
     title: 'Breakout videos',

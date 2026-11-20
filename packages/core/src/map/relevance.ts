@@ -88,8 +88,6 @@ const STOPWORDS: ReadonlySet<string> = new Set([
   'very',
 ]);
 
-type Vector = ReadonlyMap<string, number>;
-
 /**
  * A title's words in lower case, in order, without the short and the common
  * ones that say nothing about what the video is.
@@ -101,59 +99,121 @@ export function tokenize(title: string): readonly string[] {
     .filter((token) => token.length >= MIN_TOKEN_LENGTH && !STOPWORDS.has(token));
 }
 
-/** How often each word occurs across a channel's titles. */
-function termCounts(titles: readonly string[]): Vector {
-  const counts = new Map<string, number>();
-  for (const token of titles.flatMap(tokenize)) {
-    counts.set(token, (counts.get(token) ?? 0) + 1);
-  }
-  return counts;
+/** One channel's titles with every word replaced by its number in the index. */
+interface WordUse {
+  /** The distinct words the titles use. */
+  readonly words: Int32Array;
+  /** For each of those words, how many of the titles use it. */
+  readonly titlesUsing: Float64Array;
+  /** For each of those words, 1 + ln(times it occurs): the damped count a candidate is scored with. */
+  readonly damped: Float64Array;
+  readonly titleCount: number;
 }
 
-/** The share of a channel's titles, 0 to 1, that use each word. */
-function titleShares(titles: readonly string[]): Vector {
-  const titlesUsing = new Map<string, number>();
-  for (const token of titles.flatMap((title) => [...new Set(tokenize(title))])) {
-    titlesUsing.set(token, (titlesUsing.get(token) ?? 0) + 1);
+/**
+ * A reference and the channels around it, read once. Every word gets a number,
+ * so a scoring pass is arithmetic on arrays; the same index can then be scored
+ * many times over, on the whole map and on parts of it.
+ */
+export interface TitleIndex {
+  /** How many different words the reference and the channels use between them. */
+  readonly wordCount: number;
+  readonly reference: WordUse;
+  readonly channels: ReadonlyMap<string, WordUse>;
+}
+
+function wordUse(titles: readonly string[], numberOf: (word: string) => number): WordUse {
+  const occurrences = new Map<number, number>();
+  const titlesUsing = new Map<number, number>();
+  for (const title of titles) {
+    const words = tokenize(title).map(numberOf);
+    for (const word of words) occurrences.set(word, (occurrences.get(word) ?? 0) + 1);
+    for (const word of new Set(words)) titlesUsing.set(word, (titlesUsing.get(word) ?? 0) + 1);
   }
-  return new Map([...titlesUsing].map(([term, count]) => [term, count / titles.length]));
+  const words = Int32Array.from(occurrences.keys());
+  return {
+    words,
+    titlesUsing: Float64Array.from(words, (word) => titlesUsing.get(word) ?? 0),
+    damped: Float64Array.from(words, (word) => 1 + Math.log(occurrences.get(word) ?? 1)),
+    titleCount: titles.length,
+  };
+}
+
+/** Reads the reference's titles and every candidate's, numbering each word once. */
+export function indexTitles(
+  referenceTitles: readonly string[],
+  candidates: ReadonlyMap<string, readonly string[]>,
+): TitleIndex {
+  const numbers = new Map<string, number>();
+  const numberOf = (word: string): number => {
+    const known = numbers.get(word);
+    if (known !== undefined) return known;
+    numbers.set(word, numbers.size);
+    return numbers.size - 1;
+  };
+  const reference = wordUse(referenceTitles, numberOf);
+  const channels = new Map(
+    [...candidates].map(([id, titles]) => [id, wordUse(titles, numberOf)] as const),
+  );
+  return { wordCount: numbers.size, reference, channels };
+}
+
+/** A format profile: the share (0 to 1) of a reference's titles that use each of its words. */
+interface Profile {
+  readonly words: Int32Array;
+  readonly shares: Float64Array;
+}
+
+const profileOf = (shares: ReadonlyMap<number, number>): Profile => ({
+  words: Int32Array.from(shares.keys()),
+  shares: Float64Array.from(shares.values()),
+});
+
+/** The share of these channels' titles, taken together, that use each word. */
+function titleShares(uses: readonly WordUse[]): ReadonlyMap<number, number> {
+  const titles = uses.reduce((sum, use) => sum + use.titleCount, 0);
+  const counts = new Map<number, number>();
+  for (const use of uses) {
+    use.words.forEach((word, at) => {
+      counts.set(word, (counts.get(word) ?? 0) + (use.titlesUsing[at] ?? 0));
+    });
+  }
+  return new Map([...counts].map(([word, count]) => [word, count / titles]));
 }
 
 /** Two sets of title shares merged, each counting for the given number of titles. */
-function blendShares(own: Vector, ownVotes: number, lent: Vector, lentVotes: number): Vector {
-  const terms = new Set([...own.keys(), ...lent.keys()]);
+function blendShares(
+  own: ReadonlyMap<number, number>,
+  ownVotes: number,
+  lent: ReadonlyMap<number, number>,
+  lentVotes: number,
+): ReadonlyMap<number, number> {
+  const words = new Set([...own.keys(), ...lent.keys()]);
   return new Map(
-    [...terms].map((term) => [
-      term,
-      ((own.get(term) ?? 0) * ownVotes + (lent.get(term) ?? 0) * lentVotes) /
+    [...words].map((word) => [
+      word,
+      ((own.get(word) ?? 0) * ownVotes + (lent.get(word) ?? 0) * lentVotes) /
         (ownVotes + lentVotes),
     ]),
   );
 }
 
-function documentFrequencies(documents: readonly Vector[]): Vector {
-  const frequencies = new Map<string, number>();
-  for (const document of documents) {
-    for (const term of document.keys()) {
-      frequencies.set(term, (frequencies.get(term) ?? 0) + 1);
-    }
+type Scored = readonly (readonly [string, WordUse])[];
+
+/** For every word, how many of the documents being scored (the profile and each candidate) use it. */
+function documentsUsing(profile: Profile, candidates: Scored, wordCount: number): Int32Array {
+  const usedBy = new Int32Array(wordCount);
+  for (const word of profile.words) usedBy[word] = 1;
+  for (const [, use] of candidates) {
+    for (const word of use.words) usedBy[word] = (usedBy[word] ?? 0) + 1;
   }
-  return frequencies;
-}
-
-function norm(vector: Vector): number {
-  return Math.sqrt([...vector.values()].reduce((sum, weight) => sum + weight * weight, 0));
-}
-
-function cosine(a: Vector, b: Vector): number {
-  const scale = norm(a) * norm(b);
-  if (scale === 0) return 0;
-  const dot = [...a].reduce((sum, [term, weight]) => sum + weight * (b.get(term) ?? 0), 0);
-  return dot / scale;
+  return usedBy;
 }
 
 /**
- * Scores each candidate against a format profile (word → share of reference titles).
+ * Scores each candidate against a format profile: the cosine of the two once
+ * every word is weighted by its rarity among the documents being scored,
+ * ln((documents + 1) / (documents using it + 1)) + 1.
  *
  * The two sides are weighted differently on purpose. The profile is linear in
  * the share, which is what separates format from subject. A candidate may have
@@ -162,20 +222,35 @@ function cosine(a: Vector, b: Vector): number {
  * linear too, one word it repeats in every title could carry the whole match.
  */
 function scoreAgainst(
-  profile: Vector,
-  candidates: ReadonlyMap<string, readonly string[]>,
+  profile: Profile,
+  candidates: Scored,
+  wordCount: number,
 ): ReadonlyMap<string, number> {
-  const candidateCounts = [...candidates].map(([id, titles]) => [id, termCounts(titles)] as const);
-  const documents = [profile, ...candidateCounts.map(([, counts]) => counts)];
-  const frequencies = documentFrequencies(documents);
-  const rarity = (term: string): number =>
-    Math.log((documents.length + 1) / ((frequencies.get(term) ?? 0) + 1)) + 1;
-  const weigh = (vector: Vector, scale: (value: number) => number): Vector =>
-    new Map([...vector].map(([term, value]) => [term, scale(value) * rarity(term)]));
-  const reference = weigh(profile, (share) => share);
-  const dampedCounts = (counts: Vector): Vector => weigh(counts, (count) => 1 + Math.log(count));
+  const usedBy = documentsUsing(profile, candidates, wordCount);
+  const documents = candidates.length + 1;
+  // Rarity depends on the word only through how many documents use it.
+  const rarityAt = Float64Array.from(
+    { length: documents + 1 },
+    (_, count) => Math.log((documents + 1) / (count + 1)) + 1,
+  );
+  const rarity = (word: number): number => rarityAt[usedBy[word] ?? 0] ?? 0;
+  const weighted = new Float64Array(wordCount);
+  profile.words.forEach((word, at) => {
+    weighted[word] = (profile.shares[at] ?? 0) * rarity(word);
+  });
+  const profileLength = Math.sqrt(
+    profile.words.reduce((sum, word) => sum + (weighted[word] ?? 0) ** 2, 0),
+  );
   return new Map(
-    candidateCounts.map(([id, counts]) => [id, cosine(reference, dampedCounts(counts))]),
+    candidates.map(([id, use]) => {
+      const weights = use.damped.map((count, at) => count * rarity(use.words[at] ?? 0));
+      const dot = weights.reduce(
+        (sum, weight, at) => sum + weight * (weighted[use.words[at] ?? 0] ?? 0),
+        0,
+      );
+      const scale = profileLength * Math.sqrt(weights.reduce((sum, w) => sum + w * w, 0));
+      return [id, scale === 0 ? 0 : dot / scale] as const;
+    }),
   );
 }
 
@@ -187,7 +262,12 @@ export function titleSimilarity(
   centerTitles: readonly string[],
   candidates: ReadonlyMap<string, readonly string[]>,
 ): ReadonlyMap<string, number> {
-  return scoreAgainst(titleShares(centerTitles), candidates);
+  const index = indexTitles(centerTitles, candidates);
+  return scoreAgainst(
+    profileOf(titleShares([index.reference])),
+    [...index.channels],
+    index.wordCount,
+  );
 }
 
 /** How many of the closest look-alikes join the reference for the second pass. */
@@ -208,6 +288,39 @@ export interface AnchoredSimilarity {
 }
 
 /**
+ * Anchored title similarity for some of an index's channels. `ids` are the
+ * channels on the map being read (all of the index, or a part of it): only
+ * they are scored, counted for rarity, or able to lend their titles. See
+ * `anchoredTitleSimilarity` for the two passes.
+ */
+export function anchoredSimilarityOf(
+  index: TitleIndex,
+  ids: readonly string[],
+  anchorPool: readonly string[],
+): AnchoredSimilarity {
+  const scored = ids.flatMap((id) => {
+    const use = index.channels.get(id);
+    return use ? [[id, use] as const] : [];
+  });
+  const own = titleShares([index.reference]);
+  const first = scoreAgainst(profileOf(own), scored, index.wordCount);
+  const anchors = [...anchorPool]
+    .filter((id) => (first.get(id) ?? 0) > 0)
+    .sort((a, b) => (first.get(b) ?? 0) - (first.get(a) ?? 0) || a.localeCompare(b))
+    .slice(0, MAX_ANCHORS);
+  if (anchors.length === 0) return { scores: first, anchors };
+  const lenders = anchors.flatMap((id) => index.channels.get(id) ?? []);
+  const lentTitles = lenders.reduce((sum, use) => sum + use.titleCount, 0);
+  const profile = blendShares(
+    own,
+    index.reference.titleCount,
+    titleShares(lenders),
+    Math.min(lentTitles, MAX_ANCHOR_TITLE_VOTES),
+  );
+  return { scores: scoreAgainst(profileOf(profile), scored, index.wordCount), anchors };
+}
+
+/**
  * Title similarity when the reference alone describes its niche too narrowly.
  *
  * A first pass scores every candidate against the reference's own titles. The
@@ -224,19 +337,6 @@ export function anchoredTitleSimilarity(
   candidates: ReadonlyMap<string, readonly string[]>,
   anchorPool: readonly string[],
 ): AnchoredSimilarity {
-  const ownShares = titleShares(centerTitles);
-  const first = scoreAgainst(ownShares, candidates);
-  const anchors = [...anchorPool]
-    .filter((id) => (first.get(id) ?? 0) > 0)
-    .sort((a, b) => (first.get(b) ?? 0) - (first.get(a) ?? 0) || a.localeCompare(b))
-    .slice(0, MAX_ANCHORS);
-  if (anchors.length === 0) return { scores: first, anchors };
-  const lentTitles = anchors.flatMap((id) => candidates.get(id) ?? []);
-  const profile = blendShares(
-    ownShares,
-    centerTitles.length,
-    titleShares(lentTitles),
-    Math.min(lentTitles.length, MAX_ANCHOR_TITLE_VOTES),
-  );
-  return { scores: scoreAgainst(profile, candidates), anchors };
+  const index = indexTitles(centerTitles, candidates);
+  return anchoredSimilarityOf(index, [...candidates.keys()], anchorPool);
 }

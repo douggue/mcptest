@@ -30,6 +30,7 @@ function channelEntry(channel: SnapshotChannel): Record<string, unknown> {
       ? { video: best.videoId, title: best.title, views: best.views, score: oneDecimal(best.score) }
       : null,
     why: channel.outsideReason,
+    unsettled: channel.settled ? null : true,
     kept: channel.kept ? true : null,
   });
 }
@@ -83,6 +84,7 @@ export function summarizeMap(
       lookalikes: lookalikes.length,
       others: others.length,
       nearMisses: others.filter(isNearMiss).length,
+      unsettled: kept.filter((channel) => !channel.settled).length,
       removed: channels.length - kept.length,
       breakouts: lookalikeBreakouts,
       otherBreakouts: breakouts.length - lookalikeBreakouts,
@@ -124,12 +126,13 @@ export function summarizeNearMisses(
     ...(more > 0 ? { more } : {}),
     ...(otherAlphabet > 0 ? { otherAlphabet } : {}),
     nearMisses: shown.map(({ channel, titles }) => {
-      const { id, title, subs, match, best } = channelEntry(channel);
+      const { id, title, subs, match, best, unsettled } = channelEntry(channel);
       return withoutAbsent({
         id,
         title,
         subs,
         match,
+        unsettled,
         recentViews: channel.recentViews,
         best,
         titles,

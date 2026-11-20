@@ -9,8 +9,8 @@ import type {
   StoredVideo,
   VideoRepo,
 } from '../repos/types';
-import { outsideReason, shapeMismatch, type OutsideReason } from './peers';
-import { anchoredTitleSimilarity } from './relevance';
+import { shapeMismatch, type OutsideReason } from './peers';
+import { readPeers, type PeerCandidate, type PeerVerdict } from './settled';
 
 /** "Recent" for views and uploads: videos published in the last 30 days. */
 export const RECENT_DAYS = 30;
@@ -100,6 +100,12 @@ export interface MapRow {
   readonly peer: boolean;
   /** Why it is not a peer; null when it is one. */
   readonly outsideReason: OutsideReason | null;
+  /**
+   * False when the call (peer or not) came out differently on a random half of
+   * the map: it then hangs on which other channels are on the map, not only on
+   * this channel and the reference.
+   */
+  readonly settled: boolean;
 }
 
 export interface MapViewInput {
@@ -137,6 +143,41 @@ function tierFor(
 /** Rounds a score so that channels with effectively equal matches keep a stable order. */
 const matchRank = (relevance: number): number => Math.round(relevance * 1000);
 
+/** Stands in for a member the look-alike call returned nothing for; every member gets a call. */
+const UNREAD: PeerVerdict = { relevance: 0, outsideReason: 'titles' };
+
+const recentTitles = (member: MapMemberData): readonly string[] =>
+  member.videos.slice(0, TITLES_COMPARED).map((video) => video.title);
+
+/** Each member as the look-alike call sees it, its shape measured against the reference. */
+function peerCandidates(
+  reference: MapMemberData,
+  members: readonly MapMemberData[],
+  now: Date,
+): readonly PeerCandidate[] {
+  const subject = (member: MapMemberData) => ({
+    subscribers: member.channel.subscribers,
+    videos: member.videos,
+  });
+  return members.map((member) => ({
+    id: member.channel.id,
+    steps: member.steps,
+    titles: recentTitles(member),
+    shape: shapeMismatch(subject(reference), subject(member), now),
+  }));
+}
+
+/** Peers first, then by title match, then by distance. */
+function inViewOrder(rows: readonly MapRow[]): readonly MapRow[] {
+  return [...rows].sort(
+    (a, b) =>
+      Number(b.peer) - Number(a.peer) ||
+      matchRank(b.relevance) - matchRank(a.relevance) ||
+      a.steps - b.steps ||
+      b.metrics.recentViews - a.metrics.recentViews,
+  );
+}
+
 /** The channels around the centre: peers first, then by title match, then by distance. */
 export function buildMapView(input: MapViewInput): readonly MapRow[] {
   const { center, members, edges, now } = input;
@@ -146,42 +187,26 @@ export function buildMapView(input: MapViewInput): readonly MapRow[] {
   const titles = new Map(
     [center, ...members].map((member) => [member.channel.id, member.channel.title]),
   );
-  const subject = (member: MapMemberData) => ({
-    subscribers: member.channel.subscribers,
-    videos: member.videos,
-  });
-  const shapes = new Map(
-    members.map((member) => [
-      member.channel.id,
-      shapeMismatch(subject(reference), subject(member), now),
-    ]),
-  );
   // The model is a member of the map; it cannot be a look-alike of itself.
-  const fits = members.filter(
-    (member) => member !== reference && shapes.get(member.channel.id) === null,
-  );
-  const direct = fits.filter((member) => member.steps === 1);
-  const recentTitles = (member: MapMemberData): readonly string[] =>
-    member.videos.slice(0, TITLES_COMPARED).map((video) => video.title);
-  const { scores } = anchoredTitleSimilarity(
+  const modelId = model?.channel.id ?? null;
+  const { verdicts, unsettled } = readPeers(
     recentTitles(reference),
-    new Map(members.map((member) => [member.channel.id, recentTitles(member)])),
-    (direct.length > 0 ? direct : fits).map((member) => member.channel.id),
+    peerCandidates(reference, members, now),
+    modelId,
   );
 
   const rows = members.map((member): MapRow => {
     const inbound = edges.filter(
       (edge) => edge.toChannelId === member.channel.id && titles.has(edge.fromChannelId),
     );
-    const relevance = scores.get(member.channel.id) ?? 0;
+    const verdict = verdicts.get(member.channel.id) ?? UNREAD;
     // The model is by definition what the owner wants to be like.
-    const reason =
-      member === model ? null : outsideReason(shapes.get(member.channel.id) ?? null, relevance);
+    const reason = member === model ? null : verdict.outsideReason;
     return {
       channel: member.channel,
       steps: member.steps,
       tier: member === model ? 'close' : tierFor(member, hubs, inbound, edges),
-      relevance,
+      relevance: verdict.relevance,
       recommendedBy: inbound
         .map((edge) => ({
           channelId: edge.fromChannelId,
@@ -192,16 +217,11 @@ export function buildMapView(input: MapViewInput): readonly MapRow[] {
       metrics: channelMetrics(member.videos, member.channel.subscribers, now),
       peer: reason === null,
       outsideReason: reason,
+      settled: member === model || !unsettled.has(member.channel.id),
     };
   });
 
-  return [...rows].sort(
-    (a, b) =>
-      Number(b.peer) - Number(a.peer) ||
-      matchRank(b.relevance) - matchRank(a.relevance) ||
-      a.steps - b.steps ||
-      b.metrics.recentViews - a.metrics.recentViews,
-  );
+  return inViewOrder(rows);
 }
 
 export interface MapViewDeps {

@@ -88,7 +88,7 @@ If something is wrong:
 
 | Tool                    | What it does                                                                                                   |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `get_map`               | Your latest map: the channels like yours, how closely each matches, and each one's best recent video.          |
+| `get_map`               | Your latest map: the channels like yours, how closely each matches, each one's best recent video, and which calls are unsettled. |
 | `get_breakouts`         | Recent videos far above their channel's usual views, with the numbers behind each score.                       |
 | `get_thumbnail_board`   | For each channel like yours, the videos that took off beside ordinary ones, and your own videos.               |
 | `view_thumbnails`       | Fetches the real thumbnail pictures (up to 8 at a time) so Claude can look at them.                            |

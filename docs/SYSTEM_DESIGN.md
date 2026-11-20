@@ -220,7 +220,36 @@ Known weak spots: with no model and a three-title centre the first pass picks
 look-alikes from very little, and one off-format look-alike can pull its subjects
 in (on the 149-channel map without a model, three Tesla and SpaceX commentators
 still match at 14-17%); and a look-alike that lent its titles is scored partly
-against itself.
+against itself (on the retro-technology map two direct neighbours that match the
+centre's own titles at 10-11% lend theirs and come out at 24% and 46%).
+
+**Settled or not** (`packages/core/src/map/settled.ts`). A call should follow from
+the channel and the reference. It does not, quite: the borrowing and the rarity
+count both look at the rest of the map, so the same channel can pass on one map
+and fail on another. That is measured on every map and shown, not hidden:
+
+```
+half k (k = 1..40) = the channels whose hash(k, id) falls in the lower half,
+                     plus the model channel when there is one
+settled(channel)   = its call (peer or not) on the whole map equals its call
+                     on every half it is in
+```
+
+- The halves depend on channel ids alone, so a map always gives the same ones.
+- Forty halves (`SETTLED_HALVES`): a channel is in about twenty, so a call that
+  changes on one half in ten is caught nearly nine times in ten.
+- A channel ruled out by size, dormancy, pace or length is always settled; those
+  checks look only at it and the reference. So is the model.
+- The row, the stored map, the connector (`unsettled: true`, and a count) and the
+  channel panel in the app carry the mark. The panel says the call is not a firm
+  yes or no and to read the titles; it says nothing once the owner has kept or
+  removed the channel.
+- The calls themselves did not change. Stored maps gained the field, so the
+  snapshot format was raised to 5 and older copies are rebuilt when read.
+- Cost: the titles are read into numbered words once and each half is arithmetic
+  on arrays; a 285-channel map takes about 0.2 s to view, a 150-channel one 0.08 s.
+- The crawl's own use of `titleSimilarity` (which sources to follow) is the same
+  function with the same results.
 
 Maps are stored as they were when made, so a map frozen before this scoring keeps
 its old matches and peers until it is made again.
@@ -244,15 +273,75 @@ decline, ancient history), with no model channel.
   (Finally) Getting What They Deserve" beside "Lowe's $84 Billion Empire Is
   Collapsing"). Wording cannot settle those; the same-topic list and Claude's
   reading of it do.
-- **A dependence still to remove.** A channel's score depends on which other
-  channels are on the map, because the reference borrows titles from the three
-  closest look-alikes on that map. Removing half of a map at random changed
-  0% to 7% of look-alike decisions across five maps. Counting word rarity over
-  the whole store instead of the map made no difference; the borrowing is the
-  cause. Letting an established channel rely on its own titles alone made
-  decisions stable (under 1% changed) but cost too many look-alikes in niches
-  with varied titles (32 down to 4 on one map), so it was not adopted. A rule
-  that keeps the look-alikes and removes the dependence is open work.
+- **A dependence that is marked, not removed.** A channel's call depends on
+  which other channels are on the map. Removing a random half of a map changed
+  this share of the calls for the channels that stayed (forty seeded runs; the
+  model channel always stays):
+
+  | Map (channels)                | Look-alikes | Unsettled: in / out | All calls changed, half / quarter removed | Settled calls changed, half / quarter |
+  | ----------------------------- | ----------- | ------------------- | ----------------------------------------- | ------------------------------------- |
+  | New inventions, model (285)   | 25          | 4 / 20              | 1.0% / 0.3%                               | 0.1% / 0.0%                           |
+  | New inventions, no model (172)| 22          | 6 / 13              | 0.8% / 0.1%                               | 0.1% / 0.0%                           |
+  | Companies in decline (175)    | 8           | 1 / 14              | 2.2% / 0.7%                               | 0.0% / 0.0%                           |
+  | Ancient history (150)         | 32          | 14 / 15             | 5.2% / 3.4%                               | 0.2% / 0.1%                           |
+  | Retro technology (166)        | 15          | 6 / 16              | 4.5% / 1.9%                               | 0.0% / 0.0%                           |
+
+  Two things cause it, not one: which three channels lend their titles, and word
+  rarity counted over the map (with no borrowing at all, map rarity alone still
+  changed up to 2.6% of calls on the ancient-history map; rarity counted over
+  the whole store changed none, but then the calls hang on what else is stored:
+  with the store cut down to the map itself, 3.6% of them moved there).
+- **Rules tried, and why none was adopted.** Each was measured on all five maps
+  and on the three labelled fixtures; the target was at most 1% of calls changed,
+  no more than about a tenth fewer look-alikes, and no new wrong ones.
+  - _Own titles only, no borrowing._ Stable, but 32 look-alikes become 4 (9 with
+    store rarity) on the ancient-history map and 15 become 7 on retro technology.
+  - _More lenders with the same capped weight_ (the best 5, 10 or 20), or _every
+    channel weighted by its first-pass match_ (or its square or cube). Either
+    the many weak matches swamp the profile and outsiders come in (25 becomes
+    30-35 on the model map), or the weight falls so fast that it is own titles
+    again.
+  - _Every shape-fitting channel that passes the line on the reference's own
+    titles lends_, rarity from the store. The closest: 28 / 23 / 10 / 33 / 13
+    look-alikes, 0.4% / 0.3% / 1.2% / 2.0% / 0.8% of calls changed. It drops
+    five wrong look-alikes, adds four the titles had missed and five doubtful
+    ones, all near the line. But a
+    profile pooled from twenty lenders is diffuse and everything matches it a
+    little more: the Tesla commentator and the aviation channel labelled as
+    outsiders rise from 11-13% to 15%, over the line, on the fixture and on the
+    full map. The labels are right, so the rule is wrong. With map rarity
+    it is also unstable again (6.4% on ancient history).
+  - _The match against each lender in turn, averaged_, which keeps the profile
+    sharp. Outsiders stay out and 0.2-0.7% change on four maps, but look-alikes
+    fall to 23 and 11 on the two varied niches (2.7% changed on one) and a
+    labelled look-alike is missed.
+  - _Iterating to a fixed point._ Drifts: 40 and 22 look-alikes on the varied
+    niches, and up to 4.5% of calls still change.
+  - _Lenders from the whole store._ Removing channels from a map then changes
+    nothing by construction, and the calls on one map change when another map is
+    crawled: the dependence moves to the store, it does not go.
+  - _A lender not scored against its own titles._ Fixes the 24% and 46% above
+    and steadies small maps (2.6% to 0.7% on the 40-channel fixture), but changes
+    little on the large ones (5.3% and 3.1% on the varied niches) and drops one
+    real three-video look-alike. Worth doing next; it changes calls, so it was
+    left out of this step.
+  The tension is real: a reference with one strong format needs few, close
+  lenders or loud outsiders pass; a niche with varied titles needs many or its
+  look-alikes are missed; and few lenders is what makes a call hang on who is
+  on the map. On the ancient-history map titles do not separate the groups at
+  all between 12% and 19%: history channels and engineering explainers alternate.
+- **What was built instead.** The calls stay as they were and each says whether
+  it is settled (see "Settled or not" above). A settled call changed in at most
+  0.2% of cases on every map, against up to 5.2% for all calls. The unsettled
+  ones are a twelfth to a fifth of a map and are what one would expect: look-alikes
+  in a sister format (the same videos about Britain or Australia), channels a
+  point or two either side of the line, and on the varied niches the mixed band
+  just described. `packages/core/test/peerStability.test.ts` pins it on the three
+  fixtures: no settled call for a labelled channel changes on any of six seeded
+  halves, and the labelled channels that are unsettled are named there (three
+  retro-technology look-alikes within two points of the line among them).
+- **What the mark does not catch.** A channel that is wrong on every half: the
+  two self-scored lenders above are settled, and at least one of them is wrong.
 
 ### The owner's say: keep and remove
 
