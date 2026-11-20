@@ -4,9 +4,29 @@
 creator what to make next, based on what is breaking out on competing channels.
 It is designed to run as a connector inside Claude first, with a web app later.
 
-## Try it
+## Open the app
 
 Requires Node 22.
+
+```
+npm install
+npm start
+```
+
+Then open http://127.0.0.1:4317. Paste a channel handle or link and press
+**Find competitors**. The radar shows the channels around it by closeness; click
+one for details. Below it is a feed of recent videos far above their channel's
+usual views, and the full channel list. A first map takes a few minutes; after
+that it opens instantly from the copy stored on your computer.
+
+The app is only reachable from your own computer and has no login.
+
+For development, run `npm run api` and `npm run web` in two terminals and open
+http://127.0.0.1:5173.
+
+## Command line
+
+The same engine without the app:
 
 ```
 npm install
@@ -31,8 +51,8 @@ map is a few hundred requests and takes a few minutes; `--depth 1`,
 `--sample N` and `--max-channels N` make it smaller. Readings are reused for a
 week, so repeating a map is fast.
 
-Settings (both optional): `JGTUBE_DB_PATH` (default `jgtube.db`) and `JGTUBE_REGION`
-(default `US`).
+Settings (all optional): `JGTUBE_DB_PATH` (default `jgtube.db`), `JGTUBE_REGION`
+(default `US`) and `JGTUBE_PORT` (default `4317`).
 
 Checks: `npm run typecheck`, `npm run lint`, `npm test`.
 
@@ -41,7 +61,8 @@ See [the crawl document](docs/CRAWL.md) for what that means and its risks.
 
 ## Plan
 
-Built so far: ingest, outlier scoring and the competitor map (phases 0 to 3 of the
+Built so far: ingest, outlier scoring, the competitor map and its radar screen (phases 0 to 3 and
+the first part of phase 7 of the
 [task list](docs/TASK_LIST.md)). The full plan is in `docs/`:
 
 | Document | What it covers |

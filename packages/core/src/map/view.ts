@@ -166,6 +166,15 @@ export interface MapViewDeps {
   readonly edges: EdgeRepo;
 }
 
+export interface LoadedMapView {
+  readonly center: MapMemberData;
+  /** Every channel on the map except the centre, with its stored videos. */
+  readonly members: readonly MapMemberData[];
+  /** The edges the view was built from. */
+  readonly edges: readonly RecEdge[];
+  readonly rows: readonly MapRow[];
+}
+
 /**
  * Loads a crawled map's channels, videos and edges from the store and builds its view.
  *
@@ -178,7 +187,7 @@ export function loadMapView(
   members: readonly MapMember[],
   depth: number,
   now: Date,
-): { readonly center: MapMemberData; readonly rows: readonly MapRow[] } | null {
+): LoadedMapView | null {
   const loaded = members.flatMap((member): MapMemberData[] => {
     const channel = deps.channels.findById(member.channelId);
     return channel
@@ -194,5 +203,10 @@ export function loadMapView(
   const edges = deps.edges
     .listAmong(loaded.map((member) => member.channel.id))
     .filter((edge) => expanded.has(edge.fromChannelId));
-  return { center, rows: buildMapView({ center, members: others, edges, now }) };
+  return {
+    center,
+    members: others,
+    edges,
+    rows: buildMapView({ center, members: others, edges, now }),
+  };
 }

@@ -76,8 +76,9 @@ every phase; coverage floor is 80%.
 
 ## Phase 7: web UI (design received, stored in `design/`)
 
-- [ ] Theme from `design/DESIGN.md`; app shell (top bar, left rail)
-- [ ] Competitor radar screen on real crawl data (can start now)
+- [x] Theme from `design/DESIGN.md`; app shell (top bar, left rail)
+- [x] Local API (`packages/server`): stored maps, crawl jobs with progress
+- [x] Competitor radar screen on real crawl data: radar, channel details, breakout feed, channel list, export
 - [ ] Results feed and topic streams (need phase 5)
 - [ ] Channel detail, run progress
 - [ ] Star, hide, copy; competitor remove and restore

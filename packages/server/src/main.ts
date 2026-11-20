@@ -1,0 +1,159 @@
+import { readFile } from 'node:fs/promises';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { extname, join, normalize, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { loadConfig } from '@jgtube/core';
+import { createApp } from './app';
+import { createEngine } from './engine';
+import { JobStore } from './jobs';
+
+/** Only this computer can reach the server; it has no login. */
+const HOST = '127.0.0.1';
+const DEFAULT_PORT = 4317;
+const WEB_ROOT = resolve(fileURLToPath(new URL('../../../apps/web/dist', import.meta.url)));
+const MAX_BODY_BYTES = 16_384;
+
+const CONTENT_TYPES: Readonly<Record<string, string>> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.woff2': 'font/woff2',
+  '.json': 'application/json; charset=utf-8',
+  '.ico': 'image/x-icon',
+};
+
+/** The page may load its own files and video thumbnails, and nothing else. */
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "img-src 'self' https://i.ytimg.com data:",
+  "style-src 'self' 'unsafe-inline'",
+  "connect-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "object-src 'none'",
+].join('; ');
+
+function readPort(): number {
+  const raw = process.env['JGTUBE_PORT'];
+  if (raw === undefined) return DEFAULT_PORT;
+  const port = Number(raw);
+  if (!Number.isInteger(port) || port < 1024 || port > 65_535) {
+    throw new Error('JGTUBE_PORT must be a whole number from 1024 to 65535');
+  }
+  return port;
+}
+
+async function readBody(request: IncomingMessage): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += (chunk as Buffer).length;
+    if (size > MAX_BODY_BYTES) throw new Error('Request body too large');
+    chunks.push(chunk as Buffer);
+  }
+  return Buffer.concat(chunks);
+}
+
+async function toRequest(request: IncomingMessage): Promise<Request> {
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(request.headers)) {
+    if (typeof value === 'string') headers.set(name, value);
+  }
+  const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
+  return new Request(`http://${request.headers.host ?? HOST}${request.url ?? '/'}`, {
+    method: request.method,
+    headers,
+    body: hasBody ? new Uint8Array(await readBody(request)) : undefined,
+  });
+}
+
+/** Maps a URL path to a file inside the built web app, or null if it would escape that folder. */
+function webFile(pathname: string): string | null {
+  const relative = normalize(decodeURIComponent(pathname)).replace(/^[/\\]+/, '');
+  const target = resolve(join(WEB_ROOT, relative === '' ? 'index.html' : relative));
+  return target === WEB_ROOT || target.startsWith(WEB_ROOT + sep) ? target : null;
+}
+
+async function serveWeb(pathname: string, response: ServerResponse): Promise<void> {
+  const requested = webFile(pathname);
+  // Unknown paths get the app shell, which handles its own routes.
+  const candidates = [requested, join(WEB_ROOT, 'index.html')].filter(
+    (path): path is string => path !== null && extname(path) !== '',
+  );
+  for (const path of candidates) {
+    try {
+      const body = await readFile(path);
+      response.writeHead(200, {
+        'content-type': CONTENT_TYPES[extname(path)] ?? 'application/octet-stream',
+        'content-security-policy': CONTENT_SECURITY_POLICY,
+        'x-content-type-options': 'nosniff',
+        'referrer-policy': 'no-referrer',
+      });
+      response.end(body);
+      return;
+    } catch {
+      // Try the next candidate.
+    }
+  }
+  response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+  response.end('The web app has not been built yet. Run: npm run build');
+}
+
+function start(): void {
+  const engine = createEngine(loadConfig());
+  const port = readPort();
+  const allowedHosts = [`${HOST}:${port}`, `localhost:${port}`];
+  const app = createApp({ engine, jobs: new JobStore(), allowedHosts });
+
+  const refuse = (response: ServerResponse, status: number, text: string): void => {
+    if (!response.headersSent) {
+      response.writeHead(status, {
+        'content-type': 'text/plain; charset=utf-8',
+        'cache-control': 'no-store',
+      });
+    }
+    response.end(text);
+  };
+
+  const handle = (request: IncomingMessage, response: ServerResponse): Promise<void> => {
+    // Requests that name another host arrive through DNS rebinding; see app.ts.
+    if (!allowedHosts.includes(request.headers.host ?? '')) {
+      refuse(response, 403, 'This server only answers to its own address');
+      return Promise.resolve();
+    }
+    const pathname = new URL(request.url ?? '/', `http://${HOST}`).pathname;
+    if (!pathname.startsWith('/api/')) return serveWeb(pathname, response);
+    return toRequest(request)
+      .then(app)
+      .then(async (result) => {
+        response.writeHead(result.status, Object.fromEntries(result.headers));
+        response.end(await result.text());
+      });
+  };
+
+  const server = createServer((request, response) => {
+    // A malformed address must fail this one request, never the process.
+    try {
+      handle(request, response).catch(() => refuse(response, 500, 'Something went wrong'));
+    } catch {
+      refuse(response, 400, 'Bad request');
+    }
+  });
+  process.on('unhandledRejection', (reason) => {
+    process.stderr.write(`Unhandled rejection: ${String(reason)}\n`);
+  });
+
+  server.listen(port, HOST, () => {
+    process.stdout.write(`Jgtube is running at http://${HOST}:${port}\n`);
+  });
+  const stop = (): void => {
+    server.close();
+    engine.close();
+  };
+  process.once('SIGINT', stop);
+  process.once('SIGTERM', stop);
+}
+
+start();

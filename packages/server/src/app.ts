@@ -1,0 +1,151 @@
+import { parseChannelRef, type CrawlProgress, type MapSnapshot } from '@jgtube/core';
+import { z } from 'zod';
+import type { JobStore } from './jobs';
+
+const MAX_BODY_CHARACTERS = 2000;
+const DEFAULT_DEPTH = 2;
+
+export interface CrawlOutcome {
+  readonly centerChannelId: string;
+  readonly warnings: readonly string[];
+}
+
+/** What the API needs from the engine, so tests can stand in for it. */
+export interface Engine {
+  /** The latest stored map around a channel; reads the store only. */
+  findSnapshot(channel: string): MapSnapshot | null;
+  crawl(
+    channel: string,
+    depth: number,
+    onProgress: (progress: CrawlProgress) => void,
+  ): Promise<CrawlOutcome>;
+}
+
+export interface AppOptions {
+  readonly engine: Engine;
+  readonly jobs: JobStore<CrawlOutcome>;
+  /** The only `host:port` values this server answers to, such as `127.0.0.1:4317`. */
+  readonly allowedHosts: readonly string[];
+}
+
+const crawlRequest = z.object({
+  channel: z.string().min(1).max(200),
+  depth: z.number().int().min(1).max(2).optional(),
+});
+
+const HEADERS = {
+  'content-type': 'application/json; charset=utf-8',
+  'cache-control': 'no-store',
+  'x-content-type-options': 'nosniff',
+};
+
+function ok(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify({ success: true, data, error: null, meta: null }), {
+    status,
+    headers: HEADERS,
+  });
+}
+
+function fail(status: number, error: string): Response {
+  return new Response(JSON.stringify({ success: false, data: null, error, meta: null }), {
+    status,
+    headers: HEADERS,
+  });
+}
+
+/** Returns the reason a channel reference is unusable, or null when it is fine. */
+function channelProblem(channel: string): string | null {
+  try {
+    parseChannelRef(channel);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : 'Not a valid channel';
+  }
+}
+
+/**
+ * The server only answers to its own address. A page on another site can point
+ * its domain at 127.0.0.1 (DNS rebinding) and would then look same-origin to
+ * the browser, but its requests still carry that site's name in Host.
+ */
+function isTrustedHost(request: Request, allowedHosts: readonly string[]): boolean {
+  return allowedHosts.includes(request.headers.get('host') ?? '');
+}
+
+/**
+ * A browser sends an Origin header on cross-site POSTs. Refusing any origin
+ * that is not this server stops another website from starting crawls here.
+ */
+function isCrossSite(request: Request, allowedHosts: readonly string[]): boolean {
+  const origin = request.headers.get('origin');
+  if (origin === null) return false;
+  try {
+    return !allowedHosts.includes(new URL(origin).host);
+  } catch {
+    return true;
+  }
+}
+
+function latestMap(engine: Engine, url: URL): Response {
+  const channel = url.searchParams.get('channel') ?? '';
+  const problem = channelProblem(channel);
+  if (problem) return fail(400, problem);
+  const snapshot = engine.findSnapshot(channel);
+  return snapshot ? ok(snapshot) : fail(404, 'No map has been made for this channel yet');
+}
+
+async function startCrawl(options: AppOptions, request: Request): Promise<Response> {
+  if (isCrossSite(request, options.allowedHosts)) {
+    return fail(403, 'Requests from other sites are not accepted');
+  }
+  if (!(request.headers.get('content-type') ?? '').startsWith('application/json')) {
+    return fail(415, 'Send the request as application/json');
+  }
+  const text = await request.text();
+  if (text.length > MAX_BODY_CHARACTERS) return fail(400, 'The request is too large');
+
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return fail(400, 'The request is not valid JSON');
+  }
+  const parsed = crawlRequest.safeParse(body);
+  if (!parsed.success) return fail(400, 'Give a channel and, optionally, a depth of 1 or 2');
+  const { channel, depth = DEFAULT_DEPTH } = parsed.data;
+  const problem = channelProblem(channel);
+  if (problem) return fail(400, problem);
+
+  const job = options.jobs.start((report) => options.engine.crawl(channel, depth, report));
+  if (!job) return fail(409, 'A map is already being made. Wait for it to finish.');
+  return ok({ jobId: job.id }, 202);
+}
+
+function jobStatus(options: AppOptions, id: string): Response {
+  const job = options.jobs.get(id);
+  return job ? ok(job) : fail(404, 'No such job');
+}
+
+/** The JSON API as a plain function from request to response. */
+export function createApp(options: AppOptions): (request: Request) => Promise<Response> {
+  return async (request) => {
+    if (!isTrustedHost(request, options.allowedHosts)) {
+      return fail(403, 'This server only answers to its own address');
+    }
+    const url = new URL(request.url);
+    const { pathname } = url;
+    const { method } = request;
+
+    if (pathname === '/api/maps/latest') {
+      return method === 'GET' ? latestMap(options.engine, url) : fail(405, 'Use GET');
+    }
+    if (pathname === '/api/maps') {
+      return method === 'POST' ? startCrawl(options, request) : fail(405, 'Use POST');
+    }
+    if (pathname.startsWith('/api/jobs/')) {
+      const id = pathname.slice('/api/jobs/'.length);
+      return method === 'GET' ? jobStatus(options, id) : fail(405, 'Use GET');
+    }
+    return fail(404, 'Not found');
+  };
+}

@@ -14,3 +14,15 @@ export { crawlMap, type CrawlDeps, type CrawlOptions, type CrawlResult } from '.
 export { buildMapView, loadMapView, type MapRow, type Tier } from './map/view';
 export { SqliteEdgeRepo } from './repos/sqliteEdgeRepo';
 export { SqliteMapRepo } from './repos/sqliteMapRepo';
+export { listBreakouts, type BreakoutVideo } from './map/breakouts';
+export {
+  loadMapSnapshot,
+  type MapSnapshot,
+  type SnapshotChannel,
+  type SnapshotDeps,
+  type SnapshotEdge,
+} from './map/snapshot';
+export { transactionRunner } from './db/sqlite';
+export { loadMapView as loadStoredMapView } from './map/view';
+export type { EdgeRepo, MapRepo, RecEdge } from './repos/types';
+export type { CrawlProgress } from './crawl/crawl';
