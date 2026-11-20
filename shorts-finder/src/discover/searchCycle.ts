@@ -1,33 +1,26 @@
 /**
- * One round of searching: every subject whose time has come is searched once,
- * the videos it finds that are new and short enough are stored and tracked,
- * and their channels are queued for a read of their facts.
+ * One round of searching: every search whose time has come is made once, the
+ * videos it finds that are new and short enough are stored and tracked, and
+ * their channels are queued for a read of their facts.
  *
+ * Each subject is searched in two ways (see `subjects/sweep.ts`): the
+ * most-viewed of the last two days, and everything new since the last sweep.
  * A search is paid for the moment it answers, so that is when its results are
  * kept and the subject is marked as searched; the details of the videos are
  * read afterwards (`hitDetails.ts`), and a failure there costs no search.
  *
- * Search is only the net. It returns the most-viewed recent videos, large
- * channels among them; what is worth reporting is decided later, from the
+ * Search is only the net. What is worth reporting is decided later, from the
  * readings that tracking collects.
  */
 import { abortReason, reasonOf, stopReasonFor, type StopReason } from '../cycleStop';
 import type { QuotaLedger } from '../quota/ledger';
-import type { Store, Subject } from '../repos/types';
-import { pickDueSubjects } from '../subjects/due';
+import type { SearchKind, Store } from '../repos/types';
+import { dueSearches, pickDueSubjects, type DueSearch } from '../subjects/due';
+import { ORDER_OF, nextNewestInterval, publishedAfterFor } from '../subjects/sweep';
 import type { YouTubeApi } from '../youtube/api';
 import type { SearchResult } from '../youtube/dataApi';
 import { readQueuedChannels, type ChannelReadsReport } from './channelReads';
 import { plusDetails, resolvePendingHits, type HitDetailsReport } from './hitDetails';
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-/**
- * A search asks for videos published in the last seven days. A subject is
- * searched once a day, so a video has seven chances to be seen, which covers
- * a slow start and a day or two of the service being down; and a video found
- * later than that has little of its 14 days of tracking left to learn from.
- */
-export const SEARCH_WINDOW_DAYS = 7;
 
 export interface SearchCycleDeps {
   readonly api: YouTubeApi;
@@ -36,28 +29,34 @@ export interface SearchCycleDeps {
   readonly now: () => Date;
 }
 
-export interface SubjectOutcome {
+/** One search of one subject. */
+export interface SearchRef {
   readonly subjectId: number;
+  readonly kind: SearchKind;
+}
+
+export interface SubjectOutcome extends SearchRef {
   /** `unreadable` when the search answered but not one of its results could be read. */
   readonly result: 'searched' | 'unreadable';
   /** Videos the search returned, new or known. */
   readonly hits: number;
   /** Entries in the search's reply that could not be read. */
   readonly skipped: number;
+  /** True when the reply held a full page: there were probably more behind it. */
+  readonly fullPage: boolean;
 }
 
-export interface SubjectFailure {
-  readonly subjectId: number;
+export interface SubjectFailure extends SearchRef {
   readonly reason: string;
 }
 
 export interface SearchCycleReport {
   readonly searched: readonly SubjectOutcome[];
-  /** Subjects whose search failed. They wait their usual hours before the next try. */
+  /** Searches that failed. They wait their usual hours before the next try. */
   readonly failed: readonly SubjectFailure[];
-  /** Due subjects not searched: the allowance could not pay, or the cycle was stopped. */
-  readonly leftUndone: readonly number[];
-  /** Why the searching ended before every affordable subject was searched; null when it did not. */
+  /** Due searches not made: the allowance could not pay, or the cycle was stopped. */
+  readonly leftUndone: readonly SearchRef[];
+  /** Why the searching ended before every affordable search was made; null when it did not. */
   readonly stopped: StopReason | null;
   /** What reading the details of the results came to, over the whole round. */
   readonly details: HitDetailsReport;
@@ -79,46 +78,67 @@ type Attempt =
   | { readonly kind: 'failed'; readonly failure: SubjectFailure }
   | { readonly kind: 'stopped'; readonly reason: StopReason };
 
+const refOf = (search: DueSearch): SearchRef => ({
+  subjectId: search.subject.id,
+  kind: search.kind,
+});
+
 /** Keeps a search's results and marks the subject searched, as one, at the time of the reply. */
-function keepResults(store: Store, subject: Subject, found: SearchResult, foundAt: Date): void {
+function keepResults(store: Store, search: DueSearch, found: SearchResult, foundAt: Date): void {
+  const { subject, kind } = search;
   store.transact(() => {
     for (const hit of found.hits) {
       store.pending.add({
         subjectId: subject.id,
         videoId: hit.videoId,
+        kind,
+        rank: hit.rank,
         channelId: hit.channelId,
         channelTitle: hit.channelTitle,
         foundAt,
       });
     }
-    store.subjects.markSearched(subject.id, foundAt);
+    if (kind === 'top_recent') store.subjects.markSearched(subject.id, kind, foundAt);
+    else {
+      // The sweep paces itself on its own results: every entry the API sent counts.
+      const results = found.hits.length + found.skipped;
+      const intervalHours = nextNewestInterval(
+        subject.newestIntervalHours,
+        subject.newestEveryHours,
+        results,
+      );
+      store.subjects.markSwept(subject.id, { at: foundAt, intervalHours });
+    }
   });
 }
 
-async function searchSubject(deps: SearchCycleDeps, subject: Subject, now: Date): Promise<Attempt> {
+async function makeSearch(deps: SearchCycleDeps, search: DueSearch, now: Date): Promise<Attempt> {
+  const { subject, kind } = search;
   try {
     const found = await deps.api.searchRecentVideos(subject.keyword, {
-      publishedAfter: new Date(now.getTime() - SEARCH_WINDOW_DAYS * MS_PER_DAY),
+      order: ORDER_OF[kind],
+      publishedAfter: publishedAfterFor(subject, kind, now),
       regionCode: subject.region,
       ...(subject.language === null ? {} : { relevanceLanguage: subject.language }),
       shortOnly: true,
     });
-    keepResults(deps.store, subject, found, deps.now());
+    keepResults(deps.store, search, found, deps.now());
     const unreadable = found.hits.length === 0 && found.skipped > 0;
     const outcome: SubjectOutcome = {
-      subjectId: subject.id,
+      ...refOf(search),
       result: unreadable ? 'unreadable' : 'searched',
       hits: found.hits.length,
       skipped: found.skipped,
+      fullPage: found.fullPage,
     };
     return { kind: 'searched', outcome };
   } catch (error) {
     const reason = stopReasonFor(error, deps.ledger);
     if (reason !== null) return { kind: 'stopped', reason };
-    // A failed search has been paid for. The subject waits its usual hours, so
-    // a keyword the API refuses every time cannot drain the day's searches.
-    deps.store.subjects.markSearched(subject.id, deps.now());
-    return { kind: 'failed', failure: { subjectId: subject.id, reason: reasonOf(error) } };
+    // A failed search has been paid for. It waits its usual hours, so a
+    // keyword the API refuses every time cannot drain the day's searches.
+    deps.store.subjects.markSearched(subject.id, kind, deps.now());
+    return { kind: 'failed', failure: { ...refOf(search), reason: reasonOf(error) } };
   }
 }
 
@@ -129,10 +149,10 @@ interface Searching {
   readonly stopped: StopReason | null;
 }
 
-/** Searches the given subjects in turn, reading each search's details before the next search. */
+/** Makes the given searches in turn, reading each one's details before the next search. */
 async function searchAll(
   deps: SearchCycleDeps,
-  subjects: readonly Subject[],
+  searches: readonly DueSearch[],
   now: Date,
   signal?: AbortSignal,
 ): Promise<Searching> {
@@ -143,10 +163,10 @@ async function searchAll(
     details: await resolvePendingHits(deps, signal),
     stopped: null,
   };
-  for (const subject of subjects) {
+  for (const search of searches) {
     const halted = abortReason(signal) ?? state.details.stopped;
     if (halted !== null) return { ...state, stopped: halted };
-    const attempt = await searchSubject(deps, subject, now);
+    const attempt = await makeSearch(deps, search, now);
     if (attempt.kind === 'stopped') return { ...state, stopped: attempt.reason };
     if (attempt.kind === 'failed') state = { ...state, failed: [...state.failed, attempt.failure] };
     else {
@@ -161,27 +181,31 @@ async function searchAll(
 const endsTheRound = (stopped: StopReason | null): boolean =>
   stopped === 'lease_lost' || stopped === 'rate_limit' || stopped === 'shutdown';
 
+const sameSearch = (a: SearchRef, b: SearchRef): boolean =>
+  a.subjectId === b.subjectId && a.kind === b.kind;
+
 /**
- * Searches the due subjects the search share can pay for, oldest-searched
- * first, then reads the queued channels. It does not throw when the allowance
- * runs out, when Google asks for a pause or when one subject fails: the
- * report says what was done and what was left.
+ * Makes the due searches the search share can pay for, longest-due first
+ * across both kinds, then reads the queued channels. It does not throw when
+ * the allowance runs out, when Google asks for a pause or when one search
+ * fails: the report says what was done and what was left.
  */
 export async function runSearchCycle(
   deps: SearchCycleDeps,
   signal?: AbortSignal,
 ): Promise<SearchCycleReport> {
   const now = deps.now();
-  const due = deps.store.subjects.listDue(now);
-  const affordable = pickDueSubjects(due, now, deps.ledger.remaining(now).byKind.search);
+  const subjects = deps.store.subjects.list();
+  const due = dueSearches(subjects, now).map(refOf);
+  const affordable = pickDueSubjects(subjects, now, deps.ledger.remaining(now).byKind.search);
   const {
     searched,
     failed,
     details,
     stopped: halted,
   } = await searchAll(deps, affordable, now, signal);
-  const done = new Set([...searched, ...failed].map((entry) => entry.subjectId));
-  const leftUndone = due.filter((subject) => !done.has(subject.id)).map((subject) => subject.id);
+  const done: readonly SearchRef[] = [...searched, ...failed];
+  const leftUndone = due.filter((search) => !done.some((made) => sameSearch(made, search)));
   const stopped = halted ?? (leftUndone.length > 0 ? 'allowance' : null);
   const channels: ChannelReadsReport = endsTheRound(stopped)
     ? { ...NO_CHANNEL_READS, leftQueued: deps.store.channels.listQueued().length, stopped }

@@ -1,6 +1,6 @@
 /**
  * A subject: one keyword searched for in one country, in one language (or in
- * none in particular), every so many hours. The owner's list of subjects is
+ * none in particular), every so many hours, in two ways (see `sweep.ts`). The owner's list of subjects is
  * what decides where the finder looks, so each one is checked on the way in.
  */
 import { z } from 'zod';
@@ -8,6 +8,13 @@ import { z } from 'zod';
 export const MAX_KEYWORD_LENGTH = 200;
 /** Once a day: the plan's 60 searches a day cover about 15 keywords in four countries. */
 export const DEFAULT_EVERY_HOURS = 24;
+/**
+ * The newest sweep starts at once a day too. It is the search that finds a
+ * video in its first hours, and how often a subject needs it is measured, not
+ * guessed: a sweep that comes back full shortens that subject's own interval
+ * (see `sweep.ts`). A starting value, to be revisited on evidence.
+ */
+export const DEFAULT_NEWEST_EVERY_HOURS = 24;
 /** A subject searched less often than once in thirty days is not being watched. */
 export const MAX_EVERY_HOURS = 24 * 30;
 
@@ -34,6 +41,12 @@ const subjectSchema = z.object({
     .min(1, 'the hours between searches must be at least 1')
     .max(MAX_EVERY_HOURS, `the hours between searches must be at most ${MAX_EVERY_HOURS}`)
     .default(DEFAULT_EVERY_HOURS),
+  newestEveryHours: z
+    .number()
+    .int('the hours between newest sweeps must be a whole number')
+    .min(1, 'the hours between newest sweeps must be at least 1')
+    .max(MAX_EVERY_HOURS, `the hours between newest sweeps must be at most ${MAX_EVERY_HOURS}`)
+    .default(DEFAULT_NEWEST_EVERY_HOURS),
 });
 
 /** A subject as the owner gives it: the language and the hours may be left out. */
@@ -44,7 +57,10 @@ export interface NewSubject {
   readonly keyword: string;
   readonly region: string;
   readonly language: string | null;
+  /** The hours between its top-recent searches. */
   readonly everyHours: number;
+  /** The hours between its newest sweeps, at the longest. */
+  readonly newestEveryHours: number;
 }
 
 /** Checks a subject, tidying the keyword's spaces and the country's case. Throws naming every fault. */
@@ -60,6 +76,7 @@ export function createSubject(input: SubjectInput): NewSubject {
 export interface ExpandOptions {
   readonly language?: string | null;
   readonly everyHours?: number;
+  readonly newestEveryHours?: number;
 }
 
 /**

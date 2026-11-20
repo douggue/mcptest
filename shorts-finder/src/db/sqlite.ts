@@ -167,6 +167,50 @@ CREATE TABLE passed_over_videos (
 ) WITHOUT ROWID;
 CREATE INDEX passed_over_noted ON passed_over_videos (noted_at);
 `,
+  // 4: two kinds of search for each subject. "Top recent" keeps the columns
+  // there already (`every_hours`, `last_searched_at`); "newest" gets its own
+  // cadence, its own last run, the moment its last sweep reached and the
+  // interval it is on now, which shortens while its sweeps come back full. A
+  // hit says how it was made: the kind of search, the place in its results and
+  // the video's age then. Hits are rebuilt for that, with the kind in the key
+  // and the subject optional, since a video found on a followed channel has
+  // none; earlier hits came from most-viewed searches and are kept as such.
+  `
+ALTER TABLE subjects ADD COLUMN newest_every_hours INTEGER NOT NULL DEFAULT 24;
+ALTER TABLE subjects ADD COLUMN newest_interval_hours REAL;
+ALTER TABLE subjects ADD COLUMN newest_last_at TEXT;
+ALTER TABLE subjects ADD COLUMN newest_swept_to TEXT;
+
+CREATE TABLE subject_hits_next (
+  subject_id     INTEGER REFERENCES subjects (id) ON DELETE CASCADE,
+  video_id       TEXT NOT NULL REFERENCES videos (id) ON DELETE CASCADE,
+  kind           TEXT NOT NULL,
+  rank           INTEGER,
+  age_hours      REAL,
+  first_seen_at  TEXT NOT NULL
+);
+INSERT INTO subject_hits_next (subject_id, video_id, kind, first_seen_at)
+  SELECT subject_id, video_id, 'top_recent', first_seen_at FROM subject_hits;
+DROP TABLE subject_hits;
+ALTER TABLE subject_hits_next RENAME TO subject_hits;
+CREATE UNIQUE INDEX subject_hits_once ON subject_hits (COALESCE(subject_id, 0), video_id, kind);
+CREATE INDEX subject_hits_video ON subject_hits (video_id);
+
+CREATE TABLE pending_hits_next (
+  subject_id     INTEGER NOT NULL REFERENCES subjects (id) ON DELETE CASCADE,
+  video_id       TEXT NOT NULL,
+  kind           TEXT NOT NULL,
+  rank           INTEGER,
+  channel_id     TEXT NOT NULL,
+  channel_title  TEXT,
+  found_at       TEXT NOT NULL,
+  PRIMARY KEY (subject_id, video_id, kind)
+) WITHOUT ROWID;
+INSERT INTO pending_hits_next (subject_id, video_id, kind, channel_id, channel_title, found_at)
+  SELECT subject_id, video_id, 'top_recent', channel_id, channel_title, found_at FROM pending_hits;
+DROP TABLE pending_hits;
+ALTER TABLE pending_hits_next RENAME TO pending_hits;
+`,
 ];
 
 /**

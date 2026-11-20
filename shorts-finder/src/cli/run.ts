@@ -20,7 +20,7 @@ export const EXIT_USAGE = 2;
 
 export const USAGE = [
   'Usage:',
-  '  npm run subjects -- add "<keyword>" [--regions US,GB] [--every 24]',
+  '  npm run subjects -- add "<keyword>" [--regions US,GB] [--every 24] [--newest-every 24]',
   '  npm run subjects -- list',
   '  npm run subjects -- disable <id>',
   '  npm run subjects -- enable <id>',
@@ -47,7 +47,11 @@ interface Session {
 }
 
 const describeSubject = (subject: Subject): string =>
-  `#${subject.id} "${subject.keyword}" in ${subject.region}, every ${subject.everyHours} hours`;
+  `#${subject.id} "${subject.keyword}" in ${subject.region}, most-viewed every ` +
+  `${subject.everyHours} hours, newest every ${subject.newestEveryHours} hours`;
+
+/** A sweep interval in hours, without a tail of noughts. */
+const hoursInWords = (hours: number): string => String(Math.round(hours * 10) / 10);
 
 function wholeNumberFrom(text: string | undefined, name: string): number | undefined {
   if (text === undefined) return undefined;
@@ -58,7 +62,11 @@ function wholeNumberFrom(text: string | undefined, name: string): number | undef
 function addSubject(session: Session, args: readonly string[]): number {
   const { values, positionals } = parseArgs({
     args: [...args],
-    options: { regions: { type: 'string' }, every: { type: 'string' } },
+    options: {
+      regions: { type: 'string' },
+      every: { type: 'string' },
+      'newest-every': { type: 'string' },
+    },
     allowPositionals: true,
   });
   const [keyword, ...extra] = positionals;
@@ -69,6 +77,7 @@ function addSubject(session: Session, args: readonly string[]): number {
   const subjects = expandAcrossRegions(keyword, regions, {
     language: session.config.language,
     everyHours: wholeNumberFrom(values.every, '--every'),
+    newestEveryHours: wholeNumberFrom(values['newest-every'], '--newest-every'),
   });
   let failures = 0;
   for (const subject of subjects) {
@@ -90,8 +99,16 @@ function listSubjects(session: Session): number {
   }
   for (const subject of subjects) {
     const searched = subject.lastSearchedAt?.toISOString() ?? 'never';
+    const swept = subject.newestLastAt?.toISOString() ?? 'never';
     const state = subject.enabled ? 'on ' : 'off';
-    session.deps.out(`${state} ${describeSubject(subject)}, last searched ${searched}`);
+    // A subject whose sweeps come back full is swept more often than it was set to.
+    const pace =
+      subject.newestIntervalHours < subject.newestEveryHours
+        ? ` (now every ${hoursInWords(subject.newestIntervalHours)} hours: its sweeps come back full)`
+        : '';
+    session.deps.out(
+      `${state} ${describeSubject(subject)}${pace}, most-viewed last searched ${searched}, newest last swept ${swept}`,
+    );
   }
   return EXIT_OK;
 }

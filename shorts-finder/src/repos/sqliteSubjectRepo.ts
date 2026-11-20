@@ -1,11 +1,18 @@
 import type { Db } from '../db/sqlite';
 import type { NewSubject } from '../subjects/subject';
-import { fromTextOrNull, toText } from './rows';
-import type { Subject, SubjectHitRepo, SubjectRepo } from './types';
+import { fromText, fromTextOrNull, toText } from './rows';
+import type {
+  HitKind,
+  SearchKind,
+  Subject,
+  SubjectHit,
+  SubjectHitRepo,
+  SubjectRepo,
+  Sweep,
+} from './types';
 
 /** How "no language in particular" is stored: the column takes part in a uniqueness rule, where NULLs would all count as different. */
 const NO_LANGUAGE = '';
-const SECONDS_PER_HOUR = 3600;
 
 interface SubjectRow {
   readonly id: number;
@@ -15,6 +22,10 @@ interface SubjectRow {
   readonly every_hours: number;
   readonly enabled: number;
   readonly last_searched_at: string | null;
+  readonly newest_every_hours: number;
+  readonly newest_interval_hours: number | null;
+  readonly newest_last_at: string | null;
+  readonly newest_swept_to: string | null;
 }
 
 const toSubject = (row: SubjectRow): Subject => ({
@@ -23,8 +34,16 @@ const toSubject = (row: SubjectRow): Subject => ({
   region: row.region,
   language: row.language === NO_LANGUAGE ? null : row.language,
   everyHours: row.every_hours,
+  newestEveryHours: row.newest_every_hours,
   enabled: row.enabled === 1,
   lastSearchedAt: fromTextOrNull(row.last_searched_at),
+  // Never above the configured cadence, also after the owner shortens that.
+  newestIntervalHours: Math.min(
+    row.newest_every_hours,
+    row.newest_interval_hours ?? row.newest_every_hours,
+  ),
+  newestLastAt: fromTextOrNull(row.newest_last_at),
+  newestSweptTo: fromTextOrNull(row.newest_swept_to),
 });
 
 const isUniqueViolation = (error: unknown): boolean =>
@@ -37,11 +56,17 @@ export class SqliteSubjectRepo implements SubjectRepo {
   add(subject: NewSubject): Subject {
     try {
       const row = this.db
-        .prepare<[string, string, string, number], SubjectRow>(
-          `INSERT INTO subjects (keyword, region, language, every_hours, enabled)
-           VALUES (?, ?, ?, ?, 1) RETURNING *`,
+        .prepare<[string, string, string, number, number], SubjectRow>(
+          `INSERT INTO subjects (keyword, region, language, every_hours, newest_every_hours, enabled)
+           VALUES (?, ?, ?, ?, ?, 1) RETURNING *`,
         )
-        .get(subject.keyword, subject.region, subject.language ?? NO_LANGUAGE, subject.everyHours);
+        .get(
+          subject.keyword,
+          subject.region,
+          subject.language ?? NO_LANGUAGE,
+          subject.everyHours,
+          subject.newestEveryHours,
+        );
       return toSubject(row as SubjectRow);
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
@@ -66,46 +91,69 @@ export class SqliteSubjectRepo implements SubjectRepo {
     return changed.changes === 1;
   }
 
-  markSearched(id: number, at: Date): void {
-    this.db.prepare('UPDATE subjects SET last_searched_at = ? WHERE id = ?').run(toText(at), id);
+  markSearched(id: number, kind: SearchKind, at: Date): void {
+    // The column is one of two written here, never a value from outside.
+    const column = kind === 'top_recent' ? 'last_searched_at' : 'newest_last_at';
+    this.db.prepare(`UPDATE subjects SET ${column} = ? WHERE id = ?`).run(toText(at), id);
   }
 
-  listDue(now: Date): readonly Subject[] {
-    // Whole seconds, so a subject searched exactly its hours ago is due. One
-    // searched "after now" (the clock was set back since) is due as well.
-    return this.db
-      .prepare<{ now: string; hour: number }, SubjectRow>(
-        `SELECT * FROM subjects
-         WHERE enabled = 1 AND (last_searched_at IS NULL
-           OR strftime('%s', @now) - strftime('%s', last_searched_at) >= every_hours * @hour
-           OR last_searched_at > @now)
-         ORDER BY last_searched_at IS NOT NULL, last_searched_at, id`,
+  markSwept(id: number, sweep: Sweep): void {
+    this.db
+      .prepare(
+        `UPDATE subjects SET newest_last_at = @at, newest_swept_to = @at,
+           newest_interval_hours = @intervalHours WHERE id = @id`,
       )
-      .all({ now: toText(now), hour: SECONDS_PER_HOUR })
-      .map(toSubject);
+      .run({ id, at: toText(sweep.at), intervalHours: sweep.intervalHours });
   }
 }
 
-/** Which search found which video, noted the first time only. */
+interface HitRow {
+  readonly subject_id: number | null;
+  readonly video_id: string;
+  readonly kind: HitKind;
+  readonly rank: number | null;
+  readonly age_hours: number | null;
+  readonly first_seen_at: string;
+}
+
+/** Which search, or which channel read, found which video, noted the first time only. */
 export class SqliteSubjectHitRepo implements SubjectHitRepo {
   constructor(private readonly db: Db) {}
 
-  add(subjectId: number, videoId: string, firstSeenAt: Date): boolean {
+  add(hit: SubjectHit): boolean {
     const added = this.db
       .prepare(
-        `INSERT INTO subject_hits (subject_id, video_id, first_seen_at) VALUES (?, ?, ?)
-         ON CONFLICT (subject_id, video_id) DO NOTHING`,
+        `INSERT INTO subject_hits (subject_id, video_id, kind, rank, age_hours, first_seen_at)
+         VALUES (@subjectId, @videoId, @kind, @rank, @ageHours, @firstSeenAt)
+         ON CONFLICT DO NOTHING`,
       )
-      .run(subjectId, videoId, toText(firstSeenAt));
+      .run({ ...hit, firstSeenAt: toText(hit.firstSeenAt) });
     return added.changes === 1;
   }
 
   videoIdsFor(subjectId: number): readonly string[] {
     return this.db
       .prepare<[number], { video_id: string }>(
-        `SELECT video_id FROM subject_hits WHERE subject_id = ? ORDER BY first_seen_at, video_id`,
+        `SELECT video_id FROM subject_hits WHERE subject_id = ?
+         GROUP BY video_id ORDER BY MIN(first_seen_at), video_id`,
       )
       .all(subjectId)
       .map((row) => row.video_id);
+  }
+
+  listForVideo(videoId: string): readonly SubjectHit[] {
+    return this.db
+      .prepare<[string], HitRow>(
+        `SELECT * FROM subject_hits WHERE video_id = ? ORDER BY first_seen_at, kind`,
+      )
+      .all(videoId)
+      .map((row) => ({
+        subjectId: row.subject_id,
+        videoId: row.video_id,
+        kind: row.kind,
+        rank: row.rank,
+        ageHours: row.age_hours,
+        firstSeenAt: fromText(row.first_seen_at),
+      }));
   }
 }

@@ -33,7 +33,7 @@ function startOver(records: CycleRecord[]) {
     searchCycle: (signal) => runSearchCycle(bench, signal),
     searchIsDue: (now) => {
       const left = bench.ledger.remaining(now).byKind.search;
-      return pickDueSubjects(bench.store.subjects.listDue(now), now, left).length > 0;
+      return pickDueSubjects(bench.store.subjects.list(), now, left).length > 0;
     },
     dailyRollup: (now) => rollUpOldReadings(bench.store.readings, now),
     record: (entry) => records.push(entry),
@@ -72,7 +72,7 @@ describe('the scheduler over the real cycles', () => {
     await scheduler.stop();
 
     expect(records.every((entry) => entry.result === 'done')).toBe(true);
-    expect(bench.youtube.callsTo('search')).toHaveLength(2);
+    expect(bench.youtube.callsTo('search')).toHaveLength(4);
     expect(bench.store.videos.get(videoId(2))).toBeNull();
     expect(bench.store.channels.get(channelId('A'))?.subscribers).toBe(890);
     const readings = bench.store.readings.list(videoId(1), at(-DAY_MS), at(DAY_MS));
@@ -82,10 +82,11 @@ describe('the scheduler over the real cycles', () => {
       measuredFrom: NOW,
       measuredTo: at(3 * HOUR_MS),
     });
-    // Two searches, each with one read of the details of what it found that was
-    // new (the second found the long video), three rounds of readings, one channel read.
+    // Four searches (two countries, each most-viewed and newest), two reads of
+    // details (the first found the Short, the third the long video), three
+    // rounds of readings, one channel read.
     expect(bench.quota.usage('2026-11-20').byKind).toEqual({
-      search: 202,
+      search: 402,
       reading: 3,
       channel: 1,
       reserve: 0,

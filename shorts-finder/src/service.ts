@@ -127,7 +127,7 @@ function schedulerOver(config: Config, deps: ServiceDeps, now: () => Date, db: D
       const left = ledger.remaining(at).byKind.search;
       // Results still waiting for their details are work for a round as well.
       const waiting = store.pending.count() > 0 && left >= DETAILS_COST_UNITS;
-      return waiting || pickDueSubjects(store.subjects.listDue(at), at, left).length > 0;
+      return waiting || pickDueSubjects(store.subjects.list(), at, left).length > 0;
     },
     dailyRollup: (at) => rollUpOldReadings(store.readings, at),
     ...messagesFor(config, store, deps, now, db),

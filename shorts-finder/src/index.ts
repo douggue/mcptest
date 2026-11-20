@@ -67,10 +67,10 @@ export {
   type HitDetailsReport,
 } from './discover/hitDetails';
 export {
-  SEARCH_WINDOW_DAYS,
   runSearchCycle,
   type SearchCycleDeps,
   type SearchCycleReport,
+  type SearchRef,
   type SubjectFailure,
   type SubjectOutcome,
 } from './discover/searchCycle';
@@ -165,9 +165,25 @@ export {
   type EarningsEstimate,
   type RateRange,
 } from './scoring/earnings';
-export { SUBJECT_COST_UNITS, isDue, pickDueSubjects } from './subjects/due';
+export {
+  DETAILS_COST_UNITS,
+  SUBJECT_COST_UNITS,
+  dueSearches,
+  isDue,
+  pickDueSubjects,
+  type DueSearch,
+} from './subjects/due';
+export {
+  FULL_PAGE,
+  NEWEST_MAX_LOOKBACK_HOURS,
+  NEWEST_MIN_INTERVAL_HOURS,
+  TOP_RECENT_WINDOW_HOURS,
+  nextNewestInterval,
+  publishedAfterFor,
+} from './subjects/sweep';
 export {
   DEFAULT_EVERY_HOURS,
+  DEFAULT_NEWEST_EVERY_HOURS,
   MAX_EVERY_HOURS,
   MAX_KEYWORD_LENGTH,
   createSubject,
@@ -218,6 +234,7 @@ export {
   type PlaylistVideoIds,
   type SearchHit,
   type SearchOptions,
+  type SearchOrder,
   type SearchResult,
   type Spend,
   type VideoFacts,

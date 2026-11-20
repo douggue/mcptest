@@ -139,12 +139,39 @@ export interface ReadingRepo {
   deleteForVideo(videoId: string): number;
 }
 
-/** A subject as the store holds it. */
+/**
+ * The two searches made for a subject. `top_recent`: the most-viewed videos of
+ * the last two days. `newest`: everything published since the last such sweep.
+ */
+export type SearchKind = 'top_recent' | 'newest';
+
+/**
+ * How a video came to be known: by one of the searches, or by reading the
+ * uploads of a channel that is followed.
+ */
+export type HitKind = SearchKind | 'channel_uploads';
+
+/** A subject as the store holds it. `everyHours` is the cadence of its top-recent search. */
 export interface Subject extends NewSubject {
   readonly id: number;
   readonly enabled: boolean;
-  /** Null for a subject never searched. */
+  /** When its top-recent search last ran; null when it never has. */
   readonly lastSearchedAt: Date | null;
+  /**
+   * The hours between its newest sweeps as things stand: the configured
+   * `newestEveryHours`, or less while its sweeps come back full.
+   */
+  readonly newestIntervalHours: number;
+  /** When its newest sweep last ran, whether or not it answered; null when it never has. */
+  readonly newestLastAt: Date | null;
+  /** The moment its last answered newest sweep reached: the next one starts from here. */
+  readonly newestSweptTo: Date | null;
+}
+
+/** A newest sweep that answered: when, and the interval it leaves the subject on. */
+export interface Sweep {
+  readonly at: Date;
+  readonly intervalHours: number;
 }
 
 export interface SubjectRepo {
@@ -153,22 +180,41 @@ export interface SubjectRepo {
   list(): readonly Subject[];
   /** Turns a subject on or off. False when there is no such subject. */
   setEnabled(id: number, enabled: boolean): boolean;
-  markSearched(id: number, at: Date): void;
-  /** Enabled subjects whose time has come, never-searched first, then oldest-searched first. */
-  listDue(now: Date): readonly Subject[];
+  /** Notes that a search of this kind ran now, answered or not, so its hours start again. */
+  markSearched(id: number, kind: SearchKind, at: Date): void;
+  /** Notes a newest sweep that answered: the next starts where this one ended. */
+  markSwept(id: number, sweep: Sweep): void;
+}
+
+/** Which search, or which channel read, found a video, and how. */
+export interface SubjectHit {
+  /** Null for a video found on a followed channel that no subject led to. */
+  readonly subjectId: number | null;
+  readonly videoId: string;
+  readonly kind: HitKind;
+  /** Its place in the results, 1 to 50; null when the way it was found has none. */
+  readonly rank: number | null;
+  /** How old the video was when found, in hours; null when not known. */
+  readonly ageHours: number | null;
+  readonly firstSeenAt: Date;
 }
 
 export interface SubjectHitRepo {
-  /** Notes that a search on the subject found the video. False when that was already noted. */
-  add(subjectId: number, videoId: string, firstSeenAt: Date): boolean;
-  /** The videos searches on the subject have found, first-seen first. */
+  /** Notes a find. False when the same subject and kind had found the video before. */
+  add(hit: SubjectHit): boolean;
+  /** The videos searches on the subject have found, first-seen first, each once. */
   videoIdsFor(subjectId: number): readonly string[];
+  /** Every find of a video, first-seen first. */
+  listForVideo(videoId: string): readonly SubjectHit[];
 }
 
 /** A search result waiting for the details of its video to be read. */
 export interface PendingHit {
   readonly subjectId: number;
   readonly videoId: string;
+  readonly kind: SearchKind;
+  /** Its place in the search's results, 1 to 50. */
+  readonly rank: number | null;
   readonly channelId: string;
   /** The channel's name as the search gave it. */
   readonly channelTitle: string | null;
@@ -178,11 +224,11 @@ export interface PendingHit {
 
 /** Search results kept from the search's reply until their videos' details are read. */
 export interface PendingHitRepo {
-  /** Keeps a result. False when the same subject is already waiting on the same video. */
+  /** Keeps a result. False when the same search of the subject is already waiting on the video. */
   add(hit: PendingHit): boolean;
   /** Every result still waiting, longest-waiting first. */
   list(): readonly PendingHit[];
-  remove(subjectId: number, videoId: string): void;
+  remove(hit: Pick<PendingHit, 'subjectId' | 'videoId' | 'kind'>): void;
   count(): number;
   /** Drops results found before `cutoff`. Returns how many. */
   deleteOlderThan(cutoff: Date): number;

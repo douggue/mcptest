@@ -1,10 +1,18 @@
 import type { Db } from '../db/sqlite';
 import { fromText, toText } from './rows';
-import type { PassedOverReason, PassedOverRepo, PendingHit, PendingHitRepo } from './types';
+import type {
+  PassedOverReason,
+  PassedOverRepo,
+  PendingHit,
+  PendingHitRepo,
+  SearchKind,
+} from './types';
 
 interface PendingRow {
   readonly subject_id: number;
   readonly video_id: string;
+  readonly kind: SearchKind;
+  readonly rank: number | null;
   readonly channel_id: string;
   readonly channel_title: string | null;
   readonly found_at: string;
@@ -13,6 +21,8 @@ interface PendingRow {
 const toPending = (row: PendingRow): PendingHit => ({
   subjectId: row.subject_id,
   videoId: row.video_id,
+  kind: row.kind,
+  rank: row.rank,
   channelId: row.channel_id,
   channelTitle: row.channel_title,
   foundAt: fromText(row.found_at),
@@ -29,9 +39,10 @@ export class SqlitePendingHitRepo implements PendingHitRepo {
   add(hit: PendingHit): boolean {
     const added = this.db
       .prepare(
-        `INSERT INTO pending_hits (subject_id, video_id, channel_id, channel_title, found_at)
-         VALUES (@subjectId, @videoId, @channelId, @channelTitle, @foundAt)
-         ON CONFLICT (subject_id, video_id) DO NOTHING`,
+        `INSERT INTO pending_hits
+           (subject_id, video_id, kind, rank, channel_id, channel_title, found_at)
+         VALUES (@subjectId, @videoId, @kind, @rank, @channelId, @channelTitle, @foundAt)
+         ON CONFLICT (subject_id, video_id, kind) DO NOTHING`,
       )
       .run({ ...hit, foundAt: toText(hit.foundAt) });
     return added.changes === 1;
@@ -39,15 +50,17 @@ export class SqlitePendingHitRepo implements PendingHitRepo {
 
   list(): readonly PendingHit[] {
     return this.db
-      .prepare<[], PendingRow>('SELECT * FROM pending_hits ORDER BY found_at, subject_id, video_id')
+      .prepare<[], PendingRow>(
+        'SELECT * FROM pending_hits ORDER BY found_at, subject_id, video_id, kind',
+      )
       .all()
       .map(toPending);
   }
 
-  remove(subjectId: number, videoId: string): void {
+  remove(hit: Pick<PendingHit, 'subjectId' | 'videoId' | 'kind'>): void {
     this.db
-      .prepare('DELETE FROM pending_hits WHERE subject_id = ? AND video_id = ?')
-      .run(subjectId, videoId);
+      .prepare('DELETE FROM pending_hits WHERE subject_id = ? AND video_id = ? AND kind = ?')
+      .run(hit.subjectId, hit.videoId, hit.kind);
   }
 
   count(): number {

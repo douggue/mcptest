@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { backupPathFor, backupStore } from '../src/db/backup';
 import { MIGRATIONS, migrate, openDatabase, transactionRunner, type Db } from '../src/db/sqlite';
+import { openStore } from '../src/repos/store';
 
 const NOW = new Date('2026-11-20T09:05:07Z');
 const STAMP = NOW.toISOString();
@@ -75,6 +76,42 @@ describe('openDatabase', () => {
     db.close();
 
     expect(tables.filter((name) => name !== 'sqlite_sequence')).toEqual(TABLES);
+  });
+
+  test('brings a store of the third version up to date, keeping its hits as most-viewed finds and its waiting results', () => {
+    const old = openDatabase(storePath, NOW, MIGRATIONS.slice(0, 3));
+    addChannel(old);
+    addVideo(old);
+    old
+      .prepare(
+        `INSERT INTO subjects (keyword, region, language, every_hours, enabled)
+         VALUES ('paper folding', 'US', 'en', 24, 1)`,
+      )
+      .run();
+    old
+      .prepare('INSERT INTO subject_hits (subject_id, video_id, first_seen_at) VALUES (1, ?, ?)')
+      .run(VIDEO_ID, STAMP);
+    old
+      .prepare(
+        `INSERT INTO pending_hits (subject_id, video_id, channel_id, found_at) VALUES (1, 'vid00000002', ?, ?)`,
+      )
+      .run(CHANNEL_ID, STAMP);
+    old.close();
+
+    const db = openDatabase(storePath, NOW);
+    const store = openStore(db);
+    const hits = store.hits.listForVideo(VIDEO_ID);
+    const waiting = store.pending.list();
+    const [subject] = store.subjects.list();
+    db.close();
+
+    expect(hits).toMatchObject([{ subjectId: 1, kind: 'top_recent', rank: null, ageHours: null }]);
+    expect(waiting).toMatchObject([{ videoId: 'vid00000002', kind: 'top_recent', rank: null }]);
+    expect(subject).toMatchObject({
+      newestEveryHours: 24,
+      newestIntervalHours: 24,
+      newestLastAt: null,
+    });
   });
 
   test('brings a store of the first version up to date, keeping its findings', () => {
@@ -156,7 +193,7 @@ describe('openDatabase', () => {
        VALUES ('paper folding', 'US', 'en', 24, 1)`,
     ).run();
     const hit = db.prepare(
-      'INSERT INTO subject_hits (subject_id, video_id, first_seen_at) VALUES (1, ?, ?)',
+      "INSERT INTO subject_hits (subject_id, video_id, kind, first_seen_at) VALUES (1, ?, 'newest', ?)",
     );
 
     hit.run(VIDEO_ID, STAMP);
@@ -180,7 +217,7 @@ describe('openDatabase', () => {
        VALUES ('paper folding', 'US', 'en', 24, 1)`,
     ).run();
     db.prepare(
-      'INSERT INTO subject_hits (subject_id, video_id, first_seen_at) VALUES (1, ?, ?)',
+      "INSERT INTO subject_hits (subject_id, video_id, kind, first_seen_at) VALUES (1, ?, 'newest', ?)",
     ).run(VIDEO_ID, STAMP);
 
     db.prepare('DELETE FROM videos WHERE id = ?').run(VIDEO_ID);

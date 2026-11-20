@@ -105,11 +105,29 @@ const batchesOf = (ids: readonly string[]): readonly (readonly string[])[] =>
     ids.slice(index * DETAILS_BATCH_SIZE, (index + 1) * DETAILS_BATCH_SIZE),
   );
 
-/** Notes the hit for every waiting result whose video is stored, and stops waiting on it. */
-function settle(store: Store, waiting: readonly PendingHit[], stored: ReadonlySet<string>): void {
+/**
+ * Notes the hit for every waiting result whose video is stored, with the
+ * place it had in the search and its age when found, and stops waiting on it.
+ * `stored` maps each stored video to its moment of publication.
+ */
+function settle(
+  store: Store,
+  waiting: readonly PendingHit[],
+  stored: ReadonlyMap<string, Date>,
+): void {
   for (const hit of waiting) {
-    if (stored.has(hit.videoId)) store.hits.add(hit.subjectId, hit.videoId, hit.foundAt);
-    store.pending.remove(hit.subjectId, hit.videoId);
+    const publishedAt = stored.get(hit.videoId);
+    if (publishedAt !== undefined) {
+      store.hits.add({
+        subjectId: hit.subjectId,
+        videoId: hit.videoId,
+        kind: hit.kind,
+        rank: hit.rank,
+        ageHours: Math.max(0, hit.foundAt.getTime() - publishedAt.getTime()) / MS_PER_HOUR,
+        firstSeenAt: hit.foundAt,
+      });
+    }
+    store.pending.remove(hit);
   }
 }
 
@@ -146,7 +164,7 @@ function storeReply(
     settle(
       store,
       waiting.filter((hit) => settled.has(hit.videoId)),
-      new Set(kept.map((video) => video.id)),
+      new Map(kept.map((video) => [video.id, video.publishedAt])),
     );
   });
   return {
@@ -160,7 +178,12 @@ function storeReply(
 /** Settles, without a request, the waiting results whose videos are stored or passed over already. */
 function settleKnown(store: Store, waiting: readonly PendingHit[]): readonly string[] {
   const ids = [...new Set(waiting.map((hit) => hit.videoId))];
-  const stored = new Set(store.videos.knownIds(ids));
+  const stored = new Map(
+    store.videos.knownIds(ids).flatMap((id): [string, Date][] => {
+      const video = store.videos.get(id);
+      return video === null ? [] : [[id, video.publishedAt]];
+    }),
+  );
   const passed = new Set(store.passedOver.knownIds(ids));
   store.transact(() => {
     settle(

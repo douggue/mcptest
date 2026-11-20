@@ -43,18 +43,28 @@ describe('npm run subjects', () => {
 
     expect(code).toBe(EXIT_OK);
     expect(out).toEqual([
-      'Added #1 "bicycle repair" in GB, every 24 hours',
-      'Added #2 "bicycle repair" in AU, every 24 hours',
+      'Added #1 "bicycle repair" in GB, most-viewed every 24 hours, newest every 24 hours',
+      'Added #2 "bicycle repair" in AU, most-viewed every 24 hours, newest every 24 hours',
     ]);
   });
 
   test('adds a keyword in the countries and at the hours given', () => {
-    const code = run(['subjects', 'add', 'quick baking', '--regions', 'ca,us', '--every', '48']);
+    const code = run([
+      'subjects',
+      'add',
+      'quick baking',
+      '--regions',
+      'ca,us',
+      '--every',
+      '48',
+      '--newest-every',
+      '12',
+    ]);
 
     expect(code).toBe(EXIT_OK);
     expect(out).toEqual([
-      'Added #1 "quick baking" in CA, every 48 hours',
-      'Added #2 "quick baking" in US, every 48 hours',
+      'Added #1 "quick baking" in CA, most-viewed every 48 hours, newest every 12 hours',
+      'Added #2 "quick baking" in US, most-viewed every 48 hours, newest every 12 hours',
     ]);
   });
 
@@ -66,7 +76,24 @@ describe('npm run subjects', () => {
 
     expect(code).toBe(EXIT_FAILED);
     expect(err).toEqual(['The subject "paper craft" in US is already on the list']);
-    expect(out).toEqual(['Added #2 "paper craft" in GB, every 24 hours']);
+    expect(out).toEqual([
+      'Added #2 "paper craft" in GB, most-viewed every 24 hours, newest every 24 hours',
+    ]);
+  });
+
+  test('says when a subject is being swept more often than it was set to', () => {
+    run(['subjects', 'add', 'astronomy facts', '--regions', 'AU']);
+    const db = openDatabase(dbPath, NOW);
+    openStore(db).subjects.markSwept(1, { at: NOW, intervalHours: 4.5 });
+    db.close();
+    out.length = 0;
+
+    run(['subjects', 'list']);
+
+    expect(out[0]).toContain(
+      'newest every 24 hours (now every 4.5 hours: its sweeps come back full)',
+    );
+    expect(out[0]).toContain(`newest last swept ${NOW.toISOString()}`);
   });
 
   test('lists the subjects with whether each is on and when it was last searched', () => {
@@ -77,7 +104,10 @@ describe('npm run subjects', () => {
     const code = run(['subjects', 'list']);
 
     expect(code).toBe(EXIT_OK);
-    expect(out).toEqual(['off #1 "astronomy facts" in AU, every 24 hours, last searched never']);
+    expect(out).toEqual([
+      'off #1 "astronomy facts" in AU, most-viewed every 24 hours, newest every 24 hours, ' +
+        'most-viewed last searched never, newest last swept never',
+    ]);
   });
 
   test('says how to add one when the list is empty', () => {

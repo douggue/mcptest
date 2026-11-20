@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { openDatabase, type Db } from '../src/db/sqlite';
 import { openStore } from '../src/repos/store';
-import type { Store } from '../src/repos/types';
+import type { PendingHit, Store, SubjectHit } from '../src/repos/types';
 import { createSubject } from '../src/subjects/subject';
 import { channelId, videoId } from './fixtures/apiReplies';
 import { DAY_MS, HOUR_MS, MINUTE_MS, NOW, at, channelFacts, videoFacts } from './fixtures/facts';
@@ -16,6 +16,16 @@ beforeEach(() => {
 
 afterEach(() => {
   db.close();
+});
+
+/** A find by a most-viewed search, third in its results, of a video two hours old. */
+const hitOf = (subjectId: number | null, id: string): SubjectHit => ({
+  subjectId,
+  videoId: id,
+  kind: 'top_recent',
+  rank: 3,
+  ageHours: 2,
+  firstSeenAt: NOW,
 });
 
 /** Stores a video and the channel it needs. */
@@ -188,7 +198,7 @@ describe('the video repository', () => {
     const subject = store.subjects.add(createSubject({ keyword: 'paper folding', region: 'US' }));
     store.readings.add({ videoId: id, capturedAt: NOW, views: 10 });
     store.tracking.start(id, 'yes', at(HOUR_MS));
-    store.hits.add(subject.id, id, NOW);
+    store.hits.add({ ...hitOf(subject.id, id), firstSeenAt: NOW });
 
     expect(store.videos.delete(id)).toBe(true);
     expect(store.videos.delete(id)).toBe(false);
@@ -315,8 +325,12 @@ describe('the subject repository', () => {
       region: 'GB',
       language: null,
       everyHours: 48,
+      newestEveryHours: 24,
       enabled: true,
       lastSearchedAt: null,
+      newestIntervalHours: 24,
+      newestLastAt: null,
+      newestSweptTo: null,
     });
     expect(store.subjects.list()).toEqual([stored]);
   });
@@ -335,52 +349,83 @@ describe('the subject repository', () => {
 
     expect(store.subjects.setEnabled(id, false)).toBe(true);
     expect(store.subjects.list()[0]?.enabled).toBe(false);
-    expect(store.subjects.listDue(NOW)).toEqual([]);
     expect(store.subjects.setEnabled(id, true)).toBe(true);
     expect(store.subjects.setEnabled(99, false)).toBe(false);
   });
 
-  test('lists as due a subject searched "after now": the clock was set back', () => {
-    const subject = store.subjects.add(sky);
-    store.subjects.markSearched(subject.id, at(HOUR_MS));
+  test('notes each kind of search on its own, and a sweep with where it reached and its interval', () => {
+    const { id } = store.subjects.add(sky);
 
-    expect(store.subjects.listDue(NOW).map((due) => due.id)).toEqual([subject.id]);
+    store.subjects.markSearched(id, 'top_recent', at(-HOUR_MS));
+    store.subjects.markSwept(id, { at: at(-2 * HOUR_MS), intervalHours: 12 });
+
+    expect(store.subjects.list()[0]).toMatchObject({
+      lastSearchedAt: at(-HOUR_MS),
+      newestLastAt: at(-2 * HOUR_MS),
+      newestSweptTo: at(-2 * HOUR_MS),
+      newestIntervalHours: 12,
+    });
   });
 
-  test('lists as due the never-searched, then the longest unsearched, and not the recent', () => {
-    const first = store.subjects.add(paper);
-    const second = store.subjects.add(bread);
-    const third = store.subjects.add(sky);
-    const fourth = store.subjects.add({ ...sky, region: 'AU' });
-    store.subjects.markSearched(first.id, at(-30 * HOUR_MS));
-    store.subjects.markSearched(second.id, at(-47 * HOUR_MS));
-    store.subjects.markSearched(third.id, at(-24 * HOUR_MS));
+  test('notes a newest sweep that did not answer without moving where the last one reached', () => {
+    const { id } = store.subjects.add(sky);
+    store.subjects.markSwept(id, { at: at(-5 * HOUR_MS), intervalHours: 24 });
 
-    const due = store.subjects.listDue(NOW);
+    store.subjects.markSearched(id, 'newest', NOW);
 
-    expect(due.map((subject) => subject.id)).toEqual([fourth.id, first.id, third.id]);
-    expect(due[1]?.lastSearchedAt).toEqual(at(-30 * HOUR_MS));
+    expect(store.subjects.list()[0]).toMatchObject({
+      newestLastAt: NOW,
+      newestSweptTo: at(-5 * HOUR_MS),
+      lastSearchedAt: null,
+    });
+  });
+
+  test('never reports an interval above the configured cadence', () => {
+    const { id } = store.subjects.add({ ...sky, newestEveryHours: 6 });
+
+    store.subjects.markSwept(id, { at: NOW, intervalHours: 12 });
+
+    expect(store.subjects.list()[0]?.newestIntervalHours).toBe(6);
   });
 });
 
 describe('the subject hit repository', () => {
-  test('notes once which search found which video, first-seen first', () => {
+  test('notes once how each kind of search found a video, first-seen first', () => {
     const subject = store.subjects.add(createSubject({ keyword: 'bicycle repair', region: 'AU' }));
     const first = addVideo(1, 'A');
     const second = addVideo(2, 'B');
+    const newest = { ...hitOf(subject.id, first), kind: 'newest' as const, rank: 7, ageHours: 1.5 };
 
-    expect(store.hits.add(subject.id, second, at(HOUR_MS))).toBe(true);
-    expect(store.hits.add(subject.id, first, NOW)).toBe(true);
-    expect(store.hits.add(subject.id, first, at(2 * HOUR_MS))).toBe(false);
+    expect(store.hits.add({ ...hitOf(subject.id, second), firstSeenAt: at(HOUR_MS) })).toBe(true);
+    expect(store.hits.add(hitOf(subject.id, first))).toBe(true);
+    expect(store.hits.add({ ...hitOf(subject.id, first), firstSeenAt: at(2 * HOUR_MS) })).toBe(
+      false,
+    );
+    expect(store.hits.add({ ...newest, firstSeenAt: at(3 * HOUR_MS) })).toBe(true);
 
     expect(store.hits.videoIdsFor(subject.id)).toEqual([first, second]);
+    expect(store.hits.listForVideo(first)).toEqual([
+      hitOf(subject.id, first),
+      { ...newest, firstSeenAt: at(3 * HOUR_MS) },
+    ]);
+  });
+
+  test('notes once a find with no subject behind it', () => {
+    const id = addVideo(1, 'A');
+    const found = { ...hitOf(null, id), kind: 'channel_uploads' as const, rank: null };
+
+    expect(store.hits.add(found)).toBe(true);
+    expect(store.hits.add(found)).toBe(false);
+    expect(store.hits.listForVideo(id)).toEqual([found]);
   });
 });
 
 describe('the pending results of searches', () => {
-  const pending = (subjectId: number, n: number, foundAt: Date = NOW) => ({
+  const pending = (subjectId: number, n: number, foundAt: Date = NOW): PendingHit => ({
     subjectId,
     videoId: videoId(n),
+    kind: 'top_recent',
+    rank: n,
     channelId: channelId('A'),
     channelTitle: 'Channel A',
     foundAt,
@@ -400,7 +445,9 @@ describe('the pending results of searches', () => {
       [paper.id, videoId(1)],
       [sky.id, videoId(2)],
     ]);
-    store.pending.remove(sky.id, videoId(1));
+    expect(store.pending.add({ ...pending(sky.id, 2), kind: 'newest' })).toBe(true);
+    store.pending.remove(pending(sky.id, 1));
+    store.pending.remove({ ...pending(sky.id, 2), kind: 'newest' });
     expect(store.pending.count()).toBe(2);
     expect(store.pending.list()[1]).toEqual({ ...pending(sky.id, 2), channelTitle: null });
   });

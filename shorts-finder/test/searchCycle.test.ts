@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { SEARCH_WINDOW_DAYS, runSearchCycle } from '../src/discover/searchCycle';
+import { runSearchCycle } from '../src/discover/searchCycle';
 import {
   CHANNEL_REREAD_AFTER_MS,
   MAX_CHANNEL_READ_ATTEMPTS,
@@ -8,7 +8,7 @@ import {
 import { PENDING_HIT_MAX_AGE_MS } from '../src/discover/hitDetails';
 import { planFor } from '../src/quota/ledger';
 import type { Subject } from '../src/repos/types';
-import { createSubject } from '../src/subjects/subject';
+import { createSubject, type SubjectInput } from '../src/subjects/subject';
 import { SHORTS_MAX_SECONDS } from '../src/youtube/shorts';
 import { channelId, videoId } from './fixtures/apiReplies';
 import { DAY_MS, HOUR_MS, NOW, at, channelFacts } from './fixtures/facts';
@@ -28,21 +28,31 @@ afterEach(() => {
 
 const run = (signal?: AbortSignal) => runSearchCycle(bench, signal);
 
+/**
+ * Adds a subject whose newest sweep has just run, so that only its most-viewed
+ * search is due: most tests here are about one search at a time.
+ */
+function add(input: SubjectInput): Subject {
+  const subject = bench.store.subjects.add(createSubject(input));
+  bench.store.subjects.markSwept(subject.id, { at: NOW, intervalHours: 24 });
+  return subject;
+}
+
 /** Four subjects in unrelated niches, one in each of four countries. */
 function addSubjects(): readonly Subject[] {
   return [
-    createSubject({ keyword: 'paper folding', region: 'US', language: 'en' }),
-    createSubject({ keyword: 'sourdough starter', region: 'GB', language: 'en' }),
-    createSubject({ keyword: 'night sky', region: 'CA' }),
-    createSubject({ keyword: 'bicycle repair', region: 'AU', language: 'en' }),
-  ].map((subject) => bench.store.subjects.add(subject));
+    add({ keyword: 'paper folding', region: 'US', language: 'en' }),
+    add({ keyword: 'sourdough starter', region: 'GB', language: 'en' }),
+    add({ keyword: 'night sky', region: 'CA' }),
+    add({ keyword: 'bicycle repair', region: 'AU', language: 'en' }),
+  ];
 }
+
+const top = (subject: Subject | undefined) => ({ subjectId: subject?.id, kind: 'top_recent' });
 
 /** One subject whose search finds video 1 of channel A, with both in the world. */
 function oneFind(): Subject {
-  const subject = bench.store.subjects.add(
-    createSubject({ keyword: 'paper folding', region: 'US', language: 'en' }),
-  );
+  const subject = add({ keyword: 'paper folding', region: 'US', language: 'en' });
   bench.youtube.setSearch('paper folding', 'US', [hit(1, 'A')]);
   bench.youtube.setVideo(1, 'A', { views: 1200 });
   bench.youtube.setChannel('A');
@@ -50,7 +60,7 @@ function oneFind(): Subject {
 }
 
 describe('a search cycle', () => {
-  test('asks for short videos of the last seven days in the subject’s country and language', async () => {
+  test('asks for the most-viewed short videos of the last 48 hours in the subject’s country and language', async () => {
     oneFind();
 
     await run();
@@ -60,13 +70,13 @@ describe('a search cycle', () => {
       regionCode: 'US',
       relevanceLanguage: 'en',
       videoDuration: 'short',
-      publishedAfter: at(-7 * DAY_MS).toISOString(),
+      order: 'viewCount',
+      publishedAfter: at(-2 * DAY_MS).toISOString(),
     });
-    expect(SEARCH_WINDOW_DAYS).toBe(7);
   });
 
   test('leaves the language open for a subject with none', async () => {
-    bench.store.subjects.add(createSubject({ keyword: 'night sky', region: 'CA' }));
+    add({ keyword: 'night sky', region: 'CA' });
 
     await run();
 
@@ -79,7 +89,14 @@ describe('a search cycle', () => {
     const report = await run();
 
     expect(report.searched).toEqual([
-      { subjectId: subject.id, result: 'searched', hits: 1, skipped: 0 },
+      {
+        subjectId: subject.id,
+        kind: 'top_recent',
+        result: 'searched',
+        hits: 1,
+        skipped: 0,
+        fullPage: false,
+      },
     ]);
     expect(report.details).toEqual({
       newVideos: 1,
@@ -101,6 +118,27 @@ describe('a search cycle', () => {
     });
     expect(bench.store.hits.videoIdsFor(subject.id)).toEqual([videoId(1)]);
     expect(bench.store.subjects.list()[0]?.lastSearchedAt).toEqual(NOW);
+  });
+
+  test('notes how a video was found: the kind of search, its place in the results and its age then', async () => {
+    const subject = add({ keyword: 'night sky', region: 'CA' });
+    bench.youtube.setSearch('night sky', 'CA', [hit(3, 'C'), { id: {} }, hit(1, 'A')]);
+    bench.youtube.setVideo(1, 'A', { publishedAt: at(-90 * 60_000) });
+    bench.youtube.setVideo(3, 'C', { publishedAt: at(-30 * HOUR_MS) });
+
+    await run();
+
+    expect(bench.store.hits.listForVideo(videoId(1))).toEqual([
+      {
+        subjectId: subject.id,
+        videoId: videoId(1),
+        kind: 'top_recent',
+        rank: 3,
+        ageHours: 1.5,
+        firstSeenAt: NOW,
+      },
+    ]);
+    expect(bench.store.hits.listForVideo(videoId(3))[0]).toMatchObject({ rank: 1, ageHours: 30 });
   });
 
   test('reads the facts of a new video’s channel in the same cycle', async () => {
@@ -130,7 +168,7 @@ describe('a search cycle', () => {
   });
 
   test('keeps a video at the Shorts limit, drops a longer one, and keeps one of unknown length as unknown', async () => {
-    const subject = bench.store.subjects.add(createSubject({ keyword: 'night sky', region: 'CA' }));
+    const subject = add({ keyword: 'night sky', region: 'CA' });
     bench.youtube.setSearch('night sky', 'CA', [hit(1, 'A'), hit(2, 'B'), hit(3, 'C')]);
     bench.youtube.setVideo(1, 'A', { duration: 'PT3M' });
     bench.youtube.setVideo(2, 'B', { duration: 'PT3M1S' });
@@ -174,7 +212,7 @@ describe('a search cycle', () => {
 
   test('searches nothing that is not due, and says so by doing nothing', async () => {
     const subject = oneFind();
-    bench.store.subjects.markSearched(subject.id, at(-HOUR_MS));
+    bench.store.subjects.markSearched(subject.id, 'top_recent', at(-HOUR_MS));
 
     const report = await run();
 
@@ -183,18 +221,110 @@ describe('a search cycle', () => {
   });
 });
 
+describe('the newest sweep of a subject', () => {
+  /** A subject whose most-viewed search has just run, so that only its newest sweep is due. */
+  function sweepOnly(input: SubjectInput): Subject {
+    const subject = bench.store.subjects.add(createSubject(input));
+    bench.store.subjects.markSearched(subject.id, 'top_recent', NOW);
+    return subject;
+  }
+
+  const fullPage = (letter: string): unknown[] =>
+    Array.from({ length: 50 }, (_, n) => hit(100 + n, letter));
+  const stored = (): Subject => bench.store.subjects.list()[0]!;
+
+  test('asks for the newest first, a named most back the first time, then from where the last sweep ended', async () => {
+    sweepOnly({ keyword: 'night sky', region: 'CA' });
+
+    await run();
+    bench.clock = at(DAY_MS);
+    bench.store.subjects.markSearched(stored().id, 'top_recent', bench.clock);
+    await run();
+
+    const [first, second] = bench.youtube.callsTo('search');
+    expect(first?.params).toMatchObject({
+      order: 'date',
+      publishedAfter: at(-2 * DAY_MS).toISOString(),
+    });
+    expect(second?.params).toMatchObject({ order: 'date', publishedAfter: NOW.toISOString() });
+  });
+
+  test('notes the hit as found by a newest sweep, apart from a most-viewed search finding the same video', async () => {
+    const subject = bench.store.subjects.add(createSubject({ keyword: 'night sky', region: 'CA' }));
+    bench.youtube.setSearch('night sky', 'CA', [hit(2, 'B'), hit(1, 'A')]);
+    bench.youtube.setVideo(1, 'A');
+    bench.youtube.setVideo(2, 'B');
+
+    const report = await run();
+
+    expect(report.searched.map((outcome) => outcome.kind)).toEqual(['top_recent', 'newest']);
+    expect(bench.youtube.callsTo('videos')).toHaveLength(1);
+    expect(
+      bench.store.hits.listForVideo(videoId(1)).map((found) => [found.kind, found.rank]),
+    ).toEqual([
+      ['newest', 2],
+      ['top_recent', 2],
+    ]);
+    expect(bench.store.hits.videoIdsFor(subject.id)).toEqual([videoId(1), videoId(2)]);
+  });
+
+  test('halves that subject’s interval when its sweep comes back full, and no other subject’s', async () => {
+    sweepOnly({ keyword: 'night sky', region: 'CA' });
+    sweepOnly({ keyword: 'paper folding', region: 'US' });
+    bench.youtube.setSearch('night sky', 'CA', fullPage('A'));
+
+    const report = await run();
+
+    const [sky, paper] = bench.store.subjects.list();
+    expect(report.searched[0]).toMatchObject({ kind: 'newest', hits: 50, fullPage: true });
+    expect(sky).toMatchObject({ newestIntervalHours: 12, newestSweptTo: NOW, newestLastAt: NOW });
+    expect(paper).toMatchObject({ newestIntervalHours: 24 });
+  });
+
+  test('sweeps a busy subject again after its shortened interval, and eases off when a sweep is under half full', async () => {
+    sweepOnly({ keyword: 'night sky', region: 'CA' });
+    bench.youtube.setSearch('night sky', 'CA', fullPage('A'));
+    await run();
+    bench.clock = at(11 * HOUR_MS);
+    const early = await run();
+    bench.clock = at(12 * HOUR_MS);
+    const onTime = await run();
+    bench.youtube.setSearch('night sky', 'CA', [hit(1, 'A')]);
+    bench.clock = at(18 * HOUR_MS);
+
+    const quiet = await run();
+
+    expect(early.searched).toEqual([]);
+    expect(onTime.searched).toHaveLength(1);
+    expect(quiet.searched).toHaveLength(1);
+    // Halved twice to six hours by two full sweeps, then doubled back by a thin one.
+    expect(stored().newestIntervalHours).toBe(12);
+  });
+
+  test('does not move where the last sweep reached when a sweep fails', async () => {
+    const subject = sweepOnly({ keyword: 'night sky', region: 'CA' });
+    bench.store.subjects.markSwept(subject.id, { at: at(-30 * HOUR_MS), intervalHours: 24 });
+    bench.youtube.refuse((call) => call.path === 'search', 500);
+
+    const report = await run();
+
+    expect(report.failed).toMatchObject([{ subjectId: subject.id, kind: 'newest' }]);
+    expect(stored()).toMatchObject({ newestLastAt: NOW, newestSweptTo: at(-30 * HOUR_MS) });
+  });
+});
+
 describe('a search cycle and the allowance', () => {
   test('searches only as many subjects as the search share can pay for, longest-waiting first', async () => {
     bench.db.close();
     bench = openBench(planFor(500));
     const [paper, bread, sky, bike] = addSubjects();
-    bench.store.subjects.markSearched(paper!.id, at(-30 * HOUR_MS));
+    bench.store.subjects.markSearched(paper!.id, 'top_recent', at(-30 * HOUR_MS));
 
     const report = await run();
 
     // 300 units of searching pay for two subjects at 101 each.
     expect(report.searched.map((outcome) => outcome.subjectId)).toEqual([bread!.id, sky!.id]);
-    expect(report.leftUndone).toEqual([bike!.id, paper!.id]);
+    expect(report.leftUndone).toEqual([top(bike), top(paper)]);
     expect(report.stopped).toBe('allowance');
     expect(bench.youtube.callsTo('search')).toHaveLength(2);
   });
@@ -220,7 +350,7 @@ describe('a search cycle and the allowance', () => {
     const report = await runSearchCycle({ ...bench, api });
 
     expect(report.searched).toHaveLength(1);
-    expect(report.leftUndone).toEqual(subjects.slice(1).map((subject) => subject.id));
+    expect(report.leftUndone).toEqual(subjects.slice(1).map(top));
     expect(report.stopped).toBe('allowance');
     expect(bench.store.subjects.list()[1]?.lastSearchedAt).toBeNull();
   });
@@ -232,7 +362,7 @@ describe('a search cycle and the allowance', () => {
     const report = await run();
 
     expect(report.stopped).toBe('allowance');
-    expect(report.leftUndone).toEqual(subjects.map((subject) => subject.id));
+    expect(report.leftUndone).toEqual(subjects.map(top));
     expect(bench.youtube.callsTo('search')).toHaveLength(1);
     expect(bench.ledger.remaining(NOW).total).toBe(0);
     expect(report.channels.stopped).toBeNull();
@@ -280,7 +410,11 @@ describe('a search cycle when things go wrong', () => {
     const report = await run();
 
     expect(report.failed).toEqual([
-      { subjectId: paper!.id, reason: 'The YouTube API refused the request (500): backend error' },
+      {
+        subjectId: paper!.id,
+        kind: 'top_recent',
+        reason: 'The YouTube API refused the request (500): backend error',
+      },
     ]);
     expect(report.searched.map((outcome) => outcome.subjectId)).toContain(bread!.id);
     expect(report.searched).toHaveLength(3);
@@ -326,6 +460,8 @@ describe('a search cycle when things go wrong', () => {
       {
         subjectId: paper!.id,
         videoId: videoId(1),
+        kind: 'top_recent',
+        rank: 1,
         channelId: channelId('A'),
         channelTitle: 'Channel A',
         foundAt: NOW,
@@ -339,7 +475,8 @@ describe('a search cycle when things go wrong', () => {
     await run();
     bench.youtube.heal();
     bench.clock = at(PENDING_HIT_MAX_AGE_MS + 1);
-    bench.store.subjects.markSearched(subject.id, bench.clock);
+    bench.store.subjects.markSearched(subject.id, 'top_recent', bench.clock);
+    bench.store.subjects.markSearched(subject.id, 'newest', bench.clock);
 
     const report = await run();
 
@@ -349,7 +486,7 @@ describe('a search cycle when things go wrong', () => {
   });
 
   test('does not pay again for a video found too long, or one the details did not return', async () => {
-    const subject = bench.store.subjects.add(createSubject({ keyword: 'night sky', region: 'CA' }));
+    const subject = add({ keyword: 'night sky', region: 'CA' });
     bench.youtube.setSearch('night sky', 'CA', [hit(1, 'A'), hit(2, 'B'), hit(3, 'C')]);
     bench.youtube.setVideo(1, 'A');
     bench.youtube.setVideo(2, 'B', { duration: 'PT10M' });
@@ -366,11 +503,12 @@ describe('a search cycle when things go wrong', () => {
     expect(second.searched[0]).toMatchObject({ subjectId: subject.id, hits: 3 });
     expect(second.details).toMatchObject({ newVideos: 0, tooLong: 0, notReturned: 0 });
     expect(bench.youtube.callsTo('videos')).toHaveLength(1);
-    expect(bench.quota.usage('2026-11-21').byKind.search).toBe(100);
+    // A day on both kinds of search are due again: two searches, and no details to pay for.
+    expect(bench.quota.usage('2026-11-21').byKind.search).toBe(200);
   });
 
   test('does not write off many results when the details come back empty', async () => {
-    bench.store.subjects.add(createSubject({ keyword: 'night sky', region: 'CA' }));
+    add({ keyword: 'night sky', region: 'CA' });
     const numbers = [1, 2, 3, 4, 5, 6];
     bench.youtube.setSearch(
       'night sky',
@@ -427,7 +565,7 @@ describe('a search cycle when things go wrong', () => {
     const report = await runSearchCycle({ ...bench, api }, lost.signal);
 
     expect(report.searched).toHaveLength(1);
-    expect(report.leftUndone).toEqual(subjects.slice(1).map((subject) => subject.id));
+    expect(report.leftUndone).toEqual(subjects.slice(1).map(top));
     expect(report.stopped).toBe('lease_lost');
     expect(report.channels.stopped).toBe('lease_lost');
     expect(bench.youtube.callsTo('channels')).toEqual([]);
@@ -462,9 +600,7 @@ describe('reading queued channels', () => {
   });
 
   test('keeps a video whose channel the API does not return, and stops asking for the channel', async () => {
-    const subject = bench.store.subjects.add(
-      createSubject({ keyword: 'bicycle repair', region: 'AU' }),
-    );
+    const subject = add({ keyword: 'bicycle repair', region: 'AU' });
     bench.youtube.setSearch('bicycle repair', 'AU', [hit(4, 'D')]);
     bench.youtube.setVideo(4, 'D');
 

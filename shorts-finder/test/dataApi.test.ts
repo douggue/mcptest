@@ -22,6 +22,7 @@ import {
   videoId,
   videoItem,
   videosReply,
+  searchItem,
 } from './fixtures/apiReplies';
 
 const KEY = 'test-key-not-a-real-one';
@@ -65,7 +66,12 @@ async function rejected(call: Promise<{ readonly error: Error | null }>): Promis
 }
 
 const param = (call: Call | undefined, name: string) => call?.url.searchParams.get(name);
-const search = { publishedAfter: SINCE, regionCode: 'US', shortOnly: true };
+const search = {
+  order: 'viewCount',
+  publishedAfter: SINCE,
+  regionCode: 'US',
+  shortOnly: true,
+} as const;
 
 describe('searchRecentVideos', () => {
   test('returns the readable videos of one page, leaving out anything else', async () => {
@@ -80,7 +86,33 @@ describe('searchRecentVideos', () => {
       channelTitle: 'Channel A',
       title: 'Folding a paper crane in 40 seconds',
       publishedAt: new Date('2026-11-18T15:30:00Z'),
+      rank: 1,
     });
+  });
+
+  test('gives each video its place in the results, counting the entries it could not read', async () => {
+    const api = fakeApi([{ body: SEARCH_REPLY }]);
+
+    const found = await searchRecentVideos('quick how-to', { ...api.options, ...search });
+
+    // The third entry of the reply is not a video, so the last video is fourth.
+    expect(found.hits.map((hit) => hit.rank)).toEqual([1, 2, 4]);
+    expect(found).toMatchObject({ skipped: 1, fullPage: false });
+  });
+
+  test('says when a page came back full, and asks for the newest first when told to', async () => {
+    const items = Array.from({ length: 50 }, (_, n) => searchItem(n, 'A', `Made-up title ${n}`));
+    const api = fakeApi([{ body: { items } }]);
+
+    const found = await searchRecentVideos('quick how-to', {
+      ...api.options,
+      ...search,
+      order: 'date',
+    });
+
+    expect(found.fullPage).toBe(true);
+    expect(found.hits.at(-1)?.rank).toBe(50);
+    expect(param(api.calls[0], 'order')).toBe('date');
   });
 
   test('asks for the most-viewed short videos in one country since a date', async () => {

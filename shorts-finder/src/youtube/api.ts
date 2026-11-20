@@ -10,11 +10,13 @@ import {
   type ChannelFacts,
   type DataApiOptions,
   type ListResult,
+  type SearchOrder,
   type SearchResult,
   type VideoFacts,
 } from './dataApi';
 
 export interface SearchRequest {
+  readonly order: SearchOrder;
   readonly publishedAfter: Date;
   readonly regionCode: string;
   readonly relevanceLanguage?: string;

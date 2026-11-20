@@ -15,7 +15,7 @@ no finding alerts go out until that step is built. What exists:
 | Official-API reader                | `src/youtube/`                                    |
 | Allowance ledger and plan          | `src/quota/ledger.ts`                             |
 | One reader at a time (a lease)     | `src/lease.ts`                                    |
-| Subjects and which are due         | `src/subjects/`                                   |
+| Subjects, the two searches, pacing | `src/subjects/`                                   |
 | Search cycle, channel reads        | `src/discover/`                                   |
 | Read cycle, tiers, views per hour  | `src/track/`                                      |
 | Findings as stored, and their text | `src/findings/`, `src/repos/sqliteFindingRepo.ts` |
@@ -54,7 +54,7 @@ neither to run without them (the service says so once when it starts).
 
 ```
 npm start                                  # the service; Ctrl+C stops it cleanly
-npm run subjects -- add "a keyword" [--regions US,GB] [--every 24]
+npm run subjects -- add "a keyword" [--regions US,GB] [--every 24] [--newest-every 24]
 npm run subjects -- list
 npm run subjects -- disable 3              # and: enable 3
 npm run status                             # units spent, subjects, tracked videos, last runs
@@ -98,14 +98,23 @@ the calendar day in Pacific time, when Google resets the allowance.
   day 14, then no longer. A video the API leaves out on two occasions at least
   six hours apart stops being tracked, marked as gone; nothing is deleted on a
   miss, and a reply that is empty for many videos at once is not believed.
-- Whenever subjects are due, each is searched once (short videos of the last
-  seven days). A search's results are kept the moment it answers, so a failure
+- Each subject is searched in two ways, each on its own clock. "Top recent"
+  asks for the most-viewed short videos of the last 48 hours (`--every`,
+  24 hours unless set). "Newest" asks for everything published since its last
+  sweep, newest first (`--newest-every`, 24 hours unless set; a first or
+  long-overdue sweep looks back 48 hours at most). A newest sweep that comes
+  back with a full page of 50 halves that subject's own interval, down to 3
+  hours; one under half full doubles it back towards what was set. Whenever
+  searches are due, the longest-due go first, whichever kind. Every hit is
+  stored with the kind of search, its place in the results and the video's
+  age when found. A search's results are kept the moment it answers, so a failure
   while reading their details costs no search: the details are read in the
   next round. New videos of three minutes or less are stored and tracked;
   longer ones are remembered and not paid for again. Channels' facts are read
   at most once in 24 hours.
 - A search and the read of its results cost 101 units of the search share, so
-  the default plan pays for 59 searches a day.
+  the default plan pays for 59 searches a day: with both kinds at 24 hours,
+  about 29 subject-and-country pairs.
 - Once a day, readings older than 14 days are thinned to the last of each day.
 - When a share of the allowance is spent, or Google says the day's is, a cycle
   stops and reports what it left; it does not fail.

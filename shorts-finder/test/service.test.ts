@@ -128,7 +128,11 @@ describe('the service', () => {
 
     await start(config());
 
-    expect(youtube.callsTo('search')).toHaveLength(1);
+    // The subject is new, so both of its searches are due: most-viewed and newest.
+    expect(youtube.callsTo('search').map((call) => call.params['order'])).toEqual([
+      'viewCount',
+      'date',
+    ]);
     expect(store.tracking.counts(at(2 * HOUR_MS))).toEqual({ tracked: 1, due: 1 });
     expect(readOutcome(store.state, 'search')).toEqual({ at: NOW, result: 'done', problem: null });
     expect(store.state.get(LAST_READ_AT)).toBe(NOW.toISOString());
@@ -139,9 +143,12 @@ describe('the service', () => {
     const [subject] = expandAcrossRegions('night sky', ['CA']).map((entry) =>
       store.subjects.add(entry),
     );
-    store.subjects.markSearched(subject!.id, NOW);
+    store.subjects.markSearched(subject!.id, 'top_recent', NOW);
+    store.subjects.markSearched(subject!.id, 'newest', NOW);
     store.pending.add({
       subjectId: subject!.id,
+      kind: 'newest',
+      rank: 4,
       videoId: videoFacts(2, 'B').id,
       channelId: channelFacts('B').id,
       channelTitle: 'Channel B',
