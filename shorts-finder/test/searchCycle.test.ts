@@ -109,7 +109,7 @@ describe('a search cycle', () => {
     });
     expect(bench.store.videos.get(videoId(1))).toMatchObject({ views: 1200, fetchedAt: NOW });
     expect(bench.store.readings.list(videoId(1), at(-HOUR_MS), NOW)).toEqual([
-      { videoId: videoId(1), capturedAt: NOW, views: 1200 },
+      { videoId: videoId(1), capturedAt: NOW, views: 1200, likes: 9120, comments: 311 },
     ]);
     expect(bench.store.tracking.get(videoId(1))).toMatchObject({
       tier: 'hourly',
@@ -139,6 +139,28 @@ describe('a search cycle', () => {
       },
     ]);
     expect(bench.store.hits.listForVideo(videoId(3))[0]).toMatchObject({ rank: 1, ageHours: 30 });
+  });
+
+  test('starts a new video on the tier its age calls for, with its likes and comments beside its views', async () => {
+    const subject = add({ keyword: 'night sky', region: 'CA' });
+    bench.youtube.setSearch('night sky', 'CA', [hit(1, 'A'), hit(2, 'B')]);
+    bench.youtube.setVideo(1, 'A', { publishedAt: at(-5 * HOUR_MS), views: 700 });
+    bench.youtube.setVideo(2, 'B', { publishedAt: at(-80 * HOUR_MS) });
+
+    await run();
+
+    expect(bench.store.tracking.get(videoId(1))).toMatchObject({
+      tier: 'hourly',
+      nextReadAt: at(HOUR_MS),
+    });
+    expect(bench.store.tracking.get(videoId(2))).toMatchObject({
+      tier: 'six_hourly',
+      nextReadAt: at(6 * HOUR_MS),
+    });
+    expect(bench.store.readings.list(videoId(1), at(-HOUR_MS), NOW)).toEqual([
+      { videoId: videoId(1), capturedAt: NOW, views: 700, likes: 9120, comments: 311 },
+    ]);
+    expect(bench.store.hits.videoIdsFor(subject.id)).toHaveLength(2);
   });
 
   test('reads the facts of a new video’s channel in the same cycle', async () => {

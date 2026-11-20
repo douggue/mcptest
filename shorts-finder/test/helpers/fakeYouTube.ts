@@ -78,7 +78,10 @@ export class FakeYouTube {
         publishedAt: (options.publishedAt ?? at(-2 * HOUR_MS)).toISOString(),
       },
       contentDetails: options.duration === null ? {} : { duration: options.duration ?? 'PT42S' },
-      statistics: options.views === null ? {} : { viewCount: String(options.views ?? 1000) },
+      statistics:
+        options.views === null
+          ? {}
+          : { ...base.statistics, viewCount: String(options.views ?? 1000) },
     });
     return videoId(n);
   }

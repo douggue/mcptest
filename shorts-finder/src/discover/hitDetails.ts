@@ -10,7 +10,7 @@
 import { abortReason, reasonOf, stopReasonFor, type StopReason } from '../cycleStop';
 import type { QuotaLedger } from '../quota/ledger';
 import type { PendingHit, ShortAnswer, Store } from '../repos/types';
-import { HOURLY_READ_MS } from '../track/tiers';
+import { initialPlan } from '../track/tiers';
 import type { YouTubeApi } from '../youtube/api';
 import type { VideoFacts } from '../youtube/dataApi';
 import { shortByLength } from '../youtube/shorts';
@@ -96,13 +96,13 @@ export function storeNewVideo(
   });
   store.videos.upsert(video, readAt);
   if (video.views !== null) {
-    store.readings.add({ videoId: video.id, capturedAt: readAt, views: video.views });
+    const { views, likes, comments } = video;
+    store.readings.add({ videoId: video.id, capturedAt: readAt, views, likes, comments });
   }
-  // Every new video starts on the hourly tier, whatever its age, so a second
-  // reading and a first rate come within the hour; the first read then moves
-  // an older video to the tier its age calls for.
-  const firstRead = new Date(readAt.getTime() + HOURLY_READ_MS);
-  if (store.tracking.start(video.id, isShort, firstRead)) {
+  // A new video starts on the tier its age calls for; its place in a group
+  // decides from its second reading on. One already too old is not tracked.
+  const plan = initialPlan(video.publishedAt, readAt);
+  if (plan !== null && store.tracking.start(video.id, isShort, plan.nextReadAt, plan.tier)) {
     store.follows.noteTrackedUpload(video.channelId, readAt);
   }
 }

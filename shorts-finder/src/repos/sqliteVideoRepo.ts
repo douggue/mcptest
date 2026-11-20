@@ -14,6 +14,8 @@ interface VideoRow {
   readonly default_language: string | null;
   readonly default_audio_language: string | null;
   readonly fetched_at: string;
+  readonly likes: number | null;
+  readonly comments: number | null;
 }
 
 const toVideo = (row: VideoRow): StoredVideo => ({
@@ -26,6 +28,8 @@ const toVideo = (row: VideoRow): StoredVideo => ({
   defaultLanguage: row.default_language,
   defaultAudioLanguage: row.default_audio_language,
   views: row.views,
+  likes: row.likes,
+  comments: row.comments,
   fetchedAt: fromText(row.fetched_at),
 });
 
@@ -36,12 +40,13 @@ export class SqliteVideoRepo implements VideoRepo {
   upsert(video: VideoFacts, fetchedAt: Date): void {
     this.db
       .prepare(
-        `INSERT INTO videos (id, channel_id, title, views, duration_s, published_at, category_id,
-           default_language, default_audio_language, fetched_at)
-         VALUES (@id, @channelId, @title, @views, @durationSeconds, @publishedAt, @categoryId,
-           @defaultLanguage, @defaultAudioLanguage, @fetchedAt)
+        `INSERT INTO videos (id, channel_id, title, views, likes, comments, duration_s,
+           published_at, category_id, default_language, default_audio_language, fetched_at)
+         VALUES (@id, @channelId, @title, @views, @likes, @comments, @durationSeconds,
+           @publishedAt, @categoryId, @defaultLanguage, @defaultAudioLanguage, @fetchedAt)
          ON CONFLICT (id) DO UPDATE SET
            channel_id = excluded.channel_id, title = excluded.title, views = excluded.views,
+           likes = excluded.likes, comments = excluded.comments,
            duration_s = excluded.duration_s, published_at = excluded.published_at,
            category_id = excluded.category_id, default_language = excluded.default_language,
            default_audio_language = excluded.default_audio_language,

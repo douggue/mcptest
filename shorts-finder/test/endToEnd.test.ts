@@ -6,7 +6,7 @@ import { startScheduler, type CycleRecord } from '../src/schedule/scheduler';
 import { pickDueSubjects } from '../src/subjects/due';
 import { expandAcrossRegions } from '../src/subjects/subject';
 import { runReadCycle } from '../src/track/readCycle';
-import { rollUpOldReadings } from '../src/track/rollup';
+import { runDailyCleanup } from '../src/track/cleanup';
 import { velocity } from '../src/track/velocity';
 import { channelId, videoId } from './fixtures/apiReplies';
 import { DAY_MS, HOUR_MS, NOW, at } from './fixtures/facts';
@@ -35,7 +35,7 @@ function startOver(records: CycleRecord[]) {
       const left = bench.ledger.remaining(now).byKind.search;
       return pickDueSubjects(bench.store.subjects.list(), now, left).length > 0;
     },
-    dailyRollup: (now) => rollUpOldReadings(bench.store.readings, now),
+    dailyCleanup: (now) => runDailyCleanup(bench.store, now),
     record: (entry) => records.push(entry),
     every: (run) => {
       fire = run;

@@ -189,7 +189,7 @@ export type {
 } from './repos/types';
 export {
   LAST_READ_AT,
-  LAST_ROLLUP_DAY,
+  LAST_CLEANUP_DAY,
   RATE_LIMIT_PAUSE_MS,
   READ_CYCLE_EVERY_MS,
   SCHEDULER_TICK_MS,
@@ -260,23 +260,44 @@ export {
   MISS_MIN_GAP_MS,
   SUSPECT_EMPTY_BATCH_ABOVE,
   READ_BATCH_SIZE,
+  batchBudget,
   runReadCycle,
   type ReadCycleDeps,
   type ReadCycleReport,
 } from './track/readCycle';
-export { KEEP_EVERY_READING_DAYS, rollUpOldReadings, type RollupReport } from './track/rollup';
+export { endOverdueTracking, runDailyCleanup, type CleanupReport } from './track/cleanup';
+export { finishTracking, updateGrowth } from './track/finish';
 export {
+  COHORT_MIN_MEMBERS,
+  buildCohorts,
+  promiseRate,
+  type CohortLevel,
+  type Cohorts,
+  type Placed,
+  type Ranked,
+} from './track/promise';
+export {
+  BASELINE_FROM,
+  BASELINE_READ_AGES_MS,
+  DUE_LOOK_AHEAD_MS,
+  FADE_AFTER_LOW_READINGS,
   HOURLY_READ_MS,
   HOURLY_UNTIL_MS,
   SIX_HOURLY_READ_MS,
+  TOP_HALF_FROM,
   TRACKED_UNTIL_MS,
+  initialPlan,
   planNextRead,
+  retryPlan,
+  type PlanInput,
+  type Position,
   type ReadPlan,
 } from './track/tiers';
 export {
   MIN_SPAN_MS,
   RATE_WINDOW_MS,
   STALE_AFTER_MS,
+  speedingUp,
   velocity,
   viewsPerHour,
   type Velocity,

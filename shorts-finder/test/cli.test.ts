@@ -177,7 +177,7 @@ describe('npm run status', () => {
       '  feeds    has not run yet',
       '  alerts   has not run yet',
       '  daily    has not run yet',
-      '  rollup   has not run yet',
+      '  cleanup  has not run yet',
     ]);
   });
 

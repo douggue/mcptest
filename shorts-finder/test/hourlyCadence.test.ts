@@ -28,13 +28,17 @@ afterEach(async () => {
 
 describe('the hourly tier under a clock that never stands still', () => {
   test('reads an hourly video in every hourly round, with the real read cycle under the scheduler', async () => {
-    // Three videos in unrelated subjects, all young enough to stay hourly throughout.
+    // Three videos in unrelated subjects, all young enough to stay hourly throughout, and level
+    // with each other, so that none is in the slower half of the three.
     const ids = [1, 2, 3].map((n) => {
       const letter = 'ABC'.charAt(n - 1);
       bench.store.channels.upsert(channelFacts(letter), NOW);
-      bench.store.videos.upsert(videoFacts(n, letter, { publishedAt: at(-HOUR_MS) }), NOW);
+      bench.store.videos.upsert(
+        videoFacts(n, letter, { publishedAt: at(-HOUR_MS), views: 500 }),
+        NOW,
+      );
       bench.store.tracking.start(videoId(n), 'yes', NOW);
-      bench.youtube.setVideo(n, letter, { publishedAt: at(-HOUR_MS), views: 100 * n });
+      bench.youtube.setVideo(n, letter, { publishedAt: at(-HOUR_MS), views: 500 });
       return videoId(n);
     });
     let clock = NOW.getTime();
@@ -48,7 +52,7 @@ describe('the hourly tier under a clock that never stands still', () => {
       channelReads: (signal) => readQueuedChannels(deps, signal),
       searchCycle: async () => ({ stopped: null }),
       searchIsDue: () => false,
-      dailyRollup: () => null,
+      dailyCleanup: () => null,
       record: () => undefined,
       every: (run) => {
         look = run;

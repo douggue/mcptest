@@ -23,6 +23,10 @@ export interface VideoFacts {
   readonly defaultAudioLanguage: string | null;
   /** Null when the uploader hides the view count. */
   readonly views: number | null;
+  /** Null when the uploader hides the likes. */
+  readonly likes: number | null;
+  /** Null when comments are turned off. */
+  readonly comments: number | null;
 }
 
 /** A field the uploader may leave unset; one in a shape not expected reads as unset. */
@@ -50,7 +54,11 @@ const videoSchema = z
       .optional()
       .catch(undefined),
     statistics: z
-      .object({ viewCount: count.optional().catch(undefined) })
+      .object({
+        viewCount: count.optional().catch(undefined),
+        likeCount: count.optional().catch(undefined),
+        commentCount: count.optional().catch(undefined),
+      })
       .optional()
       .catch(undefined),
   })
@@ -64,6 +72,8 @@ const videoSchema = z
     defaultLanguage: snippet.defaultLanguage ?? null,
     defaultAudioLanguage: snippet.defaultAudioLanguage ?? null,
     views: statistics?.viewCount ?? null,
+    likes: statistics?.likeCount ?? null,
+    comments: statistics?.commentCount ?? null,
   }));
 
 /**

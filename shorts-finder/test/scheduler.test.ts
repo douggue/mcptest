@@ -82,8 +82,8 @@ function makeLoop(): Loop {
         channelReads: noting('channels', channelReads),
         searchCycle: noting('search', searchCycle),
         searchIsDue: () => loop.searchDue,
-        dailyRollup: () => {
-          loop.started.push('rollup');
+        dailyCleanup: () => {
+          loop.started.push('cleanup');
           return { removed: 0 };
         },
         record: (entry) => loop.records.push(entry),
@@ -112,8 +112,8 @@ describe('the scheduler', () => {
 
     await loop.start();
 
-    expect(loop.started).toEqual(['read', 'channels', 'rollup']);
-    expect(results(loop)).toEqual(['read:done', 'channels:done', 'rollup:done']);
+    expect(loop.started).toEqual(['read', 'channels', 'cleanup']);
+    expect(results(loop)).toEqual(['read:done', 'channels:done', 'cleanup:done']);
     expect(loop.records[0]).toEqual({
       cycle: 'read',
       startedAt: NOW,
@@ -133,7 +133,7 @@ describe('the scheduler', () => {
       },
     });
 
-    expect(loop.started).toEqual(['read', 'channels', 'uploads', 'rollup']);
+    expect(loop.started).toEqual(['read', 'channels', 'uploads', 'cleanup']);
     expect(results(loop)).toContain('uploads:done');
   });
 
@@ -159,7 +159,7 @@ describe('the scheduler', () => {
       'channels',
       'search',
       'feeds',
-      'rollup',
+      'cleanup',
       'feeds',
       'feeds',
     ]);
@@ -204,7 +204,7 @@ describe('the scheduler', () => {
       report: null,
       reason: 'the store is busy',
     });
-    expect(loop.started).toContain('rollup');
+    expect(loop.started).toContain('cleanup');
   });
 
   test('holds the YouTube lease while a cycle runs and gives it back after', async () => {
@@ -292,7 +292,7 @@ describe('the scheduler', () => {
       'read:failed',
       'channels:done',
       'search:done',
-      'rollup:done',
+      'cleanup:done',
       'search:done',
       'read:done',
       'channels:done',
@@ -305,7 +305,7 @@ describe('the scheduler', () => {
     leases.acquire('by-hand', NOW, at(YOUTUBE_LEASE_TTL_MS));
 
     await loop.start();
-    expect(loop.started).toEqual(['rollup']);
+    expect(loop.started).toEqual(['cleanup']);
     expect(loop.records[0]).toMatchObject({
       cycle: 'read',
       result: 'skipped',
@@ -314,7 +314,7 @@ describe('the scheduler', () => {
     leases.release('by-hand');
     await loop.after(SCHEDULER_TICK_MS);
 
-    expect(loop.started).toEqual(['rollup', 'read', 'channels']);
+    expect(loop.started).toEqual(['cleanup', 'read', 'channels']);
   });
 
   test('asks nothing of YouTube for a quarter of an hour after being told it asks too fast', async () => {
@@ -324,10 +324,10 @@ describe('the scheduler', () => {
     await loop.start({ readCycle: async () => ({ stopped: 'rate_limit' }) });
     await loop.after(SCHEDULER_TICK_MS);
     await loop.after(SCHEDULER_TICK_MS);
-    expect(loop.started).toEqual(['read', 'rollup']);
+    expect(loop.started).toEqual(['read', 'cleanup']);
     await loop.after(SCHEDULER_TICK_MS);
 
-    expect(loop.started).toEqual(['read', 'rollup', 'search']);
+    expect(loop.started).toEqual(['read', 'cleanup', 'search']);
     expect(RATE_LIMIT_PAUSE_MS).toBe(15 * MINUTE_MS);
   });
 
@@ -335,7 +335,7 @@ describe('the scheduler', () => {
     const loop = makeLoop();
     let runs = 0;
     await loop.start({
-      dailyRollup: () => {
+      dailyCleanup: () => {
         runs += 1;
         if (runs === 2) throw new Error('the store is busy');
         return { removed: 3 };
@@ -350,11 +350,11 @@ describe('the scheduler', () => {
     await loop.after(DAY_MS);
 
     expect(runs).toBe(4);
-    const rollups = loop.records.filter((entry) => entry.cycle === 'rollup');
-    expect(rollups.map((entry) => entry.result)).toEqual(['done', 'failed', 'done', 'done']);
-    expect(rollups[0]?.report).toEqual({ removed: 3 });
-    expect(rollups[1]?.reason).toBe('the store is busy');
-    expect(rollups[2]?.startedAt).toEqual(at(4 * HOUR_MS + 2 * SCHEDULER_TICK_MS));
+    const cleanups = loop.records.filter((entry) => entry.cycle === 'cleanup');
+    expect(cleanups.map((entry) => entry.result)).toEqual(['done', 'failed', 'done', 'done']);
+    expect(cleanups[0]?.report).toEqual({ removed: 3 });
+    expect(cleanups[1]?.reason).toBe('the store is busy');
+    expect(cleanups[2]?.startedAt).toEqual(at(4 * HOUR_MS + 2 * SCHEDULER_TICK_MS));
   });
 
   test('takes a round of readings at once when the clock has been set back past the last one', async () => {

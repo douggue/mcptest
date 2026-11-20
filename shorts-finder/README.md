@@ -18,7 +18,8 @@ no finding alerts go out until that step is built. What exists:
 | Subjects, the two searches, pacing | `src/subjects/`                                   |
 | Search cycle, channel reads        | `src/discover/`                                   |
 | Followed channels and their feeds  | `src/discover/follow.ts`, `feedCycle.ts`, `followedUploads.ts`, `src/youtube/feed.ts` |
-| Read cycle, tiers, views per hour  | `src/track/`                                      |
+| Read cycle, tracking by promise, growth, views per hour | `src/track/`                 |
+| Cohort statistics (positions only) | `src/rank/cohort.ts`                              |
 | Findings as stored, and their text | `src/findings/`, `src/repos/sqliteFindingRepo.ts` |
 | Telegram alerts and daily messages | `src/alerts/`                                     |
 | The loop that runs the cycles      | `src/schedule/scheduler.ts`                       |
@@ -98,11 +99,31 @@ kept back is never lent.
 
 ## How the day runs
 
-- Every hour, every tracked video that is due is read, fifty to a request. A
-  video is read hourly until 72 hours after publication, every six hours until
-  day 14, then no longer. A video the API leaves out on two occasions at least
-  six hours apart stops being tracked, marked as gone; nothing is deleted on a
-  miss, and a reply that is empty for many videos at once is not believed.
+- Every hour a round of readings is taken, fifty videos to a request. Each
+  reading keeps the views, likes and comments. How often a video is read
+  depends on its place in a group of comparable videos, not on its age
+  alone. The group is the tracked videos of the same subject keyword and
+  country in the same age band (0-6 h, 6-24 h, 24-72 h, 3-7 d, 7-14 d); when
+  it holds fewer than 10 it widens to the country across all subjects, then
+  to everything in the band. A video is read hourly while it is under 72
+  hours old and in the upper half of its group by views per hour, otherwise
+  every six hours. Tracking ends after three readings in a row in the slower
+  half without speeding up, or at day 14. A video whose channel is in the top
+  quarter of its group by subscribers is read only at about 24 and 72 hours,
+  as a baseline. A new video starts on the tier its age calls for.
+- A round's budget is what the reading share has left today divided by the
+  hours left of the Pacific day (never less than one request). The most
+  promising videos are read first; what does not fit is put off to the next
+  round, not dropped, and the number put off is reported.
+- Each tracked video has a growth summary: its views at 1 h, 6 h, 24 h, 72 h
+  and 7 d after publication, each worked out once by a straight line between
+  the two readings on either side of that age and left empty when there are
+  not two (nothing is guessed beyond the readings). When tracking ends the
+  summary is completed and the raw readings are removed.
+- A video the API leaves out on two occasions at least six hours apart stops
+  being tracked, marked as gone; nothing is deleted on a miss (such a video
+  even keeps its readings), and a reply that is empty for many videos at once
+  is not believed.
 - Each subject is searched in two ways, each on its own clock. "Top recent"
   asks for the most-viewed short videos of the last 48 hours (`--every`,
   24 hours unless set). "Newest" asks for everything published since its last
@@ -140,7 +161,8 @@ kept back is never lent.
 - A search and the read of its results cost 101 units of the search share, so
   the default plan pays for 59 searches a day: with both kinds at 24 hours,
   about 29 subject-and-country pairs.
-- Once a day, readings older than 14 days are thinned to the last of each day.
+- Once a day a clean-up ends the tracking of videos past 14 days that were
+  always put off, so their growth is summed up like everyone else's.
 - When a share of the allowance is spent, or Google says the day's is, a cycle
   stops and reports what it left; it does not fail.
 

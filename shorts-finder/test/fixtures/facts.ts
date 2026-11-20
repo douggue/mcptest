@@ -40,6 +40,8 @@ export function videoFacts(
     defaultLanguage: 'en',
     defaultAudioLanguage: 'en',
     views: 1000 * n,
+    likes: 10 * n,
+    comments: n,
     ...overrides,
   };
 }

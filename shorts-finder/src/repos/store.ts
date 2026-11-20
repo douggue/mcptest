@@ -2,6 +2,7 @@ import { transactionRunner, type Db } from '../db/sqlite';
 import { SqliteChannelRepo } from './sqliteChannelRepo';
 import { SqliteFindingRepo } from './sqliteFindingRepo';
 import { SqliteFollowRepo } from './sqliteFollowRepo';
+import { SqliteGrowthRepo } from './sqliteGrowthRepo';
 import { SqliteReadingRepo } from './sqliteReadingRepo';
 import { SqlitePassedOverRepo, SqlitePendingHitRepo } from './sqliteSearchMemoryRepo';
 import { SqliteServiceStateRepo } from './sqliteServiceStateRepo';
@@ -17,6 +18,7 @@ export function openStore(db: Db): Store {
     follows: new SqliteFollowRepo(db),
     videos: new SqliteVideoRepo(db),
     readings: new SqliteReadingRepo(db),
+    growth: new SqliteGrowthRepo(db),
     subjects: new SqliteSubjectRepo(db),
     hits: new SqliteSubjectHitRepo(db),
     pending: new SqlitePendingHitRepo(db),

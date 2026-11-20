@@ -256,6 +256,28 @@ CREATE INDEX video_tracking_finished ON video_tracking (finished_at) WHERE finis
 
 ALTER TABLE video_snapshots ADD COLUMN source TEXT;
 `,
+  // 6: more from each reading, and what is kept when the readings go. Likes
+  // and comments come with the same request as the views and are stored
+  // beside them. Each tracked video gets one row of growth: its views at five
+  // fixed ages, worked out from its readings. When tracking ends the row is
+  // completed and the readings themselves are removed, which replaces the
+  // thinning of old readings to one a day.
+  `
+ALTER TABLE videos ADD COLUMN likes INTEGER;
+ALTER TABLE videos ADD COLUMN comments INTEGER;
+ALTER TABLE video_snapshots ADD COLUMN likes INTEGER;
+ALTER TABLE video_snapshots ADD COLUMN comments INTEGER;
+
+CREATE TABLE video_growth (
+  video_id      TEXT PRIMARY KEY REFERENCES videos (id) ON DELETE CASCADE,
+  views_1h      INTEGER,
+  views_6h      INTEGER,
+  views_24h     INTEGER,
+  views_72h     INTEGER,
+  views_7d      INTEGER,
+  completed_at  TEXT
+) WITHOUT ROWID;
+`,
 ];
 
 /**

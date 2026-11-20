@@ -1,5 +1,6 @@
 import type { QuotaKind } from '../quota/kinds';
 import type { NewSubject } from '../subjects/subject';
+import type { GrowthSummary } from '../track/growth';
 import type { ChannelFacts, VideoFacts } from '../youtube/dataApi';
 
 /** Runs the given writes as one: all of them are stored, or none. */
@@ -188,6 +189,9 @@ export interface Reading {
    * official API: such a count can be a quarter of an hour old when read.
    */
   readonly source?: 'feed';
+  /** Likes and comments at the same moment, when the reply gave them. */
+  readonly likes?: number | null;
+  readonly comments?: number | null;
 }
 
 export interface ReadingRepo {
@@ -195,11 +199,6 @@ export interface ReadingRepo {
   add(reading: Reading): void;
   /** A video's readings from `from` to `to`, both included, oldest first. */
   list(videoId: string, from: Date, to: Date): readonly Reading[];
-  /**
-   * Thins the readings taken before `cutoff` to the last one of each UTC day,
-   * per video. Returns how many were removed.
-   */
-  rollUpOlderThan(cutoff: Date): number;
   /** Removes every reading of a video. Returns how many there were. */
   deleteForVideo(videoId: string): number;
 }
@@ -216,6 +215,21 @@ export type SearchKind = 'top_recent' | 'newest';
  * feed does not answer, its uploads list in the official API (`channel_uploads`).
  */
 export type HitKind = SearchKind | 'channel_uploads' | 'channel_feed';
+
+/** A video's growth summary as stored: the five figures, and when it was closed. */
+export interface StoredGrowth extends GrowthSummary {
+  /** When tracking ended and the summary was completed; null while the video is tracked. */
+  readonly completedAt: Date | null;
+}
+
+/** One row a tracked video: its views at five fixed ages; see `track/growth.ts`. */
+export interface GrowthRepo {
+  get(videoId: string): StoredGrowth | null;
+  /** Stores the figures worked out so far. */
+  save(videoId: string, summary: GrowthSummary): void;
+  /** Stores the final figures and notes when the summary was closed. */
+  complete(videoId: string, summary: GrowthSummary, at: Date): void;
+}
 
 /** A subject as the store holds it. `everyHours` is the cadence of its top-recent search. */
 export interface Subject extends NewSubject {
@@ -315,8 +329,12 @@ export interface PassedOverRepo {
   deleteOlderThan(cutoff: Date): number;
 }
 
-/** How often a tracked video is read: every hour, every six, or no longer. */
-export type Tier = 'hourly' | 'six_hourly' | 'done';
+/**
+ * How often a tracked video is read: every hour, every six, at about 24 and
+ * 72 hours only (`baseline`: a video from a channel large for its group, read
+ * for comparison), or no longer.
+ */
+export type Tier = 'hourly' | 'six_hourly' | 'baseline' | 'done';
 /**
  * Whether a video is a Short. `yes` is by its length only; see
  * `shortByLength`. `confirmed` is YouTube's own word: the video was listed in
@@ -327,9 +345,11 @@ export type ShortAnswer = 'yes' | 'no' | 'unknown' | 'confirmed';
 /**
  * Why a video's tracking ended. `aged_out`: it reached the age tracking stops
  * at. `not_short`: it turned out too long for a Short. `gone`: the API left
- * it out of several reads, far enough apart, in a row.
+ * it out of several reads, far enough apart, in a row. `faded`: several
+ * readings in a row found it in the slower half of its group, not speeding
+ * up. `baseline_done`: a baseline video has had both of its readings.
  */
-export type FinishReason = 'aged_out' | 'not_short' | 'gone';
+export type FinishReason = 'aged_out' | 'not_short' | 'gone' | 'faded' | 'baseline_done';
 
 export interface TrackedVideo {
   readonly videoId: string;
@@ -343,6 +363,29 @@ export interface TrackedVideo {
   /** When and why tracking ended; null while it goes on. */
   readonly finishedAt: Date | null;
   readonly finishReason: FinishReason | null;
+  /** How many readings in a row have found it in the slower half of its group. */
+  readonly lowStreak: number;
+  /** Its views per hour as last worked out; null when not yet. */
+  readonly rate: number | null;
+}
+
+/** What a read learnt of a video's standing, kept for the next round's ordering. */
+export interface Standing {
+  readonly lowStreak: number;
+  readonly rate: number | null;
+  readonly rateAt: Date;
+}
+
+/** A video still tracked, with what places it in a group. */
+export interface ActiveVideo extends TrackedVideo {
+  readonly channelId: string;
+  /** Its view count as last read; null when hidden. */
+  readonly views: number | null;
+  /** The subject that first found it (or first led to its channel); nulls when none did. */
+  readonly keyword: string | null;
+  readonly region: string | null;
+  /** Its channel's subscribers; null when hidden or not read yet. */
+  readonly subscribers: number | null;
 }
 
 /** A read that did not find a video. */
@@ -356,12 +399,23 @@ export interface MissedRead {
 }
 
 export interface TrackingRepo {
-  /** Starts tracking a stored video at the hourly tier. False when it is tracked already. */
-  start(videoId: string, isShort: ShortAnswer, nextReadAt: Date): boolean;
+  /** Starts tracking a stored video, on the hourly tier unless told another. False when it is tracked already. */
+  start(
+    videoId: string,
+    isShort: ShortAnswer,
+    nextReadAt: Date,
+    tier?: Exclude<Tier, 'done'>,
+  ): boolean;
+  /** Every video still tracked, with its subject, its channel's size and its last figures. */
+  listActive(): readonly ActiveVideo[];
+  /** The ids of videos still tracked that were published before a moment. */
+  listPublishedBefore(moment: Date): readonly string[];
   /** Videos still tracked whose next read is at or before `before`, longest-due first. */
   listDue(before: Date): readonly TrackedVideo[];
-  /** Sets the tier and the next read after a read that found the video. */
-  move(videoId: string, tier: Exclude<Tier, 'done'>, nextReadAt: Date): void;
+  /** Sets the tier and the next read after a read that found the video, with its standing when known. */
+  move(videoId: string, tier: Exclude<Tier, 'done'>, nextReadAt: Date, standing?: Standing): void;
+  /** Notes the video's views per hour as just worked out, for the groups it is ranked in. */
+  setRate(videoId: string, rate: number | null, at: Date): void;
   /**
    * Notes a read that did not find the video, and sets its next one. The miss
    * is counted only when the last counted one is far enough back (or there is
@@ -468,6 +522,7 @@ export interface Store {
   readonly follows: FollowRepo;
   readonly videos: VideoRepo;
   readonly readings: ReadingRepo;
+  readonly growth: GrowthRepo;
   readonly subjects: SubjectRepo;
   readonly hits: SubjectHitRepo;
   readonly pending: PendingHitRepo;

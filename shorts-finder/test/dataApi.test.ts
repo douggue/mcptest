@@ -211,7 +211,7 @@ describe('searchRecentVideos', () => {
 });
 
 describe('fetchVideos', () => {
-  test('reads the length, the exact time, the category, the languages and the views', async () => {
+  test('reads the length, the exact time, the category, the languages, the views, the likes and the comments', async () => {
     const api = fakeApi([{ body: videosReply([videoItem(1, 'A')]) }]);
 
     const { items: videos } = await fetchVideos([videoId(1)], api.options);
@@ -227,6 +227,8 @@ describe('fetchVideos', () => {
         defaultLanguage: 'en',
         defaultAudioLanguage: 'en-GB',
         views: 184_223,
+        likes: 9120,
+        comments: 311,
       },
     ]);
     expect(api.calls[0]?.url.pathname).toBe('/youtube/v3/videos');

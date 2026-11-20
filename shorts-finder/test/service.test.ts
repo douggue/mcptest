@@ -67,6 +67,8 @@ const config = (env: Record<string, string> = {}): Config =>
   loadConfig({ YOUTUBE_API_KEY: KEY, SHORTS_DB_PATH: dbPath, ...env });
 
 const TELEGRAM = { TELEGRAM_BOT_TOKEN: TOKEN, TELEGRAM_CHAT_ID: CHAT };
+/** Makes every round of readings fail, as a store damaged in that one place would. */
+const BREAK_TRACKING = 'ALTER TABLE video_tracking RENAME TO video_tracking_elsewhere';
 
 /** The network: Telegram answers as told, everything else is the made-up YouTube. */
 const network = (async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
@@ -115,7 +117,7 @@ describe('the service', () => {
       'read',
       'channels',
       'uploads',
-      'rollup',
+      'cleanup',
       'read',
       'channels',
       'uploads',
@@ -237,7 +239,7 @@ describe('the service', () => {
       'uploads',
       'alerts',
       'daily',
-      'rollup',
+      'cleanup',
     ]);
   });
 
@@ -267,13 +269,14 @@ describe('the service', () => {
   });
 
   test('logs a round that fails as an error and carries on', async () => {
-    db.exec('DROP TABLE video_snapshots');
+    db.exec(BREAK_TRACKING);
 
     await start(config());
 
     const failed = lines.find((line) => line.level === 'error');
-    expect(failed).toMatchObject({ event: 'cycle', cycle: 'rollup', result: 'failed' });
-    expect(readOutcome(store.state, 'rollup')?.result).toBe('failed');
+    expect(failed).toMatchObject({ event: 'cycle', cycle: 'read', result: 'failed' });
+    expect(readOutcome(store.state, 'read')?.result).toBe('failed');
+    expect(events('cycle').map((line) => line.cycle)).toContain('cleanup');
   });
 
   test('closes the store when stopped, so nothing more can be written', async () => {
@@ -342,7 +345,7 @@ describe('what the service knows about itself', () => {
       problem: 'broke',
     });
     expect(readOutcome(store.state, 'read')?.problem).toBeNull();
-    expect(readOutcome(store.state, 'rollup')).toBeNull();
+    expect(readOutcome(store.state, 'cleanup')).toBeNull();
     expect(readLastProblem(store.state)).toEqual({ at: NOW, during: 'searching', reason: 'broke' });
     expect(CYCLE_NAMES).toContain('daily');
   });

@@ -155,3 +155,18 @@ export function viewsPerHour(
 ): number | null {
   return velocity(readings, now, windowMs).viewsPerHour;
 }
+
+/**
+ * Whether a video is gaining faster than before, by its last three readings:
+ * the rate between the last two against the rate between the two before
+ * them. Unlike `velocity`'s acceleration it needs no two full windows, so it
+ * can speak for a video read every six hours. False when it cannot tell
+ * (fewer than three readings, or readings too close together).
+ */
+export function speedingUp(readings: readonly ViewReading[]): boolean {
+  const [first, middle, last] = oldestFirst(readings).slice(-3);
+  if (first === undefined || middle === undefined || last === undefined) return false;
+  const earlier = rateOver({ first, last: middle });
+  const later = rateOver({ first: middle, last });
+  return earlier !== null && later !== null && later > earlier;
+}

@@ -2,13 +2,12 @@ import type { Db } from '../db/sqlite';
 import { fromSeconds, toSeconds } from './rows';
 import type { Reading, ReadingRepo } from './types';
 
-/** The days readings are thinned to are days in UTC, this many seconds long. */
-const SECONDS_PER_DAY = 86_400;
-
 interface ReadingRow {
   readonly captured_at: number;
   readonly views: number;
   readonly source: 'feed' | null;
+  readonly likes: number | null;
+  readonly comments: number | null;
 }
 
 /**
@@ -22,17 +21,25 @@ export class SqliteReadingRepo implements ReadingRepo {
   add(reading: Reading): void {
     this.db
       .prepare(
-        `INSERT INTO video_snapshots (video_id, captured_at, views, source) VALUES (?, ?, ?, ?)
-         ON CONFLICT (video_id, captured_at) DO UPDATE SET
-           views = excluded.views, source = excluded.source`,
+        `INSERT INTO video_snapshots (video_id, captured_at, views, source, likes, comments)
+         VALUES (@videoId, @capturedAt, @views, @source, @likes, @comments)
+         ON CONFLICT (video_id, captured_at) DO UPDATE SET views = excluded.views,
+           source = excluded.source, likes = excluded.likes, comments = excluded.comments`,
       )
-      .run(reading.videoId, toSeconds(reading.capturedAt), reading.views, reading.source ?? null);
+      .run({
+        videoId: reading.videoId,
+        capturedAt: toSeconds(reading.capturedAt),
+        views: reading.views,
+        source: reading.source ?? null,
+        likes: reading.likes ?? null,
+        comments: reading.comments ?? null,
+      });
   }
 
   list(videoId: string, from: Date, to: Date): readonly Reading[] {
     return this.db
       .prepare<[string, number, number], ReadingRow>(
-        `SELECT captured_at, views, source FROM video_snapshots
+        `SELECT captured_at, views, source, likes, comments FROM video_snapshots
          WHERE video_id = ? AND captured_at >= ? AND captured_at <= ? ORDER BY captured_at`,
       )
       .all(videoId, toSeconds(from), toSeconds(to))
@@ -41,25 +48,9 @@ export class SqliteReadingRepo implements ReadingRepo {
         capturedAt: fromSeconds(row.captured_at),
         views: row.views,
         ...(row.source === null ? {} : { source: row.source }),
+        ...(row.likes === null ? {} : { likes: row.likes }),
+        ...(row.comments === null ? {} : { comments: row.comments }),
       }));
-  }
-
-  rollUpOlderThan(cutoff: Date): number {
-    // An old reading goes when the same video has a later one on the same UTC
-    // day, so each day keeps its last. The old rows are found through the
-    // index on the moment, and the later one through the primary key. The day's
-    // length is written into the statement: a bound number would arrive as a
-    // fraction and turn the whole-number division into an exact one.
-    return this.db
-      .prepare(
-        `DELETE FROM video_snapshots
-         WHERE captured_at < @cutoff AND EXISTS (
-           SELECT 1 FROM video_snapshots later
-           WHERE later.video_id = video_snapshots.video_id
-             AND later.captured_at > video_snapshots.captured_at
-             AND later.captured_at < (video_snapshots.captured_at / ${SECONDS_PER_DAY} + 1) * ${SECONDS_PER_DAY})`,
-      )
-      .run({ cutoff: toSeconds(cutoff) }).changes;
   }
 
   deleteForVideo(videoId: string): number {

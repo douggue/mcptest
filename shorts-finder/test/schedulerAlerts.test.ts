@@ -6,7 +6,7 @@ import {
   LAST_READ_AT,
   PAUSED_UNTIL,
   RATE_LIMIT_PAUSE_MS,
-  LAST_ROLLUP_DAY,
+  LAST_CLEANUP_DAY,
   READ_CYCLE_EVERY_MS,
   SCHEDULER_TICK_MS,
   startScheduler,
@@ -65,8 +65,8 @@ async function start(overrides: Partial<SchedulerDeps> = {}): Promise<void> {
     channelReads: note('channels', { stopped: null }),
     searchCycle: note('search', { stopped: null }),
     searchIsDue: () => false,
-    dailyRollup: () => {
-      started.push('rollup');
+    dailyCleanup: () => {
+      started.push('cleanup');
       return { removed: 0 };
     },
     record: (entry) => records.push(entry),
@@ -95,13 +95,13 @@ describe("the scheduler and the owner's messages", () => {
       dailyMessages: note('daily', { digest: 'sent' }),
     });
 
-    expect(started).toEqual(['read', 'channels', 'alerts', 'daily', 'rollup']);
+    expect(started).toEqual(['read', 'channels', 'alerts', 'daily', 'cleanup']);
     expect(results()).toEqual([
       'read:done',
       'channels:done',
       'alerts:done',
       'daily:done',
-      'rollup:done',
+      'cleanup:done',
     ]);
     expect(records[2]?.report).toEqual({ sent: 1 });
   });
@@ -119,7 +119,7 @@ describe("the scheduler and the owner's messages", () => {
     await start({ alertCycle: note('alerts', null), dailyMessages: note('daily', undefined) });
 
     expect(started).toContain('alerts');
-    expect(results()).toEqual(['read:done', 'channels:done', 'rollup:done']);
+    expect(results()).toEqual(['read:done', 'channels:done', 'cleanup:done']);
   });
 
   test('sends alerts without the YouTube lease, even while another program holds it', async () => {
@@ -127,7 +127,7 @@ describe("the scheduler and the owner's messages", () => {
 
     await start({ alertCycle: note('alerts', { sent: 2 }) });
 
-    expect(results()).toEqual(['read:skipped', 'channels:skipped', 'alerts:done', 'rollup:done']);
+    expect(results()).toEqual(['read:skipped', 'channels:skipped', 'alerts:done', 'cleanup:done']);
   });
 
   test('records alerts that fail and carries on', async () => {
@@ -169,13 +169,13 @@ describe("the scheduler's memory", () => {
     await start({ memory });
 
     expect(memory.values.get(LAST_READ_AT)).toBe(NOW.toISOString());
-    expect(memory.values.get(LAST_ROLLUP_DAY)).toBe('2026-11-20');
+    expect(memory.values.get(LAST_CLEANUP_DAY)).toBe('2026-11-20');
   });
 
   test('does not read or thin again at once after a restart within the hour', async () => {
     const memory = mapMemory({
       [LAST_READ_AT]: at(-20 * 60_000).toISOString(),
-      [LAST_ROLLUP_DAY]: '2026-11-20',
+      [LAST_CLEANUP_DAY]: '2026-11-20',
     });
 
     await start({ memory });
@@ -190,7 +190,7 @@ describe("the scheduler's memory", () => {
 
     await start({ memory });
 
-    expect(started).toEqual(['read', 'channels', 'rollup']);
+    expect(started).toEqual(['read', 'channels', 'cleanup']);
   });
 
   test.each([

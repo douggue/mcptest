@@ -22,7 +22,7 @@ export const CYCLE_NAMES: readonly CycleName[] = [
   'feeds',
   'alerts',
   'daily',
-  'rollup',
+  'cleanup',
 ];
 
 /** What each round is called when the owner is told of a problem in it. */
@@ -34,7 +34,7 @@ const CYCLE_WORDS: Readonly<Record<CycleName, string>> = {
   feeds: 'reading followed channels’ feeds',
   alerts: 'sending alerts',
   daily: 'sending the daily messages',
-  rollup: 'thinning old readings',
+  cleanup: 'cleaning up the store',
 };
 
 const LAST_PROBLEM = 'service.lastProblem';

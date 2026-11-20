@@ -1,7 +1,7 @@
 /**
  * The loop that keeps the finder working all day: a round of readings every
  * hour, a round of searching whenever subjects are due, the owner's alerts
- * and daily messages, and the thinning of old readings once a day.
+ * and daily messages, and the clean-up of the store once a day.
  *
  * It is a plain function over what it is given: the cycles, a clock and a
  * timer. It starts no process and knows nothing of settings; `service.ts`
@@ -32,7 +32,7 @@ export const READ_CYCLE_EVERY_MS = 60 * MS_PER_MINUTE;
 export const RATE_LIMIT_PAUSE_MS = 15 * MS_PER_MINUTE;
 
 export type CycleName =
-  'read' | 'channels' | 'uploads' | 'search' | 'feeds' | 'alerts' | 'daily' | 'rollup';
+  'read' | 'channels' | 'uploads' | 'search' | 'feeds' | 'alerts' | 'daily' | 'cleanup';
 
 /** What became of one piece of scheduled work. */
 export interface CycleRecord {
@@ -74,8 +74,8 @@ export interface SchedulerDeps {
   readonly searchCycle: YouTubeWork;
   /** Whether any subject is due and can be paid for at `now`. */
   readonly searchIsDue: (now: Date) => boolean;
-  /** Thins old readings; run once on each UTC day. */
-  readonly dailyRollup: (now: Date) => unknown;
+  /** The clean-up that keeps the store small; run once on each UTC day. */
+  readonly dailyCleanup: (now: Date) => unknown;
   /**
    * Tells the owner of findings that wait. Run in every look, after the
    * readings and the searching, which is when new findings appear; it reads
@@ -101,7 +101,7 @@ export interface SchedulerMemory {
 }
 
 export const LAST_READ_AT = 'scheduler.lastReadAt';
-export const LAST_ROLLUP_DAY = 'scheduler.lastRollupDay';
+export const LAST_CLEANUP_DAY = 'scheduler.lastCleanupDay';
 export const PAUSED_UNTIL = 'scheduler.pausedUntil';
 
 export interface Scheduler {
@@ -124,7 +124,7 @@ const utcDay = (moment: Date): string => moment.toISOString().slice(0, 'YYYY-MM-
 
 interface LoopState {
   lastReadAt: Date | null;
-  lastRollupDay: string | null;
+  lastCleanupDay: string | null;
   pausedUntil: Date | null;
   stopping: boolean;
   running: Promise<void> | null;
@@ -242,15 +242,15 @@ function momentOf(text: string | null | undefined): Date | null {
 /** What the loop noted before the last restart; nothing when it cannot be read. */
 function recall(
   deps: SchedulerDeps,
-): Pick<LoopState, 'lastReadAt' | 'lastRollupDay' | 'pausedUntil'> {
+): Pick<LoopState, 'lastReadAt' | 'lastCleanupDay' | 'pausedUntil'> {
   try {
     return {
       lastReadAt: momentOf(deps.memory?.get(LAST_READ_AT)),
-      lastRollupDay: deps.memory?.get(LAST_ROLLUP_DAY) ?? null,
+      lastCleanupDay: deps.memory?.get(LAST_CLEANUP_DAY) ?? null,
       pausedUntil: momentOf(deps.memory?.get(PAUSED_UNTIL)),
     };
   } catch {
-    return { lastReadAt: null, lastRollupDay: null, pausedUntil: null };
+    return { lastReadAt: null, lastCleanupDay: null, pausedUntil: null };
   }
 }
 
@@ -293,7 +293,7 @@ function searchIsDue(deps: SchedulerDeps): boolean {
 
 /**
  * One look at what is due: readings, then searching, then the followed
- * channels' feeds, then the owner's messages, then the daily thinning. Never
+ * channels' feeds, then the owner's messages, then the daily clean-up. Never
  * rejects.
  */
 async function tick(deps: SchedulerDeps, state: LoopState): Promise<void> {
@@ -319,10 +319,10 @@ async function tick(deps: SchedulerDeps, state: LoopState): Promise<void> {
   const day = utcDay(deps.now());
   // The day is noted only once the work has succeeded: one that failed is
   // tried again at the next look, not left until tomorrow.
-  if (!state.stopping && day !== state.lastRollupDay) {
-    if (runLocal(deps, 'rollup', () => deps.dailyRollup(deps.now()))) {
-      state.lastRollupDay = day;
-      remember(deps, LAST_ROLLUP_DAY, day);
+  if (!state.stopping && day !== state.lastCleanupDay) {
+    if (runLocal(deps, 'cleanup', () => deps.dailyCleanup(deps.now()))) {
+      state.lastCleanupDay = day;
+      remember(deps, LAST_CLEANUP_DAY, day);
     }
   }
 }
@@ -335,7 +335,7 @@ async function tick(deps: SchedulerDeps, state: LoopState): Promise<void> {
  */
 export function startScheduler(deps: SchedulerDeps): Scheduler {
   // Searching needs no memory here: each subject's last search is in the
-  // store. The last round of readings, the last thinning and a pause Google
+  // store. The last round of readings, the last clean-up and a pause Google
   // asked for are recalled, so a restart does not repeat or ignore them.
   const state: LoopState = {
     ...recall(deps),

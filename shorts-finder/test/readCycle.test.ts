@@ -6,15 +6,11 @@ import {
   MISS_MIN_GAP_MS,
   READ_BATCH_SIZE,
   SUSPECT_EMPTY_BATCH_ABOVE,
+  batchBudget,
   runReadCycle,
 } from '../src/track/readCycle';
-import { rollUpOldReadings } from '../src/track/rollup';
-import {
-  DUE_LOOK_AHEAD_MS,
-  HOURLY_UNTIL_MS,
-  TRACKED_UNTIL_MS,
-  planNextRead,
-} from '../src/track/tiers';
+import { runDailyCleanup } from '../src/track/cleanup';
+import { DUE_LOOK_AHEAD_MS } from '../src/track/tiers';
 import { createYouTubeApi } from '../src/youtube/api';
 import { shortByLength } from '../src/youtube/shorts';
 import { videoId } from './fixtures/apiReplies';
@@ -22,6 +18,8 @@ import { DAY_MS, HOUR_MS, MINUTE_MS, NOW, at, channelFacts, videoFacts } from '.
 import { openBench, refusalBody, type Bench, type VideoOptions } from './helpers/fakeYouTube';
 
 const DAY = '2026-11-20';
+/** 23:00 in Los Angeles on that day. */
+const LAST_HOUR = new Date('2026-11-21T07:00:00Z');
 
 let bench: Bench;
 
@@ -56,23 +54,6 @@ const emptyApi = (body: unknown) =>
 const readingsOf = (id: string) =>
   bench.store.readings.list(id, new Date(0), at(30 * DAY_MS)).map((reading) => reading.views);
 
-describe('planNextRead', () => {
-  test.each([
-    ['just published', 0, 'hourly', HOUR_MS],
-    ['a moment short of 72 hours old', HOURLY_UNTIL_MS - 1, 'hourly', HOUR_MS],
-    ['exactly 72 hours old', HOURLY_UNTIL_MS, 'six_hourly', 6 * HOUR_MS],
-    ['a moment short of 14 days old', TRACKED_UNTIL_MS - 1, 'six_hourly', 6 * HOUR_MS],
-  ])('reads a video %s again on its tier', (_what, age, tier, wait) => {
-    expect(planNextRead(at(-age), NOW)).toEqual({ tier, nextReadAt: at(wait) });
-  });
-
-  test('stops reading a video once it is 14 days old', () => {
-    expect(planNextRead(at(-TRACKED_UNTIL_MS), NOW)).toEqual({ tier: 'done', nextReadAt: null });
-    expect(HOURLY_UNTIL_MS).toBe(72 * HOUR_MS);
-    expect(TRACKED_UNTIL_MS).toBe(14 * DAY_MS);
-  });
-});
-
 describe('shortByLength', () => {
   test.each([
     [1, 'yes'],
@@ -93,6 +74,7 @@ describe('a read cycle', () => {
 
     expect(report).toEqual({
       due: 2,
+      deferred: 0,
       read: 2,
       readings: 2,
       missing: 0,
@@ -158,8 +140,9 @@ describe('a read cycle', () => {
       bench.store.readings.list(id, new Date(0), at(DAY_MS)).map((reading) => reading.capturedAt);
     expect(taken(ids[0]!)).toEqual([at(MINUTE_MS)]);
     expect(taken(ids[59]!)).toEqual([at(2 * MINUTE_MS)]);
+    // Whichever tier each lands on, its next read is counted from the round's start, not its reply.
     expect(bench.store.tracking.get(ids[0]!)?.nextReadAt).toEqual(at(HOUR_MS));
-    expect(bench.store.tracking.get(ids[59]!)?.nextReadAt).toEqual(at(HOUR_MS));
+    expect(bench.store.tracking.get(ids[59]!)?.nextReadAt).toEqual(at(6 * HOUR_MS));
   });
 
   test('asks for fifty videos a request, one unit of the reading share each', async () => {
@@ -187,14 +170,18 @@ describe('a read cycle', () => {
     });
   });
 
-  test('takes a last reading of a video 14 days old and stops tracking it, keeping its readings', async () => {
+  test('takes a last reading of a video 14 days old and stops tracking it', async () => {
     const id = track(1, 'A', { publishedAt: at(-14 * DAY_MS), views: 777 });
 
     const report = await run();
 
     expect(report).toMatchObject({ read: 1, readings: 1, finished: 1 });
-    expect(bench.store.tracking.get(id)).toMatchObject({ tier: 'done', nextReadAt: null });
-    expect(readingsOf(id)).toEqual([777]);
+    expect(bench.store.tracking.get(id)).toMatchObject({
+      tier: 'done',
+      nextReadAt: null,
+      finishReason: 'aged_out',
+    });
+    expect(bench.store.videos.get(id)?.views).toBe(777);
     expect((await run()).due).toBe(0);
   });
 
@@ -361,15 +348,26 @@ describe('a read cycle that cannot finish', () => {
   test('stops cleanly when the reading share is spent, keeping the batches already read', async () => {
     bench.db.close();
     bench = openBench(planFor(10));
+    // An hour before Pacific midnight, so the whole of what is left may be spent now.
+    bench.clock = LAST_HOUR;
     const ids = Array.from({ length: 120 }, (_, n) => track(n, 'A', { views: 5 }));
+    // Another program spends what is left after this round has made its plan.
+    let asked = 0;
+    const api = {
+      fetchVideos: async (videoIds: readonly string[]) => {
+        asked += 1;
+        const left = bench.ledger.remaining(bench.clock).byKind.reading;
+        if (asked === 2) bench.ledger.spend('reading', left);
+        return bench.api.fetchVideos(videoIds);
+      },
+    };
 
-    const report = await run();
+    const report = await runReadCycle({ ...bench, api });
 
-    // Ten units a day leave two for readings: two requests of fifty.
-    expect(report).toMatchObject({ due: 120, read: 100, leftUnread: 20, stopped: 'allowance' });
+    // The round planned three requests and the share paid for one.
+    expect(report).toMatchObject({ due: 120, read: 50, leftUnread: 70, stopped: 'allowance' });
     expect(readingsOf(ids[0]!)).toEqual([5]);
-    expect(bench.store.tracking.listDue(NOW)).toHaveLength(20);
-    expect(bench.youtube.callsTo('videos')).toHaveLength(2);
+    expect(bench.store.tracking.listDue(bench.clock)).toHaveLength(70);
   });
 
   test('calls the day spent when Google itself says so, and stops', async () => {
@@ -434,25 +432,266 @@ describe('a read cycle that cannot finish', () => {
   });
 });
 
-describe('rollUpOldReadings', () => {
-  test('thins readings older than 14 days to the last of each day and says how many went', () => {
-    bench.store.channels.upsert(channelFacts('A'), NOW);
-    bench.store.videos.upsert(videoFacts(1, 'A'), NOW);
-    const id = videoId(1);
-    [0, 1, 2].forEach((hour) =>
-      bench.store.readings.add({
-        videoId: id,
-        capturedAt: new Date(`2026-11-03T0${hour}:00:00Z`),
-        views: hour,
-      }),
+describe('batchBudget', () => {
+  test.each([
+    ['at noon with the whole share left', 2000, NOW, 166],
+    ['at Pacific midnight, a whole day ahead', 2000, new Date('2026-11-20T08:00:00Z'), 83],
+    ['in the last hour, when all that is left may go', 37, LAST_HOUR, 37],
+    ['half an hour before midnight', 37, new Date('2026-11-21T07:30:00Z'), 37],
+    ['with too little left for a request an hour', 5, NOW, 1],
+    ['with nothing left', 0, NOW, 1],
+  ])('allows %s', (_what, unitsLeft, now, batches) => {
+    expect(batchBudget(unitsLeft, now)).toBe(batches);
+  });
+});
+
+describe('a read cycle and the place of a video in its group', () => {
+  const tierOf = (id: string) => bench.store.tracking.get(id)?.tier;
+
+  test('keeps the upper half of a group hourly and moves the slower half to six-hourly', async () => {
+    const ids = [100, 200, 300, 400].map((views, index) =>
+      track(index + 1, 'ABCD'.charAt(index), { views }),
     );
-    bench.store.readings.add({ videoId: id, capturedAt: at(-13 * DAY_MS), views: 50 });
-    bench.store.readings.add({ videoId: id, capturedAt: at(-13 * DAY_MS + HOUR_MS), views: 51 });
 
-    const report = rollUpOldReadings(bench.store.readings, NOW);
+    await run();
 
-    expect(report).toEqual({ cutoff: at(-14 * DAY_MS), removed: 2 });
-    expect(readingsOf(id)).toEqual([2, 50, 51]);
-    expect(rollUpOldReadings(bench.store.readings, NOW).removed).toBe(0);
+    expect(ids.map(tierOf)).toEqual(['six_hourly', 'six_hourly', 'hourly', 'hourly']);
+    expect(bench.store.tracking.get(ids[0]!)).toMatchObject({
+      lowStreak: 1,
+      rate: 50,
+      nextReadAt: at(6 * HOUR_MS),
+    });
+    expect(bench.store.tracking.get(ids[3]!)).toMatchObject({ lowStreak: 0, rate: 200 });
+  });
+
+  test('places each video by this round’s rates, so a group that slows together stays level', async () => {
+    const ids = [1, 2, 3, 4].map((n) => track(n, 'ABCD'.charAt(n - 1), { views: 1000 }));
+    await run();
+    bench.clock = at(HOUR_MS);
+    // Every one gains the same little in the hour: all slower than before, none slower than the rest.
+    [1, 2, 3, 4].forEach((n) => bench.youtube.setVideo(n, 'ABCD'.charAt(n - 1), { views: 1010 }));
+
+    await run();
+
+    expect(ids.map(tierOf)).toEqual(['hourly', 'hourly', 'hourly', 'hourly']);
+    expect(ids.map((id) => bench.store.tracking.get(id)?.lowStreak)).toEqual([0, 0, 0, 0]);
+  });
+
+  test('ends the tracking of a video found in the slower half three readings running, not speeding up', async () => {
+    const slow = track(1, 'A', { views: 100 });
+    const others = [track(2, 'B', { views: 5000 }), track(3, 'C', { views: 9000 })];
+    const rounds = [0, 6, 12];
+    for (const hours of rounds) {
+      bench.clock = at(hours * HOUR_MS);
+      bench.youtube.setVideo(1, 'A', { views: 100 + hours * 10 });
+      bench.youtube.setVideo(2, 'B', { views: 5000 + hours * 900 });
+      bench.youtube.setVideo(3, 'C', { views: 9000 + hours * 2000 });
+      await run();
+    }
+
+    expect(bench.store.tracking.get(slow)).toMatchObject({
+      tier: 'done',
+      finishReason: 'faded',
+      finishedAt: at(12 * HOUR_MS),
+    });
+    expect(others.map(tierOf)).toEqual(['hourly', 'hourly']);
+    // Its growth is summed up and its raw readings are gone.
+    expect(readingsOf(slow)).toEqual([]);
+    expect(bench.store.growth.get(slow)).toMatchObject({
+      views6h: 140,
+      completedAt: at(12 * HOUR_MS),
+    });
+  });
+
+  test('keeps a video in the slower half that is speeding up', async () => {
+    const waking = track(1, 'A', { views: 100 });
+    track(2, 'B', { views: 5000 });
+    track(3, 'C', { views: 9000 });
+    const views = [100, 110, 400];
+    for (const [round, hours] of [0, 6, 12].entries()) {
+      bench.clock = at(hours * HOUR_MS);
+      bench.youtube.setVideo(1, 'A', { views: views[round] ?? 0 });
+      bench.youtube.setVideo(2, 'B', { views: 5000 + hours * 900 });
+      bench.youtube.setVideo(3, 'C', { views: 9000 + hours * 2000 });
+      await run();
+    }
+
+    expect(bench.store.tracking.get(waking)).toMatchObject({ tier: 'six_hourly', lowStreak: 3 });
+  });
+
+  test('reads a video from a channel large for its group only at about 24 and 72 hours', async () => {
+    const sizes = [100, 200, 300, 5_000_000];
+    const ids = sizes.map((subscribers, index) => {
+      const letter = 'ABCD'.charAt(index);
+      const id = track(index + 1, letter, { views: 1000 });
+      bench.store.channels.upsert(channelFacts(letter, { subscribers }), NOW);
+      return id;
+    });
+
+    await run();
+    bench.clock = at(22 * HOUR_MS);
+    bench.youtube.setVideo(4, 'D', { views: 8000 });
+    const second = await run();
+    bench.clock = at(70 * HOUR_MS);
+    const third = await run();
+
+    // Published two hours before the first round: 24 hours old at 22 hours, 72 at 70.
+    expect(
+      bench.youtube.callsTo('videos').filter((call) => call.params['id']?.includes(ids[3]!)),
+    ).toHaveLength(3);
+    expect(second.read).toBeGreaterThan(0);
+    expect(third.finished).toBeGreaterThan(0);
+    expect(bench.store.tracking.get(ids[3]!)).toMatchObject({
+      tier: 'done',
+      finishReason: 'baseline_done',
+    });
+    expect(bench.store.growth.get(ids[3]!)?.views24h).toBe(8000);
+  });
+
+  test('sets the first baseline reading for when the video is 24 hours old', async () => {
+    const sizes = [100, 200, 300, 5_000_000];
+    const ids = sizes.map((subscribers, index) => {
+      const letter = 'ABCD'.charAt(index);
+      const id = track(index + 1, letter, { views: 1000 });
+      bench.store.channels.upsert(channelFacts(letter, { subscribers }), NOW);
+      return id;
+    });
+
+    await run();
+
+    expect(bench.store.tracking.get(ids[3]!)).toMatchObject({
+      tier: 'baseline',
+      nextReadAt: at(22 * HOUR_MS),
+    });
+    expect(ids.slice(0, 3).map(tierOf)).not.toContain('baseline');
+  });
+});
+
+describe('a read cycle and its budget', () => {
+  test('reads the most promising first as far as the hour’s budget goes, and puts off the rest', async () => {
+    bench.db.close();
+    bench = openBench(planFor(100));
+    const ids = Array.from({ length: 120 }, (_, n) => track(n, 'A', { views: 100 }));
+    // What each was gaining when last read: the higher its number, the faster.
+    ids.forEach((id, n) => bench.store.tracking.setRate(id, n, at(-HOUR_MS)));
+
+    const report = await run();
+
+    // A hundred units a day leave twenty for readings; at noon that is one request an hour.
+    expect(report).toMatchObject({
+      due: 120,
+      deferred: 70,
+      read: 50,
+      leftUnread: 0,
+      stopped: null,
+    });
+    const asked = bench.youtube.callsTo('videos')[0]?.params['id']?.split(',') ?? [];
+    expect(asked.toSorted()).toEqual(ids.slice(70).toSorted());
+    expect(asked[0]).toBe(ids[119]);
+  });
+
+  test('does not drop what it put off: it is still due, and is read once the faster ones are not', async () => {
+    bench.db.close();
+    bench = openBench(planFor(100));
+    const ids = Array.from({ length: 60 }, (_, n) => track(n, 'A', { views: 100 }));
+    ids.forEach((id, n) => bench.store.tracking.setRate(id, n, at(-HOUR_MS)));
+
+    const first = await run();
+    bench.clock = at(10 * 60_000);
+    const second = await run();
+
+    expect(first).toMatchObject({ due: 60, deferred: 10, read: 50 });
+    expect(second).toMatchObject({ due: 10, deferred: 0, read: 10 });
+    expect(readingsOf(ids[0]!)).toHaveLength(1);
+  });
+
+  test('spends what the searches left unspent on readings late in the Pacific day', async () => {
+    bench.db.close();
+    bench = openBench(planFor(100));
+    bench.clock = LAST_HOUR;
+    bench.ledger.spend('reading', 20);
+    Array.from({ length: 120 }, (_, n) => track(n, 'A', { views: 100 }));
+
+    const report = await run();
+
+    expect(report).toMatchObject({ due: 120, deferred: 0, read: 120, stopped: null });
+    expect(bench.quota.usage('2026-11-20').byKind).toMatchObject({ reading: 23, search: 0 });
+  });
+});
+
+describe('what a reading keeps', () => {
+  test('stores the likes and the comments beside the views, on the video and on the reading', async () => {
+    const id = track(1, 'A', { views: 2500 });
+
+    await run();
+
+    expect(bench.store.videos.get(id)).toMatchObject({ views: 2500, likes: 9120, comments: 311 });
+    expect(bench.store.readings.list(id, new Date(0), at(DAY_MS))).toEqual([
+      { videoId: id, capturedAt: NOW, views: 2500, likes: 9120, comments: 311 },
+    ]);
+  });
+
+  test('fills a growth figure once readings stand on both sides of its mark, and only then', async () => {
+    const id = track(1, 'A', { publishedAt: at(-30 * MINUTE_MS), views: 200 });
+    await run();
+    const before = bench.store.growth.get(id);
+    bench.clock = at(HOUR_MS);
+    bench.youtube.setVideo(1, 'A', { publishedAt: at(-30 * MINUTE_MS), views: 600 });
+
+    await run();
+
+    expect(before).toEqual({
+      views1h: null,
+      views6h: null,
+      views24h: null,
+      views72h: null,
+      views7d: null,
+      completedAt: null,
+    });
+    // Half an hour old at the first reading, an hour and a half at the second.
+    expect(bench.store.growth.get(id)).toMatchObject({ views1h: 400, views6h: null });
+  });
+
+  test('gives the videos a failed round had read their next read all the same', async () => {
+    const ids = Array.from({ length: 60 }, (_, n) => track(n, 'A', { views: 9 }));
+    bench.youtube.refuse((call) => (call.params['id'] ?? '').split(',').length === 10, 500);
+
+    await expect(run()).rejects.toThrow(/refused the request \(500\)/);
+
+    const moved = ids.filter(
+      (id) => bench.store.tracking.get(id)?.nextReadAt?.getTime() !== NOW.getTime(),
+    );
+    expect(moved).toHaveLength(50);
+  });
+});
+
+describe('the daily clean-up', () => {
+  test('ends the tracking of a video past 14 days that was always put off, summing up its growth', () => {
+    const old = track(1, 'A', { publishedAt: at(-15 * DAY_MS) });
+    const young = track(2, 'B');
+    bench.store.readings.add({
+      videoId: old,
+      capturedAt: at(-15 * DAY_MS + HOUR_MS / 2),
+      views: 10,
+    });
+    bench.store.readings.add({
+      videoId: old,
+      capturedAt: at(-15 * DAY_MS + 2 * HOUR_MS),
+      views: 310,
+    });
+
+    const report = runDailyCleanup(bench.store, NOW);
+    const again = runDailyCleanup(bench.store, NOW);
+
+    expect(report).toMatchObject({ agedOut: 1 });
+    expect(again).toMatchObject({ agedOut: 0 });
+    expect(bench.store.tracking.get(old)).toMatchObject({
+      tier: 'done',
+      finishReason: 'aged_out',
+      finishedAt: NOW,
+    });
+    expect(bench.store.growth.get(old)).toMatchObject({ views1h: 110, completedAt: NOW });
+    expect(readingsOf(old)).toEqual([]);
+    expect(bench.store.tracking.get(young)?.tier).toBe('hourly');
   });
 });

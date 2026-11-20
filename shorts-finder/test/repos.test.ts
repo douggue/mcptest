@@ -242,64 +242,6 @@ describe('the reading repository', () => {
     ]);
   });
 
-  test('thins old readings to the last of each day, per video, leaving recent ones alone', () => {
-    const id = addVideo(1, 'A');
-    const other = addVideo(2, 'B');
-    // 2026-11-01 and 2026-11-02 (UTC), three readings each, then one recent day.
-    const old = ['01T05', '01T11', '01T23', '02T00', '02T06', '02T18'];
-    old.forEach((stamp, index) =>
-      store.readings.add({
-        videoId: id,
-        capturedAt: new Date(`2026-11-${stamp}:00:00Z`),
-        views: index,
-      }),
-    );
-    store.readings.add({ videoId: other, capturedAt: new Date('2026-11-01T05:00:00Z'), views: 50 });
-    store.readings.add({ videoId: id, capturedAt: at(-2 * HOUR_MS), views: 90 });
-    store.readings.add({ videoId: id, capturedAt: at(-HOUR_MS), views: 91 });
-
-    const removed = store.readings.rollUpOlderThan(at(-14 * DAY_MS));
-
-    expect(removed).toBe(4);
-    expect(store.readings.list(id, new Date(0), NOW).map((reading) => reading.views)).toEqual([
-      2, 5, 90, 91,
-    ]);
-    expect(store.readings.list(other, new Date(0), NOW)).toHaveLength(1);
-    expect(store.readings.rollUpOlderThan(at(-14 * DAY_MS))).toBe(0);
-  });
-
-  test('thins a day that the cutoff falls inside without losing its last reading', () => {
-    const id = addVideo(1, 'A');
-    ['03', '09', '15', '21'].forEach((hour, index) =>
-      store.readings.add({
-        videoId: id,
-        capturedAt: new Date(`2026-11-05T${hour}:00:00Z`),
-        views: index,
-      }),
-    );
-
-    const removed = store.readings.rollUpOlderThan(new Date('2026-11-05T12:00:00Z'));
-
-    expect(removed).toBe(2);
-    expect(store.readings.list(id, new Date(0), NOW).map((reading) => reading.views)).toEqual([
-      2, 3,
-    ]);
-  });
-
-  test('finds the old readings through an index, not by reading every row', () => {
-    const plan = db
-      .prepare(
-        `EXPLAIN QUERY PLAN DELETE FROM video_snapshots WHERE captured_at < 5 AND EXISTS (
-           SELECT 1 FROM video_snapshots later WHERE later.video_id = video_snapshots.video_id
-             AND later.captured_at > video_snapshots.captured_at AND later.captured_at < 9)`,
-      )
-      .all() as Array<{ detail: string }>;
-
-    const steps = plan.map((step) => step.detail).join(' | ');
-    expect(steps).toMatch(/video_snapshots_captured/);
-    expect(steps).not.toMatch(/SCAN video_snapshots(?! USING)/);
-  });
-
   test('removes every reading of one video and says how many', () => {
     const id = addVideo(1, 'A');
     const other = addVideo(2, 'B');
@@ -506,6 +448,8 @@ describe('the tracking repository', () => {
       publishedAt: at(-5 * HOUR_MS),
       finishedAt: null,
       finishReason: null,
+      lowStreak: 0,
+      rate: null,
     });
     expect(store.tracking.get(videoId(9))).toBeNull();
   });

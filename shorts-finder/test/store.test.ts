@@ -20,6 +20,7 @@ const TABLES = [
   'service_state',
   'subject_hits',
   'subjects',
+  'video_growth',
   'video_snapshots',
   'video_tracking',
   'videos',

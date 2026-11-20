@@ -1,9 +1,11 @@
 import type { Db } from '../db/sqlite';
 import { fromText, fromTextOrNull, toText } from './rows';
 import type {
+  ActiveVideo,
   FinishReason,
   MissedRead,
   ShortAnswer,
+  Standing,
   Tier,
   TrackedVideo,
   TrackingCounts,
@@ -19,6 +21,16 @@ interface TrackingRow {
   readonly published_at: string;
   readonly finished_at: string | null;
   readonly finish_reason: FinishReason | null;
+  readonly low_streak: number;
+  readonly rate: number | null;
+}
+
+interface ActiveRow extends TrackingRow {
+  readonly channel_id: string;
+  readonly views: number | null;
+  readonly keyword: string | null;
+  readonly region: string | null;
+  readonly subscribers: number | null;
 }
 
 const toTracked = (row: TrackingRow): TrackedVideo => ({
@@ -30,24 +42,59 @@ const toTracked = (row: TrackingRow): TrackedVideo => ({
   publishedAt: fromText(row.published_at),
   finishedAt: fromTextOrNull(row.finished_at),
   finishReason: row.finish_reason,
+  lowStreak: row.low_streak,
+  rate: row.rate,
 });
 
+const toActive = (row: ActiveRow): ActiveVideo => ({
+  ...toTracked(row),
+  channelId: row.channel_id,
+  views: row.views,
+  keyword: row.keyword,
+  region: row.region,
+  subscribers: row.subscribers,
+});
+
+const TRACKED_COLUMNS = `t.video_id, t.tier, t.next_read_at, t.is_short, t.missed_reads,
+    v.published_at, t.finished_at, t.finish_reason, t.low_streak, t.rate`;
+
 const SELECT_TRACKED = `
-  SELECT t.video_id, t.tier, t.next_read_at, t.is_short, t.missed_reads, v.published_at,
-    t.finished_at, t.finish_reason
+  SELECT ${TRACKED_COLUMNS}
   FROM video_tracking t JOIN videos v ON v.id = t.video_id`;
+
+/**
+ * A tracked video with what places it in a group: its channel's size, and the
+ * subject of the first search that found it. A video found on a followed
+ * channel carries the subject that first led to the channel, noted on its hit.
+ */
+const SELECT_ACTIVE = `
+  SELECT ${TRACKED_COLUMNS}, v.channel_id, v.views, s.keyword, s.region, c.subscribers
+  FROM video_tracking t
+  JOIN videos v ON v.id = t.video_id
+  JOIN channels c ON c.id = v.channel_id
+  LEFT JOIN subjects s ON s.id = (
+    SELECT h.subject_id FROM subject_hits h
+    WHERE h.video_id = t.video_id AND h.subject_id IS NOT NULL
+    ORDER BY h.first_seen_at, h.subject_id LIMIT 1)
+  WHERE t.tier <> 'done'
+  ORDER BY t.next_read_at, t.video_id`;
 
 /** Which videos are read again, how often, and when next. */
 export class SqliteTrackingRepo implements TrackingRepo {
   constructor(private readonly db: Db) {}
 
-  start(videoId: string, isShort: ShortAnswer, nextReadAt: Date): boolean {
+  start(
+    videoId: string,
+    isShort: ShortAnswer,
+    nextReadAt: Date,
+    tier: Exclude<Tier, 'done'> = 'hourly',
+  ): boolean {
     const started = this.db
       .prepare(
         `INSERT INTO video_tracking (video_id, tier, next_read_at, is_short)
-         VALUES (?, 'hourly', ?, ?) ON CONFLICT (video_id) DO NOTHING`,
+         VALUES (?, ?, ?, ?) ON CONFLICT (video_id) DO NOTHING`,
       )
-      .run(videoId, toText(nextReadAt), isShort);
+      .run(videoId, tier, toText(nextReadAt), isShort);
     return started.changes === 1;
   }
 
@@ -61,13 +108,44 @@ export class SqliteTrackingRepo implements TrackingRepo {
       .map(toTracked);
   }
 
-  move(videoId: string, tier: Exclude<Tier, 'done'>, nextReadAt: Date): void {
+  listActive(): readonly ActiveVideo[] {
+    return this.db.prepare<[], ActiveRow>(SELECT_ACTIVE).all().map(toActive);
+  }
+
+  listPublishedBefore(moment: Date): readonly string[] {
+    return this.db
+      .prepare<[string], { video_id: string }>(
+        `SELECT t.video_id FROM video_tracking t JOIN videos v ON v.id = t.video_id
+         WHERE t.tier <> 'done' AND v.published_at < ? ORDER BY t.video_id`,
+      )
+      .all(toText(moment))
+      .map((row) => row.video_id);
+  }
+
+  move(videoId: string, tier: Exclude<Tier, 'done'>, nextReadAt: Date, standing?: Standing): void {
     this.db
       .prepare(
-        `UPDATE video_tracking SET tier = ?, next_read_at = ?, missed_reads = 0,
-           last_missed_at = NULL WHERE video_id = ?`,
+        `UPDATE video_tracking SET tier = @tier, next_read_at = @nextReadAt, missed_reads = 0,
+           last_missed_at = NULL,
+           low_streak = COALESCE(@lowStreak, low_streak),
+           rate = CASE WHEN @rateAt IS NULL THEN rate ELSE @rate END,
+           rate_at = COALESCE(@rateAt, rate_at)
+         WHERE video_id = @videoId`,
       )
-      .run(tier, toText(nextReadAt), videoId);
+      .run({
+        videoId,
+        tier,
+        nextReadAt: toText(nextReadAt),
+        lowStreak: standing?.lowStreak ?? null,
+        rate: standing?.rate ?? null,
+        rateAt: standing === undefined ? null : toText(standing.rateAt),
+      });
+  }
+
+  setRate(videoId: string, rate: number | null, at: Date): void {
+    this.db
+      .prepare('UPDATE video_tracking SET rate = ?, rate_at = ? WHERE video_id = ?')
+      .run(rate, toText(at), videoId);
   }
 
   markMissed(miss: MissedRead): number {

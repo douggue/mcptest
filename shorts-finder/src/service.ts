@@ -30,8 +30,8 @@ import {
 } from './schedule/scheduler';
 import { gatherStats, noteOutcome } from './status';
 import { DETAILS_COST_UNITS, pickDueSubjects } from './subjects/due';
+import { runDailyCleanup } from './track/cleanup';
 import { runReadCycle } from './track/readCycle';
-import { rollUpOldReadings } from './track/rollup';
 import { createYouTubeApi } from './youtube/api';
 import { fetchFeed, shortsFeedUrl } from './youtube/feed';
 
@@ -144,7 +144,7 @@ function schedulerOver(config: Config, deps: ServiceDeps, now: () => Date, db: D
       const waiting = store.pending.count() > 0 && left >= DETAILS_COST_UNITS;
       return waiting || pickDueSubjects(store.subjects.list(), at, left).length > 0;
     },
-    dailyRollup: (at) => rollUpOldReadings(store.readings, at),
+    dailyCleanup: (at) => runDailyCleanup(store, at),
     ...messagesFor(config, store, deps, now, db),
     memory,
     record: recorder(store, deps.log, now),
