@@ -234,6 +234,45 @@ describe('crawlMap', () => {
   });
 });
 
+describe('crawlMap and the stored snapshot', () => {
+  test('freezes the map it made so it can be reopened unchanged', async () => {
+    const result = await crawlMap(deps, '@handleC');
+
+    const stored = deps.maps.findSnapshot(result.mapId);
+
+    expect(stored).not.toBeNull();
+    expect(JSON.parse(stored ?? '{}')).toMatchObject({
+      snapshot: { mapId: result.mapId, depth: 2 },
+    });
+  });
+
+  test('keeps the map and warns when the frozen copy cannot be saved', async () => {
+    const events: string[] = [];
+    const maps = deps.maps;
+    const failing = {
+      ...deps,
+      maps: {
+        create: maps.create.bind(maps),
+        latestForCenter: maps.latestForCenter.bind(maps),
+        findSnapshot: maps.findSnapshot.bind(maps),
+        listRemoved: maps.listRemoved.bind(maps),
+        setRemoved: maps.setRemoved.bind(maps),
+        saveSnapshot: () => {
+          throw new Error('disk full');
+        },
+      },
+    };
+
+    const result = await crawlMap(failing, '@handleC', {
+      onProgress: (event) => events.push(event.stage),
+    });
+
+    expect(maps.latestForCenter(result.centerChannelId)?.id).toBe(result.mapId);
+    expect(result.warnings.join(' ')).toMatch(/disk full/);
+    expect(events.at(-1)).toBe('done');
+  });
+});
+
 describe('loadMapView', () => {
   test('loads a crawled map from the store, nearest channels first', async () => {
     const result = await crawlMap(deps, '@handleC');

@@ -21,9 +21,31 @@ export interface RunningEngine extends Engine {
   close(): void;
 }
 
-/** Wires the API to the real store and to YouTube. */
-export function createEngine(config: Config): RunningEngine {
+export interface EngineOptions {
+  /** Replaces the connection to YouTube; used by tests. */
+  readonly createSource?: () => Promise<YouTubeSource>;
+  readonly now?: () => Date;
+}
+
+function youtubeSource(config: Config): Promise<YouTubeSource> {
+  return InnertubeSource.create({
+    region: config.region,
+    limiter: new RateLimiter({
+      concurrency: 2,
+      minDelayMs: 300,
+      maxDelayMs: 600,
+      maxRetries: 3,
+      baseBackoffMs: 2000,
+      taskTimeoutMs: REQUEST_TIMEOUT_MS,
+    }),
+  });
+}
+
+/** Wires the API to the store and to YouTube. */
+export function createEngine(config: Config, options: EngineOptions = {}): RunningEngine {
   const db = openDatabase(config.dbPath);
+  const now = options.now ?? (() => new Date());
+  const createSource = options.createSource ?? (() => youtubeSource(config));
   const repos = {
     channels: new SqliteChannelRepo(db),
     videos: new SqliteVideoRepo(db),
@@ -32,20 +54,6 @@ export function createEngine(config: Config): RunningEngine {
   };
   // Created on the first crawl, so stored maps can be read with no network at all.
   let source: Promise<YouTubeSource> | null = null;
-  const getSource = (): Promise<YouTubeSource> => {
-    source ??= InnertubeSource.create({
-      region: config.region,
-      limiter: new RateLimiter({
-        concurrency: 2,
-        minDelayMs: 300,
-        maxDelayMs: 600,
-        maxRetries: 3,
-        baseBackoffMs: 2000,
-        taskTimeoutMs: REQUEST_TIMEOUT_MS,
-      }),
-    });
-    return source;
-  };
 
   return {
     findSnapshot(channel) {
@@ -54,22 +62,32 @@ export function createEngine(config: Config): RunningEngine {
         ref.kind === 'id'
           ? repos.channels.findById(ref.id)
           : repos.channels.findByHandle(ref.handle);
-      return stored ? loadMapSnapshot(repos, stored.id, new Date()) : null;
+      return stored ? loadMapSnapshot(repos, stored.id, now()) : null;
     },
 
     async crawl(channel, depth, onProgress) {
+      source ??= createSource();
       const result = await crawlMap(
         {
           ...repos,
-          source: await getSource(),
+          source: await source,
           transact: transactionRunner(db),
           region: config.region,
-          now: () => new Date(),
+          now,
         },
         channel,
         { depth, onProgress },
       );
       return { centerChannelId: result.centerChannelId, warnings: result.warnings };
+    },
+
+    setCompetitorRemoved(centerChannelId, channelId, removed) {
+      const map = repos.maps.latestForCenter(centerChannelId);
+      // Only channels on the map can be removed, and never the centre itself.
+      const onMap = map?.members.some((m) => m.channelId === channelId && m.steps > 0) ?? false;
+      if (!onMap) return false;
+      repos.maps.setRemoved(centerChannelId, channelId, removed, now());
+      return true;
     },
 
     close() {

@@ -4,6 +4,7 @@ import type { JobStore } from './jobs';
 
 const MAX_BODY_CHARACTERS = 2000;
 const DEFAULT_DEPTH = 2;
+const CHANNEL_ID = /^UC[\w-]{22}$/;
 
 export interface CrawlOutcome {
   readonly centerChannelId: string;
@@ -19,6 +20,8 @@ export interface Engine {
     depth: number,
     onProgress: (progress: CrawlProgress) => void,
   ): Promise<CrawlOutcome>;
+  /** Removes a channel or restores it. False when it is not on the centre's latest map. */
+  setCompetitorRemoved(centerChannelId: string, channelId: string, removed: boolean): boolean;
 }
 
 export interface AppOptions {
@@ -31,6 +34,12 @@ export interface AppOptions {
 const crawlRequest = z.object({
   channel: z.string().min(1).max(200),
   depth: z.number().int().min(1).max(2).optional(),
+});
+
+const removalRequest = z.object({
+  center: z.string().regex(CHANNEL_ID),
+  channel: z.string().regex(CHANNEL_ID),
+  removed: z.boolean(),
 });
 
 const HEADERS = {
@@ -74,7 +83,7 @@ function isTrustedHost(request: Request, allowedHosts: readonly string[]): boole
 
 /**
  * A browser sends an Origin header on cross-site POSTs. Refusing any origin
- * that is not this server stops another website from starting crawls here.
+ * that is not this server stops another website from changing anything here.
  */
 function isCrossSite(request: Request, allowedHosts: readonly string[]): boolean {
   const origin = request.headers.get('origin');
@@ -83,6 +92,23 @@ function isCrossSite(request: Request, allowedHosts: readonly string[]): boolean
     return !allowedHosts.includes(new URL(origin).host);
   } catch {
     return true;
+  }
+}
+
+/** Reads the JSON body of a write request, or returns the response that refuses it. */
+async function readJson(options: AppOptions, request: Request): Promise<unknown | Response> {
+  if (isCrossSite(request, options.allowedHosts)) {
+    return fail(403, 'Requests from other sites are not accepted');
+  }
+  if (!(request.headers.get('content-type') ?? '').startsWith('application/json')) {
+    return fail(415, 'Send the request as application/json');
+  }
+  const text = await request.text();
+  if (text.length > MAX_BODY_CHARACTERS) return fail(400, 'The request is too large');
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return fail(400, 'The request is not valid JSON');
   }
 }
 
@@ -95,21 +121,8 @@ function latestMap(engine: Engine, url: URL): Response {
 }
 
 async function startCrawl(options: AppOptions, request: Request): Promise<Response> {
-  if (isCrossSite(request, options.allowedHosts)) {
-    return fail(403, 'Requests from other sites are not accepted');
-  }
-  if (!(request.headers.get('content-type') ?? '').startsWith('application/json')) {
-    return fail(415, 'Send the request as application/json');
-  }
-  const text = await request.text();
-  if (text.length > MAX_BODY_CHARACTERS) return fail(400, 'The request is too large');
-
-  let body: unknown;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    return fail(400, 'The request is not valid JSON');
-  }
+  const body = await readJson(options, request);
+  if (body instanceof Response) return body;
   const parsed = crawlRequest.safeParse(body);
   if (!parsed.success) return fail(400, 'Give a channel and, optionally, a depth of 1 or 2');
   const { channel, depth = DEFAULT_DEPTH } = parsed.data;
@@ -119,6 +132,17 @@ async function startCrawl(options: AppOptions, request: Request): Promise<Respon
   const job = options.jobs.start((report) => options.engine.crawl(channel, depth, report));
   if (!job) return fail(409, 'A map is already being made. Wait for it to finish.');
   return ok({ jobId: job.id }, 202);
+}
+
+async function setRemoved(options: AppOptions, request: Request): Promise<Response> {
+  const body = await readJson(options, request);
+  if (body instanceof Response) return body;
+  const parsed = removalRequest.safeParse(body);
+  if (!parsed.success) return fail(400, 'Give the centre channel, the channel and removed');
+  const { center, channel, removed } = parsed.data;
+  return options.engine.setCompetitorRemoved(center, channel, removed)
+    ? ok({ center, channel, removed })
+    : fail(404, 'That channel is not on the latest map of this centre channel');
 }
 
 function jobStatus(options: AppOptions, id: string): Response {
@@ -141,6 +165,9 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     }
     if (pathname === '/api/maps') {
       return method === 'POST' ? startCrawl(options, request) : fail(405, 'Use POST');
+    }
+    if (pathname === '/api/competitors') {
+      return method === 'POST' ? setRemoved(options, request) : fail(405, 'Use POST');
     }
     if (pathname.startsWith('/api/jobs/')) {
       const id = pathname.slice('/api/jobs/'.length);

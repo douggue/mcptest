@@ -3,7 +3,12 @@ import type { Transact } from '../repos/types';
 
 export type Db = Database.Database;
 
-const SCHEMA = `
+/**
+ * Applied in order; SQLite's `user_version` records how many have run.
+ * Never edit a migration that has shipped: add another after it.
+ */
+const MIGRATIONS: readonly string[] = [
+  `
 CREATE TABLE IF NOT EXISTS channels (
   id            TEXT PRIMARY KEY,
   title         TEXT NOT NULL,
@@ -67,14 +72,44 @@ CREATE TABLE IF NOT EXISTS map_channels (
   position    INTEGER NOT NULL,
   PRIMARY KEY (map_id, channel_id)
 );
-`;
+`,
+  `
+ALTER TABLE maps ADD COLUMN snapshot_json TEXT;
 
-/** Opens the store and creates any missing tables. Pass ":memory:" for tests. */
+CREATE TABLE IF NOT EXISTS map_removals (
+  center_channel  TEXT NOT NULL REFERENCES channels (id),
+  channel_id      TEXT NOT NULL,
+  removed_at      TEXT NOT NULL,
+  PRIMARY KEY (center_channel, channel_id)
+);
+`,
+];
+
+/**
+ * Brings a store up to date, one numbered step at a time. Each step and its
+ * version number are written together or not at all, and the version is read
+ * again under the write lock so two processes cannot run the same step.
+ */
+export function migrate(db: Db, steps: readonly string[] = MIGRATIONS): void {
+  const version = (): number => Number(db.pragma('user_version', { simple: true }));
+  if (version() > steps.length) {
+    throw new Error('This store was made by a newer version of Jgtube. Update Jgtube to open it.');
+  }
+  steps.forEach((sql, index) => {
+    db.transaction(() => {
+      if (version() > index) return;
+      db.exec(sql);
+      db.pragma(`user_version = ${index + 1}`);
+    }).immediate();
+  });
+}
+
+/** Opens the store and brings its tables up to date. Pass ":memory:" for tests. */
 export function openDatabase(path: string): Db {
   const db = new Database(path);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
-  db.exec(SCHEMA);
+  migrate(db);
   return db;
 }
 

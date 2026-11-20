@@ -79,4 +79,10 @@ export interface StoredMap extends NewMap {
 export interface MapRepo {
   create(map: NewMap, createdAt: Date): number;
   latestForCenter(centerChannelId: string): StoredMap | null;
+  /** Stores the map as it looked when it was made, as JSON. */
+  saveSnapshot(mapId: number, snapshotJson: string): void;
+  findSnapshot(mapId: number): string | null;
+  /** Channels the owner removed from this centre's competitors; survives new crawls. */
+  listRemoved(centerChannelId: string): readonly string[];
+  setRemoved(centerChannelId: string, channelId: string, removed: boolean, at: Date): void;
 }

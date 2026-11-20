@@ -20,6 +20,7 @@ every phase; coverage floor is 80%.
 - [x] Short-count parser (`1.5M` → 1500000)
 - [x] Rate limiter with backoff; freshness check instead of an HTTP cache
 - [x] SQLite schema and repositories for channels, videos, snapshots
+- [x] Alarm when YouTube lists videos or recommendations but none can be read (page format changed)
 - [ ] Record fixtures from a small and an empty channel (one large channel recorded)
 
 **Done when:** `ingest("@handle")` stores a channel and up to 100 videos, and a second call makes zero requests.
@@ -27,8 +28,10 @@ every phase; coverage floor is 80%.
 ## Phase 2: scoring
 
 - [x] Baseline, age ramp and outlier score with guards
-- [ ] Rising-channel rule
-- [ ] "Views on recent uploads" and, where snapshots exist, true 30-day views
+- [x] Rising-channel rule
+- [x] "Views on recent uploads"
+- [ ] True 30-day views from stored snapshots
+- [ ] Baseline, sample size, channel age and hit rate shown beside each score
 
 **Done when:** scores for one channel from the Makina export are reproduced within 15%. (Met: a test checks the median error on an exported channel.)
 
@@ -49,7 +52,9 @@ every phase; coverage floor is 80%.
 - [ ] Search-based candidate discovery
 - [x] Cheap relevance pass: TF-IDF title similarity anchored on the closest look-alikes, plus size, publishing-rate and video-length checks. The app shows "like yours" by default (language check still to add)
 - [ ] Judged relevance pass (batched model call)
-- [ ] Closeness tiers; filtered-out list; manual add and remove
+- [x] Closeness tiers; filtered-out list ("Everything" view); manual remove and restore, kept across new maps
+- [x] Each map stored as it was when made; schema migrations
+- [ ] Manual add; seed from a model channel
 
 **Done when:** for the owner's channel, at least 8 of the top 12 competitors are judged same-format by the owner, and the closest look-alike from the export is included.
 
@@ -81,7 +86,8 @@ every phase; coverage floor is 80%.
 - [x] Competitor radar screen on real crawl data: radar, channel details, breakout feed, channel list, export
 - [ ] Results feed and topic streams (need phase 5)
 - [ ] Channel detail, run progress
-- [ ] Star, hide, copy; competitor remove and restore
+- [x] Competitor remove and restore
+- [ ] Star, hide, copy
 - [ ] Follow-up chat over a stored run
 - [ ] Keyboard and screen-reader pass; phone layout
 

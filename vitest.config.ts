@@ -11,9 +11,8 @@ export default defineConfig({
         'packages/*/src/cli.ts',
         'packages/*/src/index.ts',
         'packages/*/src/**/types.ts',
-        // Process entry points and wiring: exercised by running the server.
+        // The process entry point: exercised by running the server.
         'packages/server/src/main.ts',
-        'packages/server/src/engine.ts',
       ],
       reporter: ['text'],
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },

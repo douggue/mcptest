@@ -28,3 +28,5 @@ export type { EdgeRepo, MapRepo, RecEdge } from './repos/types';
 export type { CrawlProgress } from './crawl/crawl';
 export type { OutsideReason } from './map/peers';
 export type { SnapshotBreakout } from './map/snapshot';
+export { freezeMapSnapshot } from './map/snapshot';
+export type { ChannelSnapshot } from './sources/types';

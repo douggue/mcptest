@@ -27,12 +27,12 @@ export function filterBreakouts<T extends BreakoutVideo>(
   return items;
 }
 
-/** 'peers' shows only channels like the centre; 'all' shows everything on the map. */
+/** 'peers' shows channels like the centre that the owner has not removed; 'all' shows everything. */
 export type Scope = 'peers' | 'all';
 
-export function inScope<T extends { readonly peer: boolean }>(
+export function inScope<T extends { readonly peer: boolean; readonly removed?: boolean }>(
   items: readonly T[],
   scope: Scope,
 ): readonly T[] {
-  return scope === 'peers' ? items.filter((item) => item.peer) : items;
+  return scope === 'peers' ? items.filter((item) => item.peer && !item.removed) : items;
 }

@@ -5,18 +5,24 @@ crawl itself is in `CRAWL.md`.
 
 ## Data model
 
+Tables marked _built_ exist today (`packages/core/src/db/sqlite.ts`, applied as
+numbered migrations tracked in `PRAGMA user_version`). The rest are the plan.
+
 ```
-channels        id PK (UC…), handle, title, subscribers NULL, subs_hidden,
-                language, avg_duration_s, video_count, fetched_at
+channels        id PK (UC…), handle, title, subscribers NULL, subs_hidden,   -- built
+                video_count, fetched_at        (language: planned)
 videos          id PK, channel_id FK, title, views, duration_s,
                 published_at, published_precision (day|week|month|year),
-                published_raw ("2w ago"), fetched_at
-video_snapshots video_id FK, captured_at, views            -- PK (video_id, captured_at)
-rec_edges       from_channel FK, to_channel FK, sampled, hits, share,
-                region, crawled_at                          -- PK (from, to, crawled_at)
-maps            id PK, center_channel FK, depth, region, created_at
-map_channels    map_id FK, channel_id FK, steps, source (crawl|search|manual),
-                relevance (0..1), relevance_reason, tier, removed_at NULL
+                published_raw ("2w ago"), fetched_at                    -- built
+video_snapshots video_id FK, captured_at, views   -- built; PK (video_id, captured_at)
+rec_edges       from_channel FK, to_channel FK, sampled, hits, share   -- built
+edge_crawls     channel_id PK, region, crawled_at   -- built; latest reading only, no history
+maps            id PK, center_channel FK, depth, region, created_at,  -- built
+                snapshot_json   -- the map as it was when made: scores, tiers, peers
+map_channels    map_id FK, channel_id FK, steps                       -- built
+map_removals    center_channel FK, channel_id, removed_at             -- built; the owner's
+                -- "not a competitor" choices, kept across new maps of the same centre
+                (source crawl|search|manual and judged relevance: planned)
 topic_runs      id PK, map_id FK, status, model, input_tokens, output_tokens,
                 started_at, finished_at, memo_json
 topics          id PK, run_id FK, rank, name, score, views_low, views_high,
@@ -73,11 +79,11 @@ or it has two or more videos above 10×.
 
 ### Closeness tiers
 
-| Tier | Rule |
-|---|---|
-| Close | 1 step from centre with share ≥ 50%, or mutual recommendation, or relevance ≥ 0.8 |
-| Medium | 1 step otherwise, or 2 steps with two or more inbound edges, or relevance ≥ 0.5 |
-| Far | Everything else that passes the relevance floor |
+| Tier   | Rule                                                                              |
+| ------ | --------------------------------------------------------------------------------- |
+| Close  | 1 step from centre with share ≥ 50%, or mutual recommendation, or relevance ≥ 0.8 |
+| Medium | 1 step otherwise, or 2 steps with two or more inbound edges, or relevance ≥ 0.5   |
+| Far    | Everything else that passes the relevance floor                                   |
 
 Built so far: the rows for distance, share, mutual recommendation and inbound
 edges. The relevance thresholds in this table arrive with the judged pass in
@@ -89,12 +95,12 @@ nothing out.
 Built. A channel on the map counts as a peer of the centre when all of these hold;
 otherwise it is kept but marked with the first reason it failed:
 
-| Check | Rule | Reason shown |
-|---|---|---|
-| Size | At most 1M subscribers | Far larger |
+| Check           | Rule                                            | Reason shown               |
+| --------------- | ----------------------------------------------- | -------------------------- |
+| Size            | At most 1M subscribers                          | Far larger                 |
 | Publishing rate | At most 14 uploads a week over the last 14 days | Publishes many times a day |
-| Video length | Median within 0.4× to 4× of the centre's | Very different length |
-| Titles | Anchored title match of at least 14% | Titles unlike yours |
+| Video length    | Median within 0.4× to 4× of the centre's        | Very different length      |
+| Titles          | Anchored title match of at least 14%            | Titles unlike yours        |
 
 **Anchored title match.** A new channel has too few titles to describe its niche.
 A first pass scores every channel against the centre's titles alone; the best
@@ -189,14 +195,14 @@ depend on a `wrong` claim are hidden by default.
 
 All return `{ success, data, error, meta }`.
 
-| Tool | Input | Returns |
-|---|---|---|
-| `research_channel` | `handle`, `refresh?` | Channel summary, its videos with scores, top title frames |
-| `map_niche` | `handle`, `depth?` (1..2) | Competitors with tier, relevance, size, best breakout; filtered-out list |
-| `set_competitors` | `map_id`, `remove[]`, `add[]` | Updated competitor list |
-| `suggest_topics` | `map_id`, `direction?` | Five topics with titles, evidence, range, novelty; the memo |
-| `get_channel` | `channel_id`, `sort?` | One channel's stats and videos (latest, breakouts, popular) |
-| `find_lanes` | `map_id` | Adjacent sub-niches ranked by fit with proof videos |
+| Tool               | Input                         | Returns                                                                  |
+| ------------------ | ----------------------------- | ------------------------------------------------------------------------ |
+| `research_channel` | `handle`, `refresh?`          | Channel summary, its videos with scores, top title frames                |
+| `map_niche`        | `handle`, `depth?` (1..2)     | Competitors with tier, relevance, size, best breakout; filtered-out list |
+| `set_competitors`  | `map_id`, `remove[]`, `add[]` | Updated competitor list                                                  |
+| `suggest_topics`   | `map_id`, `direction?`        | Five topics with titles, evidence, range, novelty; the memo              |
+| `get_channel`      | `channel_id`, `sort?`         | One channel's stats and videos (latest, breakouts, popular)              |
+| `find_lanes`       | `map_id`                      | Adjacent sub-niches ranked by fit with proof videos                      |
 
 Tool descriptions state what each is for and when to call it. Long tools stream
 progress notifications. Outputs are compact JSON with ids, so Claude can follow up

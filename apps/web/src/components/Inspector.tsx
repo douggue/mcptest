@@ -6,6 +6,8 @@ import { OUTSIDE_LABEL, TIER_LABEL } from './tiers';
 interface Props {
   readonly channel: SnapshotChannel;
   readonly onClose: () => void;
+  /** Removes the channel from the owner's competitors, or restores it. */
+  readonly onSetRemoved: (removed: boolean) => void;
 }
 
 function Tile({ label, children }: { readonly label: string; readonly children: React.ReactNode }) {
@@ -18,7 +20,7 @@ function Tile({ label, children }: { readonly label: string; readonly children: 
 }
 
 /** The panel for one selected channel: how it relates to you and how it is doing. */
-export function Inspector({ channel, onClose }: Props) {
+export function Inspector({ channel, onClose, onSetRemoved }: Props) {
   const link = channelUrl(channel.id);
   const breakoutLink = channel.breakout ? watchUrl(channel.breakout.videoId) : null;
   const topSource = channel.recommendedBy[0];
@@ -132,6 +134,13 @@ export function Inspector({ channel, onClose }: Props) {
           <ExternalLink aria-hidden="true" className="h-4 w-4" />
         </a>
       )}
+      <button
+        type="button"
+        onClick={() => onSetRemoved(!channel.removed)}
+        className="mt-2 w-full rounded-full bg-surface-container-high py-2.5 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-variant"
+      >
+        {channel.removed ? 'Restore to my competitors' : 'Not a competitor: remove'}
+      </button>
     </aside>
   );
 }

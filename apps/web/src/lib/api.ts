@@ -74,6 +74,17 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
       return unwrap<{ jobId: string }>(envelope).jobId;
     },
 
+    /** Removes a channel from the centre's competitors, or restores it. */
+    async setRemoved(center: string, channel: string, removed: boolean): Promise<void> {
+      unwrap<unknown>(
+        await call('/api/competitors', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ center, channel, removed }),
+        }),
+      );
+    },
+
     async job(id: string): Promise<JobState> {
       return unwrap<JobState>(await call(`/api/jobs/${encodeURIComponent(id)}`));
     },

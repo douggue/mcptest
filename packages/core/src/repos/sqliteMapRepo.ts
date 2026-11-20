@@ -67,4 +67,41 @@ export class SqliteMapRepo implements MapRepo {
       members,
     };
   }
+
+  saveSnapshot(mapId: number, snapshotJson: string): void {
+    this.db.prepare('UPDATE maps SET snapshot_json = ? WHERE id = ?').run(snapshotJson, mapId);
+  }
+
+  findSnapshot(mapId: number): string | null {
+    const row = this.db
+      .prepare<[number], { snapshot_json: string | null }>(
+        'SELECT snapshot_json FROM maps WHERE id = ?',
+      )
+      .get(mapId);
+    return row?.snapshot_json ?? null;
+  }
+
+  listRemoved(centerChannelId: string): readonly string[] {
+    return this.db
+      .prepare<[string], { channel_id: string }>(
+        'SELECT channel_id FROM map_removals WHERE center_channel = ? ORDER BY channel_id',
+      )
+      .all(centerChannelId)
+      .map((row) => row.channel_id);
+  }
+
+  setRemoved(centerChannelId: string, channelId: string, removed: boolean, at: Date): void {
+    if (removed) {
+      this.db
+        .prepare(
+          `INSERT INTO map_removals (center_channel, channel_id, removed_at)
+           VALUES (?, ?, ?) ON CONFLICT (center_channel, channel_id) DO NOTHING`,
+        )
+        .run(centerChannelId, channelId, at.toISOString());
+    } else {
+      this.db
+        .prepare('DELETE FROM map_removals WHERE center_channel = ? AND channel_id = ?')
+        .run(centerChannelId, channelId);
+    }
+  }
 }

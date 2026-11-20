@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { openDatabase } from '../src/db/sqlite';
 import { listBreakouts } from '../src/map/breakouts';
-import { loadMapSnapshot, type SnapshotDeps } from '../src/map/snapshot';
+import { freezeMapSnapshot, loadMapSnapshot, type SnapshotDeps } from '../src/map/snapshot';
 import type { MapMemberData } from '../src/map/view';
 import { SqliteChannelRepo } from '../src/repos/sqliteChannelRepo';
 import { SqliteEdgeRepo } from '../src/repos/sqliteEdgeRepo';
@@ -192,5 +192,68 @@ describe('loadMapSnapshot', () => {
       { from: cid('C'), to: cid('B'), share: 0.2 },
     ]);
     expect(snapshot?.breakouts.map((item) => item.videoId)).toEqual([vid('A', 1)]);
+  });
+
+  test('keeps showing a frozen map as it was, whatever is stored later', () => {
+    saveMap();
+    freezeMapSnapshot(deps, cid('C'), NOW);
+    deps.videos.upsertMany([storable('A', 1, 900_000, 10)], new Date(NOW.getTime() + DAY_MS));
+
+    const snapshot = loadMapSnapshot(deps, cid('C'), new Date(NOW.getTime() + DAY_MS));
+
+    expect(snapshot?.channels[0]?.recentViews).toBe(43_000);
+  });
+
+  test.each([
+    ['is not JSON', () => '{not json'],
+    [
+      'has no format number',
+      (id: number) => JSON.stringify({ mapId: id, channels: [], breakouts: [] }),
+    ],
+    [
+      'holds entries of the wrong shape',
+      (id: number) =>
+        JSON.stringify({
+          format: 1,
+          snapshot: { mapId: id, channels: [null], breakouts: [{}], edges: [] },
+        }),
+    ],
+    [
+      'belongs to another map',
+      () =>
+        JSON.stringify({
+          format: 1,
+          snapshot: { mapId: 999, channels: [], breakouts: [], edges: [] },
+        }),
+    ],
+  ])('rebuilds from current data when the stored copy %s', (_what, stored) => {
+    const mapId = saveMap();
+    deps.maps.saveSnapshot(mapId, stored(mapId));
+
+    expect(loadMapSnapshot(deps, cid('C'), NOW)?.channels).toHaveLength(2);
+  });
+
+  test('marks a removed channel and drops its videos from the feed, until it is restored', () => {
+    saveMap();
+    freezeMapSnapshot(deps, cid('C'), NOW);
+    deps.maps.setRemoved(cid('C'), cid('A'), true, NOW);
+
+    const removed = loadMapSnapshot(deps, cid('C'), NOW);
+    expect(removed?.channels.map((c) => [c.title, c.removed])).toEqual([
+      ['Channel A', true],
+      ['Channel B', false],
+    ]);
+    expect(removed?.breakouts).toEqual([]);
+
+    deps.maps.setRemoved(cid('C'), cid('A'), false, NOW);
+    expect(loadMapSnapshot(deps, cid('C'), NOW)?.breakouts).toHaveLength(1);
+  });
+
+  test('keeps a removal when a new map is made for the same channel', () => {
+    saveMap();
+    deps.maps.setRemoved(cid('C'), cid('A'), true, NOW);
+    saveMap();
+
+    expect(loadMapSnapshot(deps, cid('C'), NOW)?.channels[0]?.removed).toBe(true);
   });
 });

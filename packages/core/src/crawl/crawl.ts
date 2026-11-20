@@ -1,6 +1,7 @@
 import { ingestChannel, type IngestDeps } from '../ingest';
 import type { EdgeRepo, MapMember, MapRepo, RecEdge } from '../repos/types';
 import type { SidebarItem } from '../sources/types';
+import { freezeMapSnapshot } from '../map/snapshot';
 import { buildEdges } from './edges';
 
 export const DEFAULT_DEPTH = 2;
@@ -306,6 +307,15 @@ export async function crawlMap(
     { centerChannelId, depth: settings.depth, region: deps.region, members },
     deps.now(),
   );
+  try {
+    freezeMapSnapshot(deps, centerChannelId, deps.now());
+  } catch (error) {
+    // The map itself is saved; without a frozen copy it is rebuilt from stored data when opened.
+    warnings = [
+      ...warnings,
+      `The map was saved, but not a frozen copy of it (${messageOf(error)})`,
+    ];
+  }
   report({ stage: 'done', channels: members.length });
   return { mapId, centerChannelId, depth: settings.depth, members, warnings };
 }

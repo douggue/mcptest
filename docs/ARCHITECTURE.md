@@ -30,16 +30,16 @@ flowchart LR
 
 ## Stack
 
-| Concern | Choice | Why |
-|---|---|---|
-| Language | TypeScript, Node 22 | One language for engine, MCP server and web app |
-| YouTube access | `youtubei.js` behind an interface | Verified to return the needed fields; swappable |
-| Storage | SQLite (`better-sqlite3`) in v1 | Single user, zero setup; schema is Postgres-compatible |
-| Validation | Zod at every boundary | Tool inputs, scraped payloads and model output are all untrusted |
-| Model | `claude-opus-5-5`, structured outputs | Topic JSON must match a schema; forced tool choice is not available on this model |
-| MCP | `@modelcontextprotocol/sdk`, stdio first, HTTP later | stdio is enough for a personal connector |
-| Web (phase 7) | Next.js + React | Server components suit a read-heavy research UI |
-| Tests | Vitest, 80% coverage floor | Fixture-driven parsers and pure scoring functions |
+| Concern        | Choice                                                       | Why                                                                                                                            |
+| -------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Language       | TypeScript, Node 22                                          | One language for engine, MCP server and web app                                                                                |
+| YouTube access | `youtubei.js` behind an interface                            | Verified to return the needed fields; swappable                                                                                |
+| Storage        | SQLite (`better-sqlite3`) in v1                              | Single user, zero setup; schema is Postgres-compatible                                                                         |
+| Validation     | Zod at every boundary                                        | Tool inputs, scraped payloads and model output are all untrusted                                                               |
+| Model          | `claude-opus-5-5`, structured outputs                        | Topic JSON must match a schema; forced tool choice is not available on this model                                              |
+| MCP            | `@modelcontextprotocol/sdk`, stdio first, HTTP later         | stdio is enough for a personal connector                                                                                       |
+| Web            | Vite + React + Tailwind, served by a small local Node server | A personal tool on one machine needs no server rendering; the API is a plain request-to-response function that is easy to test |
+| Tests          | Vitest, 80% coverage floor                                   | Fixture-driven parsers and pure scoring functions                                                                              |
 
 ## Repository layout
 
@@ -49,15 +49,18 @@ packages/
     src/
       sources/        YouTubeSource interface, InnertubeSource, DataApiSource, parsers
       crawl/          BFS crawl, edge building, rate limiter
-      scoring/        age ramp, outlier score, rising detection, tiers
-      discovery/      search-based candidates, relevance filter
-      topics/         evidence builder, prompt, schema, novelty and fact checks
-      repos/          ChannelRepo, VideoRepo, MapRepo, TopicRunRepo
-      pipeline.ts     orchestration with progress events
+      scoring/        age ramp and outlier score
+      map/            title similarity, peers ("like yours"), tiers, breakouts, stored snapshots
+      db/             SQLite connection and numbered migrations
+      repos/          ChannelRepo, VideoRepo, EdgeRepo, MapRepo
+      ingest.ts       reads one channel into the store
+      discovery/      (planned) search-based candidates
+      topics/         (planned) evidence builder, prompt, schema, novelty and fact checks
     test/fixtures/    recorded InnerTube payloads
-  mcp/                tool definitions over core
+  server/             local JSON API and static file server (127.0.0.1 only)
+  mcp/                (planned) tool definitions over core
 apps/
-  web/                phase 7
+  web/                the radar screen
 docs/
 ```
 

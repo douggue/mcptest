@@ -33,6 +33,11 @@ export interface InnertubeSourceOptions {
 const LISTING_LANGUAGE = 'en';
 /** Upper bound on continuation requests for one channel, whatever the pages contain. */
 const MAX_VIDEO_PAGES = 10;
+/**
+ * A sidebar this long with no readable video means the page format changed. A
+ * shorter one can honestly hold only playlists or mixes.
+ */
+const MIN_ITEMS_FOR_ALARM = 5;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -97,9 +102,16 @@ export class InnertubeSource implements YouTubeSource {
     }
     const info = await this.limiter.run(() => this.client.getInfo(videoId));
     const now = this.now();
-    return (info.watch_next_feed ?? [])
+    const feed = info.watch_next_feed ?? [];
+    const items = feed
       .map((item) => mapSidebarItem(item, now))
       .filter((item): item is SidebarItem => item !== null);
+    if (feed.length >= MIN_ITEMS_FOR_ALARM && items.length === 0) {
+      throw new Error(
+        `YouTube listed ${feed.length} recommendations for ${videoId} but none could be read. Its page format may have changed.`,
+      );
+    }
+    return items;
   }
 
   private async collectVideos(
@@ -108,10 +120,17 @@ export class InnertubeSource implements YouTubeSource {
     maxVideos: number,
   ): Promise<readonly VideoItem[]> {
     const now = this.now();
-    const mapPage = (tab: VideosTab): readonly VideoItem[] =>
-      tab.videos
+    const mapPage = (tab: VideosTab): readonly VideoItem[] => {
+      const mapped = tab.videos
         .map((item) => mapChannelVideo(item, channelId, now))
         .filter((video): video is VideoItem => video !== null);
+      if (tab.videos.length > 0 && mapped.length === 0) {
+        throw new Error(
+          `YouTube listed ${tab.videos.length} videos for ${channelId} but none could be read. Its page format may have changed.`,
+        );
+      }
+      return mapped;
+    };
 
     let tab = await this.limiter.run(() => page.getVideos());
     let collected = mapPage(tab);

@@ -108,7 +108,7 @@ export function App() {
     }
   };
 
-  const peerCount = snapshot?.channels.filter((channel) => channel.peer).length ?? 0;
+  const peerCount = snapshot ? inScope(snapshot.channels, 'peers').length : 0;
   // With no channel like the centre found yet, showing an empty radar would help nobody.
   const activeScope: Scope = peerCount === 0 ? 'all' : scope;
   const visible = useMemo(
@@ -166,7 +166,18 @@ export function App() {
             totalCount={snapshot.channels.length}
           />
         )}
-        {selected && <Inspector channel={selected} onClose={() => setSelectedId(null)} />}
+        {selected && snapshot && (
+          <Inspector
+            channel={selected}
+            onClose={() => setSelectedId(null)}
+            onSetRemoved={(removed) => {
+              api
+                .setRemoved(snapshot.center.id, selected.id, removed)
+                .then(() => load(snapshot.center.id))
+                .catch((error: unknown) => setMessage(messageOf(error)));
+            }}
+          />
+        )}
       </Radar>
       {visible && (
         <section className="w-full bg-space-deep px-gutter-desktop py-space-xl">

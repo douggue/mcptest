@@ -20,6 +20,7 @@ import type {
   YouTubeSource,
 } from '../src/sources/types';
 import channelFixture from './fixtures/channel.json';
+import channelVideos from './fixtures/channel-videos.json';
 
 const NOW = new Date('2026-11-20T12:00:00Z');
 const LATER = new Date('2026-12-20T12:00:00Z');
@@ -182,10 +183,10 @@ describe('InnertubeSource with bad input or endless pages', () => {
     await expect(source.getSidebar('not a video')).rejects.toThrow(/video id/);
   });
 
-  test('stops after a bounded number of pages when nothing can be read', async () => {
+  test('stops after a bounded number of pages however many there are', async () => {
     let continuations = 0;
     const endless: VideosTab = {
-      videos: [{ type: 'Unreadable' }],
+      videos: channelVideos.slice(0, 1),
       has_continuation: true,
       getContinuation: async () => {
         continuations += 1;
@@ -195,8 +196,48 @@ describe('InnertubeSource with bad input or endless pages', () => {
 
     const snapshot = await makeSource(clientWith(endless)).fetchChannel(CHANNEL_ID, 100);
 
-    expect(snapshot.videos).toEqual([]);
+    expect(snapshot.videos).toHaveLength(10);
     expect(continuations).toBe(9);
+  });
+
+  test('says so when a page lists videos but none can be read', async () => {
+    const changed: VideosTab = {
+      videos: [{ type: 'SomeNewShape' }, { type: 'SomeNewShape' }],
+      has_continuation: false,
+      getContinuation: async () => changed,
+    };
+
+    await expect(makeSource(clientWith(changed)).fetchChannel(CHANNEL_ID, 100)).rejects.toThrow(
+      /listed 2 videos.*format may have changed/,
+    );
+  });
+
+  test('says so when a sidebar lists recommendations but none can be read', async () => {
+    const client: InnertubeClient = {
+      ...clientWith({
+        videos: [],
+        has_continuation: false,
+        getContinuation: async () => ({}) as VideosTab,
+      }),
+      getInfo: async () => ({ watch_next_feed: new Array(5).fill({ type: 'SomeNewShape' }) }),
+    };
+
+    await expect(makeSource(client).getSidebar('uXuQF_PPg5U')).rejects.toThrow(
+      /listed 5 recommendations.*format may have changed/,
+    );
+  });
+
+  test('treats a short sidebar with no videos in it as simply empty', async () => {
+    const client: InnertubeClient = {
+      ...clientWith({
+        videos: [],
+        has_continuation: false,
+        getContinuation: async () => ({}) as VideosTab,
+      }),
+      getInfo: async () => ({ watch_next_feed: [{ type: 'Playlist' }, { type: 'Mix' }] }),
+    };
+
+    await expect(makeSource(client).getSidebar('uXuQF_PPg5U')).resolves.toEqual([]);
   });
 
   test('does not ask for more after an empty page', async () => {

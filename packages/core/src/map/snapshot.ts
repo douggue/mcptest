@@ -1,4 +1,5 @@
-import type { MapRepo } from '../repos/types';
+import { z } from 'zod';
+import type { MapRepo, StoredMap } from '../repos/types';
 import { listBreakouts, type BreakoutVideo } from './breakouts';
 import type { OutsideReason } from './peers';
 import { loadMapView, type Breakout, type MapViewDeps, type Recommender, type Tier } from './view';
@@ -51,6 +52,8 @@ export interface SnapshotChannel {
   /** The same kind of channel as the centre. */
   readonly peer: boolean;
   readonly outsideReason: OutsideReason | null;
+  /** The owner removed this channel from their competitors. */
+  readonly removed: boolean;
 }
 
 export interface SnapshotEdge {
@@ -63,14 +66,8 @@ export interface SnapshotDeps extends MapViewDeps {
   readonly maps: MapRepo;
 }
 
-/** The latest saved map around a channel, or null when none has been crawled. */
-export function loadMapSnapshot(
-  deps: SnapshotDeps,
-  centerChannelId: string,
-  now: Date,
-): MapSnapshot | null {
-  const map = deps.maps.latestForCenter(centerChannelId);
-  if (!map) return null;
+/** Builds a map's snapshot from what the store holds right now. */
+function buildSnapshot(deps: SnapshotDeps, map: StoredMap, now: Date): MapSnapshot | null {
   const view = loadMapView(deps, map.members, map.depth, now);
   if (!view) return null;
   const { center, rows, members, edges } = view;
@@ -105,6 +102,7 @@ export function loadMapSnapshot(
       recommendedBy: row.recommendedBy,
       peer: row.peer,
       outsideReason: row.outsideReason,
+      removed: false,
     })),
     edges: edges.map((edge) => ({
       from: edge.fromChannelId,
@@ -122,5 +120,76 @@ export function loadMapSnapshot(
         now,
       ).map((video) => ({ ...video, peer: false })),
     ],
+  };
+}
+
+/** Raised when the stored shape changes, so older copies are rebuilt instead of misread. */
+const SNAPSHOT_FORMAT = 1;
+
+/** Checks the parts every reader relies on; the rest is carried through as stored. */
+const storedSnapshot = z.object({
+  format: z.literal(SNAPSHOT_FORMAT),
+  snapshot: z.looseObject({
+    mapId: z.number(),
+    center: z.looseObject({ id: z.string() }),
+    channels: z.array(z.looseObject({ id: z.string(), peer: z.boolean() })),
+    breakouts: z.array(z.looseObject({ channelId: z.string(), peer: z.boolean() })),
+    edges: z.array(z.looseObject({ from: z.string(), to: z.string() })),
+  }),
+});
+
+function parseStored(json: string | null, mapId: number): MapSnapshot | null {
+  if (json === null) return null;
+  try {
+    const parsed = storedSnapshot.safeParse(JSON.parse(json));
+    if (!parsed.success || parsed.data.snapshot.mapId !== mapId) return null;
+    return parsed.data.snapshot as unknown as MapSnapshot;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Records the latest map around a channel as it looks now, so that opening it
+ * later shows what was found then, whatever has been crawled since.
+ */
+export function freezeMapSnapshot(
+  deps: SnapshotDeps,
+  centerChannelId: string,
+  now: Date,
+): MapSnapshot | null {
+  const map = deps.maps.latestForCenter(centerChannelId);
+  const snapshot = map ? buildSnapshot(deps, map, now) : null;
+  if (map && snapshot) {
+    deps.maps.saveSnapshot(map.id, JSON.stringify({ format: SNAPSHOT_FORMAT, snapshot }));
+  }
+  return snapshot;
+}
+
+/**
+ * The latest saved map around a channel, or null when none has been crawled.
+ *
+ * The frozen copy is used when there is one (maps made before snapshots were
+ * stored are rebuilt from current data). The owner's removals are applied on
+ * every read, so a removed channel stays removed across new crawls.
+ */
+export function loadMapSnapshot(
+  deps: SnapshotDeps,
+  centerChannelId: string,
+  now: Date,
+): MapSnapshot | null {
+  const map = deps.maps.latestForCenter(centerChannelId);
+  if (!map) return null;
+  const snapshot =
+    parseStored(deps.maps.findSnapshot(map.id), map.id) ?? buildSnapshot(deps, map, now);
+  if (!snapshot) return null;
+  const removed = new Set(deps.maps.listRemoved(centerChannelId));
+  return {
+    ...snapshot,
+    channels: snapshot.channels.map((channel) => ({
+      ...channel,
+      removed: removed.has(channel.id),
+    })),
+    breakouts: snapshot.breakouts.filter((video) => !removed.has(video.channelId)),
   };
 }

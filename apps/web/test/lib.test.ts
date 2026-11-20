@@ -32,6 +32,7 @@ const channel = (n: number, overrides: Partial<SnapshotChannel> = {}): SnapshotC
   recommendedBy: [],
   peer: true,
   outsideReason: null,
+  removed: false,
   ...overrides,
 });
 
@@ -105,14 +106,18 @@ describe('filterBreakouts', () => {
 });
 
 describe('inScope', () => {
-  const items = [channel(1), channel(2, { peer: false, outsideReason: 'larger' })];
+  const items = [
+    channel(1),
+    channel(2, { peer: false, outsideReason: 'larger' }),
+    channel(3, { removed: true }),
+  ];
 
   test('keeps only channels like the centre when asked for peers', () => {
     expect(inScope(items, 'peers').map((item) => item.id)).toEqual([cid(1)]);
   });
 
   test('keeps everything otherwise', () => {
-    expect(inScope(items, 'all')).toHaveLength(2);
+    expect(inScope(items, 'all')).toHaveLength(3);
   });
 });
 
@@ -261,6 +266,18 @@ describe('api', () => {
     expect(calls[0]?.url).toBe('/api/maps');
     expect(calls[0]?.init?.method).toBe('POST');
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ channel: '@veritasium', depth: 2 });
+  });
+
+  test('sends a removal for a competitor', async () => {
+    const bodies: string[] = [];
+    const api = createApi(async (_url, init) => {
+      bodies.push(String(init?.body));
+      return new Response(JSON.stringify({ success: true, data: {}, error: null }));
+    });
+
+    await api.setRemoved('UCa', 'UCb', true);
+
+    expect(JSON.parse(bodies[0] ?? '{}')).toEqual({ center: 'UCa', channel: 'UCb', removed: true });
   });
 
   test('encodes the channel in the address when reading a map', async () => {
