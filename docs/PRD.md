@@ -1,4 +1,4 @@
-# PRD: Scout (working name)
+# PRD: Jgtube
 
 A research tool that tells a YouTube creator what to make next, based on what is
 breaking out on the channels competing for their audience.
@@ -47,7 +47,7 @@ formats) but gathering it by hand takes hours and is out of date within days.
 
 Observed in a real Makina run for a three-video channel:
 
-| Weakness observed | Scout's answer |
+| Weakness observed | Jgtube's answer |
 |---|---|
 | The map was mostly unrelated channels | Relevance filter: same-format check on every candidate |
 | The closest look-alike channel was missing from the topic run | Search-based discovery merged with the crawl |
@@ -79,8 +79,9 @@ Observed in a real Makina run for a three-video channel:
 |---|---|
 | 2026-11-20 | **Personal tool.** Single user, no accounts or billing. Phase 8 is out of scope. |
 | 2026-11-20 | **The owner supplies the visual design.** The web UI (phase 7) waits for it; the engine and connector do not. |
+| 2026-11-20 | **The product is called Jgtube.** It replaces the placeholder name everywhere, including the wordmark in the supplied design. |
+| 2026-11-20 | **No YT dashboard.** The screen that needs the owner's YouTube Analytics login is dropped, not deferred. |
 
 ## Open questions
 
 1. Which region and language should recommendations be read from by default?
-2. Product name. "Scout" is a placeholder.

@@ -14,8 +14,8 @@ import { RateLimiter } from './sources/limiter';
 
 const USAGE = [
   'Usage:',
-  '  npm run scout -- ingest <channel> [--refresh]',
-  '  npm run scout -- map <channel> [--depth 1|2] [--sample N] [--max-channels N]',
+  '  npm run jgtube -- ingest <channel> [--refresh]',
+  '  npm run jgtube -- map <channel> [--depth 1|2] [--sample N] [--max-channels N]',
   '',
   '<channel> is an @handle, a channel id or a youtube.com URL.',
 ].join('\n');

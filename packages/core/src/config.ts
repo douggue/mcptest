@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 const envSchema = z.object({
-  SCOUT_DB_PATH: z.string().min(1).default('scout.db'),
-  SCOUT_REGION: z
+  JGTUBE_DB_PATH: z.string().min(1).default('jgtube.db'),
+  JGTUBE_REGION: z
     .string()
     .regex(/^[A-Z]{2}$/, 'must be a two-letter country code such as US')
     .default('US'),
@@ -27,7 +27,7 @@ export function loadConfig(
     throw new Error(`Invalid configuration. ${problems}`);
   }
   return {
-    dbPath: parsed.data.SCOUT_DB_PATH,
-    region: parsed.data.SCOUT_REGION,
+    dbPath: parsed.data.JGTUBE_DB_PATH,
+    region: parsed.data.JGTUBE_REGION,
   };
 }

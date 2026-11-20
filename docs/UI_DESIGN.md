@@ -40,7 +40,7 @@ replaced or left out rather than filled with invented values.
 | Results feed (`/results`) | With the topic writer | Topic runs (phase 5) |
 | Topic streams (`/topics`) | After results | Themes from the topic run |
 | Map chat (`/map-chat`) | Through the Claude connector | Phase 6 |
-| YT dashboard (`/yt-dashboard`) | Deferred | Needs the owner's YouTube Analytics login |
+| YT dashboard (`/yt-dashboard`) | **Not built.** Owner's decision. | Would need the owner's YouTube Analytics login |
 | Creator toolkit (`/tools`) | Deferred | Needs transcripts and image analysis |
 | Plan and credits (`/plans`) | **Not built.** | Personal tool: no billing |
 
@@ -79,8 +79,8 @@ affinity scores and live hourly views for competitors.
 
 ## Naming
 
-The design carries the name and wordmark of an existing product. The build uses
-the working name **Scout** in their place until the owner picks a name.
+The product is called **Jgtube**. The design carries the name and wordmark of
+an existing product; the build replaces them with Jgtube.
 
 ## Rules that hold on every screen
 

@@ -1,5 +1,5 @@
 {
-  "name": "scout",
+  "name": "jgtube",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -13,7 +13,7 @@
     "lint": "eslint packages && prettier --check \"packages/**/*.ts\"",
     "format": "prettier --write \"packages/**/*.ts\"",
     "test": "vitest run --coverage",
-    "scout": "tsx packages/core/src/cli.ts"
+    "jgtube": "tsx packages/core/src/cli.ts"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",

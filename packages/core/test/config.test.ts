@@ -3,20 +3,20 @@ import { loadConfig } from '../src/config';
 
 describe('loadConfig', () => {
   test('uses defaults when nothing is set', () => {
-    expect(loadConfig({})).toEqual({ dbPath: 'scout.db', region: 'US' });
+    expect(loadConfig({})).toEqual({ dbPath: 'jgtube.db', region: 'US' });
   });
 
   test('reads overrides from the environment', () => {
-    const config = loadConfig({ SCOUT_DB_PATH: '/data/scout.db', SCOUT_REGION: 'GB' });
+    const config = loadConfig({ JGTUBE_DB_PATH: '/data/jgtube.db', JGTUBE_REGION: 'GB' });
 
-    expect(config).toEqual({ dbPath: '/data/scout.db', region: 'GB' });
+    expect(config).toEqual({ dbPath: '/data/jgtube.db', region: 'GB' });
   });
 
   test('rejects a region that is not a two-letter code', () => {
-    expect(() => loadConfig({ SCOUT_REGION: 'United States' })).toThrow(/SCOUT_REGION/);
+    expect(() => loadConfig({ JGTUBE_REGION: 'United States' })).toThrow(/JGTUBE_REGION/);
   });
 
   test('rejects an empty database path', () => {
-    expect(() => loadConfig({ SCOUT_DB_PATH: '' })).toThrow(/SCOUT_DB_PATH/);
+    expect(() => loadConfig({ JGTUBE_DB_PATH: '' })).toThrow(/JGTUBE_DB_PATH/);
   });
 });

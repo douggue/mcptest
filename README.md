@@ -1,6 +1,6 @@
 # mcptest
 
-Planning for **Scout** (working name): a research tool that tells a YouTube
+**Jgtube** is a research tool that tells a YouTube
 creator what to make next, based on what is breaking out on competing channels.
 It is designed to run as a connector inside Claude first, with a web app later.
 
@@ -10,18 +10,18 @@ Requires Node 22.
 
 ```
 npm install
-npm run scout -- ingest @somechannel
+npm run jgtube -- ingest @somechannel
 ```
 
 This reads the channel's latest long-form videos (up to 100), stores them in
-`scout.db`, and prints them ranked by outlier score: each video's views against
+`jgtube.db`, and prints them ranked by outlier score: each video's views against
 what the channel usually gets at that age. A second run within 24 hours uses the
 stored copy; add `--refresh` to fetch again.
 
 To map the channels around one channel:
 
 ```
-npm run scout -- map @somechannel
+npm run jgtube -- map @somechannel
 ```
 
 This follows YouTube's recommendations two steps out and lists each channel
@@ -31,7 +31,7 @@ map is a few hundred requests and takes a few minutes; `--depth 1`,
 `--sample N` and `--max-channels N` make it smaller. Readings are reused for a
 week, so repeating a map is fast.
 
-Settings (both optional): `SCOUT_DB_PATH` (default `scout.db`) and `SCOUT_REGION`
+Settings (both optional): `JGTUBE_DB_PATH` (default `jgtube.db`) and `JGTUBE_REGION`
 (default `US`).
 
 Checks: `npm run typecheck`, `npm run lint`, `npm test`.
