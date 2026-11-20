@@ -121,6 +121,20 @@ export {
 export { createLogger, type LogFields, type Logger, type LoggerOptions } from './log';
 export { QUOTA_KINDS, type QuotaKind } from './quota/kinds';
 export {
+  AGE_BANDS,
+  ageBandOf,
+  cohortStatistics,
+  distribution,
+  percentileRanks,
+  placeAmong,
+  type AgeBand,
+  type ChannelStanding,
+  type CohortMember,
+  type CohortStatistics,
+  type Distribution,
+  type VideoStanding,
+} from './rank/cohort';
+export {
   AllowanceSpentError,
   DEFAULT_PLAN,
   LATE_DAY_FLOW_HOURS,
@@ -232,6 +246,15 @@ export {
   type NewSubject,
   type SubjectInput,
 } from './subjects/subject';
+export {
+  GROWTH_MARKS,
+  GROWTH_MARK_HOURS,
+  NO_GROWTH,
+  fillGrowth,
+  viewsAtAge,
+  type GrowthMark,
+  type GrowthSummary,
+} from './track/growth';
 export {
   MISSED_READS_BEFORE_GONE,
   MISS_MIN_GAP_MS,
