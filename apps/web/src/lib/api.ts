@@ -1,4 +1,4 @@
-import type { AnalysisId } from './analyses';
+import type { AnalysisAnswer, AnalysisId, EngineReport } from './analyses';
 import type {
   CompetitorStatus,
   CrawlProgress,
@@ -183,15 +183,24 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
       return unwrap<NichesReply>(await call('/api/niches'));
     },
 
-    /** Asks Claude for one of the fixed analyses of a channel; resolves with its answer as text. */
-    async analyse(analysis: AnalysisId, channel: string): Promise<string> {
-      return unwrap<{ text: string }>(
+    /**
+     * Asks an AI engine for one of the fixed analyses of a channel; resolves
+     * with its answer as text, the engine that gave it and the ones passed over.
+     */
+    async analyse(analysis: AnalysisId, channel: string): Promise<AnalysisAnswer> {
+      const { text, engine, skipped } = unwrap<Partial<AnalysisAnswer> & { text: string }>(
         await call('/api/analyses', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ analysis, channel }),
         }),
-      ).text;
+      );
+      return { text, engine: engine ?? null, skipped: skipped ?? [] };
+    },
+
+    /** Which AI engines are installed and signed in on this computer, and the order they are tried in. */
+    async engines(): Promise<EngineReport> {
+      return unwrap<EngineReport>(await call('/api/engines'));
     },
 
     /** Searches YouTube for recent videos on a subject and reads the channels behind them. */

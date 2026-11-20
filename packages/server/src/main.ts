@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { loadConfig } from '@jgtube/core';
 import { createApp } from './app';
 import { createEngine } from './engine';
+import { loadEngineSettings } from './engines/settings';
 import { JobStore } from './jobs';
 import { startRefreshTimer, startThroughApi } from './schedule';
 
@@ -116,7 +117,7 @@ function loadEnvFile(): void {
 function start(): void {
   loadEnvFile();
   const config = loadConfig();
-  const engine = createEngine(config);
+  const engine = createEngine(config, { engines: loadEngineSettings() });
   const port = readPort();
   const allowedHosts = [`${HOST}:${port}`, `localhost:${port}`];
   const app = createApp({ engine, jobs: new JobStore(), allowedHosts });
@@ -176,9 +177,9 @@ function start(): void {
   const stop = (): void => {
     timer?.stop();
     server.close();
-    // Claude is stopped and work under way winds down before the store is
-    // closed, so nothing is cut off in the middle of a write and no Claude
-    // process is left behind.
+    // Any AI engine that is running is stopped and work under way winds down
+    // before the store is closed, so nothing is cut off in the middle of a
+    // write and no engine's process is left behind.
     engine.shutdown().catch((error: unknown) => {
       process.stderr.write(`Jgtube did not close cleanly: ${String(error)}\n`);
     });

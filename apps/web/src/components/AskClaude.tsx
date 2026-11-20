@@ -1,5 +1,13 @@
 import { Sparkles } from 'lucide-react';
-import { ANALYSIS_OPTIONS, readAnswer, type AnalysisOption } from '../lib/analyses';
+import {
+  ANALYSIS_OPTIONS,
+  answerCredit,
+  engineSummary,
+  readAnswer,
+  skippedNotes,
+  type AnalysisAnswer,
+  type AnalysisOption,
+} from '../lib/analyses';
 import type { Analysis, AnalysisState } from './useAnalysis';
 
 const NOTE = 'rounded bg-surface-card p-space-lg text-body-md text-on-surface-variant';
@@ -30,13 +38,13 @@ function Option({ option, busy, active, onRun }: OptionProps) {
         disabled={busy}
         className="self-start rounded-full bg-on-surface px-4 py-1.5 text-body-sm font-semibold text-space-deep transition-all hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {active ? 'Claude is working…' : option.action}
+        {active ? 'Working…' : option.action}
       </button>
     </div>
   );
 }
 
-/** Claude's answer, set out as headings, list items and paragraphs. Shown as text only. */
+/** The answer, set out as headings, list items and paragraphs. Shown as text only. */
 function Answer({ text }: { readonly text: string }) {
   const blocks = readAnswer(text);
   return (
@@ -70,6 +78,20 @@ function Answer({ text }: { readonly text: string }) {
   );
 }
 
+/** Who answered, and for each engine passed over, why: that often says what to do about it. */
+function Credit({ answer }: { readonly answer: AnalysisAnswer }) {
+  const credit = answerCredit(answer);
+  if (credit === '') return null;
+  return (
+    <div className="flex flex-col gap-1 text-body-sm text-outline">
+      <p>{credit}</p>
+      {skippedNotes(answer.skipped).map((note) => (
+        <p key={note}>{note}</p>
+      ))}
+    </div>
+  );
+}
+
 interface Props {
   readonly analysis: Analysis;
   /** The channel the map on screen is centred on. */
@@ -78,13 +100,16 @@ interface Props {
 }
 
 /**
- * Three questions Claude can answer about the map on screen with one press:
- * what the winning thumbnails do, which videos to make next, and which
- * left-out channels cover the same ground in other words.
+ * Three questions an AI engine on this computer can answer about the map on
+ * screen with one press: what the winning thumbnails do, which videos to make
+ * next, and which left-out channels cover the same ground in other words.
+ * The engines are Antigravity, Claude Code and Codex, tried in the owner's
+ * order. (The component keeps its first name; it is no longer Claude only.)
  */
 export function AskClaude({ analysis, centerId, centerTitle }: Props) {
-  const { state, run } = analysis;
+  const { state, engines, run } = analysis;
   const busy = state.status === 'running';
+  const available = engineSummary(engines);
 
   return (
     <section
@@ -99,14 +124,15 @@ export function AskClaude({ analysis, centerId, centerTitle }: Props) {
               id="ask-claude-title"
               className="text-headline-lg font-bold tracking-tight text-on-surface"
             >
-              Ask Claude
+              Ask AI
             </h2>
           </div>
           <p className="mt-1 text-body-md text-on-surface-variant">
-            Claude reads what Jgtube has stored around {centerTitle} and answers in about a minute.
-            Each press runs Claude Code on this computer and uses some of your Claude plan&rsquo;s
-            allowance, as a chat would.
+            An AI on this computer reads what Jgtube has stored around {centerTitle} and answers in
+            a minute or two. Each press runs the first engine below that is ready and uses some of
+            that plan&rsquo;s allowance, as a chat would.
           </p>
+          {available !== '' && <p className="mt-1 text-body-sm text-outline">{available}</p>}
         </div>
 
         <div className="grid grid-cols-1 gap-space-md md:grid-cols-3">
@@ -124,7 +150,7 @@ export function AskClaude({ analysis, centerId, centerTitle }: Props) {
         {state.status === 'running' && (
           <p role="status" className={`flex items-center gap-2 ${NOTE}`}>
             <span className="h-2 w-2 animate-pulse rounded-full bg-primary-container shadow-[0_0_8px_#00d2ff]" />
-            Claude is working on: {titleOf(state)}. This usually takes under two minutes.
+            Working on: {titleOf(state)}. This usually takes under two minutes.
           </p>
         )}
         {state.status === 'failed' && (
@@ -135,7 +161,8 @@ export function AskClaude({ analysis, centerId, centerTitle }: Props) {
         {state.status === 'done' && (
           <div className="flex flex-col gap-space-sm">
             <h3 className="text-title-md text-on-surface">{titleOf(state)}</h3>
-            <Answer text={state.text} />
+            <Answer text={state.answer.text} />
+            <Credit answer={state.answer} />
           </div>
         )}
       </div>
