@@ -14,6 +14,7 @@ const TABLES = [
   'channels',
   'findings',
   'quota_ledger',
+  'service_state',
   'subject_hits',
   'subjects',
   'video_snapshots',
@@ -62,7 +63,7 @@ function titlesIn(path: string): unknown[] {
 }
 
 describe('openDatabase', () => {
-  test('makes every table of the first version in a new store', () => {
+  test('makes every table in a new store', () => {
     const db = openDatabase(':memory:');
 
     const tables = db
@@ -72,6 +73,23 @@ describe('openDatabase', () => {
     db.close();
 
     expect(tables.filter((name) => name !== 'sqlite_sequence')).toEqual(TABLES);
+  });
+
+  test('brings a store of the first version up to date, keeping its findings', () => {
+    const old = openDatabase(storePath, NOW, MIGRATIONS.slice(0, 1));
+    old
+      .prepare(
+        `INSERT INTO findings (video_id, channel_id, video_title, published_at, kind, reason, found_at)
+         VALUES ('v', 'c', 'A title', '2026-11-20T10:00:00.000Z', 'niche', '{}', '2026-11-20T11:00:00.000Z')`,
+      )
+      .run();
+    old.close();
+
+    const db = openDatabase(storePath, NOW);
+    const row = db.prepare('SELECT video_title, digested_at FROM findings').get();
+    db.close();
+
+    expect(row).toEqual({ video_title: 'A title', digested_at: null });
   });
 
   test('records how many steps have run in the store itself', () => {

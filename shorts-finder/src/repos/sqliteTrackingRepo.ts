@@ -1,6 +1,6 @@
 import type { Db } from '../db/sqlite';
 import { fromText, fromTextOrNull, toText } from './rows';
-import type { ShortAnswer, Tier, TrackedVideo, TrackingRepo } from './types';
+import type { ShortAnswer, Tier, TrackedVideo, TrackingCounts, TrackingRepo } from './types';
 
 interface TrackingRow {
   readonly video_id: string;
@@ -83,5 +83,15 @@ export class SqliteTrackingRepo implements TrackingRepo {
       .prepare<[string], TrackingRow>(`${SELECT_TRACKED} WHERE t.video_id = ?`)
       .get(videoId);
     return row === undefined ? null : toTracked(row);
+  }
+
+  counts(now: Date): TrackingCounts {
+    const row = this.db
+      .prepare<[string], { tracked: number; due: number | null }>(
+        `SELECT COUNT(*) AS tracked, SUM(next_read_at <= ?) AS due
+         FROM video_tracking WHERE tier <> 'done'`,
+      )
+      .get(toText(now));
+    return { tracked: row?.tracked ?? 0, due: row?.due ?? 0 };
   }
 }

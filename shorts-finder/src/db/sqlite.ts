@@ -118,6 +118,20 @@ CREATE TABLE findings (
 );
 CREATE INDEX findings_unalerted ON findings (found_at) WHERE alerted_at IS NULL;
 `,
+  // 2: what the alerts and the service need to remember. A finding left out of
+  // the one-by-one alerts by the daily cap is told of in the day's summary
+  // instead, and `digested_at` says so, so it is not sent again later. The
+  // service's own memory (when each round last ran, which day's summary went
+  // out) is a few named values, so a restart carries on where it stopped.
+  `
+ALTER TABLE findings ADD COLUMN digested_at TEXT;
+
+CREATE TABLE service_state (
+  key         TEXT PRIMARY KEY,
+  value       TEXT NOT NULL,
+  updated_at  TEXT NOT NULL
+) WITHOUT ROWID;
+`,
 ];
 
 /**

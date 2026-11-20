@@ -187,6 +187,85 @@ export interface TrackingRepo {
   /** Ends tracking: the video is not read again. */
   finish(videoId: string): void;
   get(videoId: string): TrackedVideo | null;
+  /** How many videos are still tracked, and how many of those have a read due at `now`. */
+  counts(now: Date): TrackingCounts;
+}
+
+export interface TrackingCounts {
+  readonly tracked: number;
+  readonly due: number;
+}
+
+/** `niche`: a small channel's Short gaining fast. `transfer`: an idea winning elsewhere. */
+export type FindingKind = 'niche' | 'transfer';
+
+/**
+ * What a finding says about itself, kept with it so an alert needs no other
+ * row. The rules that write findings fill in what they know; everything may
+ * be missing, and an alert leaves out what is.
+ */
+export interface FindingReason {
+  /** Why the video is listed, one plain sentence each, as the rules worded it. */
+  readonly why: readonly string[];
+  readonly totalViews: number | null;
+  /** Null when hidden or not read yet. */
+  readonly subscribers: number | null;
+  readonly channelCreatedAt: Date | null;
+  /** The country the channel says it is in. */
+  readonly channelCountry: string | null;
+  /** The subject whose search found the video, and the country it was searched in. */
+  readonly subjectKeyword: string | null;
+  readonly subjectRegion: string | null;
+}
+
+/** A finding as the rules hand it over. */
+export interface NewFinding {
+  readonly videoId: string;
+  readonly channelId: string;
+  readonly videoTitle: string;
+  readonly channelTitle: string | null;
+  readonly publishedAt: Date;
+  readonly kind: FindingKind;
+  readonly reason: FindingReason;
+  readonly viewsPerHour: number | null;
+  /** US dollars at the configured Shorts rate; null when not worked out. */
+  readonly earningsLow: number | null;
+  readonly earningsHigh: number | null;
+  readonly foundAt: Date;
+}
+
+export interface Finding extends NewFinding {
+  readonly id: number;
+  /** When its own alert was accepted by Telegram; null when none was sent. */
+  readonly alertedAt: Date | null;
+  /** When a daily summary told of it in place of an alert; null when none did. */
+  readonly digestedAt: Date | null;
+}
+
+/** What was found, and what the owner has been told of it. */
+export interface FindingRepo {
+  /**
+   * Stores a finding. A video is found once of each kind: a second finding of
+   * the same video and kind changes nothing and the answer is false.
+   */
+  add(finding: NewFinding): boolean;
+  /** Findings the owner has not been told of, in an alert or a summary, oldest first. */
+  listWaiting(limit: number): readonly Finding[];
+  countWaiting(): number;
+  /** Notes that the finding's alert went out. False when it had gone out already. */
+  markAlerted(id: number, at: Date): boolean;
+  /** Notes that a daily summary told of these findings. */
+  markDigested(ids: readonly number[], at: Date): void;
+  /** How many alerts went out from `from` up to, not including, `to`. */
+  countAlertedBetween(from: Date, to: Date): number;
+  /** Findings made from `from` up to, not including, `to`, oldest first. */
+  listFoundBetween(from: Date, to: Date): readonly Finding[];
+}
+
+/** The service's memory between restarts: a few named values. */
+export interface ServiceStateRepo {
+  get(key: string): string | null;
+  set(key: string, value: string, at: Date): void;
 }
 
 /** Every repository over one store, and the means to write to several as one. */
@@ -197,5 +276,7 @@ export interface Store {
   readonly subjects: SubjectRepo;
   readonly hits: SubjectHitRepo;
   readonly tracking: TrackingRepo;
+  readonly findings: FindingRepo;
+  readonly state: ServiceStateRepo;
   readonly transact: Transact;
 }

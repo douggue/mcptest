@@ -1,6 +1,8 @@
 import { transactionRunner, type Db } from '../db/sqlite';
 import { SqliteChannelRepo } from './sqliteChannelRepo';
+import { SqliteFindingRepo } from './sqliteFindingRepo';
 import { SqliteReadingRepo } from './sqliteReadingRepo';
+import { SqliteServiceStateRepo } from './sqliteServiceStateRepo';
 import { SqliteSubjectHitRepo, SqliteSubjectRepo } from './sqliteSubjectRepo';
 import { SqliteTrackingRepo } from './sqliteTrackingRepo';
 import { SqliteVideoRepo } from './sqliteVideoRepo';
@@ -15,6 +17,8 @@ export function openStore(db: Db): Store {
     subjects: new SqliteSubjectRepo(db),
     hits: new SqliteSubjectHitRepo(db),
     tracking: new SqliteTrackingRepo(db),
+    findings: new SqliteFindingRepo(db),
+    state: new SqliteServiceStateRepo(db),
     transact: transactionRunner(db),
   };
 }
