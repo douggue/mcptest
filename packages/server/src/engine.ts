@@ -24,6 +24,7 @@ import {
   withYouTubeLease,
   type ChannelFacts,
   type Config,
+  type Db,
   type FactsOutcome,
   type SearchHit,
   type StoredChannel,
@@ -71,12 +72,8 @@ export interface EngineOptions {
   readonly fetchFacts?: (channelIds: readonly string[]) => Promise<readonly ChannelFacts[]>;
 }
 
-/** Wires the API to the store and to YouTube. */
-export function createEngine(config: Config, options: EngineOptions = {}): RunningEngine {
-  const db = openDatabase(config.dbPath);
-  const now = options.now ?? (() => new Date());
-  const createSource = options.createSource ?? (() => youtubeSource(config));
-  const repos = {
+function openRepos(db: Db) {
+  return {
     channels: new SqliteChannelRepo(db),
     videos: new SqliteVideoRepo(db),
     edges: new SqliteEdgeRepo(db),
@@ -85,55 +82,110 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     runs: new SqliteRefreshRepo(db),
     facts: new SqliteFactsRepo(db),
   };
-  const leases = new SqliteLeaseRepo(db);
+}
+
+/** What every part of the engine is built from. */
+interface Wiring {
+  readonly config: Config;
+  readonly options: EngineOptions;
+  readonly db: Db;
+  readonly now: () => Date;
+  readonly repos: ReturnType<typeof openRepos>;
+  readonly leases: SqliteLeaseRepo;
+  /** The connection to YouTube, made on first use and shared by all work. */
+  readonly connected: () => Promise<YouTubeSource>;
+  /** A source that connects on first use, so work that reads nothing makes no request. */
+  readonly lazySource: YouTubeSource;
   /**
    * Runs work that reads YouTube while holding the store's lease, so it never
    * runs beside the same kind of work in another program (the connector, the
    * command line, a second server). Refused work rejects before it connects.
    */
-  const reading = <T>(work: () => Promise<T>): Promise<T> =>
-    withYouTubeLease({ leases, now }, work);
+  readonly reading: <T>(work: () => Promise<T>) => Promise<T>;
+}
+
+function wire(config: Config, options: EngineOptions): Wiring {
+  const db = openDatabase(config.dbPath);
+  const now = options.now ?? (() => new Date());
+  const leases = new SqliteLeaseRepo(db);
   // Made on first use, so stored maps can be read with no network at all, and
   // shared by crawls, refreshes and keyword searches.
-  const connected = onceUntilItWorks(createSource);
-  const lazySource = connectOnUse(connected);
-  let claudeWorkDir: string | null = null;
-  /**
-   * Reads the account dates and countries the niche list lacks, from the
-   * official API. Without the owner's key there is nothing to ask with, so it
-   * does nothing and says nothing. Error text goes to the browser, so it is cleaned.
-   */
-  const fillFacts = async (listedIds?: readonly string[]): Promise<FactsOutcome | null> => {
-    const apiKey = config.youtubeApiKey;
-    if (apiKey === undefined) return null;
-    const fetchFacts = options.fetchFacts ?? ((ids) => fetchChannelFacts(ids, { apiKey }));
-    const outcome = await fillNicheFacts({ ...repos, fetchFacts }, now(), listedIds);
-    return { ...outcome, problem: outcome.problem === null ? null : cleanMessage(outcome.problem) };
+  const connected = onceUntilItWorks(options.createSource ?? (() => youtubeSource(config)));
+  return {
+    config,
+    options,
+    db,
+    now,
+    repos: openRepos(db),
+    leases,
+    connected,
+    lazySource: connectOnUse(connected),
+    reading: (work) => withYouTubeLease({ leases, now }, work),
   };
-  /** The stored channel a handle, link or id refers to; reads the store only. */
+}
+
+type MapReads = Pick<Engine, 'findSnapshot' | 'findThumbnailBoard' | 'findSameTopic'>;
+
+/** Reads of a channel's latest map; the store only. */
+function mapReads({ repos, now }: Wiring): MapReads {
+  /** The stored channel a handle, link or id refers to. */
   const findStored = (channel: string): StoredChannel | null => {
     const ref = parseChannelRef(channel);
     return ref.kind === 'id'
       ? repos.channels.findById(ref.id)
       : repos.channels.findByHandle(ref.handle);
   };
-
+  const latest =
+    <T>(load: (channelId: string) => T | null) =>
+    (channel: string): T | null => {
+      const stored = findStored(channel);
+      return stored ? load(stored.id) : null;
+    };
   return {
-    findSnapshot(channel) {
-      const stored = findStored(channel);
-      return stored ? loadMapSnapshot(repos, stored.id, now()) : null;
+    findSnapshot: latest((id) => loadMapSnapshot(repos, id, now())),
+    findThumbnailBoard: latest((id) => loadThumbnailBoard(repos, id, now())),
+    findSameTopic: latest((id) => loadSameTopicList(repos, id, now())),
+  };
+}
+
+type OwnerChoices = Pick<Engine, 'setCompetitorStatus' | 'listNiches' | 'setNicheWatched'>;
+
+/** The niche list and the owner's say on competitors and niches; the store only. */
+function ownerChoices({ repos, now }: Wiring): OwnerChoices {
+  return {
+    setCompetitorStatus(centerChannelId, channelId, status) {
+      const map = repos.maps.latestForCenter(centerChannelId);
+      // Only channels on the map can be kept or removed, and never the centre itself.
+      const onMap = map?.members.some((m) => m.channelId === channelId && m.steps > 0) ?? false;
+      if (!onMap) return false;
+      if (status === 'kept') {
+        repos.maps.setKept(centerChannelId, channelId, true, now());
+      } else if (status === 'removed') {
+        repos.maps.setRemoved(centerChannelId, channelId, true, now());
+      } else {
+        // Making a choice withdraws the other one; 'auto' withdraws whichever was made.
+        repos.maps.setRemoved(centerChannelId, channelId, false, now());
+        repos.maps.setKept(centerChannelId, channelId, false, now());
+      }
+      return true;
     },
 
-    findThumbnailBoard(channel) {
-      const stored = findStored(channel);
-      return stored ? loadThumbnailBoard(repos, stored.id, now()) : null;
+    listNiches() {
+      return loadNicheList(repos, now());
     },
 
-    findSameTopic(channel) {
-      const stored = findStored(channel);
-      return stored ? loadSameTopicList(repos, stored.id, now()) : null;
+    setNicheWatched(channelId, watched) {
+      // Only a channel some crawl has read can be watched.
+      if (!repos.channels.findById(channelId)) return false;
+      repos.watchlist.setWatched(channelId, watched, now());
+      return true;
     },
+  };
+}
 
+/** Making a map: reads YouTube. */
+function crawling({ config, db, now, repos, connected, reading }: Wiring): Pick<Engine, 'crawl'> {
+  return {
     crawl(channel, depth, onProgress, choices = {}) {
       const { model, maxChannels } = choices;
       return reading(async () => {
@@ -156,39 +208,32 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
         return { centerChannelId: result.centerChannelId, warnings: result.warnings };
       });
     },
+  };
+}
 
-    setCompetitorStatus(centerChannelId, channelId, status) {
-      const map = repos.maps.latestForCenter(centerChannelId);
-      // Only channels on the map can be kept or removed, and never the centre itself.
-      const onMap = map?.members.some((m) => m.channelId === channelId && m.steps > 0) ?? false;
-      if (!onMap) return false;
-      if (status === 'kept') {
-        repos.maps.setKept(centerChannelId, channelId, true, now());
-      } else if (status === 'removed') {
-        repos.maps.setRemoved(centerChannelId, channelId, true, now());
-      } else {
-        // Making a choice withdraws the other one; 'auto' withdraws whichever was made.
-        repos.maps.setRemoved(centerChannelId, channelId, false, now());
-        repos.maps.setKept(centerChannelId, channelId, false, now());
-      }
-      return true;
-    },
+type FillFacts = (listedIds?: readonly string[]) => Promise<FactsOutcome | null>;
 
-    isReadingYouTube() {
-      return leases.holder(now()) !== null;
-    },
+/**
+ * Reads the account dates and countries the niche list lacks, from the
+ * official API. Without the owner's key there is nothing to ask with, so it
+ * does nothing and says nothing. Error text goes to the browser, so it is cleaned.
+ */
+function factsFiller({ config, options, repos, now }: Wiring): FillFacts {
+  return async (listedIds) => {
+    const apiKey = config.youtubeApiKey;
+    if (apiKey === undefined) return null;
+    const fetchFacts = options.fetchFacts ?? ((ids) => fetchChannelFacts(ids, { apiKey }));
+    const outcome = await fillNicheFacts({ ...repos, fetchFacts }, now(), listedIds);
+    return { ...outcome, problem: outcome.problem === null ? null : cleanMessage(outcome.problem) };
+  };
+}
 
-    listNiches() {
-      return loadNicheList(repos, now());
-    },
+type Refreshing = Pick<Engine, 'refresh' | 'refreshStatus'>;
 
-    setNicheWatched(channelId, watched) {
-      // Only a channel some crawl has read can be watched.
-      if (!repos.channels.findById(channelId)) return false;
-      repos.watchlist.setWatched(channelId, watched, now());
-      return true;
-    },
-
+/** Reading stored channels again, and when that was last done. */
+function refreshing(wiring: Wiring, fillFacts: FillFacts): Refreshing {
+  const { config, db, now, repos, lazySource, reading } = wiring;
+  return {
     refresh(onProgress, maxChannels) {
       return reading(async () => {
         const result = await refreshStalest(
@@ -212,7 +257,15 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     refreshStatus() {
       return { ...loadRefreshStatus(repos, now()), everyHours: config.refreshHours ?? null };
     },
+  };
+}
 
+type Discovery = Pick<Engine, 'canDiscover' | 'discover'>;
+
+/** Keyword search: the official API finds videos, then their channels are read from YouTube. */
+function discovery(wiring: Wiring, fillFacts: FillFacts): Discovery {
+  const { config, options, db, now, repos, connected, reading } = wiring;
+  return {
     canDiscover() {
       return config.youtubeApiKey !== undefined;
     },
@@ -220,6 +273,10 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     async discover(keyword) {
       const apiKey = config.youtubeApiKey;
       if (apiKey === undefined) throw new Error('Keyword search needs a YouTube API key');
+      const search =
+        options.search ??
+        ((query: string, { publishedAfter }: { readonly publishedAfter: Date }) =>
+          searchRecentVideos(query, { apiKey, publishedAfter }));
       return reading(async () => {
         const found = await discoverByKeyword(
           {
@@ -228,17 +285,28 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
             source: await connected(),
             transact: transactionRunner(db),
             now,
-            search:
-              options.search ??
-              ((query, { publishedAfter }) =>
-                searchRecentVideos(query, { apiKey, publishedAfter })),
+            search,
           },
           keyword,
         );
         return { ...found, facts: await fillFacts() };
       });
     },
+  };
+}
 
+interface ClaudeAnalyses extends Pick<Engine, 'analyse'> {
+  /** Removes the private folder Claude was started in, if one was made. */
+  cleanUp(): void;
+}
+
+/** The fixed analyses, each one boxed-in run of Claude Code. */
+function claudeAnalyses({ config, options }: Wiring): ClaudeAnalyses {
+  let workDir: string | null = null;
+  const run =
+    options.runClaude ??
+    ((wanted: ClaudeRunRequest) => runClaude(wanted, { spawn: spawnClaude, env: process.env }));
+  return {
     async analyse(analysis, channel) {
       const storePath =
         options.storePath ?? (config.dbPath === IN_MEMORY ? null : resolve(config.dbPath));
@@ -249,22 +317,42 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       }
       // Made on first use, owner-only and with a name nobody can guess, so no other
       // account on the computer can plant settings for Claude to pick up there.
-      claudeWorkDir ??= mkdtempSync(CLAUDE_WORK_PREFIX);
+      workDir ??= mkdtempSync(CLAUDE_WORK_PREFIX);
       const request = analysisRequest(analysis, channel, {
         projectRoot: PROJECT_ROOT,
         dbPath: storePath,
-        workDir: claudeWorkDir,
+        workDir,
       });
-      const run =
-        options.runClaude ??
-        ((wanted: ClaudeRunRequest) => runClaude(wanted, { spawn: spawnClaude, env: process.env }));
       const { text } = await run(request);
       return { text };
     },
 
+    cleanUp() {
+      if (workDir !== null) rmSync(workDir, { recursive: true, force: true });
+    },
+  };
+}
+
+/** Wires the API to the store and to YouTube. */
+export function createEngine(config: Config, options: EngineOptions = {}): RunningEngine {
+  const wiring = wire(config, options);
+  const fillFacts = factsFiller(wiring);
+  const claude = claudeAnalyses(wiring);
+  return {
+    ...mapReads(wiring),
+    ...ownerChoices(wiring),
+    ...crawling(wiring),
+    ...refreshing(wiring, fillFacts),
+    ...discovery(wiring, fillFacts),
+    analyse: claude.analyse,
+
+    isReadingYouTube() {
+      return wiring.leases.holder(wiring.now()) !== null;
+    },
+
     close() {
-      if (claudeWorkDir !== null) rmSync(claudeWorkDir, { recursive: true, force: true });
-      db.close();
+      claude.cleanUp();
+      wiring.db.close();
     },
   };
 }
