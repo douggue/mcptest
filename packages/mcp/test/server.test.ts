@@ -44,18 +44,20 @@ const call = async (name: string, args: Record<string, unknown>): Promise<CallTo
   (await client.callTool({ name, arguments: args })) as CallToolResult;
 
 describe('the connector over the protocol', () => {
-  test('lists the fourteen tools, each with a description and an input schema', async () => {
+  test('lists the sixteen tools, each with a description and an input schema', async () => {
     const { tools } = await client.listTools();
 
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       'get_breakouts',
       'get_channel_brand',
       'get_channel_videos',
+      'get_frame_study',
       'get_map',
       'get_near_misses',
       'get_thumbnail_board',
       'get_transcript',
       'get_video_details',
+      'get_video_watch',
       'list_niches',
       'list_transfer_opportunities',
       'make_map',
@@ -68,6 +70,12 @@ describe('the connector over the protocol', () => {
       expect(tools.find((tool) => tool.name === name)?.annotations).toMatchObject({
         readOnlyHint: true,
         openWorldHint: true,
+      });
+    }
+    for (const name of ['get_video_watch', 'get_frame_study']) {
+      expect(tools.find((tool) => tool.name === name)?.annotations).toMatchObject({
+        readOnlyHint: true,
+        openWorldHint: false,
       });
     }
     const setStatus = tools.find((tool) => tool.name === 'set_competitor_status');

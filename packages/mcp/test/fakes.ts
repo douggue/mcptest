@@ -13,6 +13,8 @@ import type {
   TransferIdea,
   TransferList,
   TransferVersion,
+  StoredVideoStudy,
+  StudyKind,
   VideoFrames,
 } from '@jgtube/core';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
@@ -482,9 +484,18 @@ export class FakeEngine implements ConnectorEngine {
     return Promise.resolve({ ...this.transcript, videoId });
   }
 
-  readVideoFrames(videoId: string, sheets: number): Promise<VideoFrames | null> {
-    this.reads.push(['frames', videoId, sheets]);
+  readVideoFrames(videoId: string, sheets: number, from?: number): Promise<VideoFrames | null> {
+    this.reads.push(
+      from === undefined ? ['frames', videoId, sheets] : ['frames', videoId, sheets, from],
+    );
     return Promise.resolve(this.frames);
+  }
+
+  studies: StoredVideoStudy[] = [];
+
+  findVideoStudy(videoId: string, kind: StudyKind): StoredVideoStudy | null {
+    this.reads.push(['study', videoId, kind]);
+    return this.studies.find((study) => study.videoId === videoId && study.kind === kind) ?? null;
   }
 
   readChannelBrand(channelRef: string): Promise<BrandResult> {

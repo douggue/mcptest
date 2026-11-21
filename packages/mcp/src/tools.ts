@@ -14,6 +14,7 @@ import type {
   GetThumbnailBoardArgs,
   GetTranscriptArgs,
   GetVideoDetailsArgs,
+  GetVideoStudyArgs,
   ListNichesArgs,
   ListTransferOpportunitiesArgs,
   MakeMapArgs,
@@ -21,6 +22,7 @@ import type {
   ViewThumbnailsArgs,
   ViewVideoFramesArgs,
 } from './schemas';
+import { getFrameStudy, getVideoWatch } from './studyTools';
 import { viewThumbnails } from './thumbnailTool';
 import { listTransferOpportunities } from './transferTool';
 import type { ConnectorEngine, ToolContext } from './types';
@@ -49,6 +51,8 @@ export interface ToolHandlers {
   viewVideoFrames(args: ViewVideoFramesArgs): Promise<CallToolResult>;
   getChannelBrand(args: GetChannelBrandArgs): Promise<CallToolResult>;
   getVideoDetails(args: GetVideoDetailsArgs): Promise<CallToolResult>;
+  getVideoWatch(args: GetVideoStudyArgs): Promise<CallToolResult>;
+  getFrameStudy(args: GetVideoStudyArgs): Promise<CallToolResult>;
 }
 
 /** The default place for diagnostics. */
@@ -97,5 +101,7 @@ export function createToolHandlers(deps: ToolDeps): ToolHandlers {
     getChannelBrand: (args) =>
       guarded('get_channel_brand', () => getChannelBrand(engine, fetchImage, args)),
     getVideoDetails: (args) => guarded('get_video_details', () => getVideoDetails(engine, args)),
+    getVideoWatch: (args) => guarded('get_video_watch', () => getVideoWatch(engine, args)),
+    getFrameStudy: (args) => guarded('get_frame_study', () => getFrameStudy(engine, args)),
   };
 }
