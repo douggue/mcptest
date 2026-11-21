@@ -154,6 +154,30 @@ describe('downloadVideoFile', () => {
     });
   });
 
+  test('tries the next way after YouTube refused the first, and keeps the refusal as the answer', async () => {
+    const refused = fakeFetcher('yt-dlp', {
+      ok: false,
+      kind: 'refused',
+      message: 'YouTube refused this computer’s connection for now.',
+      via: 'yt-dlp',
+    });
+    const alsoFailed = fakeFetcher('built-in', {
+      ok: false,
+      kind: 'unreadable',
+      message: 'installing yt-dlp is the fix',
+      via: 'built-in',
+    });
+
+    const result = await downloadVideoFile(
+      { fetchers: [refused, alsoFailed], now: () => NOW },
+      VIDEO,
+      root,
+    );
+
+    expect(alsoFailed.calls).toEqual([VIDEO]);
+    expect(result).toMatchObject({ ok: false, kind: 'refused', via: 'yt-dlp' });
+  });
+
   test('refuses anything that is not a video id before touching the disk', async () => {
     const fetcher = fakeFetcher('yt-dlp');
 
@@ -242,12 +266,18 @@ describe('findProgram', () => {
 
 describe('the yt-dlp route', () => {
   const PROGRAM = '/usr/local/bin/yt-dlp';
+  const NODE = '/opt/node/bin/node';
   const ok = (stdout: string): ProgramResult => ({ code: 0, stdout, stderr: '' });
+  /** What an older yt-dlp prints when it is handed an option it does not have. */
+  const UNKNOWN_OPTION =
+    'Usage: yt-dlp [OPTIONS] URL [URL...]\n\nyt-dlp: error: no such option: --js-runtimes\n';
 
   test('starts yt-dlp with a list of arguments that keeps every file in the folder', () => {
-    const args = ytDlpArguments(VIDEO, '/data/downloads/video-temp', 95_000_000);
+    const args = ytDlpArguments(VIDEO, '/data/downloads/video-temp', 95_000_000, NODE);
 
     expect(args).toEqual([
+      '--js-runtimes',
+      `node:${NODE}`,
       '--no-playlist',
       '--no-progress',
       '--no-warnings',
@@ -266,6 +296,148 @@ describe('the yt-dlp route', () => {
       '--',
       `https://www.youtube.com/watch?v=${VIDEO}`,
     ]);
+  });
+
+  test('leaves the JavaScript runtime out when it is not told where Node is', () => {
+    expect(ytDlpArguments(VIDEO, '/data/video-temp', 1)).not.toContain('--js-runtimes');
+  });
+
+  test('names Node as one argument, even when its path has a drive letter and spaces', () => {
+    const windowsNode = 'C:\\Program Files\\nodejs\\node.exe';
+
+    const args = ytDlpArguments(VIDEO, 'C:\\jgtube\\video-temp', 1, windowsNode);
+
+    expect(args[args.indexOf('--js-runtimes') + 1]).toBe(`node:${windowsNode}`);
+  });
+
+  test('a video id that begins with a dash is never where yt-dlp reads an option', () => {
+    const dashed = '-aaaaaaaaaa';
+
+    const args = ytDlpArguments(dashed, '/data/video-temp', 1, NODE);
+
+    const separator = args.indexOf('--');
+    const holding = args.flatMap((arg, index) => (arg.includes(dashed) ? [index] : []));
+    // Once as the value of --output, and once inside the full link after "--".
+    expect(holding).toEqual([args.indexOf('--output') + 1, separator + 1]);
+    expect(args.at(-1)).toBe(`https://www.youtube.com/watch?v=${dashed}`);
+    expect(separator).toBe(args.length - 2);
+    expect(args.filter((arg) => arg.startsWith('-') && arg.includes(dashed))).toEqual([
+      `${dashed}.%(ext)s`,
+    ]);
+  });
+
+  test('downloads a video whose id begins with a dash like any other', async () => {
+    const dashed = '-aaaaaaaaaa';
+    const folder = tempFolder();
+    const fetcher = ytDlpFetcher(PROGRAM, async () => {
+      writeFileSync(join(folder, `${dashed}.mp4`), 'video');
+      return ok('60|360|mp4|18');
+    });
+
+    expect(await fetcher.fetch(dashed, folder, MAX_VIDEO_BYTES)).toMatchObject({
+      ok: true,
+      path: join(folder, `${dashed}.mp4`),
+    });
+  });
+
+  test('tells yt-dlp to use the Node that Jgtube itself runs on', async () => {
+    const folder = tempFolder();
+    const started: Array<readonly string[]> = [];
+    const fetcher = ytDlpFetcher(PROGRAM, async (_program, args) => {
+      started.push(args);
+      writeFileSync(join(folder, `${VIDEO}.mp4`), 'video');
+      return ok('948|360|mp4|18');
+    });
+
+    await fetcher.fetch(VIDEO, folder, MAX_VIDEO_BYTES);
+
+    expect(started).toHaveLength(1);
+    expect(started[0]?.slice(0, 2)).toEqual(['--js-runtimes', `node:${process.execPath}`]);
+  });
+
+  test('tries once more without the runtime option when an older yt-dlp does not know it', async () => {
+    const folder = tempFolder();
+    const started: Array<readonly string[]> = [];
+    const fetcher = ytDlpFetcher(
+      PROGRAM,
+      async (_program, args) => {
+        started.push(args);
+        if (args.includes('--js-runtimes')) return { code: 2, stdout: '', stderr: UNKNOWN_OPTION };
+        writeFileSync(join(folder, `${VIDEO}.mp4`), 'video');
+        return ok('948|360|mp4|18');
+      },
+      { nodePath: NODE },
+    );
+
+    const result = await fetcher.fetch(VIDEO, folder, MAX_VIDEO_BYTES);
+
+    expect(result).toMatchObject({ ok: true, via: 'yt-dlp', bytes: 5 });
+    expect(started).toHaveLength(2);
+    expect(started[1]).toEqual(ytDlpArguments(VIDEO, folder, MAX_VIDEO_BYTES));
+  });
+
+  test('does not try a third time when the older yt-dlp fails for another reason', async () => {
+    let starts = 0;
+    const fetcher = ytDlpFetcher(
+      PROGRAM,
+      async (_program, args) => {
+        starts += 1;
+        return args.includes('--js-runtimes')
+          ? { code: 2, stdout: '', stderr: UNKNOWN_OPTION }
+          : { code: 1, stdout: '', stderr: 'ERROR: unable to open the network' };
+      },
+      { nodePath: NODE },
+    );
+
+    const result = await fetcher.fetch(VIDEO, tempFolder(), MAX_VIDEO_BYTES);
+
+    expect(result).toMatchObject({ ok: false, kind: 'unreadable' });
+    expect(starts).toBe(2);
+  });
+
+  test.each([
+    'ERROR: [youtube] wE5ETbiq1qQ: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication. See https://github.com/yt-dlp/yt-dlp/wiki/FAQ',
+    "ERROR: [youtube] wE5ETbiq1qQ: Sign in to confirm you're not a bot. This helps protect our community.",
+    'ERROR: unable to download video data: HTTP Error 429: Too Many Requests',
+    'ERROR: unable to download video data: HTTP Error 403: Forbidden',
+  ])('says in plain words that YouTube refused this computer, for "%s"', async (stderr) => {
+    const fetcher = ytDlpFetcher(PROGRAM, async () => ({ code: 1, stdout: '', stderr }));
+
+    const result = await fetcher.fetch(VIDEO, tempFolder(), MAX_VIDEO_BYTES);
+
+    expect(result).toEqual({
+      ok: false,
+      kind: 'refused',
+      message:
+        'YouTube refused this computer’s connection for now, as it sometimes does when it suspects a program rather than a person. Try again in a few hours, or from another internet connection.',
+      via: 'yt-dlp',
+    });
+  });
+
+  test('stops yt-dlp when Jgtube is closing, and leaves no file behind', async () => {
+    const folder = tempFolder();
+    const closing = new AbortController();
+    const signals: Array<AbortSignal | undefined> = [];
+    const fetcher = ytDlpFetcher(
+      PROGRAM,
+      async (_program, _args, signal) => {
+        signals.push(signal);
+        writeFileSync(join(folder, `${VIDEO}.mp4`), 'half a file');
+        closing.abort();
+        return { code: null, stdout: '', stderr: '' };
+      },
+      { nodePath: NODE, signal: closing.signal },
+    );
+
+    const result = await fetcher.fetch(VIDEO, folder, MAX_VIDEO_BYTES);
+
+    expect(signals).toEqual([closing.signal]);
+    expect(result).toMatchObject({
+      ok: false,
+      kind: 'unreadable',
+      message: 'The download was stopped because Jgtube is closing.',
+    });
+    expect(readdirSync(folder)).toEqual([]);
   });
 
   test('reports the file yt-dlp wrote, with its length and format', async () => {
@@ -321,7 +493,8 @@ describe('the yt-dlp route', () => {
     ['ERROR: [youtube] wE5ETbiq1qQ: Video unavailable. This video is private', 'not-available'],
     ['ERROR: [youtube] wE5ETbiq1qQ: Sign in to confirm your age', 'not-available'],
     ['ERROR: [youtube] wE5ETbiq1qQ: Requested format is not available', 'not-available'],
-    ['ERROR: unable to download video data: HTTP Error 403: Forbidden', 'unreadable'],
+    ['ERROR: unable to download video data: HTTP Error 403: Forbidden', 'refused'],
+    ['ERROR: unable to extract the player response; please report this', 'unreadable'],
   ])('reads "%s" as %s, and leaves nothing behind', async (stderr, kind) => {
     const folder = tempFolder();
     const fetcher = ytDlpFetcher(PROGRAM, async () => {
@@ -557,6 +730,30 @@ describe('downloadVideo', () => {
     });
 
     expect(result).toMatchObject({ ok: true, via: 'built-in' });
+  });
+
+  test('hands yt-dlp the signal that says Jgtube is closing', async () => {
+    const bin = mkdtempSync(join(root, 'bin-'));
+    writeFileSync(join(bin, 'yt-dlp'), '');
+    chmodSync(join(bin, 'yt-dlp'), 0o755);
+    const closing = new AbortController();
+    const signals: Array<AbortSignal | undefined> = [];
+
+    const result = await downloadVideo(VIDEO, {
+      root,
+      now: () => NOW,
+      env: { PATH: bin },
+      platform: 'linux',
+      signal: closing.signal,
+      run: async (_program, _args, signal) => {
+        signals.push(signal);
+        closing.abort();
+        return { code: null, stdout: '', stderr: '' };
+      },
+    });
+
+    expect(signals).toEqual([closing.signal]);
+    expect(result).toMatchObject({ ok: false, kind: 'unreadable' });
   });
 
   test('says there is no way to fetch a file when neither route is there', async () => {

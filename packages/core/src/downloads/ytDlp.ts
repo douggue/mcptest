@@ -18,7 +18,9 @@ import {
  *
  * The program is found on the PATH, started directly (never through a shell)
  * with its arguments as a list, given a validated video id and told to write
- * only into the temporary folder.
+ * only into the temporary folder. The id reaches it in two places only: as
+ * the value of `--output`, and inside a full link after `--`, so an id that
+ * begins with a dash is never read as an option.
  */
 
 /** The program's name; on Windows its file is this with ".exe". */
@@ -40,6 +42,24 @@ const REPORT = 'after_move:%(duration)s|%(height)s|%(ext)s|%(format_id)s';
 const NOT_AVAILABLE =
   /video unavailable|private video|not available|has been removed|sign in to confirm your age|members-only|account .* terminated/i;
 const NO_FORMAT = /requested format is not available/i;
+/**
+ * What yt-dlp says when YouTube turns this computer away, whatever the video:
+ * it asks for a sign-in "to confirm you're not a bot", or its servers answer
+ * 403 or 429. Seen live in November 2026.
+ */
+const REFUSED = /not a bot|HTTP Error 4(?:03|29)|too many requests/i;
+const REFUSED_MESSAGE =
+  'YouTube refused this computer’s connection for now, as it sometimes does when it suspects a program rather than a person. Try again in a few hours, or from another internet connection.';
+const STOPPED_MESSAGE = 'The download was stopped because Jgtube is closing.';
+/**
+ * The option that tells yt-dlp which JavaScript runtime to use. Since late
+ * 2026 it warns that reading YouTube without one is deprecated and may miss
+ * formats, and the only runtime it looks for by itself is deno. Jgtube runs
+ * on Node, so that Node is named.
+ */
+const JS_RUNTIMES = '--js-runtimes';
+/** How a yt-dlp from before that option refuses it. */
+const UNKNOWN_JS_RUNTIMES = /no such option: --js-runtimes/i;
 
 /** The file names a program may have on this kind of computer. */
 function programNames(name: string, platform: NodeJS.Platform): readonly string[] {
@@ -90,15 +110,27 @@ export interface ProgramResult {
   readonly stderr: string;
 }
 
-/** Starts a program with a list of arguments and waits for it. Tests replace this. */
-export type RunProgram = (program: string, args: readonly string[]) => Promise<ProgramResult>;
+/**
+ * Starts a program with a list of arguments and waits for it. Aborting
+ * `signal` stops the program. Tests replace this.
+ */
+export type RunProgram = (
+  program: string,
+  args: readonly string[],
+  signal?: AbortSignal,
+) => Promise<ProgramResult>;
 
-const runDirectly: RunProgram = (program, args) =>
+const runDirectly: RunProgram = (program, args, signal) =>
   new Promise((resolve) => {
     execFile(
       program,
       [...args],
-      { timeout: DOWNLOAD_TIMEOUT_MS, maxBuffer: MAX_OUTPUT_BYTES, windowsHide: true },
+      {
+        timeout: DOWNLOAD_TIMEOUT_MS,
+        maxBuffer: MAX_OUTPUT_BYTES,
+        windowsHide: true,
+        ...(signal ? { signal } : {}),
+      },
       (error, stdout, stderr) => {
         const code = error === null ? 0 : typeof error.code === 'number' ? error.code : null;
         resolve({ code, stdout, stderr });
@@ -106,9 +138,21 @@ const runDirectly: RunProgram = (program, args) =>
     );
   });
 
-/** The arguments yt-dlp is started with. Everything it writes goes into `folder`. */
-export function ytDlpArguments(videoId: string, folder: string, maxBytes: number): string[] {
+/**
+ * The arguments yt-dlp is started with. Everything it writes goes into
+ * `folder`. `nodePath` is where Node is on this computer; with it, yt-dlp is
+ * told to use that Node as its JavaScript runtime. The runtime and its path
+ * are one argument (`node:C:\Program Files\nodejs\node.exe` on Windows):
+ * nothing here passes through a shell, so spaces and the drive's colon are safe.
+ */
+export function ytDlpArguments(
+  videoId: string,
+  folder: string,
+  maxBytes: number,
+  nodePath: string | null = null,
+): string[] {
   return [
+    ...(nodePath === null ? [] : [JS_RUNTIMES, `node:${nodePath}`]),
     '--no-playlist',
     '--no-progress',
     '--no-warnings',
@@ -167,6 +211,7 @@ async function readOutcome(
   if (result.code !== 0) {
     const reason = reasonFrom(result);
     if (result.code === null) return failure('unreadable', 'yt-dlp took too long and was stopped.');
+    if (REFUSED.test(reason)) return failure('refused', REFUSED_MESSAGE);
     if (NO_FORMAT.test(reason)) {
       return failure(
         'not-available',
@@ -202,11 +247,30 @@ async function readOutcome(
   };
 }
 
+export interface YtDlpOptions {
+  /**
+   * Where Node is, for yt-dlp to use as its JavaScript runtime; null to name
+   * none. Left out, it is the Node that is running Jgtube.
+   */
+  readonly nodePath?: string | null;
+  /** Aborted when Jgtube is closing: yt-dlp is stopped and its file removed. */
+  readonly signal?: AbortSignal;
+}
+
 /**
  * The yt-dlp route, for a program already found on the PATH. A file it leaves
- * behind after any failure is removed.
+ * behind after any failure is removed. A yt-dlp too old to know the runtime
+ * option is started once more without it.
  */
-export function ytDlpFetcher(program: string, run: RunProgram = runDirectly): VideoFetcher {
+export function ytDlpFetcher(
+  program: string,
+  run: RunProgram = runDirectly,
+  options: YtDlpOptions = {},
+): VideoFetcher {
+  const nodePath = options.nodePath === undefined ? process.execPath : options.nodePath;
+  const { signal } = options;
+  const start = (videoId: string, folder: string, maxBytes: number, node: string | null) =>
+    run(program, ytDlpArguments(videoId, folder, maxBytes, node), signal);
   return {
     route: 'yt-dlp',
     async fetch(videoId, folder, maxBytes) {
@@ -214,8 +278,13 @@ export function ytDlpFetcher(program: string, run: RunProgram = runDirectly): Vi
         throw new Error(`Not a valid YouTube video id: "${videoId.slice(0, 40)}"`);
       }
       await removeFilesOf(folder, videoId);
-      const result = await run(program, ytDlpArguments(videoId, folder, maxBytes));
-      const outcome = await readOutcome(result, videoId, folder, maxBytes);
+      const first = await start(videoId, folder, maxBytes, nodePath);
+      const tooOld =
+        nodePath !== null && first.code !== 0 && UNKNOWN_JS_RUNTIMES.test(first.stderr);
+      const result = tooOld ? await start(videoId, folder, maxBytes, null) : first;
+      const outcome = signal?.aborted
+        ? failure('unreadable', STOPPED_MESSAGE)
+        : await readOutcome(result, videoId, folder, maxBytes);
       if (!outcome.ok) await removeFilesOf(folder, videoId);
       return outcome;
     },

@@ -36,9 +36,13 @@ export type VideoRoute = 'yt-dlp' | 'built-in';
 /**
  * 'not-available': YouTube will not give this video (removed, private, age-gated).
  * 'too-large': the smallest watchable copy is over the size limit.
+ * 'refused': YouTube turned this computer's connection away for now, whatever the video.
  * 'unreadable': the video exists but the file could not be fetched or is not whole.
  */
-export type VideoFailureKind = 'not-available' | 'too-large' | 'unreadable';
+export type VideoFailureKind = 'not-available' | 'too-large' | 'refused' | 'unreadable';
+
+/** The failures that are about this computer or this route, so another route is worth trying. */
+const WORTH_ANOTHER_ROUTE: readonly VideoFailureKind[] = ['refused', 'unreadable'];
 
 export interface VideoFile {
   readonly ok: true;
@@ -83,8 +87,9 @@ export interface VideoFetcher {
 export interface VideoDownloadDeps {
   /**
    * The ways to fetch a file, the preferred one first. A way that cannot read
-   * the video hands over to the next; "not available" and "too large" are
-   * answers about the video itself and end the attempt.
+   * the video, or that YouTube refused, hands over to the next; "not
+   * available" and "too large" are answers about the video itself and end
+   * the attempt.
    */
   readonly fetchers: readonly VideoFetcher[];
   readonly now: () => Date;
@@ -134,7 +139,9 @@ const NO_ROUTE: VideoFailure = {
 /**
  * Downloads one video as a single file with picture and sound into the
  * temporary folder under `root`, and returns where it is, how big, how long
- * and in what format, or a typed failure. Old copies are cleared first.
+ * and in what format, or a typed failure. Old copies are cleared first. When
+ * every way failed, a refusal by YouTube is the answer given over any later
+ * failure: it says what to do, which "could not be fetched" does not.
  */
 export async function downloadVideoFile(
   deps: VideoDownloadDeps,
@@ -150,8 +157,8 @@ export async function downloadVideoFile(
   let last: VideoFailure = NO_ROUTE;
   for (const fetcher of deps.fetchers) {
     const result = await fetcher.fetch(videoId, folder, MAX_VIDEO_BYTES);
-    if (result.ok || result.kind !== 'unreadable') return result;
-    last = result;
+    if (result.ok || !WORTH_ANOTHER_ROUTE.includes(result.kind)) return result;
+    last = last.kind === 'refused' ? last : result;
   }
   return last;
 }
