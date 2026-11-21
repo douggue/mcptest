@@ -168,9 +168,16 @@ export function answerCredit({ engine, skipped }: AnalysisAnswer): string {
 export const skippedNotes = (skipped: readonly SkippedEngine[]): readonly string[] =>
   skipped.map((entry) => `${nameOf(entry.engine)}: ${entry.message}`);
 
-export interface AnswerBlock {
-  readonly kind: 'heading' | 'item' | 'paragraph';
-  readonly text: string;
+export type AnswerBlock =
+  | { readonly kind: 'heading' | 'item' | 'paragraph'; readonly text: string }
+  /** A line that names what it holds, such as "WHY: two channels made it". */
+  | { readonly kind: 'field'; readonly label: string; readonly text: string };
+
+/** The blocks under one heading. `numbered` marks an entry in a list of them, such as one video idea. */
+export interface AnswerSection {
+  readonly title: string | null;
+  readonly numbered: boolean;
+  readonly blocks: readonly AnswerBlock[];
 }
 
 const LIST_MARK = /^[-*•]\s+/;
@@ -180,6 +187,9 @@ const INLINE_MARKS = /\*\*|`/g;
 /** A line in capitals, optionally numbered: how the engine is asked to write section titles. */
 const CAPITALS_LINE = /^(\d+\.\s+)?[A-Z0-9][A-Z0-9 ,'’&/:()-]*$/;
 const MIN_HEADING_LETTERS = 3;
+/** A label in capitals, a colon, then what it holds: how the engine is asked to set out an entry. */
+const FIELD_LINE = /^([A-Z][A-Z' ]{1,39}):\s+(\S.*)$/;
+const NUMBERED = /^\d+\.\s/;
 
 const clean = (text: string): string => text.replace(INLINE_MARKS, '').trim();
 
@@ -188,6 +198,17 @@ function isHeading(line: string): boolean {
   const letters = line.replace(/[^A-Za-z]/g, '').length;
   return letters >= MIN_HEADING_LETTERS && CAPITALS_LINE.test(line);
 }
+
+/** The line as a field when it is a label in capitals and what it holds, else null. */
+function labelled(line: string): AnswerBlock | null {
+  const [, label, text] = FIELD_LINE.exec(clean(line)) ?? [];
+  return label && text ? { kind: 'field', label: label.trim(), text } : null;
+}
+
+const item = (line: string): AnswerBlock => ({
+  kind: 'item',
+  text: clean(line.replace(LIST_MARK, '')),
+});
 
 /**
  * Breaks an engine's plain-text answer into headings, list items and paragraphs
@@ -210,7 +231,10 @@ export function readAnswer(answer: string): readonly AnswerBlock[] {
       endParagraph();
     } else if (LIST_MARK.test(line)) {
       endParagraph();
-      blocks = [...blocks, { kind: 'item', text: clean(line.replace(LIST_MARK, '')) }];
+      blocks = [...blocks, labelled(line.replace(LIST_MARK, '')) ?? item(line)];
+    } else if (labelled(line) !== null) {
+      endParagraph();
+      blocks = [...blocks, labelled(line) ?? item(line)];
     } else if (isHeading(line)) {
       endParagraph();
       blocks = [...blocks, { kind: 'heading', text: clean(line.replace(HEADING_MARK, '')) }];
@@ -220,4 +244,26 @@ export function readAnswer(answer: string): readonly AnswerBlock[] {
   }
   endParagraph();
   return blocks;
+}
+
+/**
+ * The same blocks grouped under their headings, so the screen can set each
+ * part out on its own. What comes before the first heading is an untitled
+ * section.
+ */
+export function readSections(answer: string): readonly AnswerSection[] {
+  let sections: readonly AnswerSection[] = [];
+  for (const block of readAnswer(answer)) {
+    if (block.kind === 'heading') {
+      sections = [
+        ...sections,
+        { title: block.text, numbered: NUMBERED.test(block.text), blocks: [] },
+      ];
+      continue;
+    }
+    const last = sections.at(-1) ?? { title: null, numbered: false, blocks: [] };
+    const before = sections.length === 0 ? sections : sections.slice(0, -1);
+    sections = [...before, { ...last, blocks: [...last.blocks, block] }];
+  }
+  return sections;
 }

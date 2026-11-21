@@ -8,6 +8,7 @@ import {
   choiceHelp,
   engineSummary,
   readAnswer,
+  readSections,
   skippedNotes,
   type EngineStatus,
 } from '../src/lib/analyses';
@@ -48,14 +49,14 @@ describe('readAnswer', () => {
       { kind: 'item', text: 'The text names the thing.' },
       { kind: 'paragraph', text: 'A closing thought that runs over two lines.' },
       { kind: 'heading', text: '1. CARBON FIBER REPLACEMENT' },
-      { kind: 'item', text: 'TITLE: America’s New Material' },
+      { kind: 'field', label: 'TITLE', text: 'America’s New Material' },
     ]);
   });
 
   test('strips stray markdown marks instead of showing them', () => {
     expect(readAnswer('## KEEP\n* **INGENIUM**: same videos\n`code`')).toEqual([
       { kind: 'heading', text: 'KEEP' },
-      { kind: 'item', text: 'INGENIUM: same videos' },
+      { kind: 'field', label: 'INGENIUM', text: 'same videos' },
       { kind: 'paragraph', text: 'code' },
     ]);
   });
@@ -284,5 +285,61 @@ describe('the switch for which AI answers', () => {
       '{"analysis":"topics","channel":"UCabc","engine":"codex"}',
       '{"analysis":"topics","channel":"UCabc"}',
     ]);
+  });
+});
+
+describe('an answer made of labelled lines', () => {
+  const idea = [
+    'Two were skipped as already made.',
+    '',
+    '1. NEW METAL',
+    'SOURCE: TRANSFER. Germany, 941,000 views.',
+    'TITLE: A New Alloy / The Metal That Rewrites The Textbook',
+    'WHY: One channel, 941,000 views.',
+    'PROOF AT YOUR SIZE: A channel with 9,240 subs.',
+    '',
+    '2. NEW PLANE',
+    'SOURCE: BREAKOUT',
+    'It went on: a second line of the same thought.',
+  ].join('\n');
+
+  test('keeps each labelled line as its own field instead of running them together', () => {
+    expect(readAnswer(idea).slice(1, 6)).toEqual([
+      { kind: 'heading', text: '1. NEW METAL' },
+      { kind: 'field', label: 'SOURCE', text: 'TRANSFER. Germany, 941,000 views.' },
+      { kind: 'field', label: 'TITLE', text: 'A New Alloy / The Metal That Rewrites The Textbook' },
+      { kind: 'field', label: 'WHY', text: 'One channel, 941,000 views.' },
+      { kind: 'field', label: 'PROOF AT YOUR SIZE', text: 'A channel with 9,240 subs.' },
+    ]);
+  });
+
+  test('a line in capitals that ends in a colon is still a heading, and prose with a colon is prose', () => {
+    expect(readAnswer('WINNING STYLES:\nNote: this one is small.')).toEqual([
+      { kind: 'heading', text: 'WINNING STYLES:' },
+      { kind: 'paragraph', text: 'Note: this one is small.' },
+    ]);
+  });
+
+  test('groups the blocks under their headings, and marks numbered headings as entries', () => {
+    const sections = readSections(idea);
+
+    expect(
+      sections.map((section) => [section.title, section.numbered, section.blocks.length]),
+    ).toEqual([
+      [null, false, 1],
+      ['1. NEW METAL', true, 4],
+      ['2. NEW PLANE', true, 2],
+    ]);
+    expect(sections[2]?.blocks).toEqual([
+      { kind: 'field', label: 'SOURCE', text: 'BREAKOUT' },
+      { kind: 'paragraph', text: 'It went on: a second line of the same thought.' },
+    ]);
+  });
+
+  test('an answer with no headings is one untitled section, and an empty answer is none', () => {
+    expect(readSections('Just a sentence.')).toEqual([
+      { title: null, numbered: false, blocks: [{ kind: 'paragraph', text: 'Just a sentence.' }] },
+    ]);
+    expect(readSections('')).toEqual([]);
   });
 });
