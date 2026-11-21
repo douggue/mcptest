@@ -48,6 +48,9 @@ export function useRisk(
         if (!isNewest()) return;
         setView(found);
         setProblem(null);
+        // With nothing chosen yet, show the first script that has one.
+        const first = found?.concepts[0]?.conceptId;
+        if (wanted === null && first !== undefined) setPicked(first);
       })
       .catch((error: unknown) => {
         if (isNewest()) setProblem(messageOf(error, 'It could not be loaded'));
