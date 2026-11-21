@@ -81,3 +81,19 @@ export {
   type TableVideo,
 } from './plan/table';
 export { SqliteVideoLinkRepo } from './repos/sqliteVideoLinkRepo';
+export {
+  CALENDAR_MAX_WEEKS,
+  CALENDAR_MIN_WEEKS,
+  CONCEPT_STATUSES,
+  buildWeeks,
+  isPlannedDate,
+  weekStart,
+  type CalendarItem,
+  type CalendarWeek,
+  type CalendarWeeks,
+  type ConceptStatus,
+} from './calendar/calendar';
+export { loadCalendar, saveSchedule, type CalendarDeps, type CalendarView } from './calendar/load';
+export { PACE_WINDOW_DAYS, winnersPace, type WinnersPace } from './calendar/pace';
+export type { ScheduleEntry, ScheduleRepo } from './calendar/store';
+export { SqliteScheduleRepo } from './repos/sqliteScheduleRepo';

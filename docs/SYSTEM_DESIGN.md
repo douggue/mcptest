@@ -133,6 +133,12 @@ published video it became: `concept_id` (primary key, `ON DELETE CASCADE` from
 `concepts`), `center_channel_id`, `video_id` (unique per centre channel) and
 `linked_at`. See "Your videos against the plan".
 
+`concept_schedule` (step 40, provisional, numbered at merge) holds a kept
+concept's place in the upload calendar: `concept_id` (primary key,
+`ON DELETE CASCADE` from `concepts`), `center_channel_id`, `status` (`idea`,
+`drafting`, `ready`, `published`, or empty), `planned_date` (YYYY-MM-DD or empty)
+and `updated_at`. See "Upload calendar".
+
 ### Keeping the store safe
 
 - **Backup before upgrade.** When an existing store with data has pending
@@ -1224,6 +1230,38 @@ answers the plan, or 400 (not a video link, another channel's video), 404 (not
 found after one read, no kept concept, no map), 409 (the video is linked to
 another concept) or 502 (YouTube could not be read), each with a plain reason;
 `POST /api/plan/unlink {channel, conceptId}`.
+
+### Upload calendar
+
+Built (`packages/core/src/calendar/`, `packages/server/src/calendarEngine.ts`,
+`calendarRoutes.ts`, `apps/web/src/lib/calendar.ts`, `components/UploadCalendar.tsx`).
+One centre channel's kept concepts, from the store only.
+
+Status shown, in order: `published` when a video is linked ("Your videos against
+the plan"); else the status the owner set in the calendar; else its script's
+status; else `idea`. Setting idea, drafting or ready on a concept with a script
+writes the script's own status, so the script writer and the calendar agree;
+`published`, and any status of a concept with no script, is kept in
+`concept_schedule`. Changing only a date sends back the status the owner set
+(`setStatus`), so a worked-out status is never frozen.
+
+Weeks start on Monday and are counted from this computer's own date
+(`localDate`). They run from this week for at least 8 weeks
+(`CALENDAR_MIN_WEEKS`), or to the last planned week up to 26
+(`CALENDAR_MAX_WEEKS`); concepts planned before this week or past the last week
+are listed apart, and undated ones under "No date yet".
+
+Pace (`winnersPace`): the median of `uploadsPerWeek` (the map's own measure,
+over the last 14 days, `CADENCE_WINDOW_DAYS`) of the look-alikes on the latest
+map whose group is taken off, with how many there are. A week with fewer videos
+planned than that median is marked; with no look-alike taken off there is no
+pace and no week is marked. A comparison, not a target.
+
+Routes: `GET /api/calendar?channel=UC…` answers `{centerChannelId, today, pace:
+{channels, medianPerWeek, windowDays}, weeks, undated, earlier, later}` (404 with no
+map); `POST /api/calendar/item {channel, conceptId, status | null, plannedDate |
+null}` answers the calendar, or 404 (no kept concept, no map) or 400 (not a real
+date).
 
 ### Exact channel dates
 

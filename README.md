@@ -627,6 +627,20 @@ It never forecasts views and gives no advice. With only a few videos linked, the
 table proves little, and it says so. **Unlink** undoes a link. The numbers are
 read again by each refresh.
 
+### Upload calendar
+
+Every concept you kept, with or without a script, listed by the week you plan to
+publish it, from this week on. Give each a status (**Idea**, **Drafting**,
+**Ready**, **Published**) and, if you like, a date; both are saved as soon as
+you change them. A concept with a script shares its status with the script
+writer. One you have linked to its published video counts as published, and
+links to its video and to **Your videos against the plan**.
+
+Above the weeks, Jgtube says how often the channels like yours that took off on
+this map upload, as a median a week counted over the last 14 days, and how many
+channels that rests on. A week with fewer videos planned than that is marked.
+It is a comparison, not a target.
+
 ### Where else
 
 **Where else this could work** suggests other languages and other categories

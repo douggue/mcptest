@@ -394,6 +394,18 @@ CREATE TABLE IF NOT EXISTS concept_videos (
   UNIQUE (center_channel_id, video_id)
 );
 `,
+  // 40 (provisional, numbered at merge): the upload calendar. A kept concept's planned
+  //     date and the status the owner set for it when the concept has no script (a script
+  //     keeps its own), or "published". Both may be empty. It refers only to concepts (13).
+  `
+CREATE TABLE IF NOT EXISTS concept_schedule (
+  concept_id         INTEGER PRIMARY KEY REFERENCES concepts (id) ON DELETE CASCADE,
+  center_channel_id  TEXT NOT NULL,
+  status             TEXT CHECK (status IN ('idea', 'drafting', 'ready', 'published')),
+  planned_date       TEXT,
+  updated_at         TEXT NOT NULL
+);
+`,
 ];
 
 /** The number of the newest step: what `user_version` reads in a store that is up to date. */
