@@ -328,6 +328,20 @@ describe('readVideoFrames', () => {
     ]);
   });
 
+  test('returns sheets in a row from the one asked for, and says how many frames the video has', async () => {
+    const frames = await readVideoFrames({ ...deps, fetchImage: async () => jpeg() }, VIDEO, 4, 4);
+
+    expect(frames).toMatchObject({ sheetCount: 7, frameCount: 157 });
+    expect(frames?.sheets.map((entry) => entry.sheet.index)).toEqual([4, 5, 6]);
+    expect(frames?.sheets.at(-1)?.caption).toMatch(/^Sheet 7 of 7/);
+  });
+
+  test('returns no sheets, and still the totals, when asked to start past the end', async () => {
+    const frames = await readVideoFrames({ ...deps, fetchImage: async () => jpeg() }, VIDEO, 4, 9);
+
+    expect(frames).toMatchObject({ sheetCount: 7, frameCount: 157, sheets: [] });
+  });
+
   test('has no frames for a video without a storyboard', async () => {
     source.page = () => ({ details, storyboard: [] });
 

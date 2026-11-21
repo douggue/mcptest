@@ -288,9 +288,21 @@ export interface NewVideoStudy {
   readonly engine: string;
   /** The study as the engine wrote it: a model's words, to be read as a description only. */
   readonly text: string;
+  /**
+   * For a study of frames: where the frames came from ('file': cut from the
+   * video file, one a second; 'preview': YouTube's own preview frames) and how
+   * many there were to look at. Absent or null for a watch.
+   */
+  readonly frames?: StudiedFrames | null;
+}
+
+export interface StudiedFrames {
+  readonly source: 'file' | 'preview';
+  readonly available: number;
 }
 
 export interface StoredVideoStudy extends NewVideoStudy {
+  readonly frames: StudiedFrames | null;
   readonly studiedAt: Date;
 }
 

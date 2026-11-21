@@ -41,8 +41,19 @@ describe('stored studies of a video', () => {
       kind: 'watch',
       engine: 'agy',
       text: NOTES,
+      frames: null,
       studiedAt: T1,
     });
+  });
+
+  test('remember where a frame study’s frames came from and how many there were', () => {
+    const frames = { source: 'file', available: 948 } as const;
+
+    studies.save({ videoId: VIDEO, kind: 'frames', engine: 'claude', text: FRAMES, frames }, T1);
+
+    expect(studies.find(VIDEO, 'frames')?.frames).toEqual(frames);
+    db.prepare("UPDATE video_studies SET frame_source = 'somewhere else'").run();
+    expect(studies.find(VIDEO, 'frames')?.frames).toBeNull();
   });
 
   test('keep the two kinds of one video apart', () => {
@@ -65,6 +76,7 @@ describe('stored studies of a video', () => {
       kind: 'watch',
       engine: 'gemini-api',
       text: 'Watched again.',
+      frames: null,
       studiedAt: T2,
     });
     expect(rows()).toEqual({ n: 1 });

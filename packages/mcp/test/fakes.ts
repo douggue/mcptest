@@ -527,7 +527,6 @@ export function videoFrames(): VideoFrames {
   const sheet = (index: number, ok: boolean): VideoFrames['sheets'][number] => ({
     sheet: {
       index,
-      url: `https://i.ytimg.com/sb/${VIDEO_ID}/storyboard3_L2/M${index}.jpg`,
       columns: 5,
       rows: 5,
       frames: 25,
@@ -542,7 +541,9 @@ export function videoFrames(): VideoFrames {
   });
   return {
     videoId: VIDEO_ID,
+    source: 'preview',
     sheetCount: 7,
+    frameCount: 157,
     frameWidth: 160,
     frameHeight: 90,
     sheets: [sheet(0, true), sheet(3, false), sheet(6, true)],

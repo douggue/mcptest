@@ -1,9 +1,7 @@
-import { execFile } from 'node:child_process';
-import { constants } from 'node:fs';
-import { access, readdir, rm, stat } from 'node:fs/promises';
-import { delimiter, isAbsolute, join } from 'node:path';
+import { readdir, rm, stat } from 'node:fs/promises';
 import { VIDEO_ID_PATTERN } from '../sources/parse';
 import { pathInside } from './folder';
+import { programRunner, type ProgramResult, type RunProgram } from './program';
 import {
   VIDEO_MIN_HEIGHT,
   type VideoDownload,
@@ -23,11 +21,12 @@ import {
  * begins with a dash is never read as an option.
  */
 
+export { findProgram, type ProgramResult, type RunProgram } from './program';
+
 /** The program's name; on Windows its file is this with ".exe". */
 export const YT_DLP_PROGRAM = 'yt-dlp';
 /** A download that takes longer than this has stalled. */
 const DOWNLOAD_TIMEOUT_MS = 10 * 60 * 1000;
-const MAX_OUTPUT_BYTES = 1_000_000;
 const MAX_REASON_LENGTH = 200;
 /**
  * The smallest single file that has picture and sound and is at least 240
@@ -61,82 +60,7 @@ const JS_RUNTIMES = '--js-runtimes';
 /** How a yt-dlp from before that option refuses it. */
 const UNKNOWN_JS_RUNTIMES = /no such option: --js-runtimes/i;
 
-/** The file names a program may have on this kind of computer. */
-function programNames(name: string, platform: NodeJS.Platform): readonly string[] {
-  return platform === 'win32' ? [`${name}.exe`] : [name];
-}
-
-/** The PATH as the environment gives it, under whichever capitalisation it uses. */
-function pathFolders(env: Readonly<Record<string, string | undefined>>): readonly string[] {
-  const key = Object.keys(env).find((name) => name.toUpperCase() === 'PATH');
-  const value = key === undefined ? '' : (env[key] ?? '');
-  // A folder that is not absolute means "wherever the command is run", which
-  // could be a folder someone else can write to; those are never searched.
-  return value.split(delimiter).filter((folder) => isAbsolute(folder));
-}
-
-async function isProgram(path: string, platform: NodeJS.Platform): Promise<boolean> {
-  try {
-    if (!(await stat(path)).isFile()) return false;
-    if (platform !== 'win32') await access(path, constants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Where a program is on the PATH, as an absolute path, or null when it is not
- * installed. Nothing is run to find out.
- */
-export async function findProgram(
-  name: string,
-  env: Readonly<Record<string, string | undefined>> = process.env,
-  platform: NodeJS.Platform = process.platform,
-): Promise<string | null> {
-  for (const folder of pathFolders(env)) {
-    for (const file of programNames(name, platform)) {
-      const candidate = join(folder, file);
-      if (await isProgram(candidate, platform)) return candidate;
-    }
-  }
-  return null;
-}
-
-export interface ProgramResult {
-  /** The exit code; null when the program was stopped (it ran out of time). */
-  readonly code: number | null;
-  readonly stdout: string;
-  readonly stderr: string;
-}
-
-/**
- * Starts a program with a list of arguments and waits for it. Aborting
- * `signal` stops the program. Tests replace this.
- */
-export type RunProgram = (
-  program: string,
-  args: readonly string[],
-  signal?: AbortSignal,
-) => Promise<ProgramResult>;
-
-const runDirectly: RunProgram = (program, args, signal) =>
-  new Promise((resolve) => {
-    execFile(
-      program,
-      [...args],
-      {
-        timeout: DOWNLOAD_TIMEOUT_MS,
-        maxBuffer: MAX_OUTPUT_BYTES,
-        windowsHide: true,
-        ...(signal ? { signal } : {}),
-      },
-      (error, stdout, stderr) => {
-        const code = error === null ? 0 : typeof error.code === 'number' ? error.code : null;
-        resolve({ code, stdout, stderr });
-      },
-    );
-  });
+const runDirectly: RunProgram = programRunner(DOWNLOAD_TIMEOUT_MS);
 
 /**
  * The arguments yt-dlp is started with. Everything it writes goes into

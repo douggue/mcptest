@@ -1,6 +1,12 @@
 import type { Db } from '../db/sqlite';
 import { VIDEO_ID_PATTERN } from '../sources/parse';
-import type { NewVideoStudy, StoredVideoStudy, StudyKind, VideoStudyRepo } from './types';
+import type {
+  NewVideoStudy,
+  StoredVideoStudy,
+  StudiedFrames,
+  StudyKind,
+  VideoStudyRepo,
+} from './types';
 
 /**
  * What an engine wrote down about one video, one row per video and kind:
@@ -27,7 +33,18 @@ interface StudyRow {
   kind: string;
   engine: string;
   notes: string;
+  frame_source: string | null;
+  frames_available: number | null;
   studied_at: string;
+}
+
+/** What a row says about the frames a study was made from; null when it says nothing usable. */
+function framesOf(row: StudyRow): StudiedFrames | null {
+  const { frame_source: source, frames_available: available } = row;
+  if ((source !== 'file' && source !== 'preview') || available === null || available < 1) {
+    return null;
+  }
+  return { source, available };
 }
 
 export class SqliteVideoStudyRepo implements VideoStudyRepo {
@@ -36,7 +53,7 @@ export class SqliteVideoStudyRepo implements VideoStudyRepo {
   find(videoId: string, kind: StudyKind): StoredVideoStudy | null {
     const row = this.db
       .prepare<[string, string], StudyRow>(
-        `SELECT video_id, kind, engine, notes, studied_at
+        `SELECT video_id, kind, engine, notes, frame_source, frames_available, studied_at
          FROM video_studies WHERE video_id = ? AND kind = ?`,
       )
       .get(videoId, kind);
@@ -44,7 +61,14 @@ export class SqliteVideoStudyRepo implements VideoStudyRepo {
     const studiedAt = new Date(row.studied_at);
     // A row something else wrote badly is no study at all, not a crash.
     if (Number.isNaN(studiedAt.getTime()) || row.notes.trim() === '') return null;
-    return { videoId: row.video_id, kind, engine: row.engine, text: row.notes, studiedAt };
+    return {
+      videoId: row.video_id,
+      kind,
+      engine: row.engine,
+      text: row.notes,
+      frames: framesOf(row),
+      studiedAt,
+    };
   }
 
   save(study: NewVideoStudy, studiedAt: Date): void {
@@ -59,11 +83,14 @@ export class SqliteVideoStudyRepo implements VideoStudyRepo {
     if (study.text.trim() === '') throw new Error('A study cannot be empty');
     this.db
       .prepare(
-        `INSERT INTO video_studies (video_id, kind, engine, notes, studied_at)
-         VALUES (@videoId, @kind, @engine, @notes, @studiedAt)
+        `INSERT INTO video_studies
+           (video_id, kind, engine, notes, frame_source, frames_available, studied_at)
+         VALUES (@videoId, @kind, @engine, @notes, @source, @available, @studiedAt)
          ON CONFLICT (video_id, kind) DO UPDATE SET
            engine = excluded.engine,
            notes = excluded.notes,
+           frame_source = excluded.frame_source,
+           frames_available = excluded.frames_available,
            studied_at = excluded.studied_at`,
       )
       .run({
@@ -71,6 +98,8 @@ export class SqliteVideoStudyRepo implements VideoStudyRepo {
         kind: study.kind,
         engine,
         notes: study.text.slice(0, MAX_STUDY_CHARS),
+        source: study.frames?.source ?? null,
+        available: study.frames?.available ?? null,
         studiedAt: studiedAt.toISOString(),
       });
   }
