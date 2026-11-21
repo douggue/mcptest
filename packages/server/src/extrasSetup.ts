@@ -7,6 +7,7 @@ import {
   SqliteLookRepo,
   SqliteScheduleRepo,
   SqliteVideoLinkRepo,
+  SqliteVideoPageRepo,
   SqliteVideoRepo,
   ingestChannel,
   transactionRunner,
@@ -21,6 +22,7 @@ import { alertsEngine } from './alertsEngine';
 import { calendarEngine } from './calendarEngine';
 import { changesEngine } from './changesEngine';
 import type { ExtrasEngine } from './extrasTypes';
+import { pacingEngine } from './pacingEngine';
 import { planEngine } from './planEngine';
 
 export interface ExtrasDeps {
@@ -47,6 +49,7 @@ export function extras({ db, now, repos, lazySource, reading }: ExtrasDeps): Ext
     // The stored video's own reader, which can find one video by its id.
     videos: new SqliteVideoRepo(db),
     schedule: new SqliteScheduleRepo(db),
+    transcripts: new SqliteVideoPageRepo(db),
   };
   const readChannel = (channelId: string): Promise<void> =>
     reading(async () => {
@@ -58,5 +61,6 @@ export function extras({ db, now, repos, lazySource, reading }: ExtrasDeps): Ext
     ...alertsEngine({ now, repos: all }),
     ...planEngine({ now, repos: all, readChannel }),
     ...calendarEngine({ now, repos: all }),
+    ...pacingEngine({ now, repos: all }),
   };
 }

@@ -50,6 +50,7 @@ export const UNUSED_EXTRAS: ExtrasEngine = {
   unlinkPlanVideo: unused('unlinkPlanVideo'),
   findCalendar: unused('findCalendar'),
   saveCalendarItem: unused('saveCalendarItem'),
+  findPacing: unused('findPacing'),
 };
 
 /** An engine whose later features are these, failing loudly on any other. */
