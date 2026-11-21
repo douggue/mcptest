@@ -78,11 +78,22 @@ describe('shrinkPlan', () => {
 
   test('spends nine tenths of the size limit over the video’s length, less the sound', () => {
     // 95 MB over half an hour is 422 kbit a second; nine tenths of it, less 64 for sound.
-    expect(shrinkPlan(1800, MAX)).toEqual({ videoBitsPerSecond: 316_000 });
+    expect(shrinkPlan(1800, MAX)).toEqual({ videoBitsPerSecond: 316_000, height: 360 });
   });
 
-  test('never asks for a sharper picture than a 360p file needs', () => {
-    expect(shrinkPlan(60, MAX)).toEqual({ videoBitsPerSecond: 700_000 });
+  test('keeps the sharpest picture the size limit can carry cleanly for the video’s length', () => {
+    // One minute: plenty of room, so 720 lines at the most that height gains from.
+    expect(shrinkPlan(60, MAX)).toEqual({ videoBitsPerSecond: 2_500_000, height: 720 });
+    // Ten minutes: 1.14 Mbit a second in all, which is 480 lines.
+    expect(shrinkPlan(600, MAX)).toEqual({ videoBitsPerSecond: 1_076_000, height: 480 });
+    // Sixteen minutes: 0.71 Mbit a second in all, which is 360 lines.
+    expect(shrinkPlan(960, MAX)?.height).toBe(360);
+  });
+
+  test('scales the copy to the height of its plan, never up', () => {
+    const args = shrinkArguments('/in/a.mp4', '/out/a.small.mp4', 2_500_000, 720);
+
+    expect(args[args.indexOf('-vf') + 1]).toBe("scale=-2:'min(720,ih)'");
   });
 
   test('has no plan for a video so long that the picture would be unwatchable', () => {

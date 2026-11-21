@@ -16,10 +16,22 @@ import { pathInside } from './folder';
 /** The folder under the downloads folder that holds the temporary copies. */
 export const VIDEO_TEMP_FOLDER = 'video-temp';
 /**
- * The largest file handed over. The tool that watches the video refuses media
- * over 100 MB; this sits a little under, so a file that passes here passes there.
+ * The largest file handed to an engine to watch. The tool that watches the
+ * video refuses media over 100 MB; this sits a little under, so a file that
+ * passes here passes there.
  */
 export const MAX_VIDEO_BYTES = 95_000_000;
+/**
+ * The picture height asked for when a video is downloaded: 720 lines, the
+ * owner's choice, sharp enough to read what is written on screen.
+ */
+export const VIDEO_TARGET_HEIGHT = 720;
+/**
+ * The largest file fetched. Twenty minutes at 720 lines is a few hundred
+ * megabytes; a file over `MAX_VIDEO_BYTES` is made smaller for the engine
+ * that watches it, and the frames are cut from the file as fetched.
+ */
+export const MAX_DOWNLOAD_BYTES = 1_000_000_000;
 /** A copy left behind for longer than this was forgotten by a run that ended badly. */
 export const VIDEO_TEMP_MAX_AGE_HOURS = 24;
 /**
@@ -165,7 +177,7 @@ export async function downloadVideoFile(
   let last: VideoFailure = NO_ROUTE;
   let attempts: readonly VideoAttempt[] = [];
   for (const fetcher of deps.fetchers) {
-    const result = await fetcher.fetch(videoId, folder, MAX_VIDEO_BYTES);
+    const result = await fetcher.fetch(videoId, folder, MAX_DOWNLOAD_BYTES);
     if (result.ok || !WORTH_ANOTHER_ROUTE.includes(result.kind)) return result;
     attempts = [...attempts, { route: fetcher.route, message: result.message }];
     last = last.kind === 'refused' ? last : result;

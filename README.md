@@ -29,8 +29,9 @@ Three things to know first.
   recommends a paid key for Codex instead; see "Ask AI" below before you rely
   on either.
 - **Watching a whole video means downloading it.** When a full video is to be
-  analysed, picture and sound, Jgtube first downloads a small low-quality copy of
-  it to your computer, hands that file over, and deletes it afterwards. Downloading
+  analysed, picture and sound, Jgtube first downloads a copy of it to your
+  computer (at 720p when yt-dlp and ffmpeg are installed), uses that file, and
+  deletes it afterwards. Downloading
   YouTube videos is outside YouTube's terms of service, like the way Jgtube reads
   its pages. See "Downloads" below.
 
@@ -392,13 +393,15 @@ folder beside the store file, or the folder you name in `JGTUBE_DOWNLOADS_PATH`.
 - **Your own video files**, for a channel breakdown: `downloads/my-videos/`. Jgtube
   only reads them and never deletes them.
 - **A temporary copy of a video**, when a whole video is to be watched or its
-  frames cut: `downloads/video-temp/`. It is the smallest copy that is still
-  watchable (360p, the one file YouTube offers with picture and sound together),
-  never larger than 95 MB (about twenty minutes at that quality; a longer video
-  is refused with a message, never cut short), deleted after use, and anything
-  left behind is removed after a day. The frames cut from a video, and a smaller
-  copy made of a large file of yours, sit in the same folder and are deleted
-  with it.
+  frames cut: `downloads/video-temp/`. With yt-dlp and ffmpeg installed it is an
+  MP4 at 720p (YouTube offers sharp pictures apart from their sound; yt-dlp
+  fetches both and ffmpeg joins them). Without ffmpeg it is the one file YouTube
+  offers with picture and sound together, usually 360p. A file is never larger
+  than 1,000 MB and never cut short. The frames for Claude and Codex are cut
+  from that file. Antigravity opens files only up to about 95 MB, so for it
+  Jgtube makes a smaller copy with ffmpeg, as sharp as fits: 720p for a short
+  video, 480p or 360p for a longer one. Everything here is deleted after use,
+  and anything left behind is removed after a day.
 
 For video files Jgtube uses the free program **yt-dlp** when it is installed on
 your computer, and otherwise the YouTube library it already contains. The

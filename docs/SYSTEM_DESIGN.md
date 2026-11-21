@@ -869,12 +869,22 @@ needs it as a local file. `downloadVideo(video, { root, source })` returns
 `{ ok: false, kind, message, via }` with `kind` one of `not-available`, `too-large`
 and `unreadable`.
 
-- **Which file.** The smallest single file with picture and sound at 240 lines or
-  more (`VIDEO_MIN_HEIGHT`). In practice that is YouTube's 360p MP4, the one file
-  it still offers with both together; sharper pictures come apart from their sound
-  and need a second program to join, which is not assumed.
-- **Size.** Nothing over 95 MB is handed over (`MAX_VIDEO_BYTES`; the tool that
-  watches refuses media over 100 MB). The built-in route decides from the size the
+- **Which file.** The best picture up to 720 lines (`VIDEO_TARGET_HEIGHT`, the
+  owner's choice) and never under 240 (`VIDEO_MIN_HEIGHT`). YouTube offers sharp
+  pictures apart from their sound, so with ffmpeg found yt-dlp is asked first for
+  the best H.264 picture and AAC sound joined into one MP4
+  (`--ffmpeg-location`, `--merge-output-format mp4`), then for any picture and
+  sound joined, then for one file that holds both (in practice the 360p MP4).
+  Without ffmpeg only the last is asked for, and a video with no such file fails
+  with a message that says ffmpeg is what is missing. Seen on the owner's
+  computer: every video failed as "no single file" until the joined kinds were
+  asked for.
+- **Size.** A fetched file may be up to 1,000 MB (`MAX_DOWNLOAD_BYTES`). Nothing
+  over 95 MB is handed to an engine to watch (`MAX_VIDEO_BYTES`; the tool that
+  watches refuses media over 100 MB): a larger file is first made smaller with
+  ffmpeg for the watch only (`shrinkVideo.ts`), at the sharpest of 720, 480 or
+  360 lines that the size limit can carry cleanly for the video's length
+  (`SHRINK_TIERS`), while the frames are cut from the file as fetched. The built-in route decides from the size the
   player reports, before fetching a byte. A file is never cut to fit: the failure
   says about how many minutes would have fitted. At the bitrate seen (a 15:48 video
   listed at 75.2 MB) the limit is about twenty minutes.

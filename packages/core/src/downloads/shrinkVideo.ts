@@ -13,12 +13,24 @@ import { videoTempFolder } from './videoFile';
  * watch only, sits in the temporary folder and is removed afterwards. The
  * original is only read.
  *
- * The method, in one attempt: the picture is scaled to 360 lines (never up),
- * and the bitrate is worked out from the video's length so that picture and
- * sound together come to nine tenths of the size limit.
+ * The method, in one attempt: the bitrate is worked out from the video's
+ * length so that picture and sound together come to nine tenths of the size
+ * limit, and the picture is scaled (never up) to the sharpest height that
+ * bitrate can carry cleanly: 720 lines for a short video, 480 or 360 for a
+ * longer one.
  */
 
-/** The picture height of the copy: what YouTube's own smallest file with sound has. */
+/**
+ * The picture heights a copy may have, the sharpest first: the bits a second
+ * each needs to look clean, and beyond which it gains nothing.
+ */
+export const SHRINK_TIERS = [
+  { height: 720, minBits: 1_500_000, maxBits: 2_500_000 },
+  { height: 480, minBits: 700_000, maxBits: 1_200_000 },
+  { height: 360, minBits: 100_000, maxBits: 700_000 },
+] as const;
+
+/** The least picture height of a copy: what YouTube's own smallest file with sound has. */
 export const SHRINK_HEIGHT = 360;
 /** Bits a second for the sound: enough for speech and music to be judged. */
 export const SHRINK_AUDIO_BITS = 64_000;
@@ -36,6 +48,8 @@ const SMALL_SUFFIX = '.small.mp4';
 
 export interface ShrinkPlan {
   readonly videoBitsPerSecond: number;
+  /** The picture height of the copy, in lines. */
+  readonly height: number;
 }
 
 /**
@@ -45,12 +59,18 @@ export interface ShrinkPlan {
 export function shrinkPlan(durationSeconds: number, maxBytes: number): ShrinkPlan | null {
   if (!(durationSeconds > 0)) return null;
   const total = ((maxBytes * BITS_PER_BYTE) / durationSeconds) * SHRINK_AIM;
-  const video = Math.min(SHRINK_MAX_VIDEO_BITS, Math.floor(total - SHRINK_AUDIO_BITS));
-  return video >= SHRINK_MIN_VIDEO_BITS ? { videoBitsPerSecond: video } : null;
+  const room = Math.floor(total - SHRINK_AUDIO_BITS);
+  const tier = SHRINK_TIERS.find((candidate) => room >= candidate.minBits);
+  return tier ? { videoBitsPerSecond: Math.min(tier.maxBits, room), height: tier.height } : null;
 }
 
 /** The arguments ffmpeg is started with to write the smaller copy. */
-export function shrinkArguments(input: string, output: string, videoBits: number): string[] {
+export function shrinkArguments(
+  input: string,
+  output: string,
+  videoBits: number,
+  height: number = SHRINK_HEIGHT,
+): string[] {
   if (!isAbsolute(input) || !isAbsolute(output)) {
     throw new Error('ffmpeg is only given absolute paths');
   }
@@ -62,7 +82,7 @@ export function shrinkArguments(input: string, output: string, videoBits: number
     '-i',
     input,
     '-vf',
-    `scale=-2:'min(${SHRINK_HEIGHT},ih)'`,
+    `scale=-2:'min(${height},ih)'`,
     '-c:v',
     'libx264',
     '-preset',
@@ -133,7 +153,7 @@ export async function shrinkForWatching(
   if (plan === null) return fail('the video is too long to make a watchable copy that small');
   await mkdir(temp, { recursive: true });
   const run = options.run ?? programRunner(SHRINK_TIMEOUT_MS);
-  const args = shrinkArguments(source, output, plan.videoBitsPerSecond);
+  const args = shrinkArguments(source, output, plan.videoBitsPerSecond, plan.height);
   const result = await run(program, args, options.signal);
   if (options.signal?.aborted) return fail('it was stopped because Jgtube is closing');
   if (result.code !== 0) return fail('ffmpeg could not make the smaller copy');

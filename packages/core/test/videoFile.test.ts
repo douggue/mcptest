@@ -343,7 +343,7 @@ describe('the yt-dlp route', () => {
       '--no-part',
       '--no-simulate',
       '--format',
-      'worst[height>=240][vcodec!=none][acodec!=none]',
+      'best[height<=720][height>=240][vcodec!=none][acodec!=none]',
       '--max-filesize',
       '95000000',
       '--paths',
@@ -899,12 +899,11 @@ describe('a video YouTube offers only as picture and sound apart', () => {
     const args = ytDlpArguments(VIDEO, '/tmp/x', 95_000_000, null, ffmpeg);
     const choices = formatOf(args).split('/');
 
-    expect(choices).toHaveLength(3);
-    expect(choices[0]).not.toContain('+');
-    expect(choices[1]).toMatch(
-      /^worstvideo\[height>=\d+\]\[vcodec\^=avc1\]\+worstaudio\[acodec\^=mp4a\]$/,
-    );
-    expect(choices[2]).toMatch(/^worstvideo\[height>=\d+\]\+worstaudio$/);
+    expect(choices).toEqual([
+      'bestvideo[height<=720][height>=240][vcodec^=avc1]+bestaudio[acodec^=mp4a]',
+      'bestvideo[height<=720][height>=240]+bestaudio',
+      'best[height<=720][height>=240][vcodec!=none][acodec!=none]',
+    ]);
     expect(args[args.indexOf('--ffmpeg-location') + 1]).toBe(ffmpeg);
     expect(args[args.indexOf('--merge-output-format') + 1]).toBe('mp4');
     // The link still comes last, after the marker that ends the options.

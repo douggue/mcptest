@@ -4,6 +4,7 @@ import { pathInside } from './folder';
 import { programRunner, type ProgramResult, type RunProgram } from './program';
 import {
   VIDEO_MIN_HEIGHT,
+  VIDEO_TARGET_HEIGHT,
   type VideoDownload,
   type VideoFailure,
   type VideoFetcher,
@@ -34,16 +35,20 @@ const MAX_REASON_LENGTH = 200;
  * the sharper ones come as picture and sound apart and need a second program
  * to join them, which is not assumed here.
  */
-const FORMAT = `worst[height>=${VIDEO_MIN_HEIGHT}][vcodec!=none][acodec!=none]`;
+/** The picture heights a file may have: up to the height asked for, never below watchable. */
+const HEIGHTS = `[height<=${VIDEO_TARGET_HEIGHT}][height>=${VIDEO_MIN_HEIGHT}]`;
+/** One file that already holds picture and sound; YouTube rarely offers one above 360 lines. */
+const FORMAT = `best${HEIGHTS}[vcodec!=none][acodec!=none]`;
 /**
  * For many videos YouTube no longer offers one file with picture and sound,
- * only the two apart. With ffmpeg on the computer yt-dlp can fetch the
- * smallest watchable picture and the smallest sound and join them into one
- * MP4: the kinds every player reads first (H.264 with AAC), then any.
+ * only the two apart, and the sharper pictures only that way. With ffmpeg on
+ * the computer yt-dlp can fetch the best picture up to the height asked for
+ * and the best sound and join them into one MP4: the kinds every player reads
+ * first (H.264 with AAC), then any.
  */
 const JOINED_FORMATS = [
-  `worstvideo[height>=${VIDEO_MIN_HEIGHT}][vcodec^=avc1]+worstaudio[acodec^=mp4a]`,
-  `worstvideo[height>=${VIDEO_MIN_HEIGHT}]+worstaudio`,
+  `bestvideo${HEIGHTS}[vcodec^=avc1]+bestaudio[acodec^=mp4a]`,
+  `bestvideo${HEIGHTS}+bestaudio`,
 ];
 const JOINED_AS = 'mp4';
 /** Printed once the file is in place: its length, height, container and format id. */
@@ -87,7 +92,8 @@ export function ytDlpArguments(
   nodePath: string | null = null,
   ffmpegPath: string | null = null,
 ): string[] {
-  const format = ffmpegPath === null ? FORMAT : [FORMAT, ...JOINED_FORMATS].join('/');
+  // Joined first when it can be: that is where the height asked for is found.
+  const format = ffmpegPath === null ? FORMAT : [...JOINED_FORMATS, FORMAT].join('/');
   return [
     ...(nodePath === null ? [] : [JS_RUNTIMES, `node:${nodePath}`]),
     ...(ffmpegPath === null
