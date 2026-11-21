@@ -151,6 +151,31 @@ describe('running Antigravity with tools', () => {
     expect(seen!.cwd.startsWith(join(work, 'run-'))).toBe(true);
   });
 
+  test('puts the pictures it is handed into its folder, owner-only, for the prompt to name', async () => {
+    // Arrange
+    let seen: { bytes: string; mode: number } | null = null;
+    const { deps } = agy((start) => {
+      const file = join(start.cwd, 'picture-1.png');
+      seen = { bytes: readFileSync(file).toString('hex'), mode: statSync(file).mode & 0o077 };
+      return { stdout: success('red, blue') };
+    });
+    const files = [{ name: 'picture-1.png', bytes: new Uint8Array([1, 2, 3]) }];
+
+    // Act
+    await engine.run({ ...request(), files }, deps);
+
+    // Assert
+    expect(seen).toEqual({ bytes: '010203', mode: 0 });
+  });
+
+  test('refuses a file name that could reach outside its folder', async () => {
+    const { started, deps } = agy({ stdout: success('x') });
+    const files = [{ name: '../escape.png', bytes: new Uint8Array([1]) }];
+
+    await expect(engine.run({ ...request(), files }, deps)).rejects.toThrow(/file name/);
+    expect(started).toEqual([]);
+  });
+
   test('removes that folder afterwards, whether the run worked or not', async () => {
     await engine.run(request(), agy({ stdout: success('ok') }).deps);
     await engine.run(request(), agy({ stdout: 'broken', code: 1 }).deps).catch(() => undefined);

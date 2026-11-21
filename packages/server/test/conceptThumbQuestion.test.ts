@@ -41,7 +41,8 @@ describe('the question that writes a thumbnail prompt for one concept', () => {
   test('is asked only of engines that see pictures, with only its read-only tools', () => {
     const spec = ANALYSES['concept-thumbnail'];
 
-    expect(spec.engines).toEqual(PICTURE_ENGINES);
+    expect(spec.pictures).toBe(true);
+    expect(PICTURE_ENGINES).toEqual(['claude', 'codex']);
     expect(spec.allowedTools).toEqual(
       CONCEPT_THUMBNAIL_TOOLS.map((name) => `mcp__jgtube__${name}`),
     );
