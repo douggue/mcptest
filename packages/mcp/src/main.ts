@@ -4,9 +4,12 @@ import { loadConfig, type Config } from '@jgtube/core';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createConnectorEngine } from './connectorEngine';
 import { plainMessage } from './failure';
-import { createConnectorServer } from './server';
+import { createConnectorServer, onlyTools } from './server';
 
 const PROJECT_ROOT = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
+
+/** Settings that hold a key or a token, however they are capitalised. */
+const KEYS_NOT_KEPT = /(?:_API_KEY|_TOKEN|_SECRET|_SECRET_ACCESS_KEY|_ACCESS_KEY_ID)$/i;
 
 /** Standard output carries the protocol, so everything said to a person goes to standard error. */
 const say = (line: string): void => {
@@ -39,12 +42,15 @@ function loadEnvFile(): void {
 
 async function start(): Promise<void> {
   loadEnvFile();
-  // The connector is driven by a model and none of its tools uses the YouTube
-  // API key, so it does not keep one: a key it never holds cannot leak through it.
-  delete process.env['YOUTUBE_API_KEY'];
+  // The connector is driven by a model and none of its tools uses a key, so it
+  // keeps none: a key it never holds cannot leak through it.
+  for (const name of Object.keys(process.env)) {
+    if (KEYS_NOT_KEPT.test(name)) delete process.env[name];
+  }
+  const only = onlyTools(process.env['JGTUBE_TOOLS']);
   const config = anchoredConfig(loadConfig());
   const engine = createConnectorEngine(config);
-  const server = createConnectorServer({ engine, log: say });
+  const server = createConnectorServer({ engine, log: say }, only);
 
   let stopped = false;
   const stop = (): void => {

@@ -2,7 +2,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { createConnectorServer } from '../src/server';
+import { createConnectorServer, onlyTools } from '../src/server';
 import {
   ALPHA_ID,
   CENTER_ID,
@@ -263,5 +263,34 @@ describe('the connector over the protocol', () => {
   test('tells the client what the server is for', () => {
     expect(client.getServerVersion()).toMatchObject({ name: 'jgtube' });
     expect(client.getInstructions()).toMatch(/get_map/);
+  });
+});
+
+describe('a connector started for one analysis', () => {
+  test('offers only the tools it was told to, and cannot be asked for the others', async () => {
+    const server = createConnectorServer(
+      { engine: new FakeEngine(), log: () => {} },
+      onlyTools('get_map,list_niches'),
+    );
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    const limited = new Client({ name: 'test-client', version: '0.0.0' });
+    await Promise.all([server.connect(serverSide), limited.connect(clientSide)]);
+
+    const { tools } = await limited.listTools();
+    const refused = (await limited.callTool({
+      name: 'set_competitor_status',
+      arguments: { channel: '@mychannel', competitor: ALPHA_ID, status: 'remove' },
+    })) as CallToolResult;
+
+    expect(tools.map((tool) => tool.name).sort()).toEqual(['get_map', 'list_niches']);
+    expect(refused.isError).toBe(true);
+    await limited.close();
+  });
+
+  test('offers every tool when no limit is set, and refuses a limit it cannot read', () => {
+    expect(onlyTools(undefined)).toBeNull();
+    expect(onlyTools('get_map')).toEqual(new Set(['get_map']));
+    expect(() => onlyTools('')).toThrow(/JGTUBE_TOOLS/);
+    expect(() => onlyTools('get_map; rm')).toThrow(/JGTUBE_TOOLS/);
   });
 });

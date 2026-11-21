@@ -38,22 +38,35 @@ export const WITHHELD_ENV: readonly string[] = [
   'OPENAI_API_KEY',
   'GEMINI_API_KEY',
   'GOOGLE_API_KEY',
+  'GOOGLE_GENAI_API_KEY',
   'YOUTUBE_API_KEY',
+  'GH_TOKEN',
+  'GITHUB_TOKEN',
+  'AWS_ACCESS_KEY_ID',
+  'AWS_SECRET_ACCESS_KEY',
+  'AWS_SESSION_TOKEN',
 ];
 
+/** The environment without the withheld names, however they are capitalised (Windows ignores case). */
 export function withoutKeys(
   env: Readonly<Record<string, string | undefined>>,
 ): Record<string, string | undefined> {
-  return Object.fromEntries(Object.entries(env).filter(([name]) => !WITHHELD_ENV.includes(name)));
+  return Object.fromEntries(
+    Object.entries(env).filter(([name]) => !WITHHELD_ENV.includes(name.toUpperCase())),
+  );
 }
 
 const MAX_ERROR_DETAIL = 300;
 /** How the three programs word "your plan has no capacity left for now". */
 const LIMIT_PATTERN =
-  /hit your .*limit|usage limit|rate limit|quota|too many requests|resource.?exhausted/i;
-/** How they word "nobody is signed in". */
+  /hit your .*limit|usage limit|rate limit|quota|too many requests|resource.?exhausted|\b(?:\d+-hour|hourly|daily|weekly|monthly|session) limit\b|limit (?:has been )?reached|credit balance/i;
+/**
+ * How they word "nobody is signed in". Their own wording only: "unauthorized"
+ * counts at the start of what a program said, not further in, where it is
+ * what a tool reports when a website turns it away.
+ */
 const SIGN_IN_PATTERN =
-  /authentication required|not (?:logged|signed) in|please run \/login|log ?in required|unauthori[sz]ed/i;
+  /authentication required|authentication_error|not (?:logged|signed) in|please run \/login|log ?in required|oauth token (?:has )?expired|invalid api key|^(?:\d{3} )?unauthori[sz]ed/i;
 const TIMEOUT_PATTERN = /timed? ?out|deadline exceeded/i;
 
 /** What a program said, safe to show: no control characters, no file paths, not too long. */
@@ -67,6 +80,27 @@ export function failureKind(message: string): EngineFailure {
   if (LIMIT_PATTERN.test(message)) return 'limit';
   if (SIGN_IN_PATTERN.test(message)) return 'not-signed-in';
   return TIMEOUT_PATTERN.test(message) ? 'timeout' : 'failed';
+}
+
+function parsed(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The JSON reply in what a program printed: the whole of it, or, when a
+ * notice was printed ahead of the reply, the last line that is a JSON object.
+ * Null when there is none.
+ */
+export function jsonReply(stdout: string): unknown {
+  const whole = parsed(stdout);
+  if (whole !== undefined) return whole;
+  const lines = stdout.split('\n').map((line) => line.trim());
+  const reply = lines.findLast((line) => line.startsWith('{') && parsed(line) !== undefined);
+  return reply === undefined ? null : parsed(reply);
 }
 
 /** The first server and tool of a full tool name such as `mcp__jgtube__get_map`. */

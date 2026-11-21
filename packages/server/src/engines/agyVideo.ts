@@ -88,6 +88,8 @@ export function buildAgyVideoArgs(
     prompt,
     '--output-format',
     'json',
+    // What is said or shown in a video is not to be trusted with commands.
+    '--sandbox',
     '--print-timeout',
     printTimeout(timeoutMs),
     ...(model ? ['--model', model] : []),
@@ -149,9 +151,12 @@ export async function watchWithAgy(
   model?: string,
 ): Promise<EngineRunResult> {
   await checkVideoFile(request.videoPath);
-  return watch(request, `@${CLIP}`, deps, model, (folder) =>
-    copyFile(request.videoPath, join(folder, CLIP)),
-  );
+  return watch(request, `@${CLIP}`, deps, model, async (folder) => {
+    const copy = join(folder, CLIP);
+    await copyFile(request.videoPath, copy);
+    // Checked again as copied, in case the file changed after the first look.
+    await checkVideoFile(copy);
+  });
 }
 
 /**

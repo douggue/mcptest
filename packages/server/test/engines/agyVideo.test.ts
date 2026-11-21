@@ -49,12 +49,13 @@ const agy = (reply: Scripted | ((start: Started) => Scripted)) =>
   scripted(typeof reply === 'function' ? reply : () => reply);
 
 describe('buildAgyVideoArgs', () => {
-  test('asks for one answer as JSON with a time limit, as the owner’s own command does', () => {
+  test('asks for one answer as JSON with a time limit, as the owner’s own command does, and fenced in', () => {
     expect(buildAgyVideoArgs('Watch @clip.mp4', WATCH_TIMEOUT_MS)).toEqual([
       '-p',
       'Watch @clip.mp4',
       '--output-format',
       'json',
+      '--sandbox',
       '--print-timeout',
       '12m',
     ]);

@@ -13,6 +13,7 @@
  */
 import { join } from 'node:path';
 import { parseChannelRef } from '@jgtube/core';
+import { toolsOf } from './engines/failure';
 import type { EngineId, EngineRunRequest, McpServerSpec } from './engines/types';
 
 export const ANALYSIS_IDS = ['thumbnails', 'topics', 'near-misses'] as const;
@@ -27,9 +28,9 @@ export interface AnalysisSpec {
   /** The question, for a channel already put into its fixed form. */
   readonly question: (channel: string) => string;
   /**
-   * The engines that may answer, most preferred first, when the analysis
-   * cannot be left to the owner's usual order. An engine the owner's settings
-   * leave out is still never used.
+   * The engines that may answer, when the analysis cannot be left to every
+   * engine. They are tried in the owner's order, and an engine the owner's
+   * settings leave out is still never used.
    */
   readonly engines?: readonly EngineId[];
 }
@@ -136,15 +137,25 @@ function fixedForm(channel: string): string {
   return ref.kind === 'id' ? ref.id : `@${ref.handle}`;
 }
 
-/** How an engine starts the connector on the owner's store. */
-function connectorServer(settings: AnalysisSettings): McpServerSpec {
+/**
+ * How an engine starts the connector on the owner's store. The connector is
+ * told which tools the run may use and offers no others, so the limit holds
+ * whatever the engine itself does with its own settings.
+ */
+function connectorServer(
+  settings: AnalysisSettings,
+  allowedTools: readonly string[],
+): McpServerSpec {
   return {
     command: 'node',
     args: [
       join(settings.projectRoot, 'node_modules/tsx/dist/cli.mjs'),
       join(settings.projectRoot, 'packages/mcp/src/main.ts'),
     ],
-    env: { JGTUBE_DB_PATH: settings.dbPath },
+    env: {
+      JGTUBE_DB_PATH: settings.dbPath,
+      JGTUBE_TOOLS: toolsOf(SERVER_NAME, allowedTools).join(','),
+    },
   };
 }
 
@@ -164,7 +175,7 @@ export function analysisRequest(
   return {
     prompt: spec.question(fixedForm(channel)),
     systemPrompt: SYSTEM_PROMPT,
-    mcpServers: { [SERVER_NAME]: connectorServer(settings) },
+    mcpServers: { [SERVER_NAME]: connectorServer(settings, spec.allowedTools) },
     allowedTools: spec.allowedTools,
     maxTurns: spec.maxTurns,
     timeoutMs: TIMEOUT_MS,
@@ -173,12 +184,12 @@ export function analysisRequest(
 }
 
 /**
- * The engines to try for an analysis, most preferred first: the analysis's
- * own list when it has one, else the owner's, and never an engine the owner's
- * settings leave out.
+ * The engines to try for an analysis, in the owner's order: all of them, or
+ * only those the analysis names when it cannot be left to every engine.
  */
 export function enginesFor(id: AnalysisId, allowed: readonly EngineId[]): readonly EngineId[] {
-  return (specOf(id).engines ?? allowed).filter((engine) => allowed.includes(engine));
+  const { engines } = specOf(id);
+  return engines ? allowed.filter((engine) => engines.includes(engine)) : allowed;
 }
 
 /**
@@ -191,7 +202,7 @@ export function connectionCheck(settings: AnalysisSettings): EngineRunRequest {
     prompt:
       'Call the list_niches tool once. Then answer in one short line: how many channels did it list?',
     systemPrompt: 'You are checking that a tool works. Answer in one short line of plain text.',
-    mcpServers: { [SERVER_NAME]: connectorServer(settings) },
+    mcpServers: { [SERVER_NAME]: connectorServer(settings, [tool('list_niches')]) },
     allowedTools: [tool('list_niches')],
     maxTurns: CHECK_MAX_TURNS,
     timeoutMs: CHECK_TIMEOUT_MS,

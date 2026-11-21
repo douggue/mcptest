@@ -199,24 +199,43 @@ describe('runClaude', () => {
 
   test('asks it to stop, then forces it when it has not gone after a short while', async () => {
     const { child, run } = harness();
+    const pending = run({ ...request, timeoutMs: 10 }, { killGraceMs: 30 });
+    pending.catch(() => undefined);
 
-    await expect(run({ ...request, timeoutMs: 10 }, { killGraceMs: 15 })).rejects.toMatchObject({
-      reason: 'timeout',
-    });
+    await wait(25);
     expect(child.signals).toEqual(['SIGTERM']);
-    await wait(40);
 
+    await expect(pending).rejects.toMatchObject({ reason: 'timeout' });
     expect(child.signals).toEqual(['SIGTERM', 'SIGKILL']);
+  });
+
+  test('reports a stopped run only once the process has gone, so tidying up does not race it', async () => {
+    const { child, run } = harness();
+    let reported = false;
+    const pending = run({ ...request, timeoutMs: 10 }, { killGraceMs: 5000 }).catch(
+      (error: unknown) => {
+        reported = true;
+        return error;
+      },
+    );
+
+    await wait(40);
+    expect(child.signals).toEqual(['SIGTERM']);
+    expect(reported).toBe(false);
+
+    child.emit('close', null);
+    expect(await pending).toMatchObject({ reason: 'timeout' });
   });
 
   test('does not force a process that went when asked', async () => {
     const { child, run } = harness();
+    const pending = run({ ...request, timeoutMs: 10 }, { killGraceMs: 30 });
+    pending.catch(() => undefined);
 
-    await expect(run({ ...request, timeoutMs: 10 }, { killGraceMs: 15 })).rejects.toMatchObject({
-      reason: 'timeout',
-    });
+    await wait(20);
     child.emit('close', null);
-    await wait(40);
+    await expect(pending).rejects.toMatchObject({ reason: 'timeout' });
+    await wait(50);
 
     expect(child.signals).toEqual(['SIGTERM']);
   });
@@ -231,7 +250,9 @@ describe('runClaude', () => {
       },
     };
 
-    await expect(run({ ...request, timeoutMs: 10 })).rejects.toMatchObject({ reason: 'timeout' });
+    await expect(run({ ...request, timeoutMs: 10 }, { killGraceMs: 5 })).rejects.toMatchObject({
+      reason: 'timeout',
+    });
     child.stdout.emit('data', late);
     child.stderr.emit('data', late);
 
@@ -288,8 +309,11 @@ describe('runClaude', () => {
     const { child, run } = harness();
     const closing = new AbortController();
     const pending = run(request, { signal: closing.signal });
+    pending.catch(() => undefined);
 
     closing.abort();
+    expect(child.signals).toEqual(['SIGTERM']);
+    child.emit('close', null);
 
     await expect(pending).rejects.toMatchObject({
       reason: 'failed',
@@ -430,5 +454,72 @@ describe('checking Claude Code', () => {
     );
 
     expect(await claudeEngine.check(deps)).toMatchObject({ installed: true, signedIn: null });
+  });
+});
+
+describe('reading what Claude Code printed', () => {
+  test('a finished run with nothing written is a failure, not a blank answer', async () => {
+    const { child, run } = harness();
+    const pending = run();
+    child.finish(success('   '));
+
+    await expect(pending).rejects.toMatchObject({
+      reason: 'failed',
+      message: expect.stringMatching(/without writing an answer/),
+    });
+  });
+
+  test('finds the reply when a notice was printed ahead of it', async () => {
+    const { child, run } = harness();
+    const pending = run();
+    child.finish(`A new version is available.\n${JSON.stringify(success('Still read.'))}\n`);
+
+    await expect(pending).resolves.toMatchObject({ text: 'Still read.' });
+  });
+
+  test.each([
+    '5-hour limit reached - resets 3pm',
+    'The weekly limit has been reached',
+    'Credit balance is too low',
+    "You've hit your session limit",
+  ])('reads %j as the plan being out of allowance', async (result) => {
+    const { child, run } = harness();
+    const pending = run();
+    child.finish({ ...success(result), is_error: true }, 1);
+
+    await expect(pending).rejects.toMatchObject({ reason: 'limit' });
+  });
+
+  test('does not take a website turning a tool away for a missing sign-in', async () => {
+    const { child, run } = harness();
+    const pending = run();
+    child.finish(
+      { ...success('tool call failed: 401 Unauthorized from YouTube'), is_error: true },
+      1,
+    );
+
+    await expect(pending).rejects.toMatchObject({ reason: 'failed' });
+  });
+
+  test('takes the answer of a program that has exited while something still holds its output open', async () => {
+    const { child, run } = harness();
+    const pending = run(request, { closeAfterExitMs: 10 });
+    child.stdout.emit('data', JSON.stringify(success('Printed before exit.')));
+    child.emit('exit', 0);
+
+    await expect(pending).resolves.toMatchObject({ text: 'Printed before exit.' });
+  });
+
+  test('withholds a key however its name is capitalised, as Windows allows', async () => {
+    const { child, started, run } = harness({
+      Path: 'C:\\bin',
+      Gemini_Api_Key: 'g',
+      gh_token: 't',
+    });
+    const pending = run();
+    child.finish(success('ok'));
+    await pending;
+
+    expect(started[0]?.env).toEqual({ Path: 'C:\\bin' });
   });
 });

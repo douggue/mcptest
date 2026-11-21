@@ -9,7 +9,7 @@
  * commands. It is stopped if it runs too long or says too much.
  */
 import { z } from 'zod';
-import { EngineRunError, failureKind, said } from './failure';
+import { EngineRunError, failureKind, jsonReply, said } from './failure';
 import { ask, installedVersion, statusOf } from './probe';
 import { runProcess, type ProcessOutput } from './process';
 import type {
@@ -82,17 +82,9 @@ export function buildClaudeArgs(request: EngineRunRequest): readonly string[] {
   ];
 }
 
-function parseJson(text: string): unknown {
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return null;
-  }
-}
-
 /** Turns what the process printed into an answer, or the reason there is none. */
 function readReply({ stdout, stderr, code }: ProcessOutput): EngineRunResult {
-  const parsed = replySchema.safeParse(parseJson(stdout));
+  const parsed = replySchema.safeParse(jsonReply(stdout));
   if (!parsed.success) {
     const detail = said(stderr);
     throw new EngineRunError(
@@ -102,6 +94,10 @@ function readReply({ stdout, stderr, code }: ProcessOutput): EngineRunResult {
   }
   const { subtype, is_error: isError, result, num_turns: turns } = parsed.data;
   if (!isError && subtype === 'success' && result !== undefined) {
+    // A finished run with nothing written is not an answer to show.
+    if (result.trim() === '') {
+      throw new EngineRunError('failed', 'Claude finished without writing an answer.');
+    }
     return { text: result, turns: turns ?? null };
   }
   const message = said(result ?? '');
@@ -142,7 +138,7 @@ async function signedIn(version: string | null, deps: EngineDeps): Promise<boole
   const reply = await ask(CLAUDE, ['auth', 'status'], deps);
   if (reply instanceof EngineRunError) return null;
   // The reply also names the account; only whether there is one is kept.
-  const parsed = authSchema.safeParse(parseJson(reply.stdout));
+  const parsed = authSchema.safeParse(jsonReply(reply.stdout));
   return parsed.success ? parsed.data.loggedIn : reply.code === 0;
 }
 

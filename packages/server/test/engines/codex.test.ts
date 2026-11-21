@@ -273,3 +273,11 @@ describe('checking Codex', () => {
     expect(await codexEngine.check(stuck.deps)).toMatchObject({ installed: true, signedIn: null });
   });
 });
+
+describe('an empty answer from Codex', () => {
+  test('is a failure, not a blank answer', async () => {
+    await expect(runCodex(request, codex({ stdout: answered('  ') }).deps)).rejects.toMatchObject({
+      reason: 'failed',
+    });
+  });
+});

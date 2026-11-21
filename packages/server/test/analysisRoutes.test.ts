@@ -213,7 +213,11 @@ describe('the engine’s analyse', () => {
     const [id, request] = requests[0] ?? [];
     expect(id).toBe('agy');
     expect(request?.prompt).toContain('@americainvents2');
-    expect(request?.mcpServers['jgtube']?.env).toEqual({ JGTUBE_DB_PATH: '/data/jgtube.db' });
+    expect(request?.mcpServers['jgtube']?.env).toEqual({
+      JGTUBE_DB_PATH: '/data/jgtube.db',
+      JGTUBE_TOOLS:
+        'get_map,get_breakouts,list_niches,list_transfer_opportunities,get_channel_videos',
+    });
     expect(request?.allowedTools.every((tool) => tool.startsWith('mcp__jgtube__'))).toBe(true);
     engine.close();
   });
@@ -261,17 +265,38 @@ describe('the engine’s analyse', () => {
     engine.close();
   });
 
-  test('reports a real failure without trying the next engine', async () => {
+  test('tries the next engine when one hangs or fails, and says who was passed over', async () => {
     const tried: EngineId[] = [];
     const engine = engineWith({
       runEngine: async (id) => {
         tried.push(id);
-        throw new EngineRunError('timeout', 'Antigravity took too long and was stopped.');
+        if (id === 'agy') {
+          throw new EngineRunError('timeout', 'Antigravity took too long and was stopped.');
+        }
+        return { text: 'From Claude.', turns: 3 };
+      },
+    });
+
+    await expect(engine.analyse('topics', CHANNEL_ID)).resolves.toMatchObject({
+      text: 'From Claude.',
+      engine: 'claude',
+      skipped: [{ engine: 'agy', reason: 'timeout' }],
+    });
+    expect(tried).toEqual(['agy', 'claude']);
+    engine.close();
+  });
+
+  test('reports the most telling failure when every engine failed', async () => {
+    const tried: EngineId[] = [];
+    const engine = engineWith({
+      runEngine: async (id) => {
+        tried.push(id);
+        throw new EngineRunError('timeout', `${id} took too long and was stopped.`);
       },
     });
 
     await expect(engine.analyse('topics', CHANNEL_ID)).rejects.toMatchObject({ reason: 'timeout' });
-    expect(tried).toEqual(['agy']);
+    expect(tried).toEqual(['agy', 'claude', 'codex']);
     engine.close();
   });
 
@@ -480,6 +505,24 @@ describe('the engine’s watchVideo', () => {
       text: 'A low drone.',
       engine: 'gemini-api',
     });
+    engine.close();
+  });
+});
+
+describe('what is known about the engines after a failed check', () => {
+  test('is asked for again, not remembered as a failure', async () => {
+    let asked = 0;
+    const engine = engineWith({
+      engines: { order: ['claude'], agyYouTubeLinks: false },
+      checkEngines: async () => {
+        asked += 1;
+        if (asked === 1) throw new Error('could not start');
+        return [];
+      },
+    });
+
+    await expect(engine.engineStatus()).rejects.toThrow(/could not start/);
+    await expect(engine.engineStatus()).resolves.toEqual({ engines: [], order: ['claude'] });
     engine.close();
   });
 });

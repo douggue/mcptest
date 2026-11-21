@@ -147,7 +147,7 @@ function readEvents({ stdout, stderr, code }: ProcessOutput): EngineRunResult {
   const answer = events.filter(isAnswer).at(-1)?.item?.text;
   const turnFailed = events.some((event) => event.type === 'turn.failed');
   // An `error` event can be a hiccup the run got over; only a failed turn or a bad exit ends it.
-  if (code === 0 && !turnFailed && answer !== undefined) return { text: answer, turns: null };
+  if (code === 0 && !turnFailed && answer?.trim()) return { text: answer, turns: null };
 
   const problem = events.map(problemOf).findLast((message) => message !== undefined);
   if (problem !== undefined) {

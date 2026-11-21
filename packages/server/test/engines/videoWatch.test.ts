@@ -162,8 +162,8 @@ describe('watchVideo', () => {
     });
   });
 
-  test('reports Antigravity running out of time instead of spending the key on the same video', async () => {
-    const google = gemini('never');
+  test('falls back to the Gemini API when Antigravity runs out of time on the video', async () => {
+    const google = gemini('From Gemini.');
     const { context } = setup({
       settings: withKey,
       agy: { stdout: JSON.stringify({ status: 'ERROR', error: 'timed out' }), code: 3 },
@@ -171,8 +171,20 @@ describe('watchVideo', () => {
       geminiFetch: google.fetch,
     });
 
+    await expect(watchVideo(video, context)).resolves.toMatchObject({
+      text: 'From Gemini.',
+      engine: 'gemini-api',
+      skipped: [{ engine: 'agy', reason: 'timeout' }],
+    });
+  });
+
+  test('says Antigravity ran out of time when there is no key to fall back on', async () => {
+    const { context } = setup({
+      agy: { stdout: JSON.stringify({ status: 'ERROR', error: 'timed out' }), code: 3 },
+      download: downloader().download,
+    });
+
     await expect(watchVideo(video, context)).rejects.toMatchObject({ reason: 'timeout' });
-    expect(google.asked).toEqual([]);
   });
 
   test('leaves Antigravity out entirely when the owner’s settings do', async () => {

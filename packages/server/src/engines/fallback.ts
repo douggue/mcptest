@@ -1,23 +1,23 @@
 /**
  * Tries engines in order and takes the first answer.
  *
- * An engine that is not installed, not signed in, or out of allowance is
- * passed over and the next one is tried. An engine that ran and failed, or
- * ran out of time, is not: trying the same question on the next engine would
- * spend a second plan's allowance on what is probably the same problem, so
- * that failure is reported as it is.
+ * Whatever stops an engine (not installed, not signed in, out of allowance,
+ * too slow, or an error of its own), the next one is tried. The others are
+ * there as backups, and an engine that hangs or cannot read its own reply
+ * says nothing about whether the next can answer. The one exception is
+ * Jgtube closing, which ends the whole attempt.
  */
+import { cleanMessage } from '../jobs';
 import { EngineRunError, type SkippedEngine } from './failure';
 import type { AnyEngineId, EngineFailure, EngineRunResult } from './types';
 
-/** The failures after which the next engine is tried. */
-export const MOVE_ON: readonly EngineFailure[] = ['not-installed', 'not-signed-in', 'limit'];
-/** When every engine was passed over, the failure reported is the first of these that occurred. */
+/** When no engine answered, the failure reported is the first of these that occurred. */
 const MOST_TELLING: readonly EngineFailure[] = [
   'limit',
   'not-signed-in',
-  'not-installed',
+  'timeout',
   'failed',
+  'not-installed',
 ];
 
 export interface Attempt<Id extends AnyEngineId> {
@@ -39,6 +39,12 @@ function nobodyCould(explanation: string, skipped: readonly SkippedEngine[]): En
   return new EngineRunError(reason, details ? `${explanation} ${details}` : explanation, skipped);
 }
 
+/** Any error as an engine's failure: one that is not already is a plain failure, safely worded. */
+const asFailure = (error: unknown): EngineRunError =>
+  error instanceof EngineRunError
+    ? error
+    : new EngineRunError('failed', `It stopped with an error of its own: ${cleanMessage(error)}`);
+
 /** An engine to try, or one already ruled out with the reason. */
 export type Candidate<Id extends AnyEngineId> = Attempt<Id> | SkippedEngine;
 
@@ -47,13 +53,15 @@ const isAttempt = <Id extends AnyEngineId>(candidate: Candidate<Id>): candidate 
 
 /**
  * The first answer among the candidates, in order. A candidate that is
- * already ruled out is noted as passed over when its turn comes. Rejects with
- * an EngineRunError that carries the engines passed over: the failure of the
- * engine that ran, or `nobody` with each engine's reason when none could.
+ * already ruled out, or that fails, is noted as passed over. Rejects with an
+ * EngineRunError that carries the engines passed over: `nobody` with each
+ * engine's reason when none answered, or the failure itself once `stopped`
+ * says Jgtube is closing.
  */
 export async function firstAnswer<Id extends AnyEngineId>(
   candidates: ReadonlyArray<Candidate<Id>>,
   nobody: string,
+  stopped: () => boolean = () => false,
 ): Promise<EngineAnswer<Id>> {
   let skipped: readonly SkippedEngine[] = [];
   for (const candidate of candidates) {
@@ -64,12 +72,10 @@ export async function firstAnswer<Id extends AnyEngineId>(
     try {
       return { ...(await candidate.run()), engine: candidate.engine, skipped };
     } catch (error) {
-      if (!(error instanceof EngineRunError)) throw error;
-      if (!MOVE_ON.includes(error.reason)) {
-        throw new EngineRunError(error.reason, error.message, skipped);
-      }
+      const failure = asFailure(error);
+      if (stopped()) throw new EngineRunError(failure.reason, failure.message, skipped);
       const { engine } = candidate;
-      skipped = [...skipped, { engine, reason: error.reason, message: error.message }];
+      skipped = [...skipped, { engine, reason: failure.reason, message: failure.message }];
     }
   }
   throw nobodyCould(nobody, skipped);

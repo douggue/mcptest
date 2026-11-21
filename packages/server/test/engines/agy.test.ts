@@ -316,3 +316,19 @@ describe('checking Antigravity', () => {
     expect(await engine.check(deps)).toMatchObject({ installed: true, version: null });
   });
 });
+
+describe('checking Antigravity when the owner listed each tool', () => {
+  test('counts rules that name the server’s tools one by one, as the run does', async () => {
+    const each = JSON.stringify({
+      permissions: { allow: ['mcp(jgtube/get_map)', 'mcp(jgtube/get_breakouts)'] },
+    });
+
+    expect(await engine.check(agy({ stdout: 'agy 1.5.12' }, each).deps)).toMatchObject({
+      ready: true,
+      note: null,
+    });
+    expect(allowsServer(each, 'jgtube', ['get_map', 'get_breakouts'])).toBe(true);
+    expect(allowsServer(each, 'jgtube', ['get_map', 'make_map'])).toBe(false);
+    expect(allowsServer(each, 'other', [])).toBe(false);
+  });
+});

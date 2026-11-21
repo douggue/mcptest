@@ -102,6 +102,8 @@ export interface EngineDeps {
   readonly env: Readonly<Record<string, string | undefined>>;
   /** How long a process asked to stop is given before it is forced; tests shorten it. */
   readonly killGraceMs?: number;
+  /** How long a program that has exited is given to close its output; tests shorten it. */
+  readonly closeAfterExitMs?: number;
   /** The operating system, which decides how a program is started; tests set it. */
   readonly platform?: string;
   /** Aborted when Jgtube is closing: the run is stopped, or never started. */

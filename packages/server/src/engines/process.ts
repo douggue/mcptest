@@ -13,6 +13,13 @@ import type { EngineDeps, ProcessChild, Program, SpawnProcess } from './types';
 const MAX_OUTPUT_CHARACTERS = 2_000_000;
 /** A process asked to stop is given this long to go before it is forced. */
 const KILL_GRACE_MS = 2000;
+/** After a process is forced, how much longer its end is waited for before the run is reported anyway. */
+const GONE_MARGIN_MS = 500;
+/**
+ * A program can exit while something it started still holds its output open.
+ * Its answer is complete by then, so the wait for the output to close is short.
+ */
+const CLOSE_AFTER_EXIT_MS = 1000;
 
 export interface ProcessRun {
   readonly program: Program;
@@ -87,18 +94,28 @@ function waitFor(child: ProcessChild, run: ProcessRun, deps: EngineDeps): Promis
     const output = collectText(MAX_OUTPUT_CHARACTERS);
     const errorText = collectText(MAX_OUTPUT_CHARACTERS);
     let settled = false;
+    let exited: ReturnType<typeof setTimeout> | undefined;
     const settle = (finish: () => void): void => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      clearTimeout(exited);
       // The same signal outlives many runs; a finished run must not stay attached to it.
       deps.signal?.removeEventListener('abort', onClosing);
       finish();
     };
+    // The failure is reported once the process has gone (or plainly will not),
+    // so whoever tidies up after the run is not racing a program still running.
     const stop = (error: EngineRunError): void =>
       settle(() => {
-        stopProcess(child, deps.killGraceMs ?? KILL_GRACE_MS);
-        reject(error);
+        const graceMs = deps.killGraceMs ?? KILL_GRACE_MS;
+        const report = (): void => {
+          clearTimeout(givenUp);
+          reject(error);
+        };
+        const givenUp = setTimeout(report, graceMs + GONE_MARGIN_MS);
+        child.on('close', report);
+        stopProcess(child, graceMs);
       });
     const onClosing = (): void => stop(closingError(program));
     const timer = setTimeout(() => stop(timeoutError(program)), run.timeoutMs);
@@ -113,15 +130,18 @@ function waitFor(child: ProcessChild, run: ProcessRun, deps: EngineDeps): Promis
       if (!settled) errorText.add(chunk);
     });
     child.on('error', (error: unknown) => settle(() => reject(startFailure(error, program))));
-    child.on('close', (code: unknown) =>
+    const finished = (code: unknown): void =>
       settle(() =>
         resolve({
           stdout: output.end(),
           stderr: errorText.end(),
           code: typeof code === 'number' ? code : null,
         }),
-      ),
-    );
+      );
+    child.on('exit', (code: unknown) => {
+      exited = setTimeout(() => finished(code), deps.closeAfterExitMs ?? CLOSE_AFTER_EXIT_MS);
+    });
+    child.on('close', finished);
   });
 }
 

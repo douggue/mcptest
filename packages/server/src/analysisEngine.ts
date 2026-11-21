@@ -3,9 +3,9 @@
  * video, and what is known about the AI engines on this computer.
  */
 import type { Config } from '@jgtube/core';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   ANALYSES,
@@ -46,6 +46,8 @@ const VIDEO_FOLDER = 'video';
  * installing or signing in to one takes longer than this anyway.
  */
 const STATUS_FRESH_MS = 60_000;
+/** A work folder this old was left behind by a run that was cut short. */
+const LEFTOVER_AFTER_MS = 24 * 60 * 60 * 1000;
 
 export interface AnalysisOptions {
   /** The store as the connector should open it; defaults to the configured path made absolute. */
@@ -84,6 +86,27 @@ interface AnalysisParts extends Pick<Engine, 'analyse' | 'engineStatus' | 'watch
   cleanUp(): void;
 }
 
+/**
+ * Removes work folders left behind by a run that was cut short (a crash, a
+ * power cut, a program that would not let go) more than a day ago. They can
+ * hold a copy of a video, so they are not left to pile up.
+ */
+function removeOldWorkFolders(): void {
+  const parent = dirname(WORK_PREFIX);
+  const prefix = basename(WORK_PREFIX);
+  const oldest = Date.now() - LEFTOVER_AFTER_MS;
+  try {
+    for (const name of readdirSync(parent)) {
+      const folder = join(parent, name);
+      if (name.startsWith(prefix) && statSync(folder).mtimeMs < oldest) {
+        rmSync(folder, { recursive: true, force: true });
+      }
+    }
+  } catch {
+    // Another account's folder, or one in use: not ours to remove, and nothing depends on it.
+  }
+}
+
 /** Private folders made on first use, one inside the other. */
 function privateFolders() {
   let base: string | null = null;
@@ -95,13 +118,22 @@ function privateFolders() {
      * write to its folder cannot plant settings for another.
      */
     for(name: string): string {
-      base ??= mkdtempSync(WORK_PREFIX);
+      if (base === null) {
+        removeOldWorkFolders();
+        base = mkdtempSync(WORK_PREFIX);
+      }
       const folder = join(base, name);
       mkdirSync(folder, { recursive: true, mode: OWNER_ONLY });
       return folder;
     },
     remove(): void {
-      if (base !== null) rmSync(base, { recursive: true, force: true });
+      if (base === null) return;
+      try {
+        rmSync(base, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+      } catch {
+        // A program still letting go of its folder: closing the store matters more
+        // than tidying up, and the folder is removed the next time engines start.
+      }
     },
   };
 }
@@ -110,7 +142,15 @@ function privateFolders() {
 function remembered<T>(load: () => Promise<T>, freshMs: number): () => Promise<T> {
   let kept: { readonly at: number; readonly value: Promise<T> } | null = null;
   return () => {
-    if (kept === null || Date.now() - kept.at > freshMs) kept = { at: Date.now(), value: load() };
+    if (kept === null || Date.now() - kept.at > freshMs) {
+      const value = load();
+      const fresh = { at: Date.now(), value };
+      kept = fresh;
+      // A failure is not worth remembering: the next call asks again.
+      value.catch(() => {
+        if (kept === fresh) kept = null;
+      });
+    }
     return kept.value;
   };
 }
@@ -162,6 +202,7 @@ function analyser(shared: Shared, wiring: AnalysisWiring, stop: AbortSignal): En
     return firstAnswer(
       order.map((id) => ({ engine: id, run: () => run(id, requestFor(id), stop) })),
       nobodyFor(analysis, order, engines),
+      () => stop.aborted,
     );
   };
 }

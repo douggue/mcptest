@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { EngineRunError } from '../../src/engines/failure';
-import { MOVE_ON, firstAnswer, type Attempt } from '../../src/engines/fallback';
+import { firstAnswer, type Attempt } from '../../src/engines/fallback';
 import type { EngineFailure, EngineId } from '../../src/engines/types';
 
 const answers = (engine: EngineId, text: string, ran: EngineId[] = []): Attempt<EngineId> => ({
@@ -36,7 +36,15 @@ describe('firstAnswer', () => {
     expect(ran).toEqual(['agy']);
   });
 
-  test.each(MOVE_ON)('moves on from an engine that is %s, and says so', async (reason) => {
+  const EVERY_FAILURE: readonly EngineFailure[] = [
+    'not-installed',
+    'not-signed-in',
+    'limit',
+    'timeout',
+    'failed',
+  ];
+
+  test.each(EVERY_FAILURE)('moves on from an engine that is %s, and says so', async (reason) => {
     const result = await firstAnswer(
       [fails('agy', reason, 'Antigravity cannot run.'), answers('claude', 'From Claude.')],
       NOBODY,
@@ -50,27 +58,42 @@ describe('firstAnswer', () => {
     });
   });
 
-  test.each(['timeout', 'failed'] as const)(
-    'reports a %s as it is, without trying the next engine',
-    async (reason) => {
-      const ran: EngineId[] = [];
-      const pending = firstAnswer(
-        [
-          fails('agy', 'not-installed', 'Antigravity is not installed.', ran),
-          fails('claude', reason, 'Claude stopped.', ran),
-          answers('codex', 'never', ran),
-        ],
-        NOBODY,
-      );
+  test('ends the whole attempt, trying nobody else, once Jgtube is closing', async () => {
+    const ran: EngineId[] = [];
+    const pending = firstAnswer(
+      [
+        fails('agy', 'not-installed', 'Antigravity is not installed.', ran),
+        fails('claude', 'failed', 'Claude was stopped because Jgtube is closing.', ran),
+        answers('codex', 'never', ran),
+      ],
+      NOBODY,
+      () => ran.includes('claude'),
+    );
 
-      await expect(pending).rejects.toMatchObject({
-        reason,
-        message: 'Claude stopped.',
-        skipped: [{ engine: 'agy', reason: 'not-installed' }],
-      });
-      expect(ran).toEqual(['agy', 'claude']);
-    },
-  );
+    await expect(pending).rejects.toMatchObject({
+      reason: 'failed',
+      message: 'Claude was stopped because Jgtube is closing.',
+      skipped: [{ engine: 'agy', reason: 'not-installed' }],
+    });
+    expect(ran).toEqual(['agy', 'claude']);
+  });
+
+  test('reports a timeout ahead of a plain failure when nobody answered', async () => {
+    const pending = firstAnswer(
+      [
+        fails('agy', 'failed', 'Antigravity stopped.'),
+        fails('claude', 'timeout', 'Claude took too long.'),
+        fails('codex', 'not-installed', 'Codex is not installed.'),
+      ],
+      NOBODY,
+    );
+
+    await expect(pending).rejects.toMatchObject({
+      reason: 'timeout',
+      message:
+        'No engine could answer. Antigravity stopped. Claude took too long. Codex is not installed.',
+    });
+  });
 
   test('when every engine is passed over, says why for each, most telling reason first', async () => {
     const pending = firstAnswer(
@@ -117,16 +140,20 @@ describe('firstAnswer', () => {
     });
   });
 
-  test('lets an unexpected error through untouched', async () => {
+  test('passes over an engine that breaks in a way of its own, without showing a file path', async () => {
     const broken: Attempt<EngineId> = {
       engine: 'agy',
       run: async () => {
-        throw new TypeError('a bug');
+        throw new Error('EBUSY: resource busy, rmdir /tmp/jgtube-engines-x1/agy/run-1');
       },
     };
 
-    await expect(firstAnswer([broken, answers('claude', 'x')], NOBODY)).rejects.toBeInstanceOf(
-      TypeError,
-    );
+    const result = await firstAnswer([broken, answers('claude', 'From Claude.')], NOBODY);
+
+    expect(result.engine).toBe('claude');
+    expect(result.skipped).toEqual([
+      { engine: 'agy', reason: 'failed', message: expect.stringMatching(/error of its own/) },
+    ]);
+    expect(result.skipped[0]?.message).not.toContain('/tmp/jgtube-engines');
   });
 });

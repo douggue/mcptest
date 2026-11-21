@@ -89,7 +89,10 @@ describe('analysisRequest', () => {
       jgtube: {
         command: 'node',
         args: ['/app/jgtube/node_modules/tsx/dist/cli.mjs', '/app/jgtube/packages/mcp/src/main.ts'],
-        env: { JGTUBE_DB_PATH: '/data/jgtube.db' },
+        env: {
+          JGTUBE_DB_PATH: '/data/jgtube.db',
+          JGTUBE_TOOLS: 'get_map,get_thumbnail_board,view_thumbnails',
+        },
       },
     });
     expect(request.allowedTools).toEqual(ANALYSES.thumbnails.allowedTools);
@@ -129,15 +132,25 @@ describe('analysisRequest', () => {
   });
 });
 
+describe('the connector an analysis starts', () => {
+  test.each(ANALYSIS_IDS)('is told to offer %s only the tools it may use', (id) => {
+    const { mcpServers } = analysisRequest(id, CHANNEL_ID, settings);
+    const offered = (mcpServers['jgtube']?.env?.['JGTUBE_TOOLS'] ?? '').split(',');
+
+    expect(offered.map((name) => `mcp__jgtube__${name}`)).toEqual(ANALYSES[id].allowedTools);
+    expect(offered.some((name) => NOT_FOR_ANALYSIS.includes(name))).toBe(false);
+  });
+});
+
 describe('enginesFor', () => {
   test('leaves most analyses to the owner’s order', () => {
     expect(enginesFor('topics', ['agy', 'claude', 'codex'])).toEqual(['agy', 'claude', 'codex']);
     expect(enginesFor('near-misses', ['codex', 'agy'])).toEqual(['codex', 'agy']);
   });
 
-  test('gives the thumbnail review to engines known to see pictures from tools, Claude first', () => {
+  test('gives the thumbnail review to engines known to see pictures from tools, in the owner’s order', () => {
     expect(enginesFor('thumbnails', ['agy', 'claude', 'codex'])).toEqual(['claude', 'codex']);
-    expect(enginesFor('thumbnails', ['codex', 'claude'])).toEqual(['claude', 'codex']);
+    expect(enginesFor('thumbnails', ['codex', 'claude'])).toEqual(['codex', 'claude']);
   });
 
   test('never names an engine the owner’s settings leave out', () => {
@@ -153,7 +166,11 @@ describe('connectionCheck', () => {
 
     expect(request.allowedTools).toEqual(['mcp__jgtube__list_niches']);
     expect(request.prompt).toMatch(/list_niches/);
-    expect(request.mcpServers).toEqual(analysis.mcpServers);
+    expect(request.mcpServers['jgtube']).toMatchObject({
+      command: analysis.mcpServers['jgtube']?.command,
+      args: analysis.mcpServers['jgtube']?.args,
+      env: { JGTUBE_DB_PATH: '/data/jgtube.db', JGTUBE_TOOLS: 'list_niches' },
+    });
     expect(request.timeoutMs).toBeLessThan(analysis.timeoutMs);
   });
 });

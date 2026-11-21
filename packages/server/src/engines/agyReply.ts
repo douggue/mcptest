@@ -14,7 +14,7 @@
  * `AGY_ERROR: {json}` line on the error output when a run ends badly.
  */
 import { z } from 'zod';
-import { EngineRunError, failureKind, said } from './failure';
+import { EngineRunError, failureKind, jsonReply, said } from './failure';
 import type { ProcessOutput } from './process';
 import type { EngineRunResult } from './types';
 
@@ -93,7 +93,7 @@ function failure(reply: AgyReply | null, { stderr, code }: ProcessOutput): Engin
  * their tools has answered from nothing, and that is a failure.
  */
 export function readAgyReply(output: ProcessOutput, servers: readonly string[]): EngineRunResult {
-  const parsed = replySchema.safeParse(parseJson(output.stdout));
+  const parsed = replySchema.safeParse(jsonReply(output.stdout));
   const reply = parsed.success ? parsed.data : null;
   const succeeded =
     reply !== null &&

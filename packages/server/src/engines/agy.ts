@@ -160,8 +160,11 @@ export function allowsServer(
   if (settings.permissions?.deny?.some((rule) => whole.includes(rule))) return false;
   if (settings.toolPermission === ALLOW_EVERYTHING) return true;
   const allow = settings.permissions?.allow ?? [];
+  // With no tools named (the status check), any rule that names one of the server's tools counts.
   const eachTool =
-    tools.length > 0 && tools.every((tool) => allow.includes(`mcp(${server}/${tool})`));
+    tools.length > 0
+      ? tools.every((tool) => allow.includes(`mcp(${server}/${tool})`))
+      : allow.some((rule) => rule.startsWith(`mcp(${server}/`));
   return eachTool || allow.some((rule) => whole.includes(rule));
 }
 
@@ -183,6 +186,9 @@ function refusedServer(request: EngineRunRequest, deps: EngineDeps): string | nu
   );
 }
 
+/** How long deleting a folder keeps trying while a program is still letting go of it. */
+const RM_RETRIES = { maxRetries: 5, retryDelay: 200 };
+
 /**
  * Does `work` in a new, owner-only folder inside `parent`, and removes the
  * folder afterwards whatever happened.
@@ -196,7 +202,10 @@ export async function inRunFolder<T>(
   try {
     return await work(folder);
   } finally {
-    await rm(folder, { recursive: true, force: true });
+    // A program that has not quite gone still holds its folder, and Windows will
+    // not delete it then. Failing to tidy up must never replace the run's own
+    // outcome: what is left is removed the next time Jgtube starts its engines.
+    await rm(folder, { recursive: true, force: true, ...RM_RETRIES }).catch(() => undefined);
   }
 }
 

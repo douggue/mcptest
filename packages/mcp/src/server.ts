@@ -162,14 +162,48 @@ function registerPrompts(server: McpServer): void {
   );
 }
 
-/** The connector: its tools and one prompt, ready to be connected to a transport. */
-export function createConnectorServer(deps: ToolDeps): McpServer {
+const TOOL_NAMES = /^[a-z_]+(?:,[a-z_]+)*$/;
+
+/**
+ * The tools named by the JGTUBE_TOOLS setting, or null when it is not set and
+ * every tool is offered. The app sets it when it starts the connector for an
+ * analysis, so that run is offered the tools it needs and no others. A setting
+ * that cannot be read is an error, never "every tool".
+ */
+export function onlyTools(setting: string | undefined): ReadonlySet<string> | null {
+  if (setting === undefined) return null;
+  if (!TOOL_NAMES.test(setting)) {
+    throw new Error(
+      'JGTUBE_TOOLS must be tool names separated by commas, such as get_map,list_niches',
+    );
+  }
+  return new Set(setting.split(','));
+}
+
+/** A server that takes only the named tools; the rest are never offered or callable. */
+function limitedTo(server: McpServer, only: ReadonlySet<string> | null): McpServer {
+  if (only === null) return server;
+  const register = server.registerTool.bind(server) as (...values: unknown[]) => unknown;
+  const registerTool = (name: string, ...rest: unknown[]): unknown =>
+    only.has(name) ? register(name, ...rest) : undefined;
+  return { registerTool } as unknown as McpServer;
+}
+
+/**
+ * The connector: its tools and one prompt, ready to be connected to a
+ * transport. With `only`, just those tools.
+ */
+export function createConnectorServer(
+  deps: ToolDeps,
+  only: ReadonlySet<string> | null = null,
+): McpServer {
   const log = deps.log ?? logToStderr;
   const tools = createToolHandlers({ ...deps, log });
   const server = new McpServer(SERVER_INFO, { instructions: INSTRUCTIONS });
-  registerReadTools(server, tools);
-  registerOwnerTools(server, tools);
-  registerNetworkTools(server, tools, log);
+  const tooled = limitedTo(server, only);
+  registerReadTools(tooled, tools);
+  registerOwnerTools(tooled, tools);
+  registerNetworkTools(tooled, tools, log);
   registerPrompts(server);
   return server;
 }
