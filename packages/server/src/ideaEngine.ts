@@ -79,9 +79,11 @@ function formatOf(
       ? { source: 'formula', ref: String(formula.id), template: formula.formula }
       : { problem: NOT_A_FORMAT };
   }
-  const format = deps
-    .listTransfers({ channel: centerChannelId })
-    .formats.find((one) => one.key === choice.key);
+  // A title format of the transfer list, or one of its ideas brought in to make concepts from.
+  const list = deps.listTransfers({ channel: centerChannelId });
+  const format =
+    list.formats.find((one) => one.key === choice.key) ??
+    list.ideas.find((one) => one.key === choice.key);
   return format
     ? { source: 'transfer', ref: format.key, template: format.template }
     : { problem: NOT_A_FORMAT };

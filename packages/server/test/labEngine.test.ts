@@ -182,6 +182,7 @@ beforeEach(() => {
     listTransfers: () =>
       ({
         formats: [{ key: 'why {subject} left', template: 'why {subject} left' }],
+        ideas: [{ key: 'the idea that won', template: '{place} built the idea that won' }],
       }) as unknown as TransferList,
     findSnapshot: (channel) => (channel === MINE || channel === '@mine' ? snapshotOf(MINE) : null),
     readTranscript: async (videoId) => {
@@ -253,6 +254,10 @@ describe('what the owner chose for a batch', () => {
       engine.conceptProblem(request({ format: { source: 'transfer', key: 'why {subject} left' } })),
     ).toBeNull();
     expect(engine.conceptProblem(request({ format: { source: 'formula', id } }))).toBeNull();
+    // An idea of the transfer list, brought in to make concepts from, is a format too.
+    expect(
+      engine.conceptProblem(request({ format: { source: 'transfer', key: 'the idea that won' } })),
+    ).toBeNull();
   });
 });
 
