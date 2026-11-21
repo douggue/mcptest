@@ -35,3 +35,22 @@ export {
 } from './changes/lookalikes';
 export type { EarlierMap, LookRepo } from './changes/store';
 export { SqliteLookRepo } from './repos/sqliteLookRepo';
+export {
+  ALERT_MAX_MIN_SCORE,
+  ALERT_MIN_MIN_SCORE,
+  DEFAULT_ALERT_MIN_SCORE,
+  findAlerts,
+  isValidMinScore,
+  type AlertCriteria,
+  type AlertFinding,
+  type AlertKind,
+} from './alerts/alerts';
+export {
+  checkDueAlerts,
+  checkStoredAlerts,
+  type AlertCheck,
+  type AlertCheckDeps,
+} from './alerts/check';
+export type { AlertRepo, AlertRule, AlertSettings, StoredAlert } from './alerts/store';
+export { lookalikeHistories, type HistoryDeps, type MapHistories } from './changes/load';
+export { SqliteAlertRepo } from './repos/sqliteAlertRepo';

@@ -41,6 +41,10 @@ export const UNUSED_LAB: LabEngine & ScriptEngine = {
 export const UNUSED_EXTRAS: ExtrasEngine = {
   findChanges: unused('findChanges'),
   markChangesSeen: unused('markChangesSeen'),
+  findAlerts: unused('findAlerts'),
+  alertCounts: unused('alertCounts'),
+  saveAlertRule: unused('saveAlertRule'),
+  markAlertsRead: unused('markAlertsRead'),
 };
 
 /** An engine whose later features are these, failing loudly on any other. */

@@ -1,6 +1,7 @@
 import type { SavedChannel } from '@jgtube/core';
 import { X } from 'lucide-react';
 import { useState } from 'react';
+import { badgeText } from '../lib/alerts';
 import { formatCount } from '../lib/format';
 import { ChannelLogo } from './ChannelLogo';
 
@@ -12,6 +13,8 @@ interface Props {
   readonly busy: boolean;
   readonly onOpen: (channel: SavedChannel) => void;
   readonly onDelete: (channel: SavedChannel) => void;
+  /** Unread alerts per channel id, shown as a count on its chip. */
+  readonly badges?: Readonly<Record<string, number>>;
 }
 
 const CHIP = 'flex max-w-full items-center gap-1 rounded-full py-1 pl-1 pr-1 text-body-sm';
@@ -24,10 +27,12 @@ interface ChipProps {
   readonly busy: boolean;
   readonly onOpen: () => void;
   readonly onAskDelete: () => void;
+  readonly unread: number;
 }
 
 /** One saved channel: press its name to open its map, the cross to delete it. */
-function Chip({ channel, current, busy, onOpen, onAskDelete }: ChipProps) {
+function Chip({ channel, current, busy, onOpen, onAskDelete, unread }: ChipProps) {
+  const badge = badgeText(unread);
   return (
     <div
       className={`${CHIP} ${
@@ -53,6 +58,14 @@ function Chip({ channel, current, busy, onOpen, onAskDelete }: ChipProps) {
         {channel.subscribers !== null && (
           <span className="flex-none text-label-caps text-outline">
             {formatCount(channel.subscribers)}
+          </span>
+        )}
+        {badge && (
+          <span
+            aria-label={`${unread} new alert${unread === 1 ? '' : 's'}`}
+            className="flex-none rounded-full bg-metric-amber-bg px-1.5 text-label-caps font-semibold text-metric-amber"
+          >
+            {badge}
           </span>
         )}
       </button>
@@ -108,7 +121,7 @@ function Confirm({ channel, onDelete, onKeep }: ConfirmProps) {
  * and choosing it here shows that map again at once, without reading YouTube.
  * A channel leaves the row only when the owner deletes it, after being asked.
  */
-export function SavedChannels({ channels, currentId, busy, onOpen, onDelete }: Props) {
+export function SavedChannels({ channels, currentId, busy, onOpen, onDelete, badges }: Props) {
   const [askingId, setAskingId] = useState<string | null>(null);
   if (channels.length === 0) return null;
   return (
@@ -137,6 +150,7 @@ export function SavedChannels({ channels, currentId, busy, onOpen, onDelete }: P
               busy={busy}
               onOpen={() => onOpen(channel)}
               onAskDelete={() => setAskingId(channel.id)}
+              unread={badges?.[channel.id] ?? 0}
             />
           ),
         )}

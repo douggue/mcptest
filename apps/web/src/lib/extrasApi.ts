@@ -1,5 +1,6 @@
 import type { SinceKind } from '@jgtube/core';
 import { apiCaller, type Fetch } from './api';
+import type { AlertSettingsInput, AlertsReply } from './alerts';
 import type { ChangesReply } from './changes';
 
 /** The later features' part of the local server's API, each call for one channel by its id. */
@@ -21,6 +22,22 @@ export function createExtrasApi(fetcher?: Fetch) {
     async markSeen(channel: string): Promise<string> {
       return unwrap<{ lastLookAt: string }>(await send('/api/changes/seen', { channel }))
         .lastLookAt;
+    },
+
+    /** A channel's alert rule and alerts; null when it has no map. */
+    alerts: (channel: string) => read<AlertsReply>(`/api/alerts?${of(channel)}`),
+
+    /** Unread alerts per saved channel. */
+    async alertCounts(): Promise<Readonly<Record<string, number>>> {
+      return unwrap<{ counts: Record<string, number> }>(await call('/api/alerts/counts')).counts;
+    },
+
+    async saveAlertRule(channel: string, settings: AlertSettingsInput): Promise<AlertsReply> {
+      return unwrap<AlertsReply>(await send('/api/alerts/rule', { channel, ...settings }));
+    },
+
+    async markAlertsRead(channel: string): Promise<AlertsReply> {
+      return unwrap<AlertsReply>(await send('/api/alerts/read', { channel }));
     },
   };
 }

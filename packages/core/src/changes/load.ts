@@ -61,13 +61,21 @@ export function resolveSince(
 const isoOrNull = (time: number, count: number): string | null =>
   count > 0 ? new Date(time).toISOString() : null;
 
-/** What changed around a centre channel since a moment; null when it has no map. */
-export function loadChanges(
-  deps: ChangesDeps,
+export type HistoryDeps = SnapshotDeps & { readonly videos: VideoRepo };
+
+/** The look-alikes of a centre channel's latest map with every stored reading of their videos. */
+export interface MapHistories {
+  readonly mapId: number;
+  readonly peers: readonly { readonly id: string; readonly title: string }[];
+  readonly histories: readonly ChannelHistory[];
+}
+
+/** A centre channel's look-alikes and their stored readings; null when it has no map. */
+export function lookalikeHistories(
+  deps: HistoryDeps,
   centerChannelId: string,
-  since: Date,
   now: Date,
-): ChangesView | null {
+): MapHistories | null {
   const map = deps.maps.latestForCenter(centerChannelId);
   const snapshot = map ? loadMapSnapshot(deps, centerChannelId, now) : null;
   if (!map || !snapshot) return null;
@@ -83,6 +91,19 @@ export function loadChanges(
       },
     ];
   });
+  return { mapId: map.id, peers, histories };
+}
+
+/** What changed around a centre channel since a moment; null when it has no map. */
+export function loadChanges(
+  deps: ChangesDeps,
+  centerChannelId: string,
+  since: Date,
+  now: Date,
+): ChangesView | null {
+  const found = lookalikeHistories(deps, centerChannelId, now);
+  if (!found) return null;
+  const { mapId, peers, histories } = found;
   const readAt = histories.map((history) => history.channel.fetchedAt.getTime());
   return {
     centerChannelId,
@@ -90,7 +111,7 @@ export function loadChanges(
     now: now.toISOString(),
     changes: mapChanges({ lookalikes: histories, since, now }),
     lookalikes: lookalikeChanges(
-      map.id,
+      mapId,
       peers.map((peer) => ({ channelId: peer.id, title: peer.title })),
       deps.looks.mapAsOf(centerChannelId, since),
       {

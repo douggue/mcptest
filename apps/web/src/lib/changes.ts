@@ -34,13 +34,13 @@ const STALE_AFTER_HOURS = 24;
 const count = (value: number, unit: string): string => `${value} ${unit}${value === 1 ? '' : 's'}`;
 
 /** A length of time in the unit that reads naturally. */
-function span(ms: number): string {
+export function span(ms: number): string {
   if (ms < HOUR_MS) return count(Math.max(1, Math.floor(ms / MINUTE_MS)), 'minute');
   if (ms < HOURS_SHOWN_UNTIL_MS) return count(Math.floor(ms / HOUR_MS), 'hour');
   return formatAge(ms / DAY_MS);
 }
 
-const since = (iso: string, now: Date): number =>
+export const since = (iso: string, now: Date): number =>
   Math.max(0, now.getTime() - new Date(iso).getTime());
 
 /** The moment the comparison starts from, in a sentence. */

@@ -112,6 +112,15 @@ compiler:
   already read, so it is only as fresh as the last refresh; the line at its foot
   says when these channels were last read, with a link to **Refresh now**. No AI
   is used.
+- **Alerts** (inside **What changed**): set a rule for the channel on screen and
+  Jgtube tells you when a channel like yours posts a video that reaches your
+  number, such as 5× its channel's usual views (5× is the suggestion; you can
+  choose from 2× to 100×), and, if you tick it, when a channel like yours newly
+  counts as taken off. Each saved channel has its own rule. The check happens on
+  your computer after each refresh, so an alert is only as fresh as the last
+  refresh; nothing is sent anywhere. A small number on a channel under **Your
+  channels** says how many alerts you have not read; **Mark alerts read** clears
+  it. Only what happens after you save a rule is told of.
 - **The radar** shows the channels around yours. **Like yours** is the filtered
   list; **Everything** is every channel that was read. Click a channel for
   details. You can remove one that is not a competitor, or keep one the filter
