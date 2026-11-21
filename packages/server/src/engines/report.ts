@@ -17,6 +17,8 @@ export interface EnginesCommand {
   readonly video: string | null;
   /** The id of a YouTube video for Antigravity to try from its link alone. */
   readonly youtube: string | null;
+  /** Add the one line Antigravity's settings need to use Jgtube's tools, then stop. */
+  readonly allowAntigravity: boolean;
 }
 
 /** What `--try` can do; the command line program supplies the real thing. */
@@ -59,6 +61,8 @@ export function videoIdOf(link: string): string | null {
   return isVideoId(candidate) ? candidate : null;
 }
 
+const ALLOW_ANTIGRAVITY = '--allow-antigravity';
+
 /** The value that follows a flag. Throws, in plain words, when there is none. */
 function valueAfter(argv: readonly string[], flag: string, what: string): string | null {
   const at = argv.indexOf(flag);
@@ -72,7 +76,7 @@ function valueAfter(argv: readonly string[], flag: string, what: string): string
 export function parseEnginesArgs(argv: readonly string[]): EnginesCommand {
   const video = valueAfter(argv, '--video', 'the path of a small MP4 file');
   const link = valueAfter(argv, '--youtube', 'a YouTube link');
-  const known = ['--try', '--video', '--youtube', video, link];
+  const known = ['--try', '--video', '--youtube', ALLOW_ANTIGRAVITY, video, link];
   const stray = argv.find((argument) => !known.includes(argument));
   if (stray !== undefined) throw new Error(`Not understood: ${stray}`);
   const wantsTry = argv.includes('--try');
@@ -81,7 +85,11 @@ export function parseEnginesArgs(argv: readonly string[]): EnginesCommand {
   }
   const youtube = link === null ? null : videoIdOf(link);
   if (link !== null && youtube === null) throw new Error('--youtube needs a YouTube link');
-  return { try: wantsTry, video, youtube };
+  const allowAntigravity = argv.includes(ALLOW_ANTIGRAVITY);
+  if (allowAntigravity && argv.length > 1) {
+    throw new Error(`${ALLOW_ANTIGRAVITY} is used on its own`);
+  }
+  return { try: wantsTry, video, youtube, allowAntigravity };
 }
 
 function signInWords(signedIn: boolean | null): string {

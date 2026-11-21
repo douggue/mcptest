@@ -180,9 +180,18 @@ each engine one small question through Jgtube's tools and prints the answer or
 the reason it failed. It uses a little of each plan's allowance.
 
 **The one line Antigravity needs.** Antigravity asks before it uses a new tool,
-and a run started by Jgtube cannot answer, so the tool is quietly refused. Open
-the file `settings.json` in the folder `.gemini`, then `antigravity-cli`, inside
-your home folder (create it if it is not there) and make sure it has this:
+and a run started by Jgtube cannot answer, so the tool is quietly refused. To
+set it up, open a terminal in the Jgtube folder and type:
+
+```
+npm run engines -- --allow-antigravity
+```
+
+That adds one line to Antigravity's own settings file (`settings.json` in the
+folder `.gemini`, then `antigravity-cli`, inside your home folder), keeps a copy
+of the file as it was beside it, and changes nothing else. Jgtube only touches
+that file when you run this command. To do it by hand instead, make sure the
+file has this:
 
 ```json
 {
@@ -192,9 +201,8 @@ your home folder (create it if it is not there) and make sure it has this:
 }
 ```
 
-If the file already has an `"allow"` list, add `"mcp(jgtube/*)"` to it. Jgtube
-never changes this file itself. Until the line is there, Antigravity is passed
-over and the next engine is used.
+If the file already has an `"allow"` list, add `"mcp(jgtube/*)"` to it. Until the
+line is there, Antigravity is passed over and the next engine is used.
 
 **Changing the order.** Set `JGTUBE_ENGINES` in `.env` to the engines you want,
 most preferred first, separated by commas: for example `JGTUBE_ENGINES=claude,codex`.

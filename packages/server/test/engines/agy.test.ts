@@ -2,7 +2,13 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { agyMcpConfig, allowsServer, buildAgyArgs, createAgyEngine } from '../../src/engines/agy';
+import {
+  agyMcpConfig,
+  allowServerInSettings,
+  allowsServer,
+  buildAgyArgs,
+  createAgyEngine,
+} from '../../src/engines/agy';
 import type { EngineDeps, EngineRunRequest, FileLookup } from '../../src/engines/types';
 import { scripted, type Scripted, type Started } from './standIn';
 
@@ -330,5 +336,57 @@ describe('checking Antigravity when the owner listed each tool', () => {
     expect(allowsServer(each, 'jgtube', ['get_map', 'get_breakouts'])).toBe(true);
     expect(allowsServer(each, 'jgtube', ['get_map', 'make_map'])).toBe(false);
     expect(allowsServer(each, 'other', [])).toBe(false);
+  });
+});
+
+describe('letting Antigravity use Jgtube’s tools, done for the owner', () => {
+  const RULE = 'mcp(jgtube/*)';
+
+  test('makes the settings when there are none', () => {
+    const outcome = allowServerInSettings(null, 'jgtube');
+
+    expect(outcome).toMatchObject({ ok: true, changed: true });
+    expect(outcome.ok && JSON.parse(outcome.text)).toEqual({ permissions: { allow: [RULE] } });
+    expect(outcome.ok && allowsServer(outcome.text, 'jgtube', ['get_map'])).toBe(true);
+  });
+
+  test('adds the one line and keeps everything else the owner has set', () => {
+    const before = JSON.stringify({
+      theme: 'dark',
+      permissions: { allow: ['mcp(other/*)'], deny: ['shell(rm)'] },
+    });
+
+    const outcome = allowServerInSettings(before, 'jgtube');
+
+    expect(outcome.ok && JSON.parse(outcome.text)).toEqual({
+      theme: 'dark',
+      permissions: { allow: ['mcp(other/*)', RULE], deny: ['shell(rm)'] },
+    });
+  });
+
+  test('changes nothing when the tools are already allowed', () => {
+    const before = JSON.stringify({ permissions: { allow: [RULE] } });
+
+    expect(allowServerInSettings(before, 'jgtube')).toEqual({
+      ok: true,
+      changed: false,
+      text: before,
+    });
+  });
+
+  test('refuses to touch settings it cannot read, or that deny the tools', () => {
+    const unreadable = allowServerInSettings('{ not json', 'jgtube');
+    const list = allowServerInSettings('[1, 2]', 'jgtube');
+    const denied = allowServerInSettings(
+      JSON.stringify({ permissions: { deny: [RULE] } }),
+      'jgtube',
+    );
+
+    expect(unreadable).toMatchObject({
+      ok: false,
+      problem: expect.stringMatching(/cannot be read/),
+    });
+    expect(list).toMatchObject({ ok: false });
+    expect(denied).toMatchObject({ ok: false, problem: expect.stringMatching(/deny/) });
   });
 });

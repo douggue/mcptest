@@ -61,7 +61,7 @@ import type {
 
 export const AGY: Program = { command: 'agy', label: 'Antigravity CLI', name: 'Antigravity' };
 /** Where the owner's own settings live, under their home folder. Read, never written. */
-const SETTINGS_FILE = ['.gemini', 'antigravity-cli', 'settings.json'] as const;
+export const SETTINGS_FILE = ['.gemini', 'antigravity-cli', 'settings.json'] as const;
 /** Where a working folder's tool servers are read from. */
 const MCP_CONFIG_FOLDER = '.agents';
 const MCP_CONFIG_FILE = 'mcp_config.json';
@@ -167,6 +167,51 @@ export function allowsServer(
       : allow.some((rule) => rule.startsWith(`mcp(${server}/`));
   return eachTool || allow.some((rule) => whole.includes(rule));
 }
+
+export type AllowOutcome =
+  | { readonly ok: true; readonly changed: boolean; readonly text: string }
+  | { readonly ok: false; readonly problem: string };
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * The owner's Antigravity settings with the one rule added that lets a run
+ * started by Jgtube use the server's tools, everything else left as it was.
+ * Settings that cannot be read, or that deny the tools, are refused, never
+ * overwritten. The rule names every tool of the server: which of them a run
+ * may use is held by the connector itself, not by this file.
+ */
+export function allowServerInSettings(settingsText: string | null, server: string): AllowOutcome {
+  const rule = `mcp(${server}/*)`;
+  if (settingsText === null || settingsText.trim() === '') {
+    return { ok: true, changed: true, text: asSettingsText({ permissions: { allow: [rule] } }) };
+  }
+  let settings: unknown;
+  try {
+    settings = JSON.parse(settingsText) as unknown;
+  } catch {
+    settings = null;
+  }
+  if (!isObject(settings)) {
+    return {
+      ok: false,
+      problem: 'The settings file cannot be read as settings, so it was left alone.',
+    };
+  }
+  const permissions = isObject(settings['permissions']) ? settings['permissions'] : {};
+  const listed = (key: string): readonly unknown[] =>
+    Array.isArray(permissions[key]) ? (permissions[key] as readonly unknown[]) : [];
+  if (listed('deny').some((entry) => entry === rule || entry === 'mcp(*)')) {
+    return { ok: false, problem: `The settings deny ${rule}. Remove that line from "deny" first.` };
+  }
+  if (allowsServer(settingsText, server, []))
+    return { ok: true, changed: false, text: settingsText };
+  const next = { ...settings, permissions: { ...permissions, allow: [...listed('allow'), rule] } };
+  return { ok: true, changed: true, text: asSettingsText(next) };
+}
+
+const asSettingsText = (settings: unknown): string => `${JSON.stringify(settings, null, 2)}\n`;
 
 function readSettings(deps: EngineDeps): string | null {
   const files = deps.files ?? realFiles;

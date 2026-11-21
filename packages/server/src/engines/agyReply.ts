@@ -29,7 +29,7 @@ const NAMES_MCP = /\bmcp\b|mcp_|call_mcp_tool/i;
 
 /** The line the owner has to add, and where. Shown when the tools are not allowed. */
 export const permissionHelp = (server: string): string =>
-  `Antigravity CLI may not use Jgtube's tools yet. In your home folder open .gemini, then antigravity-cli, then settings.json, and add "mcp(${server}/*)" to the "allow" list under "permissions" (the README shows the lines). Then try again.`;
+  `Antigravity CLI may not use Jgtube's tools yet. The quick way: open a terminal in the Jgtube folder and type "npm run engines -- --allow-antigravity", then try again. (By hand: in your home folder open .gemini, then antigravity-cli, then settings.json, and add "mcp(${server}/*)" to the "allow" list under "permissions".)`;
 
 const replySchema = z.object({
   status: z.string().optional(),

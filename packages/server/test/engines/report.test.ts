@@ -50,14 +50,29 @@ const order = ['agy', 'claude', 'codex'] as const;
 
 describe('parseEnginesArgs', () => {
   test('only reports unless asked to try', () => {
-    expect(parseEnginesArgs([])).toEqual({ try: false, video: null, youtube: null });
-    expect(parseEnginesArgs(['--try'])).toEqual({ try: true, video: null, youtube: null });
+    expect(parseEnginesArgs([])).toEqual({
+      try: false,
+      video: null,
+      youtube: null,
+      allowAntigravity: false,
+    });
+    expect(parseEnginesArgs(['--try'])).toEqual({
+      try: true,
+      video: null,
+      youtube: null,
+      allowAntigravity: false,
+    });
   });
 
   test('takes a video file and a YouTube link to try', () => {
     expect(
       parseEnginesArgs(['--try', '--video', 'C:\\clips\\tiny.mp4', '--youtube', 'dQw4w9WgXcQ']),
-    ).toEqual({ try: true, video: 'C:\\clips\\tiny.mp4', youtube: 'dQw4w9WgXcQ' });
+    ).toEqual({
+      try: true,
+      video: 'C:\\clips\\tiny.mp4',
+      youtube: 'dQw4w9WgXcQ',
+      allowAntigravity: false,
+    });
   });
 
   test.each([
@@ -181,12 +196,10 @@ describe('planTrials and runTrials', () => {
   };
 
   test('tries each installed engine in order, and says which were left alone and why', async () => {
-    const { printed, asked } = await tried({ try: true, video: null, youtube: null }, [
-      agy,
-      claude,
-      codexMissing,
-      geminiNoKey,
-    ]);
+    const { printed, asked } = await tried(
+      { try: true, video: null, youtube: null, allowAntigravity: false },
+      [agy, claude, codexMissing, geminiNoKey],
+    );
 
     expect(asked).toEqual(['agy', 'claude']);
     expect(printed).toEqual([
@@ -204,7 +217,10 @@ describe('planTrials and runTrials', () => {
 
   test('does not try an engine nobody is signed in to', async () => {
     const signedOut = status('claude', 'Claude Code', { signedIn: false, ready: false });
-    const { printed, asked } = await tried({ try: true, video: null, youtube: null }, [signedOut]);
+    const { printed, asked } = await tried(
+      { try: true, video: null, youtube: null, allowAntigravity: false },
+      [signedOut],
+    );
 
     expect(asked).toEqual([]);
     expect(printed).toContain('Not trying Claude Code: nobody is signed in.');
@@ -215,7 +231,7 @@ describe('planTrials and runTrials', () => {
       agy: new EngineRunError('not-signed-in', 'Add "mcp(jgtube/*)" to its settings.'),
     });
     const { printed, asked } = await tried(
-      { try: true, video: null, youtube: null },
+      { try: true, video: null, youtube: null, allowAntigravity: false },
       [agy, claude],
       made,
     );
@@ -226,9 +242,10 @@ describe('planTrials and runTrials', () => {
   });
 
   test('asks Gemini one question in words when a key is set', async () => {
-    const { printed, asked } = await tried({ try: true, video: null, youtube: null }, [
-      geminiWithKey,
-    ]);
+    const { printed, asked } = await tried(
+      { try: true, video: null, youtube: null, allowAntigravity: false },
+      [geminiWithKey],
+    );
 
     expect(asked).toEqual(['gemini-api']);
     expect(printed).toContain(
@@ -238,7 +255,7 @@ describe('planTrials and runTrials', () => {
 
   test('has Antigravity watch the file and the link it was given, when it is installed', async () => {
     const { printed, asked } = await tried(
-      { try: true, video: 'tiny.mp4', youtube: 'dQw4w9WgXcQ' },
+      { try: true, video: 'tiny.mp4', youtube: 'dQw4w9WgXcQ', allowAntigravity: false },
       [agy],
     );
 
@@ -252,7 +269,7 @@ describe('planTrials and runTrials', () => {
   test('says it cannot try video without Antigravity', async () => {
     const missing = status('agy', 'Antigravity CLI', { installed: false, ready: false });
     const { printed, asked } = await tried(
-      { try: true, video: 'tiny.mp4', youtube: 'dQw4w9WgXcQ' },
+      { try: true, video: 'tiny.mp4', youtube: 'dQw4w9WgXcQ', allowAntigravity: false },
       [missing],
     );
 
@@ -268,7 +285,11 @@ describe('planTrials and runTrials', () => {
     made.all.ask = async () => {
       throw new Error('boom at /home/someone/x.ts');
     };
-    const { printed } = await tried({ try: true, video: null, youtube: null }, [claude], made);
+    const { printed } = await tried(
+      { try: true, video: null, youtube: null, allowAntigravity: false },
+      [claude],
+      made,
+    );
 
     expect(printed.join('\n')).toMatch(/It failed \(failed\): boom at <path>/);
   });
@@ -277,7 +298,22 @@ describe('planTrials and runTrials', () => {
     const { all } = actions();
 
     expect(
-      planTrials({ try: false, video: null, youtube: null }, { engines: [claude], order }, all),
+      planTrials(
+        { try: false, video: null, youtube: null, allowAntigravity: false },
+        { engines: [claude], order },
+        all,
+      ),
     ).toEqual([]);
+  });
+});
+
+describe('the option that sets Antigravity up', () => {
+  test('is read on its own, and refused together with the trial options', () => {
+    expect(parseEnginesArgs(['--allow-antigravity'])).toMatchObject({
+      allowAntigravity: true,
+      try: false,
+    });
+    expect(parseEnginesArgs([])).toMatchObject({ allowAntigravity: false });
+    expect(() => parseEnginesArgs(['--allow-antigravity', '--try'])).toThrow(/on its own/);
   });
 });
