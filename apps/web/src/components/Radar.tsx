@@ -9,6 +9,16 @@ const STAGE_WIDTH = 1200;
 const STAGE_HEIGHT = 620;
 const ZOOM_STEPS = [0.7, 0.85, 1, 1.2, 1.45] as const;
 const DEFAULT_ZOOM_INDEX = 2;
+/** On a phone the stage starts zoomed out, so more of the rings fit. */
+const PHONE_ZOOM_INDEX = 0;
+const PHONE_WIDTH = 640;
+
+/** Where the zoom starts and returns to: zoomed out on a narrow screen. */
+function startZoom(): number {
+  return typeof window !== 'undefined' && window.innerWidth < PHONE_WIDTH
+    ? PHONE_ZOOM_INDEX
+    : DEFAULT_ZOOM_INDEX;
+}
 
 const NODE_SIZE: Readonly<Record<RadarNode['tier'], string>> = {
   close: 'h-14 w-14 text-body-md',
@@ -30,8 +40,8 @@ interface Props {
   readonly onSelect: (channelId: string) => void;
   /** Shown over the rings when there is no map to draw. */
   readonly emptyState: ReactNode;
-  /** The details panel for the selected channel. */
-  readonly children: ReactNode;
+  /** Anything drawn over the stage, such as a status line. */
+  readonly children?: ReactNode;
 }
 
 function Node({
@@ -76,14 +86,15 @@ function Node({
 
 /** The orbital map: you in the middle, competing channels on rings by closeness. */
 export function Radar({ snapshot, layout, selectedId, onSelect, emptyState, children }: Props) {
-  const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
+  const [home] = useState(startZoom);
+  const [zoomIndex, setZoomIndex] = useState(home);
   const zoom = ZOOM_STEPS[zoomIndex] ?? 1;
   const centerId = snapshot?.center.id;
 
   return (
     <section
       aria-label="Competitor radar"
-      className="relative h-[620px] w-full select-none overflow-hidden bg-space-deep"
+      className="relative h-[460px] w-full select-none overflow-hidden rounded-lg border border-border-subtle bg-space-deep sm:h-[620px]"
     >
       <div
         className="absolute left-1/2 top-1/2 transition-transform duration-500 ease-out"
@@ -177,7 +188,7 @@ export function Radar({ snapshot, layout, selectedId, onSelect, emptyState, chil
         </div>
       )}
 
-      <div className="absolute bottom-5 left-6 z-40 flex flex-col gap-2">
+      <div className="absolute bottom-4 left-4 z-40 flex flex-col gap-2">
         <div className="flex w-fit flex-col overflow-hidden rounded bg-surface-card/90 p-1 shadow-xl backdrop-blur-md">
           <button
             type="button"
@@ -200,35 +211,41 @@ export function Radar({ snapshot, layout, selectedId, onSelect, emptyState, chil
           <button
             type="button"
             aria-label="Reset zoom"
-            onClick={() => setZoomIndex(DEFAULT_ZOOM_INDEX)}
+            onClick={() => setZoomIndex(home)}
             className="flex h-10 w-10 items-center justify-center rounded text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
           >
             <Maximize aria-hidden="true" className="h-[18px] w-[18px]" />
           </button>
         </div>
-        <div className="flex items-center gap-3 rounded-full bg-surface-card/90 px-3 py-1.5 shadow-lg backdrop-blur-md">
-          <span className="flex items-center gap-1.5 text-label-caps text-outline">
-            <span className="h-0.5 w-3 rounded bg-primary-container" />
-            Strong link
-          </span>
-          <span className="flex items-center gap-1.5 text-label-caps text-outline">
-            <span className="h-2 w-2 rounded-full bg-primary-container shadow-[0_0_6px_#00d2ff]" />
-            Rising
-          </span>
-          <span className="flex items-center gap-1.5 text-label-caps text-outline">
-            <span className="h-2 w-2 rounded-full bg-metric-amber" />
-            Breakout
-          </span>
-        </div>
       </div>
-
-      {layout && layout.hidden > 0 && (
-        <div className="absolute left-6 top-[6.5rem] z-40 rounded-full bg-surface-card/90 px-3 py-1.5 text-label-caps text-outline shadow-lg backdrop-blur-md">
-          +{layout.hidden} more channels in the list below
-        </div>
-      )}
 
       {children}
     </section>
+  );
+}
+
+/** What the marks on the radar mean, in a quiet row under it. */
+export function RadarLegend() {
+  return (
+    <ul
+      aria-label="Key"
+      className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body-sm text-on-surface-variant"
+    >
+      <li className="flex items-center gap-1.5">
+        <span aria-hidden="true" className="h-0.5 w-4 rounded bg-primary-container" />
+        Strong link
+      </li>
+      <li className="flex items-center gap-1.5">
+        <span
+          aria-hidden="true"
+          className="h-2 w-2 rounded-full bg-primary-container shadow-[0_0_6px_#00d2ff]"
+        />
+        Rising
+      </li>
+      <li className="flex items-center gap-1.5">
+        <span aria-hidden="true" className="h-2 w-2 rounded-full bg-metric-amber" />
+        Breakout, as &times; its channel&rsquo;s usual views
+      </li>
+    </ul>
   );
 }

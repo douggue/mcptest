@@ -1,6 +1,8 @@
 import { Search } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { describeSearch } from '../lib/niches';
+import { Field } from './layout/Card';
+import { FIELD, QUIET_BUTTON } from './LabStatus';
 import type { SearchState } from './useNiches';
 
 const MAX_KEYWORD_LENGTH = 200;
@@ -56,7 +58,7 @@ export function NicheSearch({ canDiscover, search, onSearch }: Props) {
 
   if (!canDiscover) {
     return (
-      <p className={`rounded bg-surface-card p-space-md ${NOTE}`}>
+      <p className={NOTE}>
         To look for niches by keyword, Jgtube needs a YouTube API key. Put{' '}
         <code className="text-on-surface">YOUTUBE_API_KEY=your key</code> in a file named{' '}
         <code className="text-on-surface">.env</code> in the Jgtube folder and start it again.
@@ -65,35 +67,34 @@ export function NicheSearch({ canDiscover, search, onSearch }: Props) {
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded bg-surface-card p-space-md">
-      <form onSubmit={submit} className="relative">
-        <label htmlFor="niche-keyword" className="sr-only">
-          Keyword to search YouTube for
-        </label>
-        <Search
-          aria-hidden="true"
-          className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-outline"
-        />
-        <input
-          id="niche-keyword"
-          type="text"
-          value={keyword}
-          onChange={(event) => setKeyword(event.target.value)}
-          placeholder="Look for niches by keyword: a few words that titles in a niche share"
-          autoComplete="off"
-          spellCheck={false}
-          maxLength={MAX_KEYWORD_LENGTH}
-          className="w-full rounded-full bg-space-deep py-2.5 pl-11 pr-36 text-body-sm text-on-surface placeholder-outline shadow-[inset_0_2px_6px_rgba(0,0,0,0.6)] focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
-        />
-        <button
-          type="submit"
-          disabled={running || keyword.trim() === ''}
-          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full bg-on-surface px-4 py-1.5 text-body-sm font-semibold text-space-deep transition-all hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {running ? 'Searching…' : 'Search YouTube'}
-        </button>
-      </form>
+    <form onSubmit={submit} className="flex min-w-0 flex-col gap-space-sm">
+      <Field label={<label htmlFor="niche-keyword">Look for niches by keyword</label>}>
+        <div className="relative">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-outline"
+          />
+          <input
+            id="niche-keyword"
+            type="text"
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+            placeholder="A few words titles in a niche share"
+            autoComplete="off"
+            spellCheck={false}
+            maxLength={MAX_KEYWORD_LENGTH}
+            className={`${FIELD} min-h-11 pl-11`}
+          />
+        </div>
+      </Field>
+      <button
+        type="submit"
+        disabled={running || keyword.trim() === ''}
+        className={`min-h-10 ${QUIET_BUTTON}`}
+      >
+        {running ? 'Searching…' : 'Search YouTube'}
+      </button>
       <Outcome search={search} />
-    </div>
+    </form>
   );
 }

@@ -10,6 +10,8 @@ import {
   tileOf,
 } from '../lib/transfers';
 import { versionCountry } from '../lib/transferPlace';
+import { Card, Label } from './layout/Card';
+import { Details } from './layout/Details';
 import { Outbound } from './NicheCard';
 import { ThumbnailTile } from './ThumbnailTile';
 
@@ -103,26 +105,23 @@ function VersionRow({ version }: { readonly version: TransferVersion }) {
   );
 }
 
-/** The versions side by side, most viewed first, beside the thumbnail of the strongest. */
+/** The versions, most viewed first, behind a disclosure that starts closed. */
 function Versions({ idea }: { readonly idea: TransferIdea }) {
-  const strongest = idea.verdict.winner ?? idea.best;
-  const hidden = idea.versionCount - Math.min(idea.versions.length, VERSIONS_ON_CARD);
-  if (!strongest) return null;
+  const shown = idea.versions.slice(0, VERSIONS_ON_CARD);
+  const hidden = idea.versionCount - shown.length;
+  if (shown.length === 0) return null;
   return (
-    <div className="grid grid-cols-1 gap-space-md sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)]">
-      <ThumbnailTile video={tileOf(strongest)} tone={scoreTone(strongest.score, AMBER)} />
-      <div className="flex min-w-0 flex-col gap-space-sm">
-        <span className="text-label-caps uppercase text-outline">
-          Versions · place in the title, channel and its country, subscribers, views, score, age
-        </span>
-        <ul className="flex flex-col gap-space-sm">
-          {idea.versions.slice(0, VERSIONS_ON_CARD).map((version) => (
-            <VersionRow key={version.videoId} version={version} />
-          ))}
-        </ul>
-        {hidden > 0 && <span className="text-label-caps text-outline">and {hidden} more</span>}
-      </div>
-    </div>
+    <Details summary={`Versions (${idea.versionCount})`}>
+      <span className="text-body-sm text-outline">
+        Place in the title, channel and its country, subscribers, views, score, age.
+      </span>
+      <ul className="flex flex-col gap-space-sm">
+        {shown.map((version) => (
+          <VersionRow key={version.videoId} version={version} />
+        ))}
+      </ul>
+      {hidden > 0 && <span className="text-body-sm text-outline">and {hidden} more</span>}
+    </Details>
   );
 }
 
@@ -131,9 +130,7 @@ function Variants({ idea, place }: { readonly idea: TransferIdea; readonly place
   if (idea.variants.length === 0) return null;
   return (
     <div className="flex flex-col gap-space-sm">
-      <span className="text-label-caps uppercase text-outline">
-        One word different, made for {place}
-      </span>
+      <Label>One word different, made for {place}</Label>
       <ul className="flex flex-col gap-space-sm">
         {idea.variants.map((variant) => (
           <li key={variant.videoId} className="flex items-baseline justify-between gap-3">
@@ -156,21 +153,15 @@ interface Props extends SaveProps {
   readonly onMakeConcepts?: (() => void) | undefined;
 }
 
-/** One idea several channels made: the verdict for the owner's place, then its versions. */
-export function TransferCard({ idea, ownerPlace, onSetSaved, onMakeConcepts }: Props) {
+/** The strongest version's thumbnail beside the verdict and the way into the idea lab. */
+function Verdict({ idea, ownerPlace, onMakeConcepts }: Omit<Props, 'onSetSaved'>) {
+  const strongest = idea.verdict.winner ?? idea.best;
   return (
-    <article
-      className={`flex min-w-0 flex-col gap-space-md rounded bg-surface-card p-space-md shadow-md ${
-        idea.saved ? 'ring-1 ring-border-highlight' : ''
-      }`}
-    >
-      <div className="flex min-w-0 items-start gap-space-sm">
-        <h3 className="min-w-0 text-title-md text-on-surface">
-          <Template template={idea.template} />
-        </h3>
-        <SaveToggle idea={idea} onSetSaved={onSetSaved} />
-      </div>
-      <div className="flex flex-col gap-space-sm">
+    <div className="grid grid-cols-1 gap-space-md sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
+      {strongest && (
+        <ThumbnailTile video={tileOf(strongest)} tone={scoreTone(strongest.score, AMBER)} />
+      )}
+      <div className="flex min-w-0 flex-col items-start gap-space-sm">
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={`${PILL} ${idea.opportunity ? 'text-primary-fixed-dim' : 'text-on-surface-variant'}`}
@@ -178,23 +169,38 @@ export function TransferCard({ idea, ownerPlace, onSetSaved, onMakeConcepts }: P
             {statusLabel(idea.verdict.status)}
           </span>
           {idea.versionCount > 0 && (
-            <span className="text-label-caps text-outline">{describeIdeaReach(idea)}</span>
+            <span className="text-body-sm text-outline">{describeIdeaReach(idea)}</span>
           )}
         </div>
         <p className="text-body-md text-on-surface">{describeVerdict(idea, ownerPlace)}</p>
+        {onMakeConcepts && (
+          <button
+            type="button"
+            onClick={onMakeConcepts}
+            className="mt-1 flex min-h-9 items-center gap-1.5 rounded-full bg-surface-container-high px-4 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-highest focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
+          >
+            <Lightbulb aria-hidden="true" className="h-4 w-4" />
+            Make concepts from this idea
+          </button>
+        )}
       </div>
-      <Versions idea={idea} />
+    </div>
+  );
+}
+
+/** One idea several channels made: the verdict for the owner's place, then its versions. */
+export function TransferCard({ idea, ownerPlace, onSetSaved, onMakeConcepts }: Props) {
+  return (
+    <Card as="article" highlighted={idea.saved}>
+      <div className="flex min-w-0 items-start gap-space-sm">
+        <h3 className="min-w-0 text-title-md text-on-surface">
+          <Template template={idea.template} />
+        </h3>
+        <SaveToggle idea={idea} onSetSaved={onSetSaved} />
+      </div>
+      <Verdict idea={idea} ownerPlace={ownerPlace} onMakeConcepts={onMakeConcepts} />
       {ownerPlace && <Variants idea={idea} place={ownerPlace.name} />}
-      {onMakeConcepts && (
-        <button
-          type="button"
-          onClick={onMakeConcepts}
-          className="flex items-center gap-1.5 self-start rounded-full bg-surface-container-high px-3 py-1.5 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-highest focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
-        >
-          <Lightbulb aria-hidden="true" className="h-4 w-4" />
-          Make concepts from this idea
-        </button>
-      )}
-    </article>
+      <Versions idea={idea} />
+    </Card>
   );
 }

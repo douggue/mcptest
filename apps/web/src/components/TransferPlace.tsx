@@ -32,28 +32,24 @@ export function TransferPlace({ list, countryNote, onChoose }: Props) {
     <div
       role="group"
       aria-label="The place these ideas are judged for"
-      className="flex flex-col gap-space-sm rounded bg-surface-card p-space-md"
+      className="flex min-w-0 flex-col gap-space-sm"
     >
-      <div className="flex flex-wrap items-end justify-between gap-space-md">
-        <div className="flex min-w-0 flex-col gap-1">
-          <span className={LABEL}>Your place</span>
-          <p className="text-title-md text-on-surface">{describePlaceInUse(ownerPlace)}</p>
-        </div>
-        <label className="flex min-w-0 flex-col gap-1">
-          <span className={LABEL}>Set it yourself</span>
-          <select
-            value={check.chosen?.key ?? ''}
-            onChange={(event) => onChoose(event.target.value === '' ? null : event.target.value)}
-            className="min-h-11 max-w-full rounded-full bg-space-deep px-4 text-body-sm text-on-surface shadow-[inset_0_2px_6px_rgba(0,0,0,0.6)] focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
-          >
-            {placeChoices().map((place) => (
-              <option key={place.key} value={place.key}>
-                {place.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <span className={LABEL}>Your place</span>
+      <p className="text-body-md text-on-surface">{describePlaceInUse(ownerPlace)}</p>
+      <label className="flex min-w-0 flex-col gap-1">
+        <span className="text-body-sm text-on-surface-variant">Set it yourself</span>
+        <select
+          value={check.chosen?.key ?? ''}
+          onChange={(event) => onChoose(event.target.value === '' ? null : event.target.value)}
+          className="min-h-11 w-full rounded-full bg-space-deep px-4 text-body-sm text-on-surface shadow-[inset_0_2px_6px_rgba(0,0,0,0.6)] focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
+        >
+          {placeChoices().map((place) => (
+            <option key={place.key} value={place.key}>
+              {place.name}
+            </option>
+          ))}
+        </select>
+      </label>
       <ul className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
         <li>
           {check.fromTitles

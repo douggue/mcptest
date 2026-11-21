@@ -11,16 +11,16 @@ import {
   type BoardMode,
 } from '../lib/board';
 import { channelUrl, formatCount, initials } from '../lib/format';
+import { Card } from './layout/Card';
 import { ThumbnailTile } from './ThumbnailTile';
 
 /** Six across on a wide screen, so a channel's handful sits on one line. */
 const FULL_GRID = 'grid grid-cols-2 gap-x-3 gap-y-space-md sm:grid-cols-3 xl:grid-cols-6';
 /** Three across, for two groups side by side. */
 const HALF_GRID = 'grid grid-cols-2 gap-x-3 gap-y-space-md sm:grid-cols-3';
-const CARD = 'flex flex-col gap-space-md rounded bg-surface-card p-space-md shadow-md';
 const AVATAR =
-  'flex h-8 w-8 flex-none items-center justify-center rounded-full bg-space-deep text-xs font-bold';
-const EMPTY = 'rounded bg-surface-container-low p-space-md text-body-sm text-on-surface-variant';
+  'flex h-10 w-10 flex-none items-center justify-center rounded-full bg-surface-container-high text-body-sm font-bold ring-2 ring-border-subtle';
+const EMPTY = 'rounded-lg bg-space-deep p-space-md text-body-sm text-on-surface-variant';
 
 interface TilesProps {
   readonly videos: readonly BoardVideo[];
@@ -52,9 +52,9 @@ interface GroupProps extends TilesProps {
 function Group({ label, hint, dot, ...tiles }: GroupProps) {
   return (
     <div className="flex min-w-0 flex-col gap-space-sm">
-      <div className="flex flex-wrap items-center gap-1.5 text-label-caps text-outline">
+      <div className="flex flex-wrap items-center gap-1.5 text-body-sm text-outline">
         <span aria-hidden="true" className={`h-2 w-2 rounded-full ${dot}`} />
-        <span className="uppercase text-on-surface-variant">{label}</span>
+        <span className="text-label-caps uppercase text-on-surface-variant">{label}</span>
         <span>{hint}</span>
       </div>
       <Tiles {...tiles} />
@@ -131,18 +131,18 @@ function SaveButton(props: SaveButtonProps) {
         onClick={save}
         disabled={state.status === 'saving'}
         aria-label={props.ariaLabel}
-        className="flex flex-none items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-2 text-label-caps text-on-surface transition-colors hover:bg-surface-variant disabled:cursor-wait disabled:opacity-60"
+        className="flex min-h-9 flex-none items-center gap-1.5 rounded-full bg-surface-container-high px-3 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-variant disabled:cursor-wait disabled:opacity-60"
       >
         {props.icon}
         {state.status === 'saving' ? props.savingLabel : props.label}
       </button>
       {state.status === 'done' && (
-        <p role="status" className="min-w-0 break-all text-label-caps text-on-surface-variant">
+        <p role="status" className="min-w-0 break-all text-body-sm text-on-surface-variant">
           {state.text}
         </p>
       )}
       {state.status === 'failed' && (
-        <p role="alert" className="min-w-0 break-words text-label-caps text-error">
+        <p role="alert" className="min-w-0 break-words text-body-sm text-error">
           {state.text}
         </p>
       )}
@@ -205,12 +205,12 @@ export function ChannelCard(props: ChannelProps) {
   const { channel, board, mode, isModel, onDownload, onDownloadTranscripts } = props;
   const comparing = mode === 'compare';
   return (
-    <article className={CARD}>
+    <Card as="article">
       <div className="flex min-w-0 items-center gap-space-sm">
         <div className={`${AVATAR} text-secondary`}>{initials(channel.title).charAt(0)}</div>
         <div className="flex min-w-0 flex-col">
           <ChannelName channel={channel} />
-          <span className="truncate text-label-caps text-outline">
+          <span className="truncate text-body-sm text-on-surface-variant">
             {formatCount(channel.subscribers)} subscribers · {describeHitRate(channel)}
           </span>
         </div>
@@ -243,7 +243,7 @@ export function ChannelCard(props: ChannelProps) {
         )}
       </div>
       {channel.winners.length + channel.ordinary.length > 0 && (
-        <div className="flex min-w-0 flex-col gap-space-sm">
+        <div className="flex min-w-0 flex-col gap-space-sm border-t border-border-subtle pt-space-md sm:flex-row sm:flex-wrap sm:gap-space-md">
           <SaveThumbnails
             channelId={channel.id}
             channelTitle={channel.title}
@@ -258,7 +258,7 @@ export function ChannelCard(props: ChannelProps) {
           )}
         </div>
       )}
-    </article>
+    </Card>
   );
 }
 
@@ -271,12 +271,14 @@ interface OwnProps {
 /** The owner's own newest thumbnails, to hold up against the rest. */
 export function OwnCard({ center, board, onDownload }: OwnProps) {
   return (
-    <article className={`${CARD} ring-1 ring-border-highlight`}>
+    <Card as="article" highlighted>
       <div className="flex min-w-0 items-center gap-space-sm">
         <div className={`${AVATAR} text-primary-container`}>{initials(center.title).charAt(0)}</div>
         <div className="flex min-w-0 flex-col">
           <h3 className="truncate text-title-md text-on-surface">Your thumbnails</h3>
-          <span className="truncate text-label-caps text-outline">{describeOwn(center)}</span>
+          <span className="truncate text-body-sm text-on-surface-variant">
+            {describeOwn(center)}
+          </span>
         </div>
       </div>
       <Tiles
@@ -288,6 +290,6 @@ export function OwnCard({ center, board, onDownload }: OwnProps) {
       {center.videos.length > 0 && (
         <SaveThumbnails channelId={center.id} channelTitle={center.title} onDownload={onDownload} />
       )}
-    </article>
+    </Card>
   );
 }

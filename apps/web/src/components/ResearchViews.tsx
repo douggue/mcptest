@@ -2,6 +2,7 @@ import type { ViewId } from '../lib/routes';
 import { Benchmarks } from './Benchmarks';
 import { BreakoutFeed } from './BreakoutFeed';
 import { ChangesSection } from './ChangesSection';
+import { SplitView, ViewPage } from './layout/SplitView';
 import { Niches } from './Niches';
 import { RadarArea } from './RadarArea';
 import { RefreshBar } from './RefreshBar';
@@ -16,8 +17,12 @@ function Breakouts({ page, work, openChannel }: ViewParts) {
   const { lab } = work;
   if (!visible) return null;
   return (
-    <section className="w-full bg-space-deep px-gutter-desktop py-space-xl">
-      <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-space-xl xl:grid-cols-12">
+    <ViewPage id="breakouts" labelledBy="breakouts-title">
+      <SplitView
+        sideLabel="This map and its channels"
+        width="narrow"
+        side={<Benchmarks snapshot={visible} selectedId={null} onSelect={openChannel} />}
+      >
         <BreakoutFeed
           items={visible.breakouts}
           centerTitle={visible.center.title}
@@ -32,9 +37,8 @@ function Breakouts({ page, work, openChannel }: ViewParts) {
             })
           }
         />
-        <Benchmarks snapshot={visible} selectedId={null} onSelect={openChannel} />
-      </div>
-    </section>
+      </SplitView>
+    </ViewPage>
   );
 }
 
@@ -42,14 +46,14 @@ function Breakouts({ page, work, openChannel }: ViewParts) {
 export const RESEARCH_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
   radar: ({ page, openChannel }) => <RadarArea page={page} onOpenChannel={openChannel} />,
   'what-changed': ({ page, work }) => (
-    <>
+    <ViewPage labelledBy="what-changed-title">
       <ChangesSection
         snapshot={page.snapshot}
         reloadKey={work.refresh.run.status}
         onAlertsChanged={work.alertCounts.reload}
       />
       <RefreshBar refresh={work.refresh} />
-    </>
+    </ViewPage>
   ),
   breakouts: withMap('breakouts', (_snapshot, parts) => <Breakouts {...parts} />),
   'same-topic': withMap('same-topic', (snapshot, { work, page }) => (
