@@ -17,7 +17,7 @@ import { PLAN_ROUTES } from './planRoutes';
 import { PROFILE_ROUTES } from './profileRoutes';
 import { RISK_ROUTES } from './riskRoutes';
 import { THUMB_REVIEW_ROUTES } from './thumbReviewRoutes';
-import { JobStore } from './jobs';
+import { JobStore, type JobRecord } from './jobs';
 
 const ROUTES: ExtrasRouteTable = {
   ...CHANGES_ROUTES,
@@ -36,6 +36,8 @@ const ROUTES: ExtrasRouteTable = {
 export interface ExtraRoutes {
   /** The answer to a request for one of these paths; null for any other path. */
   handle(request: Request, url: URL): Promise<Response> | null;
+  /** These features' jobs, for `/api/jobs`. */
+  listJobs(): readonly JobRecord[];
 }
 
 export function extraRoutes(options: AppOptions, tracker: AnalysisTracker): ExtraRoutes {
@@ -57,5 +59,6 @@ export function extraRoutes(options: AppOptions, tracker: AnalysisTracker): Extr
       }
       return Promise.resolve(handler(context, request, url));
     },
+    listJobs: () => context.extraJobs.list(),
   };
 }

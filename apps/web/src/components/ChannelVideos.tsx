@@ -1,6 +1,11 @@
+import { useState } from 'react';
+import { ShowMore } from './layout/Notice';
 import type { ProfileVideo } from '@jgtube/core';
 import { formatCount, formatDuration, formatScore, thumbnailUrl, watchUrl } from '../lib/format';
 import { reviewHref } from '../lib/thumbReview';
+
+/** How many videos a list shows before Show more. */
+const FIRST_SHOWN = 6;
 
 /** One video: its thumbnail, title, views, date and outlier score, linked to YouTube. */
 function VideoTile({ video }: { readonly video: ProfileVideo }) {
@@ -55,6 +60,8 @@ interface Props {
 
 /** A grid of some of a channel's stored videos. */
 export function ChannelVideos({ title, lead, videos, empty }: Props) {
+  // Six at first (three rows of two on a phone), then all, so the page stays short.
+  const [shown, setShown] = useState(FIRST_SHOWN);
   return (
     <section className="flex min-w-0 flex-col gap-space-sm">
       <div>
@@ -66,11 +73,18 @@ export function ChannelVideos({ title, lead, videos, empty }: Props) {
           {empty}
         </p>
       ) : (
-        <ul className="grid grid-cols-1 gap-space-md min-[480px]:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-          {videos.map((video) => (
+        <ul className="grid grid-cols-2 gap-x-space-sm gap-y-space-md sm:gap-space-md lg:grid-cols-3 2xl:grid-cols-4">
+          {videos.slice(0, shown).map((video) => (
             <VideoTile key={video.videoId} video={video} />
           ))}
         </ul>
+      )}
+      {videos.length > shown && (
+        <ShowMore
+          left={videos.length - shown}
+          noun="videos"
+          onClick={() => setShown(videos.length)}
+        />
       )}
     </section>
   );

@@ -167,9 +167,16 @@ describe('watching a video through the engine', () => {
 
   test('removes the copy when Jgtube is closed while the video is being watched', async () => {
     const hung = new FakeChild();
-    start({ spawn: () => hung, fetchVideoFile: writesCopy(), closeGraceMs: 20 });
+    let watchingStarted = false;
+    const spawn = () => {
+      watchingStarted = true;
+      return hung;
+    };
+    start({ spawn, fetchVideoFile: writesCopy(), closeGraceMs: 20 });
     const watching = engine.watchVideo(DASHED, 'Describe the sound.').catch(() => 'stopped');
-    while (copiesLeft().length === 0) await settle();
+    // Wait until the engine is really watching, not only until the copy is on disk:
+    // under a loaded test run the gap between the two is where shutdown used to land.
+    while (!watchingStarted || copiesLeft().length === 0) await settle();
 
     await engine.shutdown();
 

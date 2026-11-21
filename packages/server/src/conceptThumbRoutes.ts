@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { ENGINE_IDS } from './engines/settings';
 import { fail, ok } from './http';
+import { conceptLabel } from './jobLabels';
 import {
   CHANNEL_ID,
   NO_MAP,
@@ -36,8 +37,16 @@ async function startThumbnail(context: Context, request: Request): Promise<Respo
   if (engine.findConcept(body.channel, body.concept) === null) {
     return fail(404, 'That concept is not one of this channel’s concepts');
   }
-  return startAiJob(context, (report) =>
-    engine.writeConceptThumbnail(body.channel, body.concept, body.engine, report),
+  return startAiJob(
+    context,
+    (report) => engine.writeConceptThumbnail(body.channel, body.concept, body.engine, report),
+    conceptLabel(
+      engine,
+      'concept-thumbnail',
+      'Writing a thumbnail for',
+      body.channel,
+      body.concept,
+    ),
   );
 }
 

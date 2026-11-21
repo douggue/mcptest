@@ -12,7 +12,7 @@ import { Transfers } from './Transfers';
 import { withMap, type ViewDraw, type ViewParts } from './viewParts';
 
 /** Breaking out: the feed of videos taking off, each one press from the ideas. */
-function Breakouts({ page, work }: ViewParts) {
+function Breakouts({ page, work, path }: ViewParts) {
   const { visible } = page;
   const { lab } = work;
   if (!visible) return null;
@@ -22,6 +22,7 @@ function Breakouts({ page, work }: ViewParts) {
         items={visible.breakouts}
         centerTitle={visible.center.title}
         pickedIds={lab.picks.map((pick) => pick.videoId)}
+        onBreakDown={work.asking ? undefined : path.breakDown}
         onPick={(item) =>
           lab.pick({
             videoId: item.videoId,
