@@ -274,6 +274,34 @@ export interface VideoDetailsRepo {
   saveStoryboard(videoId: string, levels: readonly StoryboardLevel[], fetchedAt: Date): void;
 }
 
+/**
+ * 'watch': what an engine saw and heard watching the whole video, sound included.
+ * 'frames': what the video's preview frames show from start to end.
+ */
+export type StudyKind = 'watch' | 'frames';
+
+/** What an engine wrote down about one video. */
+export interface NewVideoStudy {
+  readonly videoId: string;
+  readonly kind: StudyKind;
+  /** The engine that made it, by its id, such as "agy". */
+  readonly engine: string;
+  /** The study as the engine wrote it: a model's words, to be read as a description only. */
+  readonly text: string;
+}
+
+export interface StoredVideoStudy extends NewVideoStudy {
+  readonly studiedAt: Date;
+}
+
+/** Studies of videos, one per video and kind. A video need not be in the videos table. */
+export interface VideoStudyRepo {
+  /** Null when no engine has made that kind of study of the video. */
+  find(videoId: string, kind: StudyKind): StoredVideoStudy | null;
+  /** Replaces any earlier study of that kind. Throws for an id that is not a video id, or an empty study. */
+  save(study: NewVideoStudy, studiedAt: Date): void;
+}
+
 export interface StoredBrand extends ChannelBrand {
   readonly channelId: string;
   readonly fetchedAt: Date;

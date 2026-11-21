@@ -170,15 +170,20 @@ export {
 export { fetchVideoDetails, type ApiVideoDetails } from './sources/dataApi';
 export { SqliteVideoPageRepo } from './repos/sqliteVideoPageRepo';
 export { SqliteBrandRepo } from './repos/sqliteBrandRepo';
+export { MAX_STUDY_CHARS, STUDY_KINDS, SqliteVideoStudyRepo } from './repos/sqliteVideoStudyRepo';
 export type {
   BrandRepo,
   DetailsSource,
+  NewVideoStudy,
   StoredBrand,
   StoredStoryboard,
   StoredTranscript,
   StoredVideoDetails,
+  StoredVideoStudy,
+  StudyKind,
   TranscriptRepo,
   VideoDetailsRepo,
+  VideoStudyRepo,
 } from './repos/types';
 export type {
   BrandImage,
