@@ -57,9 +57,9 @@ export function SettingRow(props: Props) {
   const clearing = draft?.kind === 'clear';
   const typed = draft?.kind === 'set' ? draft.value : setting.secret ? '' : (setting.value ?? '');
   return (
-    <div className="flex flex-col gap-2 rounded bg-surface-card p-space-md">
+    <div className="flex min-w-0 flex-col gap-2 border-t border-border-subtle py-space-md first:border-t-0 first:pt-space-sm last:pb-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <label htmlFor={inputId} className="text-title-md text-on-surface">
+        <label htmlFor={inputId} className="min-w-0 text-body-md font-semibold text-on-surface">
           {setting.label}
         </label>
         <span
@@ -102,7 +102,7 @@ export function SettingRow(props: Props) {
           )}
         </div>
       )}
-      <p className="text-label-caps text-outline">{effectWords(setting)}</p>
+      <p className="text-body-sm text-outline">{effectWords(setting)}</p>
     </div>
   );
 }
