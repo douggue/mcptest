@@ -1,5 +1,6 @@
 import { keptLine, type AnalysisAnswer } from '../lib/analyses';
 import { Answer, Credit } from './Answer';
+import { useConnections } from './Connections';
 import { ReadyPrompt } from './ReadyPrompt';
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
  */
 export function AnalysisAnswerView({ title, answer, kept }: Props) {
   const when = kept ? keptLine(answer.writtenAt) : '';
+  const links = useConnections();
   return (
     <div className="flex min-w-0 flex-col gap-space-sm">
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-space-sm">
@@ -25,6 +27,20 @@ export function AnalysisAnswerView({ title, answer, kept }: Props) {
       <Answer text={answer.text} videos={answer.videos} />
       {answer.prompt !== null && (
         <ReadyPrompt label="thumbnail prompt" text={answer.prompt} fileTitle="thumbnail prompt" />
+      )}
+      {answer.prompt !== null && links && (
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={links.useReviewStyle}
+            className="rounded-full bg-surface-container-high px-3 py-1.5 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-highest focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
+          >
+            Use this style for a concept&rsquo;s thumbnail prompt
+          </button>
+          <span className="text-body-sm text-outline">
+            Each concept&rsquo;s &ldquo;Thumbnail prompt&rdquo; reads this review.
+          </span>
+        </div>
       )}
       <Credit answer={answer} />
     </div>

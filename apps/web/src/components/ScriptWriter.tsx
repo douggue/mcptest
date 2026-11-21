@@ -19,6 +19,7 @@ import { FIELD, LabStatus, NOTE, PILL, PRIMARY_BUTTON, QUIET_BUTTON } from './La
 import { thumbnailFor } from '../lib/ideaLab';
 import { ConceptThumbnail } from './ConceptThumbnail';
 import { ScriptEditor } from './ScriptEditor';
+import { ScriptOrigins } from './ScriptOrigins';
 import type { Lab } from './useLab';
 import type { Script } from './useScript';
 
@@ -329,7 +330,7 @@ interface Props {
 /**
  * The script writer: one kept concept taken to a script in three steps, with
  * everything about the text counted in code beside it. Opened by a concept's
- * Draft button in the idea lab.
+ * "Write the script" button in the idea lab.
  */
 export function ScriptWriter({ script, lab, busy, voices }: Props) {
   const [which, setWhich] = useState<'draft' | 'tightened'>('draft');
@@ -371,8 +372,8 @@ export function ScriptWriter({ script, lab, busy, voices }: Props) {
         )}
         {!view && (
           <p className={NOTE}>
-            No script is open. Press Draft on a concept in the idea lab to start its script, or to
-            come back to it.
+            No script is open. Press &ldquo;Write the script&rdquo; on a concept in the idea lab to
+            start its script, or to come back to it.
           </p>
         )}
         {view && (
@@ -389,6 +390,7 @@ export function ScriptWriter({ script, lab, busy, voices }: Props) {
                     : 'Saved on this computer'}
               </span>
             </div>
+            <ScriptOrigins conceptId={view.concept.id} />
             <Setup script={script} view={view} busy={busy} voices={voices} />
             <LabStatus
               state={lab.jobs.state}

@@ -221,3 +221,14 @@ export function runLines(runs: readonly PartRun[]): readonly string[] {
 /** What to say when the browser refuses to put a text on the clipboard. */
 export const copyFailedText = (label: string): string =>
   `The browser would not copy the ${label}. Use “Download .txt” instead.`;
+
+/** What a stored breakdown can be taken into elsewhere: its title formulas, its style lock. */
+export function breakdownUses(view: BreakdownView): {
+  readonly formulas: boolean;
+  readonly styleLock: boolean;
+} {
+  return {
+    formulas: view.parts.some((part) => part.id === 'titles' && part.state === 'written'),
+    styleLock: view.files.some((file) => file.id === 'style' && file.available),
+  };
+}

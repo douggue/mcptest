@@ -1,4 +1,4 @@
-import type { TransferList } from '@jgtube/core';
+import type { TransferIdea, TransferList } from '@jgtube/core';
 import { Globe } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -56,10 +56,11 @@ interface CardsProps {
   readonly list: TransferList;
   readonly filter: TransferFilter;
   readonly onSetSaved: (key: string, saved: boolean) => void;
+  readonly onMakeConcepts?: ((idea: TransferIdea) => void) | undefined;
 }
 
 /** The ideas or formats of the chosen view, a few at a time. */
-function Cards({ list, filter, onSetSaved }: CardsProps) {
+function Cards({ list, filter, onSetSaved, onMakeConcepts }: CardsProps) {
   const [shown, setShown] = useState(TRANSFER_PAGE_SIZE);
   const ideas = ideasFor(list, filter);
   const formats = filter === 'formats' ? formatsFor(list) : [];
@@ -78,6 +79,7 @@ function Cards({ list, filter, onSetSaved }: CardsProps) {
                   idea={idea}
                   ownerPlace={list.ownerPlace}
                   onSetSaved={(saved) => onSetSaved(idea.key, saved)}
+                  onMakeConcepts={onMakeConcepts && (() => onMakeConcepts(idea))}
                 />
               ))}
       </div>
@@ -98,6 +100,8 @@ interface Props {
   readonly transfers: TransfersData;
   /** A map is on screen. Without one, an empty list is not worth a section. */
   readonly hasMap: boolean;
+  /** Takes an idea into the idea lab as inspiration and format; absent with no map. */
+  readonly onMakeConcepts?: ((idea: TransferIdea) => void) | undefined;
 }
 
 /**
@@ -105,7 +109,7 @@ interface Props {
  * the verdict for the owner's country, and the title formats that move
  * between subjects.
  */
-export function Transfers({ transfers, hasMap }: Props) {
+export function Transfers({ transfers, hasMap, onMakeConcepts }: Props) {
   const [filter, setFilter] = useState<TransferFilter>('opportunities');
   const { state, setSaved } = transfers;
   const list = state.status === 'ready' ? state.list : null;
@@ -162,7 +166,15 @@ export function Transfers({ transfers, hasMap }: Props) {
             onChoose={transfers.choosePlace}
           />
         )}
-        {list && <Cards key={filter} list={list} filter={filter} onSetSaved={setSaved} />}
+        {list && (
+          <Cards
+            key={filter}
+            list={list}
+            filter={filter}
+            onSetSaved={setSaved}
+            onMakeConcepts={onMakeConcepts}
+          />
+        )}
       </div>
     </section>
   );

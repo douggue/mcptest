@@ -14,6 +14,7 @@ import {
 } from '../lib/breakdownParts';
 import type { NamedVideo } from '../lib/videoRefs';
 import { Answer } from './Answer';
+import { BreakdownUses } from './BreakdownUses';
 import { useNamedVideos } from './useAnswers';
 import type { BreakdownChannel } from './useBreakdown';
 
@@ -192,6 +193,7 @@ export function BreakdownParts({ view, notSaved, busy, onRun }: Props) {
             </a>
           )}
         </div>
+        <BreakdownUses view={view} />
         <p className="text-body-sm text-outline">
           “Run again” studies the videos and writes every part again, which takes as long as the
           first time. Check every fact in it before you publish: an AI wrote these parts, and it can
