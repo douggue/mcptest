@@ -1,8 +1,10 @@
 import type { ChannelProfile } from '@jgtube/core';
 import { channelActions, type ChannelAction } from '../lib/channelView';
+import { ChannelCompetitors } from './ChannelCompetitors';
 import { ChannelSummary } from './ChannelSummary';
 import { ChannelVideos } from './ChannelVideos';
 import { Inspector } from './Inspector';
+import { ViewPage } from './layout/SplitView';
 import { NOTE, QUIET_BUTTON } from './LabStatus';
 import { useChannelProfile } from './useChannelProfile';
 import { messageOf } from './useMapPage';
@@ -48,10 +50,10 @@ function OnTheMap({ profile, page, work }: ActionsProps) {
   if (!onMap || !page.snapshot) return null;
   return (
     <section className="flex min-w-0 flex-col gap-space-sm">
-      <h3 className="text-headline-md text-on-surface">
+      <h3 className="text-label-caps uppercase text-outline">
         On the map of {page.snapshot.center.title}
       </h3>
-      <div className="max-w-md">
+      <div>
         <Inspector
           inline
           channel={onMap}
@@ -67,26 +69,45 @@ function OnTheMap({ profile, page, work }: ActionsProps) {
   );
 }
 
+/** The column beside the videos: the competitors of a centre, or the channel's place on the map. */
+function Beside(props: ActionsProps) {
+  const { profile, page } = props;
+  const { snapshot } = page;
+  if (snapshot?.center.id === profile.id) {
+    return <ChannelCompetitors snapshot={snapshot} page={page} />;
+  }
+  return <OnTheMap {...props} />;
+}
+
 function Profile(props: ActionsProps) {
-  const { profile } = props;
+  const { profile, page } = props;
   const { outliers } = profile;
+  const beside =
+    page.snapshot?.center.id === profile.id ||
+    page.snapshot?.channels.some((channel) => channel.id === profile.id);
   return (
-    <div className="flex min-w-0 flex-col gap-space-xl">
-      <ChannelSummary profile={profile} />
+    <div className="flex min-w-0 flex-col gap-space-lg">
+      <ChannelSummary profile={profile} withBack />
       <Actions {...props} />
-      <ChannelVideos
-        title="Its outliers"
-        lead={`Stored videos at ${outliers.minScore}× or more of the channel's usual views at the same age, strongest first.`}
-        videos={profile.top}
-        empty="None of its stored videos stands out from its usual views yet."
-      />
-      <ChannelVideos
-        title="Its newest videos"
-        lead="The latest uploads Jgtube has stored, newest first, with their scores where they can be judged."
-        videos={profile.recent}
-        empty="No videos of this channel are stored."
-      />
-      <OnTheMap {...props} />
+      <div
+        className={`grid min-w-0 grid-cols-1 items-start gap-space-lg ${beside ? 'xl:grid-cols-[minmax(0,1fr)_380px]' : ''}`}
+      >
+        <div className="flex min-w-0 flex-col gap-space-xl">
+          <ChannelVideos
+            title="Its outliers"
+            lead={`Stored videos at ${outliers.minScore}× or more of the channel's usual views at the same age, strongest first.`}
+            videos={profile.top}
+            empty="None of its stored videos stands out from its usual views yet."
+          />
+          <ChannelVideos
+            title="Its newest videos"
+            lead="The latest uploads Jgtube has stored, newest first, with their scores where they can be judged."
+            videos={profile.recent}
+            empty="No videos of this channel are stored."
+          />
+        </div>
+        {beside && <Beside {...props} />}
+      </div>
     </div>
   );
 }
@@ -100,8 +121,8 @@ export function ChannelView(parts: ViewParts & { readonly channelId: string }) {
   const { channelId, ...rest } = parts;
   const state = useChannelProfile(channelId, rest.work.refresh.run.status);
   return (
-    <section aria-label="Channel" className="w-full bg-space-deep px-gutter-desktop py-space-lg">
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-space-lg">
+    <ViewPage>
+      <div className="flex min-w-0 flex-col gap-space-lg">
         {state.status === 'loading' && (
           <p role="status" className={NOTE}>
             Reading the channel from the store.
@@ -119,6 +140,6 @@ export function ChannelView(parts: ViewParts & { readonly channelId: string }) {
         )}
         {state.status === 'ready' && <Profile {...rest} profile={state.profile} />}
       </div>
-    </section>
+    </ViewPage>
   );
 }

@@ -291,3 +291,13 @@ or computed in code and labelled; no view forecasts; nothing published to YouTub
 - [x] A section in the Create group and a button in the script writer that jumps to it; no legal advice, no verdict
 - [x] Checked on a copy of a real store: the real tightened script against 12 stored transcripts, 1 overlap and 76 facts still marked, found in code
 - [ ] The one real AI run of the risk check: refused by the engine, whose plan limit was reached, until 24 Nov; the claims part is tested with stand-in answers only
+
+## Views instead of one long page
+
+- [x] Each rail entry opens its own view (`#/radar`, `#/ideas`, `#/script`, `#/settings` ...); back, forward and reload keep it; the rail marks it; older in-page links open the view that holds them
+- [x] Overview (`#/`): the search, your channels, the current channel's numbers in brief, the refresh
+- [x] A channel's own view (`#/channel/<id>`) from chips, radar nodes and lists: stored numbers each labelled, outliers and newest videos with thumbnails, buttons into breakdown, ideas, comments, what changed and alerts, competitors as rows; `GET /api/channels/profile` (read only, no store step)
+- [x] The AI that answers, in the top bar on every view, with each engine ready or not set up; Settings is a view with the choice
+- [x] Shared layout pieces in `apps/web/src/components/layout/`; the idea lab and the script writer rebuilt on them
+- [x] Checked on a seeded test store at 1440 and 390 wide: every view, no console errors, no sideways scroll
+- [ ] The other views moved onto the layout pieces (side panel, one primary action, details closed)
