@@ -9,13 +9,16 @@ import { OUTSIDE_LABEL, TIER_LABEL } from './tiers';
 
 interface Props {
   readonly channel: SnapshotChannel;
-  readonly onClose: () => void;
+  /** Closes a floating panel; an inline one has no close button. */
+  readonly onClose?: () => void;
   /** Keeps the channel as a competitor, removes it, or leaves it to the filter again. */
   readonly onSetStatus: (status: CompetitorStatus) => void;
-  /** Starts a breakdown of this channel and shows the Ask AI section. */
-  readonly onBreakDown: () => void;
+  /** Starts a breakdown of this channel; without it the panel has no such button. */
+  readonly onBreakDown?: () => void;
   /** A breakdown or an analysis is running, so another cannot start. */
   readonly busy: boolean;
+  /** Shown in the flow of a view rather than floating over the radar. */
+  readonly inline?: boolean;
 }
 
 function Tile({ label, children }: { readonly label: string; readonly children: React.ReactNode }) {
@@ -27,9 +30,11 @@ function Tile({ label, children }: { readonly label: string; readonly children: 
   );
 }
 
-/** The panel for one selected channel: how it relates to you and how it is doing. */
-export function Inspector({ channel, onClose, onSetStatus, onBreakDown, busy }: Props) {
+/** The panel for one channel of the map: how it relates to you and how it is doing. */
+export function Inspector(props: Props) {
+  const { channel, onClose, onSetStatus, onBreakDown, busy, inline = false } = props;
   useEffect(() => {
+    if (!onClose) return undefined;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
@@ -45,7 +50,11 @@ export function Inspector({ channel, onClose, onSetStatus, onBreakDown, busy }: 
   return (
     <aside
       aria-label={`Details for ${channel.title}`}
-      className="absolute right-6 top-6 z-40 w-80 rounded bg-surface-card/95 p-space-md shadow-[0_8px_32px_rgba(0,0,0,0.7)] backdrop-blur-xl"
+      className={
+        inline
+          ? 'w-full min-w-0 rounded bg-surface-card p-space-md'
+          : 'absolute right-6 top-6 z-40 w-80 rounded bg-surface-card/95 p-space-md shadow-[0_8px_32px_rgba(0,0,0,0.7)] backdrop-blur-xl'
+      }
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-space-sm">
@@ -66,14 +75,16 @@ export function Inspector({ channel, onClose, onSetStatus, onBreakDown, busy }: 
             </span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close details"
-          className="-mr-1 -mt-1 rounded-full p-2 text-outline hover:text-on-surface"
-        >
-          <X aria-hidden="true" className="h-[18px] w-[18px]" />
-        </button>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close details"
+            className="-mr-1 -mt-1 rounded-full p-2 text-outline hover:text-on-surface"
+          >
+            <X aria-hidden="true" className="h-[18px] w-[18px]" />
+          </button>
+        )}
       </div>
 
       <div className="mt-space-md grid grid-cols-2 gap-2">
@@ -168,15 +179,17 @@ export function Inspector({ channel, onClose, onSetStatus, onBreakDown, busy }: 
           <ExternalLink aria-hidden="true" className="h-4 w-4" />
         </a>
       )}
-      <button
-        type="button"
-        onClick={onBreakDown}
-        disabled={busy}
-        className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-surface-container-high py-2.5 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-variant disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <Sparkles aria-hidden="true" className="h-4 w-4 text-metric-amber" />
-        Break down this channel
-      </button>
+      {onBreakDown && (
+        <button
+          type="button"
+          onClick={onBreakDown}
+          disabled={busy}
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-surface-container-high py-2.5 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-variant disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Sparkles aria-hidden="true" className="h-4 w-4 text-metric-amber" />
+          Break down this channel
+        </button>
+      )}
       {competitorActions(channel).map((action) => (
         <button
           key={action.status}

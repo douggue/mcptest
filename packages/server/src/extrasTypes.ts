@@ -7,6 +7,7 @@ import type { AlertsEngine } from './alertsTypes';
 import type { CalendarEngine } from './calendarTypes';
 import type { CommentsEngine } from './commentsTypes';
 import type { PacingEngine } from './pacingTypes';
+import type { ProfileEngine } from './profileTypes';
 import type { RiskEngine } from './riskTypes';
 import type { PlanEngine } from './planTypes';
 
@@ -33,4 +34,5 @@ export type ExtrasEngine = ChangesEngine &
   CalendarEngine &
   PacingEngine &
   CommentsEngine &
-  RiskEngine;
+  RiskEngine &
+  ProfileEngine;

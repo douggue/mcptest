@@ -1,3 +1,4 @@
+import { viewHref } from '../lib/routes';
 import { Lock } from 'lucide-react';
 import { useConnections } from './Connections';
 import { QUIET_BUTTON } from './LabStatus';
@@ -22,7 +23,7 @@ export function ScriptOrigins({ conceptId }: { readonly conceptId: number }) {
         <span className="flex min-w-0 flex-wrap items-center gap-2">
           <Lock aria-hidden="true" className="h-3.5 w-3.5 flex-none" />
           Picture cues follow the style lock from{' '}
-          <a href="#ask-claude" className="text-primary hover:underline">
+          <a href={viewHref('ask')} className="text-primary hover:underline">
             the breakdown of {lock.from?.title ?? 'a channel'}
           </a>
           .

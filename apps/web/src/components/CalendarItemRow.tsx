@@ -1,3 +1,4 @@
+import { viewHref } from '../lib/routes';
 import type { CalendarItem, ConceptStatus } from '@jgtube/core';
 import { STATUSES, STATUS_LABELS } from '../lib/calendar';
 import { watchUrl } from '../lib/format';
@@ -31,7 +32,7 @@ export function CalendarItemRow({ item, onSave }: Props) {
                 </a>
               )}
               {href && ' · '}
-              <a href="#own-videos-title" className={LINK}>
+              <a href={viewHref('own-videos')} className={LINK}>
                 {item.linkedVideoId ? 'How it did' : 'Link its video'}
               </a>
             </>

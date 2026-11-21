@@ -578,3 +578,10 @@ export {
   wordsForSeconds,
 } from './script/length';
 export { acceptClaim, applyCorrection } from './research/claimEdits';
+export {
+  PROFILE_VIDEOS,
+  loadChannelProfile,
+  type ChannelProfile,
+  type ProfileDeps,
+  type ProfileVideo,
+} from './channel/profile';

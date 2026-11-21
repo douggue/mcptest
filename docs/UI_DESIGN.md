@@ -91,29 +91,69 @@ an existing product; the build replaces them with Jgtube.
   at least 4.5:1, state shown by more than colour.
 - Scraped titles and names are untrusted: escaped, length-capped, never used as
   markup.
-- Works at phone width: the rail collapses, the radar gives way to a list.
+- Works at phone width: the rail becomes a menu and no view scrolls sideways.
 
 ## Earlier exploration (superseded)
 
 Three directions (Control room, Tabloid, Deep field) were sketched on a design
 canvas before the owner's design arrived. They are not being taken forward.
 
-## Page structure (from the polish pass)
 
-- The left rail groups the sections as **Research** (radar, what changed,
-  breaking out, same topic, thumbnails that worked, transfer opportunities,
-  new niches), **Create** (trending formats, hook library, idea lab, script
-  writer) and **Study** (Ask AI and breakdowns, your videos against the plan,
-  upload calendar). The groups are in `apps/web/src/lib/sections.ts`; a new
-  section adds one item there and one icon in `RailLinks.tsx`. On a phone a
-  Sections menu in the top bar opens the same links.
-- A flow strip under the toolbar (Research → Formats and hooks → Ideas →
-  Script → Breakdown) jumps to each step with what is stored for the channel.
-- Working sections share `SectionFrame`: a title that opens and closes the
-  section (remembered in the browser), one short line, the longer explanation
-  behind "How this works", one primary action. Warnings about unchecked facts
-  stay visible, never behind the disclosure.
-- Wherever a video is named it is shown as its real thumbnail, linking to it.
-- The script writer is a working surface: its three steps are tabs opening on
-  the step to do next, a wide editor, and the numbers and facts to check in a
-  side panel that stays in view.
+## Views and navigation
+
+- Each feature opens in a view of its own; only that view is drawn. The
+  address names it after `#/` (`#/radar`, `#/ideas`, `#/script`,
+  `#/settings`), so back, forward and reload keep it. The views and their
+  titles are in `apps/web/src/lib/routes.ts`; an older in-page link
+  (`#concept-12`) opens the view that holds the element and scrolls to it.
+- The left rail opens the **Overview** (`#/`), then the views under
+  **Research** (radar, what changed, breaking out, same topic, thumbnails that
+  worked, transfer opportunities, new niches), **Create** (trending formats,
+  hook library, idea lab, script writer, check before publishing) and
+  **Study** (Ask AI and breakdowns, your videos against the plan, upload
+  calendar, length and pacing, what viewers ask for), and marks the view on
+  screen. The groups are in `apps/web/src/lib/sections.ts`; a new view adds a
+  line in `routes.ts`, one in `sections.ts`, one icon in `RailLinks.tsx` and
+  its drawing in the `*Views.tsx` table of its group. On a phone the rail is
+  the Menu in the top bar.
+- A channel anywhere (a chip of your channels, a node of the radar, a row of a
+  list) opens its own view, `#/channel/<id>`: back arrow, logo, name and
+  handle, labelled numbers from the store, its outliers and newest videos, the
+  buttons into the other views for it, and its competitors as rows.
+- The top bar says on every view which AI answers (on Automatic, the first
+  engine that is ready) and lists each engine as ready or not set up; it
+  opens Settings, where the choice is made. Each answer still says which
+  engine gave it.
+- The flow strip (Research → Formats and hooks → Ideas → Script → Breakdown)
+  sits above the views on that path and opens each step's view.
+
+## How a view is laid out
+
+The pieces are in `apps/web/src/components/layout/`; use them rather than
+new one-off styles.
+
+- **One primary action per view**, at the right of its `ViewHeader` (title,
+  one short line, optional back arrow) or at the foot of its side panel. Other
+  buttons are quiet.
+- **At most two columns.** `SplitView` puts the controls (what to make, from
+  what, and the one button that makes it) in a side panel that stays in view,
+  and the results in the main area. Below 1024 px the side panel comes first,
+  above the main area. Lists of things go in one column of roomy `Card`s, not
+  a grid of dense ones.
+- **Details closed by default.** What an owner needs only sometimes (where a
+  thing came from, the sources, the prompt, the longer explanation) goes
+  behind one `Details` per card or panel. Warnings that change what the owner
+  should do (facts to check, a cut-off title, lifted words) stay visible.
+- **No walls of text.** A lead is one line. Longer explanations sit behind
+  "How this works". Labels are short capitals (`Label`, `Field`).
+- **Numbers** go in `StatTile`s with what each rests on under it
+  (`StatGrid` wraps to two columns on a phone). A working surface keeps its
+  running counts in a slim `StatusBar` at the foot.
+- **Choices of one** are a `Segmented` control; channels in a list are
+  `ChannelRow`s (logo, name, a coloured level, a count, a remove cross).
+- The idea lab and the script writer are the worked examples: controls in
+  the side panel, then "Concepts (n)" with one column of cards; and the
+  script's steps as a segmented control with status, save and export at the
+  right, the concept's title and thumbnail line, the step with its one button,
+  and the footer of words, spoken time, reading grade and facts to check.
+- Every view works at 390 px wide with no sideways scroll.

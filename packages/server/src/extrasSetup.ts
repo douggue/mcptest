@@ -28,6 +28,7 @@ import { changesEngine } from './changesEngine';
 import type { ExtrasEngine } from './extrasTypes';
 import { pacingEngine } from './pacingEngine';
 import { planEngine } from './planEngine';
+import { profileEngine } from './profileEngine';
 import { riskEngine } from './riskEngine';
 
 export interface ExtrasDeps {
@@ -76,5 +77,6 @@ export function extras(deps: ExtrasDeps): ExtrasEngine {
     ...pacingEngine({ now, repos: all }),
     ...commentsEngine({ now, repos: all, apiKey: () => config.youtubeApiKey, analyse }),
     ...riskEngine({ now, repos: all, analyse }),
+    ...profileEngine({ now, repos: all }),
   };
 }

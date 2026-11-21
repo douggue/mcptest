@@ -1,6 +1,8 @@
-import { PenLine, TriangleAlert } from 'lucide-react';
+import { PenLine } from 'lucide-react';
 import { useState } from 'react';
 import { thumbnailFor } from '../lib/ideaLab';
+import { sourcesMarkdown } from '../lib/research';
+import { viewHref } from '../lib/routes';
 import {
   openingStep,
   stageStates,
@@ -8,23 +10,18 @@ import {
   type ScriptView,
   type VoiceChoice,
 } from '../lib/scriptWriter';
-import { sourcesMarkdown } from '../lib/research';
-import { ClaimsCheck } from './ClaimsCheck';
-import { ConceptThumbnail } from './ConceptThumbnail';
-import { LabStatus, NOTE } from './LabStatus';
+import { Card } from './layout/Card';
+import { SplitView, ViewPage } from './layout/SplitView';
+import { ViewHeader } from './layout/ViewHeader';
+import { LabStatus } from './LabStatus';
+import { ScriptFooter, ScriptTopBar } from './ScriptBars';
 import { ScriptEditor } from './ScriptEditor';
 import { HooksAndBeats, Models } from './ScriptHooks';
-import { RiskCheckLink } from './RiskParts';
-import { ScriptOrigins } from './ScriptOrigins';
-import { ScriptResearch } from './ScriptResearch';
-import { ScriptSetup } from './ScriptSetup';
-import { StepRun, StepTabs } from './ScriptSteps';
-import { SectionFrame } from './SectionFrame';
+import { ScriptPanel } from './ScriptPanel';
+import { StepRun } from './ScriptSteps';
 import type { Lab } from './useLab';
 import type { Research } from './useResearch';
 import type { Script } from './useScript';
-
-const CARD = 'flex min-w-0 flex-col gap-space-md rounded bg-surface-card p-space-md shadow-md';
 
 interface Props {
   readonly script: Script;
@@ -48,7 +45,28 @@ function aboutOf(stage: ScriptStage, view: ScriptView): string {
   return 'The same script made easier to say and to follow, toward the voice channel’s own reading grade, with no fact added.';
 }
 
-/** The open script: its setup, the three steps as tabs, and the step on screen. */
+/** The concept the script is for: its title, and its thumbnail with the words on it. */
+function ConceptHeader({ view }: { readonly view: ScriptView }) {
+  const { concept } = view;
+  return (
+    <Card>
+      <h3 className="break-words text-headline-lg font-bold leading-tight text-on-surface">
+        {concept.title}
+      </h3>
+      <p className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-body-sm">
+        <span className="text-label-caps uppercase text-outline">Thumbnail</span>
+        <span className="min-w-0 flex-1 basis-60 break-words text-on-surface">
+          {concept.thumbnail}
+        </span>
+        <span className="rounded bg-metric-amber-bg px-3 py-1 font-bold uppercase text-metric-amber">
+          {concept.overlay}
+        </span>
+      </p>
+    </Card>
+  );
+}
+
+/** The open script: the side panel, the steps and the step on screen, and the footer of counts. */
 function Workbench(props: Props & { readonly view: ScriptView }) {
   const { script, research, lab, busy, voices, view } = props;
   const states = stageStates(view.script);
@@ -56,99 +74,68 @@ function Workbench(props: Props & { readonly view: ScriptView }) {
   const step = picked ?? openingStep(states);
   const state = states.find((entry) => entry.stage === step);
   const hooks = lab.library?.hooks ?? [];
-  const thumbnail = thumbnailFor(lab.thumbnails, view.concept.id);
-  const run = (): void => script.runStage(step);
   const field = step === 'tighten' && view.script?.tightened ? 'tightened' : 'draft';
   const text = view.script?.[field] ?? '';
   const edit = (next: string): void =>
     script.change(field === 'tightened' ? { tightened: next } : { draft: next });
+  const exports = {
+    title: view.concept.title,
+    text,
+    wordsPerMinute: view.script?.wordsPerMinute ?? null,
+    markFacts: view.markFacts ?? true,
+    thumbnailPrompt: thumbnailFor(lab.thumbnails, view.concept.id)?.prompt ?? null,
+    sources: sourcesMarkdown(text, research.view?.sheet ?? null),
+  };
+  const panel = { script, research, lab, busy, voices, view, text, field } as const;
   return (
-    <>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="min-w-0 break-words text-headline-md text-on-surface">
-          {view.concept.title}
-        </h3>
-        <span role="status" className="text-body-sm text-outline">
-          {script.saving === 'saving'
-            ? 'Saving…'
-            : script.saving === 'failed'
-              ? 'Not saved'
-              : 'Saved on this computer'}
-        </span>
-      </div>
-      <ScriptOrigins conceptId={view.concept.id} />
-      <RiskCheckLink />
-      <ScriptSetup script={script} view={view} busy={busy} voices={voices} />
+    <SplitView
+      width="narrow"
+      sideLabel="The script's voice, length and checks"
+      side={<ScriptPanel {...panel} stage={step} onChange={edit} />}
+    >
+      <ScriptTopBar
+        script={script}
+        view={view}
+        tabs={{ states, current: step, onPick: setPicked }}
+        exports={exports}
+      />
+      <ConceptHeader view={view} />
       <LabStatus
         state={lab.jobs.state}
         kinds={['script-hooks', 'script-draft', 'script-tighten', 'voice-read', 'thumbnail']}
         working="Working on the script"
         takes="A step takes one to six minutes and uses some of the AI’s plan allowance. Keep this page open."
       />
-      <StepTabs states={states} current={step} onPick={setPicked} />
-      <div className={CARD}>
-        <StepRun about={aboutOf(step, view)} state={state} busy={busy} onRun={run} />
-        {step === 'hooks' && (
+      <Card>
+        <StepRun
+          about={aboutOf(step, view)}
+          state={state}
+          busy={busy}
+          onRun={() => script.runStage(step)}
+        />
+        {step === 'hooks' ? (
           <>
             <Models script={script} view={view} busy={busy} hooks={hooks} />
             <HooksAndBeats script={script} view={view} busy={busy} hooks={hooks} />
           </>
+        ) : (
+          <ScriptEditor view={view} which={field} onChange={edit} />
         )}
-        {step !== 'hooks' && (
-          <ScriptEditor
-            view={view}
-            which={field}
-            onChange={edit}
-            thumbnailPrompt={thumbnail?.prompt ?? null}
-            sources={sourcesMarkdown(text, research.view?.sheet ?? null)}
-            aside={<ScriptResearch research={research} text={text} busy={busy} />}
-          />
-        )}
-        {step === 'hooks' && <ScriptResearch research={research} text={text} busy={busy} />}
-      </div>
-      {step !== 'hooks' && (
-        <ClaimsCheck research={research} text={text} which={field} busy={busy} onChange={edit} />
-      )}
-      <ConceptThumbnail
-        title={view.concept.title}
-        thumbnail={thumbnail}
-        busy={busy}
-        onWrite={() => lab.writeThumbnail(view.concept.id)}
-      />
-    </>
+      </Card>
+      <ScriptFooter view={view} text={text} stage={step} />
+    </SplitView>
   );
 }
 
 /**
- * The script writer: one kept concept taken to a script in three steps, with
- * everything about the text counted in code beside a wide editor. Opened by a
- * concept's "Write the script" button in the idea lab.
+ * The script writer: one kept concept taken to a script in three steps.
+ * Opened by a concept's "Write the script" button in the idea lab.
  */
 export function ScriptWriter(props: Props) {
   const { script } = props;
   const { view } = script;
-  const markFacts = view?.markFacts ?? true;
   return (
-    <SectionFrame
-      id="script-writer"
-      titleId="script-writer-title"
-      title="Script writer"
-      icon={PenLine}
-      lead="One kept concept taken to a script in three steps: hooks and a beat sheet, the draft, and a tighten pass."
-      howItWorks={
-        <p>
-          An AI writes it from what Jgtube has stored and from memory, in the voice of a channel on
-          this map, to the length you set. The numbers beside the editor (words, spoken time,
-          reading grade, facts to check) are counted in code.
-        </p>
-      }
-    >
-      <p className="flex items-start gap-2 rounded bg-metric-amber-bg p-space-sm text-body-sm text-on-surface">
-        <TriangleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 flex-none text-metric-amber" />
-        {markFacts
-          ? 'Some facts may be wrong. Every fact the AI could not vouch for is followed by [CHECK: what to verify]: check each one yourself before you record. Invented facts stated as true break YouTube’s rules on misleading content.'
-          : 'Some facts may be wrong, and the marking of facts to check is off in Settings: check every name, number and date yourself before you record.'}
-      </p>
+    <ViewPage id="script-writer">
       {script.problem && (
         <p role="alert" className="rounded bg-surface-card p-space-lg text-body-md text-error">
           {script.problem}
@@ -157,11 +144,28 @@ export function ScriptWriter(props: Props) {
       {view ? (
         <Workbench key={view.concept.id} {...props} view={view} />
       ) : (
-        <p className={NOTE}>
-          No script is open. Press &ldquo;Write the script&rdquo; on a concept in the idea lab to
-          start its script, or to come back to it.
-        </p>
+        <>
+          <ViewHeader
+            titleId="script-writer-title"
+            icon={PenLine}
+            title="Script writer"
+            lead="One kept concept taken to a script in three steps: hooks and beats, the draft, and a tighten pass."
+          />
+          <Card>
+            <p className="text-body-md text-on-surface">No script is open.</p>
+            <p className="text-body-sm text-on-surface-variant">
+              Press &ldquo;Write the script&rdquo; on a concept in the idea lab to start its script,
+              or to come back to it.
+            </p>
+            <a
+              href={viewHref('ideas')}
+              className="w-fit rounded-lg bg-primary-container px-4 py-2 text-body-sm font-semibold text-on-primary hover:opacity-90"
+            >
+              Open the idea lab
+            </a>
+          </Card>
+        </>
       )}
-    </SectionFrame>
+    </ViewPage>
   );
 }
