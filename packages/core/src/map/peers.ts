@@ -32,7 +32,7 @@ export const PEER_MIN_DURATION_RATIO = 0.4;
 export const PEER_MIN_TITLE_MATCH = 0.14;
 export { PEER_DORMANT_AFTER_DAYS };
 
-const CADENCE_WINDOW_DAYS = 14;
+export const CADENCE_WINDOW_DAYS = 14;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** 'dormant': no upload in the last `PEER_DORMANT_AFTER_DAYS` days. */
