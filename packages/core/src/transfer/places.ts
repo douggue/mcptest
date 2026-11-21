@@ -154,6 +154,17 @@ export function findPlaces(title: string): readonly FoundPlace[] {
   return found;
 }
 
+/** Every place Jgtube knows, by name: what the owner chooses their place from. */
+export function listPlaces(): readonly Place[] {
+  return PLACE_ENTRIES.map(toPlace).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** The place with this key, or null when the list holds none. */
+export function placeForKey(key: string | null | undefined): Place | null {
+  const entry = key ? BY_KEY.get(key) : undefined;
+  return entry ? toPlace(entry) : null;
+}
+
 /** The place for a channel's two-letter country, or null when it has none or it is not known. */
 export function placeForCountry(country: string | null | undefined): Place | null {
   const code = (country ?? '').toUpperCase();

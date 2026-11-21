@@ -102,6 +102,9 @@ describe('buildTransferList: one idea made for several countries', () => {
       ageDays: 21,
       durationSeconds: 600,
       strong: true,
+      // Both are shown: a channel in America made this one about South Africa.
+      channelCountry: { key: 'US', name: 'America' },
+      elsewhere: true,
     });
     expect([idea?.best?.views, idea?.worst?.views]).toEqual([521_000, 596]);
   });

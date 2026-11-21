@@ -55,8 +55,12 @@ import { extraRoutes } from './extrasRoutes';
 import type { ExtrasEngine } from './extrasTypes';
 import { labRoutes, type LabRoutes } from './labRoutes';
 import type { LabEngine } from './labTypes';
+import { LOGOS_PATH, logoRoutes, type LogoRoutes } from './logoRoutes';
+import type { LogoEngine } from './logoTypes';
 import type { ScriptEngine } from './scriptTypes';
-import { readTransfers, saveTransfer } from './transferRoutes';
+import { settingsRoute, type SettingsEngine } from './settingsRoutes';
+import type { TransferPlaceEngine } from './transferEngine';
+import { readCountries, readTransfers, saveTransfer, setPlace } from './transferRoutes';
 
 const CHANNEL_ID = /^UC[\w-]{22}$/;
 const MAX_KEYWORD_LENGTH = 200;
@@ -117,7 +121,8 @@ export interface TransferChoices {
 }
 
 /** What the API needs from the engine, so tests can stand in for it. */
-export interface Engine extends DownloadsEngine, LabEngine, ScriptEngine {
+export interface Engine
+  extends DownloadsEngine, LabEngine, ScriptEngine, LogoEngine, TransferPlaceEngine {
   /** The later features, kept together: what changed since the owner last looked. */
   readonly extras: ExtrasEngine;
   /** The latest stored map around a channel; reads the store only. */
@@ -203,8 +208,11 @@ export interface Engine extends DownloadsEngine, LabEngine, ScriptEngine {
    * engine on this computer can watch video.
    */
   watchVideo(videoId: string, question: string, options?: WatchOptions): Promise<VideoAnswer>;
-  /** Which AI engines are installed and signed in. Starts nothing that spends allowance. */
-  engineStatus(): Promise<EngineReport>;
+  /**
+   * Which AI engines are installed and signed in. Starts nothing that spends
+   * allowance. What was found is reused for a minute unless `fresh` is true.
+   */
+  engineStatus(fresh?: boolean): Promise<EngineReport>;
   /**
    * Breaks one channel down: studies its top videos, in depth for the best
    * few, and has an engine write the breakdown. Takes many minutes; what
@@ -246,6 +254,8 @@ export interface AppOptions {
   readonly jobs: JobStore<JobOutcome, JobProgress>;
   /** The only `host:port` values this server answers to, such as `127.0.0.1:4317`. */
   readonly allowedHosts: readonly string[];
+  /** The owner's settings in the `.env` file; absent where there is none to write. */
+  readonly settings?: SettingsEngine;
   /** The largest video file taken from the page; tests shorten it. */
   readonly maxUploadBytes?: number;
 }
@@ -356,6 +366,13 @@ async function setWatched(options: AppOptions, request: Request): Promise<Respon
     : fail(404, 'That channel has not been read yet');
 }
 
+/** The requests that start work reading YouTube; a logo job under way steps aside for each. */
+const READS_YOUTUBE: ReadonlySet<string> = new Set([
+  '/api/maps',
+  '/api/niches/discover',
+  '/api/refresh',
+]);
+
 const deleteRequest = z.object({ channel: z.string().regex(CHANNEL_ID) });
 
 /** Deletes a saved channel's maps. Refused while a map is being made, which may be this one. */
@@ -418,9 +435,10 @@ function jobStatus(
   options: AppOptions,
   breakdowns: BreakdownJobs,
   lab: LabRoutes,
+  logos: LogoRoutes,
   id: string,
 ): Response {
-  const job = options.jobs.get(id) ?? breakdowns.get(id) ?? lab.job(id);
+  const job = options.jobs.get(id) ?? breakdowns.get(id) ?? lab.job(id) ?? logos.job(id);
   return job ? ok(job) : fail(404, 'No such job');
 }
 
@@ -435,6 +453,12 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
   const uploading: UploadTracker = { busy: false };
   // The idea lab's AI runs take the same one slot as an analysis or a breakdown.
   const lab = labRoutes(options, analysing);
+  const logos = logoRoutes({
+    engine: options.engine,
+    allowedHosts: options.allowedHosts,
+    isReading: () => options.jobs.isBusy() || options.engine.isReadingYouTube(),
+    channelProblem,
+  });
   const extra = extraRoutes(options, analysing);
   return async (request) => {
     if (!isTrustedHost(request, options.allowedHosts)) {
@@ -444,8 +468,14 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     const { pathname } = url;
     const { method } = request;
 
+    const settingsAnswer = settingsRoute(options.settings, options.allowedHosts, request, pathname);
+    if (settingsAnswer) return settingsAnswer;
     const labAnswer = lab.handle(request, url);
     if (labAnswer) return labAnswer;
+    if (method === 'POST' && READS_YOUTUBE.has(pathname)) await logos.standDown();
+    if (pathname === LOGOS_PATH) {
+      return method === 'POST' ? logos.start(request) : fail(405, 'Use POST');
+    }
     const extraAnswer = extra.handle(request, url);
     if (extraAnswer) return extraAnswer;
     if (pathname === '/api/maps/latest') {
@@ -487,6 +517,12 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     if (pathname === '/api/transfers') {
       return method === 'GET' ? readTransfers(options, url, channelProblem) : fail(405, 'Use GET');
     }
+    if (pathname === '/api/transfers/place') {
+      return method === 'POST' ? setPlace(options, request) : fail(405, 'Use POST');
+    }
+    if (pathname === '/api/transfers/countries') {
+      return method === 'POST' ? readCountries(options, request) : fail(405, 'Use POST');
+    }
     if (pathname === '/api/transfers/save') {
       return method === 'POST' ? saveTransfer(options, request) : fail(405, 'Use POST');
     }
@@ -526,7 +562,9 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     }
     if (pathname.startsWith('/api/jobs/')) {
       const id = pathname.slice('/api/jobs/'.length);
-      return method === 'GET' ? jobStatus(options, breakdowns, lab, id) : fail(405, 'Use GET');
+      return method === 'GET'
+        ? jobStatus(options, breakdowns, lab, logos, id)
+        : fail(405, 'Use GET');
     }
     return fail(404, 'Not found');
   };

@@ -23,7 +23,7 @@ export interface CentreChannel {
 }
 
 /** The place most of a channel's titles name first, when one has the majority. */
-function placeInTitles(titles: readonly string[]): Place | null {
+export function placeInTitles(titles: readonly string[]): Place | null {
   const counts = new Map<string, { readonly place: Place; readonly count: number }>();
   for (const title of titles) {
     const place = findPlaces(title)[0]?.place;

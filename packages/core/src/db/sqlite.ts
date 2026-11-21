@@ -307,7 +307,18 @@ CREATE TABLE IF NOT EXISTS breakdown_parts (
   PRIMARY KEY (channel_id, part)
 );
 `,
-  // 16: when the owner last marked a channel's "what changed" as seen, one row per centre
+  // 16: the place the owner chose for a channel of theirs, one row per centre channel:
+  //     a place's key as the place list has it. With a row, the transfer list is judged
+  //     for that place instead of the one read from the channel's titles or its country.
+  //     It refers to no other table, so it outlives a deleted map and a re-read channel.
+  `
+CREATE TABLE IF NOT EXISTS owner_places (
+  center_channel_id  TEXT PRIMARY KEY,
+  place_key          TEXT NOT NULL,
+  set_at             TEXT NOT NULL
+);
+`,
+  // 17: when the owner last marked a channel's "what changed" as seen, one row per centre
   //     channel. It refers to no other table and needs nothing a later step adds.
   `
 CREATE TABLE IF NOT EXISTS channel_looks (

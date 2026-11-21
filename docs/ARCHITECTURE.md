@@ -122,6 +122,14 @@ packages/
                   what the breakdown rests on, worked out in code; the stored
                   breakdown read back; and the routes that start one, read one,
                   download its texts and take the owner's own video file
+    logoRoutes.ts, logoEngine.ts
+                  logos for a map made before logos were stored: a small job that
+                  reads each channel page once, one at a time, never beside a crawl
+    settingsRoutes.ts, settingsStore.ts, settingsCatalog.ts, settingsEngine.ts,
+    liveSettings.ts
+                  the settings screen: the `.env` file read and written with the
+                  configuration's own rules, keys never sent back, and the few
+                  settings that change without a restart
     extrasSetup.ts, extrasTypes.ts, extrasRoutes.ts
                   the later features, registered in one line each in engine.ts
                   (`extras`) and app.ts (`extraRoutes`); each has its own
@@ -221,6 +229,9 @@ voiceover.
 - **Errors.** Every HTTP API response uses one envelope,
   `{ success, data, error, meta }`. Connector tools return MCP results, with a
   plain sentence on failure. File paths are stripped from messages.
+- **Settings.** The owner changes settings on the page's settings screen,
+  which writes `.env` for them. A key goes in and never comes back out: the
+  page is told only whether one is set.
 - **Secrets.** The optional `YOUTUBE_API_KEY` comes from `.env`, is validated for
   shape, sent only as a request header, stripped from errors, and withheld from
   every AI engine. The connector's engine keeps it for one purpose, reading video

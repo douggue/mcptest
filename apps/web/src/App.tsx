@@ -1,4 +1,10 @@
-import type { CompetitorStatus, MapSnapshot, NicheChannel, SavedChannel } from '@jgtube/core';
+import type {
+  CompetitorStatus,
+  LogoFound,
+  MapSnapshot,
+  NicheChannel,
+  SavedChannel,
+} from '@jgtube/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Benchmarks } from './components/Benchmarks';
 import { ChangesSection } from './components/ChangesSection';
@@ -22,6 +28,7 @@ import { AskClaude } from './components/AskClaude';
 import { useAnalysis } from './components/useAnalysis';
 import { useBreakdown } from './components/useBreakdown';
 import { useLab } from './components/useLab';
+import { useLogos } from './components/useLogos';
 import { useLabJob } from './components/useLabJob';
 import { useScript } from './components/useScript';
 import { useNiches } from './components/useNiches';
@@ -34,6 +41,7 @@ import { createApi, type JobState } from './lib/api';
 import { breakdownChoices } from './lib/breakdown';
 import { inScope, type Scope } from './lib/feed';
 import { createLabApi } from './lib/labApi';
+import { createLogoApi, describeLogoRun, withLogos, withSavedLogos } from './lib/logos';
 import { toggleModel, voiceChoices } from './lib/scriptWriter';
 import { describeMix } from './lib/mix';
 import { layoutRadar } from './lib/radarLayout';
@@ -86,6 +94,7 @@ function download(snapshot: MapSnapshot): void {
 export function App() {
   const api = useMemo(() => createApi(), []);
   const labApi = useMemo(() => createLabApi(), []);
+  const logoApi = useMemo(() => createLogoApi(), []);
   const [query, setQuery] = useState(recall);
   const [snapshot, setSnapshot] = useState<MapSnapshot | null>(null);
   const [job, setJob] = useState<JobState | null>(null);
@@ -126,6 +135,13 @@ export function App() {
     },
     [api],
   );
+
+  // A map made before logos were stored gains them in the background, as they are read.
+  const putLogos = useCallback((mapId: number, found: readonly LogoFound[]) => {
+    setSnapshot((now) => (now?.mapId === mapId ? withLogos(now, found) : now));
+    setSaved((now) => withSavedLogos(now, found));
+  }, []);
+  const logoRun = useLogos(logoApi, snapshot, putLogos);
 
   // On first load, show the stored map for the channel used last time.
   useEffect(() => {
@@ -346,6 +362,14 @@ export function App() {
             totalCount={snapshot.channels.length}
             mix={describeMix(snapshot.channels)}
           />
+        )}
+        {logoRun !== null && (
+          <p
+            role="status"
+            className="absolute bottom-5 right-6 z-40 rounded-full bg-surface-card/90 px-3 py-1.5 text-label-caps text-on-surface-variant shadow-lg backdrop-blur-md"
+          >
+            {describeLogoRun(logoRun === 'starting' ? null : logoRun)}
+          </p>
         )}
         {selected && snapshot && (
           <Inspector

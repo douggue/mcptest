@@ -44,6 +44,9 @@ function versionEntry(version: TransferVersion): Record<string, unknown> {
     video: version.videoId,
     place: version.place?.name ?? null,
     channel: version.channelTitle,
+    channelCountry: version.channelCountry?.name ?? null,
+    // The channel is in another country than the place its title names.
+    madeFromElsewhere: version.elsewhere ? true : null,
     subs: version.subscribers,
     views: version.views,
     score: version.score === null ? null : oneDecimal(version.score),

@@ -33,6 +33,8 @@ export interface LabDeps {
   readonly listTransfers: Engine['listTransfers'];
   readonly findSnapshot: Engine['findSnapshot'];
   readonly readTranscript: Engine['readTranscript'];
+  /** Whether a script's writer is asked to mark facts to check, as the owner has it set now; absent means yes. */
+  readonly markFacts?: () => boolean;
   /** Whether Jgtube is closing, so a job of several steps stops between them. */
   readonly isClosing: () => boolean;
 }

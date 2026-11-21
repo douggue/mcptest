@@ -245,3 +245,43 @@ describe('the voices on offer', () => {
     ]);
   });
 });
+
+describe('with marking facts turned off', () => {
+  test('the counts list no markers and no unmarked figures, and the words are the same', () => {
+    const on = scriptStats(SCRIPT, 150);
+    const off = scriptStats(SCRIPT, 150, false);
+
+    expect(on.markers).toHaveLength(2);
+    expect(off.markers).toEqual([]);
+    expect(off.unmarkedFigures).toEqual([]);
+    expect(off).toMatchObject({ words: on.words, seconds: on.seconds, cues: on.cues });
+  });
+
+  test('the clean voiceover is copied at the first press, markers stripped as always', () => {
+    expect(voiceoverCopy(SCRIPT, false)).toEqual({
+      text: voiceoverCopy(SCRIPT).text,
+      unchecked: 0,
+    });
+    expect(voiceoverCopy(SCRIPT, false).text).not.toContain('CHECK');
+  });
+
+  test('the text and Markdown files carry no markers and no list of facts to check', () => {
+    const text = exportText('The Machine', SCRIPT, false);
+    const markdown = exportMarkdown('The Machine', SCRIPT, false);
+
+    expect(text).not.toContain('CHECK');
+    expect(text).toContain('[B-ROLL: a rusted press');
+    expect(text).toContain('The plant closed in 1987, and the press kept running.');
+    expect(markdown).not.toContain('CHECK');
+    expect(markdown).not.toContain('Facts to check');
+    expect(markdown).toContain('## Who paid the bill');
+  });
+
+  test('with it on, the files carry every marker, as before', () => {
+    expect(exportText('The Machine', SCRIPT, true)).toBe(exportText('The Machine', SCRIPT));
+    expect(exportMarkdown('The Machine', SCRIPT, true)).toContain(
+      '## Facts to check before recording',
+    );
+    expect(exportText('The Machine', SCRIPT)).toContain('[CHECK: who paid the bill]');
+  });
+});

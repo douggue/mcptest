@@ -155,6 +155,7 @@ export function describeFormat(format: TransferFormat): string {
 const PLACE_FROM: Readonly<Record<OwnerPlace['source'], string | null>> = {
   titles: 'your channel’s titles',
   country: 'your channel’s country',
+  owner: 'your own choice',
   given: null,
 };
 

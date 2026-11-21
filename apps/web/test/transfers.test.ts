@@ -35,6 +35,8 @@ const version = (overrides: Partial<TransferVersion> = {}): TransferVersion => (
   ageDays: 21,
   durationSeconds: 840,
   strong: true,
+  channelCountry: null,
+  elsewhere: false,
   ...overrides,
 });
 
@@ -83,6 +85,16 @@ const format = (overrides: Partial<TransferFormat> = {}): TransferFormat => ({
 
 const listOf = (overrides: Partial<TransferList> = {}): TransferList => ({
   ownerPlace: { key: 'US', name: 'America', source: 'titles' },
+  placeCheck: {
+    channelId: null,
+    chosen: null,
+    fromTitles: null,
+    fromCountry: null,
+    countryCode: null,
+    countryAsked: false,
+    disagree: false,
+  },
+  countriesMissing: 0,
   windowDays: 90,
   videosChecked: 15_092,
   ideas: [idea()],

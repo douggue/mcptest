@@ -3,6 +3,7 @@ import { parseCues, shotListCsv } from '@jgtube/core/src/script/cues';
 import {
   checkMarkers,
   cleanVoiceover,
+  stripCheckMarkers,
   countWords,
   figuresWithoutCheck,
   readingGrade,
@@ -48,6 +49,8 @@ export interface ScriptView {
   };
   readonly lengthRange: LengthRange | null;
   readonly voice: VoiceView | null;
+  /** Whether the owner has facts marked for checking (a setting); absent from an older server means yes. */
+  readonly markFacts?: boolean;
 }
 
 export interface ScriptOutcome extends Answered {
@@ -79,14 +82,19 @@ export interface ScriptStats {
 }
 
 /** Everything counted about a script's text at a speaking rate. Cue lines, headings and markers are not words. */
-export function scriptStats(text: string, wordsPerMinute: number | null): ScriptStats {
+export function scriptStats(
+  text: string,
+  wordsPerMinute: number | null,
+  /** False when the owner has turned the marking of facts off: nothing is listed to check. */
+  markFacts = true,
+): ScriptStats {
   const words = countWords(text);
   return {
     words,
     seconds: wordsPerMinute === null ? null : spokenSeconds(words, wordsPerMinute),
     grade: readingGrade(text),
-    markers: checkMarkers(text),
-    unmarkedFigures: figuresWithoutCheck(text),
+    markers: markFacts ? checkMarkers(text) : [],
+    unmarkedFigures: markFacts ? figuresWithoutCheck(text) : [],
     cues: wordsPerMinute === null ? 0 : parseCues(text, wordsPerMinute).length,
   };
 }
@@ -184,8 +192,9 @@ export function exportName(title: string, extension: string): string {
 }
 
 /** The whole script as a plain text file: the title, then the text with its headings, cues and markers. */
-export function exportText(title: string, text: string): string {
-  return `${title}\n\n${text.trim()}\n`;
+export function exportText(title: string, text: string, markFacts = true): string {
+  const body = markFacts ? text : stripCheckMarkers(text);
+  return `${title}\n\n${body.trim()}\n`;
 }
 
 /**
@@ -193,7 +202,9 @@ export function exportText(title: string, text: string): string {
  * its headings, cues and markers as written, then the facts still to check
  * as a list, so the markers travel with the script.
  */
-export function exportMarkdown(title: string, text: string): string {
+export function exportMarkdown(title: string, text: string, markFacts = true): string {
+  // With the marking of facts turned off, the file carries no marker and no list of them.
+  if (!markFacts) return [`# ${title}`, '', stripCheckMarkers(text).trim(), ''].join('\n');
   const markers = checkMarkers(text);
   const toCheck =
     markers.length === 0
@@ -224,8 +235,8 @@ export interface VoiceoverCopy {
 }
 
 /** The clean voiceover text, with how many markers it would silently leave behind. */
-export function voiceoverCopy(text: string): VoiceoverCopy {
-  return { text: cleanVoiceover(text), unchecked: checkMarkers(text).length };
+export function voiceoverCopy(text: string, markFacts = true): VoiceoverCopy {
+  return { text: cleanVoiceover(text), unchecked: markFacts ? checkMarkers(text).length : 0 };
 }
 
 /** What a voice was measured from, in one plain sentence. */

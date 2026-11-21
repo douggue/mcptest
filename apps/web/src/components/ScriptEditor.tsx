@@ -35,6 +35,8 @@ interface ExportProps {
   readonly title: string;
   readonly text: string;
   readonly wordsPerMinute: number | null;
+  /** False when the owner has turned the marking of facts off. */
+  readonly markFacts: boolean;
 }
 
 /**
@@ -43,9 +45,9 @@ interface ExportProps {
  * leaves the check markers out, so it is never copied silently while facts
  * are still unchecked: the first press says how many, the second copies.
  */
-function Exports({ title, text, wordsPerMinute }: ExportProps) {
+function Exports({ title, text, wordsPerMinute, markFacts }: ExportProps) {
   const [copy, setCopy] = useState<'idle' | 'warned' | 'copied' | 'refused'>('idle');
-  const voiceover = voiceoverCopy(text);
+  const voiceover = voiceoverCopy(text, markFacts);
   const empty = text.trim() === '';
   const copyVoiceover = (): void => {
     if (voiceover.unchecked > 0 && copy !== 'warned') {
@@ -83,7 +85,9 @@ function Exports({ title, text, wordsPerMinute }: ExportProps) {
         <button
           type="button"
           disabled={empty}
-          onClick={() => download(exportName(title, 'txt'), exportText(title, text), 'text/plain')}
+          onClick={() =>
+            download(exportName(title, 'txt'), exportText(title, text, markFacts), 'text/plain')
+          }
           className={`flex items-center gap-1.5 ${QUIET_BUTTON}`}
         >
           <Download aria-hidden="true" className={ICON} />
@@ -93,7 +97,11 @@ function Exports({ title, text, wordsPerMinute }: ExportProps) {
           type="button"
           disabled={empty}
           onClick={() =>
-            download(exportName(title, 'md'), exportMarkdown(title, text), 'text/markdown')
+            download(
+              exportName(title, 'md'),
+              exportMarkdown(title, text, markFacts),
+              'text/markdown',
+            )
           }
           className={`flex items-center gap-1.5 ${QUIET_BUTTON}`}
         >
@@ -120,9 +128,9 @@ function Exports({ title, text, wordsPerMinute }: ExportProps) {
         </p>
       )}
       <p className="text-body-sm text-outline">
-        The clean voiceover is only what is spoken. The text and Markdown files carry the headings,
-        the picture cues and every check marker. The shot list has one row per picture cue, with
-        times worked out from the words at the speaking rate.
+        The clean voiceover is only what is spoken. The text and Markdown files carry the headings
+        and the picture cues{markFacts ? ', and every check marker' : ''}. The shot list has one row
+        per picture cue, with times worked out from the words at the speaking rate.
       </p>
     </div>
   );
@@ -130,6 +138,7 @@ function Exports({ title, text, wordsPerMinute }: ExportProps) {
 
 /** What is counted about the text, with the facts still to check listed beside it. */
 function Counts({ stats, view }: { readonly stats: ScriptStats; readonly view: ScriptView }) {
+  const markFacts = view.markFacts ?? true;
   const target = view.script?.targetSeconds ?? null;
   const grade = gradeNote(stats.grade, view.script?.targetGrade ?? null);
   return (
@@ -147,33 +156,32 @@ function Counts({ stats, view }: { readonly stats: ScriptStats; readonly view: S
         </div>
       </div>
       <p className="text-body-sm text-on-surface-variant">{grade}</p>
-      <div
-        className={`flex flex-col gap-1 rounded p-space-sm ${stats.markers.length > 0 ? 'bg-metric-amber-bg' : 'bg-space-deep'}`}
-      >
-        <span
-          className={`text-label-caps uppercase ${stats.markers.length > 0 ? 'text-metric-amber' : 'text-outline'}`}
+      {markFacts && (
+        <div
+          className={`flex flex-col gap-1 rounded p-space-sm ${stats.markers.length > 0 ? 'bg-metric-amber-bg' : 'bg-space-deep'}`}
         >
-          Facts to check · {stats.markers.length}
-        </span>
-        {stats.markers.length === 0 ? (
-          <p className="text-body-sm text-on-surface-variant">
-            No marker in this text. That does not make its facts true: an AI wrote it without being
-            able to look anything up.
-          </p>
-        ) : (
-          <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto">
-            {stats.markers.map((marker, index) => (
-              <li
-                key={`${index}-${marker.what}`}
-                className="break-words text-body-sm text-on-surface"
-              >
-                {marker.what}
-                <span className="text-outline"> · in: {marker.near}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+          <span
+            className={`text-label-caps uppercase ${stats.markers.length > 0 ? 'text-metric-amber' : 'text-outline'}`}
+          >
+            Facts to check · {stats.markers.length}
+          </span>
+          {stats.markers.length === 0 ? (
+            <p className="text-body-sm text-on-surface-variant">No marker in this text.</p>
+          ) : (
+            <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto">
+              {stats.markers.map((marker, index) => (
+                <li
+                  key={`${index}-${marker.what}`}
+                  className="break-words text-body-sm text-on-surface"
+                >
+                  {marker.what}
+                  <span className="text-outline"> · in: {marker.near}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       {stats.unmarkedFigures.length > 0 && (
         <div className="flex flex-col gap-1 rounded bg-space-deep p-space-sm">
           <span className={LABEL}>
@@ -239,7 +247,8 @@ interface Props {
 export function ScriptEditor({ view, which, onChange }: Props) {
   const text = view.script?.[which] ?? '';
   const rate = view.script?.wordsPerMinute ?? null;
-  const stats = scriptStats(text, rate);
+  const markFacts = view.markFacts ?? true;
+  const stats = scriptStats(text, rate, markFacts);
   return (
     <div className="grid grid-cols-1 gap-space-md xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
       <div className="flex min-w-0 flex-col gap-2">
@@ -256,10 +265,18 @@ export function ScriptEditor({ view, which, onChange }: Props) {
         </label>
         <p className="text-body-sm text-outline">
           A line starting with ## is a heading. A line like [B-ROLL: what to show | search phrase |
-          sound] is a picture cue. [CHECK: what to verify] after a claim marks a fact to check;
-          delete the marker once you have checked it. None of the three counts as spoken words.
+          sound] is a picture cue.
+          {markFacts
+            ? ' [CHECK: what to verify] after a claim marks a fact to check; delete the marker once you have checked it.'
+            : ''}{' '}
+          None of these counts as spoken words.
         </p>
-        <Exports title={view.concept.title} text={text} wordsPerMinute={rate} />
+        <Exports
+          title={view.concept.title}
+          text={text}
+          wordsPerMinute={rate}
+          markFacts={markFacts}
+        />
       </div>
       <div className="flex min-w-0 flex-col gap-space-md">
         <Counts stats={stats} view={view} />

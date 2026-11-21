@@ -64,6 +64,9 @@ const envSchema = z.object({
     .optional(),
 });
 
+/** The rule each engine setting must pass, by the name it has in `.env`. */
+export const ENGINE_ENV_RULES = envSchema.shape;
+
 const SETTING_NAMES = Object.keys(envSchema.shape);
 
 /** The settings that are set to something: an empty line in `.env` counts as not set. */

@@ -9,6 +9,7 @@ import {
   templateParts,
   tileOf,
 } from '../lib/transfers';
+import { versionCountry } from '../lib/transferPlace';
 import { Outbound } from './NicheCard';
 import { ThumbnailTile } from './ThumbnailTile';
 
@@ -69,6 +70,7 @@ function SaveToggle({ idea, onSetSaved }: SaveProps) {
 
 /** One version: where it was made for, who made it, and how it did. */
 function VersionRow({ version }: { readonly version: TransferVersion }) {
+  const country = versionCountry(version);
   return (
     <li className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
       <span className="flex min-w-0 flex-1 basis-40 items-baseline gap-2">
@@ -79,7 +81,17 @@ function VersionRow({ version }: { readonly version: TransferVersion }) {
           <Outbound href={watchUrl(version.videoId)}>{version.channelTitle}</Outbound>
         </span>
       </span>
-      <span className="flex flex-none items-baseline gap-3 text-label-caps text-outline">
+      <span className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-label-caps text-outline">
+        <span
+          className={country.elsewhere ? 'text-metric-amber' : undefined}
+          title={
+            country.elsewhere
+              ? 'This channel is in another country than the place its title names.'
+              : undefined
+          }
+        >
+          {country.elsewhere ? `${country.text} · made from elsewhere` : country.text}
+        </span>
         <span>{formatCount(version.subscribers)} subs</span>
         <span className="text-primary">{formatCount(version.views)} views</span>
         <span className={version.strong ? 'text-metric-amber' : undefined}>
@@ -101,7 +113,7 @@ function Versions({ idea }: { readonly idea: TransferIdea }) {
       <ThumbnailTile video={tileOf(strongest)} tone={scoreTone(strongest.score, AMBER)} />
       <div className="flex min-w-0 flex-col gap-space-sm">
         <span className="text-label-caps uppercase text-outline">
-          Versions · place, channel, subscribers, views, score, age
+          Versions · place in the title, channel and its country, subscribers, views, score, age
         </span>
         <ul className="flex flex-col gap-space-sm">
           {idea.versions.slice(0, VERSIONS_ON_CARD).map((version) => (

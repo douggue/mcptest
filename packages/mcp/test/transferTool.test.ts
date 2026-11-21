@@ -63,6 +63,22 @@ describe('list_transfer_opportunities', () => {
     expect(engine.transferReads).toEqual([{}]);
   });
 
+  test('gives each version’s channel country, and marks one made from elsewhere', async () => {
+    const abroad = version({ channelCountry: { key: 'US', name: 'America' }, elsewhere: true });
+    const home = version({
+      videoId: 'hhhhhhhhhhh',
+      channelCountry: { key: 'ZA', name: 'South Africa' },
+    });
+    engine.transfers = transferList({ ideas: [idea({ versions: [abroad, home] })] });
+
+    const [entry] = listOf(jsonOf(await tools.listTransferOpportunities({})));
+    const versions = entry?.['versions'] as Record<string, unknown>[];
+
+    expect(versions[0]).toMatchObject({ channelCountry: 'America', madeFromElsewhere: true });
+    expect(versions[1]).toMatchObject({ channelCountry: 'South Africa' });
+    expect(versions[1]).not.toHaveProperty('madeFromElsewhere');
+  });
+
   test('says in words when the owner’s version was weak', async () => {
     const own = version({
       videoId: 'aaaaaaaaaaa',

@@ -7,6 +7,7 @@ import {
   SqliteHookLabelRepo,
   SqliteLeaseRepo,
   SqliteMapRepo,
+  SqliteOwnerPlaceRepo,
   SqliteRefreshRepo,
   SqliteScriptRepo,
   SqliteBrandRepo,
@@ -61,6 +62,7 @@ import { downloads } from './downloadEngine';
 import { extras } from './extrasSetup';
 import { cleanMessage } from './jobs';
 import { lab } from './labSetup';
+import { logos } from './logoEngine';
 import { trackWork, type WorkTracker } from './running';
 import { transfers } from './transferEngine';
 import { videoCopies, type FetchVideoFile } from './videoCopies';
@@ -118,6 +120,7 @@ function openRepos(db: Db) {
     runs: new SqliteRefreshRepo(db),
     facts: new SqliteFactsRepo(db),
     transfers: new SqliteTransferRepo(db),
+    ownerPlaces: new SqliteOwnerPlaceRepo(db),
     // With this among them, every read of a channel also stores its logo, cover and bio.
     brands: new SqliteBrandRepo(db),
     pages: new SqliteVideoPageRepo(db),
@@ -288,17 +291,29 @@ function crawling({ config, db, now, repos, connected, reading }: Wiring): Pick<
 }
 
 type FillFacts = (listedIds?: readonly string[]) => Promise<FactsOutcome | null>;
+type FetchFacts = (channelIds: readonly string[]) => Promise<readonly ChannelFacts[]>;
+
+/**
+ * The call that reads channel facts from the official API with the owner's
+ * key, or null when no key is set. The key is read when this is called, so
+ * one saved from the settings screen is used by the next request.
+ */
+function factsFetcher({ config, options }: Wiring): FetchFacts | null {
+  const apiKey = config.youtubeApiKey;
+  if (apiKey === undefined) return null;
+  return options.fetchFacts ?? ((ids) => fetchChannelFacts(ids, { apiKey }));
+}
 
 /**
  * Reads the account dates and countries the niche list lacks, from the
  * official API. Without the owner's key there is nothing to ask with, so it
  * does nothing and says nothing. Error text goes to the browser, so it is cleaned.
  */
-function factsFiller({ config, options, repos, now }: Wiring): FillFacts {
+function factsFiller(wiring: Wiring): FillFacts {
+  const { repos, now } = wiring;
   return async (listedIds) => {
-    const apiKey = config.youtubeApiKey;
-    if (apiKey === undefined) return null;
-    const fetchFacts = options.fetchFacts ?? ((ids) => fetchChannelFacts(ids, { apiKey }));
+    const fetchFacts = factsFetcher(wiring);
+    if (fetchFacts === null) return null;
     const outcome = await fillNicheFacts({ ...repos, fetchFacts }, now(), listedIds);
     return { ...outcome, problem: outcome.problem === null ? null : cleanMessage(outcome.problem) };
   };
@@ -402,7 +417,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
   });
   const files = breakdownFiles({ root, fetch: copies.fetch, stop, ...env });
   const maps = mapReads(wiring);
-  const transferring = transfers(wiring);
+  const transferring = transfers({ ...wiring, factsFetcher: () => factsFetcher(wiring) });
   let closed = false;
   let shuttingDown: Promise<void> | null = null;
   const close = (): void => {
@@ -418,6 +433,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     ...maps,
     ...ownerChoices(wiring),
     ...transferring,
+    ...logos({ ...wiring, findSnapshot: maps.findSnapshot }),
     ...reading,
     ...crawling(wiring),
     ...refreshing(wiring, fillFacts),
@@ -443,6 +459,8 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       findSnapshot: maps.findSnapshot,
       readTranscript: reading.readTranscript,
       isClosing: wiring.work.isClosing,
+      // Read at each use: the owner can change it from the settings screen while Jgtube runs.
+      markFacts: () => config.markFacts !== false,
     }),
     extras: extras({ db: wiring.db, now: wiring.now, repos: wiring.repos }),
     analyse: asking.analyse,

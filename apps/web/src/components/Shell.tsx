@@ -10,11 +10,13 @@ import {
   PenLine,
   Quote,
   Radar,
+  Settings as SettingsIcon,
   Shapes,
   Sparkles,
   Sprout,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { Settings } from './Settings';
 
 /**
  * The sections of the one page, in the order they appear. Each entry jumps to
@@ -38,6 +40,7 @@ const RAIL = [
 
 /** The frame around every screen: top bar, left rail and the content area. */
 export function Shell({ children }: { readonly children: ReactNode }) {
+  const [settingsOpen, setSettingsOpen] = useState(false);
   return (
     <>
       <header className="fixed left-0 top-0 z-50 w-full border-b border-border-subtle bg-space-canvas/90 shadow-[0_4px_24px_rgba(5,7,14,0.6)] backdrop-blur-xl">
@@ -51,8 +54,17 @@ export function Shell({ children }: { readonly children: ReactNode }) {
               Jgtube
             </span>
           </div>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="ml-auto flex min-h-11 items-center gap-2 rounded-full px-3 text-body-sm text-on-surface-variant transition-colors hover:bg-surface-card hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
+          >
+            <SettingsIcon aria-hidden="true" className="h-[18px] w-[18px]" />
+            Settings
+          </button>
         </div>
       </header>
+      {settingsOpen && <Settings onClose={() => setSettingsOpen(false)} />}
 
       <aside className="fixed bottom-0 left-0 top-16 z-40 hidden w-64 flex-col justify-between border-r border-border-subtle bg-space-canvas py-space-md md:flex">
         <div className="flex flex-col gap-space-xs px-space-sm">

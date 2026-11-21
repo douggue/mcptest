@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { ANALYSES, analysisRequest, type AnalysisSettings } from '../src/analyses';
 import {
   HONESTY_RULE,
+  NO_MARKERS_RULE,
   SCRIPT_SYSTEM_PROMPT,
   scriptDraftQuestion,
   scriptHooksQuestion,
@@ -119,5 +120,46 @@ describe('the tighten stage', () => {
     expect(tighten).toMatch(/Add nothing: no fact, name, number, example or claim/);
     expect(tighten).toMatch(/Keep every \[CHECK: \.\.\.\] marker/);
     expect(tighten).toMatch(/every \[B-ROLL: \.\.\.\] line/);
+  });
+});
+
+describe('with marking facts turned off', () => {
+  const quiet: ScriptFocus = { kind: 'script', conceptId: 42, markFacts: false };
+  const stages = [
+    ['hooks', scriptHooksQuestion(CHANNEL, quiet)],
+    ['draft', scriptDraftQuestion(CHANNEL, quiet)],
+    ['tighten', scriptTightenQuestion(CHANNEL, quiet)],
+  ] as const;
+
+  test.each(stages)('%s: does not ask for markers, and says not to add any', (_name, question) => {
+    expect(question).not.toContain(HONESTY_RULE);
+    expect(question).not.toContain('[CHECK: what to verify]');
+    expect(question).toContain(NO_MARKERS_RULE);
+  });
+
+  test.each(stages)('%s: still forbids words put in a real person’s mouth', (_name, question) => {
+    expect(question).toMatch(
+      /quotation from a named real person unless a tool gave you those words/,
+    );
+  });
+
+  test('the hook line no longer asks for markers, and the rest of the question is unchanged', () => {
+    const on = scriptHooksQuestion(CHANNEL, focus);
+    const off = scriptHooksQuestion(CHANNEL, quiet);
+
+    expect(on).toContain('TEXT: the hook, all on one line, with its [CHECK: ...] markers.');
+    expect(off).toContain('TEXT: the hook, all on one line.');
+    expect(off.replace(NO_MARKERS_RULE, '').length).toBeLessThan(on.length);
+    expect(off).toContain('get_hooks');
+  });
+
+  test('tightening keeps a marker that is already in the draft', () => {
+    expect(scriptTightenQuestion(CHANNEL, quiet)).toMatch(/Keep every \[CHECK: \.\.\.\] marker/);
+  });
+
+  test('marking is on unless it is turned off', () => {
+    expect(scriptDraftQuestion(CHANNEL, { kind: 'script', conceptId: 42, markFacts: true })).toBe(
+      draft,
+    );
   });
 });

@@ -1,4 +1,4 @@
-export { loadConfig, type Config } from './config';
+export { CONFIG_ENV_RULES, loadConfig, type Config } from './config';
 export { LATEST_SCHEMA_VERSION, openDatabase, type Db } from './db/sqlite';
 export { backupPathFor, backupStore } from './db/backup';
 export { ingestChannel, type IngestDeps, type IngestOptions, type IngestResult } from './ingest';
@@ -108,7 +108,7 @@ export { SqliteRefreshRepo } from './repos/sqliteRefreshRepo';
 export type { RefreshRun, RefreshRunRepo, VideoReading } from './repos/types';
 export { fillNicheFacts, type FactsDeps, type FactsOutcome } from './niches/facts';
 export { SqliteFactsRepo } from './repos/sqliteFactsRepo';
-export type { FactsRepo, NewFacts, StoredFacts } from './repos/types';
+export type { FactsRepo, NewFacts, OwnerPlaceRepo, StoredFacts } from './repos/types';
 export { NICHE_MIN_LATIN_SHARE, dominantScript, latinShare } from './niches/script';
 export {
   READING_ELSEWHERE,
@@ -137,11 +137,26 @@ export {
   type TransferDeps,
   type TransferOptions,
 } from './transfer/transfers';
-export { findPlaces, placeForCountry, placeNamed, type Place } from './transfer/places';
+export {
+  findPlaces,
+  listPlaces,
+  placeForCountry,
+  placeForKey,
+  placeNamed,
+  type Place,
+} from './transfer/places';
+export {
+  MAX_COUNTRIES_PER_RUN,
+  channelsLackingCountry,
+  readCountries,
+  type CountryOutcome,
+} from './transfer/countries';
+export { SqliteOwnerPlaceRepo } from './repos/sqliteOwnerPlaceRepo';
 export { PLACE_SLOT, NUMBER_SLOT, SUBJECT_SLOT } from './transfer/template';
 export type {
   FormatSubject,
   OwnerPlace,
+  PlaceCheck,
   PlaceResult,
   TransferFormat,
   TransferIdea,
@@ -247,6 +262,16 @@ export {
   type BrandDeps,
   type BrandResult,
 } from './channel/brand';
+export { readEnvText, updateEnvText } from './envFile';
+export { PROGRAM_PATH_RULE } from './downloads/program';
+export {
+  LOGO_BACKFILL_MAX_CHANNELS,
+  backfillLogos,
+  channelsMissingLogos,
+  type LogoFound,
+  type LogoOutcome,
+  type LogoProgress,
+} from './channel/logoBackfill';
 export { DOWNLOADS_FOLDER, channelFolderName, downloadsRoot, pathInside } from './downloads/folder';
 export {
   THUMBNAILS_FOLDER,
@@ -476,6 +501,7 @@ export {
   sentenceLength,
   spokenSeconds,
   spokenText,
+  stripCheckMarkers,
   type CheckMarker,
 } from './script/measure';
 export { parseCues, shotListCsv, toCsv, type Cue } from './script/cues';

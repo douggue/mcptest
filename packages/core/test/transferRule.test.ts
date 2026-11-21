@@ -37,6 +37,8 @@ const version = (
     ageDays: 10,
     durationSeconds: 600,
     strong,
+    channelCountry: null,
+    elsewhere: false,
   };
 };
 

@@ -10,6 +10,7 @@ import {
   sentenceLength,
   spokenSeconds,
   spokenText,
+  stripCheckMarkers,
 } from '../src/script/measure';
 import { parseCues, shotListCsv, toCsv } from '../src/script/cues';
 
@@ -217,5 +218,25 @@ describe('the shot list as a file', () => {
 
   test('keeps a cell that starts like a formula from being run by a spreadsheet', () => {
     expect(toCsv([['=SUM(A1)', '+1', '-2', '@x']])).toBe("'=SUM(A1),'+1,'-2,'@x\r\n");
+  });
+});
+
+describe('a script without its check markers', () => {
+  test('keeps the headings, the cues and the claims, and drops only the markers', () => {
+    expect(stripCheckMarkers(SCRIPT)).toBe(
+      [
+        '## HOOK',
+        '[B-ROLL: a rusted press in an empty hall | abandoned factory machine | low hum]',
+        'Nobody switched it off. The plant closed in 1987, and the press kept running.',
+        '',
+        '## BEAT 1: Who paid the bill',
+        '[B-ROLL: an old electricity meter spinning | vintage electricity meter | ]',
+        'Somebody was paying for the power. That is the first question.',
+      ].join('\n'),
+    );
+  });
+
+  test('leaves a script that has none as it is', () => {
+    expect(stripCheckMarkers('## HOOK\nPlain words.')).toBe('## HOOK\nPlain words.');
   });
 });

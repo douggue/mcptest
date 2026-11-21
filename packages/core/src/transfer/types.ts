@@ -40,6 +40,14 @@ export interface TransferVersion {
   readonly durationSeconds: number | null;
   /** Far above its channel's usual views or its size, and widely seen: see `isStrong`. */
   readonly strong: boolean;
+  /** The country of the version's channel, from the official API; null when it is not known. */
+  readonly channelCountry: Place | null;
+  /**
+   * True when the title names one place and the channel is in another country:
+   * the version was made from outside the place it is about. False whenever
+   * either is unknown.
+   */
+  readonly elsewhere: boolean;
 }
 
 /**
@@ -132,8 +140,29 @@ export interface TransferFormat {
   readonly subjects: readonly FormatSubject[];
 }
 
-/** Where the owner's place came from: passed in, the centre channels' titles, or their country. */
-export type OwnerPlaceSource = 'given' | 'titles' | 'country';
+/**
+ * Where the owner's place came from: passed in for one request, the owner's
+ * stored choice for the channel, the centre channels' titles, or their country.
+ */
+export type OwnerPlaceSource = 'given' | 'owner' | 'titles' | 'country';
+
+/** What is known about the place of the channel on screen, each source on its own. */
+export interface PlaceCheck {
+  /** The channel on screen; null when the list is for the whole store. */
+  readonly channelId: string | null;
+  /** The place the owner chose for this channel; null when they have chosen none. */
+  readonly chosen: Place | null;
+  /** The place most of the channel's titles name first; null when none has the majority. */
+  readonly fromTitles: Place | null;
+  /** The channel's own country as a place; null when it is not known or not on the place list. */
+  readonly fromCountry: Place | null;
+  /** The two-letter country the official API gave for the channel; null when it gave none. */
+  readonly countryCode: string | null;
+  /** Whether the official API has been asked about this channel at all. */
+  readonly countryAsked: boolean;
+  /** True when the titles' place and the channel's country are both known and differ. */
+  readonly disagree: boolean;
+}
 
 export interface OwnerPlace extends Place {
   readonly source: OwnerPlaceSource;
@@ -142,6 +171,13 @@ export interface OwnerPlace extends Place {
 export interface TransferList {
   /** The place the owner makes videos for; null when it could not be told. */
   readonly ownerPlace: OwnerPlace | null;
+  /** What each source says about the place of the channel on screen. */
+  readonly placeCheck: PlaceCheck;
+  /**
+   * Channels this list rests on (the one on screen, and those behind the
+   * listed ideas) whose country the official API was never asked for.
+   */
+  readonly countriesMissing: number;
   /** How far back videos were considered, in days. */
   readonly windowDays: number;
   readonly videosChecked: number;

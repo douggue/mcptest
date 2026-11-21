@@ -174,6 +174,14 @@ export interface TransferRepo {
   setSaved(key: string, template: string, saved: boolean, at: Date): void;
 }
 
+/** The place the owner chose for a channel of theirs, kept per channel. */
+export interface OwnerPlaceRepo {
+  /** The key of the chosen place, or null when the owner has chosen none for this channel. */
+  find(centerChannelId: string): string | null;
+  /** Stores the choice, replacing an earlier one; null removes it. */
+  set(centerChannelId: string, placeKey: string | null, at: Date): void;
+}
+
 /** One finished refresh: how many stored channels were read again, and how it went. */
 export interface RefreshRun {
   readonly startedAt: Date;
