@@ -48,7 +48,6 @@ function useCrawl(api: Api) {
   const [snapshot, setSnapshot] = useState<MapSnapshot | null>(null);
   const [job, setJob] = useState<JobState | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [depth, setDepth] = useState<number>(CRAWL_DEFAULT_DEPTH);
   const [model, setModel] = useState(() => recall(MODEL_STORAGE_KEY));
   const [size, setSize] = useState<number>(CRAWL_DEFAULT_MAX_CHANNELS);
@@ -68,7 +67,6 @@ function useCrawl(api: Api) {
       try {
         const found = await api.latestMap(channel);
         setSnapshot(found);
-        setSelectedId(null);
         if (found === null) {
           setMessage(
             `No map has been made for ${channel} yet. Press Find competitors to make one.`,
@@ -127,18 +125,18 @@ function useCrawl(api: Api) {
 
   return {
     ...{ query, setQuery, snapshot, setSnapshot, job, message, setMessage },
-    ...{ selectedId, setSelectedId, depth, setDepth, model, setModel, size, setSize },
+    ...{ depth, setDepth, model, setModel, size, setSize },
     ...{ saved, setSaved, load, submit },
   };
 }
 
 /**
  * The map on screen and everything about it the top of the page works on:
- * the crawl, the saved channels, the radar's scope and the channel picked on it.
+ * the crawl, the saved channels and the radar's scope.
  */
 export function useMapPage(api: Api) {
   const crawl = useCrawl(api);
-  const { snapshot, setSnapshot, setSaved, saved, load, setMessage, setSelectedId } = crawl;
+  const { snapshot, setSnapshot, setSaved, saved, load, setMessage } = crawl;
   const [scope, setScope] = useState<Scope>('peers');
   const logoApi = useMemo(() => createLogoApi(), []);
 
@@ -178,7 +176,6 @@ export function useMapPage(api: Api) {
       return;
     }
     setSnapshot(null);
-    setSelectedId(null);
     crawl.setQuery('');
     remember('');
     setMessage(null);
@@ -204,15 +201,11 @@ export function useMapPage(api: Api) {
     await api.setCompetitorStatus(snapshot.center.id, channelId, status);
     await load(snapshot.center.id);
   };
-  const select = (channelId: string) => {
-    setSelectedId((current) => (current === channelId ? null : channelId));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
 
   return {
     ...crawl,
     ...{ logoRun, open, remove, peerCount, activeScope, setScope, visible, layout },
-    ...{ setStatus, select },
+    ...{ setStatus },
   };
 }
 

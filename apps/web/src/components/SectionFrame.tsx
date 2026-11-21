@@ -1,29 +1,8 @@
 import { ChevronDown, Info, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { collapsedFrom, collapsedText, withCollapsed } from '../lib/sections';
-
-const STORE_KEY = 'jgtube.collapsed';
-
-/** Whether a section was closed in this browser. A browser that keeps nothing keeps it open. */
-function wasClosed(id: string): boolean {
-  try {
-    return collapsedFrom(window.localStorage.getItem(STORE_KEY)).has(id);
-  } catch {
-    return false;
-  }
-}
-
-function remember(id: string, closed: boolean): void {
-  try {
-    const now = collapsedFrom(window.localStorage.getItem(STORE_KEY));
-    window.localStorage.setItem(STORE_KEY, collapsedText(withCollapsed(now, id, closed)));
-  } catch {
-    // Private browsing or blocked storage: the section still opens and closes.
-  }
-}
 
 interface Props {
-  /** The section's id, used for the rail and for remembering whether it is closed. */
+  /** The section's id, which in-page links and the view's address point to. */
   readonly id: string;
   readonly titleId: string;
   readonly title: string;
@@ -41,16 +20,13 @@ interface Props {
 
 /**
  * The frame every working section shares: a title that opens and closes the
- * section (remembered in this browser), one short line, the longer
+ * section (each opens open, as it has a view of its own), one short line, the longer
  * explanation behind a disclosure, the primary action, then the section.
  */
 export function SectionFrame(props: Props) {
   const { id, titleId, title, icon: Icon, lead, howItWorks, actions, summary, children } = props;
-  const [closed, setClosed] = useState(() => wasClosed(id));
-  const toggle = (): void => {
-    setClosed(!closed);
-    remember(id, !closed);
-  };
+  const [closed, setClosed] = useState(false);
+  const toggle = (): void => setClosed(!closed);
   return (
     <section
       id={id}

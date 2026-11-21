@@ -1,3 +1,4 @@
+import { viewHref } from '../lib/routes';
 import type { RiskClaim } from '@jgtube/core';
 import { ShieldAlert } from 'lucide-react';
 import { overlapLine, PLACE_LABELS, uncheckedLine, type RiskCheckView } from '../lib/risk';
@@ -12,7 +13,7 @@ const LINK = 'text-primary underline-offset-2 hover:underline';
 export function RiskCheckLink() {
   return (
     <a
-      href="#risk-check-title"
+      href={viewHref('risk')}
       className={`inline-flex items-center gap-1.5 self-start ${QUIET_BUTTON}`}
     >
       <ShieldAlert aria-hidden="true" className="h-4 w-4" />

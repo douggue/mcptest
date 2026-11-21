@@ -1,16 +1,9 @@
 import { Sparkles } from 'lucide-react';
-import {
-  ANALYSIS_OPTIONS,
-  ENGINE_CHOICES,
-  choiceHelp,
-  engineSummary,
-  type AnalysisOption,
-  type EngineChoice,
-  type EngineReport,
-} from '../lib/analyses';
+import { ANALYSIS_OPTIONS, engineSummary, type AnalysisOption } from '../lib/analyses';
 import type { ChannelChoice } from '../lib/breakdown';
 import { AnalysisAnswerView } from './AnalysisAnswerView';
 import { BreakdownCard, BreakdownStatus } from './Breakdown';
+import { EngineSwitch } from './EngineSwitch';
 import { SectionFrame } from './SectionFrame';
 import type { SendVideo } from './SupplyVideos';
 import type { Analysis, AnalysisState } from './useAnalysis';
@@ -47,49 +40,6 @@ function Option({ option, busy, active, onRun }: OptionProps) {
       >
         {active ? 'Working…' : option.action}
       </button>
-    </div>
-  );
-}
-
-interface SwitchProps {
-  readonly choice: EngineChoice;
-  readonly engines: EngineReport | null;
-  readonly busy: boolean;
-  readonly onChoose: (choice: EngineChoice) => void;
-}
-
-/** The switch for which AI answers: Automatic, or one engine and nothing else. */
-function EngineSwitch({ choice, engines, busy, onChoose }: SwitchProps) {
-  return (
-    <div className="flex flex-col gap-1">
-      <div
-        role="radiogroup"
-        aria-label="Which AI answers"
-        className="flex flex-wrap items-center gap-2"
-      >
-        <span className="text-label-caps uppercase text-outline">AI</span>
-        {ENGINE_CHOICES.map((option) => {
-          const chosen = option.choice === choice;
-          return (
-            <button
-              key={option.choice}
-              type="button"
-              role="radio"
-              aria-checked={chosen}
-              disabled={busy}
-              onClick={() => onChoose(option.choice)}
-              className={`rounded-full px-3 py-1 text-body-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
-                chosen
-                  ? 'bg-primary-container text-space-deep'
-                  : 'bg-surface-card text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
-      <p className="text-body-sm text-outline">{choiceHelp(choice, engines)}</p>
     </div>
   );
 }

@@ -110,7 +110,9 @@ const ENGINE_NAMES: Readonly<Record<AnyEngineId, string>> = {
   'gemini-api': 'Gemini API',
 };
 
-const nameOf = (id: AnyEngineId): string => ENGINE_NAMES[id];
+/** An engine by the name a creator knows it by. */
+export const engineName = (id: AnyEngineId): string => ENGINE_NAMES[id];
+const nameOf = engineName;
 
 function stateOf(status: EngineStatus): string {
   if (!status.installed) return 'not installed';

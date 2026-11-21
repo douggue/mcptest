@@ -13,34 +13,34 @@ const counts: FlowCounts = {
 };
 
 describe('the flow strip', () => {
-  test('names the five steps in order, each jumping to its section with what is stored', () => {
+  test('names the five steps in order, each opening its view with what is stored', () => {
     expect(flowSteps(counts)).toEqual([
       {
         id: 'research',
         label: 'Research',
-        target: 'breakouts-title',
+        view: 'breakouts',
         count: '14 breakouts',
         done: true,
       },
       {
         id: 'formats',
         label: 'Formats and hooks',
-        target: 'formulas',
+        view: 'formats',
         count: '3 formats · 12 hooks',
         done: true,
       },
-      { id: 'ideas', label: 'Ideas', target: 'idea-lab', count: '1 concept', done: true },
+      { id: 'ideas', label: 'Ideas', view: 'ideas', count: '1 concept', done: true },
       {
         id: 'script',
         label: 'Script',
-        target: 'script-writer',
+        view: 'script',
         count: 'No scripts yet',
         done: false,
       },
       {
         id: 'breakdown',
         label: 'Breakdown',
-        target: 'ask-claude',
+        view: 'ask',
         count: '2 breakdowns',
         done: true,
       },
@@ -53,22 +53,22 @@ describe('the flow strip', () => {
 });
 
 describe('where a thing in the idea lab or the script writer came from', () => {
-  test('links back to the section it came from', () => {
+  test('links back to the view it came from', () => {
     expect(originLink('breakout')).toEqual({
       label: 'Breaking out right now',
-      href: '#breakouts-title',
+      href: '#/breakouts',
     });
-    expect(originLink('hook')).toEqual({ label: 'the hook library', href: '#hook-library' });
+    expect(originLink('hook')).toEqual({ label: 'the hook library', href: '#/hooks' });
     expect(originLink('transfer')).toEqual({
       label: 'the transfer list',
-      href: '#transfers-title',
+      href: '#/transfers',
     });
-    expect(originLink('formula')).toEqual({ label: 'Trending formats', href: '#formulas' });
+    expect(originLink('formula')).toEqual({ label: 'Trending formats', href: '#/formats' });
     expect(originLink('breakdown')).toEqual({
       label: 'the channel breakdown',
-      href: '#ask-claude',
+      href: '#/ask',
     });
-    expect(originLink('review')).toEqual({ label: 'the thumbnail review', href: '#ask-claude' });
+    expect(originLink('review')).toEqual({ label: 'the thumbnail review', href: '#/ask' });
   });
 });
 

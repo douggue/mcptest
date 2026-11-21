@@ -1,8 +1,9 @@
 import type { Pick } from './ideaLab';
+import { viewHref, type ViewId } from './routes';
 
 /**
  * The path from research to a finished script, as the page shows it: a strip
- * of steps that jump to their sections with what is stored at each, and the
+ * of steps that open their views with what is stored at each, and the
  * links that say where a thing in the idea lab or the script writer came from.
  */
 
@@ -21,8 +22,8 @@ export interface FlowCounts {
 export interface FlowStep {
   readonly id: 'research' | 'formats' | 'ideas' | 'script' | 'breakdown';
   readonly label: string;
-  /** The id of the section it jumps to. */
-  readonly target: string;
+  /** The view it opens. */
+  readonly view: ViewId;
   /** What is stored, in a few words; empty before the counts are read. */
   readonly count: string;
   readonly done: boolean;
@@ -39,13 +40,13 @@ export function flowSteps(counts: FlowCounts | null): readonly FlowStep[] {
   const step = (
     id: FlowStep['id'],
     label: string,
-    target: string,
+    view: ViewId,
     count: (k: FlowCounts) => string,
     done: (k: FlowCounts) => boolean,
   ): FlowStep => ({
     id,
     label,
-    target,
+    view,
     count: c ? count(c) : '',
     done: c ? done(c) : false,
   });
@@ -53,35 +54,35 @@ export function flowSteps(counts: FlowCounts | null): readonly FlowStep[] {
     step(
       'research',
       'Research',
-      'breakouts-title',
+      'breakouts',
       (k) => orNone(k.breakouts, 'breakout'),
       (k) => k.breakouts > 0,
     ),
     step(
       'formats',
       'Formats and hooks',
-      'formulas',
+      'formats',
       (k) => `${counted(k.formulas, 'format')} · ${counted(k.hooks, 'hook')}`,
       (k) => k.formulas + k.hooks > 0,
     ),
     step(
       'ideas',
       'Ideas',
-      'idea-lab',
+      'ideas',
       (k) => orNone(k.concepts, 'concept'),
       (k) => k.concepts > 0,
     ),
     step(
       'script',
       'Script',
-      'script-writer',
+      'script',
       (k) => orNone(k.scripts, 'script'),
       (k) => k.scripts > 0,
     ),
     step(
       'breakdown',
       'Breakdown',
-      'ask-claude',
+      'ask',
       (k) => orNone(k.breakdowns, 'breakdown'),
       (k) => k.breakdowns > 0,
     ),
@@ -92,12 +93,12 @@ export function flowSteps(counts: FlowCounts | null): readonly FlowStep[] {
 export type Origin = 'breakout' | 'hook' | 'transfer' | 'formula' | 'breakdown' | 'review';
 
 const ORIGINS: Readonly<Record<Origin, { readonly label: string; readonly href: string }>> = {
-  breakout: { label: 'Breaking out right now', href: '#breakouts-title' },
-  hook: { label: 'the hook library', href: '#hook-library' },
-  transfer: { label: 'the transfer list', href: '#transfers-title' },
-  formula: { label: 'Trending formats', href: '#formulas' },
-  breakdown: { label: 'the channel breakdown', href: '#ask-claude' },
-  review: { label: 'the thumbnail review', href: '#ask-claude' },
+  breakout: { label: 'Breaking out right now', href: viewHref('breakouts') },
+  hook: { label: 'the hook library', href: viewHref('hooks') },
+  transfer: { label: 'the transfer list', href: viewHref('transfers') },
+  formula: { label: 'Trending formats', href: viewHref('formats') },
+  breakdown: { label: 'the channel breakdown', href: viewHref('ask') },
+  review: { label: 'the thumbnail review', href: viewHref('ask') },
 };
 
 /** The words and the link back to where a thing came from. */

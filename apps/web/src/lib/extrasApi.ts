@@ -1,5 +1,6 @@
 import type {
   CalendarView,
+  ChannelProfile,
   MineOutcome,
   PacingView,
   PlanView,
@@ -59,6 +60,9 @@ export function createExtrasApi(fetcher?: Fetch) {
     async unlinkPlanVideo(channel: string, conceptId: number): Promise<PlanView> {
       return unwrap<PlanView>(await send('/api/plan/unlink', { channel, conceptId }));
     },
+
+    /** Any stored channel's numbers and some of its videos; null when the store does not hold it. */
+    profile: (channel: string) => read<ChannelProfile>(`/api/channels/profile?${of(channel)}`),
 
     /** A channel's lengths and pace beside its map's breakouts; null when it has no map. */
     pacing: (channel: string) => read<PacingView>(`/api/pacing?${of(channel)}`),

@@ -1,12 +1,19 @@
 import { ChevronRight } from 'lucide-react';
 import { Fragment } from 'react';
 import { flowSteps, type FlowCounts } from '../lib/flow';
+import { routeHash, type ViewId } from '../lib/routes';
 
 /**
- * The path from research to a script, near the top of the page: each step
- * jumps to its section and says what is stored for the channel on screen.
+ * The path from research to a script: each step opens its view and says what
+ * is stored for the channel on screen. The step of the view on screen is marked.
  */
-export function FlowStrip({ counts }: { readonly counts: FlowCounts | null }) {
+export function FlowStrip({
+  counts,
+  active,
+}: {
+  readonly counts: FlowCounts | null;
+  readonly active: ViewId;
+}) {
   const steps = flowSteps(counts);
   return (
     <nav aria-label="From research to a script" className="w-full bg-space-deep px-gutter-desktop">
@@ -20,8 +27,9 @@ export function FlowStrip({ counts }: { readonly counts: FlowCounts | null }) {
             )}
             <li className="min-w-0">
               <a
-                href={`#${step.target}`}
-                className="flex min-w-0 flex-col rounded bg-surface-card px-3 py-1.5 transition-colors hover:bg-surface-container-high focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
+                href={routeHash({ view: step.view, channelId: null, anchor: null })}
+                aria-current={step.view === active ? 'step' : undefined}
+                className="flex min-w-0 flex-col rounded bg-surface-card px-3 py-1.5 aria-[current=step]:ring-1 aria-[current=step]:ring-primary-container transition-colors hover:bg-surface-container-high focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
               >
                 <span className="flex items-center gap-1.5 text-body-sm font-semibold text-on-surface">
                   <span

@@ -1,5 +1,4 @@
-import { X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   changesOf,
   createSettingsApi,
@@ -10,11 +9,13 @@ import {
   type ProgramsReport,
   type SettingsReply,
 } from '../lib/settings';
+import { AiEngines, type AiChoice } from './AiEngines';
 import { NOTE, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
 import { SettingRow } from './SettingRow';
 
 interface Props {
-  readonly onClose: () => void;
+  /** Which AI answers, chosen here for the whole app. */
+  readonly ai: AiChoice;
 }
 
 type Loaded =
@@ -116,11 +117,11 @@ function ProgramsPanel({ refreshKey }: { readonly refreshKey: number }) {
 }
 
 /**
- * The settings screen, opened from the header: the keys, the AI engines, the
- * helper programs and the rest of the `.env` file, each with what is in force
- * and when a change takes effect.
+ * The settings view, opened from the top bar: which AI answers, the keys, the
+ * AI engines, the helper programs and the rest of the `.env` file, each with
+ * what is in force and when a change takes effect.
  */
-export function Settings({ onClose }: Props) {
+export function Settings({ ai }: Props) {
   const api = useMemo(() => createSettingsApi(), []);
   const [loaded, setLoaded] = useState<Loaded>({ status: 'loading' });
   const [drafts, setDrafts] = useState<Drafts>({});
@@ -129,7 +130,6 @@ export function Settings({ onClose }: Props) {
     null,
   );
   const [saves, setSaves] = useState(0);
-  const closeButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     api.read().then(
@@ -137,14 +137,6 @@ export function Settings({ onClose }: Props) {
       (error: unknown) => setLoaded({ status: 'failed', message: messageOf(error) }),
     );
   }, [api]);
-  useEffect(() => {
-    closeButton.current?.focus();
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   const settings = loaded.status === 'ready' ? loaded.reply.settings : [];
   const save = () => {
@@ -165,28 +157,19 @@ export function Settings({ onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-end bg-space-deep/80 backdrop-blur-sm">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="settings-title"
-        className="flex h-full w-full max-w-2xl flex-col border-l border-border-subtle bg-space-canvas shadow-2xl"
-      >
-        <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-gutter-desktop py-space-md">
-          <h2 id="settings-title" className="text-headline-md text-on-surface">
-            Settings
-          </h2>
-          <button
-            ref={closeButton}
-            type="button"
-            aria-label="Close settings"
-            onClick={onClose}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-card hover:text-on-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
-          >
-            <X aria-hidden="true" className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="flex flex-1 flex-col gap-space-lg overflow-y-auto px-gutter-desktop py-space-lg">
+    <section
+      aria-labelledby="settings-title"
+      className="w-full bg-space-deep px-gutter-desktop pb-space-xl"
+    >
+      <div className="mx-auto flex max-w-3xl flex-col border-t border-border-subtle pt-space-lg">
+        <h2
+          id="settings-title"
+          className="text-headline-lg font-bold tracking-tight text-on-surface"
+        >
+          Settings
+        </h2>
+        <div className="flex flex-col gap-space-lg py-space-lg">
+          <AiEngines ai={ai} />
           <p className="text-body-sm text-on-surface-variant">
             These are kept in the <span className="text-on-surface">.env</span> file in the Jgtube
             folder on this computer
@@ -227,7 +210,7 @@ export function Settings({ onClose }: Props) {
           )}
           <ProgramsPanel refreshKey={saves} />
         </div>
-        <div className="flex flex-wrap items-center gap-3 border-t border-border-subtle px-gutter-desktop py-space-md">
+        <div className="sticky bottom-0 flex flex-wrap items-center gap-3 border-t border-border-subtle bg-space-deep py-space-md">
           <button
             type="button"
             disabled={saving || !hasChanges(settings, drafts)}
@@ -246,6 +229,6 @@ export function Settings({ onClose }: Props) {
           )}
         </div>
       </div>
-    </div>
+    </section>
   );
 }

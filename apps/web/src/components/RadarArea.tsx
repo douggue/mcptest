@@ -1,27 +1,24 @@
 import { describeLogoRun } from '../lib/logos';
 import { describeMix } from '../lib/mix';
-import { Inspector } from './Inspector';
 import { Radar } from './Radar';
 import { ScopeToggle } from './ScopeToggle';
-import { messageOf, type MapPage } from './useMapPage';
+import type { MapPage } from './useMapPage';
 
 interface Props {
   readonly page: MapPage;
-  /** An AI run is under way somewhere on the page. */
-  readonly busy: boolean;
-  readonly onBreakDown: (channel: { readonly id: string; readonly title: string }) => void;
+  /** Opens one channel's own view. */
+  readonly onOpenChannel: (channelId: string) => void;
 }
 
-/** The radar: the map on screen, its scope, the logo reading and the channel picked on it. */
-export function RadarArea({ page, busy, onBreakDown }: Props) {
-  const { snapshot, visible, layout, selectedId, select, job, logoRun } = page;
-  const selected = snapshot?.channels.find((channel) => channel.id === selectedId) ?? null;
+/** The radar: the map on screen, its scope and the logo reading. A channel on it opens its view. */
+export function RadarArea({ page, onOpenChannel }: Props) {
+  const { snapshot, visible, layout, job, logoRun } = page;
   return (
     <Radar
       snapshot={visible}
       layout={layout}
-      selectedId={selectedId}
-      onSelect={select}
+      selectedId={null}
+      onSelect={onOpenChannel}
       emptyState={
         <div className="max-w-md rounded bg-space-canvas/80 p-space-lg backdrop-blur-md">
           {job?.status === 'running' ? (
@@ -37,8 +34,9 @@ export function RadarArea({ page, busy, onBreakDown }: Props) {
             <>
               <h1 className="text-headline-lg text-on-surface">Map who you compete with</h1>
               <p className="mt-2 text-body-lg text-on-surface-variant">
-                Paste your channel above and press Find competitors. Jgtube follows YouTube&rsquo;s
-                recommendations out from your videos; a full map takes a few minutes.
+                Paste your channel on the overview and press Find competitors. Jgtube follows
+                YouTube&rsquo;s recommendations out from your videos; a full map takes a few
+                minutes.
               </p>
             </>
           )}
@@ -50,7 +48,6 @@ export function RadarArea({ page, busy, onBreakDown }: Props) {
           scope={page.activeScope}
           onChange={(next) => {
             page.setScope(next);
-            page.setSelectedId(null);
           }}
           peerCount={page.peerCount}
           totalCount={snapshot.channels.length}
@@ -64,19 +61,6 @@ export function RadarArea({ page, busy, onBreakDown }: Props) {
         >
           {describeLogoRun(logoRun === 'starting' ? null : logoRun)}
         </p>
-      )}
-      {selected && snapshot && (
-        <Inspector
-          channel={selected}
-          onClose={() => page.setSelectedId(null)}
-          onSetStatus={(status) => {
-            page
-              .setStatus(selected.id, status)
-              .catch((error: unknown) => page.setMessage(messageOf(error)));
-          }}
-          busy={busy}
-          onBreakDown={() => onBreakDown(selected)}
-        />
       )}
     </Radar>
   );
