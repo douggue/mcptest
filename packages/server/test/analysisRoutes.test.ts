@@ -12,14 +12,18 @@ import { scripted, tinyMp4 } from './engines/standIn';
 import { CHANNEL_ID, HOST, get, post, read, stubEngine } from './support';
 
 const PATH = '/api/analyses';
-type Analyse = (analysis: AnalysisId, channel: string) => Promise<{ readonly text: string }>;
+type Analyse = (
+  analysis: AnalysisId,
+  channel: string,
+  only?: EngineId,
+) => Promise<{ readonly text: string }>;
 
 /** An app whose engine answers as Claude would, with nothing passed over. */
 function appWith(analyse: Analyse, more: Partial<Engine> = {}) {
   return createApp({
     engine: stubEngine({
-      analyse: async (analysis, channel) => ({
-        ...(await analyse(analysis, channel)),
+      analyse: async (analysis, channel, only) => ({
+        ...(await analyse(analysis, channel, only)),
         turns: null,
         engine: 'claude',
         skipped: [],
@@ -209,9 +213,9 @@ describe('the engine’s analyse', () => {
 
     const result = await engine.analyse('topics', '@americainvents2');
 
-    expect(result).toEqual({ text: 'Eight ideas.', turns: 5, engine: 'agy', skipped: [] });
+    expect(result).toEqual({ text: 'Eight ideas.', turns: 5, engine: 'claude', skipped: [] });
     const [id, request] = requests[0] ?? [];
-    expect(id).toBe('agy');
+    expect(id).toBe('claude');
     expect(request?.prompt).toContain('@americainvents2');
     expect(request?.mcpServers['jgtube']?.env).toEqual({
       JGTUBE_DB_PATH: '/data/jgtube.db',
@@ -227,9 +231,9 @@ describe('the engine’s analyse', () => {
     const engine = engineWith({
       runEngine: async (id) => {
         tried.push(id);
+        if (id === 'claude') throw new EngineRunError('limit', 'Claude has hit its limit.');
         if (id === 'agy')
           throw new EngineRunError('not-installed', 'Antigravity is not installed.');
-        if (id === 'claude') throw new EngineRunError('limit', 'Claude has hit its limit.');
         return { text: 'From Codex.', turns: null };
       },
     });
@@ -239,11 +243,11 @@ describe('the engine’s analyse', () => {
       turns: null,
       engine: 'codex',
       skipped: [
-        { engine: 'agy', reason: 'not-installed', message: 'Antigravity is not installed.' },
         { engine: 'claude', reason: 'limit', message: 'Claude has hit its limit.' },
+        { engine: 'agy', reason: 'not-installed', message: 'Antigravity is not installed.' },
       ],
     });
-    expect(tried).toEqual(['agy', 'claude', 'codex']);
+    expect(tried).toEqual(['claude', 'agy', 'codex']);
     engine.close();
   });
 
@@ -270,19 +274,19 @@ describe('the engine’s analyse', () => {
     const engine = engineWith({
       runEngine: async (id) => {
         tried.push(id);
-        if (id === 'agy') {
-          throw new EngineRunError('timeout', 'Antigravity took too long and was stopped.');
+        if (id === 'claude') {
+          throw new EngineRunError('timeout', 'Claude took too long and was stopped.');
         }
-        return { text: 'From Claude.', turns: 3 };
+        return { text: 'From Antigravity.', turns: 3 };
       },
     });
 
     await expect(engine.analyse('topics', CHANNEL_ID)).resolves.toMatchObject({
-      text: 'From Claude.',
-      engine: 'claude',
-      skipped: [{ engine: 'agy', reason: 'timeout' }],
+      text: 'From Antigravity.',
+      engine: 'agy',
+      skipped: [{ engine: 'claude', reason: 'timeout' }],
     });
-    expect(tried).toEqual(['agy', 'claude']);
+    expect(tried).toEqual(['claude', 'agy']);
     engine.close();
   });
 
@@ -296,7 +300,7 @@ describe('the engine’s analyse', () => {
     });
 
     await expect(engine.analyse('topics', CHANNEL_ID)).rejects.toMatchObject({ reason: 'timeout' });
-    expect(tried).toEqual(['agy', 'claude', 'codex']);
+    expect(tried).toEqual(['claude', 'agy', 'codex']);
     engine.close();
   });
 
@@ -336,7 +340,7 @@ describe('the engine’s analyse', () => {
       engineWith({
         runEngine: async (id, request) => {
           folders.push([id, request.cwd]);
-          if (id === 'agy') throw new EngineRunError('not-installed', 'no agy');
+          if (id === 'claude') throw new EngineRunError('limit', 'no allowance');
           return { text: 'x', turns: 1 };
         },
       });
@@ -347,8 +351,8 @@ describe('the engine’s analyse', () => {
     await first.analyse('topics', '@americainvents2');
     await second.analyse('topics', '@americainvents2');
 
-    const [agy, claude, , claudeAgain, , claudeElsewhere] = folders.map(([, folder]) => folder);
-    expect(folders.map(([id]) => id)).toEqual(['agy', 'claude', 'agy', 'claude', 'agy', 'claude']);
+    const [claude, agy, claudeAgain, , claudeElsewhere] = folders.map(([, folder]) => folder);
+    expect(folders.map(([id]) => id)).toEqual(['claude', 'agy', 'claude', 'agy', 'claude', 'agy']);
     expect(claudeAgain).toBe(claude);
     // An engine that may write to its folder cannot plant settings for another.
     expect(agy).not.toBe(claude);
@@ -428,7 +432,7 @@ describe('the engine’s engineStatus', () => {
 
     const { engines, order } = await engine.engineStatus();
 
-    expect(order).toEqual(['agy', 'claude', 'codex']);
+    expect(order).toEqual(['claude', 'agy', 'codex']);
     expect(engines.map((entry) => [entry.id, entry.installed])).toEqual([
       ['agy', false],
       ['claude', false],
@@ -524,5 +528,95 @@ describe('what is known about the engines after a failed check', () => {
     await expect(engine.engineStatus()).rejects.toThrow(/could not start/);
     await expect(engine.engineStatus()).resolves.toEqual({ engines: [], order: ['claude'] });
     engine.close();
+  });
+});
+
+describe('an analysis from the one engine the owner chose', () => {
+  test('asks that engine and no backup, and says so when it cannot answer', async () => {
+    const tried: EngineId[] = [];
+    const engine = engineWith({
+      runEngine: async (id) => {
+        tried.push(id);
+        throw new EngineRunError('limit', 'Codex has hit its limit.');
+      },
+    });
+
+    await expect(engine.analyse('topics', CHANNEL_ID, 'codex')).rejects.toMatchObject({
+      reason: 'limit',
+      message: expect.stringMatching(
+        /^Codex CLI could not answer\. Choose another AI.*hit its limit/,
+      ),
+    });
+    expect(tried).toEqual(['codex']);
+    engine.close();
+  });
+
+  test('returns its answer with nobody passed over', async () => {
+    const engine = engineWith({ runEngine: async () => ({ text: 'From Antigravity.', turns: 2 }) });
+
+    await expect(engine.analyse('near-misses', CHANNEL_ID, 'agy')).resolves.toEqual({
+      text: 'From Antigravity.',
+      turns: 2,
+      engine: 'agy',
+      skipped: [],
+    });
+    engine.close();
+  });
+
+  test('says which engines can do an analysis the chosen one cannot', async () => {
+    const tried: EngineId[] = [];
+    const engine = engineWith({
+      runEngine: async (id) => {
+        tried.push(id);
+        return { text: 'never', turns: 1 };
+      },
+    });
+
+    await expect(engine.analyse('thumbnails', CHANNEL_ID, 'agy')).rejects.toMatchObject({
+      message:
+        'Thumbnail review cannot be done by Antigravity CLI: it needs Claude Code or Codex CLI. Choose one of those, or Automatic.',
+    });
+    expect(tried).toEqual([]);
+    engine.close();
+  });
+
+  test('says so when the settings leave the chosen engine out', async () => {
+    const engine = engineWith({
+      engines: { order: ['claude'], agyYouTubeLinks: false },
+      runEngine: async () => ({ text: 'never', turns: 1 }),
+    });
+
+    await expect(engine.analyse('topics', CHANNEL_ID, 'codex')).rejects.toMatchObject({
+      message: 'Codex CLI is left out by the JGTUBE_ENGINES setting.',
+    });
+    engine.close();
+  });
+
+  test('the route passes the choice on, and refuses an engine that does not exist', async () => {
+    const asked: Array<[string, string, string | undefined]> = [];
+    const app = appWith(async (analysis, channel, only) => {
+      asked.push([analysis, channel, only]);
+      return { text: 'ok' };
+    });
+
+    const chosen = await post(app, '/api/analyses', {
+      analysis: 'topics',
+      channel: CHANNEL_ID,
+      engine: 'codex',
+    });
+    const usual = await post(app, '/api/analyses', { analysis: 'topics', channel: CHANNEL_ID });
+    const unknown = await post(app, '/api/analyses', {
+      analysis: 'topics',
+      channel: CHANNEL_ID,
+      engine: 'gpt',
+    });
+
+    expect(chosen.status).toBe(200);
+    expect(usual.status).toBe(200);
+    expect(unknown.status).toBe(400);
+    expect(asked).toEqual([
+      ['topics', CHANNEL_ID, 'codex'],
+      ['topics', CHANNEL_ID, undefined],
+    ]);
   });
 });

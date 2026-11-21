@@ -278,19 +278,20 @@ decline, ancient history), with no model channel.
   this share of the calls for the channels that stayed (forty seeded runs; the
   model channel always stays):
 
-  | Map (channels)                | Look-alikes | Unsettled: in / out | All calls changed, half / quarter removed | Settled calls changed, half / quarter |
-  | ----------------------------- | ----------- | ------------------- | ----------------------------------------- | ------------------------------------- |
-  | New inventions, model (285)   | 25          | 4 / 20              | 1.0% / 0.3%                               | 0.1% / 0.0%                           |
-  | New inventions, no model (172)| 22          | 6 / 13              | 0.8% / 0.1%                               | 0.1% / 0.0%                           |
-  | Companies in decline (175)    | 8           | 1 / 14              | 2.2% / 0.7%                               | 0.0% / 0.0%                           |
-  | Ancient history (150)         | 32          | 14 / 15             | 5.2% / 3.4%                               | 0.2% / 0.1%                           |
-  | Retro technology (166)        | 15          | 6 / 16              | 4.5% / 1.9%                               | 0.0% / 0.0%                           |
+  | Map (channels)                 | Look-alikes | Unsettled: in / out | All calls changed, half / quarter removed | Settled calls changed, half / quarter |
+  | ------------------------------ | ----------- | ------------------- | ----------------------------------------- | ------------------------------------- |
+  | New inventions, model (285)    | 25          | 4 / 20              | 1.0% / 0.3%                               | 0.1% / 0.0%                           |
+  | New inventions, no model (172) | 22          | 6 / 13              | 0.8% / 0.1%                               | 0.1% / 0.0%                           |
+  | Companies in decline (175)     | 8           | 1 / 14              | 2.2% / 0.7%                               | 0.0% / 0.0%                           |
+  | Ancient history (150)          | 32          | 14 / 15             | 5.2% / 3.4%                               | 0.2% / 0.1%                           |
+  | Retro technology (166)         | 15          | 6 / 16              | 4.5% / 1.9%                               | 0.0% / 0.0%                           |
 
   Two things cause it, not one: which three channels lend their titles, and word
   rarity counted over the map (with no borrowing at all, map rarity alone still
   changed up to 2.6% of calls on the ancient-history map; rarity counted over
   the whole store changed none, but then the calls hang on what else is stored:
   with the store cut down to the map itself, 3.6% of them moved there).
+
 - **Rules tried, and why none was adopted.** Each was measured on all five maps
   and on the three labelled fixtures; the target was at most 1% of calls changed,
   no more than about a tenth fewer look-alikes, and no new wrong ones.
@@ -325,11 +326,11 @@ decline, ancient history), with no model channel.
     little on the large ones (5.3% and 3.1% on the varied niches) and drops one
     real three-video look-alike. Worth doing next; it changes calls, so it was
     left out of this step.
-  The tension is real: a reference with one strong format needs few, close
-  lenders or loud outsiders pass; a niche with varied titles needs many or its
-  look-alikes are missed; and few lenders is what makes a call hang on who is
-  on the map. On the ancient-history map titles do not separate the groups at
-  all between 12% and 19%: history channels and engineering explainers alternate.
+    The tension is real: a reference with one strong format needs few, close
+    lenders or loud outsiders pass; a niche with varied titles needs many or its
+    look-alikes are missed; and few lenders is what makes a call hang on who is
+    on the map. On the ancient-history map titles do not separate the groups at
+    all between 12% and 19%: history channels and engineering explainers alternate.
 - **What was built instead.** The calls stay as they were and each says whether
   it is settled (see "Settled or not" above). A settled call changed in at most
   0.2% of cases on every map, against up to 5.2% for all calls. The unsettled
@@ -575,7 +576,7 @@ channel's country.
 becomes `{place}` (possessives and plurals included: "Germany's", "Americans")
 and each number or sum of money becomes `{n}`. A place counts only when written
 with a capital ("turkey" is a bird); "US" only in capitals in a title that is not
-all capitals. The template's *words* are its slots and its words less the short
+all capitals. The template's _words_ are its slots and its words less the short
 and common ones, through the same tokenizer the title match uses
 (`tokenize` in `map/relevance.ts`).
 
@@ -584,13 +585,13 @@ idea, so the country-swapped copies of a title land together. "Nearly the same"
 is the same words with a tag of at most two words in front or behind
 ("Breaking:", "- must watch"). An idea is listed once two channels have made it.
 
-| Constant               | Value | Why                                                                                     |
-| ---------------------- | ----- | --------------------------------------------------------------------------------------- |
-| `IDEA_MIN_WORDS`       | 3     | Fewer words besides the slots is a phrase ("{place} news") that unrelated videos share  |
-| `IDEA_MAX_TAG_WORDS`   | 2     | The room a tag takes; three added words are a clause that can change the subject        |
-| `IDEA_MIN_VIDEOS`      | 2     | One video is not an idea that travels                                                   |
-| `IDEA_MIN_CHANNELS`    | 2     | One channel repeating itself is not either                                              |
-| `TRANSFER_WINDOW_DAYS` | 90    | What the owner counts as "now"; it also bounds the work on a store that keeps growing   |
+| Constant               | Value | Why                                                                                    |
+| ---------------------- | ----- | -------------------------------------------------------------------------------------- |
+| `IDEA_MIN_WORDS`       | 3     | Fewer words besides the slots is a phrase ("{place} news") that unrelated videos share |
+| `IDEA_MAX_TAG_WORDS`   | 2     | The room a tag takes; three added words are a clause that can change the subject       |
+| `IDEA_MIN_VIDEOS`      | 2     | One video is not an idea that travels                                                  |
+| `IDEA_MIN_CHANNELS`    | 2     | One channel repeating itself is not either                                             |
+| `TRANSFER_WINDOW_DAYS` | 90    | What the owner counts as "now"; it also bounds the work on a store that keeps growing  |
 
 **Same format** (`formats.ts`). Each idea is filed under every way of blanking a
 run of one or two of its words, written `{subject}`. Ideas that land under the
@@ -599,12 +600,12 @@ same blanked form share everything but the subject, so
 fibre, subwoofers and solar panels. Each idea counts in one format: the form with
 the most subjects.
 
-| Constant                   | Value | Why                                                                               |
-| -------------------------- | ----- | --------------------------------------------------------------------------------- |
-| `FORMAT_MAX_SUBJECT_WORDS` | 2     | A noun or a two-word noun phrase; longer blanks make unrelated titles look alike  |
-| `FORMAT_MIN_FIXED_WORDS`   | 3     | The words around the subject must be a phrase of their own, as for an idea        |
+| Constant                   | Value | Why                                                                                |
+| -------------------------- | ----- | ---------------------------------------------------------------------------------- |
+| `FORMAT_MAX_SUBJECT_WORDS` | 2     | A noun or a two-word noun phrase; longer blanks make unrelated titles look alike   |
+| `FORMAT_MIN_FIXED_WORDS`   | 3     | The words around the subject must be a phrase of their own, as for an idea         |
 | `FORMAT_MIN_SUBJECTS`      | 3     | Two subjects can be one channel trying twice; a third shows the wording is a frame |
-| `FORMAT_MIN_CHANNELS`      | 2     | Worth learning from once more than one channel uses it                            |
+| `FORMAT_MIN_CHANNELS`      | 2     | Worth learning from once more than one channel uses it                             |
 
 **The owner's place** (`ownerPlace.ts`). In order: the place passed in
 (`?place=`), the channel on screen (`?channel=`), then the channels maps were
@@ -614,19 +615,19 @@ is the place at least half of its titles name first (`OWNER_PLACE_MIN_TITLE_SHAR
 country, else unknown.
 
 **The verdict** (`opportunity.ts`). A version's place is the one its title names
-or, failing that, its channel's country. A version is *strong* when it has
+or, failing that, its channel's country. A version is _strong_ when it has
 10,000 views or more and is 5x its channel's usual views or was seen by 10x its
 subscribers: the niche list's rule for an outperforming video (`beatsItsChannel`)
 without its 30-day limit.
 
-| Status     | Meaning                                                                                              | Opportunity |
-| ---------- | ---------------------------------------------------------------------------------------------------- | ----------- |
-| `open`     | A strong version elsewhere, none for the owner's place, every version's place known                   | yes         |
-| `weak`     | The owner's place has versions, none strong, the best under a tenth of the strongest elsewhere       | yes         |
-| `done`     | The owner's place has a strong version, or one within a tenth of the strongest elsewhere             | no          |
-| `unproven` | No version is strong                                                                                 | no          |
-| `unplaced` | The owner's place is unknown, or a version that may be the owner's has no known place                | no          |
-| `gone`     | A saved idea none of whose videos is recent enough to list                                           | no          |
+| Status     | Meaning                                                                                        | Opportunity |
+| ---------- | ---------------------------------------------------------------------------------------------- | ----------- |
+| `open`     | A strong version elsewhere, none for the owner's place, every version's place known            | yes         |
+| `weak`     | The owner's place has versions, none strong, the best under a tenth of the strongest elsewhere | yes         |
+| `done`     | The owner's place has a strong version, or one within a tenth of the strongest elsewhere       | no          |
+| `unproven` | No version is strong                                                                           | no          |
+| `unplaced` | The owner's place is unknown, or a version that may be the owner's has no known place          | no          |
+| `gone`     | A saved idea none of whose videos is recent enough to list                                     | no          |
 
 `TRANSFER_WEAK_MAX_SHARE` is 0.1: channels of different sizes making the same
 video ordinarily land within a few times of each other, so ten times less is the
@@ -800,12 +801,12 @@ highest-paying countries, so the long-video rate is scaled by a tier for the
 channel's country when the official API has given one (`rateTierFor`,
 `RATE_TIER_MULTIPLIER`). The tiers are rough rules of thumb, not measurements:
 
-| Tier        | Countries                                                              | Share of the rate |
-| ----------- | ---------------------------------------------------------------------- | ----------------- |
-| `top`       | US, CA, GB, AU, DE, NZ, IE, CH, NO, SE, DK, NL, AT                     | 1.0               |
-| `developed` | The rest of Europe; JP, KR, SG, HK, TW, IL, AE, QA, KW, SA             | 0.5               |
-| `emerging`  | Every other country: most of Africa, South Asia, Latin America, the Caribbean | 0.2        |
-| `unknown`   | No country stored: the top rate is assumed, and the card says so       | 1.0               |
+| Tier        | Countries                                                                     | Share of the rate |
+| ----------- | ----------------------------------------------------------------------------- | ----------------- |
+| `top`       | US, CA, GB, AU, DE, NZ, IE, CH, NO, SE, DK, NL, AT                            | 1.0               |
+| `developed` | The rest of Europe; JP, KR, SG, HK, TW, IL, AE, QA, KW, SA                    | 0.5               |
+| `emerging`  | Every other country: most of Africa, South Asia, Latin America, the Caribbean | 0.2               |
+| `unknown`   | No country stored: the top rate is assumed, and the card says so              | 1.0               |
 
 The Shorts rate is not scaled. The estimate carries `rateTier` (`id`, `multiplier`,
 `country`) and the niche card says which was used. The country is where the channel
@@ -897,18 +898,18 @@ engine as the local API (`createEngine`) and opens the same store, so the owner'
 Claude reads what the app shows. Setup for the owner is in
 [CONNECTOR.md](CONNECTOR.md).
 
-| Tool                    | Input                                                           | Returns                                                                                                      |
-| ----------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `get_map`               | `channel`, `include_others?`, `limit?` (30)                     | Latest map: centre, model channel, counts, look-alikes (id, title, subs, match, tier, rising, best breakout) |
-| `get_breakouts`         | `channel`, `lookalikes_only?` (true), `limit?` (15)             | Recent videos far above usual, with score, views, usual, sample, hit rate, channel age, caution              |
-| `get_thumbnail_board`   | `channel`, `channels?` (8), `per_channel?` (4)                  | Per look-alike with a winner: winners and ordinary videos (id, title, views, score); the centre's own videos |
-| `view_thumbnails`       | `video_ids` (1 to 8)                                            | The thumbnails as image content, each under a line naming its video; a failed one is a line of text          |
-| `get_channel_videos`    | `channel`, `order?`, `limit?` (20)                              | One stored channel's videos with scores (`buildVideoReport`)                                                 |
-| `get_near_misses`       | `channel`, `limit?` (25)                                        | Channels left out on titles alone (`outsideReason: 'titles'`, not kept or removed) with five recent titles   |
-| `set_competitor_status` | `center`, `channel`, `status` (kept, removed, auto)             | Records the owner's choice (`setCompetitorStatus`) and says whether the channel now counts as a look-alike   |
-| `list_niches`           | `limit?` (15), `watched_only?`                                  | New or small channels with a video that took off (`listNiches`)                                              |
+| Tool                          | Input                                                                             | Returns                                                                                                        |
+| ----------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `get_map`                     | `channel`, `include_others?`, `limit?` (30)                                       | Latest map: centre, model channel, counts, look-alikes (id, title, subs, match, tier, rising, best breakout)   |
+| `get_breakouts`               | `channel`, `lookalikes_only?` (true), `limit?` (15)                               | Recent videos far above usual, with score, views, usual, sample, hit rate, channel age, caution                |
+| `get_thumbnail_board`         | `channel`, `channels?` (8), `per_channel?` (4)                                    | Per look-alike with a winner: winners and ordinary videos (id, title, views, score); the centre's own videos   |
+| `view_thumbnails`             | `video_ids` (1 to 8)                                                              | The thumbnails as image content, each under a line naming its video; a failed one is a line of text            |
+| `get_channel_videos`          | `channel`, `order?`, `limit?` (20)                                                | One stored channel's videos with scores (`buildVideoReport`)                                                   |
+| `get_near_misses`             | `channel`, `limit?` (25)                                                          | Channels left out on titles alone (`outsideReason: 'titles'`, not kept or removed) with five recent titles     |
+| `set_competitor_status`       | `center`, `channel`, `status` (kept, removed, auto)                               | Records the owner's choice (`setCompetitorStatus`) and says whether the channel now counts as a look-alike     |
+| `list_niches`                 | `limit?` (15), `watched_only?`                                                    | New or small channels with a video that took off (`listNiches`)                                                |
 | `list_transfer_opportunities` | `channel?`, `place?`, `show?` (opportunities, formats, saved, all), `limit?` (10) | Ideas open or weak for the owner's place with up to five versions each, or the title formats (`listTransfers`) |
-| `make_map`              | `channel`, `model?`, `depth?` (1..3), `max_channels?` (10..600) | Crawls a new map, then the same summary as `get_map` plus warnings                                           |
+| `make_map`                    | `channel`, `model?`, `depth?` (1..3), `max_channels?` (10..600)                   | Crawls a new map, then the same summary as `get_map` plus warnings                                             |
 
 One prompt, `thumbnail_review` (argument `channel`), tells the model to read the
 board, look at the owner's thumbnails and the winners with `view_thumbnails`, and
@@ -971,29 +972,52 @@ Jgtube's tools (`engines/types.ts`):
 Shared by all engines (`process.ts`): the owner's API keys are withheld from
 the program's environment (`ANTHROPIC_API_KEY`, `CODEX_API_KEY`,
 `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `YOUTUBE_API_KEY`), so the
-owner's login is used and no key is billed; the run is stopped with SIGTERM
+owner's login is used and no key is billed; the names are matched whatever
+their capitalisation, since Windows ignores it. The run is stopped with SIGTERM
 and, two seconds later, SIGKILL when it passes its time limit, prints more than
-two million characters, or Jgtube is closing.
+two million characters, or Jgtube is closing, and the failure is reported once
+the program has gone, so tidying up its folder does not race it. A program that
+exits while something it started holds its output open is given a second, then
+its answer is taken as printed. Work folders left by a run cut short are
+removed, a day later, the next time an engine is started.
 
 ### Choosing and falling back
 
-`JGTUBE_ENGINES` (default `agy,claude,codex`) names the engines Jgtube may use,
-most preferred first. For one analysis the engines are tried in that order
+`JGTUBE_ENGINES` (default `claude,agy,codex`) names the engines Jgtube may use:
+the main one first, then its backups. Claude Code is the main engine by the
+owner's choice; watching a video is the exception, where Antigravity goes first
+whatever the order says. For one analysis the engines are tried in that order
 (`engines/fallback.ts`):
 
-- `not-installed`, `not-signed-in` or `limit`: the engine is passed over and the
-  next is tried.
-- `timeout` or `failed`: reported as it is. Trying the next engine would spend a
-  second plan's allowance on what is probably the same problem.
-- When every engine was passed over, the failure lists each one's reason.
+- Any failure (`not-installed`, `not-signed-in`, `limit`, `timeout`, `failed`,
+  or an error that is not the engine's own) passes the engine over and the next
+  is tried. The others are backups, and an engine that hangs or cannot read its
+  own reply says nothing about whether the next can answer.
+- Jgtube closing ends the whole attempt.
+- When no engine answered, the failure lists each one's reason, and its kind is
+  the most telling of them: a limit, then a missing sign-in, a timeout, a plain
+  failure, not installed.
 
-`thumbnails` names its own engines, Claude Code then Codex: the pictures arrive
-as tool results, and nothing documents that Antigravity passes a tool's
-pictures to its model. An engine the owner's setting leaves out is never used.
+The request may name one engine (`engine`): the owner's choice on the page's
+switch. Then only that engine is asked and there is no backup; if the analysis
+cannot be done by it, or the setting leaves it out, the reply says so without
+starting anything. The page keeps the choice in the browser's local storage.
 
-`POST /api/analyses {analysis, channel}` waits for the answer (up to five
-minutes) and returns `{analysis, text, engine, skipped}`, where `skipped` lists
-the engines passed over with the reason. One runs at a time (409 otherwise).
+`thumbnails` names its own engines, Claude Code and Codex, tried in the owner's
+order: the pictures arrive as tool results, and nothing documents that
+Antigravity passes a tool's pictures to its model. An engine the owner's
+setting leaves out is never used.
+
+The connector an analysis starts is given `JGTUBE_TOOLS`, the bare names of the
+tools that analysis may use, and registers no others. So the limit on tools
+holds at Jgtube's own layer, whatever an engine does with its own allow-list
+(`enabledTools` for Antigravity and `enabled_tools` for Codex are still
+written, but nothing depends on them being honoured).
+
+`POST /api/analyses {analysis, channel, engine?}` waits for the answer (up to
+five minutes) and returns `{analysis, text, engine, skipped}`, where `skipped`
+lists the engines passed over with the reason. One runs at a time (409
+otherwise).
 The channel must parse as a handle, link or id, and goes into the question as
 `@handle` or the id, never as typed. Failures map to a status and a plain
 message: not installed or not signed in 503, a plan limit 429, a timeout 504,
@@ -1066,7 +1090,7 @@ agy -p <system prompt + prompt> --output-format json --sandbox
 
 - `agy` has no flag for tool servers. It reads `.agents/mcp_config.json` in its
   working folder, so that file (`{"mcpServers": {"jgtube": {"command", "args",
-  "env", "enabledTools"}}}`) is written into a fresh folder made for the one
+"env", "enabledTools"}}}`) is written into a fresh folder made for the one
   run and removed with it.
 - A tool with no rule is "ask", and a headless run cannot ask: the call is
   quietly refused, the run goes on and exits 0. The documented way to allow it
@@ -1110,8 +1134,8 @@ is built and tested but no route or analysis uses it yet.
 - **The Gemini API, a public YouTube link.** With `GEMINI_API_KEY` set, a POST
   to `https://generativelanguage.googleapis.com/v1beta/interactions` with the
   key in the `x-goog-api-key` header and the body `{"model", "input": [{"type":
-  "text", "text": <question>}, {"type": "video", "uri": <link>}],
-  "system_instruction", "store": false}`. The answer is the text in the content
+"text", "text": <question>}, {"type": "video", "uri": <link>}],
+"system_instruction", "store": false}`. The answer is the text in the content
   of the reply's `model_output` step when `status` is `completed`. 429 is
   `limit`, 401 and 403 `not-signed-in`, 504 `timeout`. The default model is
   `gemini-4-hydrogen`, the one in Google's examples. Limits, from Google's
@@ -1125,7 +1149,7 @@ is built and tested but no route or analysis uses it yet.
   engine that ran is reported, not retried on the other.
 - **The downloader** is an injected dependency of the server engine
   (`EngineOptions.downloadVideo`): `(videoId, stop) => Promise<{ok: true, path}
-  | {ok: false, reason}>`. None is connected yet, so today video is watched
+| {ok: false, reason}>`. None is connected yet, so today video is watched
   through the Gemini API only.
 - **A YouTube link given to Antigravity** with no file is unproven: `agy` reads
   a link as a web page. It is off unless `JGTUBE_AGY_YOUTUBE_LINKS=on`, and

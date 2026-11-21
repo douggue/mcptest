@@ -1,7 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import {
   ANALYSIS_OPTIONS,
+  AUTOMATIC,
+  ENGINE_CHOICES,
   answerCredit,
+  choiceFrom,
+  choiceHelp,
   engineSummary,
   readAnswer,
   skippedNotes,
@@ -219,5 +223,66 @@ describe('answerCredit and skippedNotes', () => {
     expect(answerCredit({ text: 'x', engine: 'claude', skipped })).toBe(
       'Answered by Claude Code. Antigravity was passed over.',
     );
+  });
+});
+
+describe('the switch for which AI answers', () => {
+  const report = {
+    engines: [engine('agy', missing), engine('claude'), engine('codex')],
+    order: ['claude', 'agy', 'codex'] as const,
+  };
+
+  test('offers Automatic first, then each engine by the name a creator knows', () => {
+    expect(ENGINE_CHOICES.map((option) => [option.choice, option.label])).toEqual([
+      ['auto', 'Automatic'],
+      ['claude', 'Claude Code'],
+      ['agy', 'Antigravity'],
+      ['codex', 'Codex'],
+    ]);
+  });
+
+  test('reads a remembered choice back, and anything else as Automatic', () => {
+    expect(choiceFrom('codex')).toBe('codex');
+    expect(choiceFrom(null)).toBe(AUTOMATIC);
+    expect(choiceFrom('gpt')).toBe(AUTOMATIC);
+  });
+
+  test('Automatic names the main engine and its backups in order', () => {
+    expect(choiceHelp(AUTOMATIC, report)).toBe(
+      'Claude Code answers. If it cannot, Antigravity and then Codex are tried.',
+    );
+    expect(choiceHelp(AUTOMATIC, { engines: [], order: ['claude', 'codex'] })).toBe(
+      'Claude Code answers. If it cannot, Codex is tried.',
+    );
+    expect(choiceHelp(AUTOMATIC, { engines: [], order: ['claude'] })).toBe('Claude Code answers.');
+    expect(choiceHelp(AUTOMATIC, null)).toMatch(/Jgtube picks the AI/);
+  });
+
+  test('a chosen engine answers alone, and says what is in the way when it is not usable', () => {
+    expect(choiceHelp('codex', report)).toBe(
+      'Only Codex answers; nothing else is tried if it cannot.',
+    );
+    expect(choiceHelp('agy', report)).toBe('Antigravity is not installed on this computer.');
+    expect(choiceHelp('agy', { ...report, engines: [engine('agy')] })).toMatch(
+      /thumbnail review needs Claude Code or Codex/,
+    );
+    expect(choiceHelp('codex', { engines: [], order: ['claude'] })).toMatch(/switched off/);
+    expect(choiceHelp('claude', null)).toMatch(/^Only Claude Code answers/);
+  });
+
+  test('the API client names the chosen engine, and names none for Automatic', async () => {
+    const sent: string[] = [];
+    const api = createApi(async (_url, init) => {
+      sent.push(String(init?.body));
+      return new Response(JSON.stringify({ success: true, data: { text: 'x' }, error: null }));
+    });
+
+    await api.analyse('topics', 'UCabc', 'codex');
+    await api.analyse('topics', 'UCabc', AUTOMATIC);
+
+    expect(sent).toEqual([
+      '{"analysis":"topics","channel":"UCabc","engine":"codex"}',
+      '{"analysis":"topics","channel":"UCabc"}',
+    ]);
   });
 });

@@ -154,7 +154,12 @@ export interface Engine {
    * channel, and returns its answer as plain text. Rejects with an
    * EngineRunError when none can, or when the one that ran failed.
    */
-  analyse(analysis: AnalysisId, channel: string): Promise<EngineAnswer<EngineId>>;
+  analyse(
+    analysis: AnalysisId,
+    channel: string,
+    /** The one engine the owner chose for this run; absent, the usual order with its backups. */
+    only?: EngineId,
+  ): Promise<EngineAnswer<EngineId>>;
   /**
    * Has an engine watch one YouTube video, picture and sound, and answer a
    * question about it. Rejects with an EngineRunError: 'not-installed' when no

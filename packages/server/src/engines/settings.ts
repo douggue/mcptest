@@ -8,8 +8,12 @@ import { DEFAULT_GEMINI_MODEL, type GeminiSettings } from './geminiVideo';
 import type { EngineId } from './types';
 
 export const ENGINE_IDS = ['agy', 'claude', 'codex'] as const satisfies readonly EngineId[];
-/** The owner's stated preference: Antigravity when it is there, then Claude, then Codex. */
-export const DEFAULT_ENGINE_ORDER: readonly EngineId[] = ['agy', 'claude', 'codex'];
+/**
+ * The owner's stated preference: Claude is the main engine, with Antigravity
+ * and then Codex as its backups. Watching a video is the exception, where
+ * Antigravity goes first whatever this order says (see `videoWatch`).
+ */
+export const DEFAULT_ENGINE_ORDER: readonly EngineId[] = ['claude', 'agy', 'codex'];
 
 export interface EngineSettings {
   /** The engines Jgtube may use, most preferred first. One left out is never started. */

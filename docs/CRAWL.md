@@ -7,10 +7,10 @@ How the competitor map is gathered, what evidence that is based on, and what it 
 The map can be built from two unauthenticated request types against YouTube's
 internal web API ("InnerTube"), the same API the youtube.com site uses:
 
-| Request | InnerTube endpoint | What it returns |
-|---|---|---|
+| Request              | InnerTube endpoint         | What it returns                                                                                                    |
+| -------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Channel "Videos" tab | `browse` (+ continuations) | 30 long-form videos per page: id, title, rounded views, relative date, duration. Header: subscribers, video count. |
-| Watch page sidebar | `next` | About 20 recommended videos, each with channel name, channel id, handle, rounded views, relative date. |
+| Watch page sidebar   | `next`                     | About 20 recommended videos, each with channel name, channel id, handle, rounded views, relative date.             |
 
 No API key, login or cookies are needed. The open-source client
 [`youtubei.js`](https://www.npmjs.com/package/youtubei.js) (MIT, v18.3.0) wraps both.
@@ -19,18 +19,18 @@ No API key, login or cookies are needed. The open-source client
 
 ### From Makina's own export (`America Invents map.txt`)
 
-| Observation in the export | What it implies |
-|---|---|
-| "Video dates are approximate, as YouTube gives them: *2 weeks ago*" | Data comes from the web UI's list views. The official Data API returns exact timestamps. |
-| View counts are rounded (`4.2M`, `133K`) | Same: list views return short counts. |
-| "Views are of long videos, Shorts left out" | The channel *Videos* tab, which is separate from the *Shorts* tab. |
-| `Subscribers: hidden` | Scraped header text, not an API field. |
-| "A channel recommends another when YouTube shows the other's videos next to its own" | The watch-page sidebar. The official API removed related-video lookup. |
-| Recommendation shares are multiples of 1/10, 1/9, 1/7, 1/5, 1/3 | About 10 recent videos sampled per channel (fewer if the channel has fewer). |
-| At most 15 channels per "Recommends" line; minimum share is 2 hits | Top 15 kept, with a floor of two appearances (waived for a 3-video channel). |
-| Only the centre and the six 1-step channels have a "Recommends" line | Sidebars are read for depth 0 and 1 only; depth-2 channels get a channel-page read. |
-| Up to 100 videos per channel | First page plus continuations, capped. |
-| `Views, last 30 days: 0` for a channel with 100 old videos | The figure is the sum of views on videos *published* in the last 30 days, not true 30-day views. |
+| Observation in the export                                                            | What it implies                                                                                  |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| "Video dates are approximate, as YouTube gives them: _2 weeks ago_"                  | Data comes from the web UI's list views. The official Data API returns exact timestamps.         |
+| View counts are rounded (`4.2M`, `133K`)                                             | Same: list views return short counts.                                                            |
+| "Views are of long videos, Shorts left out"                                          | The channel _Videos_ tab, which is separate from the _Shorts_ tab.                               |
+| `Subscribers: hidden`                                                                | Scraped header text, not an API field.                                                           |
+| "A channel recommends another when YouTube shows the other's videos next to its own" | The watch-page sidebar. The official API removed related-video lookup.                           |
+| Recommendation shares are multiples of 1/10, 1/9, 1/7, 1/5, 1/3                      | About 10 recent videos sampled per channel (fewer if the channel has fewer).                     |
+| At most 15 channels per "Recommends" line; minimum share is 2 hits                   | Top 15 kept, with a floor of two appearances (waived for a 3-video channel).                     |
+| Only the centre and the six 1-step channels have a "Recommends" line                 | Sidebars are read for depth 0 and 1 only; depth-2 channels get a channel-page read.              |
+| Up to 100 videos per channel                                                         | First page plus continuations, capped.                                                           |
+| `Views, last 30 days: 0` for a channel with 100 old videos                           | The figure is the sum of views on videos _published_ in the last 30 days, not true 30-day views. |
 
 ### Live probe (run 2026-11-20)
 
@@ -71,11 +71,11 @@ Depth-2 channels are fetched but not expanded, which is why they have no outgoin
 
 For a map the size of the export (1 + 6 + 81 = 88 channels):
 
-| Step | Requests |
-|---|---|
-| Channel pages, 88 channels at 1 to 4 pages each | 90 to 350 |
-| Sidebars, 7 channels at up to 10 videos | about 65 |
-| **Total** | **roughly 150 to 420** |
+| Step                                            | Requests               |
+| ----------------------------------------------- | ---------------------- |
+| Channel pages, 88 channels at 1 to 4 pages each | 90 to 350              |
+| Sidebars, 7 channels at up to 10 videos         | about 65               |
+| **Total**                                       | **roughly 150 to 420** |
 
 At 2 concurrent requests with a 300 to 600 ms jittered delay this is 1 to 4 minutes,
 which matches the time Makina's own search takes.

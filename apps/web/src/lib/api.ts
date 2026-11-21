@@ -1,4 +1,10 @@
-import type { AnalysisAnswer, AnalysisId, EngineReport } from './analyses';
+import {
+  AUTOMATIC,
+  type AnalysisAnswer,
+  type AnalysisId,
+  type EngineChoice,
+  type EngineReport,
+} from './analyses';
 import type {
   CompetitorStatus,
   CrawlProgress,
@@ -186,13 +192,22 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
     /**
      * Asks an AI engine for one of the fixed analyses of a channel; resolves
      * with its answer as text, the engine that gave it and the ones passed over.
+     * With a chosen engine, only that one is asked.
      */
-    async analyse(analysis: AnalysisId, channel: string): Promise<AnalysisAnswer> {
+    async analyse(
+      analysis: AnalysisId,
+      channel: string,
+      choice: EngineChoice = AUTOMATIC,
+    ): Promise<AnalysisAnswer> {
       const { text, engine, skipped } = unwrap<Partial<AnalysisAnswer> & { text: string }>(
         await call('/api/analyses', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ analysis, channel }),
+          body: JSON.stringify({
+            analysis,
+            channel,
+            ...(choice === AUTOMATIC ? {} : { engine: choice }),
+          }),
         }),
       );
       return { text, engine: engine ?? null, skipped: skipped ?? [] };

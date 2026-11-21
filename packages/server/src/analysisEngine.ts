@@ -155,11 +155,25 @@ function remembered<T>(load: () => Promise<T>, freshMs: number): () => Promise<T
   };
 }
 
-/** What to say when no engine could answer an analysis. */
-function nobodyFor(analysis: AnalysisId, order: readonly EngineId[], engines: Engines): string {
-  if (order.length > 0) return 'None of the AI engines on this computer could answer.';
-  const { title, engines: needed = [] } = ANALYSES[analysis];
-  const names = needed.map((id) => engines[id].label).join(' or ');
+/** What to say when no engine could answer an analysis; `only` is the one engine the owner chose, if any. */
+function nobodyFor(
+  analysis: AnalysisId,
+  order: readonly EngineId[],
+  engines: Engines,
+  only?: EngineId,
+): string {
+  const chosen = only === undefined ? null : engines[only].label;
+  if (order.length > 0) {
+    return chosen === null
+      ? 'None of the AI engines on this computer could answer.'
+      : `${chosen} could not answer. Choose another AI, or Automatic, and try again.`;
+  }
+  const { title, engines: needed } = ANALYSES[analysis];
+  const names = (needed ?? []).map((id) => engines[id].label).join(' or ');
+  if (chosen !== null && only !== undefined && needed !== undefined && !needed.includes(only)) {
+    return `${title} cannot be done by ${chosen}: it needs ${names}. Choose one of those, or Automatic.`;
+  }
+  if (chosen !== null) return `${chosen} is left out by the JGTUBE_ENGINES setting.`;
   return `${title} needs ${names}, and the JGTUBE_ENGINES setting leaves that out.`;
 }
 
@@ -190,9 +204,12 @@ function analyser(shared: Shared, wiring: AnalysisWiring, stop: AbortSignal): En
   const run =
     wiring.options.runEngine ??
     ((id: EngineId, request: EngineRunRequest) => engines[id].run(request, deps));
-  return async (analysis, channel) => {
+  return async (analysis, channel, only) => {
     const dbPath = storeFile(wiring);
-    const order = enginesFor(analysis, settings.order);
+    // The owner's choice of one engine means that engine and no backup.
+    const allowed =
+      only === undefined ? settings.order : settings.order.filter((id) => id === only);
+    const order = enginesFor(analysis, allowed);
     const requestFor = (engine: EngineId): EngineRunRequest =>
       analysisRequest(analysis, channel, {
         projectRoot: PROJECT_ROOT,
@@ -201,7 +218,7 @@ function analyser(shared: Shared, wiring: AnalysisWiring, stop: AbortSignal): En
       });
     return firstAnswer(
       order.map((id) => ({ engine: id, run: () => run(id, requestFor(id), stop) })),
-      nobodyFor(analysis, order, engines),
+      nobodyFor(analysis, order, engines, only),
       () => stop.aborted,
     );
   };
@@ -239,7 +256,7 @@ export function analysisEngines(wiring: AnalysisWiring, stop: AbortSignal): Anal
   const analyse = analyser(shared, wiring, stop);
   const watch = watcher(shared, options);
   return {
-    analyse: (analysis, channel) => work.run(() => analyse(analysis, channel)),
+    analyse: (analysis, channel, only) => work.run(() => analyse(analysis, channel, only)),
     watchVideo: (videoId, question) => work.run(() => watch(videoId, question)),
     engineStatus: () =>
       work.run(async () => ({ engines: await statuses(), order: settings.order })),

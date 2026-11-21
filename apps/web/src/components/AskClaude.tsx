@@ -1,12 +1,16 @@
 import { Sparkles } from 'lucide-react';
 import {
   ANALYSIS_OPTIONS,
+  ENGINE_CHOICES,
   answerCredit,
+  choiceHelp,
   engineSummary,
   readAnswer,
   skippedNotes,
   type AnalysisAnswer,
   type AnalysisOption,
+  type EngineChoice,
+  type EngineReport,
 } from '../lib/analyses';
 import type { Analysis, AnalysisState } from './useAnalysis';
 
@@ -40,6 +44,49 @@ function Option({ option, busy, active, onRun }: OptionProps) {
       >
         {active ? 'Working…' : option.action}
       </button>
+    </div>
+  );
+}
+
+interface SwitchProps {
+  readonly choice: EngineChoice;
+  readonly engines: EngineReport | null;
+  readonly busy: boolean;
+  readonly onChoose: (choice: EngineChoice) => void;
+}
+
+/** The switch for which AI answers: Automatic, or one engine and nothing else. */
+function EngineSwitch({ choice, engines, busy, onChoose }: SwitchProps) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div
+        role="radiogroup"
+        aria-label="Which AI answers"
+        className="flex flex-wrap items-center gap-2"
+      >
+        <span className="text-label-caps uppercase text-outline">AI</span>
+        {ENGINE_CHOICES.map((option) => {
+          const chosen = option.choice === choice;
+          return (
+            <button
+              key={option.choice}
+              type="button"
+              role="radio"
+              aria-checked={chosen}
+              disabled={busy}
+              onClick={() => onChoose(option.choice)}
+              className={`rounded-full px-3 py-1 text-body-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+                chosen
+                  ? 'bg-primary-container text-space-deep'
+                  : 'bg-surface-card text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-body-sm text-outline">{choiceHelp(choice, engines)}</p>
     </div>
   );
 }
@@ -103,11 +150,12 @@ interface Props {
  * Three questions an AI engine on this computer can answer about the map on
  * screen with one press: what the winning thumbnails do, which videos to make
  * next, and which left-out channels cover the same ground in other words.
- * The engines are Antigravity, Claude Code and Codex, tried in the owner's
- * order. (The component keeps its first name; it is no longer Claude only.)
+ * Claude Code is the main engine, with Antigravity and Codex as backups; the
+ * switch lets the owner pick one of them instead. (The component keeps its
+ * first name; it is no longer Claude only.)
  */
 export function AskClaude({ analysis, centerId, centerTitle }: Props) {
-  const { state, engines, run } = analysis;
+  const { state, engines, choice, choose, run } = analysis;
   const busy = state.status === 'running';
   const available = engineSummary(engines);
 
@@ -129,11 +177,13 @@ export function AskClaude({ analysis, centerId, centerTitle }: Props) {
           </div>
           <p className="mt-1 text-body-md text-on-surface-variant">
             An AI on this computer reads what Jgtube has stored around {centerTitle} and answers in
-            a minute or two. Each press runs the first engine below that is ready and uses some of
-            that plan&rsquo;s allowance, as a chat would.
+            a minute or two. Each press uses some of that AI&rsquo;s plan allowance, as a chat
+            would.
           </p>
           {available !== '' && <p className="mt-1 text-body-sm text-outline">{available}</p>}
         </div>
+
+        <EngineSwitch choice={choice} engines={engines} busy={busy} onChoose={choose} />
 
         <div className="grid grid-cols-1 gap-space-md md:grid-cols-3">
           {ANALYSIS_OPTIONS.map((option) => (

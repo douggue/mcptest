@@ -113,11 +113,10 @@ stored videos.
 refresh add to the store; the list reflects them on the next read.
 
 **Asking an AI.** The server builds a fixed question for a validated channel and
-tries the engines in the owner's order (Antigravity, Claude Code, Codex by
-default). Each is started once with only the connector's read-only tools, the
+tries the engines in the owner's order (Claude Code, then Antigravity and Codex
+as backups, by default), or asks only the one engine chosen on the page's switch. Each is started once with only the connector's read-only tools, the
 owner's API keys withheld, and a private working folder of its own. An engine
-that is not installed, not signed in or out of allowance is passed over; one
-that runs and fails is reported. The engine reads the store through the tools
+that cannot answer, for whatever reason, is passed over and the next is tried. The engine reads the store through the tools
 and returns plain text, which the page shows as text with the engine's name.
 
 **Watching a video.** Antigravity watches a copy of the file placed in a fresh

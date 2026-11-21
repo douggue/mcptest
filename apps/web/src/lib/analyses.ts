@@ -39,6 +39,28 @@ export type EngineId = 'agy' | 'claude' | 'codex';
 /** Every engine, including the web service that only watches video. */
 export type AnyEngineId = EngineId | 'gemini-api';
 
+/** Letting Jgtube pick: the main engine first, the others as backups. */
+export const AUTOMATIC = 'auto';
+/** Which AI the owner wants an analysis from. */
+export type EngineChoice = typeof AUTOMATIC | EngineId;
+
+export interface ChoiceOption {
+  readonly choice: EngineChoice;
+  readonly label: string;
+}
+
+/** The switch, in the order it is shown. */
+export const ENGINE_CHOICES: readonly ChoiceOption[] = [
+  { choice: AUTOMATIC, label: 'Automatic' },
+  { choice: 'claude', label: 'Claude Code' },
+  { choice: 'agy', label: 'Antigravity' },
+  { choice: 'codex', label: 'Codex' },
+];
+
+/** A remembered choice as read back from the browser; anything unknown is Automatic. */
+export const choiceFrom = (text: string | null): EngineChoice =>
+  ENGINE_CHOICES.find((option) => option.choice === text)?.choice ?? AUTOMATIC;
+
 /** What the server knows about one engine on this computer. */
 export interface EngineStatus {
   readonly id: AnyEngineId;
@@ -104,6 +126,31 @@ export function engineSummary(report: EngineReport | null): string {
     ? [`${nameOf('gemini-api')}, for watching video: ${gemini.installed ? 'key set' : 'no key'}`]
     : [];
   return [...tried, ...video].join(' · ');
+}
+
+/**
+ * One line under the switch saying what the choice means, and, for a chosen
+ * engine the server says is not usable, what is in the way.
+ */
+export function choiceHelp(choice: EngineChoice, report: EngineReport | null): string {
+  if (choice === AUTOMATIC) {
+    const [main, ...backups] = (report?.order ?? []).map(nameOf);
+    if (main === undefined)
+      return 'Jgtube picks the AI, and tries the next one if it cannot answer.';
+    return backups.length === 0
+      ? `${main} answers.`
+      : `${main} answers. If it cannot, ${backups.join(' and then ')} ${backups.length === 1 ? 'is' : 'are'} tried.`;
+  }
+  const name = nameOf(choice);
+  const status = report?.engines.find((entry) => entry.id === choice);
+  if (report !== null && !report.order.includes(choice)) {
+    return `${name} is switched off in the settings file (JGTUBE_ENGINES).`;
+  }
+  if (status && !status.ready) {
+    return `${name} is ${stateOf(status)} on this computer${status.note ? `. ${status.note}` : '.'}`;
+  }
+  const pictures = choice === 'agy' ? ' The thumbnail review needs Claude Code or Codex.' : '';
+  return `Only ${name} answers; nothing else is tried if it cannot.${pictures}`;
 }
 
 /** Who answered, and which engines were passed over on the way. Empty when the server did not say. */

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ANALYSIS_IDS } from './analyses';
 import type { AppOptions } from './app';
 import { EngineRunError } from './engines/failure';
+import { ENGINE_IDS } from './engines/settings';
 import type { EngineFailure } from './engines/types';
 import { fail, ok, readJson } from './http';
 import { cleanMessage } from './jobs';
@@ -17,6 +18,8 @@ export interface AnalysisTracker {
 const analysisRequest = z.object({
   analysis: z.enum(ANALYSIS_IDS),
   channel: z.string().min(1).max(MAX_CHANNEL_LENGTH),
+  // The owner's choice of one engine for this run; left out, the usual order with its backups.
+  engine: z.enum(ENGINE_IDS).optional(),
 });
 
 /** The HTTP status that best tells a client what kind of failure it was. */
@@ -40,8 +43,9 @@ function isChannel(text: string): boolean {
 /**
  * Puts one of the fixed analyses about a channel to an AI engine and waits for
  * the answer, which takes up to a few minutes. The channel is checked here so
- * that nothing but a handle, link or id can reach the question. The reply
- * names the engine that answered and the ones passed over, with the reason.
+ * that nothing but a handle, link or id can reach the question. The request
+ * may name the one engine to use. The reply names the engine that answered
+ * and the ones passed over, with the reason.
  */
 export async function runAnalysis(
   options: AppOptions,
@@ -60,8 +64,8 @@ export async function runAnalysis(
 
   tracker.running = true;
   try {
-    const { analysis, channel } = parsed.data;
-    const { text, engine, skipped } = await options.engine.analyse(analysis, channel);
+    const { analysis, channel, engine: only } = parsed.data;
+    const { text, engine, skipped } = await options.engine.analyse(analysis, channel, only);
     return ok({ analysis, text, engine, skipped });
   } catch (error) {
     return error instanceof EngineRunError

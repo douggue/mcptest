@@ -4,9 +4,9 @@ import { DEFAULT_ENGINE_SETTINGS, loadEngineSettings } from '../../src/engines/s
 const KEY = 'AIzaSyD-stand-in-key-0123456789abcdef';
 
 describe('loadEngineSettings', () => {
-  test('prefers Antigravity, then Claude, then Codex, with nothing else set', () => {
+  test('makes Claude the main engine, with Antigravity and then Codex as backups, with nothing else set', () => {
     expect(loadEngineSettings({})).toEqual({
-      order: ['agy', 'claude', 'codex'],
+      order: ['claude', 'agy', 'codex'],
       agyYouTubeLinks: false,
     });
     expect(loadEngineSettings({})).toEqual(DEFAULT_ENGINE_SETTINGS);

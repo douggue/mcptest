@@ -120,15 +120,24 @@ Both let an AI you already pay for do the judging. Jgtube has no AI of its own.
 ### The Ask AI buttons
 
 The buttons can use three programs. You need at least one of them installed on
-the same computer and signed in. Jgtube tries them in order and uses the first
-that is ready; if one is missing, signed out or out of allowance for now, it
-moves on to the next and tells you so under the answer.
+the same computer and signed in. Claude Code is the main one. If it cannot
+answer (missing, signed out, out of allowance for now, too slow, or it stopped
+with an error), Jgtube moves on to Antigravity and then Codex, and tells you
+under the answer who was passed over and why.
 
-| Engine          | What to install and do once                                                       | Notes                                                                    |
-| --------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Antigravity CLI | Install it, run `agy` once and sign in, then add one line to its settings (below) | Tried first. Not used for the thumbnail review (see "What is not known") |
-| Claude Code     | Install [Claude Code](https://code.claude.com), run `claude` once and sign in     | The only one that has been run with Jgtube from start to finish          |
-| Codex CLI       | Install it, then type `codex login` and follow it                                 | Tried last                                                               |
+**The AI switch.** Above the buttons there is a switch: Automatic, Claude Code,
+Antigravity, Codex. Automatic is the behaviour above. Choosing one engine means
+only that engine answers and nothing else is tried, so you decide whose plan
+allowance is used. The page remembers your choice.
+
+Watching a video is the exception to the order: Antigravity goes first there,
+because it can open a video file with picture and sound.
+
+| Engine          | What to install and do once                                                       | Notes                                                                     |
+| --------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Claude Code     | Install [Claude Code](https://code.claude.com), run `claude` once and sign in     | The main one, and the only one run with Jgtube from start to finish       |
+| Antigravity CLI | Install it, run `agy` once and sign in, then add one line to its settings (below) | First backup; first for watching video. Not used for the thumbnail review |
+| Codex CLI       | Install it, then type `codex login` and follow it                                 | Second backup                                                             |
 
 To see what Jgtube finds on your computer, open a terminal in the Jgtube folder
 and type:
@@ -246,7 +255,7 @@ All optional, in `.env`:
 | `JGTUBE_PORT`              | The port in the address you open                                        | `4317`                           |
 | `YOUTUBE_API_KEY`          | Your YouTube Data API key, for keyword search and exact channel dates   | none                             |
 | `JGTUBE_REFRESH_HOURS`     | Read stored channels again every this many hours while Jgtube runs      | off                              |
-| `JGTUBE_ENGINES`           | Which AI engines Ask AI may use, most preferred first                   | `agy,claude,codex`               |
+| `JGTUBE_ENGINES`           | Which AI engines Ask AI may use, most preferred first                   | `claude,agy,codex`               |
 | `JGTUBE_AGY_MODEL`         | A model for Antigravity to use (`agy models` lists them)                | Antigravity's own choice         |
 | `GEMINI_API_KEY`           | Your Gemini API key, for watching public YouTube videos                 | none                             |
 | `JGTUBE_GEMINI_MODEL`      | The Gemini model that watches                                           | `gemini-4-hydrogen`              |
