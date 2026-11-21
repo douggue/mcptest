@@ -17,6 +17,7 @@ import {
   shrinkForWatching,
 } from '@jgtube/core';
 import { stat } from 'node:fs/promises';
+import { extname } from 'node:path';
 import type { BreakdownFiles } from './breakdownEngine';
 import type { DownloadVideo } from './engines/videoWatch';
 
@@ -76,8 +77,12 @@ export function breakdownFiles(deps: BreakdownFilesDeps): BreakdownFiles {
     async forWatching(videoId, path) {
       const folder = root();
       const { size } = await stat(path);
-      if (size <= MAX_VIDEO_BYTES) return { ok: true, path };
-      const tooBig = `the file is ${megabytes(size)} MB, more than the ${megabytes(MAX_VIDEO_BYTES)} MB an engine will open`;
+      const mp4 = extname(path).toLowerCase() === '.mp4';
+      if (size <= MAX_VIDEO_BYTES && mp4) return { ok: true, path };
+      // A WebM or MOV the owner gave is made into a small MP4: the engine that watches opens MP4 only.
+      const tooBig = mp4
+        ? `the file is ${megabytes(size)} MB, more than the ${megabytes(MAX_VIDEO_BYTES)} MB an engine will open`
+        : 'the engine that watches opens MP4 files only';
       if (folder === null) return { ok: false, reason: tooBig };
       const small = await shrinkForWatching(
         { videoId, path },

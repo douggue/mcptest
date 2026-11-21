@@ -385,6 +385,7 @@ function watcher(shared: Shared, options: AnalysisOptions): Engine['watchVideo']
         download: watch.download ?? options.downloadVideo,
         geminiFetch: options.geminiFetch,
         onStep: watch.onStep,
+        fileOnly: watch.fileOnly,
       },
     );
 }

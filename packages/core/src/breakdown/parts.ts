@@ -54,7 +54,7 @@ export const PROMPT_MARKERS = {
 export type PromptMarker = (typeof PROMPT_MARKERS)[keyof typeof PROMPT_MARKERS];
 
 /** The line that opens a marked prompt and the line that closes it. */
-export function markerLines(name: PromptMarker): { readonly start: string; readonly end: string } {
+export function markerLines(name: string): { readonly start: string; readonly end: string } {
   return { start: `=== ${name} START ===`, end: `=== ${name} END ===` };
 }
 
@@ -71,7 +71,7 @@ export interface MarkedText {
  * line of its own, with something between them. Anything else gives nothing:
  * a prompt is never guessed at.
  */
-export function splitMarked(text: string, name: PromptMarker): MarkedText {
+export function splitMarked(text: string, name: string): MarkedText {
   const { start, end } = markerLines(name);
   const lines = text.split(/\r?\n/);
   const at = (marker: string): readonly number[] =>
