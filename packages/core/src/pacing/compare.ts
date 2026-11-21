@@ -5,7 +5,7 @@ import {
   MAX_BREAKOUTS_PER_CHANNEL,
 } from '../map/breakouts';
 import { buildVideoReport } from '../report';
-import type { StoredVideo } from '../repos/types';
+import type { StoredChannel, StoredVideo } from '../repos/types';
 import { SHORTS_MAX_SECONDS } from '../script/voice';
 import type { VideoTranscript } from '../sources/types';
 import { transcriptPace } from '../video/transcriptText';
@@ -17,27 +17,42 @@ import { spreadOf, type Spread } from './spread';
  * the number of videos it rests on. A comparison only; nothing here advises.
  */
 
+/** A winner with the channel it is from and its outlier score. */
+export interface WinnerRow {
+  readonly video: StoredVideo;
+  readonly channel: StoredChannel;
+  readonly score: number;
+}
+
 /**
  * The look-alikes' breakouts as the page's breakout list takes them: videos
  * of the last 30 days at 2× their channel's usual views or more, at most 4
  * from one channel (its strongest), so no one channel sets the figures.
  */
+export function winnerRows(lookalikes: readonly ChannelHistory[], now: Date): readonly WinnerRow[] {
+  return lookalikes.flatMap(({ channel, videos }) => {
+    const byId = new Map(videos.map((video) => [video.id, video]));
+    return buildVideoReport(videos, now)
+      .flatMap((row) =>
+        row.score !== null &&
+        row.score >= DEFAULT_MIN_BREAKOUT_SCORE &&
+        row.ageDays <= DEFAULT_BREAKOUT_WINDOW_DAYS
+          ? [{ id: row.id, score: row.score }]
+          : [],
+      )
+      .slice(0, MAX_BREAKOUTS_PER_CHANNEL)
+      .flatMap(({ id, score }) => {
+        const video = byId.get(id);
+        return video ? [{ video, channel, score }] : [];
+      });
+  });
+}
+
 export function winnerVideos(
   lookalikes: readonly ChannelHistory[],
   now: Date,
 ): readonly StoredVideo[] {
-  return lookalikes.flatMap(({ videos }) => {
-    const byId = new Map(videos.map((video) => [video.id, video]));
-    return buildVideoReport(videos, now)
-      .filter(
-        (row) =>
-          row.score !== null &&
-          row.score >= DEFAULT_MIN_BREAKOUT_SCORE &&
-          row.ageDays <= DEFAULT_BREAKOUT_WINDOW_DAYS,
-      )
-      .slice(0, MAX_BREAKOUTS_PER_CHANNEL)
-      .flatMap((row) => byId.get(row.id) ?? []);
-  });
+  return winnerRows(lookalikes, now).map((row) => row.video);
 }
 
 export interface PacingInput {

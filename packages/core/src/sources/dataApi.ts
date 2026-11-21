@@ -21,7 +21,7 @@ const MAX_ERROR_TEXT = 200;
 const SEARCH_PAGE_SIZE = 50;
 const MAX_QUERY_LENGTH = 200;
 const MAX_TEXT_LENGTH = 300;
-const QUOTA_REASONS: readonly string[] = ['quotaExceeded', 'dailyLimitExceeded'];
+export const QUOTA_REASONS: readonly string[] = ['quotaExceeded', 'dailyLimitExceeded'];
 
 export interface ChannelFacts {
   readonly id: string;

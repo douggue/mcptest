@@ -406,6 +406,35 @@ CREATE TABLE IF NOT EXISTS concept_schedule (
   updated_at         TEXT NOT NULL
 );
 `,
+  // 41 (provisional, numbered at merge): comment mining. The top-level comments read for a
+  //     video from the official API (text, likes, when written; never who wrote them), when
+  //     each video was read and whether its comments were turned off, and each centre
+  //     channel's latest "What viewers ask for" answer as checked in code. They refer to no
+  //     other table and need nothing a later step adds.
+  `
+CREATE TABLE IF NOT EXISTS video_comments (
+  comment_id    TEXT PRIMARY KEY,
+  video_id      TEXT NOT NULL,
+  text          TEXT NOT NULL,
+  likes         INTEGER NOT NULL,
+  published_at  TEXT NOT NULL,
+  fetched_at    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS video_comments_video ON video_comments (video_id);
+CREATE TABLE IF NOT EXISTS comment_reads (
+  video_id  TEXT PRIMARY KEY,
+  status    TEXT NOT NULL CHECK (status IN ('read', 'disabled')),
+  count     INTEGER NOT NULL,
+  read_at   TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS comment_answers (
+  center_channel_id  TEXT PRIMARY KEY,
+  video_ids_json     TEXT NOT NULL,
+  findings_json      TEXT NOT NULL,
+  engine             TEXT NOT NULL,
+  asked_at           TEXT NOT NULL
+);
+`,
 ];
 
 /** The number of the newest step: what `user_version` reads in a store that is up to date. */
