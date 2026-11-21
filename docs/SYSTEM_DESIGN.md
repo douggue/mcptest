@@ -100,7 +100,7 @@ new run replaces a row. Like `video_studies` it refers to no other table.
 `owner_places` (step 16) holds the place the owner chose for a channel of
 theirs, one row per centre channel: `center_channel_id`, `place_key` (a key of
 the place list) and `set_at`. It refers to no other table.
-`channel_looks` (step 16) holds when the owner last marked a channel's "what
+`channel_looks` (step 17) holds when the owner last marked a channel's "what
 changed" as seen: `center_channel_id` (primary key) and `seen_at`. It refers to
 no other table. See "What changed since you last looked".
 
@@ -1110,7 +1110,7 @@ A look-alike with no reading by the earlier moment cannot be compared: nothing o
 it is called new, and the section says how many there were.
 
 The earlier moment is one of `last-look` (stored per centre channel in
-`channel_looks`, step 16; moved to now by `POST /api/changes/seen {channel}`),
+`channel_looks`, step 17; moved to now by `POST /api/changes/seen {channel}`),
 `yesterday` (24 hours back) or `week` (7 days back). With no last look stored,
 `last-look` is answered for a week and the reply says so.
 

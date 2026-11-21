@@ -267,6 +267,6 @@ Phase 7 needs 5.
 Scoped to the channel on screen and its own map; every number from stored data
 or computed in code and labelled; no view forecasts; nothing published to YouTube.
 
-- [x] What changed since you last looked: new breakouts, channels newly taken off, rising or dropped out, look-alikes new or gone, title formats newly seen in several breakouts; from stored readings, no AI (store step 16 `channel_looks`)
+- [x] What changed since you last looked: new breakouts, channels newly taken off, rising or dropped out, look-alikes new or gone, title formats newly seen in several breakouts; from stored readings, no AI (store step 17 `channel_looks`)
 - [x] "Mark as seen", "since yesterday" and "since 7 days"; "nothing new" said plainly; when the look-alikes were last read, with a link to Refresh now
 - [x] Checked on a copy of a real store after a real refresh of 30 channels, at 1440 and 390 wide
