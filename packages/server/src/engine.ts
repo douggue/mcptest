@@ -23,7 +23,6 @@ import {
   loadSameTopicList,
   loadThumbnailBoard,
   openDatabase,
-  ownVideosFolder,
   parseChannelRef,
   refreshStalest,
   searchRecentVideos,
@@ -41,10 +40,10 @@ import {
   type YouTubeSource,
 } from '@jgtube/core';
 import { randomUUID } from 'node:crypto';
-import { analysisEngines, type AnalysisOptions, type AnalysisParts } from './analysisEngine';
+import { analysisEngines, type AnalysisOptions } from './analysisEngine';
 import type { Engine } from './app';
-import { breakDown, type BreakdownFiles } from './breakdownEngine';
 import { breakdownFiles } from './breakdownFiles';
+import { breaking } from './breakdownSetup';
 import {
   connectOnUse,
   onceUntilItWorks,
@@ -53,7 +52,6 @@ import {
   type PlayerSource,
 } from './connection';
 import { downloads } from './downloadEngine';
-import type { DownloadsEngine } from './downloadTypes';
 import { cleanMessage } from './jobs';
 import { trackWork, type WorkTracker } from './running';
 import { transfers } from './transferEngine';
@@ -351,53 +349,6 @@ function discovery(wiring: Wiring, fillFacts: FillFacts): Discovery {
   };
 }
 
-/** What a breakdown is built from, beyond the wiring every part shares. */
-interface BreakdownParts {
-  readonly asking: AnalysisParts;
-  readonly reading: DownloadsEngine;
-  readonly files: BreakdownFiles;
-  readonly stop: AbortSignal;
-}
-
-type Breaking = Pick<Engine, 'breakDown' | 'ownVideosFolder'>;
-
-/** A channel breakdown: the steps in `breakdownEngine`, given this engine's parts to work with. */
-function breaking(wiring: Wiring, parts: BreakdownParts): Breaking {
-  const { config, now, repos, work } = wiring;
-  const { asking, reading, files, stop } = parts;
-  return {
-    breakDown: (channel, onProgress, choices) =>
-      work.run(() =>
-        breakDown(
-          {
-            now,
-            stop,
-            studies: repos.studies,
-            files,
-            readChannel: async (ref) => (await reading.readChannelBrand(ref)).channel,
-            listVideos: (channelId) => repos.videos.listByChannel(channelId),
-            readTranscript: reading.readTranscript,
-            framesAvailable: async (videoId) => {
-              const frames = await reading.readVideoFrames(videoId, 1, 0);
-              return frames === null || frames.frameCount < 1
-                ? null
-                : { source: frames.source, available: frames.frameCount };
-            },
-            watchesFiles: asking.watchesFiles,
-            watchVideo: asking.watchVideo,
-            studyFrames: asking.studyFrames,
-            write: (stored, only, focus) => asking.analyse('breakdown', stored, only, focus),
-          },
-          channel,
-          onProgress,
-          choices,
-        ),
-      ),
-
-    ownVideosFolder: () => ownVideosFolder(downloadsRoot(config)),
-  };
-}
-
 /** Wires the API to the store and to YouTube. */
 export function createEngine(config: Config, options: EngineOptions = {}): RunningEngine {
   const wiring = wire(config, options);
@@ -446,7 +397,17 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     ...crawling(wiring),
     ...refreshing(wiring, fillFacts),
     ...discovery(wiring, fillFacts),
-    ...breaking(wiring, { asking, reading, files, stop }),
+    ...breaking({
+      config,
+      now: wiring.now,
+      videos: wiring.repos.videos,
+      studies: wiring.repos.studies,
+      run: wiring.work.run,
+      asking,
+      reading,
+      files,
+      stop,
+    }),
     analyse: asking.analyse,
     watchVideo: asking.watchVideo,
     engineStatus: asking.engineStatus,

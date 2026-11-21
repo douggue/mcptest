@@ -52,6 +52,7 @@ not done.
 | Validation    | Zod at every boundary                                                                                                                   | Request bodies, scraped pages, API replies, stored JSON and Claude Code's reply are all untrusted |
 | Judgement     | The owner's AI plans: one-shot runs of Antigravity, Claude Code or Codex started by the server, or Claude in chat through the connector | No separate bill; each run is limited to Jgtube's read-only tools as far as that program allows   |
 | Video         | Antigravity on a local file, or plain `fetch` to the Gemini API with the owner's key                                                    | The two documented or proven ways to have a model watch picture and sound                         |
+| Video files   | yt-dlp when installed, else the YouTube library; ffmpeg when installed, to cut frames and shrink a large file                           | Optional programs the owner installs; without them a breakdown runs on YouTube's preview frames   |
 | Connector     | `@modelcontextprotocol/sdk`, stdio                                                                                                      | Enough for a tool on the owner's own computer                                                     |
 | Web           | Vite + React + Tailwind, served by a small local Node server                                                                            | No server rendering needed; the API is a plain request-to-response function that is easy to test  |
 | Tests         | Vitest, 80% coverage floor                                                                                                              | Fixture-driven parsers, pure scoring, routes through the real engine with fake sources            |
@@ -69,26 +70,34 @@ packages/
     niches/       new-or-small channels with a video that took off; growth; facts
     video/        one video's own page: transcript, description and tags, storyboard frames
     channel/      a channel's branding: logo, cover, bio, keywords, links
-    downloads/    files saved to disk: thumbnails with an index, a temporary video copy
+    downloads/    files saved to disk: thumbnails and transcripts with an index, a temporary
+                  video copy, frames cut from one with ffmpeg, the owner's own video files
+    breakdown/    which of a channel's videos a breakdown studies
     discovery/    keyword search into the store
     refresh/      re-reading the stalest channels
     db/           SQLite connection and migrations
     repos/        channels, videos, edges, maps, watchlist, refresh runs
     ingest.ts     reads one channel into the store
-    cli.ts        ingest, map, refresh, transcript, thumbnails, brand, video from the command line
+    cli.ts        ingest, map, refresh, transcript(s), thumbnails, brand, video from the command line
   server/src/
     main.ts       HTTP server on 127.0.0.1, static files, security headers, refresh timer
     app.ts        the JSON API as a function from request to response
     engine.ts     wires the API to the store, YouTube and Claude
     jobs.ts       long-running crawls and refreshes, one at a time
     analyses.ts, analysisEngine.ts, analysisRoutes.ts
-                  the three "Ask AI" analyses: a fixed question, read-only tools,
+                  the "Ask AI" analyses: a fixed question, read-only tools,
                   one boxed-in run of the first engine that is ready
+    breakdownEngine.ts, breakdownQuestions.ts, breakdownFiles.ts,
+    breakdownSetup.ts, breakdownRoutes.ts, videoCopies.ts
+                  the channel breakdown: a job that reads a channel's top videos,
+                  finds a file of the best three, has them watched and their frames
+                  studied, keeps what was written and has an engine write it up;
+                  and the route that takes the owner's own video file
     engines/      the engine interface; Claude Code, Codex CLI and Antigravity CLI
                   behind it; trying them in order; watching a video (Antigravity on a
                   file, the Gemini API on a link); starting programs safely on Windows
     cli.ts        `npm run engines`: what is installed and signed in, and `--try`
-  mcp/src/        the connector: fourteen tools and one prompt over the same store
+  mcp/src/        the connector: sixteen tools and one prompt over the same store
 apps/web/src/     one page: radar, breakouts, same-topic list, thumbnail board,
                   Ask AI, niches, refresh bar
 docs/  design/
@@ -123,9 +132,20 @@ that cannot answer, for whatever reason, is passed over and the next is tried. T
 and returns plain text, which the page shows as text with the engine's name.
 
 **Watching a video.** Antigravity watches a copy of the file placed in a fresh
-folder, when it is installed and a downloader has provided the file; otherwise
-the Gemini API watches the public video by its link, when the owner has set a
-key. No downloader is connected yet.
+folder, when it is installed and the downloader has provided the file (yt-dlp
+when installed, else the built-in route); otherwise the Gemini API watches the
+public video by its link, when the owner has set a key. The downloaded copy is
+removed when the watch is over, however it ended.
+
+**Breaking a channel down.** A job with progress. In code: the channel's five
+videos furthest above its usual views are chosen and their captions read; for
+the best three a file is looked for (the owner's own, then a download, used
+once for everything), an engine watches it for sound and editing, and an engine
+that sees pictures goes through its frames in a run of its own (cut from the
+file by ffmpeg, one a second, or YouTube's preview frames when there is no
+file). What each engine wrote is stored per video and reused. Then one engine
+writes the breakdown through read-only tools. What an engine wrote about a
+video travels only as a tool result, never inside a question.
 
 ## Cross-cutting
 
@@ -146,9 +166,16 @@ key. No downloader is connected yet.
   from errors and withheld from the engines. There is no Anthropic or OpenAI
   API key anywhere.
 - **Files on disk.** Besides the store, Jgtube writes only under one downloads
-  folder (beside the store, or `JGTUBE_DOWNLOADS_PATH`): thumbnails the owner
-  asks for, and a temporary copy of a video to be watched. Paths are built with
-  `node:path` from validated ids and checked to stay inside that folder.
+  folder (beside the store, or `JGTUBE_DOWNLOADS_PATH`): thumbnails and
+  transcripts the owner asks for, video files the owner sends (`my-videos`,
+  never deleted by Jgtube), and what is temporary (`video-temp`: a copy of a
+  video, the frames cut from it, a smaller copy for watching), removed after
+  use. Paths are built with `node:path` from validated ids and checked to stay
+  inside that folder.
+- **Helper programs.** yt-dlp and ffmpeg are optional. Each is found by looking
+  in the PATH's absolute folders, started without a shell with its arguments as
+  a list, given only validated ids and absolute paths, and stopped when it runs
+  too long or Jgtube closes.
 - **Pictures.** Every picture is fetched from a pinned host with redirects
   refused, a time limit and a size cap: `i.ytimg.com` for thumbnails and
   storyboard sheets, `yt3.googleusercontent.com` for channel logos and covers.

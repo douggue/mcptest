@@ -105,9 +105,11 @@ If something is wrong:
 | `list_transfer_opportunities` | Ideas that took off for another country and are untried or weak for yours, with each version's numbers.                          |
 | `make_map`                    | Makes a new map by reading YouTube. Takes minutes; only one at a time.                                                           |
 | `get_transcript`              | What one video says: its captions as text with the time every half minute. Long ones come in parts.                              |
-| `view_video_frames`           | What one video shows: sheets of small frames taken every few seconds from start to end. Pictures only, no sound.                 |
+| `view_video_frames`           | What one video shows: sheets of frames from start to end, a sample or every sheet in turn. Pictures only, no sound.              |
 | `get_channel_brand`           | A channel's bio, keywords and links, and its logo and cover as pictures Claude can look at.                                      |
 | `get_video_details`           | The description, tags, length, views and score of up to 10 videos, for title formulas and description templates.                 |
+| `get_video_watch`             | What an AI wrote down after watching a video with sound, when the app's channel breakdown has had it watched.                    |
+| `get_frame_study`             | What an AI wrote down after going through a video's frames, when the app's channel breakdown has made such a study.              |
 
 Only `set_competitor_status` and `make_map` change anything, and both only add to or
 adjust your own Jgtube store; a decision can be undone by asking Claude to set the
@@ -118,10 +120,16 @@ two) and keep what they read in your store, so asking again is instant.
 `get_map` also says, for each channel like yours, whether it has already taken
 off or is rising, and lists them about seven to three.
 
-What these tools cannot do: `view_video_frames` shows still frames several
-seconds apart and no sound, so Claude cannot judge sound design or exact cuts
-from it. Watching a whole video with its sound needs the video as a file; the
-connector does not send video files.
+What these tools cannot do: `view_video_frames` shows still frames and no sound,
+so Claude cannot judge sound design or exact cuts from it. The frames are
+YouTube's own preview pictures, small and several seconds apart, unless the
+app's channel breakdown has the video as a file at that moment; then they are
+cut from the file, one for every second. Asked with `start_sheet`, the tool
+hands the sheets over in order and says how many the video has, so Claude can go
+through all of them. Watching a whole video with its sound needs the video as a
+file; the connector does not send video files. `get_video_watch` and
+`get_frame_study` only return what a channel breakdown in the app has already
+written down and kept.
 
 ## Good to know
 

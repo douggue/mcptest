@@ -50,9 +50,12 @@ video_details   video_id PK, title NULL, description, tags_json,   -- built; fro
                 duration_s NULL, source (api|web), fetched_at   -- API or the watch page
 video_storyboards video_id PK, levels_json, fetched_at   -- built; the sizes of a video's
                 -- sprite sheets of frames; an empty list means it has none
+video_studies   (video_id, kind) PK, engine, notes,   -- built; what an engine wrote about a
+                frame_source NULL, frames_available NULL, studied_at   -- video: kind 'watch'
+                -- (seen and heard) or 'frames' (its frames, from 'file' or 'preview')
 ```
 
-The three `video_` tables (migration 11) do not refer to `videos`: a video can be
+The four `video_` tables (migrations 11 and 12) do not refer to `videos`: a video can be
 read by its id before any crawl has stored its channel. Lists are kept as JSON and
 checked against a schema again when read; a stored picture address that is not on
 its pinned host is dropped.
@@ -795,6 +798,7 @@ all stored, so a transcript read also saves the description and the storyboard.
 | Frames           | The storyboard: sprite sheets on `i.ytimg.com/sb/…` of small frames at a regular interval                   | `video_storyboards`      | Addresses are signed, so stored ones are used for 6 hours (`STORYBOARD_FRESH_HOURS`), and the page is read again once if every stored sheet fails to load |
 | Channel branding | The channel page every ingest already fetches: logo, cover, bio, keywords, the link the header shows        | columns of `channels`    | No extra request. A channel stored before this is read again once when its branding is asked for                                                          |
 | Thumbnails       | `https://i.ytimg.com/vi/<id>/hqdefault.jpg`                                                                 | files, with `index.json` | `<downloads>/thumbnails/<channel id>/<video id>.jpg`; a file already there is not fetched again                                                           |
+| Transcript files | The stored transcript, else one read as above                                                               | files, with `index.json` | `<downloads>/transcripts/<channel id>/<video id>.txt` for the channel's winners (the thumbnail download's), at most six (`TRANSCRIPT_FILES_MAX`)          |
 
 **Frames.** No image-processing library is used: whole sheets are handed over, each
 with a caption that says how to read it ("Sheet 1 of 7: a grid 5 across and 5 down,
@@ -847,13 +851,29 @@ and `unreadable`.
   shell, arguments as a list, the video id validated first, output confined to the
   temporary folder. Otherwise, or when yt-dlp cannot read the video, the library's
   own download call on the chosen file. The answer says which was used.
-- **Housekeeping.** Files go to `<downloads>/video-temp/`. The caller deletes a
-  file after use (`removeVideoFile`, which removes nothing outside that folder),
-  and files older than a day are cleared before each download.
+- **yt-dlp's JavaScript runtime.** Since late 2026 yt-dlp warns that reading
+  YouTube without a JavaScript runtime is deprecated, and looks only for deno. It
+  is started with `--js-runtimes node:<the Node running Jgtube>` as one argument;
+  a yt-dlp too old to know the option ("no such option") is started once more
+  without it.
+- **A video id that begins with a dash** reaches yt-dlp only as the value of
+  `--output` and inside a full link after `--`; it never reaches ffmpeg or an
+  engine except inside an absolute path or a link.
+- **Refused by YouTube.** A fourth kind of failure, `refused`: YouTube turned
+  this computer away whatever the video (yt-dlp's "confirm you're not a bot",
+  403 and 429; the built-in route's non-2xx answer). It is said in plain words,
+  the other route is still tried, and when both fail the refusal is the answer
+  kept.
+- **Housekeeping.** Files go to `<downloads>/video-temp/`. A copy fetched for the
+  server (`videoCopies.ts`) comes with the way to remove it: the watcher calls
+  it when the watch is over, however it ended, a breakdown when the video's
+  steps are done, and any copy still on disk when the engine closes is removed
+  then. Files older than a day are cleared before each download. A signal stops
+  a running yt-dlp when Jgtube closes.
 - **What was seen live.** The player listed the file, and YouTube's video servers
-  then answered 403 to the built-in route, by address and by range alike. yt-dlp
-  was not installed where this was tried, so no file has been confirmed to arrive
-  by either route. The failure message tells the owner to install yt-dlp.
+  then answered 403 to the built-in route, by address and by range alike; yt-dlp
+  was refused from the same network with "confirm you're not a bot". So no file
+  has been confirmed to arrive by either route.
 
 Downloading a video is outside YouTube's terms of service, as reading its pages
 this way is. The copy is temporary and stays on the owner's computer.
@@ -861,9 +881,12 @@ this way is. The copy is temporary and stays on the owner's computer.
 **Routes and commands.** `POST /api/thumbnails/download {channel}` (a channel id of
 a stored channel; 404 otherwise) saves that channel's thumbnails and answers
 `{channel, folder, indexFile, total, saved, alreadyThere, failed}`, through the same
-Host, Origin, content-type and size checks as every other write. On the command
-line: `transcript <video>`, `thumbnails <channel> [--per-group N]`, `brand <channel>`
-and `video <video>`.
+Host, Origin, content-type and size checks as every other write.
+`POST /api/transcripts/download {channel}` does the same for the transcripts of its
+winners and answers `{channel, folder, indexFile, saved, noCaptions, failed}`. On
+the command line: `transcript <video>`, `transcripts <channel>`,
+`thumbnails <channel> [--per-group N]`, `brand <channel>` and `video <video>`.
+`npm run engines` also says whether yt-dlp and ffmpeg are found.
 
 ### Filling a limited map
 
@@ -1095,9 +1118,11 @@ Claude reads what the app shows. Setup for the owner is in
 | `list_transfer_opportunities` | `channel?`, `place?`, `show?` (opportunities, formats, saved, all), `limit?` (10) | Ideas open or weak for the owner's place with up to five versions each, or the title formats (`listTransfers`)                                                  |
 | `make_map`                    | `channel`, `model?`, `depth?` (1..3), `max_channels?` (10..600)                   | Crawls a new map, then the same summary as `get_map` plus warnings                                                                                              |
 | `get_transcript`              | `video` (id or link), `start_seconds?`, `max_chars?` (12,000; 1,000..40,000)      | A line of JSON (`lang`, `auto`, `lines`, `lastLineAt`, `cut`), then the captions as text with the time every half minute; `captions: false` when there are none |
-| `view_video_frames`           | `video`, `sheets?` (4; 1..6)                                                      | A line of JSON, then each storyboard sheet as image content under a caption giving its grid and times; `frames: false` when there are none                      |
+| `view_video_frames`           | `video`, `sheets?` (4; 1..6), `start_sheet?` (from 1)                             | A line of JSON (`source`, `ofSheets`, `frames`; with `start_sheet` also `from`, `to` and `next.start_sheet` or `last`), then each sheet as image content        |
 | `get_channel_brand`           | `channel`, `images?` (true)                                                       | A line of JSON (`bio`, `keywords`, `links`, `logo`, `cover`), then the logo and the cover as image content                                                      |
 | `get_video_details`           | `video_ids` (1 to 10), `description_chars?` (1,500; 200..5,000)                   | Per video: title, description, tags, `secs`, views, score; `problems` for a video that could not be read                                                        |
+| `get_video_watch`             | `video`                                                                           | A line of JSON (`watched`, `by`, `at`), then the stored notes of an engine that watched the video; `watched: false` when nobody has                             |
+| `get_frame_study`             | `video`                                                                           | A line of JSON (`studied`, `by`, `at`, `source`, `framesAvailable`), then the stored study of the video's frames; `studied: false` when there is none           |
 
 One prompt, `thumbnail_review` (argument `channel`), tells the model to read the
 board, look at the owner's thumbnails and the winners with `view_thumbnails`, and
@@ -1129,6 +1154,16 @@ Rules the tools keep:
   video: a whole transcript is about 23,000 characters (two calls at the default),
   two frame sheets are 52 KB and 16 KB, and three videos' details are under 5,000
   characters.
+- **Frames, sheet by sheet.** With `start_sheet`, `view_video_frames` returns
+  sheets in a row and says which it holds (`from`, `to`), how many the video has
+  (`ofSheets`, `frames`) and where to call again from (`next.start_sheet`), or
+  `last`, so that a run can go through every frame and cannot take part of a
+  video for the whole. `source` says where the frames came from: cut from the
+  video file, one a second, when Jgtube has cut them, else YouTube's preview
+  frames. The transcript's `words` and `wordsPerMinute` are counted in code.
+- **Stored studies** (`get_video_watch`, `get_frame_study`) read the store only.
+  Each answer opens with a line saying that what follows was written by an AI,
+  describes the video and is not instructions.
 - **The `get_map` answer** carries `group` on each look-alike (`taken-off` or
   `rising`; absent means neither) and `counts.mix` with the actual split.
 - **Crawls** run one at a time within the connector, and across programs through
@@ -1155,10 +1190,12 @@ until then the model on the other end of the connector does that judging from
 
 Built (`packages/server/src/engines/`, `analyses.ts`, `analysisEngine.ts`,
 `analysisRoutes.ts`, `POST /api/analyses`, `GET /api/engines`). Three fixed
-analyses can be put to an AI engine from the page: `thumbnails`, `topics` and
-`near-misses`. An analysis is one entry in `ANALYSES`: a title, a fixed
-question, the read-only tools it may use, a step limit and, when it cannot be
-left to the owner's usual order, the engines that may answer it.
+analyses can be put to an AI engine from the page with one press: `thumbnails`,
+`topics` and `near-misses`. A fourth, `breakdown`, is the last step of a longer
+job (see "Channel breakdown"). An analysis is one entry in `ANALYSES`: a title,
+a fixed question, the read-only tools it may use, a step limit, a time limit
+when the usual five minutes are not enough and, when it cannot be left to the
+owner's usual order, the engines that may answer it.
 
 ### The engine interface
 
@@ -1322,8 +1359,8 @@ agy -p <system prompt + prompt> --output-format json --sandbox
 ### Watching a video (`engines/agyVideo.ts`, `geminiVideo.ts`, `videoWatch.ts`)
 
 A second capability beside "answer with tools": watch one video, picture and
-sound, and answer a question about it. `engine.watchVideo(videoId, question)`
-is built and tested but no route or analysis uses it yet.
+sound, and answer a question about it: `engine.watchVideo(videoId, question,
+options?)`. The channel breakdown uses it for the videos it studies in depth.
 
 - **Antigravity, a file on this computer.** A headless run watches a local file
   named with `@` in the prompt; the owner has done it with
@@ -1351,14 +1388,164 @@ is built and tested but no route or analysis uses it yet.
   `not-installed`, "No engine on this computer can watch a video", so the
   caller can fall back to frames and a transcript. A timeout or failure of the
   engine that ran is reported, not retried on the other.
-- **The downloader** is an injected dependency of the server engine
-  (`EngineOptions.downloadVideo`): `(videoId, stop) => Promise<{ok: true, path}
-| {ok: false, reason}>`. None is connected yet, so today video is watched
-  through the Gemini API only.
+- **The downloader** is core's `downloadVideo`, connected in `engine.ts` through
+  `videoCopies.ts` (root `downloadsRoot(config)`, the engine's own connection to
+  YouTube for the built-in route): `(videoId, stop) => Promise<{ok: true, path,
+remove?} | {ok: false, reason}>`, the reason being core's plain sentence. The
+  file stays the downloader's: the watcher copies it and calls `remove` once the
+  watch is over, whichever way it went. A caller that already has the file (a
+  breakdown) passes its own `download` for that one watch. A test may put a
+  stand-in in `EngineOptions.downloadVideo` or `fetchVideoFile`.
 - **A YouTube link given to Antigravity** with no file is unproven: `agy` reads
   a link as a web page. It is off unless `JGTUBE_AGY_YOUTUBE_LINKS=on`, and
   `npm run engines -- --try --youtube <link>` asks a question only someone who
   watched could answer, so the owner can check first.
+
+### Channel breakdown (`breakdownEngine.ts`, `breakdownQuestions.ts`, `breakdownFiles.ts`, `breakdownRoutes.ts`)
+
+Built. A fourth analysis, `breakdown`, is the last step of a longer job that
+takes one channel apart. It works for any channel: the owner's model, a
+look-alike, a channel from the niche list. Nothing in the code or the questions
+is fitted to a channel or a niche: the only things put into a question from
+outside are the channel in its fixed form and video ids, each checked first.
+
+**What is chosen, in code** (`core/src/breakdown/picks.ts`):
+
+- `BREAKDOWN_TOP_VIDEOS = 5`: the channel's videos furthest above its usual
+  views, best first (`buildVideoReport`; a video too new or too alone to score
+  comes after the scored ones, by views). A channel with fewer has all of them.
+- `BREAKDOWN_DEEP_VIDEOS = 3`: the first three of those, studied in depth.
+- `WATCH_MAX_SECONDS = floor(MAX_VIDEO_BYTES / WATCH_BYTES_PER_SECOND)` = 1,187
+  seconds: a video longer than that is not downloaded, because its smallest
+  watchable copy (YouTube's 360p file, about 80 kB a second) would be over the
+  95 MB that is handed over. A video whose length is not stored is tried.
+
+**The steps** (`breakDown`):
+
+1. Read the channel (stored, or read from YouTube once with its branding) and
+   the captions of the top five. A video without captions is recorded as such.
+2. For each of the three deep videos, in turn:
+   - **A file.** The owner's own (`<downloads>/my-videos/`, a file named
+     `<id>.mp4`, else any `.mp4` whose name holds the id), then one download
+     (yt-dlp, then the built-in route). A file is looked for only when
+     something would use it: an engine that watches files (Antigravity,
+     installed and in the owner's order) or ffmpeg. One copy serves both and is
+     removed afterwards on every path; the owner's file is only read.
+   - **A watch** (`WATCH_QUESTION`): Antigravity on the file, else the Gemini
+     API on the link. Sections: voice, music, sound effects, transitions and
+     cuts, illustration type, on-screen text, pacing changes, the first 30
+     seconds. A file over 95 MB is first shrunk for the watch
+     (`shrinkForWatching`: 360 lines, the bitrate worked out from the length so
+     that picture and 64 kbit sound come to nine tenths of the limit; one
+     attempt), in the temporary folder, removed afterwards.
+   - **A frame study** (`frameStudyRequest`): its own boxed-in run of an engine
+     that sees pictures (Claude Code or Codex, in the owner's order or the one
+     chosen on the switch), with the one tool `view_video_frames`. With a file
+     and ffmpeg the frames are cut from the file, one a second
+     (`cutFrameSheets`); otherwise they are YouTube's preview frames; with
+     neither, the study is recorded as not done. The run walks every sheet in
+     order and ends with `FRAMES LOOKED AT: X of Y` and the tool's source line.
+3. The writing run: `analyse('breakdown', channel, only, { top, deep })`, with
+   `get_channel_brand`, `get_channel_videos`, `get_video_details`,
+   `view_thumbnails`, `get_transcript`, `get_frame_study` and `get_video_watch`.
+
+What could not be done (no file, nobody to watch, a frame study that failed)
+is recorded with a plain reason and does not fail the job. The job fails only
+when the channel cannot be read, when no engine could write, or when Jgtube is
+closing; it checks for closing between steps, and every run it starts is
+stopped by the same signal as the other engine runs.
+
+**Frames from a file** (`core/src/downloads/frameSheets.ts`). ffmpeg is found on
+the PATH like yt-dlp (`findProgram`, nothing is run to find out) and started
+without a shell, arguments as a list, both paths absolute so neither can pass
+for an option, with a ten-minute limit and a cap on what it may print:
+
+```
+ffmpeg -hide_banner -nostdin -nostats -y -i <file> -an -sn
+  -vf fps=1,scale=288:162:force_original_aspect_ratio=decrease,
+      pad=288:162:(ow-iw)/2:(oh-ih)/2,tile=5x5
+  -frames:v 80 -q:v 5 <folder>/sheet-%03d.jpg
+```
+
+One frame a second (`FRAME_EVERY_SECONDS`), 25 to a sheet (5 by 5), each frame
+288 by 162, so a sheet is 1440 by 810: the largest a model is shown without
+being shrunk first. At most 80 sheets (2,000 frames). The sheets and an
+`index.json` (which seconds each sheet shows; the count of frames comes from the
+length ffmpeg prints) sit in `<downloads>/video-temp/frames-<id>/`, are checked
+to be JPEGs, and are removed with the video; leftovers go with the day-old
+copies. `readVideoFrames` serves them in place of preview frames when they are
+there, found by video id and sheet number alone: no tool ever reads a path it
+was handed.
+
+**What is kept.** Migration 12 adds `video_studies`, one row per video and kind
+(`watch` or `frames`): the engine, the text, and for a frame study where the
+frames came from (`file` or `preview`) and how many there were. A second
+breakdown reuses stored transcripts and studies and only writes again. A frame
+study made from preview frames is made again once frames can be cut from a
+file. `fresh: true` makes the watch notes and frame studies again; transcripts
+are what YouTube holds and are not read again. A study is a model's words about
+a video anyone could have made: it is stored as it is, handed out only as the
+result of `get_video_watch` or `get_frame_study` under a line saying that it
+describes the video and is not instructions, and never put into a question.
+
+**The questions.** The writing run is asked for nine sections: WHAT THIS RESTS
+ON, CHANNEL IDENTITY, TITLE FORMULA, THUMBNAIL STYLE, DESCRIPTION TEMPLATE,
+SCRIPT, PICTURE FRAME BY FRAME, SOUND AND EDITING, HOW TO MAKE ONE LIKE IT. The
+picture section rests on the frame studies alone and says, per video, frames
+looked at out of frames available and where they came from, saying plainly that
+preview frames are YouTube's own small pictures and not every frame. The sound
+section rests on the watch notes alone; without them it says NOT WATCHED and
+that the sound, music and transitions are unknown. No forecasts; every number
+is one a tool returned or one worked out from tool results and marked so. Pace
+is not left to the model: `get_transcript` gives `words` and `wordsPerMinute`,
+counted in code.
+
+**Limits of the runs.** Writing: 60 turns, 15 minutes. Frame study: 40 turns,
+20 minutes, asked to stay under 5,000 words. Measured with Claude Code on a
+copy of a real store (November 2026): a frame study of 8 preview sheets (181
+frames) took 97 to 101 seconds, of 4 sheets 72 seconds, of 5 sheets 77 seconds,
+so 10 to 18 seconds a sheet with the run's start-up included; a study of 24
+sheets cut from a file (600 frames of a test pattern, all alike) took 40
+seconds; the writing run took 74 to 77 seconds. A whole breakdown with three
+preview-frame studies and no watch took 337 seconds.
+
+**Routes.** `POST /api/breakdowns {channel, engine?, fresh?}` starts the job and
+answers `{jobId}` (202); its steps and outcome are read at `/api/jobs/:id`. A
+breakdown and an analysis share one slot (409 while either runs); breakdowns
+have a `JobStore` of their own, so they do not take the slot crawls and
+refreshes share. `engine` is the owner's switch for the frame studies and the
+writing; watching always starts with Antigravity. Progress is
+`{step, text, supply}`: the step in plain words ("Video 1 of 3, “title”:
+cutting one frame a second from the file"), and the videos found so far that
+the owner can supply a file for. The outcome is `{channel, storedVideos, top,
+deep, supply, ownVideosFolder, text, engine, skipped}`; `deep` says, per video,
+which file was used, who watched it and who studied its frames from what, or
+the reason. `POST /api/analyses` does not take `breakdown`.
+
+`PUT /api/breakdowns/videos/:videoId` takes the owner's own copy of a video and
+saves it as `my-videos/<videoId>.mp4`. The id is checked before it touches a
+path; the Host and Origin checks are those of every other route; only
+`video/mp4` is taken; the cap is 2 GB (`MAX_OWN_VIDEO_BYTES`), refused from the
+announced length when there is one and enforced while writing; one upload at a
+time (409). The body is streamed to `<name>.part-<random>` in the same folder,
+checked to be a whole MP4 (`isWholeMp4`) and only then renamed, so a half-sent
+file is never used; on any failure the part is removed. The server hands the
+route the request body as a stream for this one path.
+
+**Order for each deep video**, as the owner reads it: the owner's own file, then
+yt-dlp, then the built-in download; with none, YouTube's preview frames for the
+frame study, the Gemini API for watching if a key is set, and the video listed
+as one the owner can supply.
+
+**What was run for real, and what was not.** Run through the route on a copy of
+a real store with Claude Code: a breakdown with no file and nothing to watch
+(the NOT WATCHED path, three preview-frame studies), and one with a generated
+test-pattern MP4 sent through the upload route under a real video id (cut by
+ffmpeg, studied sheet by sheet, the owner's file left in place). YouTube
+refused the download from that network and no engine that watches was
+installed, so a real video file being downloaded, studied or watched has only
+been tested with stand-ins and with the test pattern; the writing engine
+noticed that the test pattern was not the video and said so.
 
 ### Starting a program on Windows (`engines/executable.ts`)
 
@@ -1404,6 +1591,10 @@ Written for Windows, tested with a stand-in disk, never run on Windows.
   `main.ts` entry points, the command line, the refresh timer in a running
   process, and a real run of any AI engine. These were exercised by driving the
   app in a browser and by running the commands against a copy of a real store.
+- **ffmpeg** is run for real in two tests, on clips made by ffmpeg's own test
+  picture inside the test's temporary folder: cutting sheets (their number, their
+  times, that they are JPEGs) and making a smaller copy that fits a limit. Both
+  are skipped on a computer without ffmpeg; the argument lists and every failure
+  path are tested with a stand-in runner.
 - **Tested with fakes only:** the official API's video details (no key was
-  available), yt-dlp (not installed where this was built), and a video file
-  actually arriving.
+  available), yt-dlp, a real video file arriving, and an engine watching one.
