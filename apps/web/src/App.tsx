@@ -12,6 +12,7 @@ import { useAlertCounts } from './components/useAlerts';
 import { OwnVideos } from './components/OwnVideos';
 import { UploadCalendar } from './components/UploadCalendar';
 import { LengthPacing } from './components/LengthPacing';
+import { CommentMining } from './components/CommentMining';
 import { BreakoutFeed } from './components/BreakoutFeed';
 import { Formulas } from './components/Formulas';
 import { HookLibrary } from './components/HookLibrary';
@@ -468,6 +469,7 @@ export function App() {
       <OwnVideos channelId={snapshot?.center.id ?? null} reloadKey={refresh.run.status} />
       <UploadCalendar channelId={snapshot?.center.id ?? null} reloadKey={refresh.run.status} />
       <LengthPacing channelId={snapshot?.center.id ?? null} reloadKey={refresh.run.status} />
+      <CommentMining channelId={snapshot?.center.id ?? null} reloadKey={refresh.run.status} />
       <Transfers transfers={transfers} hasMap={snapshot !== null} />
       <Niches
         niches={niches}

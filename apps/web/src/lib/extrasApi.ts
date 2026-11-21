@@ -1,6 +1,14 @@
-import type { CalendarView, PacingView, PlanView, ScheduleEntry, SinceKind } from '@jgtube/core';
+import type {
+  CalendarView,
+  MineOutcome,
+  PacingView,
+  PlanView,
+  ScheduleEntry,
+  SinceKind,
+} from '@jgtube/core';
 import { apiCaller, type Fetch } from './api';
 import type { AlertSettingsInput, AlertsReply } from './alerts';
+import type { CommentsView } from './comments';
 import type { ChangesReply } from './changes';
 
 /** The later features' part of the local server's API, each call for one channel by its id. */
@@ -54,6 +62,26 @@ export function createExtrasApi(fetcher?: Fetch) {
     /** A channel's lengths and pace beside its map's breakouts; null when it has no map. */
     pacing: (channel: string) => read<PacingView>(`/api/pacing?${of(channel)}`),
 
+    /** What is known of comment mining for a channel; null when it has no map. */
+    comments: (channel: string) => read<CommentsView>(`/api/comments?${of(channel)}`),
+
+    /** Starts reading the chosen winners' comments; resolves with the job id. */
+    async readComments(channel: string, videoIds: readonly string[]): Promise<string> {
+      return unwrap<{ jobId: string }>(await send('/api/comments/read', { channel, videoIds }))
+        .jobId;
+    },
+
+    /** Starts "What viewers ask for"; resolves with the job id. */
+    async askViewers(channel: string, videoIds: readonly string[]): Promise<string> {
+      return unwrap<{ jobId: string }>(await send('/api/comments/ask', { channel, videoIds }))
+        .jobId;
+    },
+
+    /** One of the later features' jobs. */
+    async extrasJob(id: string): Promise<ExtrasJob> {
+      return unwrap<ExtrasJob>(await call(`/api/extras/job?id=${encodeURIComponent(id)}`));
+    },
+
     /** A channel's upload calendar; null when it has no map. */
     calendar: (channel: string) => read<CalendarView>(`/api/calendar?${of(channel)}`),
 
@@ -70,3 +98,23 @@ export function createExtrasApi(fetcher?: Fetch) {
 }
 
 export type ExtrasApi = ReturnType<typeof createExtrasApi>;
+
+/** A long piece of the later features' work, as the server reports it. */
+export interface ExtrasJob {
+  readonly id: string;
+  readonly status: 'running' | 'done' | 'failed';
+  readonly progress: { readonly text: string } | null;
+  readonly result:
+    | { readonly kind: 'comments-read'; readonly outcomes: readonly MineOutcome[] }
+    | {
+        readonly kind: 'viewer-answer';
+        readonly outcome: {
+          readonly proposed: number;
+          readonly dropped: number;
+          readonly unread: number;
+          readonly engine: string;
+        };
+      }
+    | null;
+  readonly error: string | null;
+}

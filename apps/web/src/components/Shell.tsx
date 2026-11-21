@@ -17,6 +17,7 @@ import {
   Target,
   CalendarDays,
   Ruler,
+  MessageSquareText,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Settings } from './Settings';
@@ -40,6 +41,7 @@ const RAIL = [
   { label: 'Your videos against the plan', icon: Target, target: 'own-videos-title' },
   { label: 'Upload calendar', icon: CalendarDays, target: 'upload-calendar-title' },
   { label: 'Length and pacing', icon: Ruler, target: 'length-pacing-title' },
+  { label: 'What viewers ask for', icon: MessageSquareText, target: 'comment-mining-title' },
   { label: 'Transfer opportunities', icon: Globe, target: 'transfers-title' },
   { label: 'New niches', icon: Sprout, target: 'niches-title' },
 ] as const;
