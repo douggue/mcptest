@@ -9,7 +9,10 @@ import {
   type AlertView,
 } from '../lib/alerts';
 import { channelUrl, thumbnailUrl, watchUrl } from '../lib/format';
-import { FIELD, NOTE, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
+import { Card, Label } from './layout/Card';
+import { Details } from './layout/Details';
+import { Notice } from './layout/Notice';
+import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
 import type { Alerts } from './useAlerts';
 
 const LABEL = 'text-label-caps uppercase text-outline';
@@ -19,7 +22,7 @@ function AlertItem({ alert }: { readonly alert: AlertView }) {
   const href = video ? watchUrl(alert.subjectId) : channelUrl(alert.channelId);
   const thumbnail = video ? thumbnailUrl(alert.subjectId) : null;
   return (
-    <li className="flex min-w-0 gap-space-sm rounded bg-surface-card p-space-sm">
+    <li className="flex min-w-0 gap-space-sm rounded-lg bg-space-deep p-space-sm">
       {thumbnail && (
         <div className="aspect-video w-24 flex-none overflow-hidden rounded bg-surface-container-high">
           <img
@@ -86,13 +89,13 @@ function RuleForm({ reply, onSave }: FormProps) {
 
   return (
     <form
-      className="flex flex-wrap items-end gap-space-sm"
+      className="flex min-w-0 flex-col gap-space-md"
       onSubmit={(event) => {
         event.preventDefault();
         submit();
       }}
     >
-      <label className="flex w-36 flex-col gap-1">
+      <label className="flex w-40 flex-col gap-1">
         <span className={LABEL}>Video at (× usual)</span>
         <input
           type="number"
@@ -123,7 +126,7 @@ function RuleForm({ reply, onSave }: FormProps) {
         />
         Alerts on
       </label>
-      <button type="submit" className={PRIMARY_BUTTON}>
+      <button type="submit" className={`self-start ${PRIMARY_BUTTON}`}>
         Save rule
       </button>
       {problem && (
@@ -135,60 +138,72 @@ function RuleForm({ reply, onSave }: FormProps) {
   );
 }
 
-/** Alerts for the channel on screen, under what changed. */
+/** The alerts found so far, newest first, or a line saying there are none. */
+function AlertList({ reply }: { readonly reply: AlertsReply }) {
+  if (reply.alerts.length === 0) {
+    return <p className="text-body-md text-on-surface-variant">No alerts yet.</p>;
+  }
+  return (
+    <ul className="flex flex-col gap-space-sm">
+      {reply.alerts.map((alert) => (
+        <AlertItem key={alert.id} alert={alert} />
+      ))}
+    </ul>
+  );
+}
+
+/** Alerts for the channel on screen, beside what changed: the rule behind a disclosure, then the alerts. */
 export function AlertsPanel({ alerts }: { readonly alerts: Alerts }) {
   const { state, save, markRead } = alerts;
   if (state.status === 'idle') return null;
   const reply = state.status === 'ready' ? state.reply : null;
   return (
-    <div role="group" aria-labelledby="alerts-title" className="flex min-w-0 flex-col gap-space-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id="alerts-title" className={`flex items-center gap-1.5 ${LABEL}`}>
-          <Bell aria-hidden="true" className="h-4 w-4" />
-          Alerts{reply && reply.unread > 0 ? ` (${reply.unread} new)` : ''}
-        </h3>
-        {reply && reply.unread > 0 && (
-          <button
-            type="button"
-            onClick={markRead}
-            className={`flex items-center gap-1.5 ${QUIET_BUTTON}`}
-          >
-            <Check aria-hidden="true" className="h-4 w-4" />
-            Mark alerts read
-          </button>
+    <section aria-labelledby="alerts-title" className="min-w-0">
+      <Card>
+        <Label
+          action={
+            reply &&
+            reply.unread > 0 && (
+              <button
+                type="button"
+                onClick={markRead}
+                className={`flex items-center gap-1.5 ${QUIET_BUTTON}`}
+              >
+                <Check aria-hidden="true" className="h-4 w-4" />
+                Mark alerts read
+              </button>
+            )
+          }
+        >
+          <span id="alerts-title" className="flex items-center gap-1.5">
+            <Bell aria-hidden="true" className="h-4 w-4" />
+            Alerts{reply && reply.unread > 0 ? ` (${reply.unread} new)` : ''}
+          </span>
+        </Label>
+        {state.status === 'loading' && <Notice tone="working">Reading the alerts</Notice>}
+        {state.status === 'failed' && (
+          <Notice tone="problem">Alerts could not be loaded: {state.message}</Notice>
         )}
-      </div>
-      {state.status === 'loading' && <p className={NOTE}>Reading the alerts</p>}
-      {state.status === 'failed' && (
-        <p role="alert" className="text-body-sm text-error">
-          Alerts could not be loaded: {state.message}
-        </p>
-      )}
-      {reply && (
-        <>
-          <p className="text-body-md text-on-surface-variant">
-            {ruleSummary(reply.rule, reply.defaultMinScore)}
-          </p>
-          <RuleForm reply={reply} onSave={save} />
-          {state.status === 'ready' && state.problem && (
-            <p role="alert" className="text-body-sm text-error">
-              {state.problem}
+        {reply && (
+          <>
+            <p className="text-body-md text-on-surface">
+              {ruleSummary(reply.rule, reply.defaultMinScore)}
             </p>
-          )}
-          {reply.alerts.length === 0 ? (
-            <p className={NOTE}>No alerts yet.</p>
-          ) : (
-            <ul className="grid grid-cols-1 gap-space-sm lg:grid-cols-2">
-              {reply.alerts.map((alert) => (
-                <AlertItem key={alert.id} alert={alert} />
-              ))}
-            </ul>
-          )}
-          <p className="text-body-sm text-outline">
-            {freshnessNote(reply.lastRefreshAt, new Date())}
-          </p>
-        </>
-      )}
-    </div>
+            <Details summary={reply.rule ? 'Change the rule' : 'Set the rule'}>
+              <RuleForm reply={reply} onSave={save} />
+            </Details>
+            {state.status === 'ready' && state.problem && (
+              <p role="alert" className="text-body-sm text-error">
+                {state.problem}
+              </p>
+            )}
+            <AlertList reply={reply} />
+            <p className="text-body-sm text-outline">
+              {freshnessNote(reply.lastRefreshAt, new Date())}
+            </p>
+          </>
+        )}
+      </Card>
+    </section>
   );
 }

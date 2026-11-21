@@ -2,6 +2,7 @@ import type { ViewId } from '../lib/routes';
 import { Benchmarks } from './Benchmarks';
 import { BreakoutFeed } from './BreakoutFeed';
 import { ChangesSection } from './ChangesSection';
+import { ViewPage } from './layout/SplitView';
 import { Niches } from './Niches';
 import { RadarArea } from './RadarArea';
 import { RefreshBar } from './RefreshBar';
@@ -42,14 +43,14 @@ function Breakouts({ page, work, openChannel }: ViewParts) {
 export const RESEARCH_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
   radar: ({ page, openChannel }) => <RadarArea page={page} onOpenChannel={openChannel} />,
   'what-changed': ({ page, work }) => (
-    <>
+    <ViewPage labelledBy="what-changed-title">
       <ChangesSection
         snapshot={page.snapshot}
         reloadKey={work.refresh.run.status}
         onAlertsChanged={work.alertCounts.reload}
       />
       <RefreshBar refresh={work.refresh} />
-    </>
+    </ViewPage>
   ),
   breakouts: withMap('breakouts', (_snapshot, parts) => <Breakouts {...parts} />),
   'same-topic': withMap('same-topic', (snapshot, { work, page }) => (
