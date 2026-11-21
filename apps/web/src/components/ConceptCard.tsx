@@ -3,7 +3,6 @@ import { needsSomething } from '@jgtube/core/src/concepts/parse';
 import { liftedFrom } from '@jgtube/core/src/hooks/lift';
 import { Bookmark, BookmarkCheck, PenLine, Shuffle, Sparkles, Smartphone } from 'lucide-react';
 import { useState } from 'react';
-import { watchUrl } from '../lib/format';
 import type { LibraryHook } from '../lib/hookLibrary';
 import {
   hookModelOf,
@@ -16,7 +15,6 @@ import { ConceptThumbnail } from './ConceptThumbnail';
 import { VideoLine } from './VideoChips';
 import { FeedPreview } from './FeedPreview';
 import { PILL, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
-import { Outbound } from './NicheCard';
 
 const LABEL = 'text-label-caps uppercase text-outline';
 const ORIGIN: Readonly<Record<ConceptView['origin'], string | null>> = {

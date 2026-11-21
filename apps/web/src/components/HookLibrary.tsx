@@ -1,6 +1,6 @@
 import { Check, Copy, Quote, Search } from 'lucide-react';
 import { useState } from 'react';
-import { formatCount, formatScore, watchUrl } from '../lib/format';
+import { formatCount, formatScore } from '../lib/format';
 import {
   filterHooks,
   hookPreview,
@@ -10,7 +10,6 @@ import {
   type LibraryHook,
 } from '../lib/hookLibrary';
 import { FIELD, LabStatus, NOTE, PILL, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
-import { Outbound } from './NicheCard';
 import { SectionFrame } from './SectionFrame';
 import { VideoLine } from './VideoChips';
 import type { Lab } from './useLab';
