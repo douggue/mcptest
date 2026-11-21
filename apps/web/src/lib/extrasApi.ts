@@ -1,4 +1,4 @@
-import type { SinceKind } from '@jgtube/core';
+import type { PlanView, SinceKind } from '@jgtube/core';
 import { apiCaller, type Fetch } from './api';
 import type { AlertSettingsInput, AlertsReply } from './alerts';
 import type { ChangesReply } from './changes';
@@ -38,6 +38,17 @@ export function createExtrasApi(fetcher?: Fetch) {
 
     async markAlertsRead(channel: string): Promise<AlertsReply> {
       return unwrap<AlertsReply>(await send('/api/alerts/read', { channel }));
+    },
+
+    /** A channel's own videos against the plan; null when it has no map. */
+    plan: (channel: string) => read<PlanView>(`/api/plan?${of(channel)}`),
+
+    async linkPlanVideo(channel: string, conceptId: number, link: string): Promise<PlanView> {
+      return unwrap<PlanView>(await send('/api/plan/link', { channel, conceptId, link }));
+    },
+
+    async unlinkPlanVideo(channel: string, conceptId: number): Promise<PlanView> {
+      return unwrap<PlanView>(await send('/api/plan/unlink', { channel, conceptId }));
     },
   };
 }
