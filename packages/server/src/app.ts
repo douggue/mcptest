@@ -54,6 +54,8 @@ import {
 } from './breakdownRoutes';
 import { downloadThumbnails, downloadTranscripts } from './downloadRoutes';
 import type { DownloadsEngine } from './downloadTypes';
+import { extraRoutes } from './extrasRoutes';
+import type { ExtrasEngine } from './extrasTypes';
 import { labRoutes, type LabRoutes } from './labRoutes';
 import type { LabEngine } from './labTypes';
 import { LOGOS_PATH, logoRoutes, type LogoRoutes } from './logoRoutes';
@@ -131,6 +133,8 @@ export interface Engine
     TransferPlaceEngine,
     AnswerEngine,
     ConceptThumbEngine {
+  /** The later features, kept together: what changed since the owner last looked. */
+  readonly extras: ExtrasEngine;
   /** The latest stored map around a channel; reads the store only. */
   findSnapshot(channel: string): MapSnapshot | null;
   /** Every channel a map has been made for, the most recently mapped first. */
@@ -465,6 +469,7 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     isReading: () => options.jobs.isBusy() || options.engine.isReadingYouTube(),
     channelProblem,
   });
+  const extra = extraRoutes(options, analysing);
   return async (request) => {
     if (!isTrustedHost(request, options.allowedHosts)) {
       return fail(403, 'This server only answers to its own address');
@@ -481,6 +486,8 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     if (pathname === LOGOS_PATH) {
       return method === 'POST' ? logos.start(request) : fail(405, 'Use POST');
     }
+    const extraAnswer = extra.handle(request, url);
+    if (extraAnswer) return extraAnswer;
     if (pathname === '/api/maps/latest') {
       return method === 'GET'
         ? readLatest(url, (channel) => options.engine.findSnapshot(channel))

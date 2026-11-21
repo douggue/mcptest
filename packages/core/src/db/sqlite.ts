@@ -318,10 +318,18 @@ CREATE TABLE IF NOT EXISTS owner_places (
   set_at             TEXT NOT NULL
 );
 `,
-  // 17: what an engine wrote for a channel that is kept to be read again, one row per
+  // 17: when the owner last marked a channel's "what changed" as seen, one row per centre
+  //     channel. It refers to no other table and needs nothing a later step adds.
+  `
+CREATE TABLE IF NOT EXISTS channel_looks (
+  center_channel_id  TEXT PRIMARY KEY,
+  seen_at            TEXT NOT NULL
+);
+`,
+  // 18: what an engine wrote for a channel that is kept to be read again, one row per
   //     channel and kind: a thumbnail review (with its ready prompt), a quick analysis's
   //     answer, the style lock lifted out of a breakdown. A new run replaces a row. Like
-  //     the tables of steps 12 and 15 it refers to no other table.
+  //     the tables of steps 12, 15, 16 and 17 it refers to no other table.
   `
 CREATE TABLE IF NOT EXISTS channel_notes (
   channel_id  TEXT NOT NULL,
@@ -332,7 +340,7 @@ CREATE TABLE IF NOT EXISTS channel_notes (
   PRIMARY KEY (channel_id, kind)
 );
 `,
-  // 18: the thumbnail prompt written for one concept: the prompt, why that style, and
+  // 19: the thumbnail prompt written for one concept: the prompt, why that style, and
   //     the videos whose thumbnails it was learned from. It belongs to its concept and
   //     goes with it (step 13), and so to one centre channel. A new run replaces it.
   `
@@ -343,6 +351,34 @@ CREATE TABLE IF NOT EXISTS concept_thumbnails (
   video_ids_json  TEXT NOT NULL DEFAULT '[]',
   engine          TEXT NOT NULL,
   written_at      TEXT NOT NULL
+);
+`,
+  // 20: alerts. One rule
+  //     per centre channel (the owner's number for a look-alike video's outlier score, whether a look-alike newly taking off counts, on or off, and when it
+  //     was last checked) and the alerts found, each kept once per channel, kind and subject.
+  //     They refer to no other table and need nothing a later step adds.
+  `
+CREATE TABLE IF NOT EXISTS alert_rules (
+  center_channel_id  TEXT PRIMARY KEY,
+  min_score          REAL NOT NULL,
+  taken_off          INTEGER NOT NULL,
+  enabled            INTEGER NOT NULL,
+  created_at         TEXT NOT NULL,
+  checked_at         TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS alerts (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  center_channel_id  TEXT NOT NULL,
+  kind               TEXT NOT NULL CHECK (kind IN ('breakout', 'taken-off')),
+  subject_id         TEXT NOT NULL,
+  channel_id         TEXT NOT NULL,
+  channel_title      TEXT NOT NULL,
+  video_title        TEXT,
+  score              REAL,
+  views              INTEGER,
+  found_at           TEXT NOT NULL,
+  read_at            TEXT,
+  UNIQUE (center_channel_id, kind, subject_id)
 );
 `,
 ];

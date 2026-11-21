@@ -261,3 +261,15 @@ Phase 7 needs 5.
 - [ ] Moving the engine into core so the connector no longer imports the server
 - [x] Saved channels: every looked-up channel listed above the radar, opened from the store, deleted on request
 - [x] Channel logos on the radar, the inspector and the channel list
+
+## Following the channel over time
+
+Scoped to the channel on screen and its own map; every number from stored data
+or computed in code and labelled; no view forecasts; nothing published to YouTube.
+
+- [x] What changed since you last looked: new breakouts, channels newly taken off, rising or dropped out, look-alikes new or gone, title formats newly seen in several breakouts; from stored readings, no AI (store step 17 `channel_looks`)
+- [x] "Mark as seen", "since yesterday" and "since 7 days"; "nothing new" said plainly; when the look-alikes were last read, with a link to Refresh now
+- [x] Checked on a copy of a real store after a real refresh of 30 channels, at 1440 and 390 wide
+- [x] Alerts: a rule per saved channel (the owner's number for a look-alike video's outlier score, default 5×, range 2 to 100; a look-alike newly taking off, optional); checked in code after each refresh and before alerts are read; kept in store step 20 (`alert_rules`, `alerts`)
+- [x] Alerts listed inside What changed with thumbnails and links, "Mark alerts read", a count of unread alerts on each of Your channels, and that an alert is only as fresh as the last refresh
+- [x] Checked on a copy of a real store: a real refresh of 20 channels found one real alert (a new upload at 4.5×)

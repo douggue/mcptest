@@ -7,6 +7,8 @@ import type {
 } from '@jgtube/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Benchmarks } from './components/Benchmarks';
+import { ChangesSection } from './components/ChangesSection';
+import { useAlertCounts } from './components/useAlerts';
 import { BreakoutFeed } from './components/BreakoutFeed';
 import { Formulas } from './components/Formulas';
 import { HookLibrary } from './components/HookLibrary';
@@ -278,6 +280,7 @@ export function App() {
     reloadTransfers();
   }, [reloadNiches, reloadTransfers]);
   const refresh = useRefresh(api, afterRefresh);
+  const alertCounts = useAlertCounts(refresh.run.status);
   const selected = snapshot?.channels.find((channel) => channel.id === selectedId) ?? null;
   /** Starts a breakdown of any stored channel and brings the Ask AI section, where it reports, into view. */
   const breakDown = (channel: { readonly id: string; readonly title: string }): void => {
@@ -319,6 +322,12 @@ export function App() {
         busy={job?.status === 'running'}
         onOpen={open}
         onDelete={(channel) => void remove(channel)}
+        badges={alertCounts.counts}
+      />
+      <ChangesSection
+        snapshot={snapshot}
+        reloadKey={refresh.run.status}
+        onAlertsChanged={alertCounts.reload}
       />
       <Radar
         snapshot={visible}

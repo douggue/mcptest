@@ -34,6 +34,7 @@ import {
   openDatabase,
   parseChannelRef,
   refreshStalest,
+  checkStoredAlerts,
   searchRecentVideos,
   transactionRunner,
   withYouTubeLease,
@@ -63,6 +64,7 @@ import {
   type PlayerSource,
 } from './connection';
 import { downloads } from './downloadEngine';
+import { extras } from './extrasSetup';
 import { cleanMessage } from './jobs';
 import { lab } from './labSetup';
 import { logos } from './logoEngine';
@@ -336,6 +338,7 @@ function refreshing(wiring: Wiring, fillFacts: FillFacts): Refreshing {
           { ...repos, source: lazySource, transact: transactionRunner(db), now },
           { onProgress, ...(maxChannels ? { maxChannels } : {}) },
         );
+        checkStoredAlerts(db, repos, now()); // Alerts: checked on the readings just stored.
         // The refresh has already worked out the niche list; it is not worked out again.
         const facts = await fillFacts(result.nicheIds);
         return {
@@ -468,6 +471,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       // Read at each use: the owner can change it from the settings screen while Jgtube runs.
       markFacts: () => config.markFacts !== false,
     }),
+    extras: extras({ db: wiring.db, now: wiring.now, repos: wiring.repos }),
     ...conceptThumbEngine({ now: wiring.now, repos: wiring.repos, analyse: asking.analyse }),
     analyse: asking.analyse,
     watchVideo: asking.watchVideo,

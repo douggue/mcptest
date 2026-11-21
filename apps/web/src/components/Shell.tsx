@@ -1,5 +1,6 @@
 import {
   Compass,
+  Eye,
   Flame,
   Globe,
   HardDrive,
@@ -24,6 +25,7 @@ import { Settings } from './Settings';
  */
 const RAIL = [
   { label: 'Radar', icon: Compass, target: 'top' },
+  { label: 'What changed', icon: Eye, target: 'what-changed-title' },
   { label: 'Breaking out', icon: Flame, target: 'breakouts-title' },
   { label: 'Same topic, other words', icon: Layers, target: 'same-topic-title' },
   { label: 'Thumbnails that worked', icon: Image, target: 'thumbnail-board-title' },

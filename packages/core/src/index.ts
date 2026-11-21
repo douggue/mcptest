@@ -538,3 +538,4 @@ export {
   type LengthRange,
   type VoiceProfile,
 } from './script/voice';
+export * from './extras';

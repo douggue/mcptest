@@ -100,13 +100,16 @@ new run replaces a row. Like `video_studies` it refers to no other table.
 `owner_places` (step 16) holds the place the owner chose for a channel of
 theirs, one row per centre channel: `center_channel_id`, `place_key` (a key of
 the place list) and `set_at`. It refers to no other table.
+`channel_looks` (step 17) holds when the owner last marked a channel's "what
+changed" as seen: `center_channel_id` (primary key) and `seen_at`. It refers to
+no other table. See "What changed since you last looked".
 
-`channel_notes` (step 17) keeps what an engine wrote for a channel to be read
+`channel_notes` (step 18) keeps what an engine wrote for a channel to be read
 again, one row per `channel_id` and `kind` (`thumbnail-review`, `video-ideas`,
 `near-misses`, `style-lock`): `engine`, `notes` and `written_at`. A new run
 replaces the row. It refers to no other table.
 
-`concept_thumbnails` (step 18) keeps one concept's thumbnail prompt:
+`concept_thumbnails` (step 19) keeps one concept's thumbnail prompt:
 `concept_id` (goes with its concept), `prompt`, `why`, `video_ids_json` (the
 thumbnails of the map it was learned from, checked against the store) and
 `engine`, `written_at`. A new run replaces it.
@@ -116,6 +119,14 @@ Named videos. A fixed question that rests points on videos asks for each as
 `GET /api/videos/named` and shows each stored video of the map as its real
 thumbnail beside the point; an id that is not a stored video of the map is
 dropped and never shown.
+
+`alert_rules` and `alerts` (step 20) hold one alert rule per centre channel
+(`min_score`, `taken_off`, `enabled`, `created_at`, `checked_at`) and the alerts
+found (`kind` `breakout` or `taken-off`, `subject_id` the video or channel id, the
+channel's and video's titles, score and views when found, `found_at`, `read_at`),
+each kept once per centre channel, kind and subject. They refer to no other table,
+so a deleted map leaves its rule and alerts; the page shows counts only for
+saved channels. See "Alerts".
 
 ### Keeping the store safe
 
@@ -1094,6 +1105,78 @@ growth: { views, days, since } | null
 ```
 
 Not built: a views-per-day chart, and using the readings to calibrate the age ramp.
+
+### What changed since you last looked
+
+Built (`packages/core/src/changes/`, `packages/server/src/changesEngine.ts`,
+`changesRoutes.ts`, `apps/web/src/lib/changes.ts`, `components/WhatChanged.tsx`).
+For one centre channel and the look-alikes of its latest map (the filter's and
+the owner's kept ones, less removed), worked out in code from stored readings;
+no AI and no request to YouTube.
+
+The earlier state is the store as it was at the earlier moment (`videosAsOf`):
+each video with the views of its latest reading at or before then; a video with
+no reading by then was not stored then. Both states are judged by the same
+rules as the page: a breakout is a video of the last 30 days at 2× its channel's
+usual views or more (`DEFAULT_BREAKOUT_WINDOW_DAYS`, `DEFAULT_MIN_BREAKOUT_SCORE`),
+and a channel's group (taken off, rising, neither) is `channelMetrics`'. The
+subscriber count is the latest in both states, since no history of it is kept.
+
+| Finding                  | Rule                                                                                                                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| New breakout             | A breakout now that was not one then: either below the bar then (its views and score then are shown) or not stored then. Strongest first, 12 shown, the count always given (`CHANGES_BREAKOUTS_SHOWN`) |
+| Newly taken off / rising | The channel's group now differs from its group then                                                                                                                                                    |
+| Dropped out              | Taken off or rising then, neither now                                                                                                                                                                  |
+| Look-alikes new or gone  | The peer list of the latest map against that of the map that was latest then; only when both are stored in the current form, else the reason is said                                                   |
+| Title formats newly seen | A wording (found as the transfer list finds formats) shared by 2 or more breakouts now (`CHANGES_FORMAT_MIN_BREAKOUTS`), not shared by 2 then, and including at least one new breakout; 6 shown        |
+
+A look-alike with no reading by the earlier moment cannot be compared: nothing of
+it is called new, and the section says how many there were.
+
+The earlier moment is one of `last-look` (stored per centre channel in
+`channel_looks`, step 17; moved to now by `POST /api/changes/seen {channel}`),
+`yesterday` (24 hours back) or `week` (7 days back). With no last look stored,
+`last-look` is answered for a week and the reply says so.
+
+`GET /api/changes?channel=UC…&since=last-look|yesterday|week` answers
+`{centerChannelId, since, now, asked, sinceKind, lastLookAt, changes, lookalikes,
+freshness}`, 404 when the channel has no map. `freshness` is when the look-alike
+read longest ago and the one read most recently were read, and when the last
+refresh finished; the page calls the data stale when any look-alike was read more
+than 24 hours ago and links to the existing "Refresh now".
+
+### Alerts
+
+Built (`packages/core/src/alerts/`, `packages/server/src/alertsEngine.ts`,
+`alertsRoutes.ts`, `apps/web/src/lib/alerts.ts`, `components/AlertsPanel.tsx`).
+One rule per centre channel, worked out in code on this computer; nothing is
+sent anywhere and no AI is used.
+
+| Rule part      | Value                                                                                                                                                               | Constant                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Video          | A look-alike video of the breakout window (30 days) whose outlier score is at or past the owner's number now and was not at the last check (or was not stored then) | `DEFAULT_ALERT_MIN_SCORE` = 5, range 2 to 100 (`ALERT_MIN_MIN_SCORE`, `ALERT_MAX_MIN_SCORE`) |
+| Channel        | A look-alike whose group is taken off now and was not at the last check; optional per rule                                                                          |                                                                                              |
+| Look-alikes    | The latest map's, as in "What changed since you last looked" (`lookalikeHistories`)                                                                                 |                                                                                              |
+| Not comparable | A look-alike with no reading by the last check: nothing of it is told                                                                                               |                                                                                              |
+| Once           | Each video or channel is told of once per centre channel (unique key)                                                                                               |                                                                                              |
+
+The default 5× is well past the page's breakout bar (2×), so an alert is rarer
+than a breakout; the owner chooses the number per channel. The earlier state is
+the store as it was at the rule's `checked_at` (`videosAsOf`), so a new rule tells
+only of what happens after it was saved.
+
+When: `checkDueAlerts` checks every rule that is on and has a refresh finished
+after its `checked_at`, then moves `checked_at` to now. It runs after each refresh
+(the server's `refresh` and `npm run refresh`, one line each through
+`checkStoredAlerts`), and before alerts are read, so a refresh that ran elsewhere is
+caught up on. An alert is only as fresh as the last refresh, and the page says so.
+
+Routes: `GET /api/alerts?channel=UC…` answers `{centerChannelId, rule,
+defaultMinScore, minMinScore, maxMinScore, alerts, unread, lastRefreshAt}` (the 30
+newest alerts, `ALERTS_SHOWN`; 404 with no map); `GET /api/alerts/counts` answers
+`{counts: {channelId: unread}}` for the badges on "Your channels";
+`POST /api/alerts/rule {channel, minScore, takenOff, enabled}` and
+`POST /api/alerts/read {channel}` answer the same as the first.
 
 ### Exact channel dates
 
