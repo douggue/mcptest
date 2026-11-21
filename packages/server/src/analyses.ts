@@ -20,18 +20,21 @@ import {
   FRAME_STUDY_MAX_TURNS,
   FRAME_STUDY_TIMEOUT_MS,
   FRAME_STUDY_TOOLS,
-  NO_FOCUS,
   breakdownQuestion,
   frameStudyQuestion,
-  type BreakdownFocus,
 } from './breakdownQuestions';
 import { toolsOf } from './engines/failure';
 import type { EngineId, EngineRunRequest, McpServerSpec } from './engines/types';
+import { LAB_ANALYSIS_IDS, LAB_SPECS, type LabAnalysisId } from './labAnalyses';
+import { breakdownFocusOf, type QuestionFocus } from './questionFocus';
 
 /** The analyses answered in one press, while the page waits. */
 export const QUICK_ANALYSIS_IDS = ['thumbnails', 'topics', 'near-misses'] as const;
-/** Every analysis. `breakdown` is the last step of a longer job and is started through it. */
-export const ANALYSIS_IDS = [...QUICK_ANALYSIS_IDS, 'breakdown'] as const;
+/**
+ * Every analysis. `breakdown` is the last step of a longer job and is started
+ * through it; the idea lab's are started through its own routes.
+ */
+export const ANALYSIS_IDS = [...QUICK_ANALYSIS_IDS, 'breakdown', ...LAB_ANALYSIS_IDS] as const;
 export type AnalysisId = (typeof ANALYSIS_IDS)[number];
 
 export interface AnalysisSpec {
@@ -43,10 +46,11 @@ export interface AnalysisSpec {
   /** How long one run may take, when the usual limit is not enough. */
   readonly timeoutMs?: number;
   /**
-   * The question, for a channel already put into its fixed form. `focus`
-   * names the videos chosen in code for the analyses that study particular ones.
+   * The question, for a channel already put into its fixed form. `focus` is
+   * what else it is told, chosen or checked in code: the videos a breakdown
+   * studies, or what an idea-lab question is about.
    */
-  readonly question: (channel: string, focus?: BreakdownFocus) => string;
+  readonly question: (channel: string, focus?: QuestionFocus) => string;
   /**
    * The engines that may answer, when the analysis cannot be left to every
    * engine. They are tried in the owner's order, and an engine the owner's
@@ -99,6 +103,12 @@ export const VIDEO_SYSTEM_PROMPT = [
   'Write for a creator, not an engineer: short sentences, no jargon, no preamble.',
   'Answer in plain text. Put section titles in CAPITALS on their own line and start list items with "- ". Do not use markdown symbols such as #, * or backticks.',
 ].join(' ');
+
+/** One of the idea lab's questions, with its tools under the names an engine knows them by. */
+function lab(id: LabAnalysisId): AnalysisSpec {
+  const { tools, ...spec } = LAB_SPECS[id];
+  return { ...spec, allowedTools: tools.map(tool) };
+}
 
 export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
   thumbnails: {
@@ -166,8 +176,14 @@ export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
     timeoutMs: BREAKDOWN_TIMEOUT_MS,
     // It looks at thumbnails, which reach the engine as a tool's pictures.
     engines: PICTURE_ENGINES,
-    question: breakdownQuestion,
+    question: (channel, focus) => breakdownQuestion(channel, breakdownFocusOf(focus)),
   },
+  concepts: lab('concepts'),
+  'concept-twist': lab('concept-twist'),
+  'concept-more': lab('concept-more'),
+  'where-else': lab('where-else'),
+  'title-formulas': lab('title-formulas'),
+  'hook-styles': lab('hook-styles'),
 };
 
 /** The channel as the question names it: a handle or an id, never free text. */
@@ -212,7 +228,7 @@ export function analysisRequest(
   id: AnalysisId,
   channel: string,
   settings: AnalysisSettings,
-  focus: BreakdownFocus = NO_FOCUS,
+  focus?: QuestionFocus,
 ): EngineRunRequest {
   const spec = specOf(id);
   return {

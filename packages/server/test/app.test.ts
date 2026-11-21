@@ -17,6 +17,7 @@ import {
 import { createApp, type CrawlOutcome, type Engine } from '../src/app';
 import { createEngine } from '../src/engine';
 import { JobStore } from '../src/jobs';
+import { UNUSED_LAB } from './support';
 
 const CHANNEL_ID = 'UCHnyfMqiRRG1u-2MsSQLbXA';
 const HOST = '127.0.0.1:4317';
@@ -42,6 +43,20 @@ const niches = {
 } satisfies NicheList;
 
 class FakeEngine implements Engine {
+  listConcepts = UNUSED_LAB.listConcepts;
+  setConceptKept = UNUSED_LAB.setConceptKept;
+  clearConcepts = UNUSED_LAB.clearConcepts;
+  conceptProblem = UNUSED_LAB.conceptProblem;
+  makeConcepts = UNUSED_LAB.makeConcepts;
+  growConcept = UNUSED_LAB.growConcept;
+  whereElse = UNUSED_LAB.whereElse;
+  listFormulas = UNUSED_LAB.listFormulas;
+  findFormulas = UNUSED_LAB.findFormulas;
+  hookLibrary = UNUSED_LAB.hookLibrary;
+  buildHookLibrary = UNUSED_LAB.buildHookLibrary;
+  labelHooks = UNUSED_LAB.labelHooks;
+  findIdeaBrief = UNUSED_LAB.findIdeaBrief;
+  findConcept = UNUSED_LAB.findConcept;
   nicheReads = 0;
   /** The channels the fake store holds, for the watchlist. */
   known: readonly string[] = [CHANNEL_ID];

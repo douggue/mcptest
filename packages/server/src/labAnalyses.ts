@@ -1,0 +1,105 @@
+/**
+ * The idea lab's questions as analyses: each a fixed question, the read-only
+ * tools it may use and its limits. None is offered on `POST /api/analyses`;
+ * each is started through the lab's own routes, as a job.
+ */
+import {
+  FORMULA_MAX_TURNS,
+  FORMULA_TIMEOUT_MS,
+  FORMULA_TOOLS,
+  formulasQuestion,
+} from './formulaQuestions';
+import {
+  HOOK_STYLE_MAX_TURNS,
+  HOOK_STYLE_TIMEOUT_MS,
+  HOOK_STYLE_TOOLS,
+  hookStylesQuestion,
+} from './hookQuestions';
+import {
+  CONCEPT_MAX_TURNS,
+  CONCEPT_TIMEOUT_MS,
+  CONCEPT_TOOLS,
+  GROW_TOOLS,
+  WHERE_ELSE_MAX_TURNS,
+  WHERE_ELSE_TIMEOUT_MS,
+  WHERE_ELSE_TOOLS,
+  conceptsQuestion,
+  moreQuestion,
+  twistQuestion,
+  whereElseQuestion,
+} from './ideaQuestions';
+import { labFocusOf, type QuestionFocus } from './questionFocus';
+
+export const LAB_ANALYSIS_IDS = [
+  'concepts',
+  'concept-twist',
+  'concept-more',
+  'where-else',
+  'title-formulas',
+  'hook-styles',
+] as const;
+export type LabAnalysisId = (typeof LAB_ANALYSIS_IDS)[number];
+
+export interface LabSpec {
+  readonly title: string;
+  readonly description: string;
+  /** The tools it may use, by their bare names. */
+  readonly tools: readonly string[];
+  readonly maxTurns: number;
+  readonly timeoutMs: number;
+  readonly question: (channel: string, focus?: QuestionFocus) => string;
+}
+
+export const LAB_SPECS: Readonly<Record<LabAnalysisId, LabSpec>> = {
+  concepts: {
+    title: 'Packaging concepts',
+    description:
+      'Writes ten titles, each with two alternates, a thumbnail brief and an opening sentence, from videos picked on this map.',
+    tools: CONCEPT_TOOLS,
+    maxTurns: CONCEPT_MAX_TURNS,
+    timeoutMs: CONCEPT_TIMEOUT_MS,
+    question: (channel, focus) => conceptsQuestion(channel, labFocusOf(focus, 'concepts')),
+  },
+  'concept-twist': {
+    title: 'Twist angle',
+    description: 'Takes one concept’s subject and writes other angles on it.',
+    tools: GROW_TOOLS,
+    maxTurns: CONCEPT_MAX_TURNS,
+    timeoutMs: CONCEPT_TIMEOUT_MS,
+    question: (channel, focus) => twistQuestion(channel, labFocusOf(focus, 'concept')),
+  },
+  'concept-more': {
+    title: 'More like this',
+    description: 'Writes concepts on other subjects in the same vein as one concept.',
+    tools: GROW_TOOLS,
+    maxTurns: CONCEPT_MAX_TURNS,
+    timeoutMs: CONCEPT_TIMEOUT_MS,
+    question: (channel, focus) => moreQuestion(channel, labFocusOf(focus, 'concept')),
+  },
+  'where-else': {
+    title: 'Where else this could work',
+    description:
+      'Suggests other languages and other categories the formats and ideas winning on this map could be made for, each with the search to check it.',
+    tools: WHERE_ELSE_TOOLS,
+    maxTurns: WHERE_ELSE_MAX_TURNS,
+    timeoutMs: WHERE_ELSE_TIMEOUT_MS,
+    question: (channel) => whereElseQuestion(channel),
+  },
+  'title-formulas': {
+    title: 'Trending formats',
+    description:
+      'Groups the titles doing unusually well on this map into formulas with named slots.',
+    tools: FORMULA_TOOLS,
+    maxTurns: FORMULA_MAX_TURNS,
+    timeoutMs: FORMULA_TIMEOUT_MS,
+    question: (channel, focus) => formulasQuestion(channel, labFocusOf(focus, 'window')),
+  },
+  'hook-styles': {
+    title: 'Hook styles',
+    description: 'Names the way each opening in the hook library works.',
+    tools: HOOK_STYLE_TOOLS,
+    maxTurns: HOOK_STYLE_MAX_TURNS,
+    timeoutMs: HOOK_STYLE_TIMEOUT_MS,
+    question: (channel) => hookStylesQuestion(channel),
+  },
+};

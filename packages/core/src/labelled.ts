@@ -21,8 +21,11 @@ export interface BlockRules {
 
 const LIST_MARK = /^[-*•]\s+/;
 const HEADING_MARK = /^#+\s*/;
-/** Emphasis and code marks, wherever they stand. */
-const INLINE_MARKS = /\*\*|__|`/g;
+/**
+ * Emphasis and code marks, wherever they stand. Underscores are left alone:
+ * a video id may hold two in a row.
+ */
+const INLINE_MARKS = /\*\*|`/g;
 
 /** A line without the marks an engine may have put around it. */
 export function unmarked(line: string): string {

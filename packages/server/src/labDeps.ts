@@ -1,0 +1,45 @@
+/**
+ * What the idea lab's parts are built from: the store, the engines that
+ * answer a fixed question, and the readers the rest of the engine already has.
+ */
+import {
+  parseChannelRef,
+  type ChannelRepo,
+  type ConceptRepo,
+  type FormulaRepo,
+  type HookLabelRepo,
+  type MapVideoDeps,
+  type StoredChannel,
+  type StoredTranscript,
+} from '@jgtube/core';
+import type { Engine } from './app';
+
+export interface LabDeps {
+  readonly now: () => Date;
+  readonly repos: MapVideoDeps & {
+    readonly channels: Pick<ChannelRepo, 'findById' | 'findByHandle'>;
+    readonly concepts: ConceptRepo;
+    readonly formulas: FormulaRepo;
+    readonly hookLabels: HookLabelRepo;
+    /** Stored captions; null for a video whose captions were never asked for. */
+    readonly pages: { find(videoId: string): StoredTranscript | null };
+  };
+  readonly analyse: Engine['analyse'];
+  readonly listTransfers: Engine['listTransfers'];
+  readonly findSnapshot: Engine['findSnapshot'];
+  readonly readTranscript: Engine['readTranscript'];
+  /** Whether Jgtube is closing, so a job of several steps stops between them. */
+  readonly isClosing: () => boolean;
+}
+
+/** The stored channel a handle, link or id refers to; null when it is not stored or not a channel. */
+export function storedChannel(deps: LabDeps, channel: string): StoredChannel | null {
+  try {
+    const ref = parseChannelRef(channel);
+    return ref.kind === 'id'
+      ? deps.repos.channels.findById(ref.id)
+      : deps.repos.channels.findByHandle(ref.handle);
+  } catch {
+    return null;
+  }
+}

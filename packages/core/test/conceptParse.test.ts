@@ -123,6 +123,12 @@ describe('reading a batch of concepts', () => {
     ]);
   });
 
+  test('leaves the underscores of a video id alone', () => {
+    const text = block(1, { 'RESTS ON': 'ab__cd__ef1: the cold open.' });
+
+    expect(parseConcepts(text, 10).concepts[0]?.restsOn).toBe('ab__cd__ef1: the cold open.');
+  });
+
   test('counts a concept that gives a part twice as unread: it cannot tell which was meant', () => {
     const twice = `${block(1)}\nTITLE: Another Title Altogether`;
 

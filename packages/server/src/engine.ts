@@ -1,7 +1,10 @@
 import {
   SqliteChannelRepo,
+  SqliteConceptRepo,
   SqliteEdgeRepo,
   SqliteFactsRepo,
+  SqliteFormulaRepo,
+  SqliteHookLabelRepo,
   SqliteLeaseRepo,
   SqliteMapRepo,
   SqliteRefreshRepo,
@@ -54,6 +57,7 @@ import {
 } from './connection';
 import { downloads } from './downloadEngine';
 import { cleanMessage } from './jobs';
+import { lab } from './labSetup';
 import { trackWork, type WorkTracker } from './running';
 import { transfers } from './transferEngine';
 import { videoCopies, type FetchVideoFile } from './videoCopies';
@@ -115,6 +119,9 @@ function openRepos(db: Db) {
     brands: new SqliteBrandRepo(db),
     pages: new SqliteVideoPageRepo(db),
     studies: new SqliteVideoStudyRepo(db),
+    concepts: new SqliteConceptRepo(db),
+    formulas: new SqliteFormulaRepo(db),
+    hookLabels: new SqliteHookLabelRepo(db),
   };
 }
 
@@ -389,6 +396,8 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     fetchVideoDetails: options.fetchVideoDetails,
   });
   const files = breakdownFiles({ root, fetch: copies.fetch, stop, ...env });
+  const maps = mapReads(wiring);
+  const transferring = transfers(wiring);
   let closed = false;
   let shuttingDown: Promise<void> | null = null;
   const close = (): void => {
@@ -401,9 +410,9 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     wiring.db.close();
   };
   return {
-    ...mapReads(wiring),
+    ...maps,
     ...ownerChoices(wiring),
-    ...transfers(wiring),
+    ...transferring,
     ...reading,
     ...crawling(wiring),
     ...refreshing(wiring, fillFacts),
@@ -418,6 +427,15 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       reading,
       files,
       stop,
+    }),
+    ...lab({
+      now: wiring.now,
+      repos: wiring.repos,
+      analyse: asking.analyse,
+      listTransfers: transferring.listTransfers,
+      findSnapshot: maps.findSnapshot,
+      readTranscript: reading.readTranscript,
+      isClosing: wiring.work.isClosing,
     }),
     analyse: asking.analyse,
     watchVideo: asking.watchVideo,

@@ -2,6 +2,7 @@ import type { FetchImage } from '@jgtube/core';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { createMakeMap } from './crawlTool';
 import { ToolFailure, plainMessage } from './failure';
+import { getConcept, getHooks, getIdeaBrief } from './labTools';
 import { getNearMisses, listNiches, setCompetitorStatus } from './ownerTools';
 import { getBreakouts, getChannelVideos, getMap, getThumbnailBoard } from './readTools';
 import { failureResult } from './results';
@@ -9,6 +10,9 @@ import type {
   GetBreakoutsArgs,
   GetChannelBrandArgs,
   GetChannelVideosArgs,
+  GetConceptArgs,
+  GetHooksArgs,
+  GetIdeaBriefArgs,
   GetMapArgs,
   GetNearMissesArgs,
   GetThumbnailBoardArgs,
@@ -53,6 +57,9 @@ export interface ToolHandlers {
   getVideoDetails(args: GetVideoDetailsArgs): Promise<CallToolResult>;
   getVideoWatch(args: GetVideoStudyArgs): Promise<CallToolResult>;
   getFrameStudy(args: GetVideoStudyArgs): Promise<CallToolResult>;
+  getIdeaBrief(args: GetIdeaBriefArgs): Promise<CallToolResult>;
+  getConcept(args: GetConceptArgs): Promise<CallToolResult>;
+  getHooks(args: GetHooksArgs): Promise<CallToolResult>;
 }
 
 /** The default place for diagnostics. */
@@ -103,5 +110,8 @@ export function createToolHandlers(deps: ToolDeps): ToolHandlers {
     getVideoDetails: (args) => guarded('get_video_details', () => getVideoDetails(engine, args)),
     getVideoWatch: (args) => guarded('get_video_watch', () => getVideoWatch(engine, args)),
     getFrameStudy: (args) => guarded('get_frame_study', () => getFrameStudy(engine, args)),
+    getIdeaBrief: (args) => guarded('get_idea_brief', () => getIdeaBrief(engine, args)),
+    getConcept: (args) => guarded('get_concept', () => getConcept(engine, args)),
+    getHooks: (args) => guarded('get_hooks', () => getHooks(engine, args)),
   };
 }
