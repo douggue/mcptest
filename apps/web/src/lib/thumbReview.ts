@@ -1,3 +1,4 @@
+import { formatScore } from './format';
 /**
  * The per-video thumbnail review as the page shows it: the videos to pick
  * from, the counted comparison and the advice. Every number here was counted
@@ -71,9 +72,9 @@ const FLAGGED_SHOWN = 4;
 
 const percent = (share: number): string => `${Math.round(share * 100)}%`;
 
-/** "×12.4", or a dash when a score cannot be judged yet. */
+/** "12.4×" as the rest of the app writes it, or a dash when a score cannot be judged yet. */
 export const scoreText = (score: number | null): string =>
-  score === null ? '–' : `×${score.toFixed(1)}`;
+  score === null ? '–' : formatScore(score);
 
 /** The attribute and its value as one readable phrase, such as "Face or person: large". */
 export const valueText = (row: Pick<CountRow, 'label' | 'value'>): string =>

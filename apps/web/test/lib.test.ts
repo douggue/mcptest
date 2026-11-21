@@ -62,6 +62,9 @@ describe('format', () => {
     expect(formatScore(7.94)).toBe('7.9×');
     expect(formatScore(83.4)).toBe('83×');
     expect(formatScore(1541.7)).toBe('1,542×');
+    // A tiny score is not rounded to a misleading 0.0×.
+    expect(formatScore(0.04)).toBe('<0.1×');
+    expect(formatScore(0)).toBe('0×');
   });
 
   test('writes durations as a clock', () => {

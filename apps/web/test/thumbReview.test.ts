@@ -84,7 +84,9 @@ describe('how a counted row is worded', () => {
   });
 
   test('shows a score as a multiple, or a dash when it cannot be judged', () => {
-    expect(scoreText(12.44)).toBe('×12.4');
+    expect(scoreText(12.44)).toBe('12×');
+    expect(scoreText(3.24)).toBe('3.2×');
+    expect(scoreText(0.02)).toBe('<0.1×');
     expect(scoreText(null)).toBe('–');
   });
 });

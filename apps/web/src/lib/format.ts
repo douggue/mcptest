@@ -9,6 +9,9 @@ export function formatCount(value: number | null): string {
 
 /** A breakout multiple: "7.9×" below ten, "83×" and "1,542×" above. */
 export function formatScore(score: number): string {
+  // Below a tenth, one decimal would read as 0.0×: say how small it is instead.
+  if (score === 0) return '0×';
+  if (score < 0.05) return '<0.1×';
   return `${score < 10 ? score.toFixed(1) : whole.format(score)}×`;
 }
 
