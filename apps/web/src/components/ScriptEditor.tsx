@@ -1,8 +1,14 @@
+import { useState } from 'react';
 import { scriptStats, type ScriptView } from '../lib/scriptWriter';
+import { Details } from './layout/Details';
+import { Segmented } from './layout/Segmented';
+import { ScriptReader } from './ScriptReader';
 
 const LABEL = 'text-label text-outline';
 const AREA =
-  'min-h-[32rem] w-full min-w-0 rounded-lg border border-border-subtle bg-space-deep p-space-md font-mono text-body-sm leading-relaxed text-on-surface focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container';
+  'min-h-[32rem] w-full min-w-0 rounded-lg border border-border-subtle bg-space-deep p-space-md text-body-md leading-7 text-on-surface focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container';
+
+type Mode = 'read' | 'edit';
 
 interface Props {
   readonly view: ScriptView;
@@ -11,28 +17,11 @@ interface Props {
   readonly onChange: (text: string) => void;
 }
 
-/**
- * The wide editor for the draft or the tightened draft. What is counted
- * about the text sits in the footer bar and the side panel.
- */
-export function ScriptEditor({ view, which, onChange }: Props) {
-  const text = view.script?.[which] ?? '';
-  const markFacts = view.markFacts ?? true;
-  const cues = scriptStats(text, null, markFacts).cues;
+/** How the markers are written, for when the owner edits the text itself. */
+function MarkerHelp({ markFacts }: { readonly markFacts: boolean }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <label className="flex min-w-0 flex-col gap-1">
-        <span className={LABEL}>
-          {which === 'draft' ? 'The draft' : 'The tightened draft'} · {cues} picture cues
-        </span>
-        <textarea
-          value={text}
-          onChange={(event) => onChange(event.target.value)}
-          spellCheck
-          className={AREA}
-        />
-      </label>
-      <p className="text-body-sm text-outline">
+    <Details summary="How cues and checks are written">
+      <p className="text-body-sm text-on-surface-variant">
         A line starting with ## is a heading. A line like [B-ROLL: what to show | search phrase |
         sound] is a picture cue.
         {markFacts
@@ -40,6 +29,50 @@ export function ScriptEditor({ view, which, onChange }: Props) {
           : ''}{' '}
         None of these counts as spoken words.
       </p>
+    </Details>
+  );
+}
+
+/**
+ * The draft or the tightened draft: read as it will be spoken, with picture
+ * cues as chips and facts to check marked, or edited as plain text. What is
+ * counted about it sits in the footer bar and the side panel.
+ */
+export function ScriptEditor({ view, which, onChange }: Props) {
+  const [mode, setMode] = useState<Mode>('read');
+  const text = view.script?.[which] ?? '';
+  const markFacts = view.markFacts ?? true;
+  const cues = scriptStats(text, null, markFacts).cues;
+  return (
+    <div className="flex min-w-0 flex-col gap-space-md">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <span className={LABEL}>
+          {which === 'draft' ? 'The draft' : 'The tightened draft'} · {cues} picture cues
+        </span>
+        <Segmented<Mode>
+          label="Read or edit the script"
+          options={[
+            { value: 'read', label: 'Read' },
+            { value: 'edit', label: 'Edit' },
+          ]}
+          value={mode}
+          onChange={setMode}
+        />
+      </div>
+      {mode === 'read' ? (
+        <ScriptReader text={text} />
+      ) : (
+        <>
+          <textarea
+            aria-label={which === 'draft' ? 'The draft' : 'The tightened draft'}
+            value={text}
+            onChange={(event) => onChange(event.target.value)}
+            spellCheck
+            className={AREA}
+          />
+          <MarkerHelp markFacts={markFacts} />
+        </>
+      )}
     </div>
   );
 }
