@@ -222,7 +222,7 @@ export function Radar({ snapshot, layout, selectedId, onSelect, emptyState, chil
       </div>
 
       {layout && layout.hidden > 0 && (
-        <div className="absolute left-6 top-[4.5rem] z-40 rounded-full bg-surface-card/90 px-3 py-1.5 text-label-caps text-outline shadow-lg backdrop-blur-md">
+        <div className="absolute left-6 top-[6.5rem] z-40 rounded-full bg-surface-card/90 px-3 py-1.5 text-label-caps text-outline shadow-lg backdrop-blur-md">
           +{layout.hidden} more channels in the list below
         </div>
       )}
