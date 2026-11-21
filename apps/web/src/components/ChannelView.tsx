@@ -40,6 +40,8 @@ function Actions({ profile, page, work, path, go }: ActionsProps) {
   };
   // On the map's own channel the tabs above open its other views, so only the ways forward stay.
   const isCenter = page.snapshot?.center.id === profile.id;
+  // The way forward: ideas for your own channel, a breakdown for anyone else's.
+  const primary = isCenter ? 'ideas' : 'breakdown';
   const actions = channelActions(profile.hasMap).filter(
     (action) => !isCenter || action.id === 'ideas' || action.id === 'breakdown',
   );
@@ -51,7 +53,7 @@ function Actions({ profile, page, work, path, go }: ActionsProps) {
           type="button"
           disabled={action.id === 'breakdown' && work.asking}
           onClick={() => run(action)}
-          className={action.id === 'ideas' ? PRIMARY_ACTION : QUIET_BUTTON}
+          className={action.id === primary ? PRIMARY_ACTION : QUIET_BUTTON}
         >
           {action.label}
         </button>

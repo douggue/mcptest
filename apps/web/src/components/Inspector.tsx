@@ -168,12 +168,13 @@ export function Inspector(props: Props) {
         </p>
       )}
 
-      {link && (
+      {/* On a channel's own page its name already links to YouTube; the radar's panel needs it. */}
+      {link && !inline && (
         <a
           href={link}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-space-md flex items-center justify-center gap-2 rounded-full bg-primary-container py-2.5 text-body-sm font-semibold text-on-primary shadow-[0_0_12px_rgba(0,210,255,0.4)] transition-opacity hover:opacity-90"
+          className="mt-space-md flex min-h-11 items-center justify-center gap-2 rounded border border-border-subtle text-body-sm font-semibold text-on-surface-variant transition-colors hover:text-on-surface"
         >
           Open channel on YouTube
           <ExternalLink aria-hidden="true" className="h-4 w-4" />
