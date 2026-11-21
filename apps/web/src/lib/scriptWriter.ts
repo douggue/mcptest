@@ -197,14 +197,30 @@ export function exportText(title: string, text: string, markFacts = true): strin
   return `${title}\n\n${body.trim()}\n`;
 }
 
+export interface MarkdownExtras {
+  /** The concept's thumbnail prompt, added at the end under its own heading. */
+  readonly thumbnailPrompt?: string | null;
+}
+
+/** What follows the script in the file: the concept's thumbnail prompt when it has one. */
+const extrasOf = ({ thumbnailPrompt }: MarkdownExtras): readonly string[] =>
+  thumbnailPrompt ? ['## Thumbnail prompt', '', thumbnailPrompt.trim(), ''] : [];
+
 /**
  * The whole script as a Markdown file: the title as a heading, the text with
  * its headings, cues and markers as written, then the facts still to check
  * as a list, so the markers travel with the script.
  */
-export function exportMarkdown(title: string, text: string, markFacts = true): string {
+export function exportMarkdown(
+  title: string,
+  text: string,
+  markFacts = true,
+  extras: MarkdownExtras = {},
+): string {
   // With the marking of facts turned off, the file carries no marker and no list of them.
-  if (!markFacts) return [`# ${title}`, '', stripCheckMarkers(text).trim(), ''].join('\n');
+  if (!markFacts) {
+    return [`# ${title}`, '', stripCheckMarkers(text).trim(), '', ...extrasOf(extras)].join('\n');
+  }
   const markers = checkMarkers(text);
   const toCheck =
     markers.length === 0
@@ -219,6 +235,7 @@ export function exportMarkdown(title: string, text: string, markFacts = true): s
     '',
     ...toCheck,
     '',
+    ...extrasOf(extras),
   ].join('\n');
 }
 

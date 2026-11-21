@@ -70,6 +70,12 @@ class FakeEngine implements Engine {
     throw new Error('not used in these tests');
   };
   fetchLogos = this.missingLogos;
+  keepAnswer = (): null => null;
+  listConceptThumbnails = this.missingLogos;
+  writeConceptThumbnail = this.missingLogos;
+  findAnswer = this.missingLogos;
+  namedVideos = this.missingLogos;
+  findChannelNote = this.missingLogos;
   canReadCountries = (): boolean => false;
   readCountries = this.missingLogos;
   setOwnerPlace = this.missingLogos;

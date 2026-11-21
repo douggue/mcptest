@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { openDatabase } from '../src/db/sqlite';
 import { buildHookLibrary } from '../src/hooks/library';
-import { mapChannelIds, pickedVideos, videosOnMap, type MapVideoDeps } from '../src/lab/mapVideos';
+import {
+  mapChannelIds,
+  pickedVideos,
+  videosNamed,
+  videosOnMap,
+  type MapVideoDeps,
+} from '../src/lab/mapVideos';
 import { SqliteChannelRepo } from '../src/repos/sqliteChannelRepo';
 import { SqliteMapRepo } from '../src/repos/sqliteMapRepo';
 import { SqliteVideoRepo } from '../src/repos/sqliteVideoRepo';
@@ -214,5 +220,57 @@ describe('a hook library', () => {
     ]);
 
     expect(hook).toMatchObject({ captions: 'read', text: null, words: null, style: null });
+  });
+});
+
+describe('videosNamed', () => {
+  beforeEach(() => {
+    ['Mine', 'Near', 'Far', 'Studied'].forEach(addChannel);
+    addVideo('Mine', 'mine1', 100, 5);
+    addVideo('Near', 'near1', 900, 5);
+    addVideo('Far', 'far1', 50_000, 5);
+    addVideo('Studied', 'stud1', 700, 5);
+    addMap('Mine', ['Near']);
+  });
+
+  test('gives the stored videos of this map that an answer names, in the order named', () => {
+    const named = videosNamed(store, cid('Mine'), [vid('near1'), vid('mine1')]);
+
+    expect(named).toEqual([
+      {
+        videoId: vid('near1'),
+        title: 'Title of near1',
+        channelId: cid('Near'),
+        channelTitle: 'Near',
+        views: 900,
+      },
+      {
+        videoId: vid('mine1'),
+        title: 'Title of mine1',
+        channelId: cid('Mine'),
+        channelTitle: 'Mine',
+        views: 100,
+      },
+    ]);
+  });
+
+  test('drops an id that is not stored, and a stored video of a channel off this map', () => {
+    const named = videosNamed(store, cid('Mine'), [vid('nowhere'), vid('far1'), vid('near1')]);
+
+    expect(named.map((video) => video.videoId)).toEqual([vid('near1')]);
+  });
+
+  test('also takes the videos of one more stored channel, such as one that was broken down', () => {
+    const ids = [vid('stud1'), vid('far1')];
+
+    expect(videosNamed(store, cid('Mine'), ids).map((video) => video.videoId)).toEqual([]);
+    expect(videosNamed(store, cid('Mine'), ids, cid('Studied')).map((v) => v.videoId)).toEqual([
+      vid('stud1'),
+    ]);
+  });
+
+  test('names each video once, and none for a channel with no map', () => {
+    expect(videosNamed(store, cid('Mine'), [vid('near1'), vid('near1')])).toHaveLength(1);
+    expect(videosNamed(store, cid('Far'), [vid('far1')])).toEqual([]);
   });
 });

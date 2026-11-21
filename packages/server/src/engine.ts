@@ -12,6 +12,8 @@ import {
   SqliteScriptRepo,
   SqliteBrandRepo,
   SqliteBreakdownRepo,
+  SqliteChannelNoteRepo,
+  SqliteConceptThumbnailRepo,
   SqliteTransferRepo,
   SqliteVideoPageRepo,
   SqliteVideoRepo,
@@ -49,6 +51,8 @@ import {
 } from '@jgtube/core';
 import { randomUUID } from 'node:crypto';
 import { analysisEngines, type AnalysisOptions } from './analysisEngine';
+import { answerEngine } from './answerEngine';
+import { conceptThumbEngine } from './conceptThumbEngine';
 import type { Engine } from './app';
 import { breakdownFiles } from './breakdownFiles';
 import { breaking } from './breakdownSetup';
@@ -131,6 +135,8 @@ function openRepos(db: Db) {
     hookLabels: new SqliteHookLabelRepo(db),
     scripts: new SqliteScriptRepo(db),
     breakdowns: new SqliteBreakdownRepo(db),
+    notes: new SqliteChannelNoteRepo(db),
+    conceptThumbnails: new SqliteConceptThumbnailRepo(db),
   };
 }
 
@@ -436,6 +442,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     ...ownerChoices(wiring),
     ...transferring,
     ...logos({ ...wiring, findSnapshot: maps.findSnapshot }),
+    ...answerEngine(wiring),
     ...reading,
     ...crawling(wiring),
     ...refreshing(wiring, fillFacts),
@@ -465,6 +472,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       markFacts: () => config.markFacts !== false,
     }),
     extras: extras({ db: wiring.db, now: wiring.now, repos: wiring.repos }),
+    ...conceptThumbEngine({ now: wiring.now, repos: wiring.repos, analyse: asking.analyse }),
     analyse: asking.analyse,
     watchVideo: asking.watchVideo,
     engineStatus: asking.engineStatus,

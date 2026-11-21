@@ -1,3 +1,5 @@
+import type { NamedVideo } from './videoRefs';
+
 /** The analyses an AI engine can run from the screen; the ids are the server's. */
 export type AnalysisId = 'thumbnails' | 'topics' | 'near-misses';
 
@@ -92,6 +94,12 @@ export interface AnalysisAnswer {
   /** The engine that answered; null when the server did not say. */
   readonly engine: EngineId | null;
   readonly skipped: readonly SkippedEngine[];
+  /** The ready prompt lifted out of the answer (a thumbnail review ends with one); null when none. */
+  readonly prompt: string | null;
+  /** The stored videos of this map the answer names, so their thumbnails can be shown. */
+  readonly videos: readonly NamedVideo[];
+  /** When the answer was kept for the channel; null when it was not. */
+  readonly writtenAt: string | null;
 }
 
 /** The names a creator knows the engines by. */
@@ -154,7 +162,10 @@ export function choiceHelp(choice: EngineChoice, report: EngineReport | null): s
 }
 
 /** Who answered, and which engines were passed over on the way. Empty when the server did not say. */
-export function answerCredit({ engine, skipped }: AnalysisAnswer): string {
+export function answerCredit({
+  engine,
+  skipped,
+}: Pick<AnalysisAnswer, 'engine' | 'skipped'>): string {
   if (engine === null) return '';
   const answered = `Answered by ${nameOf(engine)}.`;
   if (skipped.length === 0) return answered;
@@ -266,4 +277,35 @@ export function readSections(answer: string): readonly AnswerSection[] {
     sections = [...before, { ...last, blocks: [...last.blocks, block] }];
   }
   return sections;
+}
+
+/** An answer kept for the channel on screen, with the analysis it answers. */
+export interface KeptAnswer {
+  readonly analysis: AnalysisId;
+  readonly answer: AnalysisAnswer;
+}
+
+const timeOf = (answer: AnalysisAnswer): number =>
+  answer.writtenAt === null ? Number.NaN : new Date(answer.writtenAt).getTime();
+
+/** Of the answers kept for a channel, the one written last; null when none has a time. */
+export function latestKept(
+  entries: readonly { readonly analysis: AnalysisId; readonly answer: AnalysisAnswer | null }[],
+): KeptAnswer | null {
+  const dated = entries.flatMap(({ analysis, answer }) =>
+    answer !== null && !Number.isNaN(timeOf(answer)) ? [{ analysis, answer }] : [],
+  );
+  return dated.reduce<KeptAnswer | null>(
+    (best, entry) => (best === null || timeOf(entry.answer) > timeOf(best.answer) ? entry : best),
+    null,
+  );
+}
+
+const day = (date: Date): string => date.toLocaleDateString(undefined, { dateStyle: 'medium' });
+
+/** One quiet line saying a shown answer was kept from an earlier run; empty with no time. */
+export function keptLine(writtenAt: string | null, format: (date: Date) => string = day): string {
+  if (writtenAt === null) return '';
+  const at = new Date(writtenAt);
+  return Number.isNaN(at.getTime()) ? '' : `Kept from ${format(at)}.`;
 }

@@ -7,6 +7,8 @@ import {
   choiceFrom,
   choiceHelp,
   engineSummary,
+  keptLine,
+  latestKept,
   readAnswer,
   readSections,
   skippedNotes,
@@ -91,6 +93,9 @@ describe('the analysis call of the API client', () => {
       text: 'Eight ideas.',
       engine: 'claude',
       skipped,
+      prompt: null,
+      videos: [],
+      writtenAt: null,
     });
     expect(sent).toEqual(['/api/analyses {"analysis":"topics","channel":"UCabc"}']);
   });
@@ -103,7 +108,50 @@ describe('the analysis call of the API client', () => {
         ),
     );
 
-    expect(await api.analyse('topics', 'UCabc')).toEqual({ text: 'x', engine: null, skipped: [] });
+    expect(await api.analyse('topics', 'UCabc')).toEqual({
+      text: 'x',
+      engine: null,
+      skipped: [],
+      prompt: null,
+      videos: [],
+      writtenAt: null,
+    });
+  });
+
+  test('reads the ready prompt and the named videos a thumbnail review comes with', async () => {
+    const videos = [
+      {
+        videoId: 'aaaaaaaaaa1',
+        title: 'T',
+        channelId: 'UCaaaaaaaaaaaaaaaaaaaaaa',
+        channelTitle: 'A',
+        views: 5,
+      },
+    ];
+    const api = createApi(
+      async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              analysis: 'thumbnails',
+              text: 'x',
+              engine: 'claude',
+              skipped: [],
+              prompt: 'A wide photo of [SUBJECT].',
+              videos,
+              writtenAt: '2026-11-20T12:00:00.000Z',
+            },
+            error: null,
+          }),
+        ),
+    );
+
+    expect(await api.analyse('thumbnails', 'UCabc')).toMatchObject({
+      prompt: 'A wide photo of [SUBJECT].',
+      videos,
+      writtenAt: '2026-11-20T12:00:00.000Z',
+    });
   });
 
   test('passes on the server’s plain message when no engine can run', async () => {
@@ -189,16 +237,12 @@ describe('engineSummary', () => {
 
 describe('answerCredit and skippedNotes', () => {
   test('names the engine that answered', () => {
-    expect(answerCredit({ text: 'x', engine: 'claude', skipped: [] })).toBe(
-      'Answered by Claude Code.',
-    );
-    expect(answerCredit({ text: 'x', engine: 'agy', skipped: [] })).toBe(
-      'Answered by Antigravity.',
-    );
+    expect(answerCredit({ engine: 'claude', skipped: [] })).toBe('Answered by Claude Code.');
+    expect(answerCredit({ engine: 'agy', skipped: [] })).toBe('Answered by Antigravity.');
   });
 
   test('says nothing when the server did not say who answered', () => {
-    expect(answerCredit({ text: 'x', engine: null, skipped: [] })).toBe('');
+    expect(answerCredit({ engine: null, skipped: [] })).toBe('');
   });
 
   test('says which engines were passed over, each with its reason in plain words', () => {
@@ -207,7 +251,7 @@ describe('answerCredit and skippedNotes', () => {
       { engine: 'claude', reason: 'limit', message: 'You have hit your session limit.' },
     ] as const;
 
-    expect(answerCredit({ text: 'x', engine: 'codex', skipped })).toBe(
+    expect(answerCredit({ engine: 'codex', skipped })).toBe(
       'Answered by Codex. Antigravity and Claude Code were passed over.',
     );
     expect(skippedNotes(skipped)).toEqual([
@@ -221,7 +265,7 @@ describe('answerCredit and skippedNotes', () => {
       { engine: 'agy', reason: 'not-installed', message: 'Not installed.' },
     ] as const;
 
-    expect(answerCredit({ text: 'x', engine: 'claude', skipped })).toBe(
+    expect(answerCredit({ engine: 'claude', skipped })).toBe(
       'Answered by Claude Code. Antigravity was passed over.',
     );
   });
@@ -341,5 +385,39 @@ describe('an answer made of labelled lines', () => {
       { title: null, numbered: false, blocks: [{ kind: 'paragraph', text: 'Just a sentence.' }] },
     ]);
     expect(readSections('')).toEqual([]);
+  });
+});
+
+describe('the answer shown when nothing has been asked yet', () => {
+  const kept = (writtenAt: string | null) => ({
+    text: writtenAt ?? 'none',
+    engine: 'claude' as const,
+    skipped: [],
+    prompt: null,
+    videos: [],
+    writtenAt,
+  });
+
+  test('is the one kept most recently for the channel', () => {
+    const latest = latestKept([
+      { analysis: 'thumbnails', answer: kept('2026-11-01T00:00:00Z') },
+      { analysis: 'topics', answer: kept('2026-11-03T00:00:00Z') },
+      { analysis: 'near-misses', answer: null },
+    ]);
+
+    expect(latest?.analysis).toBe('topics');
+  });
+
+  test('is none when nothing is kept', () => {
+    expect(latestKept([{ analysis: 'topics', answer: null }])).toBeNull();
+    expect(latestKept([{ analysis: 'topics', answer: kept(null) }])).toBeNull();
+  });
+});
+
+describe('the line saying when a kept answer was written', () => {
+  test('names the day, and is empty when the time is unknown', () => {
+    expect(keptLine('2026-11-20T12:00:00Z', () => '20 Nov')).toBe('Kept from 20 Nov.');
+    expect(keptLine(null)).toBe('');
+    expect(keptLine('not a time')).toBe('');
   });
 });

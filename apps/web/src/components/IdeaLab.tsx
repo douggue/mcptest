@@ -1,7 +1,13 @@
 import type { BreakoutVideo, TransferList } from '@jgtube/core';
 import { Lightbulb, X } from 'lucide-react';
 import { libraryState } from '../lib/hookLibrary';
-import { MAX_PICKS, canGenerate, formatOptions, type ConceptView } from '../lib/ideaLab';
+import {
+  MAX_PICKS,
+  canGenerate,
+  formatOptions,
+  thumbnailFor,
+  type ConceptView,
+} from '../lib/ideaLab';
 import { Answer, Credit } from './Answer';
 import { ConceptCard } from './ConceptCard';
 import { FIELD, LabStatus, NOTE, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
@@ -248,7 +254,7 @@ export function IdeaLab({ lab, busy, transfers, centerTitle, breakouts, onDraft 
 
         <LabStatus
           state={lab.jobs.state}
-          kinds={['batch', 'twist', 'more']}
+          kinds={['batch', 'twist', 'more', 'thumbnail']}
           working="Asking the AI"
           takes="This usually takes two to four minutes."
         />
@@ -282,6 +288,8 @@ export function IdeaLab({ lab, busy, transfers, centerTitle, breakouts, onDraft 
                   busy={busy}
                   onKeep={(kept) => lab.keep(concept.id, kept)}
                   onGrow={(kind) => lab.grow(kind, concept.id)}
+                  thumbnail={thumbnailFor(lab.thumbnails, concept.id)}
+                  onThumbnail={() => lab.writeThumbnail(concept.id)}
                   onDraft={onDraft ? () => onDraft(concept) : undefined}
                 />
               ))}

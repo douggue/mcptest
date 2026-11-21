@@ -12,7 +12,9 @@ import {
   type BreakdownView,
   type PartAttachment,
 } from '../lib/breakdownParts';
+import type { NamedVideo } from '../lib/videoRefs';
 import { Answer } from './Answer';
+import { useNamedVideos } from './useAnswers';
 import type { BreakdownChannel } from './useBreakdown';
 
 const BUTTON =
@@ -89,10 +91,12 @@ function PromptBox({ channelId, attachment }: ActionsProps) {
 interface PartProps {
   readonly view: BreakdownView;
   readonly part: BreakdownPartView;
+  /** The stored videos the parts name, shown as thumbnails beside the points. */
+  readonly videos: readonly NamedVideo[];
 }
 
 /** One part, closed until it is opened: its title, who wrote it, then its text. */
-function Part({ view, part }: PartProps) {
+function Part({ view, part, videos }: PartProps) {
   const attachment = attachmentOf(view, part.id);
   const written = part.state === 'written';
   return (
@@ -116,7 +120,7 @@ function Part({ view, part }: PartProps) {
               <Actions channelId={view.channel.id} attachment={attachment} />
             </div>
           )}
-          {part.body !== '' && <Answer text={part.body} />}
+          {part.body !== '' && <Answer text={part.body} videos={videos} />}
           {attachment && !attachment.inBody && (
             <div className="px-space-lg">
               <PromptBox channelId={view.channel.id} attachment={attachment} />
@@ -145,6 +149,12 @@ interface Props {
 export function BreakdownParts({ view, notSaved, busy, onRun }: Props) {
   const { channel } = view;
   const whole = view.files.find((file) => file.id === 'whole');
+  // The channel broken down may be on no map; its own stored videos are looked up with it.
+  const videos = useNamedVideos(
+    channel.id,
+    view.parts.map((part) => part.body).join('\n'),
+    channel.id,
+  );
   return (
     <div className="flex min-w-0 flex-col gap-space-sm">
       <div className="flex min-w-0 flex-col gap-2">
@@ -189,7 +199,7 @@ export function BreakdownParts({ view, notSaved, busy, onRun }: Props) {
         </p>
       </div>
       {view.parts.map((part) => (
-        <Part key={part.id} view={view} part={part} />
+        <Part key={part.id} view={view} part={part} videos={videos} />
       ))}
       <p className="break-words text-body-sm text-outline">{savedLine(view, notSaved)}</p>
     </div>

@@ -4,6 +4,7 @@
  * is read and changed through that channel (its centre channel id); nothing
  * reaches a channel from another map.
  */
+import type { ConceptThumbnailOutcome } from './conceptThumbEngine';
 import type {
   ConceptLength,
   DroppedFormula,
@@ -143,7 +144,8 @@ export type LabOutcome =
   | HookBuildOutcome
   | HookLabelOutcome
   | ScriptOutcome
-  | VoiceOutcome;
+  | VoiceOutcome
+  | ConceptThumbnailOutcome;
 
 /** What a batch rested on, as a tool hands it to an engine. */
 export interface IdeaBrief {

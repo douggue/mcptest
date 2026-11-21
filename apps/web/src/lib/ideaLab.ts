@@ -6,6 +6,7 @@ import {
 } from '@jgtube/core/src/concepts/parse';
 import { AUTOMATIC, type EngineChoice, type EngineId, type SkippedEngine } from './analyses';
 import type { LibraryHook } from './hookLibrary';
+import type { NamedVideo } from './videoRefs';
 
 /**
  * The idea lab as the page reads it: the videos picked as inspiration, what a
@@ -226,3 +227,43 @@ export interface AnswerOutcome extends Answered {
   readonly kind: 'answer';
   readonly text: string;
 }
+
+/** A concept's thumbnail prompt as the server gives it. */
+export interface ConceptThumbnailView {
+  readonly conceptId: number;
+  readonly prompt: string;
+  /** Why this style, in the engine's words; may be empty. */
+  readonly why: string;
+  /** The stored videos of this map whose thumbnails it was learned from. */
+  readonly learnedFrom: readonly NamedVideo[];
+  readonly engine: string;
+  readonly writtenAt: string;
+}
+
+export interface ConceptThumbnailOutcome extends Answered {
+  readonly kind: 'concept-thumbnail';
+  readonly thumbnail: ConceptThumbnailView;
+}
+
+/** The stored prompt of one concept; null when it has none or the list is not read yet. */
+export const thumbnailFor = (
+  list: readonly ConceptThumbnailView[] | null,
+  conceptId: number,
+): ConceptThumbnailView | null => list?.find((entry) => entry.conceptId === conceptId) ?? null;
+
+/** The list with a newly written prompt in place of its concept's earlier one. */
+export const withThumbnail = (
+  list: readonly ConceptThumbnailView[] | null,
+  written: ConceptThumbnailView,
+): readonly ConceptThumbnailView[] => {
+  const current = list ?? [];
+  return current.some((entry) => entry.conceptId === written.conceptId)
+    ? current.map((entry) => (entry.conceptId === written.conceptId ? written : entry))
+    : [...current, written];
+};
+
+/** Why the chosen AI cannot write a thumbnail prompt, or null when it can: it must see pictures. */
+export const thumbnailEngineNote = (choice: EngineChoice): string | null =>
+  choice === 'agy'
+    ? 'A thumbnail prompt needs an AI that looks at the pictures: choose Claude Code or Codex, or Automatic, under Ask AI.'
+    : null;

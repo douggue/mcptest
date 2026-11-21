@@ -15,7 +15,7 @@ export type LabTask =
         | 'script-tighten'
         | 'voice-read';
     }
-  | { readonly kind: 'twist' | 'more'; readonly conceptId: number };
+  | { readonly kind: 'twist' | 'more' | 'thumbnail'; readonly conceptId: number };
 
 export type LabJobState =
   | { readonly status: 'idle' }
