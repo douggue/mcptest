@@ -7,6 +7,7 @@ import {
   batchRequest,
   canGenerate,
   generateBlocked,
+  outlierPicks,
   formatChoiceOf,
   formatOptions,
   hookModelOf,
@@ -349,5 +350,33 @@ describe('a batch that takes things from elsewhere on the page', () => {
     expect(options).toEqual([
       { value: 'transfer:why x left', label: 'why {place} left', group: 'From the transfer list' },
     ]);
+  });
+});
+
+describe('the picks Ideas for it adds', () => {
+  const top = [
+    { videoId: 'a', title: 'A', score: 9 },
+    { videoId: 'b', title: 'B', score: null },
+    { videoId: 'c', title: 'C', score: 5 },
+    { videoId: 'd', title: 'D', score: 4 },
+    { videoId: 'e', title: 'E', score: 3 },
+  ];
+
+  test('takes the three strongest scored outliers not picked yet', () => {
+    expect(outlierPicks(top, [], 'Chan').map((p) => p.videoId)).toEqual(['a', 'c', 'd']);
+    expect(outlierPicks(top, [pick('a')], 'Chan').map((p) => p.videoId)).toEqual(['c', 'd', 'e']);
+    expect(outlierPicks(top, [], 'Chan')[0]).toEqual({
+      videoId: 'a',
+      title: 'A',
+      channelTitle: 'Chan',
+      modelOpening: false,
+      from: 'breakout',
+    });
+  });
+
+  test('never goes past the limit of picks', () => {
+    const four = [pick('w'), pick('x'), pick('y'), pick('z')];
+    expect(outlierPicks(top, four, 'Chan').map((p) => p.videoId)).toEqual(['a']);
+    expect(outlierPicks(top, [...four, pick('v')], 'Chan')).toEqual([]);
   });
 });

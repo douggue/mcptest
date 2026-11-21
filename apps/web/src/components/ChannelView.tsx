@@ -1,3 +1,4 @@
+import { outlierPicks } from '../lib/ideaLab';
 import type { ChannelProfile } from '@jgtube/core';
 import { channelActions, type ChannelAction } from '../lib/channelView';
 import { ChannelCompetitors } from './ChannelCompetitors';
@@ -26,6 +27,12 @@ function Actions({ profile, page, work, path, go }: ActionsProps) {
       return;
     }
     if (action.id === 'make-map') page.setQuery(profile.handle ? `@${profile.handle}` : profile.id);
+    // Ideas for it arrives with the channel's strongest outliers picked, so Write is ready.
+    if (action.id === 'ideas') {
+      for (const pick of outlierPicks(profile.top, work.lab.picks, profile.title)) {
+        work.lab.pick(pick);
+      }
+    }
     // A feature of the channel's own map needs that map on screen first.
     const saved = page.saved.find((channel) => channel.id === profile.id);
     if (action.needsMap && saved && page.snapshot?.center.id !== profile.id) page.open(saved);

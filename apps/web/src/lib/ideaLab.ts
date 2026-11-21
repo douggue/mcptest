@@ -51,6 +51,38 @@ export function togglePick(picks: readonly Pick[], pick: Pick): readonly Pick[] 
 export const canGenerate = (picks: readonly Pick[], busy: boolean): boolean =>
   picks.length > 0 && !busy;
 
+/** How many of a channel's outliers "Ideas for it" picks, leaving room for the owner's own. */
+export const OUTLIER_PICKS = 3;
+
+interface OutlierLike {
+  readonly videoId: string;
+  readonly title: string;
+  readonly score: number | null;
+}
+
+/**
+ * The picks "Ideas for it" adds: the channel's strongest outliers not picked
+ * yet, as many as fit under the limit, so Write 10 concepts is ready at once.
+ */
+export function outlierPicks(
+  top: readonly OutlierLike[],
+  picks: readonly Pick[],
+  channelTitle: string,
+): readonly Pick[] {
+  const picked = new Set(picks.map((pick) => pick.videoId));
+  const room = Math.max(0, Math.min(OUTLIER_PICKS, MAX_PICKS - picks.length));
+  return top
+    .filter((video) => video.score !== null && !picked.has(video.videoId))
+    .slice(0, room)
+    .map((video) => ({
+      videoId: video.videoId,
+      title: video.title,
+      channelTitle,
+      modelOpening: false,
+      from: 'breakout' as const,
+    }));
+}
+
 /** Why "Write 10 concepts" cannot run now, in one line; null when it can. */
 export function generateBlocked(picks: readonly Pick[], busy: boolean): string | null {
   if (busy) return 'Waits for the AI run under way to finish.';
