@@ -128,7 +128,7 @@ each kept once per centre channel, kind and subject. They refer to no other tabl
 so a deleted map leaves its rule and alerts; the page shows counts only for
 saved channels. See "Alerts".
 
-`concept_videos` (step 24, numbered at merge) links a kept concept to the
+`concept_videos` (step 21) links a kept concept to the
 published video it became: `concept_id` (primary key, `ON DELETE CASCADE` from
 `concepts`), `center_channel_id`, `video_id` (unique per centre channel) and
 `linked_at`. See "Your videos against the plan".
