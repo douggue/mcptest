@@ -54,13 +54,17 @@ function Week({
   readonly save: Calendar['save'];
 }) {
   return (
-    <li className="flex min-w-0 flex-col gap-1 border-t border-border-subtle py-space-sm first:border-t-0">
+    <li
+      className={`flex min-w-0 flex-col gap-1 border-t border-border-subtle first:border-t-0 ${
+        week.items.length > 0 ? 'py-space-sm' : 'py-1.5'
+      }`}
+    >
       <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-space-md gap-y-0.5">
         <span className="text-body-md font-semibold text-on-surface">
           {weekLabel(week.start, calendar.today)}
         </span>
         <span className={`text-body-sm ${week.gap ? 'text-outline' : 'text-on-surface-variant'}`}>
-          {weekNote(week, calendar.pace)}
+          {weekNote(week)}
         </span>
       </div>
       {week.items.length > 0 && <Items items={week.items} save={save} />}

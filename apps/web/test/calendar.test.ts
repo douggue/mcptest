@@ -47,13 +47,10 @@ describe('the calendar wording', () => {
     );
   });
 
-  test('says what a week holds against the pace', () => {
-    expect(weekNote(week(3, false), pace)).toBe('3 planned');
-    expect(weekNote(week(1, true), pace)).toBe('1 planned · fewer than the winners’ 2.5 a week');
-    expect(weekNote(week(0, true), pace)).toBe(
-      'Nothing planned · fewer than the winners’ 2.5 a week',
-    );
-    expect(weekNote(week(0, false), { ...pace, medianPerWeek: null })).toBe('Nothing planned');
+  test('says what a week holds, without repeating the pace on every week', () => {
+    expect(weekNote(week(3, false))).toBe('3 planned');
+    expect(weekNote(week(1, true))).toBe('1 planned');
+    expect(weekNote(week(0, true))).toBe('Nothing planned');
   });
 });
 
