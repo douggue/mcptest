@@ -219,8 +219,7 @@ describe('the engine’s analyse', () => {
     expect(request?.prompt).toContain('@americainvents2');
     expect(request?.mcpServers['jgtube']?.env).toEqual({
       JGTUBE_DB_PATH: '/data/jgtube.db',
-      JGTUBE_TOOLS:
-        'get_map,get_breakouts,list_niches,list_transfer_opportunities,get_channel_videos',
+      JGTUBE_TOOLS: 'get_map,get_breakouts,list_transfer_opportunities,get_channel_videos',
     });
     expect(request?.allowedTools.every((tool) => tool.startsWith('mcp__jgtube__'))).toBe(true);
     engine.close();

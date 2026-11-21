@@ -153,6 +153,17 @@ describe('frameStudyRequest', () => {
   });
 });
 
+describe('the idea generator stays inside the channel’s own niche', () => {
+  test('reads nothing that covers the whole store, and is told other channels’ niches are not this one’s', () => {
+    const question = ANALYSES.topics.question('@somechannel');
+
+    expect(ANALYSES.topics.allowedTools).not.toContain('mcp__jgtube__list_niches');
+    expect(question).not.toMatch(/list_niches/);
+    expect(question).toMatch(/own niche/);
+    expect(question).toMatch(/other niches/);
+  });
+});
+
 describe('analysisRequest', () => {
   test('builds a boxed-in run that starts the connector on the same store', () => {
     const request = analysisRequest('thumbnails', '@americainvents2', settings);

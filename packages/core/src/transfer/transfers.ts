@@ -235,7 +235,11 @@ export interface TransferOptions {
   readonly centerChannelId?: string | null;
 }
 
-/** The owner's place: the one given, else the channel on screen's, else the map centres'. */
+/**
+ * The owner's place: the one given, else the channel on screen's. Only when no
+ * mapped channel is on screen is it worked out from the map centres: a channel
+ * with a map of its own is never given the place of another channel's map.
+ */
 function ownerPlaceOf(deps: TransferDeps, options: TransferOptions): OwnerPlace | null {
   if (options.ownerPlace) return { ...options.ownerPlace, source: 'given' };
   const describe = (channelId: string): CentreChannel => ({
@@ -246,6 +250,7 @@ function ownerPlaceOf(deps: TransferDeps, options: TransferOptions): OwnerPlace 
     ? placeOfChannel(describe(options.centerChannelId))
     : null;
   if (onScreen) return onScreen;
+  if (options.centerChannelId && deps.maps.latestForCenter(options.centerChannelId)) return null;
   const madeAt = (channelId: string): number =>
     deps.maps.latestForCenter(channelId)?.createdAt.getTime() ?? 0;
   // The centre of the most recent map first: it decides when the centres disagree evenly.
@@ -254,9 +259,26 @@ function ownerPlaceOf(deps: TransferDeps, options: TransferOptions): OwnerPlace 
 }
 
 /**
- * The transfer list over everything in the store, as it stands now. Only the
- * last 90 days of videos are read, as light rows; a channel's full video list
- * is loaded, for its scores, only when it takes part in a shared idea.
+ * The channels whose videos are compared: those on the map of the channel on
+ * screen, or null for every channel in the store when no mapped channel is on
+ * screen. A store that holds several channels' maps holds several niches, and
+ * an idea from one niche is not an idea for a channel in another.
+ */
+function channelsCompared(
+  deps: TransferDeps,
+  options: TransferOptions,
+): ReadonlySet<string> | null {
+  const centerId = options.centerChannelId;
+  const map = centerId ? deps.maps.latestForCenter(centerId) : null;
+  if (!centerId || !map) return null;
+  return new Set([centerId, ...map.members.map((member) => member.channelId)]);
+}
+
+/**
+ * The transfer list as it stands now, for the map of the channel on screen
+ * (or for the whole store with none). Only the last 90 days of videos are
+ * read, as light rows; a channel's full video list is loaded, for its scores,
+ * only when it takes part in a shared idea.
  */
 export function loadTransferList(
   deps: TransferDeps,
@@ -268,9 +290,11 @@ export function loadTransferList(
     new Map(
       buildVideoReport(deps.videos.listByChannel(channelId), now).map((row) => [row.id, row.score]),
     );
+  const compared = channelsCompared(deps, options);
+  const recent = deps.transfers.listRecentVideos(since);
   return buildTransferList(
     {
-      videos: deps.transfers.listRecentVideos(since),
+      videos: compared ? recent.filter((video) => compared.has(video.channelId)) : recent,
       ownerPlace: ownerPlaceOf(deps, options),
       scoresOf,
       savedIdeas: deps.transfers.listSaved(),

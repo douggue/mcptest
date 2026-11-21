@@ -127,15 +127,15 @@ export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
     allowedTools: [
       tool('get_map'),
       tool('get_breakouts'),
-      tool('list_niches'),
       tool('list_transfer_opportunities'),
       tool('get_channel_videos'),
     ],
     maxTurns: 14,
     question: (channel) =>
       [
-        `For the channel ${channel}: call get_map, then get_breakouts for the look-alike channels, then list_niches, then list_transfer_opportunities for this channel. Call get_channel_videos on the owner's channel to see what they have already made.`,
-        'Propose eight videos to make next, best first. Prefer subjects where a small channel got large views, and skip anything the owner has already made.',
+        `For the channel ${channel}: call get_map, then get_breakouts for the look-alike channels, then list_transfer_opportunities for this channel. Call get_channel_videos on this channel to see what it has already made.`,
+        "Every idea must belong to this channel's own niche: the subjects this channel and its look-alikes on this map make videos about. The store may hold other channels the owner has looked up, in other niches; nothing from them is an idea for this channel, so use only what these calls return for this channel and never carry a subject, a country or a title format over from anywhere else.",
+        'Propose eight videos to make next, best first. Prefer subjects where a small channel got large views, and skip anything this channel has already made. If the tools support fewer than eight ideas in this niche, give fewer and say so.',
         "When list_transfer_opportunities returns ideas that are open or weak for the owner's place, at least three of the eight should come from them: an idea that took off for another place and has not been made, or did poorly, for the owner's. Where it lists a title for the owner's place that differs by one word, judge by meaning whether that is the same idea already made, and skip it if so.",
         "For each give: SOURCE (TRANSFER, naming where the idea worked and its views there, or BREAKOUT), TITLE (two options in the title format the owner and the look-alikes use), WHY (one or two breakout videos that prove demand, with channel, views and score, and any caution on that score), CROWDING (how many look-alike channels already covered the subject and how those versions did, or 'fresh'), PROOF AT YOUR SIZE (the smallest channel in the tool results that got large views on this subject, with its subscriber count and that video's views, or 'none yet' when only larger channels did), and THUMBNAIL (one line on what to show).",
         'Every number you give must be one a tool returned. Do not estimate, forecast or predict views for the owner.',

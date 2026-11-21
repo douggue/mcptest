@@ -160,9 +160,9 @@ const PLACE_FROM: Readonly<Record<OwnerPlace['source'], string | null>> = {
 
 /** In words, what the section holds and which place it was judged for. */
 export function describeTransfers(list: TransferList): string {
-  const shared = `that two or more channels made in the last ${list.windowDays} days`;
+  const shared = `that two or more channels on this map made in the last ${list.windowDays} days`;
   if (list.ideaCount === 0) {
-    return `No idea has been made by two or more of the channels Jgtube has read in the last ${list.windowDays} days.`;
+    return `No idea has been made by two or more of the channels on this map in the last ${list.windowDays} days.`;
   }
   if (list.ownerPlace === null) {
     return `Jgtube cannot tell which country your channel is for, so it cannot say which of the ${list.ideaCount} ideas ${shared} are open to you.`;

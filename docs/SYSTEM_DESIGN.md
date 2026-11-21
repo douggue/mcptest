@@ -664,9 +664,20 @@ language check beyond the alphabet.
 Built (`packages/core/src/transfer/`, `GET /api/transfers`,
 `POST /api/transfers/save`, the connector's `list_transfer_opportunities`). The
 niche list is a list of channels; it leaves the owner to notice that several of
-them are one idea made for different countries. This list goes through every
-stored video of the last 90 days, whichever channel or map it came from, and
-groups the videos that are the same idea or the same title format.
+them are one idea made for different countries. This list goes through the
+stored videos of the last 90 days and groups the ones that are the same idea or
+the same title format.
+
+It is read for one channel's map at a time. With a mapped channel on screen
+(`centerChannelId`), only videos of the channels on that channel's latest map
+are compared, and the owner's place is that channel's own (its titles, else its
+country) or none: it is never borrowed from another channel's map. A store
+that holds several looked-up channels holds several niches, and an idea from
+one is not an idea for a channel in another. Only with no mapped channel on
+screen is the whole store compared and the place worked out from the map
+centres. The "Video ideas" question reads this list and the look-alikes'
+breakouts for its channel and nothing store-wide (it no longer reads the niche
+list), and is told that other channels in the store are other niches.
 
 Nothing in it is chosen for one channel, one subject or one country. The place
 words are a fixed list of every country (keyed by ISO code, which is also what

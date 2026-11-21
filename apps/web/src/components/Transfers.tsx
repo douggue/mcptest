@@ -132,7 +132,7 @@ export function Transfers({ transfers, hasMap }: Props) {
             <p className="mt-1 max-w-4xl text-body-md text-on-surface-variant">
               {list
                 ? describeTransfers(list)
-                : 'Ideas that took off for another country and are untried or weak for yours, from every channel Jgtube has read.'}
+                : 'Ideas that took off for another country and are untried or weak for yours, from the channels on this map.'}
             </p>
           </div>
           {hasAnything && <Filter list={list} filter={filter} onChange={setFilter} />}
@@ -141,7 +141,7 @@ export function Transfers({ transfers, hasMap }: Props) {
         {state.status === 'loading' && (
           <p role="status" className={`flex items-center gap-2 ${NOTE}`}>
             <span className="h-2 w-2 animate-pulse rounded-full bg-primary-container shadow-[0_0_8px_#00d2ff]" />
-            Comparing the titles of every channel read so far
+            Comparing the titles of the channels on this map
           </p>
         )}
         {state.status === 'failed' && (

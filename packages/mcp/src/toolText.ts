@@ -101,8 +101,8 @@ export const TOOL_TEXT = {
   list_transfer_opportunities: {
     title: 'Niche transfer opportunities',
     description:
-      'Ideas from the whole store (not one map) that several channels made as the same title for different ' +
-      'places, with the versions side by side: use it for "what is working elsewhere that I could make for my ' +
+      'Ideas that several channels on the given channel’s map made as the same title for different places, ' +
+      'with the versions side by side (with no channel given, from every channel in the store): use it for "what is working elsewhere that I could make for my ' +
       'country". Titles are compared as templates: {place} stands for a country, its people, a region or a US ' +
       'state, {n} for a number. status says where the idea stands for the owner’s place: open (a version took ' +
       'off elsewhere, none made for the owner’s place), weak (the owner’s place has one that got under a tenth of ' +

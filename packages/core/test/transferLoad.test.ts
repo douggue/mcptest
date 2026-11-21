@@ -73,13 +73,16 @@ const storable = (
 const addVideo = (channel: string, title: string, views: number, daysAgo = 10): void =>
   store.videos.upsertMany([storable(channel, title, views, daysAgo)], NOW);
 
-function addMap(centre: string, madeDaysAgo: number): void {
+function addMap(centre: string, madeDaysAgo: number, others: readonly string[] = []): void {
   store.maps.create(
     {
       centerChannelId: cid(centre),
       depth: 1,
       region: 'US',
-      members: [{ channelId: cid(centre), steps: 0 }],
+      members: [
+        { channelId: cid(centre), steps: 0 },
+        ...others.map((name) => ({ channelId: cid(name), steps: 1 })),
+      ],
     },
     new Date(NOW.getTime() - madeDaysAgo * DAY_MS),
   );
@@ -104,11 +107,16 @@ function seedSolarIdea(): void {
   addVideo('Chilean', 'Chile Opens A Giant Solar Farm', 800);
 }
 
-function addCentre(name: string, place: string, madeDaysAgo: number): void {
+function addCentre(
+  name: string,
+  place: string,
+  madeDaysAgo: number,
+  others: readonly string[] = [],
+): void {
   addChannel(name, 100);
   addVideo(name, `${place} Just Built A Dam`, 50);
   addVideo(name, `${place} Opens A New Mine`, 50);
-  addMap(name, madeDaysAgo);
+  addMap(name, madeDaysAgo, others);
 }
 
 describe('loadTransferList: the owner’s place', () => {
@@ -141,7 +149,7 @@ describe('loadTransferList: the owner’s place', () => {
 
   test('is the place of the channel on screen, whichever map is newer', () => {
     seedSolarIdea();
-    addCentre('Older', 'Chile', 9);
+    addCentre('Older', 'Chile', 9, ['Kenyan', 'Chilean']);
     addCentre('Newer', 'Peru', 2);
 
     const list = loadTransferList(store, NOW, { centerChannelId: cid('Older') });
@@ -320,5 +328,54 @@ describe('loadTransferList over a large store', () => {
     expect(new Set(loaded).size).toBe(PLANTED * 2 + 1);
     expect(loaded.length).toBe(PLANTED * 2 + 1);
     expect(elapsed).toBeLessThan(TIME_LIMIT_MS);
+  });
+});
+
+describe('loadTransferList: one channel’s map at a time', () => {
+  /** A second niche in the same store: two channels that made one title about two lakes. */
+  function seedMonsterIdea(): void {
+    addChannel('Loch', 4000);
+    addChannel('Lake', 4000);
+    addVideo('Loch', 'The Creature Seen In Scotland Is Real', 200_000);
+    addVideo('Lake', 'The Creature Seen In Canada Is Real', 900);
+  }
+
+  test('compares only the videos of the channels on the map of the channel on screen', () => {
+    seedSolarIdea();
+    seedMonsterIdea();
+    addCentre('Mine', 'Peru', 1, ['Kenyan', 'Chilean']);
+    addChannel('Deep', 100);
+    addVideo('Deep', 'What Lives Under The Ice', 50);
+    addMap('Deep', 2, ['Loch', 'Lake']);
+
+    const mine = loadTransferList(store, NOW, { centerChannelId: cid('Mine') });
+    const deep = loadTransferList(store, NOW, { centerChannelId: cid('Deep') });
+
+    const templates = (list: typeof mine) => list.ideas.map((idea) => idea.template.toLowerCase());
+    expect(templates(mine).some((text) => text.includes('solar farm'))).toBe(true);
+    expect(templates(mine).some((text) => text.includes('creature'))).toBe(false);
+    expect(templates(deep).some((text) => text.includes('creature'))).toBe(true);
+    expect(templates(deep).some((text) => text.includes('solar farm'))).toBe(false);
+  });
+
+  test('never gives a channel with its own map the place of another channel’s map', () => {
+    seedMonsterIdea();
+    addCentre('Mine', 'Peru', 1);
+    addChannel('Deep', 100);
+    addVideo('Deep', 'What Lives Under The Ice', 50);
+    addMap('Deep', 2, ['Loch', 'Lake']);
+
+    const deep = loadTransferList(store, NOW, { centerChannelId: cid('Deep') });
+
+    expect(deep.ownerPlace).toBeNull();
+    expect(deep.opportunityCount).toBe(0);
+  });
+
+  test('still reads the whole store when no channel is on screen', () => {
+    seedSolarIdea();
+    seedMonsterIdea();
+    addCentre('Mine', 'Peru', 1);
+
+    expect(loadTransferList(store, NOW).ideas.length).toBe(2);
   });
 });

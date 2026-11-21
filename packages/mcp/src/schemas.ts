@@ -192,8 +192,9 @@ export const listTransferOpportunitiesShape = {
   channel: channelRef(CHANNEL_RULE)
     .optional()
     .describe(
-      'The owner’s channel: @handle, channel URL or channel id. The place its titles are about (or its country) ' +
-        'is taken as the owner’s place. Left out, the place is worked out from the channels the owner has mapped.',
+      'The channel the ideas are for: @handle, channel URL or channel id. Only videos of the channels on its map ' +
+        'are compared, and the place its titles are about (or its country) is taken as the owner’s place. Always ' +
+        'give it when asking for one channel: left out, every channel in the store is compared, which mixes niches.',
     ),
   place: z
     .string({ error: PLACE_RULE })

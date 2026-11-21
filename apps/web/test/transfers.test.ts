@@ -279,7 +279,7 @@ describe('labels and counts', () => {
 describe('describeTransfers', () => {
   test('says how many opportunities there are, for which place, and how the place was worked out', () => {
     expect(describeTransfers(listOf())).toBe(
-      '37 ideas took off for another country and are untried or weak for America, out of 137 that two or more channels made in the last 90 days. Jgtube took America from your channel’s titles.',
+      '37 ideas took off for another country and are untried or weak for America, out of 137 that two or more channels on this map made in the last 90 days. Jgtube took America from your channel’s titles.',
     );
   });
 
@@ -305,19 +305,19 @@ describe('describeTransfers', () => {
     });
 
     expect(describeTransfers(saved)).toBe(
-      '36 ideas took off for another country and are untried or weak for America, out of 137 that two or more channels made in the last 90 days. The 2 you saved are under Saved. Jgtube took America from your channel’s titles.',
+      '36 ideas took off for another country and are untried or weak for America, out of 137 that two or more channels on this map made in the last 90 days. The 2 you saved are under Saved. Jgtube took America from your channel’s titles.',
     );
   });
 
   test('says when the owner’s place is not known', () => {
     expect(describeTransfers(listOf({ ownerPlace: null, opportunityCount: 0 }))).toBe(
-      'Jgtube cannot tell which country your channel is for, so it cannot say which of the 137 ideas that two or more channels made in the last 90 days are open to you.',
+      'Jgtube cannot tell which country your channel is for, so it cannot say which of the 137 ideas that two or more channels on this map made in the last 90 days are open to you.',
     );
   });
 
   test('says when nothing was found', () => {
     expect(describeTransfers(listOf({ ideaCount: 0, opportunityCount: 0, ideas: [] }))).toBe(
-      'No idea has been made by two or more of the channels Jgtube has read in the last 90 days.',
+      'No idea has been made by two or more of the channels on this map in the last 90 days.',
     );
   });
 });
