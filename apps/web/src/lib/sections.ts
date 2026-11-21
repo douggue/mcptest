@@ -36,7 +36,14 @@ export const RAIL_GROUPS: readonly RailGroup[] = [
       { label: 'Script writer', target: 'script-writer-title' },
     ],
   },
-  { label: 'Study', items: [{ label: 'Ask AI and breakdowns', target: 'ask-claude-title' }] },
+  {
+    label: 'Study',
+    items: [
+      { label: 'Ask AI and breakdowns', target: 'ask-claude-title' },
+      { label: 'Your videos against the plan', target: 'own-videos-title' },
+      { label: 'Upload calendar', target: 'upload-calendar-title' },
+    ],
+  },
 ];
 
 /** A section id as the page writes them: lower case words joined by hyphens. */

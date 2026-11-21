@@ -12,7 +12,11 @@ describe('the left rail', () => {
       'Idea lab',
       'Script writer',
     ]);
-    expect(RAIL_GROUPS[2]?.items.map((item) => item.label)).toEqual(['Ask AI and breakdowns']);
+    expect(RAIL_GROUPS[2]?.items.map((item) => item.label)).toEqual([
+      'Ask AI and breakdowns',
+      'Your videos against the plan',
+      'Upload calendar',
+    ]);
   });
 });
 
