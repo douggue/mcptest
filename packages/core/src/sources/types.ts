@@ -143,3 +143,9 @@ export interface YouTubeSource {
    */
   fetchVideoPage(videoId: string, options?: VideoPageOptions): Promise<VideoPage>;
 }
+
+/** A source that can read a video's public watch page as HTML, for the signs of earning on it. */
+export interface WatchPageSource {
+  /** One request. Rejects for a bad id, a refusal or a page too large to read. */
+  fetchWatchHtml(videoId: string): Promise<string>;
+}

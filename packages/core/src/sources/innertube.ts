@@ -11,6 +11,7 @@ import type {
   VideoPage,
   VideoPageOptions,
   VideoTranscript,
+  WatchPageSource,
   YouTubeSource,
 } from './types';
 import {
@@ -21,6 +22,7 @@ import {
   pickCaptionTrack,
   type CaptionTrack,
 } from './videoPage';
+import { WATCH_HEADERS, WATCH_TIMEOUT_MS, readWatchResponse, watchPageUrl } from './watchHtml';
 
 /** The slice of the YouTube client this source uses, so tests can fake it. */
 export interface VideosTab {
@@ -54,7 +56,11 @@ export interface InnertubeClient {
 /** The part of `fetch` used to read a caption track, so tests can stand in for the network. */
 export type FetchText = (
   url: string,
-  init: { readonly signal: AbortSignal; readonly redirect: 'error' },
+  init: {
+    readonly signal: AbortSignal;
+    readonly redirect: 'error';
+    readonly headers?: Readonly<Record<string, string>>;
+  },
 ) => Promise<Response>;
 
 export interface InnertubeSourceOptions {
@@ -99,7 +105,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * Reads public channel and watch pages through YouTube's web API, signed out.
  * See docs/CRAWL.md for what this returns and the risks of relying on it.
  */
-export class InnertubeSource implements YouTubeSource {
+export class InnertubeSource implements YouTubeSource, WatchPageSource {
   constructor(
     private readonly client: InnertubeClient,
     private readonly limiter: RateLimiter,
@@ -181,6 +187,24 @@ export class InnertubeSource implements YouTubeSource {
       throw new Error(`Not a valid YouTube video id: "${videoId.slice(0, 40)}"`);
     }
     return this.limiter.run(() => this.client.getBasicInfo(videoId, { client: PLAYER_CLIENT }));
+  }
+
+  /**
+   * A video's public watch page as HTML: one request, through the limiter,
+   * redirects refused and the size capped. What the signs of earning are read from.
+   */
+  async fetchWatchHtml(videoId: string): Promise<string> {
+    const url = watchPageUrl(videoId);
+    return this.limiter.run(async () =>
+      readWatchResponse(
+        videoId,
+        await this.fetchText(url, {
+          signal: AbortSignal.timeout(WATCH_TIMEOUT_MS),
+          redirect: 'error',
+          headers: WATCH_HEADERS,
+        }),
+      ),
+    );
   }
 
   /**
