@@ -83,9 +83,9 @@ export function parseMinScore(text: string, min: number, max: number): Parsed {
 /** That alerts are worked out here after each refresh, and how fresh that is. */
 export function freshnessNote(lastRefreshAt: string | null, now: Date): string {
   if (lastRefreshAt === null) {
-    return 'No refresh has run yet, so no alert can be found. Alerts are checked on this computer after each refresh; nothing is sent anywhere.';
+    return 'Alerts are checked after each refresh; none has run yet.';
   }
-  return `Alerts are checked on this computer after each refresh, so they are only as fresh as the last one, which finished ${span(since(lastRefreshAt, now))} ago. Nothing is sent anywhere.`;
+  return `Checked after each refresh; the last was ${span(since(lastRefreshAt, now))} ago.`;
 }
 
 /** Most unread alerts a chip's badge counts; past it the badge says "9+". */

@@ -44,8 +44,8 @@ export const RESEARCH_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
         snapshot={page.snapshot}
         reloadKey={work.refresh.run.status}
         onAlertsChanged={work.alertCounts.reload}
+        toolbar={<RefreshBar refresh={work.refresh} />}
       />
-      <RefreshBar refresh={work.refresh} />
     </ViewPage>
   ),
   breakouts: withMap('breakouts', (_snapshot, parts) => <Breakouts {...parts} />),

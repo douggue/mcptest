@@ -1,5 +1,5 @@
 import type { MapSnapshot } from '@jgtube/core';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { createExtrasApi } from '../lib/extrasApi';
 import { AlertsPanel } from './AlertsPanel';
 import { useAlerts } from './useAlerts';
@@ -13,6 +13,8 @@ interface Props {
   readonly reloadKey: unknown;
   /** Told when the alerts were changed here, so the chips' counts can follow. */
   readonly onAlertsChanged?: () => void;
+  /** The refresh line, shown under the title. */
+  readonly toolbar?: ReactNode;
 }
 
 const NOTHING = (): void => {};
@@ -21,7 +23,8 @@ const NOTHING = (): void => {};
  * "What changed since you last looked", wired to the server for the channel
  * on screen. It keeps its own state, so the page mounts it in one line.
  */
-export function ChangesSection({ snapshot, reloadKey, onAlertsChanged = NOTHING }: Props) {
+export function ChangesSection(props: Props) {
+  const { snapshot, reloadKey, onAlertsChanged = NOTHING, toolbar } = props;
   const api = useMemo(() => createExtrasApi(), []);
   const changes = useChanges(api, snapshot?.center.id ?? null, snapshot?.mapId ?? null);
   const alerts = useAlerts(snapshot?.center.id ?? null, reloadKey, onAlertsChanged);
@@ -29,7 +32,7 @@ export function ChangesSection({ snapshot, reloadKey, onAlertsChanged = NOTHING 
   useEffect(reload, [reload, reloadKey]);
   if (!snapshot) return null;
   return (
-    <WhatChanged changes={changes} centerTitle={snapshot.center.title}>
+    <WhatChanged changes={changes} centerTitle={snapshot.center.title} toolbar={toolbar}>
       <AlertsPanel alerts={alerts} />
     </WhatChanged>
   );

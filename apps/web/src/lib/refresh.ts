@@ -20,8 +20,8 @@ function ago(since: number): string {
 
 function describeDue(state: RefreshReply): string {
   if (state.due === 0) return 'Every stored channel has been read in the last day.';
-  const channels = state.channels === 1 ? 'channel is' : 'channels are';
-  return `${state.due} of ${state.channels} ${channels} due.`;
+  const channels = state.channels === 1 ? 'channel' : 'channels';
+  return `${state.due} of ${state.channels} ${channels} can be read again.`;
 }
 
 /** In words, when the stored channels were last read again and how much is due. */

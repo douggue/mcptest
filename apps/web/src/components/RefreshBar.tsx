@@ -5,9 +5,8 @@ import {
   describeRefresh,
   describeSchedule,
 } from '../lib/refresh';
-import { Card, Label } from './layout/Card';
 import { Details } from './layout/Details';
-import { QUIET_BUTTON } from './LabStatus';
+import { PRIMARY_BUTTON } from './LabStatus';
 import type { Refresh, RefreshRun } from './useRefresh';
 
 const NOTE = 'text-body-sm text-on-surface-variant';
@@ -51,43 +50,38 @@ export function RefreshBar({ refresh }: { readonly refresh: Refresh }) {
   const running = run.status === 'running';
 
   return (
-    <section aria-labelledby="refresh-title" className="min-w-0">
-      <Card>
-        <Label
-          action={
-            <button
-              type="button"
-              onClick={start}
-              disabled={running}
-              className={`flex flex-none items-center gap-1.5 ${QUIET_BUTTON}`}
-            >
-              <RefreshCw
-                aria-hidden="true"
-                className={`h-4 w-4 ${running ? 'animate-spin' : ''}`}
-              />
-              {running ? 'Refreshing…' : 'Refresh now'}
-            </button>
-          }
+    <section
+      aria-labelledby="refresh-title"
+      className="flex min-w-0 flex-col gap-1 rounded-lg border border-border-subtle bg-surface-card px-space-md py-space-sm"
+    >
+      <div className="flex min-w-0 flex-wrap items-center gap-x-space-md gap-y-1">
+        <h3 id="refresh-title" className="sr-only">
+          Refresh
+        </h3>
+        <History aria-hidden="true" className="h-4 w-4 flex-none text-outline" />
+        <p className="min-w-0 flex-1 basis-56 text-body-sm text-on-surface-variant">
+          {view.status === 'ready' ? describeRefresh(view.reply, new Date()) : ''}
+        </p>
+        <button
+          type="button"
+          onClick={start}
+          disabled={running}
+          className={`flex flex-none items-center gap-1.5 ${PRIMARY_BUTTON}`}
         >
-          <span id="refresh-title" className="flex items-center gap-1.5">
-            <History aria-hidden="true" className="h-4 w-4" />
-            Refresh
-          </span>
-        </Label>
-        {view.status === 'failed' ? (
-          <p role="alert" className="text-body-sm text-error">
-            The refresh status could not be loaded: {view.message}
-          </p>
-        ) : (
-          <>
-            <p className={NOTE}>{describeRefresh(view.reply, new Date())}</p>
-            <Details summary="Refresh by itself">
-              <p className={NOTE}>{describeSchedule(view.reply.everyHours)}</p>
-            </Details>
-          </>
-        )}
-        <Outcome run={run} />
-      </Card>
+          <RefreshCw aria-hidden="true" className={`h-4 w-4 ${running ? 'animate-spin' : ''}`} />
+          {running ? 'Refreshing…' : 'Refresh now'}
+        </button>
+      </div>
+      {view.status === 'failed' ? (
+        <p role="alert" className="text-body-sm text-error">
+          The refresh status could not be loaded: {view.message}
+        </p>
+      ) : (
+        <Details summary="Refresh by itself">
+          <p className={NOTE}>{describeSchedule(view.reply.everyHours)}</p>
+        </Details>
+      )}
+      <Outcome run={run} />
     </section>
   );
 }

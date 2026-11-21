@@ -87,10 +87,10 @@ describe('parseMinScore', () => {
 describe('freshnessNote', () => {
   test('says an alert is only as fresh as the last refresh', () => {
     expect(freshnessNote(reply.lastRefreshAt, NOW)).toBe(
-      'Alerts are checked on this computer after each refresh, so they are only as fresh as the last one, which finished 3 hours ago. Nothing is sent anywhere.',
+      'Checked after each refresh; the last was 3 hours ago.',
     );
     expect(freshnessNote(null, NOW)).toBe(
-      'No refresh has run yet, so no alert can be found. Alerts are checked on this computer after each refresh; nothing is sent anywhere.',
+      'Alerts are checked after each refresh; none has run yet.',
     );
   });
 });

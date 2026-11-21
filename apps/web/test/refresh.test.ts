@@ -57,7 +57,7 @@ describe('describeRefresh', () => {
     const last = run(30, { refreshed: 3, failed: 5, stoppedEarly: true });
 
     expect(describeRefresh(reply({ last, due: 250 }), NOW)).toBe(
-      'Last refresh 30 minutes ago: 3 channels read again, 5 could not be read; it stopped early because YouTube was refusing requests. 250 of 306 channels are due.',
+      'Last refresh 30 minutes ago: 3 channels read again, 5 could not be read; it stopped early because YouTube was refusing requests. 250 of 306 channels can be read again.',
     );
   });
 
@@ -65,7 +65,7 @@ describe('describeRefresh', () => {
     const last = run(30, { refreshed: 1 });
 
     expect(describeRefresh(reply({ last, due: 1, channels: 1 }), NOW)).toBe(
-      'Last refresh 30 minutes ago: 1 channel read again. 1 of 1 channel is due.',
+      'Last refresh 30 minutes ago: 1 channel read again. 1 of 1 channel can be read again.',
     );
   });
 });
