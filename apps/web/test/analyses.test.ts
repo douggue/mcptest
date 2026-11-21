@@ -8,6 +8,7 @@ import {
   choiceHelp,
   engineSummary,
   keptLine,
+  keptOnly,
   latestKept,
   readAnswer,
   readSections,
@@ -411,6 +412,24 @@ describe('the answer shown when nothing has been asked yet', () => {
   test('is none when nothing is kept', () => {
     expect(latestKept([{ analysis: 'topics', answer: null }])).toBeNull();
     expect(latestKept([{ analysis: 'topics', answer: kept(null) }])).toBeNull();
+  });
+});
+
+describe('keptOnly', () => {
+  test('keeps each analysis that has an answer, in order', () => {
+    const answer = {
+      text: 'x',
+      prompt: null,
+      videos: [],
+      engine: null,
+      skipped: [],
+      writtenAt: null,
+    };
+    const entries = keptOnly([
+      { analysis: 'thumbnails', answer: null },
+      { analysis: 'topics', answer },
+    ]);
+    expect(entries).toEqual([{ analysis: 'topics', answer }]);
   });
 });
 

@@ -1,6 +1,11 @@
 import { keptLine, type AnalysisAnswer } from '../lib/analyses';
-import { Answer, Credit } from './Answer';
+import { Credit } from './Answer';
 import { useConnections } from './Connections';
+import { Card } from './layout/Card';
+import { Details } from './layout/Details';
+import { ViewHeader } from './layout/ViewHeader';
+import { LongAnswer } from './LongAnswer';
+import { QUIET_BUTTON } from './LabStatus';
 import { ReadyPrompt } from './ReadyPrompt';
 
 interface Props {
@@ -10,31 +15,17 @@ interface Props {
   readonly kept: boolean;
 }
 
-/**
- * One quick analysis's answer: its points with the thumbnails of the videos
- * they rest on, the ready prompt it ends with in a box of its own, and who
- * wrote it.
- */
-export function AnalysisAnswerView({ title, answer, kept }: Props) {
-  const when = kept ? keptLine(answer.writtenAt) : '';
+/** The ready prompt a thumbnail review ends with, closed until it is wanted. */
+function PromptCard({ prompt }: { readonly prompt: string }) {
   const links = useConnections();
   return (
-    <div className="flex min-w-0 flex-col gap-space-sm">
-      <div className="flex min-w-0 flex-wrap items-baseline gap-x-space-sm">
-        <h3 className="text-title-md text-on-surface">{title}</h3>
-        {when !== '' && <span className="text-body-sm text-outline">{when}</span>}
-      </div>
-      <Answer text={answer.text} videos={answer.videos} />
-      {answer.prompt !== null && (
-        <ReadyPrompt label="thumbnail prompt" text={answer.prompt} fileTitle="thumbnail prompt" />
-      )}
-      {answer.prompt !== null && links && (
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={links.useReviewStyle}
-            className="rounded-full bg-surface-container-high px-3 py-1.5 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-highest focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
-          >
+    <Card>
+      <Details summary="The thumbnail prompt it ends with">
+        <ReadyPrompt label="thumbnail prompt" text={prompt} fileTitle="thumbnail prompt" />
+      </Details>
+      {links && (
+        <div className="flex min-w-0 flex-col items-start gap-1">
+          <button type="button" onClick={links.useReviewStyle} className={QUIET_BUTTON}>
             Use this style for a concept&rsquo;s thumbnail prompt
           </button>
           <span className="text-body-sm text-outline">
@@ -42,6 +33,22 @@ export function AnalysisAnswerView({ title, answer, kept }: Props) {
           </span>
         </div>
       )}
+    </Card>
+  );
+}
+
+/**
+ * One quick analysis's answer: its title and when it was written, what it
+ * says in short, its sections as cards with the thumbnails of the videos
+ * they rest on, the ready prompt it ends with, and who wrote it.
+ */
+export function AnalysisAnswerView({ title, answer, kept }: Props) {
+  const when = kept ? keptLine(answer.writtenAt) : 'Just written.';
+  return (
+    <div className="flex min-w-0 flex-col gap-space-lg">
+      <ViewHeader title={title} lead={when === '' ? undefined : when} />
+      <LongAnswer text={answer.text} videos={answer.videos} />
+      {answer.prompt !== null && <PromptCard prompt={answer.prompt} />}
       <Credit answer={answer} />
     </div>
   );

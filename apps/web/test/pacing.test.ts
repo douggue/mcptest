@@ -1,7 +1,14 @@
 import type { PacingView } from '@jgtube/core';
 import { describe, expect, test } from 'vitest';
 import { createExtrasApi } from '../src/lib/extrasApi';
-import { chartRows, restsOn, shortsNote, spreadText, winnersRule } from '../src/lib/pacing';
+import {
+  chartRows,
+  pacingTiles,
+  restsOn,
+  shortsNote,
+  spreadText,
+  winnersRule,
+} from '../src/lib/pacing';
 
 const CHANNEL = 'UCHnyfMqiRRG1u-2MsSQLbXA';
 const own = { count: 12, median: 600, lower: 480, upper: 720 };
@@ -46,6 +53,29 @@ describe('chartRows', () => {
       { label: 'Yours', from: 24, to: 36, at: 30, count: 12 },
       { label: 'Winners', from: 45, to: 75, at: 60, count: 9 },
       { label: 'Empty', from: null, to: null, at: null, count: 0 },
+    ]);
+  });
+});
+
+describe('pacingTiles', () => {
+  test('gives the four medians, yours beside the winners’, each with what it rests on', () => {
+    const tiles = pacingTiles({
+      lengths: { own, winners },
+      wordsPerMinute: { own: { count: 1, median: 151.4, lower: 151, upper: 152 }, winners: none },
+    });
+    expect(tiles).toEqual([
+      { label: 'Your length', value: '10:00', note: 'Median, from 12 videos' },
+      { label: 'Winners’ length', value: '20:00', note: 'Median, from 9 videos' },
+      {
+        label: 'Your words a minute',
+        value: '151',
+        note: 'Median, from 1 video with captions stored',
+      },
+      {
+        label: 'Winners’ words a minute',
+        value: '–',
+        note: 'Median, no video with captions stored',
+      },
     ]);
   });
 });

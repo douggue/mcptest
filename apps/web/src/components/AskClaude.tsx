@@ -1,48 +1,17 @@
 import { Sparkles } from 'lucide-react';
-import { ANALYSIS_OPTIONS, engineSummary, type AnalysisOption } from '../lib/analyses';
+import { useEffect, useState } from 'react';
+import { latestKept, type AnalysisId } from '../lib/analyses';
 import type { ChannelChoice } from '../lib/breakdown';
 import { AnalysisAnswerView } from './AnalysisAnswerView';
-import { BreakdownCard, BreakdownStatus } from './Breakdown';
-import { EngineSwitch } from './EngineSwitch';
-import { SectionFrame } from './SectionFrame';
+import { AskPanel, titleOfQuestion, type Question } from './AskPanel';
+import { BreakdownStatus } from './Breakdown';
+import { Card } from './layout/Card';
+import { SplitView, ViewPage } from './layout/SplitView';
+import { NOTE } from './LabStatus';
 import type { SendVideo } from './SupplyVideos';
-import type { Analysis, AnalysisState } from './useAnalysis';
-import { useKeptAnswer } from './useAnswers';
+import type { Analysis } from './useAnalysis';
+import { useKeptAnswers } from './useAnswers';
 import type { Breakdown } from './useBreakdown';
-
-const NOTE = 'rounded bg-surface-card p-space-lg text-body-md text-on-surface-variant';
-
-const titleOf = (state: AnalysisState): string =>
-  state.status === 'idle'
-    ? ''
-    : (ANALYSIS_OPTIONS.find((option) => option.id === state.analysis)?.title ?? '');
-
-interface OptionProps {
-  readonly option: AnalysisOption;
-  readonly busy: boolean;
-  readonly active: boolean;
-  readonly onRun: () => void;
-}
-
-/** One analysis: what it gives, and the button that asks for it. */
-function Option({ option, busy, active, onRun }: OptionProps) {
-  return (
-    <div className="flex flex-col gap-space-sm rounded bg-surface-card p-space-md shadow-md">
-      <div>
-        <h3 className="text-title-md text-on-surface">{option.title}</h3>
-        <p className="mt-1 text-body-sm text-on-surface-variant">{option.description}</p>
-      </div>
-      <button
-        type="button"
-        onClick={onRun}
-        disabled={busy}
-        className="self-start rounded-full bg-on-surface px-4 py-1.5 text-body-sm font-semibold text-space-deep transition-all hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {active ? 'Working…' : option.action}
-      </button>
-    </div>
-  );
-}
 
 interface Props {
   readonly analysis: Analysis;
@@ -56,96 +25,110 @@ interface Props {
   readonly centerTitle: string;
 }
 
+/** A working line with a pulsing dot. */
+function Working({ children }: { readonly children: string }) {
+  return (
+    <p role="status" className={`flex items-center gap-2 ${NOTE}`}>
+      <span className="h-2 w-2 flex-none animate-pulse rounded-full bg-primary-container shadow-[0_0_8px_#00d2ff]" />
+      <span className="min-w-0 break-words">{children}</span>
+    </p>
+  );
+}
+
+/** Said when the question chosen has no answer yet. */
+function NoAnswer({ question }: { readonly question: AnalysisId }) {
+  return (
+    <Card>
+      <Sparkles aria-hidden="true" className="h-6 w-6 text-metric-amber" />
+      <p className="text-body-md text-on-surface">
+        No {titleOfQuestion(question).toLowerCase()} answer is kept for this channel yet.
+      </p>
+      <p className="text-body-sm text-on-surface-variant">
+        Press the button on the left. The answer comes in a minute or two, in short first, then part
+        by part.
+      </p>
+    </Card>
+  );
+}
+
+/** What the main area shows for one quick analysis: its failure, its new answer, or the one kept. */
+function AnalysisArea({
+  analysis,
+  question,
+  kept,
+}: {
+  readonly analysis: Analysis;
+  readonly question: AnalysisId;
+  readonly kept: ReturnType<typeof useKeptAnswers>;
+}) {
+  const { state } = analysis;
+  const title = titleOfQuestion(question);
+  const ofThis = state.status !== 'idle' && state.analysis === question;
+  if (ofThis && state.status === 'failed') {
+    return (
+      <p role="alert" className="rounded-lg bg-surface-card p-space-lg text-body-md text-error">
+        {title} did not finish: {state.message}
+      </p>
+    );
+  }
+  if (ofThis && state.status === 'done') {
+    return <AnalysisAnswerView title={title} answer={state.answer} kept={false} />;
+  }
+  const stored = kept.find((entry) => entry.analysis === question);
+  if (stored) return <AnalysisAnswerView title={title} answer={stored.answer} kept />;
+  return ofThis ? null : <NoAnswer question={question} />;
+}
+
 /**
- * What an AI engine on this computer can be asked about the map on screen.
- * Three questions are answered with one press: what the winning thumbnails
- * do, which videos to make next, and which left-out channels cover the same
- * ground in other words. The fourth, a breakdown of one channel, is a longer
- * job that reports its steps and is kept: picking a channel shows the
- * breakdown stored for it. Claude Code is the main engine, with
- * Antigravity and Codex as backups; the switch lets the owner pick one of
- * them instead. (The component keeps its first name; it is no longer Claude only.)
+ * Ask AI: what an AI engine on this computer can be asked about the map on
+ * screen, in a side panel with one button, and the answer in the main area,
+ * in short first and then section by section. Three questions are answered
+ * in a minute or two; the fourth, a breakdown of one channel, is a longer job
+ * that reports its steps and is kept. (The component keeps its first name;
+ * it is no longer one engine only.)
  */
 export function AskClaude(props: Props) {
   const { analysis, breakdown, channels, onSendVideo, centerId, centerTitle } = props;
-  const { state, engines, choice, choose, run } = analysis;
-  const breakingDown = breakdown.state.status === 'running';
+  const { state } = analysis;
+  const running = breakdown.state.status === 'running' ? breakdown.state.channel : null;
+  const breakingDown = running !== null;
   // One analysis or breakdown runs at a time, here as on the server.
   const busy = state.status === 'running' || breakingDown;
-  const available = engineSummary(engines);
-  // Read again after each answer, so the one shown when nothing is asked is the latest.
-  const kept = useKeptAnswer(centerId, state.status === 'done' ? 1 : 0);
-  const keptTitle = ANALYSIS_OPTIONS.find((option) => option.id === kept?.analysis)?.title ?? '';
-
+  // Read again after each answer, so the ones shown are the latest.
+  const kept = useKeptAnswers(centerId, state.status === 'done' ? 1 : 0);
+  const [chosen, setChosen] = useState<Question | null>(null);
+  // A breakdown started from another view opens here on the breakdown.
+  useEffect(() => {
+    if (breakingDown) setChosen('breakdown');
+  }, [breakingDown]);
+  const question: Question =
+    chosen ??
+    (breakdown.state.status !== 'idle' ? 'breakdown' : (latestKept(kept)?.analysis ?? 'topics'));
+  const send = (channel: { id: string; title: string }, fresh: boolean): void =>
+    breakdown.start(channel, analysis.choice, fresh);
   return (
-    <SectionFrame
-      id="ask-claude"
-      titleId="ask-claude-title"
-      title="Ask AI"
-      icon={Sparkles}
-      lead={
-        <>
-          Ask an AI on this computer about the map around {centerTitle}, or break one channel down.
-        </>
-      }
-      howItWorks={
-        <>
-          <p>
-            The AI reads only what Jgtube has stored, through read-only tools, and answers in a
-            minute or two. Each press uses some of that AI&rsquo;s plan allowance, as a chat would.
-            Each video an answer rests on is shown as its real thumbnail; answers are kept for the
-            channel.
-          </p>
-          {available !== '' && <p className="text-outline">{available}</p>}
-        </>
-      }
-    >
-      <EngineSwitch choice={choice} engines={engines} busy={busy} onChoose={choose} />
-
-      <div className="grid grid-cols-1 gap-space-md md:grid-cols-2 xl:grid-cols-4 items-start">
-        {ANALYSIS_OPTIONS.map((option) => (
-          <Option
-            key={option.id}
-            option={option}
-            busy={busy}
-            active={state.status === 'running' && state.analysis === option.id}
-            onRun={() => run(option.id, centerId)}
+    <ViewPage id="ask-claude" labelledBy="ask-claude-title">
+      <SplitView
+        sideLabel="What to ask"
+        side={
+          <AskPanel
+            {...{ analysis, breakdown, channels, busy, centerId, centerTitle, question }}
+            onQuestion={setChosen}
           />
-        ))}
-        <BreakdownCard
-          choices={channels}
-          picked={breakdown.picked}
-          onPick={breakdown.pick}
-          busy={busy}
-          active={breakingDown}
-          onRun={(channel, fresh) => breakdown.start(channel, choice, fresh)}
-        />
-      </div>
-
-      <BreakdownStatus
-        breakdown={breakdown}
-        busy={busy}
-        onSend={onSendVideo}
-        onRun={(channel, fresh) => breakdown.start(channel, choice, fresh)}
-      />
-
-      {state.status === 'running' && (
-        <p role="status" className={`flex items-center gap-2 ${NOTE}`}>
-          <span className="h-2 w-2 animate-pulse rounded-full bg-primary-container shadow-[0_0_8px_#00d2ff]" />
-          Working on: {titleOf(state)}. This usually takes under two minutes.
-        </p>
-      )}
-      {state.status === 'failed' && (
-        <p role="alert" className="rounded bg-surface-card p-space-lg text-body-md text-error">
-          {titleOf(state)} did not finish: {state.message}
-        </p>
-      )}
-      {state.status === 'done' && (
-        <AnalysisAnswerView title={titleOf(state)} answer={state.answer} kept={false} />
-      )}
-      {state.status === 'idle' && kept !== null && (
-        <AnalysisAnswerView title={keptTitle} answer={kept.answer} kept />
-      )}
-    </SectionFrame>
+        }
+      >
+        {state.status === 'running' && (
+          <Working>{`Working on: ${titleOfQuestion(state.analysis)}. This usually takes under two minutes.`}</Working>
+        )}
+        {running && question !== 'breakdown' && (
+          <Working>{`A breakdown of ${running.title} is running. Choose Channel breakdown to follow it.`}</Working>
+        )}
+        {question === 'breakdown' ? (
+          <BreakdownStatus breakdown={breakdown} busy={busy} onSend={onSendVideo} onRun={send} />
+        ) : (
+          <AnalysisArea analysis={analysis} question={question} kept={kept} />
+        )}
+      </SplitView>
+    </ViewPage>
   );
 }

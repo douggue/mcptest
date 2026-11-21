@@ -18,7 +18,7 @@ interface Props {
 export function PacingChart({ title, measure, rows }: Props) {
   const placed = chartRows(rows);
   return (
-    <figure className="flex min-w-0 flex-col gap-space-sm rounded bg-surface-card p-space-md">
+    <figure className="flex min-w-0 flex-col gap-space-md rounded-lg border border-border-subtle bg-surface-card p-space-md sm:p-space-lg">
       <figcaption className="text-label-caps uppercase text-outline">{title}</figcaption>
       {placed.map((row, index) => {
         const spread = rows[index]?.spread;

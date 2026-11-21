@@ -149,7 +149,9 @@ new one-off styles.
 - **Numbers** go in `StatTile`s with what each rests on under it
   (`StatGrid` wraps to two columns on a phone). A working surface keeps its
   running counts in a slim `StatusBar` at the foot. In a narrow main area a
-  few tiles share a card's width in a `StatRow`.
+  few tiles share a card's width in a `StatRow` (`TileRow` draws tiles worked
+  out in `lib/tiles.ts`). Long AI answers open on "In short", then one card
+  per section with the rest of its points closed (`lib/longAnswer.ts`).
 - **A side panel** starts with a `PanelTitle` and has one `PanelAction`: the
   full-width primary button with a short line under it.
 - **Choices of one** are a `Segmented` control; channels in a list are
