@@ -1282,6 +1282,27 @@ map); `POST /api/calendar/item {channel, conceptId, status | null, plannedDate |
 null}` answers the calendar, or 404 (no kept concept, no map) or 400 (not a real
 date).
 
+### Length and pacing against the winners
+
+Built (`packages/core/src/pacing/`, `packages/server/src/pacingEngine.ts`,
+`pacingRoutes.ts`, `apps/web/src/lib/pacing.ts`, `components/LengthPacing.tsx`,
+`PacingChart.tsx`). For one centre channel and its latest map, from the store
+only; no AI, no advice.
+
+| Figure         | From                                                                                                                                                                   |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Yours          | Every stored video of the centre channel                                                                                                                               |
+| Winners        | The look-alikes' breakouts as the breakout list takes them (`winnerVideos`): last 30 days, 2× usual views or more, at most 4 per channel (`MAX_BREAKOUTS_PER_CHANNEL`) |
+| Length         | `durationSeconds`, Shorts (60 seconds or less, `SHORTS_MAX_SECONDS`) left out of both and counted                                                                      |
+| Words a minute | `transcriptPace` of each video's stored captions (first caption line to the last), Shorts left out                                                                     |
+| Spread         | Median and middle half (25th and 75th percentiles, linear between neighbours, `spreadOf`) with the count                                                               |
+
+`GET /api/pacing?channel=UC…` answers `{centerChannelId, lengths: {own, winners},
+shortsLeftOut, wordsPerMinute: {own, winners}, rule, lookalikes}` (404 with no
+map). The chart is plain SVG: each row's middle half as a bar and its median as a
+mark, on one scale from zero to four thirds of the highest value, coloured with
+the design tokens (`fill-primary-container`, `fill-metric-amber`).
+
 ### Exact channel dates
 
 Built (`packages/core/src/niches/facts.ts`, `packages/core/src/repos/sqliteFactsRepo.ts`).

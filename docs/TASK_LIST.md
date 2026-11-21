@@ -280,3 +280,5 @@ or computed in code and labelled; no view forecasts; nothing published to YouTub
 - [x] Upload calendar: kept concepts and scripts with a status (idea, drafting, ready, published) and an optional planned date, by week from this one (store step 22, `concept_schedule`); a scripted concept keeps its status on its script; published ones link to their video and to Your videos against the plan
 - [x] The median uploads a week of the look-alikes that took off on the map (the map's own 14-day measure), with how many channels it rests on; weeks planned under it are marked
 - [x] Checked on a copy of a real store: 16 look-alikes taken off, median 4.5 a week; a date set through the page; a worked-out status kept worked out
+- [x] Length and pacing against the winners: the channel's own lengths against the look-alikes' breakouts on the map (median and middle half, Shorts left out and counted), and words a minute where captions are stored, each with how many videos it rests on, in a plain SVG chart
+- [x] Checked on a copy of a real store: 22 own videos against 78 breakouts of 22 look-alikes; words a minute from 5 own and 12 winning videos with stored captions

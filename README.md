@@ -641,6 +641,16 @@ this map upload, as a median a week counted over the last 14 days, and how many
 channels that rests on. A week with fewer videos planned than that is marked.
 It is a comparison, not a target.
 
+### Length and pacing against the winners
+
+How long your videos run, and how fast they are spoken, beside the videos that
+broke out among the channels like yours on this map. For each: the median (the
+middle video) and the middle half (where half of the videos fall), in a small
+chart with the numbers written beside it, and how many videos each figure rests
+on. Shorts (a minute or less) are left out of both sides and counted. Words a
+minute come only from videos whose captions Jgtube has stored, for example with
+**Download transcripts**. It is a comparison only: no advice.
+
 ### Where else
 
 **Where else this could work** suggests other languages and other categories

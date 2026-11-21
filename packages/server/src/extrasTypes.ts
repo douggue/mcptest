@@ -5,6 +5,7 @@
 import type { ChangesView, SinceKind } from '@jgtube/core';
 import type { AlertsEngine } from './alertsTypes';
 import type { CalendarEngine } from './calendarTypes';
+import type { PacingEngine } from './pacingTypes';
 import type { PlanEngine } from './planTypes';
 
 /** What changed around a channel, with the moment it was asked for and the one it was answered for. */
@@ -24,4 +25,8 @@ export interface ChangesEngine {
 }
 
 /** Everything the later features add to the engine. */
-export type ExtrasEngine = ChangesEngine & AlertsEngine & PlanEngine & CalendarEngine;
+export type ExtrasEngine = ChangesEngine &
+  AlertsEngine &
+  PlanEngine &
+  CalendarEngine &
+  PacingEngine;
