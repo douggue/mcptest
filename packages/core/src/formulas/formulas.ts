@@ -98,6 +98,8 @@ export interface VerifiedFormula {
   /** Strongest first; a video without a score comes after the scored ones, by views. */
   readonly videos: readonly FormulaVideo[];
   readonly videoCount: number;
+  /** How many channels those videos come from: one channel repeating itself is weaker evidence. */
+  readonly channelCount: number;
   /** The mean score of the videos that have one; null when none has. */
   readonly averageScore: number | null;
   /** How many of the videos the average was taken over. */
@@ -141,6 +143,7 @@ function verified(parsed: ParsedFormula, videos: readonly FormulaVideo[]): Verif
     why: parsed.why,
     videos: [...videos].sort(byStrength),
     videoCount: videos.length,
+    channelCount: new Set(videos.map((video) => video.channelId)).size,
     averageScore: scores.length === 0 ? null : total / scores.length,
     scoredCount: scores.length,
   };

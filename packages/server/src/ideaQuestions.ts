@@ -12,8 +12,11 @@
  */
 import {
   CONCEPTS_PER_BATCH,
+  MAX_LINE_WORDS,
   MAX_TITLE_CHARS,
   MORE_CONCEPTS,
+  PHONE_TITLE_CHARS,
+  SHORTS_TITLE_CHARS,
   TWIST_CONCEPTS,
   type ConceptLength,
 } from '@jgtube/core';
@@ -126,6 +129,7 @@ const RULES = [
   'Each title names one specific subject (a particular thing, place, person, event or question that the tool results show this niche covers), written as a real title a viewer would click: never a description of a topic set into a template, and never a list of themes.',
   "Write every title yourself. Never reuse a competitor's title word for word, or with one word or a name changed. Skip any subject this channel has already made.",
   'Do not forecast, estimate or promise views. Every number you quote must be one a tool returned.',
+  'The tools see only the channels on this map. When a tool says an idea has not been made for a place, that means no channel on this map has made it: never say or imply that a subject is untried, open or without competition on YouTube.',
   'You have no access to the web, so you cannot know real facts about a subject beyond what the tools returned. If a concept depends on a real fact, event, product, name, date or number that the tool results do not show, do not present it as known: say under NEEDS exactly what must be looked up before the video is made. Write NEEDS: nothing only when the concept rests entirely on what the tools returned.',
   HOOK_RULE,
 ].join(' ');
@@ -140,14 +144,14 @@ const FORM = [
   'OVERLAY: the words set on the thumbnail, four words or fewer.',
   'HOOK: the opening sentence of the video, one sentence.',
   'HOOK STYLE: the video id of the library hook whose way of opening it follows, a colon, and that hook’s style name; or none.',
-  'RESTS ON: for each picked video the concept draws on, its video id and, in a few words, what it takes from it.',
-  'NEEDS: what real fact, event or product must be looked up before making it; or nothing.',
+  `RESTS ON: for each picked video the concept draws on, its video id and, in a few words, what it takes from it; at most ${MAX_LINE_WORDS} words, on one line.`,
+  `NEEDS: what real fact, event or product must be looked up before making it, in at most ${MAX_LINE_WORDS} words on one line; or nothing.`,
+  'Every line is plain text on one line: no bullet points under a label.',
 ].join(' ');
 
 const LENGTH: Readonly<Record<ConceptLength, string>> = {
-  long: 'The concepts are for full-length videos.',
-  shorts:
-    'The concepts are for Shorts: clips under a minute. Keep each title short enough to read at a glance, and each hook to one short sentence that works in the first two seconds.',
+  long: `The concepts are for full-length videos. A phone's feed shows only about the first ${PHONE_TITLE_CHARS} characters of a title, so put the words that carry the idea there.`,
+  shorts: `The concepts are for Shorts: clips under a minute. A phone shows only about the first ${SHORTS_TITLE_CHARS} characters of a Short's title, so keep each title that short where you can, and each hook to one short sentence that works in the first two seconds.`,
 };
 
 /** What a batch of concepts is asked, for a channel in its fixed form. */

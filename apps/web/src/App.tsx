@@ -2,6 +2,9 @@ import type { CompetitorStatus, MapSnapshot, SavedChannel } from '@jgtube/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Benchmarks } from './components/Benchmarks';
 import { BreakoutFeed } from './components/BreakoutFeed';
+import { Formulas } from './components/Formulas';
+import { HookLibrary } from './components/HookLibrary';
+import { IdeaLab } from './components/IdeaLab';
 import { Inspector } from './components/Inspector';
 import { MapToolbar } from './components/MapToolbar';
 import { Niches } from './components/Niches';
@@ -16,6 +19,8 @@ import { Transfers } from './components/Transfers';
 import { AskClaude } from './components/AskClaude';
 import { useAnalysis } from './components/useAnalysis';
 import { useBreakdown } from './components/useBreakdown';
+import { useLab } from './components/useLab';
+import { useLabJob } from './components/useLabJob';
 import { useNiches } from './components/useNiches';
 import { useRefresh } from './components/useRefresh';
 import { useSameTopic } from './components/useSameTopic';
@@ -25,6 +30,7 @@ import { CRAWL_DEFAULT_DEPTH, CRAWL_DEFAULT_MAX_CHANNELS } from '@jgtube/core/sr
 import { createApi, type JobState } from './lib/api';
 import { breakdownChoices } from './lib/breakdown';
 import { inScope, type Scope } from './lib/feed';
+import { createLabApi } from './lib/labApi';
 import { describeMix } from './lib/mix';
 import { layoutRadar } from './lib/radarLayout';
 import { uploadVideoFile } from './lib/upload';
@@ -34,6 +40,8 @@ const MODEL_STORAGE_KEY = 'jgtube.model';
 const POLL_INTERVAL_MS = 1500;
 /** The Ask AI section, which a breakdown started elsewhere on the page brings into view. */
 const ASK_AI_ID = 'ask-claude';
+/** The idea lab, which a formula taken into it brings into view. */
+const IDEA_LAB_ID = 'idea-lab';
 const DEFAULT_DEPTH = CRAWL_DEFAULT_DEPTH;
 const DEFAULT_SIZE = CRAWL_DEFAULT_MAX_CHANNELS;
 
@@ -69,6 +77,7 @@ function download(snapshot: MapSnapshot): void {
 
 export function App() {
   const api = useMemo(() => createApi(), []);
+  const labApi = useMemo(() => createLabApi(), []);
   const [query, setQuery] = useState(recall);
   const [snapshot, setSnapshot] = useState<MapSnapshot | null>(null);
   const [job, setJob] = useState<JobState | null>(null);
@@ -205,7 +214,23 @@ export function App() {
   const analysis = useAnalysis(api);
   const breakdown = useBreakdown(api);
   const breakdownChannels = useMemo(() => (snapshot ? breakdownChoices(snapshot) : []), [snapshot]);
-  const asking = analysis.state.status === 'running' || breakdown.state.status === 'running';
+  const labJobs = useLabJob(labApi);
+  const lab = useLab(
+    labApi,
+    labJobs,
+    snapshot?.center.id ?? null,
+    snapshot?.mapId ?? null,
+    analysis.choice,
+  );
+  // One AI run at a time, here as on the server: an analysis, a breakdown or one of the lab's.
+  const asking =
+    analysis.state.status === 'running' ||
+    breakdown.state.status === 'running' ||
+    labJobs.state.status === 'running';
+  const remix = (formulaId: number) => {
+    lab.choose({ format: `formula:${formulaId}` });
+    document.getElementById(IDEA_LAB_ID)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const reloadNiches = niches.reload;
   const reloadTransfers = transfers.reload;
   // A refresh stores new view counts and videos: the niche list turns them into
@@ -315,7 +340,19 @@ export function App() {
       {visible && (
         <section className="w-full bg-space-deep px-gutter-desktop py-space-xl">
           <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-space-xl xl:grid-cols-12">
-            <BreakoutFeed items={visible.breakouts} centerTitle={visible.center.title} />
+            <BreakoutFeed
+              items={visible.breakouts}
+              centerTitle={visible.center.title}
+              pickedIds={lab.picks.map((pick) => pick.videoId)}
+              onPick={(item) =>
+                lab.pick({
+                  videoId: item.videoId,
+                  title: item.title,
+                  channelTitle: item.channelTitle,
+                  modelOpening: false,
+                })
+              }
+            />
             <Benchmarks snapshot={visible} selectedId={selectedId} onSelect={select} />
           </div>
         </section>
@@ -340,6 +377,19 @@ export function App() {
           onSendVideo={uploadVideoFile}
           centerId={snapshot.center.id}
           centerTitle={snapshot.center.title}
+        />
+      )}
+      {snapshot && (
+        <Formulas lab={lab} busy={asking} centerTitle={snapshot.center.title} onRemix={remix} />
+      )}
+      {snapshot && <HookLibrary lab={lab} busy={asking} centerTitle={snapshot.center.title} />}
+      {snapshot && (
+        <IdeaLab
+          lab={lab}
+          busy={asking}
+          transfers={transfers.state.status === 'ready' ? transfers.state.list : null}
+          centerTitle={snapshot.center.title}
+          breakouts={snapshot.breakouts}
         />
       )}
       <Transfers transfers={transfers} hasMap={snapshot !== null} />

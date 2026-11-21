@@ -114,9 +114,10 @@ describe('reading a batch of concepts', () => {
   ])('counts a concept with %s as unread and never fills the gap', (_name, overrides) => {
     const text = [block(1), block(2, overrides), block(3)].join('\n\n');
 
-    const { concepts, unread } = parseConcepts(text, 10);
+    const { concepts, unread, problems } = parseConcepts(text, 10);
 
     expect(unread).toBe(1);
+    expect(problems).toHaveLength(1);
     expect(concepts.map((concept) => concept.title)).toEqual([
       'The Machine Nobody Switched Off 1',
       'The Machine Nobody Switched Off 3',
@@ -129,10 +130,30 @@ describe('reading a batch of concepts', () => {
     expect(parseConcepts(text, 10).concepts[0]?.restsOn).toBe('ab__cd__ef1: the cold open.');
   });
 
+  test('says in its own words why a concept could not be read', () => {
+    const text = [
+      block(1, { NEEDS: null }),
+      block(2, { ALT2: null }),
+      block(3, { TITLE: 'x'.repeat(MAX_TITLE_CHARS + 1) }),
+      block(4, { ALT1: `ALT: ${'y'.repeat(MAX_TITLE_CHARS + 1)}` }),
+    ].join('\n\n');
+
+    expect(parseConcepts(text, 10).problems).toEqual([
+      'it has no needs line',
+      'it has fewer than two alternate titles',
+      'its title is longer than 100 characters',
+      'an alternate title is longer than 100 characters',
+    ]);
+  });
+
   test('counts a concept that gives a part twice as unread: it cannot tell which was meant', () => {
     const twice = `${block(1)}\nTITLE: Another Title Altogether`;
 
-    expect(parseConcepts(twice, 10)).toEqual({ concepts: [], unread: 1 });
+    expect(parseConcepts(twice, 10)).toEqual({
+      concepts: [],
+      unread: 1,
+      problems: ['its title was given 2 times'],
+    });
   });
 
   test('does not take a label inside a sentence for a new part', () => {
@@ -152,8 +173,10 @@ describe('reading a batch of concepts', () => {
   });
 
   test('finds nothing in an answer with no concept in it', () => {
-    expect(parseConcepts('I could not reach the tools.', 10)).toEqual({ concepts: [], unread: 0 });
-    expect(parseConcepts('', 10)).toEqual({ concepts: [], unread: 0 });
+    const nothing = { concepts: [], unread: 0, problems: [] };
+
+    expect(parseConcepts('I could not reach the tools.', 10)).toEqual(nothing);
+    expect(parseConcepts('', 10)).toEqual(nothing);
   });
 });
 

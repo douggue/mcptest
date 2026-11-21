@@ -341,8 +341,11 @@ export {
 } from './concepts/types';
 export {
   CONCEPTS_PER_BATCH,
+  MAX_LINE_WORDS,
   MAX_TITLE_CHARS,
   MORE_CONCEPTS,
+  PHONE_TITLE_CHARS,
+  SHORTS_TITLE_CHARS,
   TWIST_CONCEPTS,
   batchNote,
   namedVideoIds,

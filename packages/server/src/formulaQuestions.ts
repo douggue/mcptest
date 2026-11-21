@@ -42,7 +42,7 @@ export function formulasQuestion(channel: string, focus: WindowFocus): string {
     `Each formula must rest on at least ${FORMULA_MIN_VIDEOS} videos, from different channels where the map has them. A wording only one video has is an example, not a formula: leave it out. Keep the fixed words the titles really share: a formula that is nothing but slots says nothing, and a formula with no slot is just a title. Do not invent a formula no title here uses, and put each video under the one formula it fits best.`,
     `Give up to ${FORMULA_MAX_KEPT} formulas, the ones with the most videos first. Give fewer when the titles support fewer.`,
     'Answer in exactly this form and nothing else. For each formula, three lines, each starting with its label.',
-    'FORMULA: the wording with its slots.',
+    'FORMULA: the wording with its slots, as one clean wording: no alternatives in round brackets and no notes inside it.',
     'WHY: one sentence on why this wording works on a viewer, resting on the titles themselves.',
     'VIDEOS: the video ids of the videos it was drawn from, separated by commas.',
     'Do not forecast or promise views, and give no numbers of your own: Jgtube works out the counts and scores itself.',

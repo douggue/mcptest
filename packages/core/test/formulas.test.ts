@@ -133,6 +133,7 @@ describe('what is kept of the formulas an engine gave', () => {
         why: 'It promises a secret.',
         videos: [stored.get(V1), stored.get(V2), stored.get(V3)],
         videoCount: 3,
+        channelCount: 2,
         // Two of the three have a score; the third is too alone to judge.
         averageScore: 4,
         scoredCount: 2,

@@ -112,6 +112,18 @@ describe('the question for a batch of concepts', () => {
     expect(question).toMatch(/every number you quote must be one a tool returned/i);
   });
 
+  test('never lets "not made on this map" pass for "untried on YouTube"', () => {
+    expect(question).toMatch(/tools see only the channels on this map/);
+    expect(question).toMatch(/never say or imply that a subject is untried/);
+  });
+
+  test('says where a phone cuts a title, so the idea sits in the part that shows', () => {
+    expect(question).toMatch(/about the first 55 characters/);
+    expect(conceptsQuestion(CHANNEL, focus({ length: 'shorts' }))).toMatch(
+      /about the first 40 characters/,
+    );
+  });
+
   test('says the engine cannot look anything up, and that what it does not know goes under NEEDS', () => {
     expect(question).toMatch(/no access to the web/);
     expect(question).toMatch(/NEEDS: nothing only when/);

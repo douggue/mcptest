@@ -19,7 +19,15 @@ import { CAUTION_LABEL } from './tiers';
 
 const PAGE_SIZE = 8;
 
-function Card({ item }: { readonly item: BreakoutVideo }) {
+interface CardProps {
+  readonly item: BreakoutVideo;
+  /** It is among the idea lab's picks. */
+  readonly picked: boolean;
+  /** Adds it to the idea lab's inspiration, or takes it out again. */
+  readonly onPick: () => void;
+}
+
+function Card({ item, picked, onPick }: CardProps) {
   const href = watchUrl(item.videoId);
   const thumbnail = thumbnailUrl(item.videoId);
   const duration = formatDuration(item.durationSeconds);
@@ -86,6 +94,18 @@ function Card({ item }: { readonly item: BreakoutVideo }) {
             className="h-[18px] w-[18px] flex-none text-outline transition-colors group-hover:text-primary"
           />
         </div>
+        <button
+          type="button"
+          aria-pressed={picked}
+          onClick={onPick}
+          className={`self-start rounded-full px-3 py-1 text-body-sm font-semibold transition-colors ${
+            picked
+              ? 'bg-primary-container text-on-primary hover:opacity-90'
+              : 'bg-surface-container-high text-primary hover:bg-surface-container-highest'
+          }`}
+        >
+          {picked ? 'Picked as inspiration' : 'Use as inspiration'}
+        </button>
       </div>
     </article>
   );
@@ -94,10 +114,13 @@ function Card({ item }: { readonly item: BreakoutVideo }) {
 interface Props {
   readonly items: readonly BreakoutVideo[];
   readonly centerTitle: string;
+  /** The videos picked as inspiration for the idea lab, by id. */
+  readonly pickedIds: readonly string[];
+  readonly onPick: (item: BreakoutVideo) => void;
 }
 
 /** Recent videos across the map that are far above their channel's usual views. */
-export function BreakoutFeed({ items, centerTitle }: Props) {
+export function BreakoutFeed({ items, centerTitle, pickedIds, onPick }: Props) {
   const [filter, setFilter] = useState<BreakoutFilter>('all');
   const [shown, setShown] = useState(PAGE_SIZE);
   const matching = filterBreakouts(items, filter);
@@ -152,7 +175,12 @@ export function BreakoutFeed({ items, centerTitle }: Props) {
       ) : (
         <div className="flex flex-col gap-space-md">
           {matching.slice(0, shown).map((item) => (
-            <Card key={item.videoId} item={item} />
+            <Card
+              key={item.videoId}
+              item={item}
+              picked={pickedIds.includes(item.videoId)}
+              onPick={() => onPick(item)}
+            />
           ))}
           {matching.length > shown && (
             <button

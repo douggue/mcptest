@@ -152,11 +152,11 @@ async function askAndStore(
     asked.focus,
   );
   report({ step: 'reading', text: 'Reading the concepts the AI wrote' });
-  const { concepts, unread } = parseConcepts(answer.text, asked.count);
+  const { concepts, unread, problems } = parseConcepts(answer.text, asked.count);
   if (concepts.length === 0) {
     throw new Error(
       unread > 0
-        ? `The AI answered, but none of its ${unread} concepts could be read: each had a part missing or too long. Nothing was changed. Try again.`
+        ? `The AI answered, but none of its ${unread} concepts could be read. For the first, ${problems[0]}. Nothing was changed. Try again.`
         : 'The AI answered, but not with concepts in the form asked for. Nothing was changed. Try again.',
     );
   }
