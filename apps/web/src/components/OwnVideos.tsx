@@ -121,7 +121,8 @@ function Linked({ plan, actions }: { readonly plan: PlanView; readonly actions: 
         <Target aria-hidden="true" className="h-6 w-6 text-metric-amber" />
         <p className="text-body-md text-on-surface">No video is linked yet.</p>
         <p className="text-body-sm text-on-surface-variant">
-          When you publish a kept concept, link it on the left to see how it did against your usual.
+          When you publish a kept idea, link it under Link a video to see how it did against your
+          usual.
         </p>
       </Card>
     );

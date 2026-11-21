@@ -44,8 +44,8 @@ function NoAnswer({ question }: { readonly question: AnalysisId }) {
         No {titleOfQuestion(question).toLowerCase()} answer is kept for this channel yet.
       </p>
       <p className="text-body-sm text-on-surface-variant">
-        Press the button on the left. The answer comes in a minute or two, in short first, then part
-        by part.
+        Choose what to ask and press its button. The answer comes in a minute or two, in short
+        first, then part by part.
       </p>
     </Card>
   );

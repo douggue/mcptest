@@ -127,7 +127,7 @@ function Findings({ view }: { readonly view: CommentsView }) {
         <MessageSquareText aria-hidden="true" className="h-6 w-6 text-metric-amber" />
         <p className="text-body-md text-on-surface">Nothing asked yet.</p>
         <p className="text-body-sm text-on-surface-variant">
-          Choose winning videos on the left, read their comments, then press What viewers ask for.
+          Choose winning videos under Read the comments, read them, then press What viewers ask for.
         </p>
       </Card>
     );
