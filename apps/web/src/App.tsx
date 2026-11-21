@@ -1,6 +1,7 @@
 import type { CompetitorStatus, MapSnapshot, NicheChannel, SavedChannel } from '@jgtube/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Benchmarks } from './components/Benchmarks';
+import { ChangesSection } from './components/ChangesSection';
 import { BreakoutFeed } from './components/BreakoutFeed';
 import { Formulas } from './components/Formulas';
 import { HookLibrary } from './components/HookLibrary';
@@ -304,6 +305,7 @@ export function App() {
         onOpen={open}
         onDelete={(channel) => void remove(channel)}
       />
+      <ChangesSection snapshot={snapshot} reloadKey={refresh.run.status} />
       <Radar
         snapshot={visible}
         layout={layout}
