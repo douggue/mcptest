@@ -112,6 +112,25 @@ export function reportLines({ engines, order }: EngineReport): readonly string[]
   ];
 }
 
+/** Where each helper program is on this computer; null when it is not installed. */
+export interface HelperPrograms {
+  readonly ytDlp: string | null;
+  readonly ffmpeg: string | null;
+}
+
+/** Whether the two helper programs a deep breakdown uses are installed, as lines of plain text. */
+export function helperLines({ ytDlp, ffmpeg }: HelperPrograms): readonly string[] {
+  const found = (path: string | null): string => (path === null ? 'not installed' : 'found');
+  return [
+    'Helper programs for a deep channel breakdown',
+    `yt-dlp: ${found(ytDlp)}. Downloads a video so that it can be watched and its frames cut.`,
+    `ffmpeg: ${found(ffmpeg)}. Cuts one frame a second from a video file.`,
+    ...(ytDlp === null || ffmpeg === null
+      ? ['Without them a breakdown still runs, on YouTube’s own preview frames.']
+      : []),
+  ];
+}
+
 /** Why an engine is left alone, or null when it can be tried. */
 function leftAlone(status: EngineStatus): string | null {
   if (status.id === 'gemini-api') return status.installed ? null : 'no key set';

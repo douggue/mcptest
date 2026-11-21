@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { EngineRunError } from '../../src/engines/failure';
 import {
+  helperLines,
   parseEnginesArgs,
   planTrials,
   reportLines,
@@ -125,6 +126,26 @@ describe('reportLines', () => {
       '  Antigravity CLI (agy): installed, sign-in is only known once it is used. Add the line.',
       '  Gemini API (gemini-api): key set. Watches public YouTube videos with the model gemini-4-hydrogen.',
     ]);
+  });
+});
+
+describe('helperLines', () => {
+  test('says both helper programs are found when they are, and nothing more', () => {
+    expect(helperLines({ ytDlp: '/usr/bin/yt-dlp', ffmpeg: '/usr/bin/ffmpeg' })).toEqual([
+      'Helper programs for a deep channel breakdown',
+      'yt-dlp: found. Downloads a video so that it can be watched and its frames cut.',
+      'ffmpeg: found. Cuts one frame a second from a video file.',
+    ]);
+  });
+
+  test('says which is missing, and that a breakdown still runs without it', () => {
+    const lines = helperLines({ ytDlp: null, ffmpeg: '/usr/bin/ffmpeg' });
+
+    expect(lines[1]).toMatch(/^yt-dlp: not installed\./);
+    expect(lines[2]).toMatch(/^ffmpeg: found\./);
+    expect(lines.at(-1)).toBe(
+      'Without them a breakdown still runs, on YouTube’s own preview frames.',
+    );
   });
 });
 

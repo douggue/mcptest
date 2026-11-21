@@ -274,7 +274,13 @@ export { downloadVideo, type DownloadVideoOptions } from './downloads/video';
 export { builtInVideoFetcher, type VideoPlayerSource } from './downloads/builtInVideo';
 export { YT_DLP_PROGRAM, findProgram, ytDlpFetcher, type RunProgram } from './downloads/ytDlp';
 export { describeVideos, type StoredVideoLookup, type VideoFacts } from './video/facts';
-export { brandLines, thumbnailLines, transcriptLines, videoLines } from './downloads/text';
+export {
+  brandLines,
+  thumbnailLines,
+  transcriptFileLines,
+  transcriptLines,
+  videoLines,
+} from './downloads/text';
 export {
   BREAKDOWN_DEEP_VIDEOS,
   BREAKDOWN_TOP_VIDEOS,

@@ -4,6 +4,7 @@ import type { BrandImage } from '../sources/types';
 import type { TranscriptResult } from '../video/pages';
 import { clock, formatTranscript } from '../video/transcriptText';
 import type { ThumbnailDownload } from './thumbnails';
+import type { TranscriptDownload } from './transcripts';
 import type { VideoDownload, VideoRoute } from './videoFile';
 
 /**
@@ -53,6 +54,18 @@ export function thumbnailLines(result: ThumbnailDownload): readonly string[] {
     `${total} thumbnail${total === 1 ? '' : 's'} of ${sanitize(result.channelTitle)} in ${result.folder}`,
     `${result.saved} saved now, ${result.alreadyThere} already there, ${result.failed.length} could not be fetched.`,
     `What each picture is: ${result.indexFile}`,
+    ...result.failed.map((failure) => `  ${failure.videoId}: ${sanitize(failure.reason)}`),
+  ];
+}
+
+/** Where a channel's transcripts were saved, and how it went. */
+export function transcriptFileLines(result: TranscriptDownload): readonly string[] {
+  const total = result.saved.length;
+  return [
+    `${total} transcript${total === 1 ? '' : 's'} of ${sanitize(result.channelTitle)} in ${result.folder}`,
+    `${result.noCaptions.length} of its videos that took off have no captions, ${result.failed.length} could not be read.`,
+    `What each file is: ${result.indexFile}`,
+    ...result.noCaptions.map((video) => `  ${video.videoId}: no captions`),
     ...result.failed.map((failure) => `  ${failure.videoId}: ${sanitize(failure.reason)}`),
   ];
 }

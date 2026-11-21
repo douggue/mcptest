@@ -5,7 +5,7 @@
  * With `-- --try --video <file>` Antigravity is also given a video file to
  * watch, and with `-- --try --youtube <link>` a YouTube link.
  */
-import { loadConfig } from '@jgtube/core';
+import { FFMPEG_PROGRAM, YT_DLP_PROGRAM, findProgram, loadConfig } from '@jgtube/core';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -17,6 +17,7 @@ import { EngineRunError } from './engines/failure';
 import { askGemini } from './engines/geminiVideo';
 import { spawnProcess } from './engines/process';
 import {
+  helperLines,
   parseEnginesArgs,
   planTrials,
   reportLines,
@@ -88,6 +89,11 @@ async function main(): Promise<void> {
   const engines = await checkEngines(createEngines(settings, SERVER_NAME), settings, deps);
   const report = { engines, order: settings.order };
   reportLines(report).forEach(print);
+  print('');
+  helperLines({
+    ytDlp: await findProgram(YT_DLP_PROGRAM),
+    ffmpeg: await findProgram(FFMPEG_PROGRAM),
+  }).forEach(print);
   if (!command.try) {
     print('');
     print(
