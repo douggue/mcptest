@@ -85,6 +85,9 @@ packages/
                   and the marker lines a ready prompt is lifted out by
     discovery/    keyword search into the store
     refresh/      re-reading the stalest channels
+    changes/      what changed among a map's look-alikes since an earlier moment, from
+                  stored readings (the store as it was then, judged by today's rules)
+    extras.ts     the later features' exports, named once by index.ts
     db/           SQLite connection and migrations
     repos/        channels, videos, edges, maps, watchlist, refresh runs
     ingest.ts     reads one channel into the store
@@ -127,6 +130,11 @@ packages/
                   the settings screen: the `.env` file read and written with the
                   configuration's own rules, keys never sent back, and the few
                   settings that change without a restart
+    extrasSetup.ts, extrasTypes.ts, extrasRoutes.ts
+                  the later features, registered in one line each in engine.ts
+                  (`extras`) and app.ts (`extraRoutes`); each has its own
+                  `<feature>Engine.ts` and `<feature>Routes.ts`:
+                  changes (what changed since the last look)
     engines/      the engine interface; Claude Code, Codex CLI and Antigravity CLI
                   behind it; trying them in order; watching a video (Antigravity on a
                   file, the Gemini API on a link); starting programs safely on Windows

@@ -318,6 +318,14 @@ CREATE TABLE IF NOT EXISTS owner_places (
   set_at             TEXT NOT NULL
 );
 `,
+  // 17: when the owner last marked a channel's "what changed" as seen, one row per centre
+  //     channel. It refers to no other table and needs nothing a later step adds.
+  `
+CREATE TABLE IF NOT EXISTS channel_looks (
+  center_channel_id  TEXT PRIMARY KEY,
+  seen_at            TEXT NOT NULL
+);
+`,
 ];
 
 /** The number of the newest step: what `user_version` reads in a store that is up to date. */

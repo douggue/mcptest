@@ -100,6 +100,9 @@ new run replaces a row. Like `video_studies` it refers to no other table.
 `owner_places` (step 16) holds the place the owner chose for a channel of
 theirs, one row per centre channel: `center_channel_id`, `place_key` (a key of
 the place list) and `set_at`. It refers to no other table.
+`channel_looks` (step 16) holds when the owner last marked a channel's "what
+changed" as seen: `center_channel_id` (primary key) and `seen_at`. It refers to
+no other table. See "What changed since you last looked".
 
 ### Keeping the store safe
 
@@ -1078,6 +1081,45 @@ growth: { views, days, since } | null
 ```
 
 Not built: a views-per-day chart, and using the readings to calibrate the age ramp.
+
+### What changed since you last looked
+
+Built (`packages/core/src/changes/`, `packages/server/src/changesEngine.ts`,
+`changesRoutes.ts`, `apps/web/src/lib/changes.ts`, `components/WhatChanged.tsx`).
+For one centre channel and the look-alikes of its latest map (the filter's and
+the owner's kept ones, less removed), worked out in code from stored readings;
+no AI and no request to YouTube.
+
+The earlier state is the store as it was at the earlier moment (`videosAsOf`):
+each video with the views of its latest reading at or before then; a video with
+no reading by then was not stored then. Both states are judged by the same
+rules as the page: a breakout is a video of the last 30 days at 2× its channel's
+usual views or more (`DEFAULT_BREAKOUT_WINDOW_DAYS`, `DEFAULT_MIN_BREAKOUT_SCORE`),
+and a channel's group (taken off, rising, neither) is `channelMetrics`'. The
+subscriber count is the latest in both states, since no history of it is kept.
+
+| Finding                  | Rule                                                                                                                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| New breakout             | A breakout now that was not one then: either below the bar then (its views and score then are shown) or not stored then. Strongest first, 12 shown, the count always given (`CHANGES_BREAKOUTS_SHOWN`) |
+| Newly taken off / rising | The channel's group now differs from its group then                                                                                                                                                    |
+| Dropped out              | Taken off or rising then, neither now                                                                                                                                                                  |
+| Look-alikes new or gone  | The peer list of the latest map against that of the map that was latest then; only when both are stored in the current form, else the reason is said                                                   |
+| Title formats newly seen | A wording (found as the transfer list finds formats) shared by 2 or more breakouts now (`CHANGES_FORMAT_MIN_BREAKOUTS`), not shared by 2 then, and including at least one new breakout; 6 shown        |
+
+A look-alike with no reading by the earlier moment cannot be compared: nothing of
+it is called new, and the section says how many there were.
+
+The earlier moment is one of `last-look` (stored per centre channel in
+`channel_looks`, step 16; moved to now by `POST /api/changes/seen {channel}`),
+`yesterday` (24 hours back) or `week` (7 days back). With no last look stored,
+`last-look` is answered for a week and the reply says so.
+
+`GET /api/changes?channel=UC…&since=last-look|yesterday|week` answers
+`{centerChannelId, since, now, asked, sinceKind, lastLookAt, changes, lookalikes,
+freshness}`, 404 when the channel has no map. `freshness` is when the look-alike
+read longest ago and the one read most recently were read, and when the last
+refresh finished; the page calls the data stale when any look-alike was read more
+than 24 hours ago and links to the existing "Refresh now".
 
 ### Exact channel dates
 

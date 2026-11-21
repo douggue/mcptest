@@ -59,6 +59,7 @@ import {
   type PlayerSource,
 } from './connection';
 import { downloads } from './downloadEngine';
+import { extras } from './extrasSetup';
 import { cleanMessage } from './jobs';
 import { lab } from './labSetup';
 import { logos } from './logoEngine';
@@ -461,6 +462,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       // Read at each use: the owner can change it from the settings screen while Jgtube runs.
       markFacts: () => config.markFacts !== false,
     }),
+    extras: extras({ db: wiring.db, now: wiring.now, repos: wiring.repos }),
     analyse: asking.analyse,
     watchVideo: asking.watchVideo,
     engineStatus: asking.engineStatus,

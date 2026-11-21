@@ -17,7 +17,7 @@ import {
 import { createApp, type CrawlOutcome, type Engine } from '../src/app';
 import { createEngine } from '../src/engine';
 import { JobStore } from '../src/jobs';
-import { UNUSED_LAB } from './support';
+import { UNUSED_EXTRAS, UNUSED_LAB } from './support';
 
 const CHANNEL_ID = 'UCHnyfMqiRRG1u-2MsSQLbXA';
 const HOST = '127.0.0.1:4317';
@@ -73,6 +73,7 @@ class FakeEngine implements Engine {
   canReadCountries = (): boolean => false;
   readCountries = this.missingLogos;
   setOwnerPlace = this.missingLogos;
+  extras = UNUSED_EXTRAS;
   nicheReads = 0;
   /** The channels the fake store holds, for the watchlist. */
   known: readonly string[] = [CHANNEL_ID];

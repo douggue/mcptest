@@ -101,6 +101,17 @@ compiler:
   YouTube. Looking up a new channel never removes an earlier one. The small cross
   on a channel deletes it and its map, after asking you; the videos Jgtube read
   stay, because the niche list and the transfer ideas use them.
+- **What changed** (just under your channels): for the channel on screen, what
+  is new among the channels like it since you last looked: videos that newly
+  broke out (with their pictures and links, and what they were before), channels
+  that newly count as taken off or rising or dropped out, channels new on the map
+  or gone from it, and title wordings that several new winners share. Press
+  **Mark as seen** when you have read it; next time it shows only what came
+  after. You can also look at **Since yesterday** or **Since 7 days**. When
+  nothing changed it says so in one line. It works only from what Jgtube has
+  already read, so it is only as fresh as the last refresh; the line at its foot
+  says when these channels were last read, with a link to **Refresh now**. No AI
+  is used.
 - **The radar** shows the channels around yours. **Like yours** is the filtered
   list; **Everything** is every channel that was read. Click a channel for
   details. You can remove one that is not a competitor, or keep one the filter
