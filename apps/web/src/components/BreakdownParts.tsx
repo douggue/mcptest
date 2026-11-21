@@ -1,4 +1,4 @@
-import { ChevronRight, Copy, Download } from 'lucide-react';
+import { Copy, Download } from 'lucide-react';
 import { useState } from 'react';
 import {
   attachmentOf,
@@ -13,13 +13,16 @@ import {
   type PartAttachment,
 } from '../lib/breakdownParts';
 import type { NamedVideo } from '../lib/videoRefs';
-import { Answer } from './Answer';
+import { leadOf } from '../lib/longAnswer';
 import { BreakdownUses } from './BreakdownUses';
+import { Card, Label } from './layout/Card';
+import { Details } from './layout/Details';
+import { ViewHeader } from './layout/ViewHeader';
+import { QUIET_BUTTON } from './LabStatus';
+import { LongAnswer } from './LongAnswer';
 import { useNamedVideos } from './useAnswers';
 import type { BreakdownChannel } from './useBreakdown';
 
-const BUTTON =
-  'self-start rounded-full bg-on-surface px-4 py-1.5 text-body-sm font-semibold text-space-deep transition-all hover:bg-white disabled:cursor-not-allowed disabled:opacity-60';
 const SMALL_BUTTON =
   'flex flex-none items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-2 text-label-caps text-on-surface transition-colors hover:bg-surface-variant disabled:cursor-not-allowed disabled:opacity-60';
 
@@ -75,8 +78,8 @@ function Actions({ channelId, attachment }: ActionsProps) {
 /** A ready prompt as it stands, to read, copy and download; or why there is none. */
 function PromptBox({ channelId, attachment }: ActionsProps) {
   return (
-    <div className="flex min-w-0 flex-col gap-2 rounded bg-space-deep p-space-md">
-      <h4 className="text-label-caps uppercase text-primary">The {attachment.label}</h4>
+    <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-border-subtle bg-space-deep p-space-md">
+      <Label>The {attachment.label}</Label>
       {attachment.text === null ? (
         <p className="break-words text-body-sm text-error">{attachment.problem}</p>
       ) : (
@@ -96,40 +99,42 @@ interface PartProps {
   readonly videos: readonly NamedVideo[];
 }
 
-/** One part, closed until it is opened: its title, who wrote it, then its text. */
-function Part({ view, part, videos }: PartProps) {
+/** What a written part holds, behind its disclosure: copy and download, its sections, its prompt. */
+function PartBody({ view, part, videos }: PartProps) {
   const attachment = attachmentOf(view, part.id);
-  const written = part.state === 'written';
   return (
-    <details className="group min-w-0 rounded bg-surface-card shadow-md">
-      <summary className="flex cursor-pointer list-none items-center gap-space-sm rounded p-space-md focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container [&::-webkit-details-marker]:hidden">
-        <ChevronRight
-          aria-hidden="true"
-          className="h-4 w-4 flex-none text-outline transition-transform group-open:rotate-90"
-        />
-        <span className="flex min-w-0 flex-col">
-          <span className="text-title-md text-on-surface">{part.title}</span>
-          <span className={`break-words text-body-sm ${written ? 'text-outline' : 'text-error'}`}>
-            {partNote(part)}
-          </span>
-        </span>
-      </summary>
-      {written && (
-        <div className="flex min-w-0 flex-col gap-space-sm pb-space-md">
-          {attachment?.inBody && (
-            <div className="px-space-lg">
-              <Actions channelId={view.channel.id} attachment={attachment} />
-            </div>
-          )}
-          {part.body !== '' && <Answer text={part.body} videos={videos} />}
-          {attachment && !attachment.inBody && (
-            <div className="px-space-lg">
-              <PromptBox channelId={view.channel.id} attachment={attachment} />
-            </div>
-          )}
-        </div>
+    <>
+      {attachment?.inBody && <Actions channelId={view.channel.id} attachment={attachment} />}
+      {part.body !== '' && <LongAnswer text={part.body} videos={videos} leadShown />}
+      {attachment && !attachment.inBody && (
+        <PromptBox channelId={view.channel.id} attachment={attachment} />
       )}
-    </details>
+    </>
+  );
+}
+
+/** One part on a card: its title, who wrote it, its opening line, and the rest closed until opened. */
+function Part(props: PartProps) {
+  const { part } = props;
+  const written = part.state === 'written';
+  const lead = written ? leadOf(part.body) : null;
+  return (
+    <Card as="li">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <h3 className="break-words text-title-md font-semibold text-on-surface">{part.title}</h3>
+        <p className={`break-words text-body-sm ${written ? 'text-outline' : 'text-error'}`}>
+          {partNote(part)}
+        </p>
+      </div>
+      {lead !== null && (
+        <p className="line-clamp-3 break-words text-body-md text-on-surface-variant">{lead}</p>
+      )}
+      {written && (
+        <Details summary="Read the part">
+          <PartBody {...props} />
+        </Details>
+      )}
+    </Card>
   );
 }
 
@@ -143,13 +148,51 @@ interface Props {
   readonly onRun: (channel: BreakdownChannel, fresh: boolean) => void;
 }
 
+/** The quiet buttons at the top of a breakdown: run it again, fill its gaps, download it whole. */
+function HeaderActions({ view, busy, onRun }: Omit<Props, 'notSaved'>) {
+  const { channel } = view;
+  const whole = view.files.find((file) => file.id === 'whole');
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => onRun(channel, true)}
+        disabled={busy}
+        className={QUIET_BUTTON}
+      >
+        Run again
+      </button>
+      {hasGaps(view) && (
+        <button
+          type="button"
+          onClick={() => onRun(channel, false)}
+          disabled={busy}
+          className={QUIET_BUTTON}
+        >
+          Write the missing parts
+        </button>
+      )}
+      {whole?.available && (
+        <a
+          href={textUrl(channel.id, whole.name)}
+          download={whole.name}
+          className={`flex items-center gap-1.5 ${QUIET_BUTTON}`}
+        >
+          <Download aria-hidden="true" className="h-4 w-4" />
+          Download the whole breakdown
+        </a>
+      )}
+    </>
+  );
+}
+
 /**
- * A stored breakdown: when it was written, the control to run it again, its
- * parts as sections that open, and where its text files are.
+ * A stored breakdown: when it was written and the quiet controls to run it
+ * again, where it can be used, then each part as a card with its opening
+ * line, the rest behind "Read the part".
  */
 export function BreakdownParts({ view, notSaved, busy, onRun }: Props) {
   const { channel } = view;
-  const whole = view.files.find((file) => file.id === 'whole');
   // The channel broken down may be on no map; its own stored videos are looked up with it.
   const videos = useNamedVideos(
     channel.id,
@@ -157,53 +200,33 @@ export function BreakdownParts({ view, notSaved, busy, onRun }: Props) {
     channel.id,
   );
   return (
-    <div className="flex min-w-0 flex-col gap-space-sm">
-      <div className="flex min-w-0 flex-col gap-2">
-        <h3 className="break-words text-title-md text-on-surface">
-          Channel breakdown: {channel.title}
-        </h3>
-        <p className="text-body-sm text-on-surface-variant">{writtenLine(view)}</p>
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onRun(channel, true)}
-            disabled={busy}
-            className={BUTTON}
-          >
-            Run again
-          </button>
-          {hasGaps(view) && (
-            <button
-              type="button"
-              onClick={() => onRun(channel, false)}
-              disabled={busy}
-              className={SMALL_BUTTON}
-            >
-              Write the missing parts
-            </button>
-          )}
-          {whole?.available && (
-            <a
-              href={textUrl(channel.id, whole.name)}
-              download={whole.name}
-              className={SMALL_BUTTON}
-            >
-              <Download aria-hidden="true" className="h-3.5 w-3.5" />
-              Download the whole breakdown
-            </a>
-          )}
-        </div>
+    <div className="flex min-w-0 flex-col gap-space-lg">
+      <ViewHeader
+        title={`Channel breakdown: ${channel.title}`}
+        lead={writtenLine(view)}
+        actions={<HeaderActions view={view} busy={busy} onRun={onRun} />}
+      />
+      <p className="text-body-sm text-metric-amber">
+        An AI wrote these parts and can be wrong: check every fact before you publish.
+      </p>
+      <Card>
+        <Label>Use this breakdown</Label>
         <BreakdownUses view={view} />
-        <p className="text-body-sm text-outline">
-          “Run again” studies the videos and writes every part again, which takes as long as the
-          first time. Check every fact in it before you publish: an AI wrote these parts, and it can
-          be wrong.
-        </p>
-      </div>
-      {view.parts.map((part) => (
-        <Part key={part.id} view={view} part={part} videos={videos} />
-      ))}
-      <p className="break-words text-body-sm text-outline">{savedLine(view, notSaved)}</p>
+        <Details summary="How this works">
+          <p className="text-body-sm text-on-surface-variant">
+            &ldquo;Run again&rdquo; studies the videos and writes every part again, which takes as
+            long as the first time.
+          </p>
+          <p className="break-words text-body-sm text-on-surface-variant">
+            {savedLine(view, notSaved)}
+          </p>
+        </Details>
+      </Card>
+      <ol className="flex min-w-0 flex-col gap-space-md">
+        {view.parts.map((part) => (
+          <Part key={part.id} view={view} part={part} videos={videos} />
+        ))}
+      </ol>
     </div>
   );
 }

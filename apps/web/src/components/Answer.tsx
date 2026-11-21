@@ -20,7 +20,7 @@ interface BlockProps {
  * One block of an answer: a labelled row, a list item or a paragraph, shown
  * as text only, with the thumbnails of the stored videos it names beneath.
  */
-function Block({ block, known }: BlockProps) {
+export function Block({ block, known }: BlockProps) {
   const { text, videos } = pointOf(block.text, known);
   if (block.kind === 'field') {
     const lines = block.label === TITLE_LABEL ? text.split(' / ') : [text];

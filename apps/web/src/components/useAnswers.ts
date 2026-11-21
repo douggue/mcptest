@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ANALYSIS_OPTIONS, latestKept, type KeptAnswer } from '../lib/analyses';
+import { ANALYSIS_OPTIONS, keptOnly, type KeptAnswer } from '../lib/analyses';
 import { createAnswersApi, type AnswersApi } from '../lib/answersApi';
 import { namedIds, type NamedVideo } from '../lib/videoRefs';
 
@@ -7,15 +7,16 @@ import { namedIds, type NamedVideo } from '../lib/videoRefs';
 export const answersApi: AnswersApi = createAnswersApi();
 
 /**
- * The answer kept most recently for the channel on screen, read again when
- * `version` changes (after a new answer is given). Null while reading, when
- * none is kept, or when the server cannot say: the buttons still work.
+ * The answers kept for the channel on screen, one at most per analysis, read
+ * again when `version` changes (after a new answer is given). Empty while
+ * reading, when none is kept, or when the server cannot say: the buttons
+ * still work.
  */
-export function useKeptAnswer(centerId: string, version: number): KeptAnswer | null {
-  const [kept, setKept] = useState<KeptAnswer | null>(null);
+export function useKeptAnswers(centerId: string, version: number): readonly KeptAnswer[] {
+  const [kept, setKept] = useState<readonly KeptAnswer[]>([]);
   useEffect(() => {
     let current = true;
-    setKept(null);
+    setKept([]);
     Promise.all(
       ANALYSIS_OPTIONS.map(async ({ id }) => ({
         analysis: id,
@@ -23,7 +24,7 @@ export function useKeptAnswer(centerId: string, version: number): KeptAnswer | n
       })),
     )
       .then((entries) => {
-        if (current) setKept(latestKept(entries));
+        if (current) setKept(keptOnly(entries));
       })
       .catch(() => undefined);
     return () => {

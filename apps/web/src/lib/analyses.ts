@@ -290,6 +290,12 @@ export interface KeptAnswer {
 const timeOf = (answer: AnalysisAnswer): number =>
   answer.writtenAt === null ? Number.NaN : new Date(answer.writtenAt).getTime();
 
+/** The answers that are kept, each with its analysis; an analysis with none is left out. */
+export const keptOnly = (
+  entries: readonly { readonly analysis: AnalysisId; readonly answer: AnalysisAnswer | null }[],
+): readonly KeptAnswer[] =>
+  entries.flatMap(({ analysis, answer }) => (answer === null ? [] : [{ analysis, answer }]));
+
 /** Of the answers kept for a channel, the one written last; null when none has a time. */
 export function latestKept(
   entries: readonly { readonly analysis: AnalysisId; readonly answer: AnalysisAnswer | null }[],
