@@ -13,7 +13,7 @@
  */
 export const LIFT_MIN_WORDS = 6;
 
-const wordsOf = (text: string): readonly string[] =>
+export const wordsOf = (text: string): readonly string[] =>
   text
     .toLowerCase()
     .split(/[^\p{L}\p{N}]+/u)

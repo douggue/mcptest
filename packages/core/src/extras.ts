@@ -135,3 +135,23 @@ export {
   type FetchedComment,
 } from './sources/commentsApi';
 export { ApiRefusal } from './sources/dataApi';
+export {
+  CLAIM_PLACES,
+  parseRiskAnswer,
+  verifyRiskAnswer,
+  type ClaimPlace,
+  type OverlapNote,
+  type Packaging,
+  type RiskAnswer,
+  type RiskClaim,
+} from './risk/claims';
+export {
+  riskFacts,
+  scriptedConcepts,
+  type RiskDeps,
+  type RiskFacts,
+  type RiskLookup,
+} from './risk/load';
+export { scriptOverlaps, scriptSentences, type Overlap, type StoredText } from './risk/overlap';
+export type { RiskRepo, StoredRiskCheck } from './risk/store';
+export { SqliteRiskRepo } from './repos/sqliteRiskRepo';
