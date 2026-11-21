@@ -10,6 +10,8 @@ import {
   connectionCheck,
   enginesFor,
   frameStudyRequest,
+  pictureEngines,
+  picturesNeeded,
   type AnalysisId,
   type AnalysisSettings,
 } from '../src/analyses';
@@ -131,8 +133,63 @@ describe('the analyses on offer', () => {
 
     const seeing = ['thumbnails', 'breakdown-thumbnails', 'concept-thumbnail'];
     expect(ANALYSIS_IDS.filter(looks)).toEqual(seeing);
-    expect(ANALYSIS_IDS.filter((id) => ANALYSES[id].engines !== undefined)).toEqual(seeing);
+    expect(ANALYSIS_IDS.filter((id) => ANALYSES[id].pictures === true)).toEqual(seeing);
     expect(PICTURE_ENGINES).toEqual(['claude', 'codex']);
+  });
+
+  test('only the thumbnail review and the thumbnail prompt can hand their pictures over as files', () => {
+    expect(ANALYSIS_IDS.filter((id) => ANALYSES[id].filesRoute !== undefined)).toEqual([
+      'thumbnails',
+      'concept-thumbnail',
+    ]);
+  });
+});
+
+describe('pictureEngines', () => {
+  test('is Claude Code and Codex always, then any engine that passed the picture check', () => {
+    expect(pictureEngines([])).toEqual(['claude', 'codex']);
+    expect(pictureEngines(['agy'])).toEqual(['claude', 'codex', 'agy']);
+    expect(pictureEngines(['codex'])).toEqual(['claude', 'codex']);
+  });
+});
+
+describe('picture questions shown as files', () => {
+  const files = {
+    files: [{ name: 'thumb-aaaaaaaaaaa.jpg', bytes: new Uint8Array([1]) }],
+    listing: 'your own: @thumb-aaaaaaaaaaa.jpg',
+  };
+
+  test('hands the files, names them by @ in the question and leaves out the picture tool', () => {
+    // Act
+    const request = analysisRequest('thumbnails', CHANNEL_ID, settings, undefined, files);
+
+    // Assert
+    expect(request.files).toEqual(files.files);
+    expect(request.prompt).toContain('@thumb-aaaaaaaaaaa.jpg');
+    expect(request.prompt).not.toContain('view_thumbnails');
+    expect(request.allowedTools).toEqual([
+      'mcp__jgtube__get_map',
+      'mcp__jgtube__get_thumbnail_board',
+    ]);
+  });
+
+  test('the thumbnail prompt question takes the same route', () => {
+    const focus = FOCUS['concept-thumbnail'];
+    const request = analysisRequest('concept-thumbnail', CHANNEL_ID, settings, focus, files);
+    expect(request.prompt).toContain('@thumb-aaaaaaaaaaa.jpg');
+    expect(request.prompt).toContain('between "thumb-" and ".jpg"');
+    expect(request.allowedTools).not.toContain('mcp__jgtube__view_thumbnails');
+  });
+
+  test('is refused for a picture question with no files route', () => {
+    const focus = { kind: 'breakdown', videos: [], frames: [] } as unknown as QuestionFocus;
+    expect(() =>
+      analysisRequest('breakdown-thumbnails', CHANNEL_ID, settings, focus, files),
+    ).toThrow(/cannot be shown its pictures as files/);
+  });
+
+  test('a request without files has none', () => {
+    expect(analysisRequest('thumbnails', CHANNEL_ID, settings).files).toBeUndefined();
   });
 });
 
@@ -314,6 +371,20 @@ describe('enginesFor', () => {
   test('never names an engine the owner’s settings leave out', () => {
     expect(enginesFor('thumbnails', ['agy', 'codex'])).toEqual(['codex']);
     expect(enginesFor('thumbnails', ['agy'])).toEqual([]);
+  });
+
+  test('lets an engine that passed the picture check answer the questions that can hand it files', () => {
+    expect(enginesFor('thumbnails', ['agy', 'claude'], ['agy'])).toEqual(['agy', 'claude']);
+    expect(enginesFor('concept-thumbnail', ['agy'], ['agy'])).toEqual(['agy']);
+    // A study of a breakdown's thumbnails has no files route yet: it stays with the other two.
+    expect(enginesFor('breakdown-thumbnails', ['agy', 'codex'], ['agy'])).toEqual(['codex']);
+    expect(enginesFor('topics', ['agy'], [])).toEqual(['agy']);
+  });
+
+  test('names the engines a picture question needs, and none for other questions', () => {
+    expect(picturesNeeded('thumbnails', ['agy'])).toEqual(['claude', 'codex', 'agy']);
+    expect(picturesNeeded('breakdown-thumbnails', ['agy'])).toEqual(['claude', 'codex']);
+    expect(picturesNeeded('topics', ['agy'])).toBeNull();
   });
 });
 

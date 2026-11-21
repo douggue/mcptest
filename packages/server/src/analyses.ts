@@ -39,6 +39,12 @@ import { EXTRA_ANALYSIS_IDS, extraAnalyses, type ExtrasAnalysisId } from './extr
 import type { EngineId, EngineRunRequest, McpServerSpec } from './engines/types';
 import { LAB_ANALYSIS_IDS, LAB_SPECS, type LabAnalysisId } from './labAnalyses';
 import { breakdownFocusOf, type QuestionFocus } from './questionFocus';
+import {
+  filesLook,
+  type FilesRoute,
+  type PictureFileSet,
+  type PictureLook,
+} from './thumbnailFiles';
 
 /** The analyses answered in one press, while the page waits. */
 export const QUICK_ANALYSIS_IDS = ['thumbnails', 'topics', 'near-misses'] as const;
@@ -73,11 +79,18 @@ export interface AnalysisSpec {
    */
   readonly question: (channel: string, focus?: QuestionFocus) => string;
   /**
-   * The engines that may answer, when the analysis cannot be left to every
-   * engine. They are tried in the owner's order, and an engine the owner's
-   * settings leave out is still never used.
+   * Whether it looks at pictures. Then only Claude Code and Codex, which see
+   * the pictures a tool returns, may answer, and an engine that passed the
+   * picture check too when the question has a files route below. They are
+   * tried in the owner's order, and an engine the settings leave out is never used.
    */
-  readonly engines?: readonly EngineId[];
+  readonly pictures?: boolean;
+  /**
+   * The question for an engine shown the pictures as files in its folder
+   * (`files.listing` names them), with the tools it may use then. Only a
+   * question with this may go to an engine that passed the picture check.
+   */
+  readonly filesRoute?: FilesRoute;
 }
 
 export interface AnalysisSettings {
@@ -106,6 +119,15 @@ const CHECK_MAX_TURNS = 4;
 
 /** The engines known to see the pictures a tool returns; see the thumbnail review. */
 export const PICTURE_ENGINES: readonly EngineId[] = ['claude', 'codex'];
+
+/** The engines that see pictures: Claude Code and Codex always, then any that passed the picture check. */
+export const pictureEngines = (passed: readonly EngineId[]): readonly EngineId[] => [
+  ...PICTURE_ENGINES,
+  ...passed.filter((engine) => !PICTURE_ENGINES.includes(engine)),
+];
+
+/** Whether an engine is shown a question's pictures as files rather than as a tool's results. */
+export const seesFiles = (engine: EngineId): boolean => !PICTURE_ENGINES.includes(engine);
 
 const SYSTEM_PROMPT = [
   'You are an analyst working for the owner of a small faceless YouTube channel.',
@@ -140,13 +162,33 @@ export function thumbnailPromptRule(lead: string): string {
   ].join(' ');
 }
 
+const TOOL_LOOK: PictureLook = {
+  look: "Look at the pictures with view_thumbnails, in at most three calls: the owner's own videos; two winners and two ordinary thumbnails from the model channel and from each of the three closest look-alikes; and winners from up to four other look-alike channels, choosing ones whose winners might look different.",
+  ids: 'The id of each thumbnail is the one view_thumbnails names above its picture.',
+};
+
+function thumbnailReviewQuestion(channel: string, { look, ids }: PictureLook): string {
+  return [
+    `For the channel ${channel}: call get_map to learn which channel is the owner's model, if there is one, and which look-alikes match most closely. Then call get_thumbnail_board.`,
+    look,
+    "Find every thumbnail style that is winning on these channels. The owner is open to a new style when it wins on channels in the same niche or format, so do not assume that the owner's style or the model's is the right one.",
+    "Write five sections: HOW MANY I LOOKED AT (the number of thumbnails and the channels they came from), WINNING STYLES (for each style: what it looks like, the channels and videos it is seen in, and whether those channels' ordinary thumbnails look different; when a channel's winners and ordinary thumbnails look the same, say that the topic, not the thumbnail, made the difference there), WHAT YOURS DO DIFFERENTLY, THREE THINGS TO TEST NEXT (specific: example wording of four words or fewer, what to show, colours, layout; at least one must be a style the owner does not use yet), and ONE THUMBNAIL TO MODEL (which video and why).",
+    VIDEO_REF_RULE,
+    `Write each style, each difference and each thing to test as a list item of its own, with the markers of the thumbnails it rests on at its end: the winners that show it, an ordinary thumbnail it is set against, and the owner's own where the point is about theirs. ${ids}`,
+    'Describe only what you can see, and do not generalise beyond the thumbnails you looked at. At most 450 words, the prompt not counted.',
+    thumbnailPromptRule(
+      'After the five sections, end with one ready prompt for an image tool: a thumbnail in the winning style you would have the owner test first, with the improvements for the owner built in.',
+    ),
+  ].join(' ');
+}
+
 /** One of the idea lab's questions, with its tools under the names an engine knows them by. */
 function lab(id: LabAnalysisId): AnalysisSpec {
-  const { tools, pictures, ...spec } = LAB_SPECS[id];
+  const { tools, filesRoute, ...spec } = LAB_SPECS[id];
   return {
     ...spec,
     allowedTools: tools.map(tool),
-    ...(pictures ? { engines: PICTURE_ENGINES } : {}),
+    ...(filesRoute ? { filesRoute: { ...filesRoute, tools: filesRoute.tools.map(tool) } } : {}),
   };
 }
 
@@ -157,23 +199,15 @@ const QUICK_ANALYSES: Readonly<Record<QuickAnalysisId, AnalysisSpec>> = {
       'Looks at the thumbnails that took off on channels like yours, and at yours, names the styles that are winning and says what to test.',
     allowedTools: [tool('get_map'), tool('get_thumbnail_board'), tool('view_thumbnails')],
     maxTurns: 12,
-    // The pictures reach the engine as tool results. Claude Code is known to see
-    // them and Codex documents that it does; nothing says Antigravity passes a
-    // tool's pictures on, and a review written without seeing them would be invented.
-    engines: PICTURE_ENGINES,
-    question: (channel) =>
-      [
-        `For the channel ${channel}: call get_map to learn which channel is the owner's model, if there is one, and which look-alikes match most closely. Then call get_thumbnail_board.`,
-        "Look at the pictures with view_thumbnails, in at most three calls: the owner's own videos; two winners and two ordinary thumbnails from the model channel and from each of the three closest look-alikes; and winners from up to four other look-alike channels, choosing ones whose winners might look different.",
-        "Find every thumbnail style that is winning on these channels. The owner is open to a new style when it wins on channels in the same niche or format, so do not assume that the owner's style or the model's is the right one.",
-        "Write five sections: HOW MANY I LOOKED AT (the number of thumbnails and the channels they came from), WINNING STYLES (for each style: what it looks like, the channels and videos it is seen in, and whether those channels' ordinary thumbnails look different; when a channel's winners and ordinary thumbnails look the same, say that the topic, not the thumbnail, made the difference there), WHAT YOURS DO DIFFERENTLY, THREE THINGS TO TEST NEXT (specific: example wording of four words or fewer, what to show, colours, layout; at least one must be a style the owner does not use yet), and ONE THUMBNAIL TO MODEL (which video and why).",
-        VIDEO_REF_RULE,
-        "Write each style, each difference and each thing to test as a list item of its own, with the markers of the thumbnails it rests on at its end: the winners that show it, an ordinary thumbnail it is set against, and the owner's own where the point is about theirs. The id of each thumbnail is the one view_thumbnails names above its picture.",
-        'Describe only what you can see, and do not generalise beyond the thumbnails you looked at. At most 450 words, the prompt not counted.',
-        thumbnailPromptRule(
-          'After the five sections, end with one ready prompt for an image tool: a thumbnail in the winning style you would have the owner test first, with the improvements for the owner built in.',
-        ),
-      ].join(' '),
+    // The pictures reach Claude Code and Codex as tool results, and Antigravity,
+    // once it has passed the picture check, as files: its CLI passes on only a
+    // tool's text. A review written without seeing them would be invented.
+    pictures: true,
+    filesRoute: {
+      tools: [tool('get_map'), tool('get_thumbnail_board')],
+      question: (channel, files) => thumbnailReviewQuestion(channel, filesLook(files)),
+    },
+    question: (channel) => thumbnailReviewQuestion(channel, TOOL_LOOK),
   },
   topics: {
     title: 'Video ideas',
@@ -224,7 +258,7 @@ function partAnalysis(part: BreakdownWrittenPart): AnalysisSpec {
     maxTurns: spec.maxTurns,
     timeoutMs: spec.timeoutMs,
     // Pictures reach an engine as a tool's results; see the thumbnail review.
-    ...(spec.pictures ? { engines: PICTURE_ENGINES } : {}),
+    ...(spec.pictures ? { pictures: true } : {}),
     question: (channel, focus) => spec.question(channel, breakdownFocusOf(focus)),
   };
 }
@@ -290,16 +324,25 @@ export function analysisRequest(
   channel: string,
   settings: AnalysisSettings,
   focus?: QuestionFocus,
+  /** The pictures as files, for an engine shown them that way; the question's files route is then used. */
+  files?: PictureFileSet,
 ): EngineRunRequest {
   const spec = specOf(id);
+  const route = files === undefined ? undefined : spec.filesRoute;
+  if (files !== undefined && route === undefined) {
+    throw new Error(`${spec.title} cannot be shown its pictures as files`);
+  }
+  const allowedTools = route?.tools ?? spec.allowedTools;
+  const fixed = fixedForm(channel);
   return {
-    prompt: spec.question(fixedForm(channel), focus),
+    prompt: route && files ? route.question(fixed, files, focus) : spec.question(fixed, focus),
     systemPrompt: spec.systemPrompt ?? SYSTEM_PROMPT,
-    mcpServers: { [SERVER_NAME]: connectorServer(settings, spec.allowedTools) },
-    allowedTools: spec.allowedTools,
+    mcpServers: { [SERVER_NAME]: connectorServer(settings, allowedTools) },
+    allowedTools,
     maxTurns: spec.maxTurns,
     timeoutMs: spec.timeoutMs ?? TIMEOUT_MS,
     cwd: settings.workDir,
+    ...(files ? { files: files.files } : {}),
   };
 }
 
@@ -324,12 +367,27 @@ export function frameStudyRequest(videoId: string, settings: AnalysisSettings): 
 }
 
 /**
- * The engines to try for an analysis, in the owner's order: all of them, or
- * only those the analysis names when it cannot be left to every engine.
+ * The engines to try for an analysis, in the owner's order: all of them, or,
+ * for a picture question, those that see pictures: Claude Code and Codex, and
+ * an engine in `passed` (its last picture check passed) when the question can
+ * hand it the pictures as files.
  */
-export function enginesFor(id: AnalysisId, allowed: readonly EngineId[]): readonly EngineId[] {
-  const { engines } = specOf(id);
-  return engines ? allowed.filter((engine) => engines.includes(engine)) : allowed;
+export function enginesFor(
+  id: AnalysisId,
+  allowed: readonly EngineId[],
+  passed: readonly EngineId[] = [],
+): readonly EngineId[] {
+  const seeing = picturesNeeded(id, passed);
+  return seeing === null ? allowed : allowed.filter((engine) => seeing.includes(engine));
+}
+
+/** The engines a picture question may go to; null for a question without pictures. */
+export function picturesNeeded(
+  id: AnalysisId,
+  passed: readonly EngineId[],
+): readonly EngineId[] | null {
+  const { pictures, filesRoute } = specOf(id);
+  return pictures ? pictureEngines(filesRoute ? passed : []) : null;
 }
 
 /**

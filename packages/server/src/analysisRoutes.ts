@@ -23,7 +23,7 @@ const analysisRequest = z.object({
 });
 
 /** The HTTP status that best tells a client what kind of failure it was. */
-const STATUS: Readonly<Record<EngineFailure, number>> = {
+export const STATUS: Readonly<Record<EngineFailure, number>> = {
   'not-installed': 503,
   'not-signed-in': 503,
   limit: 429,

@@ -311,7 +311,7 @@ describe('the switch for which AI answers', () => {
     );
     expect(choiceHelp('agy', report)).toBe('Antigravity is not installed on this computer.');
     expect(choiceHelp('agy', { ...report, engines: [engine('agy')] })).toMatch(
-      /thumbnail review needs Claude Code or Codex/,
+      /thumbnail review needs Claude Code or Codex until Antigravity passes the picture check/,
     );
     expect(choiceHelp('codex', { engines: [], order: ['claude'] })).toMatch(/switched off/);
     expect(choiceHelp('claude', null)).toMatch(/^Only Claude Code answers/);
@@ -447,7 +447,7 @@ describe('a question the chosen AI cannot answer', () => {
     const plan = choiceFor('thumbnails', 'agy');
 
     expect(plan.choice).toBe(AUTOMATIC);
-    expect(plan.note).toMatch(/Antigravity cannot look at pictures/);
+    expect(plan.note).toMatch(/Antigravity has not passed the picture check yet/);
     expect(plan.note).toMatch(/Claude Code, or else Codex/);
   });
 

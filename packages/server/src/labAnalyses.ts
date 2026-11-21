@@ -31,9 +31,12 @@ import {
 import {
   CONCEPT_THUMBNAIL_MAX_TURNS,
   CONCEPT_THUMBNAIL_TIMEOUT_MS,
+  CONCEPT_THUMBNAIL_FILE_TOOLS,
   CONCEPT_THUMBNAIL_TOOLS,
+  conceptThumbnailFilesQuestion,
   conceptThumbnailQuestion,
 } from './conceptThumbQuestion';
+import type { FilesRoute } from './thumbnailFiles';
 import { labFocusOf, type QuestionFocus } from './questionFocus';
 import {
   SCRIPT_DRAFT_TOOLS,
@@ -72,6 +75,8 @@ export interface LabSpec {
   readonly systemPrompt?: string;
   /** Whether it looks at pictures, and so may only be asked of an engine that sees them. */
   readonly pictures?: boolean;
+  /** The question for an engine shown the pictures as files, with its tools by their bare names. */
+  readonly filesRoute?: FilesRoute;
   readonly question: (channel: string, focus?: QuestionFocus) => string;
 }
 
@@ -162,6 +167,11 @@ export const LAB_SPECS: Readonly<Record<LabAnalysisId, LabSpec>> = {
     maxTurns: CONCEPT_THUMBNAIL_MAX_TURNS,
     timeoutMs: CONCEPT_THUMBNAIL_TIMEOUT_MS,
     pictures: true,
+    filesRoute: {
+      tools: CONCEPT_THUMBNAIL_FILE_TOOLS,
+      question: (channel, files, focus) =>
+        conceptThumbnailFilesQuestion(channel, files, labFocusOf(focus, 'concept')),
+    },
     question: (channel, focus) => conceptThumbnailQuestion(channel, labFocusOf(focus, 'concept')),
   },
 };

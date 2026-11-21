@@ -36,6 +36,11 @@
  * - It has no place for a system prompt and no limit on steps: the
  *   instructions go ahead of the question, and only the time limit bounds it.
  *
+ * Pictures. The CLI passes on only the text of a tool's results, so a
+ * request's `files` (pictures made or fetched by Jgtube, under names made in
+ * code) are written into the run folder and the prompt names them as `@name`.
+ * Whether a run really looks at them is what the picture check finds out.
+ *
  * Google's FAQ says that wrapping `agy` inside other applications "is not
  * supported under consumer plans" and recommends an API key instead. The
  * owner has been told and chose to use it.
@@ -57,6 +62,7 @@ import type {
   EngineStatus,
   FileLookup,
   Program,
+  RunFile,
 } from './types';
 
 export const AGY: Program = { command: 'agy', label: 'Antigravity CLI', name: 'Antigravity' };
@@ -260,6 +266,22 @@ export async function inRunFolder<T>(
   }
 }
 
+/** A file name made in code: letters, digits, dots, dashes; no folder, nothing hidden. */
+const SAFE_FILE_NAME = /^[a-z0-9][a-z0-9._-]{0,99}$/i;
+
+/** Rejects, before anything is started, when a file name could reach outside the run folder. */
+function checkFileNames(files: readonly RunFile[]): void {
+  const bad = files.find((file) => !SAFE_FILE_NAME.test(file.name) || file.name.includes('..'));
+  if (bad) throw new EngineRunError('failed', 'A picture had a file name Jgtube does not use.');
+}
+
+/** Puts the request's pictures into the run folder, readable by the owner only. */
+async function writeFiles(folder: string, files: readonly RunFile[]): Promise<void> {
+  for (const file of files) {
+    await writeFile(join(folder, file.name), file.bytes, { mode: OWNER_ONLY_FILE });
+  }
+}
+
 async function writeMcpConfig(folder: string, request: EngineRunRequest): Promise<void> {
   const configFolder = join(folder, MCP_CONFIG_FOLDER);
   await mkdir(configFolder, { mode: OWNER_ONLY_FOLDER });
@@ -277,9 +299,12 @@ async function runAgy(
   const refused = refusedServer(request, deps);
   // Like a missing sign-in, this is one step for the owner to take in the program itself.
   if (refused !== null) throw new EngineRunError('not-signed-in', permissionHelp(refused));
+  const files = request.files ?? [];
+  checkFileNames(files);
   const prompt = promptWithInstructions(request.systemPrompt, request.prompt, ONE_LINE);
   return inRunFolder(request.cwd, async (folder) => {
     await writeMcpConfig(folder, request);
+    await writeFiles(folder, files);
     const output = await runProcess(
       {
         program: AGY,

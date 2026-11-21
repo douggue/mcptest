@@ -35,9 +35,11 @@ import type { StyleLockEngine } from './styleLockEngine';
 import { readFlow, styleLockRoute } from './styleLockRoutes';
 import { NAMED_VIDEOS_PATH, readAnswer, readNamedVideos } from './answerRoutes';
 import { readEngines, runAnalysis, type AnalysisTracker } from './analysisRoutes';
+import { PICTURE_CHECK_PATH, runPictureCheckRoute } from './pictureCheckRoutes';
 import type { EngineReport } from './engines/catalog';
 import type { EngineAnswer } from './engines/fallback';
 import type { EngineId } from './engines/types';
+import type { PictureCheckRecord } from './pictureChecks';
 import type { VideoAnswer, WatchOptions } from './engines/videoWatch';
 import type { QuestionFocus } from './questionFocus';
 import type {
@@ -230,6 +232,12 @@ export interface Engine
    * allowance. What was found is reused for a minute unless `fresh` is true.
    */
   engineStatus(fresh?: boolean): Promise<EngineReport>;
+  /**
+   * Checks that an engine sees the pictures it is handed as files, and keeps
+   * the result: a pass lets it answer the picture questions that can hand it
+   * files. Rejects with an EngineRunError, keeping nothing, when the run fails.
+   */
+  checkPictures(engine: EngineId): Promise<PictureCheckRecord>;
   /**
    * Breaks one channel down: studies its top videos, in depth for the best
    * few, and has an engine write the breakdown. Takes many minutes; what
@@ -584,6 +592,11 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     if (styleLock !== null) return styleLock;
     if (pathname === NAMED_VIDEOS_PATH) {
       return method === 'GET' ? readNamedVideos(options, url) : fail(405, 'Use GET');
+    }
+    if (pathname === PICTURE_CHECK_PATH) {
+      return method === 'POST'
+        ? runPictureCheckRoute(options, request, analysing)
+        : fail(405, 'Use POST');
     }
     if (pathname === '/api/engines') {
       return method === 'GET' ? readEngines(options) : fail(405, 'Use GET');

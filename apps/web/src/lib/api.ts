@@ -3,8 +3,10 @@ import {
   type AnalysisAnswer,
   type AnalysisId,
   type EngineChoice,
+  type EngineId,
   type EngineReport,
 } from './analyses';
+import type { PictureCheck } from './pictureCheck';
 import type { BreakdownJobState, TranscriptsSaved } from './breakdown';
 import type { BreakdownView } from './breakdownParts';
 import type { TransferReply } from './transferPlace';
@@ -274,6 +276,17 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
     /** Which AI engines are installed and signed in on this computer, and the order they are tried in. */
     async engines(): Promise<EngineReport> {
       return unwrap<EngineReport>(await call('/api/engines'));
+    },
+
+    /** Checks that an engine sees the pictures it is handed; the server keeps the result. */
+    async checkPictures(engine: EngineId): Promise<PictureCheck> {
+      return unwrap<PictureCheck>(
+        await call('/api/engines/picture-check', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ engine }),
+        }),
+      );
     },
 
     /** Searches YouTube for recent videos on a subject and reads the channels behind them. */
