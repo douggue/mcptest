@@ -48,7 +48,7 @@ function BreakoutCard({ item, picked, onPick }: CardProps) {
           />
         )}
         {duration && (
-          <span className="absolute bottom-2 right-2 rounded bg-space-deep/90 px-1.5 py-0.5 text-label-caps font-semibold text-on-surface">
+          <span className="absolute bottom-2 right-2 rounded bg-space-deep/90 px-1.5 py-0.5 text-label font-semibold text-on-surface">
             {duration}
           </span>
         )}
@@ -62,7 +62,7 @@ function BreakoutCard({ item, picked, onPick }: CardProps) {
           {item.caution && (
             <span
               title={CAUTION_LABEL[item.caution].detail}
-              className="rounded-full bg-surface-container-high px-2 py-0.5 text-label-caps text-on-surface-variant"
+              className="rounded-full bg-surface-container-high px-2 py-0.5 text-label text-on-surface-variant"
             >
               {CAUTION_LABEL[item.caution].label}
             </span>

@@ -69,7 +69,7 @@ export function ViewHost({
       {route.view !== 'home' && <Flow parts={parts} view={route.view} />}
       {drawView(route, parts, ai)}
       {route.view === 'home' && <Flow parts={parts} view="home" />}
-      <p className="mx-auto w-full max-w-[1440px] px-gutter-desktop py-space-xl text-label-caps text-outline">
+      <p className="mx-auto w-full max-w-[1440px] px-gutter-desktop py-space-xl text-label text-outline">
         Jgtube reads YouTube&rsquo;s public pages without an account. That is outside
         YouTube&rsquo;s terms of service and can stop working without notice. Scores and earnings
         are estimates.

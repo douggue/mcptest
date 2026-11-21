@@ -35,7 +35,8 @@ export default {
         'radar-arc': 'rgba(0, 210, 255, 0.18)',
         error: '#ffb4ab',
       },
-      borderRadius: { DEFAULT: '1rem', lg: '2rem', xl: '3rem' },
+      // Controls 12px, cards 16px, sheets 24px; `rounded-full` only for chips, avatars and small buttons.
+      borderRadius: { DEFAULT: '0.75rem', md: '0.625rem', lg: '1rem', xl: '1.5rem' },
       spacing: {
         gutter: '1rem',
         'gutter-desktop': '1.5rem',
@@ -48,24 +49,25 @@ export default {
       fontFamily: {
         sans: ['"Geist Variable"', 'Geist', 'system-ui', 'sans-serif'],
       },
+      // A readable scale: body 16px, meta 14px, labels in sentence case (docs/UI_DESIGN.md).
       fontSize: {
-        display: ['48px', { lineHeight: '56px', letterSpacing: '-0.03em', fontWeight: '700' }],
+        display: ['40px', { lineHeight: '48px', letterSpacing: '-0.025em', fontWeight: '700' }],
         'headline-lg': [
-          '32px',
-          { lineHeight: '40px', letterSpacing: '-0.02em', fontWeight: '600' },
+          '30px',
+          { lineHeight: '38px', letterSpacing: '-0.02em', fontWeight: '600' },
         ],
         'headline-md': [
-          '20px',
-          { lineHeight: '28px', letterSpacing: '-0.015em', fontWeight: '600' },
+          '22px',
+          { lineHeight: '30px', letterSpacing: '-0.015em', fontWeight: '600' },
         ],
-        'title-md': ['16px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '600' }],
-        'body-lg': ['16px', { lineHeight: '24px', fontWeight: '400' }],
-        'body-md': ['14px', { lineHeight: '20px', fontWeight: '400' }],
-        'body-sm': ['12px', { lineHeight: '16px', fontWeight: '400' }],
-        'label-caps': ['11px', { lineHeight: '16px', letterSpacing: '0.08em', fontWeight: '600' }],
+        'title-md': ['18px', { lineHeight: '26px', letterSpacing: '-0.01em', fontWeight: '600' }],
+        'body-lg': ['18px', { lineHeight: '28px', fontWeight: '400' }],
+        'body-md': ['16px', { lineHeight: '24px', fontWeight: '400' }],
+        'body-sm': ['14px', { lineHeight: '20px', fontWeight: '400' }],
+        label: ['14px', { lineHeight: '20px', fontWeight: '500' }],
         'metric-badge': [
-          '12px',
-          { lineHeight: '14px', letterSpacing: '0.01em', fontWeight: '700' },
+          '13px',
+          { lineHeight: '16px', letterSpacing: '0.01em', fontWeight: '700' },
         ],
       },
     },

@@ -33,13 +33,13 @@ export function AiBadge({ badge }: { readonly badge: Badge }) {
         className="flex min-h-11 min-w-0 items-center gap-2 rounded-full border border-border-subtle bg-surface-card px-3 text-body-sm transition-colors hover:border-border-highlight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
       >
         <Sparkles aria-hidden="true" className="h-4 w-4 flex-none text-metric-amber" />
-        <span className="hidden text-label-caps uppercase text-outline sm:inline">AI</span>
+        <span className="hidden text-label text-outline sm:inline">AI</span>
         <span aria-hidden="true" className={dot(badge.ready)} />
         <span className="max-w-[7.5rem] truncate font-semibold text-on-surface sm:max-w-[12rem]">
           {badge.name}
         </span>
         {badge.automatic && (
-          <span className="hidden text-label-caps text-outline lg:inline">Automatic</span>
+          <span className="hidden text-label text-outline lg:inline">Automatic</span>
         )}
       </a>
       <div
@@ -54,7 +54,7 @@ export function AiBadge({ badge }: { readonly badge: Badge }) {
             ))}
           </ul>
         )}
-        <p className="mt-space-sm text-label-caps text-outline">Press to choose in Settings</p>
+        <p className="mt-space-sm text-label text-outline">Press to choose in Settings</p>
       </div>
     </div>
   );

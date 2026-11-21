@@ -17,7 +17,7 @@ import { Card } from './layout/Card';
 import { Details } from './layout/Details';
 import { VideoLine } from './VideoChips';
 
-const LABEL = 'text-label-caps uppercase text-outline';
+const LABEL = 'text-label text-outline';
 
 /** One title with its length, flagged when a phone would cut it. */
 function TitleLine({ concept, title }: { readonly concept: ConceptView; readonly title: string }) {
@@ -26,7 +26,7 @@ function TitleLine({ concept, title }: { readonly concept: ConceptView; readonly
     <li className="flex items-baseline justify-between gap-3">
       <span className="min-w-0 break-words text-body-md text-on-surface">{title}</span>
       <span
-        className={`flex-none text-label-caps ${check.warning ? 'text-metric-amber' : 'text-outline'}`}
+        className={`flex-none text-label ${check.warning ? 'text-metric-amber' : 'text-outline'}`}
         title={check.warning ?? undefined}
       >
         {check.count}
@@ -131,9 +131,7 @@ function ConceptDetails(props: Props) {
       <div
         className={`flex flex-col gap-1 rounded p-space-sm ${toLookUp ? 'bg-metric-amber-bg' : ''}`}
       >
-        <span
-          className={`text-label-caps uppercase ${toLookUp ? 'text-metric-amber' : 'text-outline'}`}
-        >
+        <span className={`text-label ${toLookUp ? 'text-metric-amber' : 'text-outline'}`}>
           {toLookUp ? 'Look up before making it' : 'Needs'}
         </span>
         <p className="break-words text-body-sm text-on-surface">{concept.needs}</p>

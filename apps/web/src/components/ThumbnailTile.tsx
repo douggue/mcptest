@@ -37,7 +37,7 @@ export function ThumbnailTile({ video, tone }: Props) {
           </span>
         )}
         {duration && (
-          <span className="absolute bottom-2 right-2 rounded bg-space-deep/90 px-1.5 py-0.5 text-label-caps font-semibold text-on-surface">
+          <span className="absolute bottom-2 right-2 rounded bg-space-deep/90 px-1.5 py-0.5 text-label font-semibold text-on-surface">
             {duration}
           </span>
         )}
@@ -45,7 +45,7 @@ export function ThumbnailTile({ video, tone }: Props) {
       <span className="line-clamp-2 text-body-sm text-on-surface transition-colors group-hover:text-primary">
         {video.title}
       </span>
-      <span className="text-label-caps text-outline">
+      <span className="text-label text-outline">
         {formatCount(video.views)} views · {video.publishedRaw}
       </span>
     </>

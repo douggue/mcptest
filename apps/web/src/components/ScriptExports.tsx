@@ -9,7 +9,7 @@ import {
 } from '../lib/scriptWriter';
 import { QUIET_BUTTON } from './LabStatus';
 
-const LABEL = 'text-label-caps uppercase text-outline';
+const LABEL = 'text-label text-outline';
 /** How long "Copied" stays on the button. */
 const COPIED_MS = 2500;
 

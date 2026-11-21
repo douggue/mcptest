@@ -19,7 +19,7 @@ import { ThumbnailTile } from './ThumbnailTile';
 const AMBER = { winnerMinScore: 2 };
 /** Versions listed on a card; the rest are counted. */
 const VERSIONS_ON_CARD = 6;
-const PILL = 'rounded-full bg-surface-container-high px-2 py-0.5 text-label-caps';
+const PILL = 'rounded-full bg-surface-container-high px-2 py-0.5 text-label';
 
 /** A title template with each slot drawn as a chip, so what changes between versions stands out. */
 export function Template({ template }: { readonly template: string }) {
@@ -29,7 +29,7 @@ export function Template({ template }: { readonly template: string }) {
         'slot' in part ? (
           <span
             key={index}
-            className={`${PILL} mx-0.5 inline-block align-middle uppercase text-primary-fixed-dim`}
+            className={`${PILL} mx-0.5 inline-block align-middle text-primary-fixed-dim`}
           >
             {part.slot}
           </span>
@@ -83,7 +83,7 @@ function VersionRow({ version }: { readonly version: TransferVersion }) {
           <Outbound href={watchUrl(version.videoId)}>{version.channelTitle}</Outbound>
         </span>
       </span>
-      <span className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-label-caps text-outline">
+      <span className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-label text-outline">
         <span
           className={country.elsewhere ? 'text-metric-amber' : undefined}
           title={
@@ -137,7 +137,7 @@ function Variants({ idea, place }: { readonly idea: TransferIdea; readonly place
             <span className="line-clamp-2 min-w-0 text-body-sm text-on-surface">
               <Outbound href={watchUrl(variant.videoId)}>{variant.title}</Outbound>
             </span>
-            <span className="flex-none text-label-caps text-outline">
+            <span className="flex-none text-label text-outline">
               {formatCount(variant.views)} views
             </span>
           </li>

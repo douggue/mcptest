@@ -12,7 +12,7 @@ import {
 } from '../lib/changes';
 import { channelUrl, formatCount, formatScore, thumbnailUrl, watchUrl } from '../lib/format';
 
-const LABEL = 'text-label-caps uppercase text-outline';
+const LABEL = 'text-label text-outline';
 export const LINK = 'text-primary underline-offset-2 hover:underline';
 
 function Group({ title, children }: { readonly title: string; readonly children: ReactNode }) {
@@ -46,7 +46,7 @@ function BreakoutCard({ entry }: { readonly entry: NewBreakout }) {
             <TrendingUp aria-hidden="true" className="h-3.5 w-3.5" />
             {formatScore(entry.score)}
           </span>
-          <span className="text-label-caps text-outline">
+          <span className="text-label text-outline">
             {formatCount(entry.views)} views · {entry.publishedRaw}
           </span>
         </div>

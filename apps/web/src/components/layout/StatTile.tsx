@@ -16,7 +16,7 @@ export function StatTile({ label, value, note, detail }: Props) {
       title={detail}
       className="flex min-w-0 flex-col gap-1 rounded-[0.75rem] border border-border-subtle bg-surface-card px-4 py-3"
     >
-      <dt className="truncate text-label-caps uppercase text-outline">{label}</dt>
+      <dt className="truncate text-label text-outline">{label}</dt>
       <dd className="truncate text-headline-md font-bold tabular-nums text-on-surface">{value}</dd>
       {note && <dd className="line-clamp-2 text-xs text-outline">{note}</dd>}
     </div>

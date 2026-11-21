@@ -4,7 +4,7 @@ import { PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
 import { SourceLink } from './SourceLink';
 import type { Research } from './useResearch';
 
-const LABEL = 'text-label-caps uppercase text-outline';
+const LABEL = 'text-label text-outline';
 
 /** One fact of the sheet with its number and its sources. */
 function FactLine({ fact }: { readonly fact: FactSheetView['facts'][number] }) {

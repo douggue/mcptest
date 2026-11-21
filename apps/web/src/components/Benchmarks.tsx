@@ -55,7 +55,7 @@ function Row({ channel, selected, onSelect }: RowProps) {
             {formatScore(score)}
           </span>
         ) : channel.group === 'rising' && !channel.peer ? (
-          <span className="flex-none text-label-caps text-secondary">Rising</span>
+          <span className="flex-none text-label text-secondary">Rising</span>
         ) : null}
       </button>
     </li>

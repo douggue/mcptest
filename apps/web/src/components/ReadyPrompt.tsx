@@ -6,7 +6,7 @@ import type { NamedVideo } from '../lib/videoRefs';
 import { VideoChips } from './VideoChips';
 
 const SMALL_BUTTON =
-  'flex flex-none items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-2 text-label-caps text-on-surface transition-colors hover:bg-surface-variant focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container';
+  'flex flex-none items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-2 text-label text-on-surface transition-colors hover:bg-surface-variant focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container';
 
 /** Hands the browser a text file to save. */
 export function saveText(name: string, content: string): void {
@@ -47,14 +47,14 @@ export function ReadyPrompt({ label, text, fileTitle, learnedFrom = [], note }: 
   };
   return (
     <div className="flex min-w-0 flex-col gap-2 rounded border border-outline-variant bg-space-deep p-space-md">
-      <h4 className="text-label-caps uppercase text-primary">The {label}</h4>
+      <h4 className="text-label text-primary">The {label}</h4>
       <p className="whitespace-pre-wrap break-words text-body-md text-on-surface">{text}</p>
       {note !== undefined && note !== '' && (
         <p className="break-words text-body-sm text-on-surface-variant">{note}</p>
       )}
       {learnedFrom.length > 0 && (
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-label-caps uppercase text-outline">Learned from</span>
+          <span className="text-label text-outline">Learned from</span>
           <VideoChips videos={learnedFrom} />
         </div>
       )}

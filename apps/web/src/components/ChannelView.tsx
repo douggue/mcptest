@@ -50,9 +50,7 @@ function OnTheMap({ profile, page, work }: ActionsProps) {
   if (!onMap || !page.snapshot) return null;
   return (
     <section className="flex min-w-0 flex-col gap-space-sm">
-      <h3 className="text-label-caps uppercase text-outline">
-        On the map of {page.snapshot.center.title}
-      </h3>
+      <h3 className="text-label text-outline">On the map of {page.snapshot.center.title}</h3>
       <div>
         <Inspector
           inline

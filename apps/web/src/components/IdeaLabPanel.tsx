@@ -62,7 +62,7 @@ function Picks({ lab }: { readonly lab: Lab }) {
                 <span className="truncate text-body-sm text-on-surface" title={pick.title}>
                   {pick.title}
                 </span>
-                <span className="truncate text-label-caps text-outline">
+                <span className="truncate text-label text-outline">
                   {pick.channelTitle}
                   {pick.modelOpening ? ' · opening to model' : ''}
                 </span>

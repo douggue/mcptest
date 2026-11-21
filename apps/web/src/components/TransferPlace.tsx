@@ -15,7 +15,7 @@ interface Props {
   readonly onChoose: (placeKey: string | null) => void;
 }
 
-const LABEL = 'text-label-caps uppercase text-outline';
+const LABEL = 'text-label text-outline';
 
 /**
  * Which place the ideas are judged for and where that came from: the owner's

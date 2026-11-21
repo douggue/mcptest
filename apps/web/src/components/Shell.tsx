@@ -85,7 +85,7 @@ export function Shell({ active, ai, children }: Props) {
         <div className="border-t border-border-subtle px-space-sm pt-space-sm">
           <div className="flex items-center justify-between rounded border border-border-subtle bg-surface-card p-3">
             <div className="flex flex-col">
-              <span className="text-label-caps uppercase text-outline">Data</span>
+              <span className="text-label text-outline">Data</span>
               <span className="text-body-sm text-secondary">Stored on this computer</span>
             </div>
             <HardDrive aria-hidden="true" className="h-[18px] w-[18px] text-outline" />

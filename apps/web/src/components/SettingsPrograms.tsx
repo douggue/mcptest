@@ -20,7 +20,7 @@ function ReportLines({ lines }: { readonly lines: readonly string[] }) {
   const [heading, ...rest] = lines;
   return (
     <div className="flex flex-col gap-1">
-      {heading && <span className="text-label-caps uppercase text-outline">{heading.trim()}</span>}
+      {heading && <span className="text-label text-outline">{heading.trim()}</span>}
       <ul className="flex flex-col gap-1">
         {rest.map((line) => (
           <li key={line} className="break-words">

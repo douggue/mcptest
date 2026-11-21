@@ -54,7 +54,7 @@ function ConceptHeader({ view }: { readonly view: ScriptView }) {
         {concept.title}
       </h3>
       <p className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-body-sm">
-        <span className="text-label-caps uppercase text-outline">Thumbnail</span>
+        <span className="text-label text-outline">Thumbnail</span>
         <span className="min-w-0 flex-1 basis-60 break-words text-on-surface">
           {concept.thumbnail}
         </span>

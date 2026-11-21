@@ -38,7 +38,7 @@ export function FlowStrip({
                   />
                   {index + 1}. {step.label}
                 </span>
-                <span className="truncate text-label-caps normal-case text-outline">
+                <span className="truncate text-label normal-case text-outline">
                   {step.count || ' '}
                 </span>
               </a>

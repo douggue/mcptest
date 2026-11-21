@@ -21,7 +21,7 @@ export function StatusSelect({
   if (!stored) return null;
   return (
     <label className="flex items-center gap-2">
-      <span className="text-label-caps uppercase text-outline">Status</span>
+      <span className="text-label text-outline">Status</span>
       <select
         value={stored.status}
         onChange={(event) =>

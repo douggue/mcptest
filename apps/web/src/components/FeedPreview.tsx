@@ -21,7 +21,7 @@ function Draft({ title, overlay, shorts }: DraftProps) {
         <span className="break-words text-center text-headline-md font-bold uppercase tracking-tight text-on-surface">
           {overlay}
         </span>
-        <span className="absolute bottom-2 right-2 rounded bg-space-deep/90 px-1.5 py-0.5 text-label-caps font-semibold text-on-surface">
+        <span className="absolute bottom-2 right-2 rounded bg-space-deep/90 px-1.5 py-0.5 text-label font-semibold text-on-surface">
           {shorts ? 'Short' : 'Long-form'}
         </span>
       </div>
@@ -87,7 +87,7 @@ export function FeedPreview({ concept, title, breakouts }: Props) {
   );
   return (
     <div className="flex flex-col gap-space-sm rounded bg-surface-container-low p-space-md">
-      <span className="text-label-caps uppercase text-outline">
+      <span className="text-label text-outline">
         In a feed, beside videos that took off on this map
       </span>
       <div className="grid grid-cols-1 gap-space-sm sm:grid-cols-3">

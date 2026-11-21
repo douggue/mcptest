@@ -24,7 +24,7 @@ interface Props {
 function Tile({ label, children }: { readonly label: string; readonly children: React.ReactNode }) {
   return (
     <div className="rounded bg-space-deep p-2.5">
-      <span className="block text-label-caps uppercase text-outline">{label}</span>
+      <span className="block text-label text-outline">{label}</span>
       {children}
     </div>
   );
@@ -65,7 +65,7 @@ export function Inspector(props: Props) {
             <span className="block truncate text-headline-md leading-tight text-on-surface">
               {channel.title}
             </span>
-            <span className="text-label-caps text-outline">
+            <span className="text-label text-outline">
               {TIER_LABEL[channel.tier]} ·{' '}
               {channel.steps === 1 ? '1 step' : `${channel.steps} steps`}
               {channel.peer || channel.group !== 'neither'
@@ -110,19 +110,19 @@ export function Inspector(props: Props) {
 
       <div className="mt-space-sm grid grid-cols-3 gap-2 rounded bg-space-deep p-2.5">
         <div className="flex flex-col">
-          <span className="text-label-caps text-outline">Subscribers</span>
+          <span className="text-label text-outline">Subscribers</span>
           <span className="text-body-sm font-semibold text-on-surface">
             {formatCount(channel.subscribers)}
           </span>
         </div>
         <div className="flex flex-col">
-          <span className="text-label-caps text-outline">Title match</span>
+          <span className="text-label text-outline">Title match</span>
           <span className="text-body-sm font-semibold text-secondary">
             {percent(channel.relevance)}
           </span>
         </div>
         <div className="flex flex-col">
-          <span className="text-label-caps text-outline">Recent views</span>
+          <span className="text-label text-outline">Recent views</span>
           <span className="text-body-sm font-semibold text-on-surface">
             {formatCount(channel.recentViews)}
           </span>

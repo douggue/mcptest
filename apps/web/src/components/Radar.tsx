@@ -74,7 +74,7 @@ function Node({
         </span>
       )}
       <span
-        className={`pointer-events-none absolute left-1/2 top-full mt-1 ${LABEL_WIDTH[node.tier]} -translate-x-1/2 truncate rounded-full bg-space-canvas/85 px-2 py-0.5 text-label-caps font-semibold ${
+        className={`pointer-events-none absolute left-1/2 top-full mt-1 ${LABEL_WIDTH[node.tier]} -translate-x-1/2 truncate rounded-full bg-space-canvas/85 px-2 py-0.5 text-label font-semibold ${
           selected ? 'text-on-surface' : 'text-on-surface-variant group-hover:text-on-surface'
         }`}
       >

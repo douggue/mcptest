@@ -90,7 +90,7 @@ export function RailLinks({
       <RailLink item={OVERVIEW_ITEM} active={active === 'home'} onPick={onPick} />
       {RAIL_GROUPS.map((group) => (
         <div key={group.label} className="flex flex-col gap-0.5">
-          <div className="px-3 pb-1 pt-2 text-label-caps uppercase text-outline">{group.label}</div>
+          <div className="px-3 pb-1 pt-2 text-label text-outline">{group.label}</div>
           {group.items.map((item) => (
             <RailLink key={item.view} item={item} active={item.view === active} onPick={onPick} />
           ))}

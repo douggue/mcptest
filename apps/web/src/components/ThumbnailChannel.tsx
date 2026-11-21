@@ -54,7 +54,7 @@ function Group({ label, hint, dot, ...tiles }: GroupProps) {
     <div className="flex min-w-0 flex-col gap-space-sm">
       <div className="flex flex-wrap items-center gap-1.5 text-body-sm text-outline">
         <span aria-hidden="true" className={`h-2 w-2 rounded-full ${dot}`} />
-        <span className="text-label-caps uppercase text-on-surface-variant">{label}</span>
+        <span className="text-label text-on-surface-variant">{label}</span>
         <span>{hint}</span>
       </div>
       <Tiles {...tiles} />
@@ -215,7 +215,7 @@ export function ChannelCard(props: ChannelProps) {
           </span>
         </div>
         {isModel && (
-          <span className="ml-auto flex-none rounded-full bg-surface-container-high px-2 py-0.5 text-label-caps text-primary-fixed-dim">
+          <span className="ml-auto flex-none rounded-full bg-surface-container-high px-2 py-0.5 text-label text-primary-fixed-dim">
             Your model
           </span>
         )}
