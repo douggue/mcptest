@@ -326,8 +326,8 @@ CREATE TABLE IF NOT EXISTS channel_looks (
   seen_at            TEXT NOT NULL
 );
 `,
-  // 20 (after the merge; 18 and 19 are the thumbnail work's): alerts. One rule per centre channel (the owner's number for a look-alike video's
-  //     outlier score, whether a look-alike newly taking off counts, on or off, and when it
+  // 20 (18 and 19 are the thumbnail work's, ordered before this at merge): alerts. One rule
+  //     per centre channel (the owner's number for a look-alike video's outlier score, whether a look-alike newly taking off counts, on or off, and when it
   //     was last checked) and the alerts found, each kept once per channel, kind and subject.
   //     They refer to no other table and need nothing a later step adds.
   `
