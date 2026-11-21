@@ -89,10 +89,21 @@ describe('planTable', () => {
         medianScore: 2,
       },
       { kind: 'format', label: 'No title format picked', videos: 1, scored: 0, medianScore: null },
-      { kind: 'hook', label: 'A question', videos: 2, scored: 2, medianScore: 2 },
+      { kind: 'hook', label: 'a question', videos: 2, scored: 2, medianScore: 2 },
       { kind: 'hook', label: 'No hook style named', videos: 1, scored: 0, medianScore: null },
       { kind: 'length', label: '8 to 15 minutes', videos: 2, scored: 2, medianScore: 2 },
       { kind: 'length', label: 'Under 1 minute', videos: 1, scored: 0, medianScore: null },
+    ]);
+  });
+
+  test('groups hook styles by their name, without the video id the engine wrote before it', () => {
+    const rows = planTable([
+      video({ hookStyle: 'abcdefghijk: a question' }),
+      video({ hookStyle: 'zyxwvutsrqp: A question' }),
+    ]);
+
+    expect(rows.filter((row) => row.kind === 'hook')).toEqual([
+      { kind: 'hook', label: 'a question', videos: 2, scored: 2, medianScore: 2 },
     ]);
   });
 

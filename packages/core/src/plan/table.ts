@@ -44,9 +44,19 @@ export interface PlanTableRow {
   readonly medianScore: number | null;
 }
 
+/** The engine writes a hook style as "videoId: style"; the style is its name. */
+const LEADING_VIDEO_ID = /^[\w-]{11}:\s*/;
+
+/** A hook style's name, so the same style from two model videos counts once. */
+export function hookStyleName(style: string | null): string {
+  if (style === null) return NO_HOOK;
+  const name = style.replace(LEADING_VIDEO_ID, '').trim();
+  return name === '' ? NO_HOOK : name.charAt(0).toLowerCase() + name.slice(1);
+}
+
 const LABELS: readonly [PlanTableKind, (video: TableVideo) => string][] = [
   ['format', (video) => video.format ?? NO_FORMAT],
-  ['hook', (video) => video.hookStyle ?? NO_HOOK],
+  ['hook', (video) => hookStyleName(video.hookStyle)],
   ['length', (video) => lengthBand(video.durationSeconds)],
 ];
 

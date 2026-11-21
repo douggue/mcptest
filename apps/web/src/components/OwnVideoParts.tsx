@@ -66,7 +66,7 @@ export function LinkedCard({ video, busy, onUnlink }: CardProps) {
                   {inspiration.title ?? inspiration.videoId}
                 </span>
                 {inspiration.channelTitle ? ` · ${inspiration.channelTitle}` : ''}:{' '}
-                {inspirationLine(inspiration, video.views)}
+                {inspirationLine(inspiration, video)}
               </li>
             ))}
           </ul>

@@ -24,10 +24,10 @@ const NOT_COMPARABLE: Readonly<Record<string, string>> = {
 };
 
 /** How an inspiration video stood at the age the owner's video is now. */
-export function inspirationLine(inspiration: InspirationAtAge, ownViews: number): string {
+export function inspirationLine(inspiration: InspirationAtAge, own: LinkedVideo): string {
   const { match } = inspiration;
   if (match.status === 'comparable') {
-    return `At ${daysText(match.ageDays)} old it had ${formatCount(match.views)} views (read then); yours has ${formatCount(ownViews)} at the same age.`;
+    return `At ${daysText(match.ageDays)} old it had ${formatCount(match.views)} views (read then); yours has ${formatCount(own.views)} now, at ${daysText(own.ageDays)}.`;
   }
   return NOT_COMPARABLE[match.reason] ?? 'Not comparable.';
 }

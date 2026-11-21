@@ -54,19 +54,19 @@ describe('inspirationLine', () => {
     expect(
       inspirationLine(
         { ...base, match: { status: 'comparable', ageDays: 8.6, views: 4000 } },
-        6000,
+        linked,
       ),
-    ).toBe('At 9 days old it had 4K views (read then); yours has 6K at the same age.');
+    ).toBe('At 9 days old it had 4K views (read then); yours has 6K now, at 9 days.');
     expect(
       inspirationLine(
         { ...base, match: { status: 'not-comparable', reason: 'no-reading-near-age' } },
-        6000,
+        linked,
       ),
     ).toBe('Not comparable: it was not read at about the same age.');
     expect(
       inspirationLine(
         { ...base, match: { status: 'not-comparable', reason: 'date-too-rough' } },
-        6000,
+        linked,
       ),
     ).toBe('Not comparable: an upload date is known only roughly.');
     expect(
@@ -77,7 +77,7 @@ describe('inspirationLine', () => {
           channelTitle: null,
           match: { status: 'not-comparable', reason: 'not-stored' },
         },
-        6000,
+        linked,
       ),
     ).toBe('Not comparable: this video is no longer stored.');
   });
