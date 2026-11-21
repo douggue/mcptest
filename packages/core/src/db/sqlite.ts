@@ -394,7 +394,7 @@ CREATE TABLE IF NOT EXISTS concept_videos (
   UNIQUE (center_channel_id, video_id)
 );
 `,
-  // 40 (provisional, numbered at merge): the upload calendar. A kept concept's planned
+  // 22: the upload calendar. A kept concept's planned
   //     date and the status the owner set for it when the concept has no script (a script
   //     keeps its own), or "published". Both may be empty. It refers only to concepts (13).
   `

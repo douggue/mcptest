@@ -133,7 +133,7 @@ published video it became: `concept_id` (primary key, `ON DELETE CASCADE` from
 `concepts`), `center_channel_id`, `video_id` (unique per centre channel) and
 `linked_at`. See "Your videos against the plan".
 
-`concept_schedule` (step 40, provisional, numbered at merge) holds a kept
+`concept_schedule` (step 22) holds a kept
 concept's place in the upload calendar: `concept_id` (primary key,
 `ON DELETE CASCADE` from `concepts`), `center_channel_id`, `status` (`idea`,
 `drafting`, `ready`, `published`, or empty), `planned_date` (YYYY-MM-DD or empty)
