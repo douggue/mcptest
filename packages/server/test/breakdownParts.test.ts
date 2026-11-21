@@ -199,6 +199,7 @@ describe('part 2, the thumbnails', () => {
     expect(thumbnails).toContain('[SUBJECT]');
     expect(thumbnails).toContain('[OVERLAY TEXT]');
     expect(thumbnails).toMatch(/no real person’s name or likeness/);
+    expect(thumbnails).toMatch(/name no country and none of its colours/);
   });
 
   test('says the topic made the difference when winners and ordinary ones look the same', () => {

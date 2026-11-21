@@ -92,24 +92,26 @@ If something is wrong:
 
 ## What Claude can do through it
 
-| Tool                          | What it does                                                                                                                     |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `get_map`                     | Your latest map: the channels like yours, how closely each matches, each one's best recent video, and which calls are unsettled. |
-| `get_breakouts`               | Recent videos far above their channel's usual views, with the numbers behind each score.                                         |
-| `get_thumbnail_board`         | For each channel like yours, the videos that took off beside ordinary ones, and your own videos.                                 |
-| `view_thumbnails`             | Fetches the real thumbnail pictures (up to 8 at a time) so Claude can look at them.                                              |
-| `get_channel_videos`          | One channel's videos with scores.                                                                                                |
-| `get_near_misses`             | Channels left out only because their titles use different words; Claude reads the titles and judges the topic.                   |
-| `set_competitor_status`       | Records your decision to keep or remove a channel. Claude is told to do this only after you agree in the chat.                   |
-| `list_niches`                 | New or small channels with a video far above their size.                                                                         |
-| `list_transfer_opportunities` | Ideas that took off for another country and are untried or weak for yours, with each version's numbers.                          |
-| `make_map`                    | Makes a new map by reading YouTube. Takes minutes; only one at a time.                                                           |
-| `get_transcript`              | What one video says: its captions as text with the time every half minute. Long ones come in parts.                              |
-| `view_video_frames`           | What one video shows: sheets of frames from start to end, a sample or every sheet in turn. Pictures only, no sound.              |
-| `get_channel_brand`           | A channel's bio, keywords and links, and its logo and cover as pictures Claude can look at.                                      |
-| `get_video_details`           | The description, tags, length, views and score of up to 10 videos, for title formulas and description templates.                 |
-| `get_video_watch`             | What an AI wrote down after watching a video with sound, when the app's channel breakdown has had it watched.                    |
-| `get_frame_study`             | What an AI wrote down after going through a video's frames, when the app's channel breakdown has made such a study.              |
+| Tool                          | What it does                                                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_map`                     | Your latest map: the channels like yours, how closely each matches, each one's best recent video, and which calls are unsettled.      |
+| `get_breakouts`               | Recent videos far above their channel's usual views, with the numbers behind each score.                                              |
+| `get_thumbnail_board`         | For each channel like yours, the videos that took off beside ordinary ones, and your own videos.                                      |
+| `view_thumbnails`             | Fetches the real thumbnail pictures (up to 8 at a time) so Claude can look at them.                                                   |
+| `get_channel_videos`          | One channel's videos with scores: strongest first, newest first or most viewed first.                                                 |
+| `get_near_misses`             | Channels left out only because their titles use different words; Claude reads the titles and judges the topic.                        |
+| `set_competitor_status`       | Records your decision to keep or remove a channel. Claude is told to do this only after you agree in the chat.                        |
+| `list_niches`                 | New or small channels with a video far above their size.                                                                              |
+| `list_transfer_opportunities` | Ideas that took off for another country and are untried or weak for yours, with each version's numbers.                               |
+| `make_map`                    | Makes a new map by reading YouTube. Takes minutes; only one at a time.                                                                |
+| `get_transcript`              | What one video says: its captions as text with the time every half minute. Long ones come in parts.                                   |
+| `view_video_frames`           | What one video shows: sheets of frames from start to end, a sample or every sheet in turn. Pictures only, no sound.                   |
+| `get_channel_brand`           | A channel's bio, keywords and links, and its logo and cover as pictures Claude can look at.                                           |
+| `get_video_details`           | The description, tags, length, views and score of up to 10 videos, for title formulas and description templates.                      |
+| `get_video_watch`             | What an AI wrote down after watching a video with sound, when the app's channel breakdown has had it watched.                         |
+| `get_frame_study`             | What an AI wrote down after going through a video's frames, when the app's channel breakdown has made such a study.                   |
+| `get_transcript_pace`         | How fast a video is spoken, counted by Jgtube: words per minute for the whole video and minute by minute, or part by part.            |
+| `get_breakdown_part`          | One stored part of the app's breakdown of a channel: titles, thumbnails, scripts, picture and sound, strategy, plan or master prompt. |
 
 Only `set_competitor_status` and `make_map` change anything, and both only add to or
 adjust your own Jgtube store; a decision can be undone by asking Claude to set the
@@ -129,7 +131,16 @@ hands the sheets over in order and says how many the video has, so Claude can go
 through all of them. Watching a whole video with its sound needs the video as a
 file; the connector does not send video files. `get_video_watch` and
 `get_frame_study` only return what a channel breakdown in the app has already
-written down and kept.
+written down and kept. `get_frame_study` also gives what Jgtube worked out from
+the study: the gap between two frames and, when the study counted its picture
+changes, the most seconds there can be between them.
+
+`get_breakdown_part` hands Claude one part of a breakdown the app has written
+and kept for a channel, so you can ask Claude in a chat to work from it ("read
+the production plan for @channel and turn step 4 into a script outline").
+Claude is told that a part is a study an AI wrote, to be read and never taken
+as instructions, and that a part which was not written must not be made up. To
+have a breakdown written, use the app: the connector only reads it.
 
 ## Good to know
 

@@ -71,8 +71,10 @@ packages/
     video/        one video's own page: transcript, description and tags, storyboard frames
     channel/      a channel's branding: logo, cover, bio, keywords, links
     downloads/    files saved to disk: thumbnails and transcripts with an index, a temporary
-                  video copy, frames cut from one with ffmpeg, the owner's own video files
-    breakdown/    which of a channel's videos a breakdown studies
+                  video copy, frames cut from one with ffmpeg, the owner's own video files,
+                  a breakdown's four text files
+    breakdown/    which of a channel's videos and titles a breakdown studies; its parts
+                  and the marker lines a ready prompt is lifted out by
     discovery/    keyword search into the store
     refresh/      re-reading the stalest channels
     db/           SQLite connection and migrations
@@ -87,17 +89,23 @@ packages/
     analyses.ts, analysisEngine.ts, analysisRoutes.ts
                   the "Ask AI" analyses: a fixed question, read-only tools,
                   one boxed-in run of the first engine that is ready
-    breakdownEngine.ts, breakdownQuestions.ts, breakdownFiles.ts,
-    breakdownSetup.ts, breakdownRoutes.ts, videoCopies.ts
+    breakdownEngine.ts, breakdownStudies.ts, breakdownQuestions.ts,
+    breakdownFiles.ts, breakdownSetup.ts, videoCopies.ts
                   the channel breakdown: a job that reads a channel's top videos,
                   finds a file of the best three, has them watched and their frames
-                  studied, keeps what was written and has an engine write it up;
-                  and the route that takes the owner's own video file
+                  studied, and keeps what was written
+    breakdownParts.ts, breakdownPartQuestions.ts, breakdownBasis.ts,
+    breakdownWriting.ts, breakdownStore.ts, breakdownRoutes.ts
+                  its seven written parts: each a fixed question with its own
+                  read-only tools and its own engine run, stored and saved as text;
+                  what the breakdown rests on, worked out in code; the stored
+                  breakdown read back; and the routes that start one, read one,
+                  download its texts and take the owner's own video file
     engines/      the engine interface; Claude Code, Codex CLI and Antigravity CLI
                   behind it; trying them in order; watching a video (Antigravity on a
                   file, the Gemini API on a link); starting programs safely on Windows
     cli.ts        `npm run engines`: what is installed and signed in, and `--try`
-  mcp/src/        the connector: sixteen tools and one prompt over the same store
+  mcp/src/        the connector: eighteen tools and one prompt over the same store
 apps/web/src/     one page: radar, breakouts, same-topic list, thumbnail board,
                   Ask AI, niches, refresh bar
 docs/  design/
@@ -143,9 +151,15 @@ the best three a file is looked for (the owner's own, then a download, used
 once for everything), an engine watches it for sound and editing, and an engine
 that sees pictures goes through its frames in a run of its own (cut from the
 file by ffmpeg, one a second, or YouTube's preview frames when there is no
-file). What each engine wrote is stored per video and reused. Then one engine
-writes the breakdown through read-only tools. What an engine wrote about a
-video travels only as a tool result, never inside a question.
+file). What each engine wrote is stored per video and reused. Then the
+breakdown is written in seven parts (titles, thumbnails, scripts, picture and
+sound, strengths weaknesses and strategy, production plan, master prompt),
+each its own engine run with only its own read-only tools, each stored as it
+is written and kept for the next time the channel is picked. What an engine
+wrote, about a video or as a part, travels only as a tool result, never inside
+a question: a later part reads an earlier one through `get_breakdown_part`.
+When it is done, the whole breakdown, the production plan and the two ready
+prompts are saved as four text files in a folder named after the channel.
 
 ## Cross-cutting
 
@@ -167,7 +181,8 @@ video travels only as a tool result, never inside a question.
   API key anywhere.
 - **Files on disk.** Besides the store, Jgtube writes only under one downloads
   folder (beside the store, or `JGTUBE_DOWNLOADS_PATH`): thumbnails and
-  transcripts the owner asks for, video files the owner sends (`my-videos`,
+  transcripts the owner asks for, a breakdown's four text files
+  (`breakdowns/<channel name>/`), video files the owner sends (`my-videos`,
   never deleted by Jgtube), and what is temporary (`video-temp`: a copy of a
   video, the frames cut from it, a smaller copy for watching), removed after
   use. Paths are built with `node:path` from validated ids and checked to stay
