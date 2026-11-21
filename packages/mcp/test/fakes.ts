@@ -1,5 +1,6 @@
 import type {
   BrandResult,
+  BreakdownPartId,
   CompetitorStatus,
   CrawlProgress,
   MapSnapshot,
@@ -13,6 +14,7 @@ import type {
   TransferIdea,
   TransferList,
   TransferVersion,
+  StoredBreakdownPart,
   StoredVideoStudy,
   StudyKind,
   VideoFrames,
@@ -496,6 +498,20 @@ export class FakeEngine implements ConnectorEngine {
   findVideoStudy(videoId: string, kind: StudyKind): StoredVideoStudy | null {
     this.reads.push(['study', videoId, kind]);
     return this.studies.find((study) => study.videoId === videoId && study.kind === kind) ?? null;
+  }
+
+  /** The stored length of every video; null when it is not stored. */
+  videoSeconds: number | null = null;
+
+  findVideoSeconds(): number | null {
+    return this.videoSeconds;
+  }
+
+  parts: StoredBreakdownPart[] = [];
+
+  findBreakdownPart(channelRef: string, part: BreakdownPartId): StoredBreakdownPart | null {
+    this.reads.push(['part', channelRef, part]);
+    return this.parts.find((stored) => stored.part === part) ?? null;
   }
 
   readChannelBrand(channelRef: string): Promise<BrandResult> {

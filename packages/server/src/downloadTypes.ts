@@ -1,6 +1,8 @@
 import type {
   BrandResult,
+  BreakdownPartId,
   DetailsProblem,
+  StoredBreakdownPart,
   StoredVideoStudy,
   StudyKind,
   ThumbnailDownload,
@@ -50,6 +52,13 @@ export interface DownloadsEngine {
    * the store only. Null when there is no such study.
    */
   findVideoStudy(videoId: string, kind: StudyKind): StoredVideoStudy | null;
+  /** A video's stored length in seconds; reads the store only. Null when it is not stored. */
+  findVideoSeconds(videoId: string): number | null;
+  /**
+   * One stored part of a channel's breakdown; reads the store only. Null
+   * when the channel is not stored or that part was never written for it.
+   */
+  findBreakdownPart(channel: string, part: BreakdownPartId): StoredBreakdownPart | null;
   /** A channel's logo, cover, bio, keywords and links; the channel is read when they are not stored. */
   readChannelBrand(channel: string): Promise<BrandResult>;
   /** The description and tags of the given videos, with their stored views and scores. */

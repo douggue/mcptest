@@ -35,6 +35,8 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     saveThumbnails: unused('saveThumbnails'),
     saveTranscripts: unused('saveTranscripts'),
     findVideoStudy: unused('findVideoStudy'),
+    findVideoSeconds: unused('findVideoSeconds'),
+    findBreakdownPart: unused('findBreakdownPart'),
     readTranscript: unused('readTranscript'),
     readVideoFrames: unused('readVideoFrames'),
     readChannelBrand: unused('readChannelBrand'),

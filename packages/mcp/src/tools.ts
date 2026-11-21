@@ -6,6 +6,7 @@ import { getNearMisses, listNiches, setCompetitorStatus } from './ownerTools';
 import { getBreakouts, getChannelVideos, getMap, getThumbnailBoard } from './readTools';
 import { failureResult } from './results';
 import type {
+  GetBreakdownPartArgs,
   GetBreakoutsArgs,
   GetChannelBrandArgs,
   GetChannelVideosArgs,
@@ -13,6 +14,7 @@ import type {
   GetNearMissesArgs,
   GetThumbnailBoardArgs,
   GetTranscriptArgs,
+  GetTranscriptPaceArgs,
   GetVideoDetailsArgs,
   GetVideoStudyArgs,
   ListNichesArgs,
@@ -22,11 +24,17 @@ import type {
   ViewThumbnailsArgs,
   ViewVideoFramesArgs,
 } from './schemas';
-import { getFrameStudy, getVideoWatch } from './studyTools';
+import { getBreakdownPart, getFrameStudy, getVideoWatch } from './studyTools';
 import { viewThumbnails } from './thumbnailTool';
 import { listTransferOpportunities } from './transferTool';
 import type { ConnectorEngine, ToolContext } from './types';
-import { getChannelBrand, getTranscript, getVideoDetails, viewVideoFrames } from './videoTools';
+import {
+  getChannelBrand,
+  getTranscript,
+  getTranscriptPace,
+  getVideoDetails,
+  viewVideoFrames,
+} from './videoTools';
 
 export interface ToolDeps {
   readonly engine: ConnectorEngine;
@@ -53,6 +61,8 @@ export interface ToolHandlers {
   getVideoDetails(args: GetVideoDetailsArgs): Promise<CallToolResult>;
   getVideoWatch(args: GetVideoStudyArgs): Promise<CallToolResult>;
   getFrameStudy(args: GetVideoStudyArgs): Promise<CallToolResult>;
+  getTranscriptPace(args: GetTranscriptPaceArgs): Promise<CallToolResult>;
+  getBreakdownPart(args: GetBreakdownPartArgs): Promise<CallToolResult>;
 }
 
 /** The default place for diagnostics. */
@@ -103,5 +113,8 @@ export function createToolHandlers(deps: ToolDeps): ToolHandlers {
     getVideoDetails: (args) => guarded('get_video_details', () => getVideoDetails(engine, args)),
     getVideoWatch: (args) => guarded('get_video_watch', () => getVideoWatch(engine, args)),
     getFrameStudy: (args) => guarded('get_frame_study', () => getFrameStudy(engine, args)),
+    getTranscriptPace: (args) =>
+      guarded('get_transcript_pace', () => getTranscriptPace(engine, args)),
+    getBreakdownPart: (args) => guarded('get_breakdown_part', () => getBreakdownPart(engine, args)),
   };
 }

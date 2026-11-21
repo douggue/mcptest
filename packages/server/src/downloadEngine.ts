@@ -12,6 +12,7 @@ import {
   saveChannelTranscripts,
   type ApiVideoDetails,
   type BrandRepo,
+  type BreakdownRepo,
   type ChannelRepo,
   type Config,
   type FetchImage,
@@ -36,6 +37,7 @@ export interface DownloadWiring {
     readonly brands: BrandRepo;
     readonly pages: SqliteVideoPageRepo;
     readonly studies: VideoStudyRepo;
+    readonly breakdowns: BreakdownRepo;
   };
   readonly transact: ReturnType<typeof transactionRunner>;
   /** A source that connects on first use, so a read the store can answer makes no request. */
@@ -129,6 +131,16 @@ export function downloads(wiring: DownloadWiring): DownloadsEngine {
       ),
 
     findVideoStudy: (videoId, kind) => repos.studies.find(videoId, kind),
+
+    findVideoSeconds: (videoId) =>
+      repos.videos.findById(videoId)?.durationSeconds ??
+      repos.pages.findDetails(videoId)?.durationSeconds ??
+      null,
+
+    findBreakdownPart(channel, part) {
+      const stored = storedChannel(channel);
+      return stored ? repos.breakdowns.find(stored.id, part) : null;
+    },
 
     readChannelBrand: (channel) =>
       run(() =>

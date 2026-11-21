@@ -6,6 +6,7 @@ import {
   SqliteMapRepo,
   SqliteRefreshRepo,
   SqliteBrandRepo,
+  SqliteBreakdownRepo,
   SqliteTransferRepo,
   SqliteVideoPageRepo,
   SqliteVideoRepo,
@@ -115,6 +116,7 @@ function openRepos(db: Db) {
     brands: new SqliteBrandRepo(db),
     pages: new SqliteVideoPageRepo(db),
     studies: new SqliteVideoStudyRepo(db),
+    breakdowns: new SqliteBreakdownRepo(db),
   };
 }
 
