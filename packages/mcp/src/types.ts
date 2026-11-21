@@ -40,6 +40,7 @@ type EngineParts = Pick<
   | 'findVideoSeconds'
   | 'findBreakdownPart'
   | 'findChannelNote'
+  | 'findResearch'
 >;
 
 /** What the connector needs from the engine, so tests can stand in for it. */
