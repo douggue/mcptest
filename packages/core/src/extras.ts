@@ -97,3 +97,11 @@ export { loadCalendar, saveSchedule, type CalendarDeps, type CalendarView } from
 export { PACE_WINDOW_DAYS, winnersPace, type WinnersPace } from './calendar/pace';
 export type { ScheduleEntry, ScheduleRepo } from './calendar/store';
 export { SqliteScheduleRepo } from './repos/sqliteScheduleRepo';
+export {
+  comparePacing,
+  winnerVideos,
+  type PacingComparison,
+  type PacingInput,
+} from './pacing/compare';
+export { loadPacing, type PacingDeps, type PacingView } from './pacing/load';
+export { spreadOf, type Spread } from './pacing/spread';
