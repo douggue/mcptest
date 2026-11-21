@@ -3,6 +3,7 @@ import { Shapes } from 'lucide-react';
 import { formatAge, formatCount, formatScore, thumbnailUrl, watchUrl } from '../lib/format';
 import type { FormulaView } from '../lib/labApi';
 import { FIELD, LabStatus, NOTE, PILL, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
+import { SectionFrame } from './SectionFrame';
 import { Outbound } from './NicheCard';
 import type { Lab } from './useLab';
 
@@ -144,93 +145,79 @@ interface Props {
 export function Formulas({ lab, busy, centerTitle, onRemix }: Props) {
   const list = lab.formulas;
   return (
-    <section
+    <SectionFrame
       id="formulas"
-      aria-labelledby="formulas-title"
-      className="w-full scroll-mt-16 bg-space-deep px-gutter-desktop pb-space-xl"
-    >
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-space-lg">
-        <div className="flex flex-col justify-between gap-space-md sm:flex-row sm:items-end">
-          <div>
-            <div className="flex items-center gap-2">
-              <Shapes
-                aria-hidden="true"
-                className="h-[22px] w-[22px] flex-none text-metric-amber"
-              />
-              <h2
-                id="formulas-title"
-                className="text-headline-lg font-bold tracking-tight text-on-surface"
-              >
-                Trending formats
-              </h2>
-            </div>
-            <p className="mt-1 max-w-4xl text-body-md text-on-surface-variant">
-              Title wordings that several videos doing unusually well around {centerTitle} share,
-              with a named slot for what changes. An AI groups the titles; Jgtube keeps a formula
-              only when at least two stored videos of this map stand behind it, and works out the
-              numbers itself. One video is an example, not a format.
-            </p>
-          </div>
-          <div className="flex flex-none flex-wrap items-end gap-2">
-            <label className="flex flex-col gap-1">
-              <span className={LABEL}>Videos from the last</span>
-              <select
-                value={lab.formulaWindow}
-                onChange={(event) => lab.setFormulaWindow(Number(event.target.value))}
-                disabled={busy}
-                className={FIELD}
-              >
-                {FORMULA_WINDOWS.map((days) => (
-                  <option key={days} value={days}>
-                    {days} days
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
+      titleId="formulas-title"
+      title="Trending formats"
+      icon={Shapes}
+      summary={list && list.formulas.length > 0 ? `${list.formulas.length} found` : undefined}
+      lead={
+        <>Title wordings that several videos doing unusually well around {centerTitle} share.</>
+      }
+      howItWorks={
+        <p>
+          An AI groups the titles, with a named slot for what changes. Jgtube keeps a formula only
+          when at least two stored videos of this map stand behind it, and works out the numbers
+          itself. One video is an example, not a format. &ldquo;Remix in idea lab&rdquo; takes a
+          format into the idea lab.
+        </p>
+      }
+      actions={
+        <>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={lab.findFormulas}
+            className={PRIMARY_BUTTON}
+          >
+            Find formats
+          </button>
+          <label className="flex items-center gap-2">
+            <span className={LABEL}>Videos from the last</span>
+            <select
+              value={lab.formulaWindow}
+              onChange={(event) => lab.setFormulaWindow(Number(event.target.value))}
               disabled={busy}
-              onClick={lab.findFormulas}
-              className={PRIMARY_BUTTON}
+              className={`${FIELD} w-auto`}
             >
-              Find formats
-            </button>
-          </div>
-        </div>
-
-        <LabStatus
-          state={lab.jobs.state}
-          kinds={['formulas']}
-          working="Asking the AI to group the titles"
-          takes="An AI run of two to three minutes; it uses some of that AI’s plan allowance."
-        />
-        <Notes lab={lab} />
-        {list && list.formulas.length === 0 && (
-          <p className={NOTE}>
-            No formats have been found for the last {list.windowDays} days yet. Press Find formats:
-            it is an AI run of two to three minutes, using the AI chosen under Ask AI.
-          </p>
-        )}
-        {list && list.formulas.length > 0 && (
-          <>
-            <div className="grid grid-cols-1 gap-space-md xl:grid-cols-2">
-              {list.formulas.map((formula) => (
-                <FormulaCard
-                  key={formula.id}
-                  formula={formula}
-                  onRemix={() => onRemix(formula.id)}
-                />
+              {FORMULA_WINDOWS.map((days) => (
+                <option key={days} value={days}>
+                  {days} days
+                </option>
               ))}
-            </div>
-            {list.runAt && (
-              <p className="text-body-sm text-outline">
-                Found on {list.runAt.slice(0, 10)}, from videos of the {list.windowDays} days
-                before. The next run for this window replaces them.
-              </p>
-            )}
-          </>
-        )}
-      </div>
-    </section>
+            </select>
+          </label>
+        </>
+      }
+    >
+      <LabStatus
+        state={lab.jobs.state}
+        kinds={['formulas']}
+        working="Asking the AI to group the titles"
+        takes="An AI run of two to three minutes; it uses some of that AI’s plan allowance."
+      />
+      <Notes lab={lab} />
+      {list && list.formulas.length === 0 && (
+        <p className={NOTE}>
+          No formats have been found for the last {list.windowDays} days yet. Press Find formats: it
+          is an AI run of two to three minutes, using the AI chosen under Ask AI.
+        </p>
+      )}
+      {list && list.formulas.length > 0 && (
+        <>
+          <div className="grid grid-cols-1 gap-space-md xl:grid-cols-2">
+            {list.formulas.map((formula) => (
+              <FormulaCard key={formula.id} formula={formula} onRemix={() => onRemix(formula.id)} />
+            ))}
+          </div>
+          {list.runAt && (
+            <p className="text-body-sm text-outline">
+              Found on {list.runAt.slice(0, 10)}, from videos of the {list.windowDays} days before.
+              The next run for this window replaces them.
+            </p>
+          )}
+        </>
+      )}
+    </SectionFrame>
   );
 }

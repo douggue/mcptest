@@ -3,7 +3,6 @@ import { needsSomething } from '@jgtube/core/src/concepts/parse';
 import { liftedFrom } from '@jgtube/core/src/hooks/lift';
 import { Bookmark, BookmarkCheck, PenLine, Shuffle, Sparkles, Smartphone } from 'lucide-react';
 import { useState } from 'react';
-import { watchUrl } from '../lib/format';
 import type { LibraryHook } from '../lib/hookLibrary';
 import {
   hookModelOf,
@@ -13,9 +12,9 @@ import {
   type ConceptView,
 } from '../lib/ideaLab';
 import { ConceptThumbnail } from './ConceptThumbnail';
+import { VideoLine } from './VideoChips';
 import { FeedPreview } from './FeedPreview';
 import { PILL, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
-import { Outbound } from './NicheCard';
 
 const LABEL = 'text-label-caps uppercase text-outline';
 const ORIGIN: Readonly<Record<ConceptView['origin'], string | null>> = {
@@ -53,9 +52,8 @@ function RestsOn({ concept }: { readonly concept: ConceptView }) {
       ) : (
         <ul className="flex flex-col gap-0.5">
           {concept.restsOnVideos.map((video) => (
-            <li key={video.videoId} className="truncate text-body-sm text-on-surface">
-              <Outbound href={watchUrl(video.videoId)}>{video.title}</Outbound>
-              <span className="text-outline"> · {video.channelTitle}</span>
+            <li key={video.videoId} className="min-w-0">
+              <VideoLine video={video} />
             </li>
           ))}
         </ul>

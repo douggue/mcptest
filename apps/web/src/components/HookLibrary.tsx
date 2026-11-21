@@ -1,6 +1,6 @@
 import { Check, Copy, Quote, Search } from 'lucide-react';
 import { useState } from 'react';
-import { formatCount, formatScore, watchUrl } from '../lib/format';
+import { formatCount, formatScore } from '../lib/format';
 import {
   filterHooks,
   hookPreview,
@@ -10,7 +10,8 @@ import {
   type LibraryHook,
 } from '../lib/hookLibrary';
 import { FIELD, LabStatus, NOTE, PILL, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
-import { Outbound } from './NicheCard';
+import { SectionFrame } from './SectionFrame';
+import { VideoLine } from './VideoChips';
 import type { Lab } from './useLab';
 
 /** How long "Copied" stays on the button. */
@@ -100,10 +101,7 @@ function HookCard({ hook, seconds, picked, onUse, onModel, modelled }: CardProps
         </>
       )}
       {hook.how && <p className="text-body-sm text-on-surface-variant">How it works: {hook.how}</p>}
-      <p className="truncate text-body-sm text-on-surface">
-        <Outbound href={watchUrl(hook.videoId)}>{hook.title}</Outbound>
-        <span className="text-outline"> · {hook.channelTitle}</span>
-      </p>
+      <VideoLine video={hook} />
       {hook.text !== null && (
         <div className="flex flex-wrap items-center gap-2">
           <CopyButton text={hook.text} />
@@ -156,35 +154,38 @@ export function HookLibrary({ lab, busy, centerTitle, models }: Props) {
   const running = lab.jobs.state.status === 'running';
   const seconds = lab.library?.seconds ?? 60;
   return (
-    <section
+    <SectionFrame
       id="hook-library"
-      aria-labelledby="hook-library-title"
-      className="w-full scroll-mt-16 bg-space-deep px-gutter-desktop pb-space-xl"
-    >
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-space-lg">
-        <div>
-          <div className="flex items-center gap-2">
-            <Quote aria-hidden="true" className="h-[22px] w-[22px] flex-none text-metric-amber" />
-            <h2
-              id="hook-library-title"
-              className="text-headline-lg font-bold tracking-tight text-on-surface"
-            >
-              Hook library
-            </h2>
-          </div>
-          <p className="mt-1 max-w-4xl text-body-md text-on-surface-variant">
-            The first {seconds} seconds of what the top breakout videos around {centerTitle} say,
-            taken word for word from their captions: no AI writes them. Use a hook as a model for a
-            way of opening, never as text to reuse.
+      titleId="hook-library-title"
+      title="Hook library"
+      icon={Quote}
+      summary={state.withWords > 0 ? `${state.withWords} openings` : undefined}
+      lead={
+        <>
+          How the top breakout videos around {centerTitle} open, word for word from their captions.
+        </>
+      }
+      howItWorks={
+        <>
+          <p>
+            The first {seconds} seconds of each video are taken from its captions: no AI writes
+            them. Use a hook as a model for a way of opening, never as text to reuse.
           </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-space-sm">
+          <p>
+            {state.toRead > 0
+              ? `Building reads the captions of ${state.toRead} videos from YouTube, a request or two each. `
+              : ''}
+            Naming the styles is an AI run of a minute or two.
+          </p>
+        </>
+      }
+      actions={
+        <>
           <button
             type="button"
             disabled={running || state.toRead === 0}
             onClick={lab.buildHooks}
-            className={PRIMARY_BUTTON}
+            className={state.toRead > 0 ? PRIMARY_BUTTON : QUIET_BUTTON}
           >
             {state.built ? 'Read the missing captions' : 'Build the hook library'}
           </button>
@@ -192,103 +193,97 @@ export function HookLibrary({ lab, busy, centerTitle, models }: Props) {
             type="button"
             disabled={busy || state.withWords === 0}
             onClick={lab.nameHooks}
-            className={QUIET_BUTTON}
+            className={state.toRead > 0 ? QUIET_BUTTON : PRIMARY_BUTTON}
           >
             {state.unnamed === 0 && state.withWords > 0
               ? 'Name the styles again'
               : 'Name the styles'}
           </button>
-          <span className="text-body-sm text-outline">
-            {state.toRead > 0
-              ? `Building reads the captions of ${state.toRead} videos from YouTube, a request or two each. `
-              : ''}
-            Naming the styles is an AI run of a minute or two.
-          </span>
+        </>
+      }
+    >
+      <LabStatus
+        state={lab.jobs.state}
+        kinds={['hooks-build', 'hooks-label']}
+        working="Working on the hook library"
+        takes="Keep this page open."
+      />
+
+      {state.built && (
+        <div className="flex flex-col gap-space-sm">
+          <label className="relative block max-w-md">
+            <span className="sr-only">Search the hooks</span>
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-2 h-4 w-4 text-outline"
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search the words and the titles"
+              className={`${FIELD} pl-9`}
+            />
+          </label>
+          {styles.length > 0 && (
+            <div
+              role="group"
+              aria-label="Filter by style"
+              className="flex flex-wrap items-center gap-1.5"
+            >
+              {[{ style: null, count: hooks.length }, ...styles].map((entry) => (
+                <button
+                  key={entry.style ?? 'all'}
+                  type="button"
+                  aria-pressed={chosenStyle === entry.style}
+                  onClick={() => setStyle(entry.style)}
+                  className={`whitespace-nowrap rounded-full px-3 py-1.5 text-label-caps uppercase transition-colors ${
+                    chosenStyle === entry.style
+                      ? 'bg-surface-card font-semibold text-primary shadow-sm'
+                      : 'bg-surface-container text-on-surface-variant hover:bg-surface-card hover:text-on-surface'
+                  }`}
+                >
+                  {entry.style ?? 'All'} · {entry.count}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+      )}
 
-        <LabStatus
-          state={lab.jobs.state}
-          kinds={['hooks-build', 'hooks-label']}
-          working="Working on the hook library"
-          takes="Keep this page open."
-        />
-
-        {state.built && (
-          <div className="flex flex-col gap-space-sm">
-            <label className="relative block max-w-md">
-              <span className="sr-only">Search the hooks</span>
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute left-3 top-2 h-4 w-4 text-outline"
-              />
-              <input
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search the words and the titles"
-                className={`${FIELD} pl-9`}
-              />
-            </label>
-            {styles.length > 0 && (
-              <div
-                role="group"
-                aria-label="Filter by style"
-                className="flex flex-wrap items-center gap-1.5"
-              >
-                {[{ style: null, count: hooks.length }, ...styles].map((entry) => (
-                  <button
-                    key={entry.style ?? 'all'}
-                    type="button"
-                    aria-pressed={chosenStyle === entry.style}
-                    onClick={() => setStyle(entry.style)}
-                    className={`whitespace-nowrap rounded-full px-3 py-1.5 text-label-caps uppercase transition-colors ${
-                      chosenStyle === entry.style
-                        ? 'bg-surface-card font-semibold text-primary shadow-sm'
-                        : 'bg-surface-container text-on-surface-variant hover:bg-surface-card hover:text-on-surface'
-                    }`}
-                  >
-                    {entry.style ?? 'All'} · {entry.count}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {lab.library !== null && hooks.length === 0 && (
-          <p className={NOTE}>This map has no breakout video to take an opening from yet.</p>
-        )}
-        {hooks.length > 0 && !state.built && state.toRead > 0 && (
-          <p className={NOTE}>
-            The library has not been built yet. It will hold the openings of the {hooks.length}{' '}
-            strongest breakout videos on this map.
-          </p>
-        )}
-        {state.built && shown.length === 0 && <p className={NOTE}>No hook matches that.</p>}
-        {(state.built || state.toRead === 0) && shown.length > 0 && (
-          <div className="grid grid-cols-1 gap-space-md xl:grid-cols-2">
-            {shown.map((hook) => (
-              <HookCard
-                key={hook.videoId}
-                hook={hook}
-                seconds={seconds}
-                picked={lab.picks.some((pick) => pick.videoId === hook.videoId)}
-                onUse={() =>
-                  lab.pick({
-                    videoId: hook.videoId,
-                    title: hook.title,
-                    channelTitle: hook.channelTitle,
-                    modelOpening: true,
-                    from: 'hook',
-                  })
-                }
-                onModel={models ? () => models.toggle(hook.videoId) : undefined}
-                modelled={models?.chosen.includes(hook.videoId)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
+      {lab.library !== null && hooks.length === 0 && (
+        <p className={NOTE}>This map has no breakout video to take an opening from yet.</p>
+      )}
+      {hooks.length > 0 && !state.built && state.toRead > 0 && (
+        <p className={NOTE}>
+          The library has not been built yet. It will hold the openings of the {hooks.length}{' '}
+          strongest breakout videos on this map.
+        </p>
+      )}
+      {state.built && shown.length === 0 && <p className={NOTE}>No hook matches that.</p>}
+      {(state.built || state.toRead === 0) && shown.length > 0 && (
+        <div className="grid grid-cols-1 gap-space-md xl:grid-cols-2">
+          {shown.map((hook) => (
+            <HookCard
+              key={hook.videoId}
+              hook={hook}
+              seconds={seconds}
+              picked={lab.picks.some((pick) => pick.videoId === hook.videoId)}
+              onUse={() =>
+                lab.pick({
+                  videoId: hook.videoId,
+                  title: hook.title,
+                  channelTitle: hook.channelTitle,
+                  modelOpening: true,
+                  from: 'hook',
+                })
+              }
+              onModel={models ? () => models.toggle(hook.videoId) : undefined}
+              modelled={models?.chosen.includes(hook.videoId)}
+            />
+          ))}
+        </div>
+      )}
+    </SectionFrame>
   );
 }
