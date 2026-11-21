@@ -577,3 +577,4 @@ export {
   secondsForWords,
   wordsForSeconds,
 } from './script/length';
+export { acceptClaim, applyCorrection } from './research/claimEdits';

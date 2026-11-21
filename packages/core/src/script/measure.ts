@@ -17,6 +17,8 @@ export const CUE_LINE = /^\[B-ROLL:(.*)\]\s*$/;
 const CHECK_MARKER = /\[CHECK:\s*([^\]]*)\]/g;
 /** A marker naming a fact of the concept's fact sheet, such as [F3]: shown as a link, never spoken. */
 const FACT_MARKER = /\[F\d{1,3}\]/g;
+/** A note that a claims check's correction was applied: shown to the owner, never spoken. */
+const FIXED_MARKER = /\[FIXED:[^\]]*\]/g;
 const SECONDS_PER_MINUTE = 60;
 
 const isSpoken = (line: string): boolean =>
@@ -27,6 +29,7 @@ function withoutMarkers(line: string): string {
   return line
     .replace(CHECK_MARKER, '')
     .replace(FACT_MARKER, '')
+    .replace(FIXED_MARKER, '')
     .replace(/[ \t]+([.,;:!?])/g, '$1')
     .replace(/[ \t]{2,}/g, ' ')
     .trim();
