@@ -12,6 +12,7 @@ import { ConceptThumbnail } from './ConceptThumbnail';
 import { LabStatus, NOTE } from './LabStatus';
 import { ScriptEditor } from './ScriptEditor';
 import { HooksAndBeats, Models } from './ScriptHooks';
+import { RiskCheckLink } from './RiskParts';
 import { ScriptOrigins } from './ScriptOrigins';
 import { ScriptSetup } from './ScriptSetup';
 import { StepRun, StepTabs } from './ScriptSteps';
@@ -65,6 +66,7 @@ function Workbench({ script, lab, busy, voices, view }: Props & { readonly view:
         </span>
       </div>
       <ScriptOrigins conceptId={view.concept.id} />
+      <RiskCheckLink />
       <ScriptSetup script={script} view={view} busy={busy} voices={voices} />
       <LabStatus
         state={lab.jobs.state}

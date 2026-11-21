@@ -15,6 +15,7 @@ import {
   Shapes,
   Sparkles,
   Sprout,
+  ShieldAlert,
   Target,
   type LucideIcon,
 } from 'lucide-react';
@@ -38,6 +39,7 @@ const ICONS: Readonly<Record<string, LucideIcon>> = {
   'upload-calendar-title': CalendarDays,
   'length-pacing-title': Ruler,
   'comment-mining-title': MessageSquareText,
+  'risk-check-title': ShieldAlert,
 };
 
 /**

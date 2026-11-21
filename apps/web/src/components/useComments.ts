@@ -33,7 +33,7 @@ function doneText(job: ExtrasJob): string {
 }
 
 /** Polls a job until it ends. */
-async function follow(
+export async function follow(
   api: ExtrasApi,
   id: string,
   onText: (text: string) => void,

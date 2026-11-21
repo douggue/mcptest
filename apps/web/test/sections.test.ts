@@ -11,6 +11,7 @@ describe('the left rail', () => {
       'Hook library',
       'Idea lab',
       'Script writer',
+      'Check before publishing',
     ]);
     expect(RAIL_GROUPS[2]?.items.map((item) => item.label)).toEqual([
       'Ask AI and breakdowns',

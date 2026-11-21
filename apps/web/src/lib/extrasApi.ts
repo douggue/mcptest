@@ -9,6 +9,7 @@ import type {
 import { apiCaller, type Fetch } from './api';
 import type { AlertSettingsInput, AlertsReply } from './alerts';
 import type { CommentsView } from './comments';
+import type { RiskView } from './risk';
 import type { ChangesReply } from './changes';
 
 /** The later features' part of the local server's API, each call for one channel by its id. */
@@ -77,6 +78,17 @@ export function createExtrasApi(fetcher?: Fetch) {
         .jobId;
     },
 
+    /** A channel's scripted concepts and the check of one; null when it has no map. */
+    risk: (channel: string, conceptId: number | null) =>
+      read<RiskView>(
+        `/api/risk?${of(channel)}${conceptId === null ? '' : `&concept=${conceptId}`}`,
+      ),
+
+    /** Starts the risk check of a concept's script; resolves with the job id. */
+    async askRisk(channel: string, conceptId: number): Promise<string> {
+      return unwrap<{ jobId: string }>(await send('/api/risk/ask', { channel, conceptId })).jobId;
+    },
+
     /** One of the later features' jobs. */
     async extrasJob(id: string): Promise<ExtrasJob> {
       return unwrap<ExtrasJob>(await call(`/api/extras/job?id=${encodeURIComponent(id)}`));
@@ -112,6 +124,15 @@ export interface ExtrasJob {
           readonly proposed: number;
           readonly dropped: number;
           readonly unread: number;
+          readonly engine: string;
+        };
+      }
+    | {
+        readonly kind: 'risk-check';
+        readonly outcome: {
+          readonly claims: number;
+          readonly notes: number;
+          readonly dropped: number;
           readonly engine: string;
         };
       }

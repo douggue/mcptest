@@ -22,6 +22,7 @@ import { Transfers } from './components/Transfers';
 import { UploadCalendar } from './components/UploadCalendar';
 import { LengthPacing } from './components/LengthPacing';
 import { CommentMining } from './components/CommentMining';
+import { RiskCheck } from './components/RiskCheck';
 import { downloadMap, useMapPage } from './components/useMapPage';
 import { usePagePath } from './components/usePagePath';
 import { useWorkspace } from './components/useWorkspace';
@@ -167,6 +168,11 @@ export function App() {
           />
         )}
         {snapshot && <ScriptWriter script={script} lab={lab} busy={asking} voices={work.voices} />}
+        <RiskCheck
+          channelId={centerId}
+          openConceptId={script.view?.concept.id ?? null}
+          reloadKey={refresh.run.status}
+        />
 
         {/* Study */}
         {snapshot && (

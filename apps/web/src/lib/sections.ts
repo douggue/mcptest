@@ -34,6 +34,7 @@ export const RAIL_GROUPS: readonly RailGroup[] = [
       { label: 'Hook library', target: 'hook-library-title' },
       { label: 'Idea lab', target: 'idea-lab-title' },
       { label: 'Script writer', target: 'script-writer-title' },
+      { label: 'Check before publishing', target: 'risk-check-title' },
     ],
   },
   {
