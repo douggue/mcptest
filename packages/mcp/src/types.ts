@@ -1,5 +1,6 @@
 import type { VideoReportRow } from '@jgtube/core';
 import type { Engine } from '@jgtube/server/src/app';
+import type { ExtrasEngine } from '@jgtube/server/src/extrasTypes';
 
 export type { CrawlChoices, CrawlOutcome, Engine, TransferChoices } from '@jgtube/server/src/app';
 export type { VideoDetailsAnswer } from '@jgtube/server/src/downloadTypes';
@@ -46,6 +47,8 @@ type EngineParts = Pick<
 export interface ConnectorEngine extends EngineParts {
   /** A stored channel's videos; reads the store only. Null when the channel is not stored. */
   findChannelVideos(channel: string): ChannelVideos | null;
+  /** The later features' parts the connector's tools read. */
+  readonly extras: Pick<ExtrasEngine, 'viewerComments'>;
 }
 
 /** One step of a long tool call, for clients that asked to be told. */
