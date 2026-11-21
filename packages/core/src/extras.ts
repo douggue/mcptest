@@ -54,3 +54,30 @@ export {
 export type { AlertRepo, AlertRule, AlertSettings, StoredAlert } from './alerts/store';
 export { lookalikeHistories, type HistoryDeps, type MapHistories } from './changes/load';
 export { SqliteAlertRepo } from './repos/sqliteAlertRepo';
+export {
+  linkVideo,
+  loadPlan,
+  type InspirationAtAge,
+  type InspirationMatch,
+  type LinkOutcome,
+  type LinkedVideo,
+  type PlanDeps,
+  type PlanView,
+} from './plan/report';
+export {
+  SAME_AGE_MIN_DAYS,
+  SAME_AGE_SHARE,
+  dateTooRough,
+  viewsAtAge,
+  type AgeViews,
+} from './plan/sameAge';
+export type { VideoLink, VideoLinkRepo } from './plan/store';
+export {
+  PLAN_LENGTH_BANDS,
+  lengthBand,
+  planTable,
+  type PlanTableKind,
+  type PlanTableRow,
+  type TableVideo,
+} from './plan/table';
+export { SqliteVideoLinkRepo } from './repos/sqliteVideoLinkRepo';

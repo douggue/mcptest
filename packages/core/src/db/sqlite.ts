@@ -354,6 +354,18 @@ CREATE TABLE IF NOT EXISTS alerts (
   UNIQUE (center_channel_id, kind, subject_id)
 );
 `,
+  // 21: the published video a kept concept became, one per concept, pasted by the owner and
+  //     checked to be a video of the concept's centre channel. A video is linked to one concept
+  //     of a channel at most. It refers only to concepts (step 13) and goes with its concept.
+  `
+CREATE TABLE IF NOT EXISTS concept_videos (
+  concept_id         INTEGER PRIMARY KEY REFERENCES concepts (id) ON DELETE CASCADE,
+  center_channel_id  TEXT NOT NULL,
+  video_id           TEXT NOT NULL,
+  linked_at          TEXT NOT NULL,
+  UNIQUE (center_channel_id, video_id)
+);
+`,
 ];
 
 /** The number of the newest step: what `user_version` reads in a store that is up to date. */
