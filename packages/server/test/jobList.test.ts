@@ -68,6 +68,7 @@ describe('progressText', () => {
     expect(progressText({ stage: 'reading-channels', channels: 12 })).toBe(
       '12 channels found so far',
     );
+    expect(progressText({ stage: 'reading-channels', channels: 1 })).toBe('1 channel found so far');
     expect(progressText({ text: '' })).toBeNull();
     expect(progressText(null)).toBeNull();
     expect(progressText('text')).toBeNull();
