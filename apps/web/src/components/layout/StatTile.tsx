@@ -18,9 +18,11 @@ export function StatTile({ label, value, note }: Props) {
   );
 }
 
-/** A row of stat tiles that wraps to two columns on a phone. */
+/** A row of stat tiles: as many to a row as fit at a readable width, two on a phone. */
 export function StatGrid({ children }: { readonly children: ReactNode }) {
   return (
-    <dl className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">{children}</dl>
+    <dl className="grid min-w-0 grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
+      {children}
+    </dl>
   );
 }
