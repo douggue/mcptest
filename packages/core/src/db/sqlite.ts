@@ -326,6 +326,34 @@ CREATE TABLE IF NOT EXISTS channel_looks (
   seen_at            TEXT NOT NULL
 );
 `,
+  // 18: alerts. One rule per centre channel (the owner's number for a look-alike video's
+  //     outlier score, whether a look-alike newly taking off counts, on or off, and when it
+  //     was last checked) and the alerts found, each kept once per channel, kind and subject.
+  //     They refer to no other table and need nothing a later step adds.
+  `
+CREATE TABLE IF NOT EXISTS alert_rules (
+  center_channel_id  TEXT PRIMARY KEY,
+  min_score          REAL NOT NULL,
+  taken_off          INTEGER NOT NULL,
+  enabled            INTEGER NOT NULL,
+  created_at         TEXT NOT NULL,
+  checked_at         TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS alerts (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  center_channel_id  TEXT NOT NULL,
+  kind               TEXT NOT NULL CHECK (kind IN ('breakout', 'taken-off')),
+  subject_id         TEXT NOT NULL,
+  channel_id         TEXT NOT NULL,
+  channel_title      TEXT NOT NULL,
+  video_title        TEXT,
+  score              REAL,
+  views              INTEGER,
+  found_at           TEXT NOT NULL,
+  read_at            TEXT,
+  UNIQUE (center_channel_id, kind, subject_id)
+);
+`,
 ];
 
 /** The number of the newest step: what `user_version` reads in a store that is up to date. */
