@@ -6,6 +6,7 @@ import { useMapPage } from './components/useMapPage';
 import { usePagePath } from './components/usePagePath';
 import { useRoute } from './components/useRoute';
 import { useWorkspace } from './components/useWorkspace';
+import { aiOf } from './components/viewParts';
 import { aiBadge } from './lib/aiBadge';
 import { createApi } from './lib/api';
 
@@ -27,12 +28,7 @@ export function App() {
     [go],
   );
   const { analysis } = work;
-  const ai = {
-    choice: analysis.choice,
-    engines: analysis.engines,
-    busy: work.asking,
-    choose: analysis.choose,
-  };
+  const ai = aiOf(work);
 
   return (
     <ConnectionsContext.Provider value={page.snapshot ? path.connections : null}>

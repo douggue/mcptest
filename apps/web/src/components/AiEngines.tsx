@@ -1,7 +1,14 @@
 import { aiBadge } from '../lib/aiBadge';
-import type { EngineChoice, EngineReport } from '../lib/analyses';
+import {
+  ENGINE_CHOICES,
+  choiceFrom,
+  choiceHelp,
+  type EngineChoice,
+  type EngineReport,
+} from '../lib/analyses';
 import { EngineStatusLine } from './AiBadge';
 import { EngineSwitch } from './EngineSwitch';
+import { FIELD } from './LabStatus';
 
 /** The engine choice and what the server knows of the engines, as Settings needs them. */
 export interface AiChoice {
@@ -10,6 +17,28 @@ export interface AiChoice {
   /** An AI run is under way, so the choice waits until it is done. */
   readonly busy: boolean;
   readonly choose: (choice: EngineChoice) => void;
+}
+
+/** The engine choice as a compact list for a side panel, with what the choice means under it. */
+export function EngineSelect({ ai }: { readonly ai: AiChoice }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <select
+        aria-label="Which AI answers"
+        value={ai.choice}
+        disabled={ai.busy}
+        onChange={(event) => ai.choose(choiceFrom(event.target.value))}
+        className={FIELD}
+      >
+        {ENGINE_CHOICES.map((option) => (
+          <option key={option.choice} value={option.choice}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <p className="text-body-sm text-outline">{choiceHelp(ai.choice, ai.engines)}</p>
+    </div>
+  );
 }
 
 /** Which AI answers: the switch, what the choice means, and each engine as ready or not set up. */

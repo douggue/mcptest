@@ -5,7 +5,7 @@ import { HookLibrary } from './HookLibrary';
 import { IdeaLab } from './IdeaLab';
 import { RiskCheck } from './RiskCheck';
 import { ScriptWriter } from './ScriptWriter';
-import { withMap, type ViewDraw, type ViewParts } from './viewParts';
+import { aiOf, withMap, type ViewDraw, type ViewParts } from './viewParts';
 
 /** The hook library, which can also choose the open script's model openings. */
 function Hooks({ work, centerTitle }: ViewParts & { readonly centerTitle: string }) {
@@ -47,6 +47,7 @@ export const CREATE_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
       centerTitle={snapshot.center.title}
       breakouts={snapshot.breakouts}
       onDraft={(concept) => path.draft(concept.id)}
+      ai={aiOf(work)}
     />
   )),
   script: withMap('script', (_snapshot, { work }) => (

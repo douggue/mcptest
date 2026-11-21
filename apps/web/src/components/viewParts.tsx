@@ -3,6 +3,7 @@ import { Radar } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { Api } from '../lib/api';
 import { VIEWS, viewHref, type ViewId } from '../lib/routes';
+import type { AiChoice } from './AiEngines';
 import type { PagePath } from './usePagePath';
 import type { Go } from './useRoute';
 import type { MapPage } from './useMapPage';
@@ -18,6 +19,14 @@ export interface ViewParts {
   /** Opens one channel's own view. */
   readonly openChannel: (channelId: string) => void;
 }
+
+/** Which AI answers, as the side panels and Settings take it. */
+export const aiOf = (work: Workspace): AiChoice => ({
+  choice: work.analysis.choice,
+  engines: work.analysis.engines,
+  busy: work.asking,
+  choose: work.analysis.choose,
+});
 
 /** Draws one view; a table of these is a group of the rail. */
 export type ViewDraw = (parts: ViewParts) => ReactNode;
