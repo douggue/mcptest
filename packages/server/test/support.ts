@@ -72,6 +72,8 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     readVideoFrames: unused('readVideoFrames'),
     readChannelBrand: unused('readChannelBrand'),
     readVideoDetails: unused('readVideoDetails'),
+    missingLogos: unused('missingLogos'),
+    fetchLogos: unused('fetchLogos'),
     ...UNUSED_LAB,
     ...parts,
   };

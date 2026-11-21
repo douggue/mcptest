@@ -66,6 +66,10 @@ class FakeEngine implements Engine {
   voiceOf = UNUSED_LAB.voiceOf;
   readVoice = UNUSED_LAB.readVoice;
   findScript = UNUSED_LAB.findScript;
+  missingLogos = (): never => {
+    throw new Error('not used in these tests');
+  };
+  fetchLogos = this.missingLogos;
   nicheReads = 0;
   /** The channels the fake store holds, for the watchlist. */
   known: readonly string[] = [CHANNEL_ID];

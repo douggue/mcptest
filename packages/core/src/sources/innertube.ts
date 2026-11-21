@@ -145,7 +145,8 @@ export class InnertubeSource implements YouTubeSource {
     const page = await this.limiter.run(() => this.client.getChannel(channelId));
     const channel = mapChannel(page.header, page.metadata);
     if (!channel) throw new Error(`Could not read the channel page for ${channelId}`);
-    const videos = await this.collectVideos(page, channel.id, maxVideos);
+    // A caller that wants the page alone (its logo, say) is spared the request for the videos.
+    const videos = maxVideos > 0 ? await this.collectVideos(page, channel.id, maxVideos) : [];
     return { channel, videos, brand: mapChannelBrand(page.header, page.metadata) };
   }
 

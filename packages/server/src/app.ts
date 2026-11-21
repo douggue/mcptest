@@ -53,6 +53,8 @@ import { downloadThumbnails, downloadTranscripts } from './downloadRoutes';
 import type { DownloadsEngine } from './downloadTypes';
 import { labRoutes, type LabRoutes } from './labRoutes';
 import type { LabEngine } from './labTypes';
+import { LOGOS_PATH, logoRoutes, type LogoRoutes } from './logoRoutes';
+import type { LogoEngine } from './logoTypes';
 import type { ScriptEngine } from './scriptTypes';
 import { readTransfers, saveTransfer } from './transferRoutes';
 
@@ -115,7 +117,7 @@ export interface TransferChoices {
 }
 
 /** What the API needs from the engine, so tests can stand in for it. */
-export interface Engine extends DownloadsEngine, LabEngine, ScriptEngine {
+export interface Engine extends DownloadsEngine, LabEngine, ScriptEngine, LogoEngine {
   /** The latest stored map around a channel; reads the store only. */
   findSnapshot(channel: string): MapSnapshot | null;
   /** Every channel a map has been made for, the most recently mapped first. */
@@ -352,6 +354,13 @@ async function setWatched(options: AppOptions, request: Request): Promise<Respon
     : fail(404, 'That channel has not been read yet');
 }
 
+/** The requests that start work reading YouTube; a logo job under way steps aside for each. */
+const READS_YOUTUBE: ReadonlySet<string> = new Set([
+  '/api/maps',
+  '/api/niches/discover',
+  '/api/refresh',
+]);
+
 const deleteRequest = z.object({ channel: z.string().regex(CHANNEL_ID) });
 
 /** Deletes a saved channel's maps. Refused while a map is being made, which may be this one. */
@@ -414,9 +423,10 @@ function jobStatus(
   options: AppOptions,
   breakdowns: BreakdownJobs,
   lab: LabRoutes,
+  logos: LogoRoutes,
   id: string,
 ): Response {
-  const job = options.jobs.get(id) ?? breakdowns.get(id) ?? lab.job(id);
+  const job = options.jobs.get(id) ?? breakdowns.get(id) ?? lab.job(id) ?? logos.job(id);
   return job ? ok(job) : fail(404, 'No such job');
 }
 
@@ -431,6 +441,12 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
   const uploading: UploadTracker = { busy: false };
   // The idea lab's AI runs take the same one slot as an analysis or a breakdown.
   const lab = labRoutes(options, analysing);
+  const logos = logoRoutes({
+    engine: options.engine,
+    allowedHosts: options.allowedHosts,
+    isReading: () => options.jobs.isBusy() || options.engine.isReadingYouTube(),
+    channelProblem,
+  });
   return async (request) => {
     if (!isTrustedHost(request, options.allowedHosts)) {
       return fail(403, 'This server only answers to its own address');
@@ -441,6 +457,10 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
 
     const labAnswer = lab.handle(request, url);
     if (labAnswer) return labAnswer;
+    if (method === 'POST' && READS_YOUTUBE.has(pathname)) await logos.standDown();
+    if (pathname === LOGOS_PATH) {
+      return method === 'POST' ? logos.start(request) : fail(405, 'Use POST');
+    }
     if (pathname === '/api/maps/latest') {
       return method === 'GET'
         ? readLatest(url, (channel) => options.engine.findSnapshot(channel))
@@ -519,7 +539,9 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     }
     if (pathname.startsWith('/api/jobs/')) {
       const id = pathname.slice('/api/jobs/'.length);
-      return method === 'GET' ? jobStatus(options, breakdowns, lab, id) : fail(405, 'Use GET');
+      return method === 'GET'
+        ? jobStatus(options, breakdowns, lab, logos, id)
+        : fail(405, 'Use GET');
     }
     return fail(404, 'Not found');
   };

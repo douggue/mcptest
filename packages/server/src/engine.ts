@@ -60,6 +60,7 @@ import {
 import { downloads } from './downloadEngine';
 import { cleanMessage } from './jobs';
 import { lab } from './labSetup';
+import { logos } from './logoEngine';
 import { trackWork, type WorkTracker } from './running';
 import { transfers } from './transferEngine';
 import { videoCopies, type FetchVideoFile } from './videoCopies';
@@ -417,6 +418,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     ...maps,
     ...ownerChoices(wiring),
     ...transferring,
+    ...logos({ ...wiring, findSnapshot: maps.findSnapshot }),
     ...reading,
     ...crawling(wiring),
     ...refreshing(wiring, fillFacts),

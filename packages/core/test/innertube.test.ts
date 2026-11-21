@@ -81,6 +81,26 @@ describe('InnertubeSource', () => {
     expect(snapshot.videos).toHaveLength(2);
   });
 
+  test('reads only the channel page when no videos are asked for', async () => {
+    let videoRequests = 0;
+    const client = makeClient({
+      getChannel: async () => ({
+        header: channelFixture.header,
+        metadata: channelFixture.metadata,
+        getVideos: async () => {
+          videoRequests += 1;
+          return pagedTab([channelVideos]);
+        },
+      }),
+    });
+
+    const snapshot = await makeSource(client).fetchChannel(CHANNEL_ID, 0);
+
+    expect(videoRequests).toBe(0);
+    expect(snapshot.videos).toEqual([]);
+    expect(snapshot.brand?.avatar.length).toBeGreaterThan(0);
+  });
+
   test('fails clearly when the channel page cannot be read', async () => {
     const client = makeClient({
       getChannel: async () => ({
