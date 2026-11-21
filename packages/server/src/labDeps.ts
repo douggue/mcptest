@@ -5,6 +5,7 @@
 import {
   parseChannelRef,
   type BreakdownRepo,
+  type ResearchRepo,
   type ChannelRepo,
   type ConceptRepo,
   type FormulaRepo,
@@ -31,6 +32,8 @@ export interface LabDeps {
     readonly pages: { find(videoId: string): StoredTranscript | null };
     /** Stored breakdowns, for title formulas taken from one; absent where none are kept. */
     readonly breakdowns?: Pick<BreakdownRepo, 'find'>;
+    /** The lengths the owner typed; absent where none are kept. */
+    readonly research?: Pick<ResearchRepo, 'findLength' | 'saveLength'>;
   };
   readonly analyse: Engine['analyse'];
   readonly listTransfers: Engine['listTransfers'];

@@ -567,3 +567,13 @@ export type {
   TypedLength,
 } from './research/types';
 export { SqliteResearchRepo } from './repos/sqliteResearchRepo';
+export {
+  MAX_TARGET_SECONDS,
+  MAX_TARGET_WORDS,
+  MIN_TARGET_SECONDS,
+  MIN_TARGET_WORDS,
+  lengthProblem,
+  parseMinutes,
+  secondsForWords,
+  wordsForSeconds,
+} from './script/length';

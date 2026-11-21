@@ -35,6 +35,7 @@ export const UNUSED_LAB: LabEngine & ScriptEngine = {
   voiceOf: unused('voiceOf'),
   readVoice: unused('readVoice'),
   findScript: unused('findScript'),
+  setScriptLength: unused('setScriptLength'),
 };
 
 /** The later features' part of an engine, failing loudly when a test reaches it. */

@@ -4,6 +4,7 @@ import {
   SqliteFormulaRepo,
   SqliteHookLabelRepo,
   SqliteMapRepo,
+  SqliteResearchRepo,
   SqliteScriptRepo,
   SqliteVideoPageRepo,
   SqliteVideoRepo,
@@ -19,7 +20,7 @@ import type { LabDeps } from '../src/labDeps';
 import { lab } from '../src/labSetup';
 import type { LabEngine, LabProgress } from '../src/labTypes';
 import type { ScriptEngine, ScriptOutcome, ScriptView } from '../src/scriptTypes';
-import { HOST, get, post, read, stubEngine } from './support';
+import { CHANNEL_ID, HOST, get, post, read, stubEngine } from './support';
 
 const NOW = new Date('2026-11-21T12:00:00Z');
 const DAY_MS = 86_400_000;
@@ -156,6 +157,7 @@ beforeEach(() => {
       hookLabels: new SqliteHookLabelRepo(db),
       scripts: new SqliteScriptRepo(db),
       studies,
+      research: new SqliteResearchRepo(db),
     },
     analyse: async (analysis, _channel, only, focus) => {
       asked.push({ analysis, focus, only });
@@ -572,5 +574,87 @@ describe('the script routes', () => {
     expect([shown.status, offMap.status, bad.status, reading.status, none.status]).toEqual([
       200, 404, 400, 202, 404,
     ]);
+  });
+});
+
+describe('a length the owner types', () => {
+  beforeEach(() => {
+    engine.openScript(MINE, conceptId);
+    engine.saveScript(MINE, conceptId, { wordsPerMinute: 150 });
+  });
+
+  test('in minutes sets the length, and the words follow from the rate', () => {
+    const view = engine.setScriptLength(MINE, conceptId, { typed: 'minutes', seconds: 750 });
+
+    expect(view?.script?.targetSeconds).toBe(750);
+    expect(view?.plan.targetWords).toBe(1875);
+    expect(view?.typedLength).toEqual({ typed: 'minutes', words: null });
+  });
+
+  test('in words keeps the words typed and sets the length from the rate', () => {
+    const view = engine.setScriptLength(MINE, conceptId, { typed: 'words', words: 1801 });
+
+    expect(view?.plan.targetWords).toBe(1801);
+    expect(view?.script?.targetSeconds).toBe(720);
+    expect(view?.typedLength).toEqual({ typed: 'words', words: 1801 });
+    // A new rate keeps the words typed and moves the length.
+    expect(engine.saveScript(MINE, conceptId, { wordsPerMinute: 180 })?.script?.targetSeconds).toBe(
+      600,
+    );
+  });
+
+  test('is refused outside the bounds, and in words with no rate', () => {
+    expect(() =>
+      engine.setScriptLength(MINE, conceptId, { typed: 'minutes', seconds: 10 }),
+    ).toThrow(/20 seconds/);
+    expect(() => engine.setScriptLength(MINE, conceptId, { typed: 'words', words: 40 })).toThrow(
+      /50/,
+    );
+    expect(engine.setScriptLength(OTHER, conceptId, { typed: 'minutes', seconds: 600 })).toBeNull();
+  });
+});
+
+describe('POST /api/lab/scripts/length', () => {
+  test('takes minutes or words within the bounds, and says why not otherwise', async () => {
+    const asked: unknown[] = [];
+    const app = createApp({
+      engine: stubEngine({
+        setScriptLength: (channel, concept, length) => {
+          asked.push([channel, concept, length]);
+          if (length.typed === 'words') throw new Error('Set a speaking rate first.');
+          return {} as never;
+        },
+      }),
+      jobs: new JobStore(),
+      allowedHosts: [HOST],
+    });
+    const PATH = '/api/lab/scripts/length';
+
+    const minutes = await post(app, PATH, {
+      channel: CHANNEL_ID,
+      concept: 7,
+      length: { typed: 'minutes', seconds: 750 },
+    });
+    const words = await post(app, PATH, {
+      channel: CHANNEL_ID,
+      concept: 7,
+      length: { typed: 'words', words: 1800 },
+    });
+    const tooShort = await post(app, PATH, {
+      channel: CHANNEL_ID,
+      concept: 7,
+      length: { typed: 'minutes', seconds: 19 },
+    });
+    const tooMany = await post(app, PATH, {
+      channel: CHANNEL_ID,
+      concept: 7,
+      length: { typed: 'words', words: 30_001 },
+    });
+
+    expect([minutes.status, words.status, tooShort.status, tooMany.status]).toEqual([
+      200, 400, 400, 400,
+    ]);
+    expect((await read(words)).error).toMatch(/speaking rate/);
+    expect(asked).toHaveLength(2);
   });
 });
