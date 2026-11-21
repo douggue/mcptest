@@ -399,3 +399,4 @@ export {
   type MapVideoDeps,
   type PickedVideo,
 } from './lab/mapVideos';
+export { LIFT_MIN_WORDS, liftedFrom, longestSharedRun, type Lift } from './hooks/lift';

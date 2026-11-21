@@ -1,5 +1,6 @@
 import type { BreakoutVideo } from '@jgtube/core';
 import { needsSomething } from '@jgtube/core/src/concepts/parse';
+import { liftedFrom } from '@jgtube/core/src/hooks/lift';
 import { Bookmark, BookmarkCheck, PenLine, Shuffle, Sparkles, Smartphone } from 'lucide-react';
 import { useState } from 'react';
 import { watchUrl } from '../lib/format';
@@ -65,6 +66,8 @@ function Hook({
   readonly hooks: readonly LibraryHook[];
 }) {
   const model = hookModelOf(concept.hookStyle, hooks);
+  const lift = liftedFrom(concept.hook, hooks);
+  const liftedTitle = hooks.find((hook) => hook.videoId === lift?.videoId)?.title;
   return (
     <div className="flex flex-col gap-1">
       <span className={LABEL}>Opening sentence</span>
@@ -76,6 +79,12 @@ function Hook({
             {model.style ?? 'a hook in the library'}: {model.title}
           </a>
           . The way of opening only, never its words.
+        </p>
+      )}
+      {lift && (
+        <p role="note" className="break-words text-body-sm text-metric-amber">
+          Shares {lift.words} words in a row with the opening of &ldquo;{liftedTitle}&rdquo;:
+          &ldquo;{lift.phrase}&rdquo;. Reword it before you use it.
         </p>
       )}
       {!model && concept.hookStyle !== null && (
