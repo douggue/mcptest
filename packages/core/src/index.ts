@@ -540,3 +540,10 @@ export {
 } from './script/voice';
 export * from './extras';
 export { liftStyleLock, readStyleLock, styleLockNote } from './breakdown/styleLock';
+export {
+  PROFILE_VIDEOS,
+  loadChannelProfile,
+  type ChannelProfile,
+  type ProfileDeps,
+  type ProfileVideo,
+} from './channel/profile';

@@ -58,6 +58,7 @@ export const UNUSED_EXTRAS: ExtrasEngine = {
   findRisk: unused('findRisk'),
   askRisk: unused('askRisk'),
   riskFindings: unused('riskFindings'),
+  findChannelProfile: unused('findChannelProfile'),
 };
 
 /** An engine whose later features are these, failing loudly on any other. */
