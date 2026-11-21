@@ -68,9 +68,8 @@ export function LengthPacing({ channelId, reloadKey }: Props) {
               <p>{winnersRule(pacing.rule, pacing.lookalikes)}</p>
               {shorts && <p>{shorts}</p>}
               <p>
-                Words a minute come only from videos whose captions are stored (Download
-                transcripts, the hook library or the script writer store them), counted from the
-                first caption line to the last.
+                Words a minute come only from videos whose captions Jgtube has stored, for example
+                with Download transcripts, counted from the first caption line to the last.
               </p>
             </div>
           </>
