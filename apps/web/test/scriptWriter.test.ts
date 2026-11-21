@@ -4,6 +4,7 @@ import {
   checklist,
   clockOf,
   exportMarkdown,
+  openingStep,
   exportName,
   exportShotList,
   exportText,
@@ -302,5 +303,25 @@ describe('the Markdown export with the concept’s thumbnail prompt', () => {
 
   test('has no such heading when the concept has no prompt', () => {
     expect(exportMarkdown('The Machine', SCRIPT, true, {})).not.toContain('Thumbnail prompt');
+  });
+});
+
+describe('the step the script writer opens on', () => {
+  const state = (stage: 'hooks' | 'draft' | 'tighten', done: boolean) => ({
+    stage,
+    done,
+    blocked: null,
+  });
+
+  test('is the first step not written yet, or the last when all are', () => {
+    expect(
+      openingStep([state('hooks', false), state('draft', false), state('tighten', false)]),
+    ).toBe('hooks');
+    expect(
+      openingStep([state('hooks', true), state('draft', false), state('tighten', false)]),
+    ).toBe('draft');
+    expect(openingStep([state('hooks', true), state('draft', true), state('tighten', true)])).toBe(
+      'tighten',
+    );
   });
 });
