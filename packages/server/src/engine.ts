@@ -53,7 +53,7 @@ import {
 } from '@jgtube/core';
 import { randomUUID } from 'node:crypto';
 import { analysisEngines, type AnalysisOptions } from './analysisEngine';
-import { thumbnailFiles, type PictureFileSet } from './thumbnailFiles';
+import { idFiles, thumbnailFiles, type PictureFileSet } from './thumbnailFiles';
 import { answerEngine } from './answerEngine';
 import { conceptThumbEngine } from './conceptThumbEngine';
 import { styleLockEngine } from './styleLockEngine';
@@ -405,10 +405,12 @@ function discovery(wiring: Wiring, fillFacts: FillFacts): Discovery {
 /** A channel's thumbnails as files, chosen from its board and fetched from YouTube. */
 const boardFiles =
   (maps: MapReads, fetchImage: FetchImage | undefined) =>
-  (channel: string): Promise<PictureFileSet> => {
+  (channel: string, videoIds?: readonly string[]): Promise<PictureFileSet> => {
+    const fetch = (videoId: string) => fetchThumbnail(videoId, fetchImage);
+    if (videoIds !== undefined) return idFiles(videoIds, fetch);
     const board = maps.findThumbnailBoard(channel);
     if (!board) return Promise.reject(new Error('this channel has no map yet'));
-    return thumbnailFiles(board, (videoId) => fetchThumbnail(videoId, fetchImage));
+    return thumbnailFiles(board, fetch);
   };
 
 /** Wires the API to the store and to YouTube. */

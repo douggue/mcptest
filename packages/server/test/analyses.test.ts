@@ -43,6 +43,8 @@ const FOCUS: Partial<Record<AnalysisId, QuestionFocus>> = {
   'concept-thumbnail': { kind: 'concept', conceptId: 1 },
   'viewer-requests': { kind: 'comments', videoIds: ['aaaaaaaaaa1'] },
   'risk-check': { kind: 'risk', conceptId: 1 },
+  'thumbnail-tags': { kind: 'thumb-tags', videoIds: ['aaaaaaaaaaa'] },
+  'thumbnail-advice': { kind: 'thumb-advice', videoId: 'aaaaaaaaaaa' },
 };
 /** Tools that change stored choices or reach the network for minutes; an analysis only reads. */
 const NOT_FOR_ANALYSIS = ['set_competitor_status', 'make_map'];
@@ -72,6 +74,8 @@ describe('the analyses on offer', () => {
       'concept-thumbnail',
       'viewer-requests',
       'risk-check',
+      'thumbnail-tags',
+      'thumbnail-advice',
     ]);
     // The parts of a breakdown are steps of a longer job, so they are not among the one-press ones.
     expect(QUICK_ANALYSIS_IDS).toEqual(['thumbnails', 'topics', 'near-misses']);
@@ -131,7 +135,7 @@ describe('the analyses on offer', () => {
     const looks = (id: (typeof ANALYSIS_IDS)[number]) =>
       ANALYSES[id].allowedTools.includes('mcp__jgtube__view_thumbnails');
 
-    const seeing = ['thumbnails', 'breakdown-thumbnails', 'concept-thumbnail'];
+    const seeing = ['thumbnails', 'breakdown-thumbnails', 'concept-thumbnail', 'thumbnail-tags'];
     expect(ANALYSIS_IDS.filter(looks)).toEqual(seeing);
     expect(ANALYSIS_IDS.filter((id) => ANALYSES[id].pictures === true)).toEqual(seeing);
     expect(PICTURE_ENGINES).toEqual(['claude', 'codex']);
@@ -141,6 +145,7 @@ describe('the analyses on offer', () => {
     expect(ANALYSIS_IDS.filter((id) => ANALYSES[id].filesRoute !== undefined)).toEqual([
       'thumbnails',
       'concept-thumbnail',
+      'thumbnail-tags',
     ]);
   });
 });

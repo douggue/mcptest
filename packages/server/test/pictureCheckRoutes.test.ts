@@ -263,4 +263,45 @@ describe('the picture check, wired to the engines', () => {
     expect(tried).toEqual([]);
     engine.close();
   });
+
+  test('hands Antigravity the named thumbnails as files for the checklist, fetched from YouTube', async () => {
+    // Arrange
+    const requests: EngineRunRequest[] = [];
+    const fetched: string[] = [];
+    const engine = engineWith({
+      fetchImage: async (url) => {
+        fetched.push(url);
+        return new Response(new Uint8Array([0xff, 0xd8, 0xff]), {
+          headers: { 'content-type': 'image/jpeg' },
+        });
+      },
+      runEngine: async (_id, request) => {
+        requests.push(request);
+        return { text: request.files?.length === 2 ? rightAnswer : '[]', turns: 1 };
+      },
+    });
+    await engine.checkPictures('agy');
+
+    // Act
+    await engine.analyse('thumbnail-tags', CHANNEL_ID, 'agy', {
+      kind: 'thumb-tags',
+      videoIds: ['aaaaaaaaaaa'],
+    });
+
+    // Assert
+    expect(fetched).toEqual(['https://i.ytimg.com/vi/aaaaaaaaaaa/hqdefault.jpg']);
+    expect(requests[1]?.files?.map((file) => file.name)).toEqual(['thumb-aaaaaaaaaaa.jpg']);
+    expect(requests[1]?.mcpServers).toEqual({});
+    engine.close();
+  });
+
+  test('passes Antigravity over for the board’s thumbnails when the channel has no map', async () => {
+    const engine = engineWith({
+      engines: { order: ['agy'], agyYouTubeLinks: false },
+      runEngine: async (_id, request) => ({ text: request.files ? rightAnswer : 'x', turns: 1 }),
+    });
+    await engine.checkPictures('agy');
+    await expect(engine.analyse('thumbnails', CHANNEL_ID)).rejects.toThrow(/no map yet/);
+    engine.close();
+  });
 });

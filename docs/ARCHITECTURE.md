@@ -154,7 +154,7 @@ packages/
                   behind it; trying them in order; watching a video (Antigravity on a
                   file, the Gemini API on a link); starting programs safely on Windows
     cli.ts        `npm run engines`: what is installed and signed in, and `--try`
-  mcp/src/        the connector: twenty-six tools and one prompt over the same store
+  mcp/src/        the connector: twenty-seven tools and one prompt over the same store
 apps/web/src/     one page: radar, breakouts, same-topic list, thumbnail board,
                   Ask AI, trending formats, hook library, idea lab, script writer, transfers,
                   niches, refresh bar

@@ -49,7 +49,7 @@ export interface ConnectorEngine extends EngineParts {
   /** A stored channel's videos; reads the store only. Null when the channel is not stored. */
   findChannelVideos(channel: string): ChannelVideos | null;
   /** The later features' parts the connector's tools read. */
-  readonly extras: Pick<ExtrasEngine, 'viewerComments' | 'riskFindings'>;
+  readonly extras: Pick<ExtrasEngine, 'viewerComments' | 'riskFindings' | 'thumbnailComparison'>;
 }
 
 /** One step of a long tool call, for clients that asked to be told. */

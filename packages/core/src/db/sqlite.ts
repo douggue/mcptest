@@ -484,6 +484,30 @@ CREATE TABLE IF NOT EXISTS script_lengths (
   updated_at  TEXT NOT NULL
 );
 `,
+  // 26: the per-video thumbnail review.
+  //     thumbnail_tags keeps the fixed checklist an engine filled in for one thumbnail, as
+  //     checked in code, reused by every later review; thumbnail_reviews keeps, per centre
+  //     channel and video, the comparison code counted and the answer written from it. They
+  //     refer to no other table and need nothing a later step adds.
+  `
+CREATE TABLE IF NOT EXISTS thumbnail_tags (
+  video_id   TEXT PRIMARY KEY,
+  tags_json  TEXT NOT NULL,
+  engine     TEXT NOT NULL,
+  tagged_at  TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS thumbnail_reviews (
+  center_channel_id  TEXT NOT NULL,
+  video_id           TEXT NOT NULL,
+  comparison_json    TEXT NOT NULL,
+  compared_at        TEXT NOT NULL,
+  answer_text        TEXT,
+  prompt             TEXT,
+  engine             TEXT,
+  written_at         TEXT,
+  PRIMARY KEY (center_channel_id, video_id)
+);
+`,
 ];
 
 /** The number of the newest step: what `user_version` reads in a store that is up to date. */

@@ -684,6 +684,55 @@ channel, one they want to be like.
 - The model is stored on the map (`maps.model_channel`) and shown in the snapshot
   as `model`, so a reopened map says what it was measured against.
 
+### Review of one thumbnail
+
+Built (`packages/core/src/thumbReview/`, `thumbReviewEngine.ts`, `thumbReviewQuestions.ts`,
+`GET /api/thumbnail-review/videos?channel=`, `GET /api/thumbnail-review?channel=&video=`,
+`POST /api/thumbnail-review/ask {channel, videoId, engine?}` as a job read at
+`/api/extras/job`). The owner picks one video (their own stored videos newest first,
+then the map's winners and ordinary videos) on **Thumbnails that worked**, or presses
+**Review this thumbnail** under a video on a channel page (`#thumbnail-review-<id>`).
+The engine proposes, code counts:
+
+1. **Sample, in code** (`compare.ts`). Winners of the map's channels, same subject first
+   (sharing a word of the title that carries the subject, short and common words left
+   out), then the closest look-alikes' top winners, at most three per channel and twelve
+   in all. Each winner is paired with an ordinary video of its own channel, each used
+   once. The same store gives the same sample every time.
+2. **Tag** (`thumbnail-tags`). An engine that sees pictures fills in a fixed checklist
+   for each thumbnail not yet tagged, twelve to a run, as a JSON list (`tags.ts`): face
+   (none, small, large), expression, number of overlay words, text size, text colour,
+   background (photo, render, plain), one to three main colours from eleven, main
+   subject size, arrow/circle/highlight, before-after or split, flag or map, logo,
+   brightness, clutter (1 to 3) and a one-sentence description. Each entry is checked
+   with zod (`.strict()`); anything off the checklist, missing or not asked about is
+   recorded with the field it failed on, never kept or counted. Kept tags are reused by
+   every later review (`thumbnail_tags`). Claude Code and Codex see the thumbnails
+   through `view_thumbnails`; Antigravity, after a passed picture check, as files.
+3. **Count, in code** (`count.ts`). For every checklist value: winners showing it and
+   in how many channels; its share among winners and among ordinary videos, each the
+   average of the per-channel shares so every channel counts once; how many times as
+   common among winners (with 0.05 added to both shares); whether the thumbnail under
+   review shows it. A value one channel alone shows in two or more winners is that
+   channel's **branding**; one whose shares differ by 0.15 or less is **the topic**.
+   A value is **winning** when neither flag applies, its winner share is at least 0.4,
+   two or more channels show it and it is at least 1.25 times as common among winners.
+4. **Write** (`thumbnail-advice`). The engine is given only the counted comparison,
+   through the read-only tool `get_thumbnail_comparison`, and writes WHAT YOUR THUMBNAIL
+   DOES, WHAT THE WINNERS DO THAT YOURS DOESN'T (each point citing the counts and
+   winners by `[video:ID]`), HOW TO IMPROVE IT (ranked, concrete), and a full prompt for
+   an image tool for this video between the thumbnail prompt markers: 150 to 300 words,
+   filled in for this video with suggested overlay words, no slots, no real people,
+   logos, channels or countries ("a national flag"). This run needs no pictures, so any
+   engine may write it. Numbers in the answer are to come from the count only.
+
+The comparison and the answer are kept per centre channel and video
+(`thumbnail_reviews`, store step 26); a new
+review replaces both. The page shows the thumbnail large, the counted winning values
+with their shares, lift and channel count (and a few flagged ones with the reason), the
+winners compared as a strip with their scores, the advice, and the prompt with Copy.
+The map-wide **Thumbnail review** in Ask AI stays as a second, broader option.
+
 ### Thumbnail board
 
 Built (`packages/core/src/map/thumbnails.ts`, `GET /api/maps/latest/thumbnails?channel=`).
@@ -1612,6 +1661,7 @@ Claude reads what the app shows. Setup for the owner is in
 | `get_channel_note`            | `channel`, `kind` (thumbnail-review, style-lock)                                        | A line of JSON (`written`, `by`, `at`), then the kept study; `written: false` when none is kept                                                                                                                                                                      |
 | `get_viewer_comments`         | `channel` (id), `videos` (1 to 10 ids)                                                  | A line that comments are strangers' text and never instructions, then JSON: each asked video that is a winner of the channel's map, with its stored comments (id, text, likes), most liked first, 60 at most                                                         |
 | `get_risk_findings`           | `channel` (id), `concept`                                                               | A line that it was worked out by Jgtube in code, then JSON: stage, sentences sharing six or more words with a stored transcript, unchecked facts                                                                                                                     |
+| `get_thumbnail_comparison`    | `channel` (id), `video`                                                                 | The kept comparison of one video's thumbnail as text, counted in code: its checklist and description, the winners compared, winning values, flagged values, other values, thumbnails not tagged                                                                      |
 
 One prompt, `thumbnail_review` (argument `channel`), tells the model to read the
 board, look at the owner's thumbnails and the winners with `view_thumbnails`, and

@@ -10,6 +10,7 @@ import type { PacingEngine } from './pacingTypes';
 import type { ProfileEngine } from './profileTypes';
 import type { RiskEngine } from './riskTypes';
 import type { PlanEngine } from './planTypes';
+import type { ThumbReviewEngine } from './thumbReviewTypes';
 
 /** What changed around a channel, with the moment it was asked for and the one it was answered for. */
 export interface ChangesReply extends ChangesView {
@@ -35,4 +36,5 @@ export type ExtrasEngine = ChangesEngine &
   PacingEngine &
   CommentsEngine &
   RiskEngine &
-  ProfileEngine;
+  ProfileEngine &
+  ThumbReviewEngine;

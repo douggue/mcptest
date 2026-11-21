@@ -1,5 +1,5 @@
 import type { ThumbnailBoard as Board } from '@jgtube/core';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { BOARD_MODES, boardTotals, type BoardMode } from '../lib/board';
 import {
   ChannelCard,
@@ -84,11 +84,13 @@ interface Props {
   readonly onDownload: DownloadThumbnails;
   /** Saves the transcripts of one channel's videos that took off as files. */
   readonly onDownloadTranscripts: DownloadTranscripts;
+  /** What sits between the heading and the board, such as the review of one thumbnail. */
+  readonly review?: ReactNode;
 }
 
 /** Thumbnails that worked on the channels like yours, beside ordinary ones and your own. */
 export function ThumbnailBoard(props: Props) {
-  const { state, centerTitle, modelId, onDownload, onDownloadTranscripts } = props;
+  const { state, centerTitle, modelId, onDownload, onDownloadTranscripts, review } = props;
   const [mode, setMode] = useState<BoardMode>('compare');
   if (state.status === 'idle') return null;
   const board = state.status === 'ready' ? state.board : null;
@@ -107,6 +109,7 @@ export function ThumbnailBoard(props: Props) {
         }
         actions={hasChannels && <ModeToggle mode={mode} onChange={setMode} />}
       />
+      {review}
       {state.status === 'loading' && <Notice tone="working">Gathering thumbnails</Notice>}
       {state.status === 'failed' && (
         <Notice tone="problem">The thumbnails could not be loaded: {state.message}</Notice>
