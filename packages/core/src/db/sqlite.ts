@@ -406,6 +406,40 @@ CREATE TABLE IF NOT EXISTS concept_schedule (
   updated_at         TEXT NOT NULL
 );
 `,
+  // 30 (provisional: the next step after upstream's last, renumbered at merge): the script
+  //     writer's research. concept_research keeps the fact sheet a web research run wrote
+  //     for a concept (facts with their https sources, what was not found, what is
+  //     disputed); script_claims keeps the claims check's verdict on each fact a script
+  //     marked to check; script_lengths keeps the length the owner typed, in minutes or in
+  //     words. Each refers only to concepts (step 13) and goes with its concept.
+  `
+CREATE TABLE IF NOT EXISTS concept_research (
+  concept_id      INTEGER PRIMARY KEY REFERENCES concepts (id) ON DELETE CASCADE,
+  facts_json      TEXT NOT NULL,
+  not_found_json  TEXT NOT NULL DEFAULT '[]',
+  disputed_json   TEXT NOT NULL DEFAULT '[]',
+  engine          TEXT NOT NULL,
+  written_at      TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS script_claims (
+  concept_id    INTEGER NOT NULL REFERENCES concepts (id) ON DELETE CASCADE,
+  what          TEXT NOT NULL,
+  sentence      TEXT NOT NULL,
+  verdict       TEXT NOT NULL CHECK (verdict IN ('confirmed', 'wrong', 'unsure')),
+  why           TEXT NOT NULL DEFAULT '',
+  correction    TEXT,
+  sources_json  TEXT NOT NULL DEFAULT '[]',
+  engine        TEXT NOT NULL,
+  checked_at    TEXT NOT NULL,
+  PRIMARY KEY (concept_id, what, sentence)
+);
+CREATE TABLE IF NOT EXISTS script_lengths (
+  concept_id  INTEGER PRIMARY KEY REFERENCES concepts (id) ON DELETE CASCADE,
+  typed       TEXT NOT NULL CHECK (typed IN ('minutes', 'words')),
+  words       INTEGER,
+  updated_at  TEXT NOT NULL
+);
+`,
 ];
 
 /** The number of the newest step: what `user_version` reads in a store that is up to date. */
