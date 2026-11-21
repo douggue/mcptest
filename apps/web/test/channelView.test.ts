@@ -29,17 +29,22 @@ const profile = (overrides: Partial<ChannelProfile> = {}): ChannelProfile => ({
 describe("a channel's numbers", () => {
   test('are each labelled with what they rest on', () => {
     expect(profileTiles(profile())).toEqual([
-      { label: 'Subscribers', value: '52K', note: 'As YouTube shows it' },
-      { label: 'Videos', value: '240', note: 'On YouTube; Jgtube stores the newest 100' },
-      { label: 'Views', value: '1.3M', note: 'Added up over the 100 stored videos' },
-      { label: 'Uploads', value: '1 a week', note: '13 in the last 90 days, 5 in the last 30' },
-      { label: 'Last upload', value: '3 days ago', note: 'As YouTube dated it' },
+      { label: 'Subscribers', value: '52K', note: 'On YouTube' },
+      { label: 'Videos', value: '240', note: 'Newest 100 stored' },
+      { label: 'Views', value: '1.3M', note: 'Across 100 stored videos' },
+      { label: 'Uploads', value: '1 a week', note: '5 in 30 days · 13 in 90' },
+      { label: 'Last upload', value: '3 days ago', note: 'Dated by YouTube' },
       {
         label: 'Outliers',
         value: '2',
-        note: 'Videos at 2× or more of its usual in the last 30 days; 9 among all stored',
+        note: '2× usual or more, 30 days',
+        detail: 'Videos at 2× or more of its usual in the last 30 days; 9 among all stored',
       },
     ]);
+  });
+
+  test('keep each note short enough for one line of a tile', () => {
+    for (const tile of profileTiles(profile())) expect(tile.note.length).toBeLessThanOrEqual(28);
   });
 
   test('say plainly what is hidden or not stored', () => {
@@ -55,16 +60,12 @@ describe("a channel's numbers", () => {
     );
 
     expect(tiles.map((tile) => [tile.label, tile.value, tile.note])).toEqual([
-      ['Subscribers', 'Hidden', 'The channel hides its count'],
-      ['Videos', '1', 'Stored by Jgtube; YouTube did not give a total'],
-      ['Views', '10', 'Added up over the 1 stored video'],
-      ['Uploads', '0 a week', '0 in the last 90 days, 0 in the last 30'],
+      ['Subscribers', 'Hidden', 'Hidden by the channel'],
+      ['Videos', '1', 'Stored; no YouTube total'],
+      ['Views', '10', 'Across 1 stored video'],
+      ['Uploads', '0 a week', '0 in 30 days · 0 in 90'],
       ['Last upload', '—', 'No videos stored'],
-      [
-        'Outliers',
-        '2',
-        'Videos at 2× or more of its usual in the last 30 days; 9 among all stored',
-      ],
+      ['Outliers', '2', '2× usual or more, 30 days'],
     ]);
     expect(profileTiles(profile({ subscribers: null }))[0]?.value).toBe('—');
   });

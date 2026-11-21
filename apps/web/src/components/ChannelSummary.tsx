@@ -52,7 +52,13 @@ export function ChannelSummary({ profile, action, withBack }: Props) {
       />
       <StatGrid>
         {profileTiles(profile).map((tile) => (
-          <StatTile key={tile.label} label={tile.label} value={tile.value} note={tile.note} />
+          <StatTile
+            key={tile.label}
+            label={tile.label}
+            value={tile.value}
+            note={tile.note}
+            detail={tile.detail}
+          />
         ))}
       </StatGrid>
     </div>

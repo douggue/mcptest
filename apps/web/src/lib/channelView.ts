@@ -10,8 +10,10 @@ import type { Route } from './routes';
 export interface ProfileTile {
   readonly label: string;
   readonly value: string;
-  /** What the number rests on. */
+  /** What the number rests on, short enough for one line of a tile. */
   readonly note: string;
+  /** The longer reading, shown when the tile is pointed at; absent when the note says it all. */
+  readonly detail?: string;
 }
 
 const DAY_MS = 86_400_000;
@@ -19,14 +21,14 @@ const plural = (count: number, word: string): string => `${count} ${word}${count
 
 function subscribersTile(profile: ChannelProfile): ProfileTile {
   if (profile.subscribersHidden) {
-    return { label: 'Subscribers', value: 'Hidden', note: 'The channel hides its count' };
+    return { label: 'Subscribers', value: 'Hidden', note: 'Hidden by the channel' };
   }
   return profile.subscribers === null
     ? { label: 'Subscribers', value: '—', note: 'Not read yet' }
     : {
         label: 'Subscribers',
         value: formatCount(profile.subscribers),
-        note: 'As YouTube shows it',
+        note: 'On YouTube',
       };
 }
 
@@ -35,13 +37,11 @@ function videosTile({ videoCount, stored }: ChannelProfile): ProfileTile {
     return {
       label: 'Videos',
       value: formatCount(stored.videos),
-      note: 'Stored by Jgtube; YouTube did not give a total',
+      note: 'Stored; no YouTube total',
     };
   }
-  const kept = stored.capped
-    ? `Jgtube stores the newest ${stored.videos}`
-    : `Jgtube stores ${stored.videos}`;
-  return { label: 'Videos', value: formatCount(videoCount), note: `On YouTube; ${kept}` };
+  const note = stored.capped ? `Newest ${stored.videos} stored` : `${stored.videos} stored`;
+  return { label: 'Videos', value: formatCount(videoCount), note };
 }
 
 /** The channel's numbers, each with what it rests on. */
@@ -53,20 +53,21 @@ export function profileTiles(profile: ChannelProfile): readonly ProfileTile[] {
     {
       label: 'Views',
       value: formatCount(stored.views),
-      note: `Added up over the ${plural(stored.videos, 'stored video')}`,
+      note: `Across ${plural(stored.videos, 'stored video')}`,
     },
     {
       label: 'Uploads',
       value: `${uploads.perWeek} a week`,
-      note: `${uploads.last90Days} in the last 90 days, ${uploads.last30Days} in the last 30`,
+      note: `${uploads.last30Days} in 30 days · ${uploads.last90Days} in 90`,
     },
     lastUpload
-      ? { label: 'Last upload', value: lastUpload.publishedRaw, note: 'As YouTube dated it' }
+      ? { label: 'Last upload', value: lastUpload.publishedRaw, note: 'Dated by YouTube' }
       : { label: 'Last upload', value: '—', note: 'No videos stored' },
     {
       label: 'Outliers',
       value: String(outliers.recent),
-      note: `Videos at ${outliers.minScore}× or more of its usual in the last ${outliers.windowDays} days; ${outliers.all} among all stored`,
+      note: `${outliers.minScore}× usual or more, ${outliers.windowDays} days`,
+      detail: `Videos at ${outliers.minScore}× or more of its usual in the last ${outliers.windowDays} days; ${outliers.all} among all stored`,
     },
   ];
 }
