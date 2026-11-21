@@ -1,4 +1,5 @@
 import type { BoardCenter, BoardChannel, ThumbnailBoard } from '@jgtube/core';
+import type { ThumbnailsSaved } from './api';
 
 /** 'compare' sets each channel's winners beside its ordinary videos; 'winners' shows winners alone. */
 export type BoardMode = 'compare' | 'winners';
@@ -48,4 +49,24 @@ export function scoreTone(
 ): ScoreTone {
   if (score === null) return 'none';
   return score >= board.winnerMinScore ? 'winner' : 'plain';
+}
+
+/** Where a channel's thumbnails were saved and how it went, for the owner to read. */
+export function describeSaved(result: ThumbnailsSaved): string {
+  const { total, saved, alreadyThere, failed } = result;
+  if (total === 0) {
+    return failed > 0
+      ? `None of the ${failed} thumbnails could be fetched. Press again to try once more.`
+      : 'This channel has no winning or ordinary videos yet, so there are no thumbnails to save.';
+  }
+  const where = `${total} thumbnail${total === 1 ? '' : 's'} saved in ${result.folder}, with an index.json saying what each one is.`;
+  const there =
+    alreadyThere === 0
+      ? ''
+      : saved === 0
+        ? ` All ${alreadyThere} were already there.`
+        : ` ${alreadyThere} were already there.`;
+  const missed =
+    failed === 0 ? '' : ` ${failed} could not be fetched; press again to try it once more.`;
+  return `${where}${there}${missed}`;
 }

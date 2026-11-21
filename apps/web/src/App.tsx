@@ -258,6 +258,7 @@ export function App() {
           state={board}
           centerTitle={snapshot.center.title}
           modelId={snapshot.model?.id ?? null}
+          onDownload={(channelId) => api.downloadThumbnails(channelId)}
         />
       )}
       {snapshot && (

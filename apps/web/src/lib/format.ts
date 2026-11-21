@@ -44,6 +44,22 @@ export function thumbnailUrl(videoId: string): string | null {
   return VIDEO_ID.test(videoId) ? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg` : null;
 }
 
+/** The one host a channel's logo is loaded from; the page's security policy allows no other. */
+const LOGO_ORIGIN = 'https://yt3.googleusercontent.com';
+
+/**
+ * A stored logo address when it is on the channel image host, else null. The
+ * address came from a YouTube page, so it is checked again before it is used.
+ */
+export function logoUrl(stored: string | null): string | null {
+  if (stored === null) return null;
+  try {
+    return new URL(stored).origin === LOGO_ORIGIN ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
 export function channelUrl(channelId: string): string | null {
   return CHANNEL_ID.test(channelId) ? `https://www.youtube.com/channel/${channelId}` : null;
 }

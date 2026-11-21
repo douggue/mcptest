@@ -1,5 +1,14 @@
 import type { BoardCenter, BoardChannel, BoardVideo, ThumbnailBoard } from '@jgtube/core';
-import { describeHitRate, describeOwn, scoreTone, type BoardMode } from '../lib/board';
+import { Download } from 'lucide-react';
+import { useState } from 'react';
+import type { ThumbnailsSaved } from '../lib/api';
+import {
+  describeHitRate,
+  describeOwn,
+  describeSaved,
+  scoreTone,
+  type BoardMode,
+} from '../lib/board';
 import { channelUrl, formatCount, initials } from '../lib/format';
 import { ThumbnailTile } from './ThumbnailTile';
 
@@ -72,16 +81,76 @@ function ChannelName({ channel }: { readonly channel: BoardChannel }) {
   );
 }
 
+/** Saves one channel's thumbnails as files; resolves with where they went. */
+export type DownloadThumbnails = (channelId: string) => Promise<ThumbnailsSaved>;
+
+type SaveState =
+  | { readonly status: 'idle' }
+  | { readonly status: 'saving' }
+  | { readonly status: 'done'; readonly text: string }
+  | { readonly status: 'failed'; readonly text: string };
+
+interface SaveProps {
+  readonly channelId: string;
+  readonly channelTitle: string;
+  readonly onDownload: DownloadThumbnails;
+}
+
+/**
+ * Saves a channel's winning and ordinary thumbnails to the owner's computer
+ * and says where they are. The folder's path is long, so it is allowed to
+ * break anywhere and never pushes the card wider than the screen.
+ */
+function SaveThumbnails({ channelId, channelTitle, onDownload }: SaveProps) {
+  const [state, setState] = useState<SaveState>({ status: 'idle' });
+  const save = () => {
+    setState({ status: 'saving' });
+    onDownload(channelId)
+      .then((saved) => setState({ status: 'done', text: describeSaved(saved) }))
+      .catch((error: unknown) =>
+        setState({
+          status: 'failed',
+          text: error instanceof Error ? error.message : 'The thumbnails could not be saved',
+        }),
+      );
+  };
+  return (
+    <div className="flex min-w-0 flex-col items-start gap-space-sm sm:flex-row sm:items-center">
+      <button
+        type="button"
+        onClick={save}
+        disabled={state.status === 'saving'}
+        aria-label={`Download the thumbnails of ${channelTitle}`}
+        className="flex flex-none items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-2 text-label-caps text-on-surface transition-colors hover:bg-surface-variant disabled:cursor-wait disabled:opacity-60"
+      >
+        <Download aria-hidden="true" className="h-4 w-4" />
+        {state.status === 'saving' ? 'Saving thumbnails' : 'Download thumbnails'}
+      </button>
+      {state.status === 'done' && (
+        <p role="status" className="min-w-0 break-all text-label-caps text-on-surface-variant">
+          {state.text}
+        </p>
+      )}
+      {state.status === 'failed' && (
+        <p role="alert" className="min-w-0 break-words text-label-caps text-error">
+          {state.text}
+        </p>
+      )}
+    </div>
+  );
+}
+
 interface ChannelProps {
   readonly channel: BoardChannel;
   readonly board: ThumbnailBoard;
   readonly mode: BoardMode;
   /** This is the channel the owner said they want to be like. */
   readonly isModel: boolean;
+  readonly onDownload: DownloadThumbnails;
 }
 
 /** One channel like yours: what worked for it, and beside that what did not. */
-export function ChannelCard({ channel, board, mode, isModel }: ChannelProps) {
+export function ChannelCard({ channel, board, mode, isModel, onDownload }: ChannelProps) {
   const comparing = mode === 'compare';
   return (
     <article className={CARD}>
@@ -121,6 +190,13 @@ export function ChannelCard({ channel, board, mode, isModel }: ChannelProps) {
           />
         )}
       </div>
+      {channel.winners.length + channel.ordinary.length > 0 && (
+        <SaveThumbnails
+          channelId={channel.id}
+          channelTitle={channel.title}
+          onDownload={onDownload}
+        />
+      )}
     </article>
   );
 }
@@ -128,10 +204,11 @@ export function ChannelCard({ channel, board, mode, isModel }: ChannelProps) {
 interface OwnProps {
   readonly center: BoardCenter;
   readonly board: ThumbnailBoard;
+  readonly onDownload: DownloadThumbnails;
 }
 
 /** The owner's own newest thumbnails, to hold up against the rest. */
-export function OwnCard({ center, board }: OwnProps) {
+export function OwnCard({ center, board, onDownload }: OwnProps) {
   return (
     <article className={`${CARD} ring-1 ring-border-highlight`}>
       <div className="flex min-w-0 items-center gap-space-sm">
@@ -147,6 +224,9 @@ export function OwnCard({ center, board }: OwnProps) {
         emptyText="No videos are stored for your channel yet. Make a new map once you have published."
         board={board}
       />
+      {center.videos.length > 0 && (
+        <SaveThumbnails channelId={center.id} channelTitle={center.title} onDownload={onDownload} />
+      )}
     </article>
   );
 }

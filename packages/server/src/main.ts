@@ -24,10 +24,13 @@ const CONTENT_TYPES: Readonly<Record<string, string>> = {
   '.ico': 'image/x-icon',
 };
 
-/** The page may load its own files and video thumbnails, and nothing else. */
+/**
+ * The page may load its own files, video thumbnails (i.ytimg.com) and channel
+ * logos (yt3.googleusercontent.com), and nothing else.
+ */
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  "img-src 'self' https://i.ytimg.com data:",
+  "img-src 'self' https://i.ytimg.com https://yt3.googleusercontent.com data:",
   "style-src 'self' 'unsafe-inline'",
   "connect-src 'self'",
   "frame-ancestors 'none'",

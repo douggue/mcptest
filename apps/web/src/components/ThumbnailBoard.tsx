@@ -2,7 +2,7 @@ import type { ThumbnailBoard as Board } from '@jgtube/core';
 import { Images } from 'lucide-react';
 import { useState } from 'react';
 import { BOARD_MODES, boardTotals, type BoardMode } from '../lib/board';
-import { ChannelCard, OwnCard } from './ThumbnailChannel';
+import { ChannelCard, OwnCard, type DownloadThumbnails } from './ThumbnailChannel';
 import type { BoardState } from './useThumbnailBoard';
 
 const CHANNELS_PER_PAGE = 5;
@@ -44,15 +44,16 @@ interface CardsProps {
   readonly board: Board;
   readonly mode: BoardMode;
   readonly modelId: string | null;
+  readonly onDownload: DownloadThumbnails;
 }
 
 /** The owner's own row, then one card per channel like theirs, a few at a time. */
-function Cards({ board, mode, modelId }: CardsProps) {
+function Cards({ board, mode, modelId, onDownload }: CardsProps) {
   const [shown, setShown] = useState(CHANNELS_PER_PAGE);
   const hidden = board.channels.length - shown;
   return (
     <div className="flex flex-col gap-space-md">
-      <OwnCard center={board.center} board={board} />
+      <OwnCard center={board.center} board={board} onDownload={onDownload} />
       {board.channels.length === 0 && (
         <p className={NOTE}>
           No channel on this map is counted as like yours yet, so there is nothing to compare with.
@@ -66,6 +67,7 @@ function Cards({ board, mode, modelId }: CardsProps) {
           board={board}
           mode={mode}
           isModel={channel.id === modelId}
+          onDownload={onDownload}
         />
       ))}
       {hidden > 0 && (
@@ -86,10 +88,12 @@ interface Props {
   readonly centerTitle: string;
   /** The channel the map is measured against, when the owner named one. */
   readonly modelId: string | null;
+  /** Saves one channel's thumbnails as files on the owner's computer. */
+  readonly onDownload: DownloadThumbnails;
 }
 
 /** Thumbnails that worked on the channels like yours, beside ordinary ones and your own. */
-export function ThumbnailBoard({ state, centerTitle, modelId }: Props) {
+export function ThumbnailBoard({ state, centerTitle, modelId, onDownload }: Props) {
   const [mode, setMode] = useState<BoardMode>('compare');
   if (state.status === 'idle') return null;
   const board = state.status === 'ready' ? state.board : null;
@@ -133,7 +137,15 @@ export function ThumbnailBoard({ state, centerTitle, modelId }: Props) {
             The thumbnails could not be loaded: {state.message}
           </p>
         )}
-        {board && <Cards key={board.mapId} board={board} mode={mode} modelId={modelId} />}
+        {board && (
+          <Cards
+            key={board.mapId}
+            board={board}
+            mode={mode}
+            modelId={modelId}
+            onDownload={onDownload}
+          />
+        )}
       </div>
     </section>
   );

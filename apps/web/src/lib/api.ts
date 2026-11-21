@@ -71,6 +71,19 @@ export interface RefreshJobState {
   readonly error: string | null;
 }
 
+/** Where a channel's thumbnails were saved on this computer, and how it went. */
+export interface ThumbnailsSaved {
+  readonly channel: string;
+  /** The folder holding the pictures, as a path on the owner's computer. */
+  readonly folder: string;
+  readonly indexFile: string;
+  /** Pictures now in the folder. */
+  readonly total: number;
+  readonly saved: number;
+  readonly alreadyThere: number;
+  readonly failed: number;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -232,6 +245,17 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ key, saved }),
+        }),
+      );
+    },
+
+    /** Saves a channel's winning and ordinary thumbnails as files on this computer. */
+    async downloadThumbnails(channel: string): Promise<ThumbnailsSaved> {
+      return unwrap<ThumbnailsSaved>(
+        await call('/api/thumbnails/download', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ channel }),
         }),
       );
     },
