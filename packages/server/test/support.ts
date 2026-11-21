@@ -26,6 +26,11 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     refresh: unused('refresh'),
     refreshStatus: unused('refreshStatus'),
     analyse: unused('analyse'),
+    saveThumbnails: unused('saveThumbnails'),
+    readTranscript: unused('readTranscript'),
+    readVideoFrames: unused('readVideoFrames'),
+    readChannelBrand: unused('readChannelBrand'),
+    readVideoDetails: unused('readVideoDetails'),
     ...parts,
   };
 }
