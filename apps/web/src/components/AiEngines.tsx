@@ -51,6 +51,9 @@ export function AiEngines({ ai }: { readonly ai: AiChoice }) {
         Which AI answers
       </h3>
       <EngineSwitch choice={ai.choice} engines={ai.engines} busy={ai.busy} onChoose={ai.choose} />
+      <p className="text-body-sm text-primary">
+        Kept as soon as you press it, in this browser. It needs no Save.
+      </p>
       {badge.lines.length > 0 && (
         <ul className="flex flex-col gap-1.5 rounded-lg border border-border-subtle bg-surface-card p-space-md text-body-sm">
           {badge.lines.map((line) => (

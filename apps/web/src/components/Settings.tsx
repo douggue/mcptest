@@ -61,7 +61,9 @@ function SaveBar({ saving, changed, outcome, onSave }: SaveBarProps) {
         </p>
       ) : (
         <span className="text-body-sm text-outline">
-          {changed ? 'Unsaved changes' : 'No changes'}
+          {changed
+            ? 'Unsaved changes'
+            : 'No changes yet: type in a box above, such as a key, and Save turns on.'}
         </span>
       )}
     </div>
