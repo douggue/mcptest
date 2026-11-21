@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import { flowSteps, ideaFromTransfer, originLink, type FlowCounts } from '../src/lib/flow';
+import {
+  flowSteps,
+  ideaFromTransfer,
+  nextStep,
+  originLink,
+  type FlowCounts,
+} from '../src/lib/flow';
 
 const counts: FlowCounts = {
   breakouts: 14,
@@ -102,5 +108,29 @@ describe('concepts from a transfer opportunity', () => {
 
   test('take only the format when no version is on this map', () => {
     expect(ideaFromTransfer(idea, new Set(['UCelse'])).pick).toBeNull();
+  });
+});
+
+describe('the next step on Home', () => {
+  test('sends a map with no breakouts to refresh', () => {
+    expect(nextStep({ ...counts, breakouts: 0 })).toMatchObject({ view: 'what-changed' });
+  });
+
+  test('turns breakouts into ideas when there are none', () => {
+    expect(nextStep({ ...counts, concepts: 0 })).toEqual({
+      title: 'Turn breakouts into ideas',
+      line: '14 videos on this map are breaking out.',
+      action: 'Make ideas',
+      view: 'ideas',
+    });
+  });
+
+  test('asks for the first script, then carries on with it', () => {
+    expect(nextStep(counts)).toMatchObject({ view: 'script', action: 'Write a script' });
+    expect(nextStep(counts).line).toBe('1 idea stored. Keep one and write its script.');
+    expect(nextStep({ ...counts, scripts: 2 })).toMatchObject({
+      title: 'Carry on with your script',
+      line: '2 scripts and 1 idea stored.',
+    });
   });
 });

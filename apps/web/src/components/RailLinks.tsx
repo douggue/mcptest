@@ -1,100 +1,71 @@
+import { House, Lightbulb, Flame, Sparkles, Tv, type LucideIcon } from 'lucide-react';
 import {
-  CalendarDays,
-  Ruler,
-  MessageSquareText,
-  Circle,
-  Compass,
-  Eye,
-  Flame,
-  Globe,
-  Image,
-  LayoutDashboard,
-  Layers,
-  Lightbulb,
-  PenLine,
-  Quote,
-  Shapes,
-  Sparkles,
-  Sprout,
-  ShieldAlert,
-  Target,
-  type LucideIcon,
-} from 'lucide-react';
-import { viewHref, type ViewId } from '../lib/routes';
-import { OVERVIEW_ITEM, RAIL_GROUPS, type RailItem } from '../lib/sections';
+  DESTINATIONS,
+  destinationHref,
+  type Destination,
+  type DestinationId,
+} from '../lib/sections';
 
-/** The icon of each view in the rail. A new view adds one line here. */
-const ICONS: Readonly<Partial<Record<ViewId, LucideIcon>>> = {
-  home: LayoutDashboard,
-  radar: Compass,
-  'what-changed': Eye,
-  breakouts: Flame,
-  'same-topic': Layers,
-  thumbnails: Image,
-  transfers: Globe,
-  niches: Sprout,
-  formats: Shapes,
-  hooks: Quote,
-  ideas: Lightbulb,
-  script: PenLine,
+/** The icon of each destination in the rail. */
+const ICONS: Readonly<Record<DestinationId, LucideIcon>> = {
+  home: House,
+  channel: Tv,
+  research: Flame,
+  create: Lightbulb,
   ask: Sparkles,
-  'own-videos': Target,
-  calendar: CalendarDays,
-  pacing: Ruler,
-  comments: MessageSquareText,
-  risk: ShieldAlert,
 };
 
 const LINK =
-  'flex items-center gap-3 rounded px-3 py-1.5 text-body-sm transition-colors hover:bg-surface-card hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container';
+  'flex min-h-12 items-center gap-3 rounded px-3 text-body-md transition-colors hover:bg-surface-card hover:text-on-surface focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container';
 
 interface LinkProps {
-  readonly item: RailItem;
+  readonly destination: Destination;
+  readonly href: string;
   readonly active: boolean;
   readonly onPick?: () => void;
 }
 
-function RailLink({ item, active, onPick }: LinkProps) {
-  const Icon = ICONS[item.view] ?? Circle;
+function RailLink({ destination, href, active, onPick }: LinkProps) {
+  const Icon = ICONS[destination.id];
   return (
     <a
-      href={viewHref(item.view)}
+      href={href}
       onClick={onPick}
       aria-current={active ? 'page' : undefined}
       className={`${LINK} ${
-        active
-          ? 'bg-surface-card font-semibold text-primary ring-1 ring-inset ring-border-highlight'
-          : 'text-on-surface-variant'
+        active ? 'bg-surface-card font-semibold text-primary' : 'text-on-surface-variant'
       }`}
     >
-      <Icon aria-hidden="true" className="h-[18px] w-[18px] flex-none" />
-      {item.label}
+      <Icon aria-hidden="true" className="h-5 w-5 flex-none" />
+      {destination.label}
     </a>
   );
 }
 
 /**
- * The overview, then the views under Research, Create and Study, each a link
- * that opens its own view. The view on screen is marked. `onPick` closes a
- * menu the links sit in.
+ * The five destinations, each a link to its first tab, with the one on
+ * screen marked. `centerId` is the map's own channel, which the Channel
+ * entry opens; `onPick` closes a menu the links sit in.
  */
 export function RailLinks({
   active,
+  centerId,
   onPick,
 }: {
-  readonly active: ViewId;
+  readonly active: DestinationId | null;
+  readonly centerId: string | null;
   readonly onPick?: () => void;
 }) {
   return (
-    <nav aria-label="Views" className="flex flex-col gap-space-sm">
-      <RailLink item={OVERVIEW_ITEM} active={active === 'home'} onPick={onPick} />
-      {RAIL_GROUPS.map((group) => (
-        <div key={group.label} className="flex flex-col gap-0.5">
-          <div className="px-3 pb-1 pt-2 text-label text-outline">{group.label}</div>
-          {group.items.map((item) => (
-            <RailLink key={item.view} item={item} active={item.view === active} onPick={onPick} />
-          ))}
-        </div>
+    <nav aria-label="Main" className="flex flex-col gap-1">
+      {DESTINATIONS.map((destination) => (
+        <RailLink
+          key={destination.id}
+          destination={destination}
+          href={destinationHref(destination, centerId)}
+          active={destination.id === active}
+          onPick={onPick}
+        />
       ))}
     </nav>
   );

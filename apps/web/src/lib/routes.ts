@@ -7,7 +7,7 @@
  */
 
 export const VIEWS = {
-  home: { title: 'Overview' },
+  home: { title: 'Home' },
   radar: { title: 'Radar' },
   'what-changed': { title: 'What changed' },
   breakouts: { title: 'Breaking out' },

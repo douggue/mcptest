@@ -1,3 +1,4 @@
+import { PANEL_BUTTON } from './layout/PanelAction';
 import { Download, Search } from 'lucide-react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import type { JobState } from '../lib/api';
@@ -19,8 +20,9 @@ const SIZES = [
   { channels: 600, minutes: 20 },
 ] as const;
 
-const PRIMARY =
-  'flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-on-surface px-4 text-body-md font-semibold text-space-deep shadow-[0_0_16px_rgba(0,210,255,0.25)] transition-all hover:bg-white disabled:cursor-not-allowed disabled:opacity-60';
+/** Find competitors is the screen's primary action only until a map exists; then the next step is. */
+const SECONDARY =
+  'flex min-h-11 w-full items-center justify-center gap-2 rounded border border-border-highlight px-4 text-body-md font-semibold text-on-surface transition-colors hover:bg-surface-card disabled:cursor-not-allowed disabled:opacity-60';
 
 interface Props {
   readonly query: string;
@@ -164,20 +166,25 @@ export function MapToolbar(props: Props) {
       </Field>
       <MapSettings {...props} />
       <div className="flex flex-col gap-space-sm">
-        <button type="submit" disabled={running || props.query.trim() === ''} className={PRIMARY}>
+        <button
+          type="submit"
+          disabled={running || props.query.trim() === ''}
+          className={props.onExport ? SECONDARY : PANEL_BUTTON}
+        >
           {running ? 'Mapping…' : 'Find competitors'}
         </button>
         <Progress job={props.job} message={props.message} />
       </div>
-      <button
-        type="button"
-        onClick={props.onExport ?? undefined}
-        disabled={!props.onExport}
-        className={`flex items-center justify-center gap-1.5 ${QUIET_BUTTON}`}
-      >
-        <Download aria-hidden="true" className="h-4 w-4" />
-        Download this map
-      </button>
+      {props.onExport && (
+        <button
+          type="button"
+          onClick={props.onExport}
+          className={`flex items-center justify-center gap-1.5 ${QUIET_BUTTON}`}
+        >
+          <Download aria-hidden="true" className="h-4 w-4" />
+          Download this map
+        </button>
+      )}
     </form>
   );
 }

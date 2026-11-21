@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
 import type { AiChoice } from './AiEngines';
 import type { Route, ViewId } from '../lib/routes';
+import { destinationOf } from '../lib/sections';
 import { ChannelView } from './ChannelView';
 import { CREATE_VIEWS } from './CreateViews';
-import { FlowStrip } from './FlowStrip';
 import { HomeView } from './HomeView';
+import { SectionTabs } from './layout/SectionTabs';
 import { RESEARCH_VIEWS } from './ResearchViews';
 import { Settings } from './Settings';
 import { STUDY_VIEWS } from './StudyViews';
@@ -16,33 +17,12 @@ const VIEW_DRAWS: Partial<Record<ViewId, ViewDraw>> = {
   ...STUDY_VIEWS,
 };
 
-/** The views on the path from research to a script, which show the strip of its steps. */
-const FLOW_VIEWS: ReadonlySet<ViewId> = new Set<ViewId>([
-  'home',
-  'breakouts',
-  'formats',
-  'hooks',
-  'ideas',
-  'script',
-  'ask',
-]);
-
-function Flow({ parts, view }: { readonly parts: ViewParts; readonly view: ViewId }) {
-  const { flow } = parts.path;
-  if (!parts.page.snapshot || !FLOW_VIEWS.has(view)) return null;
-  return (
-    <div className="pt-space-sm">
-      <FlowStrip counts={flow.counts} active={view} />
-      {flow.problem && (
-        <p
-          role="alert"
-          className="mx-auto w-full max-w-[1440px] px-gutter-desktop text-body-md text-error"
-        >
-          {flow.problem}
-        </p>
-      )}
-    </div>
-  );
+/** The tabs of the view's destination; none on a competitor's page, which has its back arrow. */
+function Tabs({ route, centerId }: { readonly route: Route; readonly centerId: string | null }) {
+  const destination = destinationOf(route.view);
+  if (!destination) return null;
+  if (route.view === 'channel' && route.channelId !== centerId) return null;
+  return <SectionTabs destination={destination} active={route.view} centerId={centerId} />;
 }
 
 function drawView(route: Route, parts: ViewParts, ai: AiChoice): ReactNode {
@@ -54,7 +34,7 @@ function drawView(route: Route, parts: ViewParts, ai: AiChoice): ReactNode {
   return draw ? draw(parts) : <HomeView {...parts} />;
 }
 
-/** The one view the address names; nothing else is drawn. */
+/** The one view the address names, under its destination's tabs; nothing else is drawn. */
 export function ViewHost({
   route,
   parts,
@@ -64,16 +44,11 @@ export function ViewHost({
   readonly parts: ViewParts;
   readonly ai: AiChoice;
 }) {
+  const centerId = parts.page.snapshot?.center.id ?? null;
   return (
     <>
-      {route.view !== 'home' && <Flow parts={parts} view={route.view} />}
+      <Tabs route={route} centerId={centerId} />
       {drawView(route, parts, ai)}
-      {route.view === 'home' && <Flow parts={parts} view="home" />}
-      <p className="mx-auto w-full max-w-[1440px] px-gutter-desktop py-space-xl text-label text-outline">
-        Jgtube reads YouTube&rsquo;s public pages without an account. That is outside
-        YouTube&rsquo;s terms of service and can stop working without notice. Scores and earnings
-        are estimates.
-      </p>
     </>
   );
 }

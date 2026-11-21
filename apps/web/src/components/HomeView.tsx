@@ -1,56 +1,24 @@
-import { ArrowRight } from 'lucide-react';
-import { channelHref } from '../lib/routes';
-import { ChannelSummary } from './ChannelSummary';
 import { Card } from './layout/Card';
 import { SplitView, ViewPage } from './layout/SplitView';
 import { ViewHeader } from './layout/ViewHeader';
 import { MapToolbar } from './MapToolbar';
-import { RefreshBar } from './RefreshBar';
+import { NextStepCard } from './NextStepCard';
 import { SavedChannels } from './SavedChannels';
-import { useChannelProfile } from './useChannelProfile';
 import { downloadMap } from './useMapPage';
 import type { ViewParts } from './viewParts';
 
-/** The channel the map on screen is centred on, in brief, with the way to its own view. */
-function CenterSummary({
-  centerId,
-  reloadKey,
-}: {
-  readonly centerId: string;
-  readonly reloadKey: string;
-}) {
-  const state = useChannelProfile(centerId, reloadKey);
-  if (state.status !== 'ready') return null;
-  return (
-    <section aria-label="Your channel" className="min-w-0">
-      <ChannelSummary
-        profile={state.profile}
-        action={
-          <a
-            href={channelHref(centerId)}
-            className="flex min-h-10 items-center gap-1.5 rounded-full bg-surface-container-high px-4 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-highest"
-          >
-            Open channel page
-            <ArrowRight aria-hidden="true" className="h-4 w-4" />
-          </a>
-        }
-      />
-    </section>
-  );
-}
-
-/** Before any map: what Jgtube does and how to start. */
+/** Before any map: what to do first, in one line. */
 function Welcome({ running }: { readonly running: boolean }) {
   return (
     <Card>
       <div role={running ? 'status' : undefined} className="flex flex-col gap-2">
         <h3 className="text-headline-md font-bold text-on-surface">
-          {running ? 'Making your map' : 'Map who you compete with'}
+          {running ? 'Making your map' : 'Start with your channel'}
         </h3>
         <p className="text-body-md text-on-surface-variant">
           {running
-            ? 'Jgtube is reading the channels YouTube recommends. This takes a few minutes; keep this page open.'
-            : 'Paste your channel and press Find competitors. A full map takes a few minutes; each feature then has its own view in the menu.'}
+            ? 'This takes a few minutes. Keep this page open.'
+            : 'Paste your channel and press Find competitors.'}
         </p>
       </div>
     </Card>
@@ -58,21 +26,24 @@ function Welcome({ running }: { readonly running: boolean }) {
 }
 
 /**
- * The overview: the search for competitors in the side panel, then your
- * channels, the current channel's numbers in brief, and the refresh.
+ * Home: the next step for the channel on screen, your channels, and the
+ * search for competitors at the side. The channel's numbers are on its own
+ * page, under Channel.
  */
-export function HomeView({ page, work, openChannel }: ViewParts) {
+export function HomeView({ page, work, path, openChannel }: ViewParts) {
   const { snapshot } = page;
+  const running = page.job?.status === 'running';
   return (
-    <ViewPage labelledBy="overview-title">
+    <ViewPage labelledBy="home-title">
       <ViewHeader
-        titleId="overview-title"
-        title="Overview"
-        lead="Your channels, and who each one competes with."
+        titleId="home-title"
+        title="Home"
+        lead="Pick a channel, then take the next step."
       />
       <SplitView
         sideLabel="Find competitors"
         width="narrow"
+        mainFirst
         side={
           <MapToolbar
             query={page.query}
@@ -91,10 +62,19 @@ export function HomeView({ page, work, openChannel }: ViewParts) {
           />
         }
       >
+        {snapshot ? (
+          <NextStepCard
+            counts={path.flow.counts}
+            problem={path.flow.problem}
+            centerTitle={snapshot.center.title}
+          />
+        ) : (
+          <Welcome running={running} />
+        )}
         <SavedChannels
           channels={page.saved}
           currentId={snapshot?.center.id ?? null}
-          busy={page.job?.status === 'running'}
+          busy={running}
           onOpen={(channel) => {
             page.open(channel);
             openChannel(channel.id);
@@ -102,12 +82,6 @@ export function HomeView({ page, work, openChannel }: ViewParts) {
           onDelete={(channel) => void page.remove(channel)}
           badges={work.alertCounts.counts}
         />
-        {snapshot ? (
-          <CenterSummary centerId={snapshot.center.id} reloadKey={work.refresh.run.status} />
-        ) : (
-          <Welcome running={page.job?.status === 'running'} />
-        )}
-        <RefreshBar refresh={work.refresh} />
       </SplitView>
     </ViewPage>
   );

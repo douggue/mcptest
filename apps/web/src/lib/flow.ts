@@ -89,6 +89,49 @@ export function flowSteps(counts: FlowCounts | null): readonly FlowStep[] {
   ];
 }
 
+/** The one next step Home offers, from what is stored for the channel on screen. */
+export interface NextStep {
+  readonly title: string;
+  /** One short sentence, with the stored counts it rests on. */
+  readonly line: string;
+  readonly action: string;
+  readonly view: Exclude<ViewId, 'channel'>;
+}
+
+/** The first step of the path that has nothing stored yet; the script once every step has. */
+export function nextStep(counts: FlowCounts): NextStep {
+  if (counts.breakouts === 0) {
+    return {
+      title: 'Refresh to find what is breaking out',
+      line: 'No video on this map is far above its usual views yet.',
+      action: 'See what changed',
+      view: 'what-changed',
+    };
+  }
+  if (counts.concepts === 0) {
+    return {
+      title: 'Turn breakouts into ideas',
+      line: `${counted(counts.breakouts, 'video')} on this map are breaking out.`,
+      action: 'Make ideas',
+      view: 'ideas',
+    };
+  }
+  if (counts.scripts === 0) {
+    return {
+      title: 'Write your first script',
+      line: `${counted(counts.concepts, 'idea')} stored. Keep one and write its script.`,
+      action: 'Write a script',
+      view: 'script',
+    };
+  }
+  return {
+    title: 'Carry on with your script',
+    line: `${counted(counts.scripts, 'script')} and ${counted(counts.concepts, 'idea')} stored.`,
+    action: 'Open scripts',
+    view: 'script',
+  };
+}
+
 /** Where a thing came from, as the destination names it. */
 export type Origin = 'breakout' | 'hook' | 'transfer' | 'formula' | 'breakdown' | 'review';
 

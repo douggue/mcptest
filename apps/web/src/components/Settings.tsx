@@ -9,6 +9,7 @@ import {
   type SettingsReply,
 } from '../lib/settings';
 import { AiEngines, type AiChoice } from './AiEngines';
+import { Details } from './layout/Details';
 import { SplitView, ViewPage } from './layout/SplitView';
 import { ViewHeader } from './layout/ViewHeader';
 import { NOTE, PRIMARY_BUTTON } from './LabStatus';
@@ -30,7 +31,7 @@ type Outcome = { readonly ok: boolean; readonly text: string } | null;
 /** Where the settings are kept, in one line. */
 function leadOf(loaded: Loaded): string {
   const none = loaded.status === 'ready' && !loaded.reply.fileFound;
-  return `Kept in the .env file in the Jgtube folder${none ? ' (none yet; saving makes it)' : ''}. A saved key is never shown again.`;
+  return `Saved on this computer${none ? ' when you first save' : ''}. A saved key is never shown again.`;
 }
 
 interface SaveBarProps {
@@ -67,6 +68,19 @@ function SaveBar({ saving, changed, outcome, onSave }: SaveBarProps) {
         </span>
       )}
     </div>
+  );
+}
+
+/** Said once here rather than under every view: where the data comes from and where it stays. */
+function AboutData() {
+  return (
+    <Details summary="About the data">
+      <p className="text-body-md text-on-surface-variant">
+        Jgtube reads YouTube&rsquo;s public pages without an account and keeps everything on this
+        computer. Reading pages this way is outside YouTube&rsquo;s terms and can stop working
+        without notice. Scores are worked out from stored views; earnings are estimates.
+      </p>
+    </Details>
   );
 }
 
@@ -143,6 +157,7 @@ export function Settings({ ai }: Props) {
           outcome={outcome}
           onSave={save}
         />
+        <AboutData />
       </SplitView>
     </ViewPage>
   );

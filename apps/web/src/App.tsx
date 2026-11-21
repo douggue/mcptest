@@ -32,7 +32,11 @@ export function App() {
 
   return (
     <ConnectionsContext.Provider value={page.snapshot ? path.connections : null}>
-      <Shell active={route.view} ai={aiBadge(analysis.choice, analysis.engines)}>
+      <Shell
+        active={route.view}
+        ai={aiBadge(analysis.choice, analysis.engines)}
+        centerId={page.snapshot?.center.id ?? null}
+      >
         <ViewHost route={route} parts={{ api, page, work, path, go, openChannel }} ai={ai} />
       </Shell>
     </ConnectionsContext.Provider>

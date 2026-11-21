@@ -39,13 +39,13 @@ export function NeedsMap({ view }: { readonly view: ViewId }) {
         <Radar aria-hidden="true" className="h-6 w-6 text-primary" />
         <h2 className="text-headline-md text-on-surface">{VIEWS[view].title} needs a map first</h2>
         <p className="text-body-md text-on-surface-variant">
-          Open one of your channels, or paste a channel on the overview and press Find competitors.
+          Open one of your channels on Home, or paste a channel there and press Find competitors.
         </p>
         <a
           href={viewHref('home')}
           className="rounded-full bg-on-surface px-4 py-1.5 text-body-sm font-semibold text-space-deep hover:bg-white"
         >
-          Go to the overview
+          Go to Home
         </a>
       </div>
     </section>
