@@ -15,6 +15,7 @@ import type {
 } from '@jgtube/core';
 import type { SkippedEngine } from './engines/failure';
 import type { EngineId } from './engines/types';
+import type { ScriptOutcome, VoiceOutcome } from './scriptTypes';
 
 /** What a lab job is doing now. */
 export type LabStep = 'asking' | 'reading' | 'captions';
@@ -136,7 +137,13 @@ export interface HookLabelOutcome extends Answered {
 }
 
 export type LabOutcome =
-  ConceptOutcome | AnswerOutcome | FormulaOutcome | HookBuildOutcome | HookLabelOutcome;
+  | ConceptOutcome
+  | AnswerOutcome
+  | FormulaOutcome
+  | HookBuildOutcome
+  | HookLabelOutcome
+  | ScriptOutcome
+  | VoiceOutcome;
 
 /** What a batch rested on, as a tool hands it to an engine. */
 export interface IdeaBrief {

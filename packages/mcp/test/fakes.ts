@@ -19,6 +19,7 @@ import type {
 } from '@jgtube/core';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { ConceptForTool, HookLibrary, IdeaBrief } from '@jgtube/server/src/labTypes';
+import type { ScriptForTool } from '@jgtube/server/src/scriptTypes';
 import type {
   ChannelVideos,
   ConnectorEngine,
@@ -509,6 +510,13 @@ export class FakeEngine implements ConnectorEngine {
   hookLibrary(channel: string): HookLibrary | null {
     this.reads.push(['hooks', channel]);
     return this.library;
+  }
+
+  script: ScriptForTool | null = null;
+
+  findScript(channel: string, conceptId: number): ScriptForTool | null {
+    this.reads.push(['script', channel, conceptId]);
+    return this.script;
   }
 
   studies: StoredVideoStudy[] = [];

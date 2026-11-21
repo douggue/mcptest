@@ -3,7 +3,18 @@ import type { LabApi, LabOutcome } from '../lib/labApi';
 
 /** What one job of the idea lab is, as the page names it. */
 export type LabTask =
-  | { readonly kind: 'batch' | 'where-else' | 'formulas' | 'hooks-build' | 'hooks-label' }
+  | {
+      readonly kind:
+        | 'batch'
+        | 'where-else'
+        | 'formulas'
+        | 'hooks-build'
+        | 'hooks-label'
+        | 'script-hooks'
+        | 'script-draft'
+        | 'script-tighten'
+        | 'voice-read';
+    }
   | { readonly kind: 'twist' | 'more'; readonly conceptId: number };
 
 export type LabJobState =

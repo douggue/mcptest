@@ -77,6 +77,8 @@ packages/
     formulas/     title formulas: reading an engine's proposals and deciding what is shown
     hooks/        the first minute of a transcript, the hook library, reading style labels
     lab/          the videos of one channel's own map, which all of the above rest on
+    script/       a script's measures (words, time, reading grade, check markers), picture
+                  cues and the CSV shot list, a channel's voice, reading the stages' answers
     discovery/    keyword search into the store
     refresh/      re-reading the stalest channels
     db/           SQLite connection and migrations
@@ -102,13 +104,16 @@ packages/
                   the idea lab: concepts from picked videos, where else a format
                   could work, title formulas and the hook library, each a fixed
                   question run as a job, for one centre channel only
+    scriptQuestions.ts, scriptEngine.ts, scriptRoutes.ts, labHttp.ts
+                  the script writer: a script per concept, a voice measured from a
+                  channel's own captions, three stages each read through get_script
     engines/      the engine interface; Claude Code, Codex CLI and Antigravity CLI
                   behind it; trying them in order; watching a video (Antigravity on a
                   file, the Gemini API on a link); starting programs safely on Windows
     cli.ts        `npm run engines`: what is installed and signed in, and `--try`
-  mcp/src/        the connector: nineteen tools and one prompt over the same store
+  mcp/src/        the connector: twenty tools and one prompt over the same store
 apps/web/src/     one page: radar, breakouts, same-topic list, thumbnail board,
-                  Ask AI, trending formats, hook library, idea lab, transfers,
+                  Ask AI, trending formats, hook library, idea lab, script writer, transfers,
                   niches, refresh bar
 docs/  design/
 ```
@@ -169,6 +174,16 @@ tools and answers in a fixed labelled form that a strict reader takes apart;
 concepts not kept are replaced by the next batch. The owner's angle is the one
 free text in any question; a format, a stored concept and the hooks reach an
 engine as tool results only.
+
+**Writing a script.** One script per kept concept. Its voice is a channel of the
+same map, measured in code from the captions of that channel's best videos; its
+length is chosen within the range this map's winners run. Three AI stages (hooks
+and beats, draft, tighten) each read the concept and the earlier stages through
+`get_script`. The engines cannot look anything up, so every stage must mark a
+fact it cannot vouch for with `[CHECK: ...]`; the page counts and lists the
+markers, counts words, spoken time and reading grade in code, times the picture
+cues from the words, and exports text, Markdown, a CSV shot list and the clean
+voiceover.
 
 ## Cross-cutting
 

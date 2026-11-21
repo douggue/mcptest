@@ -49,6 +49,8 @@ export function isCrossSite(request: Request, allowedHosts: readonly string[]): 
 export async function readJson(
   allowedHosts: readonly string[],
   request: Request,
+  /** The longest body taken, for the few routes that carry a text of the owner's. */
+  maxCharacters: number = MAX_BODY_CHARACTERS,
 ): Promise<unknown | Response> {
   if (isCrossSite(request, allowedHosts)) {
     return fail(403, 'Requests from other sites are not accepted');
@@ -57,7 +59,7 @@ export async function readJson(
     return fail(415, 'Send the request as application/json');
   }
   const text = await request.text();
-  if (text.length > MAX_BODY_CHARACTERS) return fail(400, 'The request is too large');
+  if (text.length > maxCharacters) return fail(400, 'The request is too large');
   try {
     return JSON.parse(text) as unknown;
   } catch {

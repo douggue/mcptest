@@ -5,6 +5,7 @@ import { BreakoutFeed } from './components/BreakoutFeed';
 import { Formulas } from './components/Formulas';
 import { HookLibrary } from './components/HookLibrary';
 import { IdeaLab } from './components/IdeaLab';
+import { ScriptWriter } from './components/ScriptWriter';
 import { Inspector } from './components/Inspector';
 import { MapToolbar } from './components/MapToolbar';
 import { Niches } from './components/Niches';
@@ -21,6 +22,7 @@ import { useAnalysis } from './components/useAnalysis';
 import { useBreakdown } from './components/useBreakdown';
 import { useLab } from './components/useLab';
 import { useLabJob } from './components/useLabJob';
+import { useScript } from './components/useScript';
 import { useNiches } from './components/useNiches';
 import { useRefresh } from './components/useRefresh';
 import { useSameTopic } from './components/useSameTopic';
@@ -31,6 +33,7 @@ import { createApi, type JobState } from './lib/api';
 import { breakdownChoices } from './lib/breakdown';
 import { inScope, type Scope } from './lib/feed';
 import { createLabApi } from './lib/labApi';
+import { toggleModel, voiceChoices } from './lib/scriptWriter';
 import { describeMix } from './lib/mix';
 import { layoutRadar } from './lib/radarLayout';
 import { uploadVideoFile } from './lib/upload';
@@ -44,6 +47,8 @@ const ASK_AI_ID = 'ask-claude';
 const NO_NICHES: readonly NicheChannel[] = [];
 /** The idea lab, which a formula taken into it brings into view. */
 const IDEA_LAB_ID = 'idea-lab';
+/** The script writer, which a concept's Draft button brings into view. */
+const SCRIPT_WRITER_ID = 'script-writer';
 const DEFAULT_DEPTH = CRAWL_DEFAULT_DEPTH;
 const DEFAULT_SIZE = CRAWL_DEFAULT_MAX_CHANNELS;
 
@@ -233,6 +238,17 @@ export function App() {
     analysis.state.status === 'running' ||
     breakdown.state.status === 'running' ||
     labJobs.state.status === 'running';
+  const script = useScript(labApi, labJobs, snapshot?.center.id ?? null, analysis.choice);
+  const voices = useMemo(() => (snapshot ? voiceChoices(snapshot) : []), [snapshot]);
+  const scriptModels = script.view?.script?.hookModels;
+  /** Opens a concept's script; starting a script keeps its concept. */
+  const draft = (conceptId: number) => {
+    lab.keep(conceptId, true);
+    script.open(conceptId);
+    document
+      .getElementById(SCRIPT_WRITER_ID)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const remix = (formulaId: number) => {
     lab.choose({ format: `formula:${formulaId}` });
     document.getElementById(IDEA_LAB_ID)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -388,7 +404,20 @@ export function App() {
       {snapshot && (
         <Formulas lab={lab} busy={asking} centerTitle={snapshot.center.title} onRemix={remix} />
       )}
-      {snapshot && <HookLibrary lab={lab} busy={asking} centerTitle={snapshot.center.title} />}
+      {snapshot && (
+        <HookLibrary
+          lab={lab}
+          busy={asking}
+          centerTitle={snapshot.center.title}
+          models={
+            scriptModels && {
+              chosen: scriptModels,
+              toggle: (videoId) =>
+                script.change({ hookModels: toggleModel(scriptModels, videoId) }),
+            }
+          }
+        />
+      )}
       {snapshot && (
         <IdeaLab
           lab={lab}
@@ -396,8 +425,10 @@ export function App() {
           transfers={transfers.state.status === 'ready' ? transfers.state.list : null}
           centerTitle={snapshot.center.title}
           breakouts={snapshot.breakouts}
+          onDraft={(concept) => draft(concept.id)}
         />
       )}
+      {snapshot && <ScriptWriter script={script} lab={lab} busy={asking} voices={voices} />}
       <Transfers transfers={transfers} hasMap={snapshot !== null} />
       <Niches
         niches={niches}

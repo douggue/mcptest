@@ -4,8 +4,10 @@ import {
   SqliteFormulaRepo,
   SqliteHookLabelRepo,
   SqliteMapRepo,
+  SqliteScriptRepo,
   SqliteVideoPageRepo,
   SqliteVideoRepo,
+  SqliteVideoStudyRepo,
   openDatabase,
   type MapSnapshot,
   type TransferList,
@@ -169,6 +171,8 @@ beforeEach(() => {
       concepts: new SqliteConceptRepo(db),
       formulas: new SqliteFormulaRepo(db),
       hookLabels: new SqliteHookLabelRepo(db),
+      scripts: new SqliteScriptRepo(db),
+      studies: new SqliteVideoStudyRepo(db),
     },
     analyse: async (analysis, channel, only, focus) => {
       asked.push({ analysis, channel, only, focus });

@@ -43,6 +43,7 @@ import { downloadThumbnails, downloadTranscripts } from './downloadRoutes';
 import type { DownloadsEngine } from './downloadTypes';
 import { labRoutes, type LabRoutes } from './labRoutes';
 import type { LabEngine } from './labTypes';
+import type { ScriptEngine } from './scriptTypes';
 import { readTransfers, saveTransfer } from './transferRoutes';
 
 const CHANNEL_ID = /^UC[\w-]{22}$/;
@@ -104,7 +105,7 @@ export interface TransferChoices {
 }
 
 /** What the API needs from the engine, so tests can stand in for it. */
-export interface Engine extends DownloadsEngine, LabEngine {
+export interface Engine extends DownloadsEngine, LabEngine, ScriptEngine {
   /** The latest stored map around a channel; reads the store only. */
   findSnapshot(channel: string): MapSnapshot | null;
   /** Every channel a map has been made for, the most recently mapped first. */

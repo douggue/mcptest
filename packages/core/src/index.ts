@@ -406,3 +406,40 @@ export {
   type PickedVideo,
 } from './lab/mapVideos';
 export { LIFT_MIN_WORDS, liftedFrom, longestSharedRun, type Lift } from './hooks/lift';
+export {
+  EMPTY_SCRIPT,
+  LONG_HOOK_SECONDS,
+  MAX_HOOK_MODELS,
+  SCRIPT_HOOKS,
+  SCRIPT_STATUSES,
+  SHORTS_HOOK_SECONDS,
+  SHORTS_LIMIT_SECONDS,
+  SHORTS_TARGET_SECONDS,
+  type ScriptFields,
+  type ScriptHook,
+  type ScriptRepo,
+  type ScriptStatus,
+  type StoredScript,
+} from './script/types';
+export { MAX_SCRIPT_CHARS, SqliteScriptRepo } from './repos/sqliteScriptRepo';
+export { parseHooksAndBeats, readBeats, scriptBody, type Beat } from './script/stages';
+export {
+  checkMarkers,
+  cleanVoiceover,
+  countWords,
+  figuresWithoutCheck,
+  readingGrade,
+  sentenceLength,
+  spokenSeconds,
+  spokenText,
+  type CheckMarker,
+} from './script/measure';
+export { parseCues, shotListCsv, toCsv, type Cue } from './script/cues';
+export {
+  SHORTS_MAX_SECONDS,
+  VOICE_VIDEOS,
+  lengthRange,
+  voiceProfile,
+  type LengthRange,
+  type VoiceProfile,
+} from './script/voice';

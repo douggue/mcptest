@@ -45,6 +45,8 @@ export interface AnalysisSpec {
   readonly maxTurns: number;
   /** How long one run may take, when the usual limit is not enough. */
   readonly timeoutMs?: number;
+  /** Who the engine is for this question, when it is not the usual analyst. */
+  readonly systemPrompt?: string;
   /**
    * The question, for a channel already put into its fixed form. `focus` is
    * what else it is told, chosen or checked in code: the videos a breakdown
@@ -184,6 +186,9 @@ export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
   'where-else': lab('where-else'),
   'title-formulas': lab('title-formulas'),
   'hook-styles': lab('hook-styles'),
+  'script-hooks': lab('script-hooks'),
+  'script-draft': lab('script-draft'),
+  'script-tighten': lab('script-tighten'),
 };
 
 /** The channel as the question names it: a handle or an id, never free text. */
@@ -233,7 +238,7 @@ export function analysisRequest(
   const spec = specOf(id);
   return {
     prompt: spec.question(fixedForm(channel), focus),
-    systemPrompt: SYSTEM_PROMPT,
+    systemPrompt: spec.systemPrompt ?? SYSTEM_PROMPT,
     mcpServers: { [SERVER_NAME]: connectorServer(settings, spec.allowedTools) },
     allowedTools: spec.allowedTools,
     maxTurns: spec.maxTurns,

@@ -269,6 +269,28 @@ CREATE TABLE IF NOT EXISTS hook_labels (
   PRIMARY KEY (center_channel_id, video_id)
 );
 `,
+  // 14: the script writer. One script per concept: where it stands, the voice it is
+  //     written in (a channel, its speaking rate, the length aimed at, the reading grade
+  //     the tighten pass aims at), the library hooks chosen as models, the hooks the first
+  //     stage wrote, the hook the owner picked, the beat sheet, the draft and the tightened
+  //     draft. It belongs to its concept and goes with it, and so to one centre channel.
+  `
+CREATE TABLE IF NOT EXISTS scripts (
+  concept_id        INTEGER PRIMARY KEY REFERENCES concepts (id) ON DELETE CASCADE,
+  status            TEXT NOT NULL DEFAULT 'idea',
+  voice_channel_id  TEXT,
+  words_per_minute  INTEGER,
+  target_seconds    INTEGER,
+  target_grade      REAL,
+  hook_models_json  TEXT NOT NULL DEFAULT '[]',
+  hooks_json        TEXT NOT NULL DEFAULT '[]',
+  chosen_hook       TEXT NOT NULL DEFAULT '',
+  beats             TEXT NOT NULL DEFAULT '',
+  draft             TEXT NOT NULL DEFAULT '',
+  tightened         TEXT NOT NULL DEFAULT '',
+  updated_at        TEXT NOT NULL
+);
+`,
 ];
 
 /**

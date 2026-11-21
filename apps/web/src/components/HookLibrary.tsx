@@ -132,10 +132,12 @@ interface Props {
   readonly busy: boolean;
   readonly centerTitle: string;
   /** The hooks chosen as models for the open script, and the way to choose; absent when none is open. */
-  readonly models?: {
-    readonly chosen: readonly string[];
-    readonly toggle: (videoId: string) => void;
-  };
+  readonly models?:
+    | {
+        readonly chosen: readonly string[];
+        readonly toggle: (videoId: string) => void;
+      }
+    | undefined;
 }
 
 /**

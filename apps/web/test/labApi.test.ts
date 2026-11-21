@@ -64,6 +64,24 @@ describe('the idea lab’s API', () => {
     ]);
   });
 
+  test('opens and saves a script, starts a stage and measures a voice', async () => {
+    const { api, sent } = recording({ jobId: 'job-2', script: null });
+
+    await api.openScript(CHANNEL, 7);
+    await api.saveScript(CHANNEL, 7, { draft: 'Words.', status: 'ready' });
+    await expect(api.startStage(CHANNEL, 7, 'draft', 'claude')).resolves.toBe('job-2');
+    await api.voice(CHANNEL, 'UCvvvvvvvvvvvvvvvvvvvvvv');
+    await api.startVoiceRead(CHANNEL, 'UCvvvvvvvvvvvvvvvvvvvvvv');
+
+    expect(sent).toEqual([
+      `POST /api/lab/scripts/open {"channel":"${CHANNEL}","concept":7}`,
+      `POST /api/lab/scripts {"channel":"${CHANNEL}","concept":7,"changes":{"draft":"Words.","status":"ready"}}`,
+      `POST /api/lab/scripts/stage {"channel":"${CHANNEL}","concept":7,"stage":"draft","engine":"claude"}`,
+      `GET /api/lab/voice?channel=${CHANNEL}&voice=UCvvvvvvvvvvvvvvvvvvvvvv`,
+      `POST /api/lab/voice/read {"channel":"${CHANNEL}","voice":"UCvvvvvvvvvvvvvvvvvvvvvv"}`,
+    ]);
+  });
+
   test('keeps a concept, clears the rest and reads a job', async () => {
     const { api, sent } = recording({ removed: 4, id: 'job-1', status: 'running' });
 

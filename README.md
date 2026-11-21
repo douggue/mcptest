@@ -131,9 +131,10 @@ compiler:
   judging the same-topic channels), and **Channel breakdown**, a longer job that
   takes one channel apart. Under each answer it says which AI gave it. See below
   for what it needs.
-- **Trending formats**, **Hook library** and **Idea lab**: title wordings that
-  several winning videos share, how the winning videos open in their own words,
-  and an AI that writes ten video ideas from videos you pick. See
+- **Trending formats**, **Hook library**, **Idea lab** and **Script writer**:
+  title wordings that several winning videos share, how the winning videos open
+  in their own words, an AI that writes ten video ideas from videos you pick,
+  and a script for one of them in three steps. See
   [Idea lab, trending formats and the hook library](#idea-lab-trending-formats-and-the-hook-library).
 - **Niche transfer opportunities**: ideas that took off for another country and
   are untried or weak for yours. Press **Save** on one and it moves to **Saved**
@@ -433,7 +434,8 @@ few words on it, and the opening sentence. The card also shows:
   company, which product, what really happened) before you make the video. Take
   it seriously: a concept is an idea for a title, not a finding.
 - The number of characters in each title, with a warning when a phone may cut
-  it off. The warning starts at 55 characters (40 for Shorts). YouTube
+  it off. A hook that shares six words in a row with a real opening in the
+  hook library is flagged too. The warning starts at 55 characters (40 for Shorts). YouTube
   publishes no such number, only its limit of 100; 55 is a rule of thumb from
   title-checking tools, which put the cut between 45 and 60.
 - **Feed preview**: your draft beside two real videos that took off on this map.
@@ -445,6 +447,76 @@ vein. Both take about a minute.
 Kept concepts stay and are listed first, also after you close the page.
 Concepts you did not keep are removed when the next batch arrives, or when you
 press **Clear the ones not kept**.
+
+### Script writer
+
+Press **Draft** on a concept and its script opens under **Script writer**.
+Starting a script keeps the concept. One script per concept; it is saved on
+this computer as you type and is still there after you close the page.
+
+**Every fact in a script must be checked by you.** The AI that writes the
+script cannot look anything up. It does not know real facts about the subject:
+what it writes about names, dates, numbers, places and what a company did comes
+from the AI's own memory, which can be wrong or out of date, or from what other
+channels said in their videos. It is told to put `[CHECK: what to verify]`
+right after every such claim. The page counts these markers and lists them
+beside the script, and also lists sentences that hold a number and no marker.
+Check each one against a real source before you record, then delete the
+marker. A video that states invented facts as true breaks YouTube's rules on
+misleading content. A script with no markers is not a checked script.
+
+Before the first step, set what the script is written to:
+
+- **Voice**: the channel whose way of speaking the script follows. It starts
+  as your model channel if you named one, else your own; you can pick any
+  channel like yours on this map. Jgtube measures the voice from the captions
+  of that channel's five best videos: words a minute, how long its sentences
+  are, and a reading grade. If the captions have not been read yet, press
+  **Read its captions** (a few seconds). Nothing here is a preset: if nothing
+  can be measured, type the words a minute yourself.
+- **Length**: for a long video, a slider within the range the winning videos of
+  the channels like yours on this map really run. A Short is written to under
+  a minute.
+
+The three steps, each an AI run:
+
+1. **Hooks and beat sheet** (about a minute): three hooks of one minute each
+   at the voice's rate, each opening in a different way, then a beat sheet with
+   times. You can choose up to three hooks from the hook library as models
+   (the chips under the step, or **Model this in the script** on a hook card);
+   with none chosen the AI picks from the library. A hook is a model for the
+   way of opening only: if a written hook shares six words in a row with a real
+   one, the page says so. Pick one hook; you can edit it and the beat sheet.
+2. **The draft** (three to six minutes for a sixteen-minute video): the full
+   script, with a picture cue before the words it covers, written
+   `[B-ROLL: what to show | search phrase | sound]`.
+3. **Tighten pass** (one to two minutes): the same script made easier to say,
+   toward the voice channel's own reading grade, with no fact added.
+
+Beside the editor: the words spoken, the spoken time at the words a minute
+(headings, picture cues and markers are not counted), the reading grade against
+the voice channel's own, the facts to check, and a checklist made from the beat
+sheet. The reading grade is an estimate and only works for English.
+
+**Export**:
+
+- **Copy clean voiceover text**: only what is spoken, for a voice tool. If
+  markers remain, the first press tells you how many facts are unchecked and
+  the second press copies anyway.
+- **Text file (.txt)** and **Markdown file (.md)**: the whole script with its
+  headings, picture cues and markers. The Markdown file ends with the facts to
+  check as a list.
+- **B-roll shot list (.csv)**: one row per picture cue, with when it starts and
+  ends, what to show, a search phrase or picture prompt, and the sound. The
+  times are worked out by Jgtube from the words at the words a minute, never
+  taken from the AI. It opens in Excel or Google Sheets.
+
+How often the picture changes: if a channel breakdown has studied the frames
+of the voice channel's videos, the draft sets cues at that rate. If not, the
+page says so and cues are set where the subject changes; no cut rate is
+invented.
+
+### Where else
 
 **Where else this could work** suggests other languages and other categories
 the formats and ideas on this map could be made for, each with an example
