@@ -163,7 +163,7 @@ export function RiskLists({ check }: { readonly check: RiskCheckView }) {
       <Part title="Title and thumbnail claims the script does not support">
         <Claims check={check} />
       </Part>
-      <Part title="Sentences sharing long runs of words with a competitor (found in code)">
+      <Part title="Sentences that copy a competitor word for word">
         <Overlaps check={check} />
       </Part>
       <Part title="Facts still marked to check">

@@ -39,11 +39,18 @@ function Switch({ setting, draft, disabled, onDraft }: Props) {
               : 'text-on-surface-variant hover:text-on-surface'
           }`}
         >
-          {position}
+          {position === 'on' ? 'On' : position === 'off' ? 'Off' : position}
         </button>
       ))}
     </div>
   );
+}
+
+/** What is in force: a switch left unset is on, said as "On (default)" rather than "Not set". */
+function pillWords(setting: SettingView): string {
+  const positions = SWITCHES[setting.name];
+  if (positions && !setting.set) return 'On (default)';
+  return stateWords(setting);
 }
 
 /**
@@ -65,7 +72,7 @@ export function SettingRow(props: Props) {
         <span
           className={`${PILL} ${setting.set ? 'text-primary' : 'text-outline'} max-w-full truncate`}
         >
-          {clearing ? 'Will be cleared' : stateWords(setting)}
+          {clearing ? 'Will be cleared' : pillWords(setting)}
         </span>
       </div>
       <p className="text-body-sm text-on-surface-variant">{setting.help}</p>
@@ -102,7 +109,10 @@ export function SettingRow(props: Props) {
           )}
         </div>
       )}
-      <p className="text-body-sm text-outline">{effectWords(setting)}</p>
+      {/* Saving is said once beside Save; only a setting that needs a restart says so here. */}
+      {(setting.outside || setting.effect !== 'now') && (
+        <p className="text-body-sm text-metric-amber">{effectWords(setting)}</p>
+      )}
     </div>
   );
 }

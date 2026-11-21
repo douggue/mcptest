@@ -42,7 +42,7 @@ export function describeRefresh(state: RefreshReply, now: Date): string {
 /** Whether a timer refreshes the store, and how to set one when it does not. */
 export function describeSchedule(everyHours: number | null): string {
   if (everyHours === null) {
-    return 'To refresh by itself, put JGTUBE_REFRESH_HOURS=6 in the .env file and start Jgtube again.';
+    return 'To refresh by itself, set Refresh every (hours) in Settings, for example to 6, and restart Jgtube.';
   }
   const every = everyHours === 1 ? 'every hour' : `every ${everyHours} hours`;
   return `Refreshes by itself ${every} while Jgtube is running.`;

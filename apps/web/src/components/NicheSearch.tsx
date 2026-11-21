@@ -1,3 +1,4 @@
+import { viewHref } from '../lib/routes';
 import { Search } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { describeSearch } from '../lib/niches';
@@ -58,11 +59,15 @@ export function NicheSearch({ canDiscover, search, onSearch }: Props) {
 
   if (!canDiscover) {
     return (
-      <p className={NOTE}>
-        To look for niches by keyword, Jgtube needs a YouTube API key. Put{' '}
-        <code className="text-on-surface">YOUTUBE_API_KEY=your key</code> in a file named{' '}
-        <code className="text-on-surface">.env</code> in the Jgtube folder and start it again.
-      </p>
+      <div className="flex flex-col gap-2">
+        <p className={NOTE}>Add a YouTube key in Settings to look for niches by keyword.</p>
+        <a
+          href={viewHref('settings')}
+          className="flex min-h-11 w-fit items-center rounded-full bg-surface-container-high px-4 text-body-sm font-semibold text-on-surface hover:bg-surface-container-highest"
+        >
+          Open Settings
+        </a>
+      </div>
     );
   }
 

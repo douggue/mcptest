@@ -58,7 +58,7 @@ export const SETTINGS: readonly SettingSpec[] = [
   {
     name: 'JGTUBE_MARK_FACTS',
     label: 'Mark facts to check in scripts',
-    help: 'on or off. On, the AI that writes a script marks every fact it cannot vouch for, and the script writer counts and lists them. Off, scripts are written without the marks. Empty means on.',
+    help: 'On, the AI that writes a script marks every fact it cannot vouch for, and Jgtube lists them for you to check.',
     secret: false,
     effect: 'now',
     rule: CONFIG_ENV_RULES.JGTUBE_MARK_FACTS,

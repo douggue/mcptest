@@ -77,7 +77,7 @@ describe('describeSchedule', () => {
   });
 
   test('says how to turn the timer on when it is off', () => {
-    expect(describeSchedule(null)).toContain('JGTUBE_REFRESH_HOURS=6');
+    expect(describeSchedule(null)).toContain('in Settings');
   });
 });
 
