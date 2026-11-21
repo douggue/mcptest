@@ -11,7 +11,7 @@ export const BREAKOUT_FILTERS: readonly { readonly id: BreakoutFilter; readonly 
     { id: 'all', label: 'All outliers' },
     { id: '100x', label: '100×+' },
     { id: '50x', label: '50×+' },
-    { id: 'small', label: 'Under 10K' },
+    { id: 'small', label: 'Channels under 10K subs' },
   ];
 
 export function filterBreakouts<T extends BreakoutVideo>(

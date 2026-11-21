@@ -111,7 +111,7 @@ function Profile(props: ActionsProps) {
     page.snapshot?.channels.some((channel) => channel.id === profile.id);
   return (
     <div className="flex min-w-0 flex-col gap-space-lg">
-      <ChannelSummary profile={profile} withBack />
+      <ChannelSummary profile={profile} withBack={page.snapshot?.center.id !== profile.id} />
       <Actions {...props} />
       <div
         className={`grid min-w-0 grid-cols-1 items-start gap-space-lg ${beside ? 'xl:grid-cols-[minmax(0,1fr)_380px]' : ''}`}
