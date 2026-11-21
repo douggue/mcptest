@@ -1,7 +1,8 @@
 import { execFile } from 'node:child_process';
 import { constants } from 'node:fs';
 import { access, readdir, stat } from 'node:fs/promises';
-import { basename, delimiter, isAbsolute, join } from 'node:path';
+import { basename, delimiter, isAbsolute, join, win32 } from 'node:path';
+import { z } from 'zod';
 
 /**
  * Finding and starting the helper programs the owner may have installed
@@ -52,6 +53,19 @@ function envValue(
  */
 export const programSetting = (name: string): string =>
   `JGTUBE_${name.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_PATH`;
+
+/**
+ * What such a setting must be: the full path of the program file, as this
+ * kind of computer or Windows writes one. Whether a program is there is found
+ * out when it is looked for.
+ */
+export const PROGRAM_PATH_RULE = z
+  .string()
+  .min(1)
+  .max(1000)
+  .refine((path) => isAbsolute(path) || win32.isAbsolute(path), {
+    message: 'must be the full path of the program file',
+  });
 
 /** The folders inside `parent`, as full paths; none when it cannot be read. */
 async function foldersIn(parent: string): Promise<readonly string[]> {

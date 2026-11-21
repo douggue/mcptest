@@ -6,12 +6,12 @@
  * watch, and with `-- --try --youtube <link>` a YouTube link.
  */
 import { FFMPEG_PROGRAM, YT_DLP_PROGRAM, findProgram, loadConfig } from '@jgtube/core';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SERVER_NAME, VIDEO_SYSTEM_PROMPT, connectionCheck } from './analyses';
-import { SETTINGS_FILE, allowServerInSettings } from './engines/agy';
+import { allowAntigravity } from './engines/allowAgy';
 import { WATCH_TIMEOUT_MS, watchLinkWithAgy, watchWithAgy } from './engines/agyVideo';
 import { checkEngines, createEngines } from './engines/catalog';
 import { EngineRunError } from './engines/failure';
@@ -82,41 +82,13 @@ function trialActions(settings: EngineSettings, deps: EngineDeps, workDir: strin
   };
 }
 
-/**
- * Adds to the owner's Antigravity settings the one line that lets a run
- * started by Jgtube use its tools. The file as it was is kept beside it the
- * first time, and settings that cannot be read are left alone.
- */
-function allowAntigravity(): void {
-  const file = join(homedir(), ...SETTINGS_FILE);
-  const before = existsSync(file) ? readFileSync(file, 'utf8') : null;
-  const outcome = allowServerInSettings(before, SERVER_NAME);
-  if (!outcome.ok) {
-    print(`Nothing was changed. ${outcome.problem}`);
-    print(`The file is ${file}`);
-    process.exitCode = 1;
-    return;
-  }
-  if (!outcome.changed) {
-    print(`Antigravity may already use Jgtube's tools. Nothing was changed in ${file}`);
-    return;
-  }
-  mkdirSync(dirname(file), { recursive: true });
-  const backup = `${file}.before-jgtube`;
-  if (before !== null && !existsSync(backup)) {
-    writeFileSync(backup, before, 'utf8');
-    print(`Your settings as they were are kept in ${backup}`);
-  }
-  writeFileSync(file, outcome.text, 'utf8');
-  print(`Done. Antigravity may now use Jgtube's tools: one line was added to ${file}`);
-  print('Start Jgtube again (npm start) and choose Antigravity in the AI switch to try it.');
-}
-
 async function main(): Promise<void> {
   loadEnvFile();
   const command = parseEnginesArgs(process.argv.slice(2));
   if (command.allowAntigravity) {
-    allowAntigravity();
+    const report = allowAntigravity(SERVER_NAME);
+    report.lines.forEach(print);
+    if (!report.ok) process.exitCode = 1;
     return;
   }
   const settings = loadEngineSettings();

@@ -21,7 +21,14 @@ const envSchema = z.object({
     })
     .optional(),
   JGTUBE_DOWNLOADS_PATH: z.string().min(1).max(1000).optional(),
+  JGTUBE_MARK_FACTS: z.enum(['on', 'off'], 'must be on or off').optional(),
 });
+
+/**
+ * The rule each setting must pass, by the name it has in `.env`. The settings
+ * screen checks a new value with the same rule before it writes it.
+ */
+export const CONFIG_ENV_RULES = envSchema.shape;
 
 export interface Config {
   /** Where the SQLite store lives. */
@@ -40,6 +47,12 @@ export interface Config {
    * saved under. Absent means a "downloads" folder beside the store.
    */
   readonly downloadsPath?: string;
+  /**
+   * Whether a script's writer is asked to mark each fact it cannot vouch for,
+   * for the owner to check. On unless the owner turns it off: checking facts
+   * is their choice. Absent means on.
+   */
+  readonly markFacts?: boolean;
 }
 
 /** Reads settings from the environment and fails fast, naming the bad variable. */
@@ -63,5 +76,6 @@ export function loadConfig(
     ...(parsed.data.JGTUBE_DOWNLOADS_PATH
       ? { downloadsPath: parsed.data.JGTUBE_DOWNLOADS_PATH }
       : {}),
+    ...(parsed.data.JGTUBE_MARK_FACTS === 'off' ? { markFacts: false } : {}),
   };
 }

@@ -148,11 +148,11 @@ function privateFolders() {
   };
 }
 
-/** Reuses what `load` found for `freshMs` before asking again. */
-function remembered<T>(load: () => Promise<T>, freshMs: number): () => Promise<T> {
+/** Reuses what `load` found for `freshMs` before asking again; `fresh` asks again now. */
+function remembered<T>(load: () => Promise<T>, freshMs: number): (fresh?: boolean) => Promise<T> {
   let kept: { readonly at: number; readonly value: Promise<T> } | null = null;
-  return () => {
-    if (kept === null || Date.now() - kept.at > freshMs) {
+  return (fresh = false) => {
+    if (fresh || kept === null || Date.now() - kept.at > freshMs) {
       const value = load();
       const fresh = { at: Date.now(), value };
       kept = fresh;
@@ -201,7 +201,7 @@ interface Shared {
   readonly deps: EngineDeps;
   readonly folders: ReturnType<typeof privateFolders>;
   /** What is known about the engines, found out at most once a minute. */
-  readonly statuses: () => Promise<readonly EngineStatus[]>;
+  readonly statuses: (fresh?: boolean) => Promise<readonly EngineStatus[]>;
 }
 
 /** The store as a file an engine's connector can open. Throws when it is only in memory. */
@@ -321,8 +321,8 @@ export function analysisEngines(wiring: AnalysisWiring, stop: AbortSignal): Anal
     studyFrames: (videoId, only) => work.run(() => asking.studyFrames(videoId, only)),
     watchesFiles: async () => settings.order.includes('agy') && (await agyInstalled(shared)),
     watchVideo: (videoId, question, options) => work.run(() => watch(videoId, question, options)),
-    engineStatus: () =>
-      work.run(async () => ({ engines: await statuses(), order: settings.order })),
+    engineStatus: (fresh) =>
+      work.run(async () => ({ engines: await statuses(fresh), order: settings.order })),
     cleanUp: shared.folders.remove,
   };
 }

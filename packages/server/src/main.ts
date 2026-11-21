@@ -3,18 +3,21 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
-import { loadConfig } from '@jgtube/core';
 import { UPLOAD_PATH, createApp } from './app';
 import { createEngine } from './engine';
-import { loadEngineSettings } from './engines/settings';
 import { JobStore } from './jobs';
+import { liveSettings } from './liveSettings';
 import { startRefreshTimer, startThroughApi } from './schedule';
+import { settingsEngine } from './settingsEngine';
+import { namesSetOutside, settingsStore } from './settingsStore';
 
 /** Only this computer can reach the server; it has no login. */
 const HOST = '127.0.0.1';
 const DEFAULT_PORT = 4317;
 const WEB_ROOT = resolve(fileURLToPath(new URL('../../../apps/web/dist', import.meta.url)));
 const MAX_BODY_BYTES = 16_384;
+/** The settings file, beside where Jgtube is started: the one `process.loadEnvFile` reads. */
+const ENV_FILE = '.env';
 
 const CONTENT_TYPES: Readonly<Record<string, string>> = {
   '.html': 'text/html; charset=utf-8',
@@ -133,12 +136,25 @@ function loadEnvFile(): void {
 }
 
 function start(): void {
+  // What was set before the file is read wins over the file, and the settings screen says so.
+  const outside = namesSetOutside(process.env);
   loadEnvFile();
-  const config = loadConfig();
-  const engine = createEngine(config, { engines: loadEngineSettings() });
+  // The keys and the engine order can change while Jgtube runs; see liveSettings.
+  const live = liveSettings(process.env);
+  const { config } = live;
+  const engine = createEngine(config, { engines: live.engines });
   const port = readPort();
   const allowedHosts = [`${HOST}:${port}`, `localhost:${port}`];
-  const app = createApp({ engine, jobs: new JobStore(), allowedHosts });
+  const settings = settingsEngine({
+    store: settingsStore({
+      envPath: resolve(ENV_FILE),
+      env: process.env,
+      outside,
+      onSaved: live.reload,
+    }),
+    engineStatus: (fresh) => engine.engineStatus(fresh),
+  });
+  const app = createApp({ engine, jobs: new JobStore(), allowedHosts, settings });
 
   const refuse = (response: ServerResponse, status: number, text: string): void => {
     if (!response.headersSent) {

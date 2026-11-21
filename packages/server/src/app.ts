@@ -56,6 +56,7 @@ import type { LabEngine } from './labTypes';
 import { LOGOS_PATH, logoRoutes, type LogoRoutes } from './logoRoutes';
 import type { LogoEngine } from './logoTypes';
 import type { ScriptEngine } from './scriptTypes';
+import { settingsRoute, type SettingsEngine } from './settingsRoutes';
 import { readTransfers, saveTransfer } from './transferRoutes';
 
 const CHANNEL_ID = /^UC[\w-]{22}$/;
@@ -201,8 +202,11 @@ export interface Engine extends DownloadsEngine, LabEngine, ScriptEngine, LogoEn
    * engine on this computer can watch video.
    */
   watchVideo(videoId: string, question: string, options?: WatchOptions): Promise<VideoAnswer>;
-  /** Which AI engines are installed and signed in. Starts nothing that spends allowance. */
-  engineStatus(): Promise<EngineReport>;
+  /**
+   * Which AI engines are installed and signed in. Starts nothing that spends
+   * allowance. What was found is reused for a minute unless `fresh` is true.
+   */
+  engineStatus(fresh?: boolean): Promise<EngineReport>;
   /**
    * Breaks one channel down: studies its top videos, in depth for the best
    * few, and has an engine write the breakdown. Takes many minutes; what
@@ -244,6 +248,8 @@ export interface AppOptions {
   readonly jobs: JobStore<JobOutcome, JobProgress>;
   /** The only `host:port` values this server answers to, such as `127.0.0.1:4317`. */
   readonly allowedHosts: readonly string[];
+  /** The owner's settings in the `.env` file; absent where there is none to write. */
+  readonly settings?: SettingsEngine;
   /** The largest video file taken from the page; tests shorten it. */
   readonly maxUploadBytes?: number;
 }
@@ -455,6 +461,8 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     const { pathname } = url;
     const { method } = request;
 
+    const settingsAnswer = settingsRoute(options.settings, options.allowedHosts, request, pathname);
+    if (settingsAnswer) return settingsAnswer;
     const labAnswer = lab.handle(request, url);
     if (labAnswer) return labAnswer;
     if (method === 'POST' && READS_YOUTUBE.has(pathname)) await logos.standDown();

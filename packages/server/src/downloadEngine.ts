@@ -60,18 +60,21 @@ export interface DownloadWiring {
  */
 export function downloads(wiring: DownloadWiring): DownloadsEngine {
   const { config, now, repos, lazySource, run } = wiring;
-  const apiKey = config.youtubeApiKey;
-  const fetchDetails =
-    apiKey === undefined
-      ? undefined
-      : (wiring.fetchVideoDetails ??
-        ((ids: readonly string[]) => fetchVideoDetails(ids, { apiKey })));
-  const pageDeps: VideoPageDeps = {
-    source: lazySource,
-    transcripts: repos.pages,
-    details: repos.pages,
-    now,
-    ...(fetchDetails ? { fetchDetails } : {}),
+  // The key is read when it is used, so one saved from the settings screen works at once.
+  const pageDepsNow = (): VideoPageDeps => {
+    const apiKey = config.youtubeApiKey;
+    const fetchDetails =
+      apiKey === undefined
+        ? undefined
+        : (wiring.fetchVideoDetails ??
+          ((ids: readonly string[]) => fetchVideoDetails(ids, { apiKey })));
+    return {
+      source: lazySource,
+      transcripts: repos.pages,
+      details: repos.pages,
+      now,
+      ...(fetchDetails ? { fetchDetails } : {}),
+    };
   };
   const imageDeps = wiring.fetchImage ? { fetchImage: wiring.fetchImage } : {};
   const storedChannel = (channel: string): StoredChannel | null => {
@@ -114,20 +117,20 @@ export function downloads(wiring: DownloadWiring): DownloadsEngine {
       if (!stored) return Promise.resolve(null);
       return run(() =>
         saveChannelTranscripts(
-          { ...pageDeps, channels: repos.channels, videos: repos.videos },
+          { ...pageDepsNow(), channels: repos.channels, videos: repos.videos },
           stored.id,
           downloadsRoot(config),
         ),
       );
     },
 
-    readTranscript: (videoId) => run(() => readTranscript(pageDeps, videoId)),
+    readTranscript: (videoId) => run(() => readTranscript(pageDepsNow(), videoId)),
 
     readVideoFrames: (videoId, sheets, from) =>
       run(
         async () =>
           (await fileFrames(videoId, sheets, from)) ??
-          readVideoFrames({ ...pageDeps, ...imageDeps }, videoId, sheets, from),
+          readVideoFrames({ ...pageDepsNow(), ...imageDeps }, videoId, sheets, from),
       ),
 
     findVideoStudy: (videoId, kind) => repos.studies.find(videoId, kind),
@@ -159,7 +162,7 @@ export function downloads(wiring: DownloadWiring): DownloadsEngine {
 
     readVideoDetails: (videoIds) =>
       run(async () => {
-        const read = await readVideoDetails(pageDeps, videoIds);
+        const read = await readVideoDetails(pageDepsNow(), videoIds);
         return {
           videos: describeVideos(repos.videos, read.details, now()),
           problems: read.problems,

@@ -1,4 +1,4 @@
-export { loadConfig, type Config } from './config';
+export { CONFIG_ENV_RULES, loadConfig, type Config } from './config';
 export { LATEST_SCHEMA_VERSION, openDatabase, type Db } from './db/sqlite';
 export { backupPathFor, backupStore } from './db/backup';
 export { ingestChannel, type IngestDeps, type IngestOptions, type IngestResult } from './ingest';
@@ -247,6 +247,8 @@ export {
   type BrandDeps,
   type BrandResult,
 } from './channel/brand';
+export { readEnvText, updateEnvText } from './envFile';
+export { PROGRAM_PATH_RULE } from './downloads/program';
 export {
   LOGO_BACKFILL_MAX_CHANNELS,
   backfillLogos,
@@ -484,6 +486,7 @@ export {
   sentenceLength,
   spokenSeconds,
   spokenText,
+  stripCheckMarkers,
   type CheckMarker,
 } from './script/measure';
 export { parseCues, shotListCsv, toCsv, type Cue } from './script/cues';
