@@ -1,12 +1,12 @@
-import { CONCEPT_STATUSES, type CalendarItem, type ConceptStatus } from '@jgtube/core';
-import { STATUS_LABELS } from '../lib/calendar';
+import type { CalendarItem, ConceptStatus } from '@jgtube/core';
+import { STATUSES, STATUS_LABELS } from '../lib/calendar';
 import { watchUrl } from '../lib/format';
 import { FIELD } from './LabStatus';
 
 const LINK = 'text-primary underline-offset-2 hover:underline';
 
 const statusOf = (value: string): ConceptStatus | undefined =>
-  CONCEPT_STATUSES.find((status) => status === value);
+  STATUSES.find((status) => status === value);
 
 interface Props {
   readonly item: CalendarItem;
@@ -49,7 +49,7 @@ export function CalendarItemRow({ item, onSave }: Props) {
             }
             className={`${FIELD} w-32`}
           >
-            {CONCEPT_STATUSES.map((status) => (
+            {STATUSES.map((status) => (
               <option key={status} value={status}>
                 {STATUS_LABELS[status]}
               </option>

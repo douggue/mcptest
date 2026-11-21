@@ -1,6 +1,6 @@
 import type { CalendarView, CalendarWeek } from '@jgtube/core';
 import { describe, expect, test } from 'vitest';
-import { STATUS_LABELS, paceLine, weekLabel, weekNote } from '../src/lib/calendar';
+import { STATUSES, STATUS_LABELS, paceLine, weekLabel, weekNote } from '../src/lib/calendar';
 import { createExtrasApi } from '../src/lib/extrasApi';
 
 const CHANNEL = 'UCHnyfMqiRRG1u-2MsSQLbXA';
@@ -13,7 +13,8 @@ const week = (planned: number, gap: boolean): CalendarWeek => ({
 });
 
 describe('the calendar wording', () => {
-  test('names the four statuses', () => {
+  test('names the four statuses, in order', () => {
+    expect(STATUSES).toEqual(['idea', 'drafting', 'ready', 'published']);
     expect(STATUS_LABELS).toEqual({
       idea: 'Idea',
       drafting: 'Drafting',

@@ -1,5 +1,8 @@
 import type { CalendarView, CalendarWeek, ConceptStatus } from '@jgtube/core';
 
+/** The statuses in order. Kept here: the page takes only types from core, which runs in Node. */
+export const STATUSES: readonly ConceptStatus[] = ['idea', 'drafting', 'ready', 'published'];
+
 export const STATUS_LABELS: Readonly<Record<ConceptStatus, string>> = {
   idea: 'Idea',
   drafting: 'Drafting',
