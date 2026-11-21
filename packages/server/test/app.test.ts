@@ -72,6 +72,9 @@ class FakeEngine implements Engine {
   fetchLogos = this.missingLogos;
   keepAnswer = (): null => null;
   listConceptThumbnails = this.missingLogos;
+  findStyleLock = this.missingLogos;
+  useStyleLock = this.missingLogos;
+  stopStyleLock = this.missingLogos;
   writeConceptThumbnail = this.missingLogos;
   findAnswer = this.missingLogos;
   namedVideos = this.missingLogos;

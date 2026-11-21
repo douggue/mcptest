@@ -53,6 +53,7 @@ import { randomUUID } from 'node:crypto';
 import { analysisEngines, type AnalysisOptions } from './analysisEngine';
 import { answerEngine } from './answerEngine';
 import { conceptThumbEngine } from './conceptThumbEngine';
+import { styleLockEngine } from './styleLockEngine';
 import type { Engine } from './app';
 import { breakdownFiles } from './breakdownFiles';
 import { breaking } from './breakdownSetup';
@@ -473,6 +474,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     }),
     extras: extras({ db: wiring.db, now: wiring.now, repos: wiring.repos }),
     ...conceptThumbEngine({ now: wiring.now, repos: wiring.repos, analyse: asking.analyse }),
+    ...styleLockEngine(wiring),
     analyse: asking.analyse,
     watchVideo: asking.watchVideo,
     engineStatus: asking.engineStatus,

@@ -4,6 +4,7 @@ import {
   HONESTY_RULE,
   NO_MARKERS_RULE,
   SCRIPT_SYSTEM_PROMPT,
+  SCRIPT_DRAFT_TOOLS,
   scriptDraftQuestion,
   scriptHooksQuestion,
   scriptTightenQuestion,
@@ -161,5 +162,14 @@ describe('with marking facts turned off', () => {
     expect(scriptDraftQuestion(CHANNEL, { kind: 'script', conceptId: 42, markFacts: true })).toBe(
       draft,
     );
+  });
+});
+
+describe('the draft and the owner’s style lock', () => {
+  test('reads the kept style lock and writes every picture cue in it, making none up without one', () => {
+    expect(SCRIPT_DRAFT_TOOLS).toContain('get_channel_note');
+    expect(draft).toContain(`get_channel_note with channel ${CHANNEL} and kind style-lock`);
+    expect(draft).toMatch(/do not repeat the style block word for word in each cue/);
+    expect(draft).toMatch(/When none is kept, describe only what to show/);
   });
 });

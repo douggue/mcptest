@@ -539,3 +539,4 @@ export {
   type VoiceProfile,
 } from './script/voice';
 export * from './extras';
+export { liftStyleLock, readStyleLock, styleLockNote } from './breakdown/styleLock';
