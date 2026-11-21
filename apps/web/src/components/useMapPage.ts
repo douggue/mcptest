@@ -1,6 +1,6 @@
 import type { CompetitorStatus, LogoFound, MapSnapshot, SavedChannel } from '@jgtube/core';
 import { CRAWL_DEFAULT_DEPTH, CRAWL_DEFAULT_MAX_CHANNELS } from '@jgtube/core/src/limits';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Api, JobState } from '../lib/api';
 import { inScope, type Scope } from '../lib/feed';
 import { createLogoApi, withLogos, withSavedLogos } from '../lib/logos';
@@ -158,6 +158,16 @@ export function useMapPage(api: Api) {
     setMessage(null);
     void load(channel.id);
   };
+
+  // A fresh browser remembers no channel: open the one mapped most recently (the list is newest
+  // first), once, so Home does not ask the owner to start over when their maps are stored.
+  const triedLatest = useRef(false);
+  const [latest] = saved;
+  useEffect(() => {
+    if (triedLatest.current || snapshot !== null || !latest) return;
+    triedLatest.current = true;
+    if (recall().trim() === '') open(latest);
+  });
 
   // Deletes a saved channel's map; the screen moves to the next saved channel, or to the start.
   const remove = async (channel: SavedChannel) => {

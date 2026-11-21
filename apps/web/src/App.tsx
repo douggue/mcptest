@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { ChannelSwitcher } from './components/ChannelSwitcher';
 import { ConnectionsContext } from './components/Connections';
 import { Shell } from './components/Shell';
 import { ViewHost } from './components/ViewHost';
@@ -36,6 +37,17 @@ export function App() {
         active={route.view}
         ai={aiBadge(analysis.choice, analysis.engines)}
         centerId={page.snapshot?.center.id ?? null}
+        switcher={
+          <ChannelSwitcher
+            channels={page.saved}
+            currentId={page.snapshot?.center.id ?? null}
+            busy={page.job?.status === 'running'}
+            onOpen={(channel) => {
+              page.open(channel);
+              openChannel(channel.id);
+            }}
+          />
+        }
       >
         <ViewHost route={route} parts={{ api, page, work, path, go, openChannel }} ai={ai} />
       </Shell>

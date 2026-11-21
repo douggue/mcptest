@@ -127,7 +127,7 @@ export function SameTopic({ state, centerTitle, onSetStatus }: Props) {
         titleId="same-topic-title"
         title="Same topic"
         count={list?.channels.length}
-        lead={`Channels like ${centerTitle} in size and pace whose titles use other words. Keep the ones on your subject.`}
+        lead={`Channels that pass the size and pace check against ${centerTitle} but title their videos in other words, closest wording first.`}
       />
       {state.status === 'loading' && (
         <Notice tone="working">Going through the channels the filter left out</Notice>

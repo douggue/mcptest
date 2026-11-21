@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ANALYSIS_OPTIONS, choiceFor, engineSummary, type AnalysisId } from '../lib/analyses';
 import { SLOW_NOTE, type ChannelChoice } from '../lib/breakdown';
 import { BreakdownChooser, chosenOf } from './BreakdownChooser';
-import { EngineSwitch } from './EngineSwitch';
+import { AiLine } from './AiLine';
 import { Field } from './layout/Card';
 import { Details } from './layout/Details';
 import { PanelButton } from './layout/PanelButton';
@@ -130,14 +130,7 @@ export function AskPanel(props: Props) {
           About the map around {centerTitle}, or one channel in depth.
         </p>
       </div>
-      <Field label="Which AI answers">
-        <EngineSwitch
-          choice={analysis.choice}
-          engines={analysis.engines}
-          busy={busy}
-          onChoose={analysis.choose}
-        />
-      </Field>
+      <AiLine choice={analysis.choice} engines={analysis.engines} />
       <Field label="What to ask">
         <QuestionList value={question} onChange={onQuestion} disabled={false} />
       </Field>

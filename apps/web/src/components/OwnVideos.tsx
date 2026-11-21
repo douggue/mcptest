@@ -10,15 +10,23 @@ import { StatRow } from './layout/StatRow';
 import { StatTile } from './layout/StatTile';
 import { ViewHeader } from './layout/ViewHeader';
 import { FIELD, NOTE } from './LabStatus';
+import { OwnUploads } from './OwnUploads';
 import { LinkedCard, PlanTable } from './OwnVideoParts';
 import { usePlan, type Plan } from './usePlan';
 
 const ALERT = 'rounded-lg bg-surface-card p-space-md text-body-md text-error';
 
 /** The side panel: which kept concept became which published video, and the one button. */
-function LinkForm({ plan, actions }: { readonly plan: PlanView; readonly actions: Plan }) {
+interface FormProps {
+  readonly plan: PlanView;
+  readonly actions: Plan;
+  /** The published video's link, shared with the uploads list's Link buttons. */
+  readonly link: string;
+  readonly setLink: (link: string) => void;
+}
+
+function LinkForm({ plan, actions, link, setLink }: FormProps) {
   const [conceptId, setConceptId] = useState<number | null>(null);
-  const [link, setLink] = useState('');
   const chosen = conceptId ?? plan.linkable[0]?.conceptId ?? null;
   if (plan.linkable.length === 0) {
     return (
@@ -72,7 +80,8 @@ function LinkForm({ plan, actions }: { readonly plan: PlanView; readonly actions
   );
 }
 
-function Panel({ plan, actions }: { readonly plan: PlanView | null; readonly actions: Plan }) {
+function Panel({ plan, ...form }: Omit<FormProps, 'plan'> & { readonly plan: PlanView | null }) {
+  const { actions } = form;
   return (
     <>
       <div className="flex min-w-0 flex-col gap-1">
@@ -81,7 +90,7 @@ function Panel({ plan, actions }: { readonly plan: PlanView | null; readonly act
           <span className="text-on-surface">Link a video</span>
         </h2>
         <p className="text-body-sm text-on-surface-variant">
-          Link a kept concept to the video you published from it.
+          Link a kept idea to the video you published from it.
         </p>
       </div>
       <Details summary="How this works">
@@ -91,7 +100,7 @@ function Panel({ plan, actions }: { readonly plan: PlanView | null; readonly act
           once.
         </p>
       </Details>
-      {plan && <LinkForm plan={plan} actions={actions} />}
+      {plan && <LinkForm plan={plan} {...form} />}
       {actions.problem && (
         <p role="alert" className={ALERT}>
           {actions.problem}
@@ -121,7 +130,8 @@ function Linked({ plan, actions }: { readonly plan: PlanView; readonly actions: 
         <Target aria-hidden="true" className="h-6 w-6 text-metric-amber" />
         <p className="text-body-md text-on-surface">No video is linked yet.</p>
         <p className="text-body-sm text-on-surface-variant">
-          When you publish a kept concept, link it on the left to see how it did against your usual.
+          When you publish a kept idea, link it under Link a video to see how it did against your
+          usual.
         </p>
       </Card>
     );
@@ -152,16 +162,21 @@ interface Props {
 /** The owner's own published videos against the concepts they came from. */
 export function OwnVideos({ channelId, reloadKey }: Props) {
   const actions = usePlan(channelId, reloadKey);
+  const [link, setLink] = useState('');
   const { state } = actions;
   if (state.status === 'idle') return null;
   const plan = state.status === 'ready' ? state.plan : null;
   return (
     <ViewPage id="own-videos" labelledBy="own-videos-title">
-      <SplitView sideLabel="Link a published video" side={<Panel plan={plan} actions={actions} />}>
+      <SplitView
+        sideLabel="Link a published video"
+        mainFirst
+        side={<Panel plan={plan} actions={actions} link={link} setLink={setLink} />}
+      >
         <ViewHeader
           title="Your videos"
           lead="Each video against your channel's usual at the same age."
-          count={plan ? plan.linked.length : undefined}
+          count={plan && plan.linked.length > 0 ? plan.linked.length : undefined}
         />
         {state.status === 'loading' && <p className={NOTE}>Reading the plan</p>}
         {state.status === 'failed' && (
@@ -169,8 +184,20 @@ export function OwnVideos({ channelId, reloadKey }: Props) {
             It could not be loaded: {state.message}
           </p>
         )}
-        {plan && <Counts plan={plan} />}
-        {plan && <Linked plan={plan} actions={actions} />}
+        {/* Before anything is linked, the uploads come first and no tiles of zeros are shown. */}
+        {plan && plan.linked.length > 0 && <Counts plan={plan} />}
+        {plan && plan.linked.length > 0 && <Linked plan={plan} actions={actions} />}
+        {plan && plan.linked.length === 0 && channelId && (
+          <OwnUploads
+            channelId={channelId}
+            reloadKey={String(reloadKey)}
+            canLink={plan.linkable.length > 0}
+            onLink={(videoId) => {
+              setLink(`https://www.youtube.com/watch?v=${videoId}`);
+              document.getElementById('plan-video')?.focus();
+            }}
+          />
+        )}
       </SplitView>
     </ViewPage>
   );

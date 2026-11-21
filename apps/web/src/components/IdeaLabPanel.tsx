@@ -5,7 +5,8 @@ import { MAX_PICKS, formatOptions, generateBlocked } from '../lib/ideaLab';
 import { thumbnailUrl } from '../lib/format';
 import { viewHref } from '../lib/routes';
 import { Answer, Credit } from './Answer';
-import { EngineSelect, type AiChoice } from './AiEngines';
+import type { AiChoice } from './AiEngines';
+import { AiLine } from './AiLine';
 import { Field } from './layout/Card';
 import { Details } from './layout/Details';
 import { Segmented } from './layout/Segmented';
@@ -241,11 +242,7 @@ export function IdeaLabPanel({ lab, busy, transfers, centerTitle, ai }: Props) {
         />
       </Field>
       <TitleFormat lab={lab} busy={busy} transfers={transfers} />
-      {ai && (
-        <Field label="AI">
-          <EngineSelect ai={ai} />
-        </Field>
-      )}
+      {ai && <AiLine choice={ai.choice} engines={ai.engines} />}
       <LibraryHint lab={lab} busy={busy} />
       <div className="flex flex-col gap-1.5" aria-live="polite">
         <button

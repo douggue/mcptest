@@ -80,7 +80,6 @@ function Side({ transfers, list, filter, onFilter }: SideProps) {
     <>
       <Field label="Show">
         <Segmented<TransferFilter>
-          fill
           label="Which ideas to show"
           options={TRANSFER_FILTERS.map((option) => ({
             value: option.id,

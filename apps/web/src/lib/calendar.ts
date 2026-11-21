@@ -46,12 +46,12 @@ export function paceLine(pace: CalendarView['pace']): string {
   return `${who} ${videos} (counted over the last ${windowDays} days). A comparison, not a target.`;
 }
 
-/** What a week holds, and whether it is under the winners' pace. */
-export function weekNote(week: CalendarWeek, pace: CalendarView['pace']): string {
-  const planned = week.planned === 0 ? 'Nothing planned' : `${week.planned} planned`;
-  return week.gap && pace.medianPerWeek !== null
-    ? `${planned} · fewer than the winners’ ${rate(pace.medianPerWeek)} a week`
-    : planned;
+/**
+ * What a week holds. The winners' pace is said once, beside the calendar,
+ * so a week does not repeat it as if it were a target.
+ */
+export function weekNote(week: CalendarWeek): string {
+  return week.planned === 0 ? 'Nothing planned' : `${week.planned} planned`;
 }
 
 /** The calendar's numbers: planned in the weeks shown, without a date, and the winners' pace. */

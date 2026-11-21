@@ -126,7 +126,7 @@ export function Formulas({ lab, busy, centerTitle, onRemix }: Props) {
             <p className="text-body-md text-on-surface">
               No formats found for the last {list.windowDays} days yet.
             </p>
-            <p className="text-body-sm text-on-surface-variant">Press Find formats on the left.</p>
+            <p className="text-body-sm text-on-surface-variant">Press Find formats.</p>
           </Card>
         )}
         {formulas.length > 0 && list && (

@@ -16,6 +16,8 @@ interface Props {
   readonly ai: Badge;
   /** The map's own channel, which the rail's Channel entry opens; null before any map. */
   readonly centerId: string | null;
+  /** Which channel the app is about and the way to switch; shown beside the logo, and in the phone menu. */
+  readonly switcher?: ReactNode;
   readonly children: ReactNode;
 }
 
@@ -24,7 +26,7 @@ interface Props {
  * Settings, the rail of the five destinations (a menu on a phone) and the
  * view itself.
  */
-export function Shell({ active, ai, centerId, children }: Props) {
+export function Shell({ active, ai, centerId, switcher, children }: Props) {
   const destination = destinationOf(active)?.id ?? null;
   const [menuOpen, setMenuOpen] = useState(false);
   // Opening a view from anywhere closes the phone menu.
@@ -46,6 +48,7 @@ export function Shell({ active, ai, centerId, children }: Props) {
               Jgtube
             </span>
           </a>
+          <div className="hidden min-w-0 md:block">{switcher}</div>
           <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
             <AiBadge badge={ai} />
             <button
@@ -79,6 +82,7 @@ export function Shell({ active, ai, centerId, children }: Props) {
           id="view-menu"
           className="fixed inset-x-0 bottom-0 top-16 z-40 overflow-y-auto bg-space-canvas p-space-sm md:hidden"
         >
+          <div className="mb-space-sm">{switcher}</div>
           <RailLinks active={destination} centerId={centerId} onPick={() => setMenuOpen(false)} />
         </div>
       )}

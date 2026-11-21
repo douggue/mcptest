@@ -89,10 +89,11 @@ export function Inspector(props: Props) {
 
       <div className="mt-space-md grid grid-cols-2 gap-2">
         {channel.centerShare !== null ? (
-          <Tile label="Next to your videos">
+          <Tile label="Beside your videos">
             <span className="mt-0.5 block text-headline-md font-bold text-primary">
               {percent(channel.centerShare)}
             </span>
+            <span className="block text-body-sm text-outline">of yours recommend it</span>
           </Tile>
         ) : (
           <Tile label="Reached through">
