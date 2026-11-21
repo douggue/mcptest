@@ -5,6 +5,9 @@ import {
   describeRefresh,
   describeSchedule,
 } from '../lib/refresh';
+import { Card, Label } from './layout/Card';
+import { Details } from './layout/Details';
+import { QUIET_BUTTON } from './LabStatus';
 import type { Refresh, RefreshRun } from './useRefresh';
 
 const NOTE = 'text-body-sm text-on-surface-variant';
@@ -37,8 +40,8 @@ function Outcome({ run }: { readonly run: RefreshRun }) {
 }
 
 /**
- * A quiet strip at the foot of the page: when the stored channels were last
- * read again, whether a timer does it, and a button that does it now.
+ * A quiet card: when the stored channels were last read again, a button that
+ * does it now, and, behind a disclosure, how to have a timer do it.
  */
 export function RefreshBar({ refresh }: { readonly refresh: Refresh }) {
   const { view, run, start } = refresh;
@@ -48,42 +51,43 @@ export function RefreshBar({ refresh }: { readonly refresh: Refresh }) {
   const running = run.status === 'running';
 
   return (
-    <section
-      aria-labelledby="refresh-title"
-      className="w-full bg-space-deep px-gutter-desktop pb-space-xl"
-    >
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-space-md rounded bg-surface-card p-space-md sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-start gap-space-sm">
-          <History aria-hidden="true" className="mt-0.5 h-[18px] w-[18px] flex-none text-outline" />
-          <div className="flex min-w-0 flex-col gap-1">
-            <h2 id="refresh-title" className="text-label-caps uppercase text-outline">
-              View history
-            </h2>
-            {view.status === 'failed' ? (
-              <p role="alert" className="text-body-sm text-error">
-                The refresh status could not be loaded: {view.message}
-              </p>
-            ) : (
-              <>
-                <p className={NOTE}>{describeRefresh(view.reply, new Date())}</p>
-                <p className="text-body-sm text-outline">
-                  {describeSchedule(view.reply.everyHours)}
-                </p>
-              </>
-            )}
-            <Outcome run={run} />
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={start}
-          disabled={running}
-          className="flex flex-none items-center justify-center gap-1.5 rounded-full bg-surface-container-high px-4 py-2 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-variant disabled:cursor-not-allowed disabled:opacity-60"
+    <section aria-labelledby="refresh-title" className="min-w-0">
+      <Card>
+        <Label
+          action={
+            <button
+              type="button"
+              onClick={start}
+              disabled={running}
+              className={`flex flex-none items-center gap-1.5 ${QUIET_BUTTON}`}
+            >
+              <RefreshCw
+                aria-hidden="true"
+                className={`h-4 w-4 ${running ? 'animate-spin' : ''}`}
+              />
+              {running ? 'Refreshing…' : 'Refresh now'}
+            </button>
+          }
         >
-          <RefreshCw aria-hidden="true" className={`h-4 w-4 ${running ? 'animate-spin' : ''}`} />
-          {running ? 'Refreshing…' : 'Refresh now'}
-        </button>
-      </div>
+          <span id="refresh-title" className="flex items-center gap-1.5">
+            <History aria-hidden="true" className="h-4 w-4" />
+            Refresh
+          </span>
+        </Label>
+        {view.status === 'failed' ? (
+          <p role="alert" className="text-body-sm text-error">
+            The refresh status could not be loaded: {view.message}
+          </p>
+        ) : (
+          <>
+            <p className={NOTE}>{describeRefresh(view.reply, new Date())}</p>
+            <Details summary="Refresh by itself">
+              <p className={NOTE}>{describeSchedule(view.reply.everyHours)}</p>
+            </Details>
+          </>
+        )}
+        <Outcome run={run} />
+      </Card>
     </section>
   );
 }

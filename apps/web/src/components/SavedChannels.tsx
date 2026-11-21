@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { badgeText } from '../lib/alerts';
 import { formatCount } from '../lib/format';
 import { ChannelLogo } from './ChannelLogo';
+import { Card, Label } from './layout/Card';
 
 interface Props {
   readonly channels: readonly SavedChannel[];
@@ -13,15 +14,14 @@ interface Props {
   readonly busy: boolean;
   readonly onOpen: (channel: SavedChannel) => void;
   readonly onDelete: (channel: SavedChannel) => void;
-  /** Unread alerts per channel id, shown as a count on its chip. */
+  /** Unread alerts per channel id, shown as a count on its row. */
   readonly badges?: Readonly<Record<string, number>>;
 }
 
-const CHIP = 'flex max-w-full items-center gap-1 rounded-full py-1 pl-1 pr-1 text-body-sm';
 const SMALL_BUTTON =
-  'rounded-full px-2.5 py-1 text-label-caps transition-colors disabled:cursor-not-allowed disabled:opacity-60';
+  'min-h-9 rounded-full px-3 text-body-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60';
 
-interface ChipProps {
+interface RowProps {
   readonly channel: SavedChannel;
   readonly current: boolean;
   readonly busy: boolean;
@@ -30,55 +30,62 @@ interface ChipProps {
   readonly unread: number;
 }
 
-/** One saved channel: press its name to open its map, the cross to delete it. */
-function Chip({ channel, current, busy, onOpen, onAskDelete, unread }: ChipProps) {
+/** What a row says under the name: on screen or not, subscribers, and the map's size. */
+function rowLine(channel: SavedChannel): string {
+  const parts = [
+    channel.subscribers === null ? null : `${formatCount(channel.subscribers)} subscribers`,
+    `${channel.channelCount} channels on its map`,
+  ];
+  return parts.filter((part) => part !== null).join(' · ');
+}
+
+/** One saved channel: press it to open its map and its view, the cross to delete it. */
+function Row({ channel, current, busy, onOpen, onAskDelete, unread }: RowProps) {
   const badge = badgeText(unread);
   return (
-    <div
-      className={`${CHIP} ${
-        current
-          ? 'bg-surface-card text-on-surface ring-1 ring-primary-container'
-          : 'bg-surface-container text-on-surface-variant'
-      }`}
-    >
+    <li className="flex min-w-0 items-center gap-space-sm py-1.5">
       <button
         type="button"
         aria-current={current ? 'true' : undefined}
         disabled={busy}
         onClick={onOpen}
-        title={`${channel.title}: ${channel.channelCount} channels on its map`}
-        className={`flex min-w-0 items-center gap-2 rounded-full pr-1 transition-colors hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-60 ${
-          current ? 'font-semibold' : ''
-        }`}
+        className="flex min-w-0 flex-1 items-center gap-space-sm rounded-lg p-1 text-left transition-colors hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-60"
       >
-        <span className="flex h-7 w-7 flex-none items-center justify-center overflow-hidden rounded-full bg-space-deep text-xs font-bold text-secondary">
-          <ChannelLogo title={channel.title} logoUrl={channel.logoUrl} letters={1} />
+        <span
+          className={`flex h-11 w-11 flex-none items-center justify-center overflow-hidden rounded-full bg-surface-container-high text-body-sm font-bold text-secondary ring-2 ${
+            current ? 'ring-primary-container' : 'ring-border-subtle'
+          }`}
+        >
+          <ChannelLogo title={channel.title} logoUrl={channel.logoUrl} />
         </span>
-        <span className="truncate">{channel.title}</span>
-        {channel.subscribers !== null && (
-          <span className="flex-none text-label-caps text-outline">
-            {formatCount(channel.subscribers)}
+        <span className="flex min-w-0 flex-col">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-body-md text-on-surface">{channel.title}</span>
+            {badge && (
+              <span
+                aria-label={`${unread} new alert${unread === 1 ? '' : 's'}`}
+                className="flex-none rounded-full bg-metric-amber-bg px-1.5 text-label-caps font-semibold text-metric-amber"
+              >
+                {badge}
+              </span>
+            )}
           </span>
-        )}
-        {badge && (
-          <span
-            aria-label={`${unread} new alert${unread === 1 ? '' : 's'}`}
-            className="flex-none rounded-full bg-metric-amber-bg px-1.5 text-label-caps font-semibold text-metric-amber"
-          >
-            {badge}
+          <span className="truncate text-body-sm">
+            {current && <span className="text-primary">On screen · </span>}
+            <span className="text-on-surface-variant">{rowLine(channel)}</span>
           </span>
-        )}
+        </span>
       </button>
       <button
         type="button"
         aria-label={`Delete ${channel.title} from your channels`}
         disabled={busy}
         onClick={onAskDelete}
-        className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-outline transition-colors hover:bg-surface-variant hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex h-10 w-10 flex-none items-center justify-center rounded-full text-outline transition-colors hover:bg-surface-container hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-60"
       >
-        <X aria-hidden="true" className="h-3.5 w-3.5" />
+        <X aria-hidden="true" className="h-5 w-5" />
       </button>
-    </div>
+    </li>
   );
 }
 
@@ -88,19 +95,21 @@ interface ConfirmProps {
   readonly onKeep: () => void;
 }
 
-/** Asked before a saved channel is deleted, in the place of its chip. */
+/** Asked before a saved channel is deleted, in the place of its row. */
 function Confirm({ channel, onDelete, onKeep }: ConfirmProps) {
   return (
-    <div
+    <li
       role="group"
       aria-label={`Delete ${channel.title}?`}
-      className={`${CHIP} bg-surface-card pl-3 text-on-surface ring-1 ring-error`}
+      className="flex min-w-0 flex-wrap items-center gap-space-sm rounded-lg bg-surface-container p-space-sm ring-1 ring-error"
     >
-      <span className="truncate">Delete {channel.title} and its map?</span>
+      <span className="min-w-0 flex-1 basis-48 text-body-md text-on-surface">
+        Delete {channel.title} and its map?
+      </span>
       <button
         type="button"
         onClick={onDelete}
-        className={`${SMALL_BUTTON} bg-error font-semibold text-space-deep hover:opacity-90`}
+        className={`${SMALL_BUTTON} bg-error text-space-deep hover:opacity-90`}
       >
         Delete
       </button>
@@ -111,50 +120,49 @@ function Confirm({ channel, onDelete, onKeep }: ConfirmProps) {
       >
         Keep
       </button>
-    </div>
+    </li>
   );
 }
 
 /**
- * Every channel a map has been made for, as a row to switch between. Looking
- * up another channel never drops an earlier one: its map stays in the store,
- * and choosing it here shows that map again at once, without reading YouTube.
- * A channel leaves the row only when the owner deletes it, after being asked.
+ * Every channel a map has been made for, as a clean list. Looking up another
+ * channel never drops an earlier one: its map stays in the store, and
+ * choosing it here shows that map again at once, without reading YouTube.
+ * A channel leaves the list only when the owner deletes it, after being asked.
  */
 export function SavedChannels({ channels, currentId, busy, onOpen, onDelete, badges }: Props) {
   const [askingId, setAskingId] = useState<string | null>(null);
   if (channels.length === 0) return null;
   return (
-    <nav
-      aria-label="Your channels"
-      className="w-full bg-space-canvas px-gutter-desktop pb-space-md"
-    >
-      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-2">
-        <span className="text-label-caps uppercase text-outline">Your channels</span>
-        {channels.map((channel) =>
-          channel.id === askingId ? (
-            <Confirm
-              key={channel.id}
-              channel={channel}
-              onKeep={() => setAskingId(null)}
-              onDelete={() => {
-                setAskingId(null);
-                onDelete(channel);
-              }}
-            />
-          ) : (
-            <Chip
-              key={channel.id}
-              channel={channel}
-              current={channel.id === currentId}
-              busy={busy}
-              onOpen={() => onOpen(channel)}
-              onAskDelete={() => setAskingId(channel.id)}
-              unread={badges?.[channel.id] ?? 0}
-            />
-          ),
-        )}
-      </div>
+    <nav aria-label="Your channels">
+      <Card>
+        <Label>Your channels ({channels.length})</Label>
+        <ul className="flex flex-col divide-y divide-border-subtle">
+          {channels.map((channel) =>
+            channel.id === askingId ? (
+              <Confirm
+                key={channel.id}
+                channel={channel}
+                onKeep={() => setAskingId(null)}
+                onDelete={() => {
+                  setAskingId(null);
+                  onDelete(channel);
+                }}
+              />
+            ) : (
+              <Row
+                key={channel.id}
+                channel={channel}
+                current={channel.id === currentId}
+                busy={busy}
+                onOpen={() => onOpen(channel)}
+                onAskDelete={() => setAskingId(channel.id)}
+                unread={badges?.[channel.id] ?? 0}
+              />
+            ),
+          )}
+        </ul>
+      </Card>
     </nav>
   );
 }
