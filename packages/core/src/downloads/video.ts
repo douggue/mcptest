@@ -17,6 +17,8 @@ export interface DownloadVideoOptions {
   readonly platform?: NodeJS.Platform;
   /** Replaces starting yt-dlp; used by tests. */
   readonly run?: RunProgram;
+  /** Aborted when Jgtube is closing: a yt-dlp that is running is stopped. */
+  readonly signal?: AbortSignal;
 }
 
 /**
@@ -33,7 +35,9 @@ export async function downloadVideo(
   const videoId = parseVideoRef(video);
   const program = await findProgram(YT_DLP_PROGRAM, options.env, options.platform);
   const fetchers: readonly VideoFetcher[] = [
-    ...(program === null ? [] : [ytDlpFetcher(program, options.run)]),
+    ...(program === null
+      ? []
+      : [ytDlpFetcher(program, options.run, options.signal ? { signal: options.signal } : {})]),
     ...(options.source ? [builtInVideoFetcher(options.source)] : []),
   ];
   return downloadVideoFile(

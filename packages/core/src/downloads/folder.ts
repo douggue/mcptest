@@ -39,3 +39,18 @@ export function pathInside(folder: string, ...parts: readonly string[]): string 
   }
   return target;
 }
+
+/**
+ * A path that must lie inside one of several folders, as an absolute path.
+ * Throws when it lies in none of them.
+ */
+export function pathInsideAny(folders: readonly string[], path: string): string {
+  for (const folder of folders) {
+    try {
+      return pathInside(folder, path);
+    } catch {
+      // Not in this folder; the next one is tried.
+    }
+  }
+  throw new Error('That file is outside the folders it may be read from');
+}

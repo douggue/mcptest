@@ -55,6 +55,8 @@ describe('get_transcript', () => {
       auto: true,
       lines: 12,
       lastLineAt: '1:50',
+      words: 36,
+      wordsPerMinute: 20,
     });
     expect(textAt(result, 1).split('\n')).toEqual([
       '[0:00] caption line 0 caption line 1 caption line 2',
@@ -155,10 +157,14 @@ describe('view_video_frames', () => {
     expect(result.isError).toBeUndefined();
     expect(headOf(result)).toEqual({
       video: VIDEO_ID,
+      source:
+        'YouTube’s own preview frames: small pictures taken every few seconds, not every frame of the video.',
       sheets: 3,
       shown: 2,
       ofSheets: 7,
+      frames: 157,
       frame: '160x90',
+      note: 'These sheets are a sample spread across the video. To see every frame, call with start_sheet 1 and follow next.',
     });
     expect(result.content.slice(1)).toEqual([
       { type: 'text', text: 'Sheet 1 of 7: a grid 5 across and 5 down.' },
@@ -205,6 +211,77 @@ describe('view_video_frames', () => {
 
     expect(result.isError).toBe(true);
     expect(textOf(result)).toContain('could not be shown');
+  });
+
+  test('walks the sheets in a row from start_sheet, and says where to call again from', async () => {
+    const all = engine.frames!;
+    const sheet = (index: number) => ({
+      ...all.sheets[0]!,
+      sheet: { ...all.sheets[0]!.sheet, index },
+    });
+    engine.frames = { ...all, sheets: [sheet(0), sheet(1), sheet(2), sheet(3)] };
+
+    const result = await tools.viewVideoFrames({ video: VIDEO_ID, start_sheet: 1 });
+
+    expect(headOf(result)).toMatchObject({
+      ofSheets: 7,
+      frames: 157,
+      from: 1,
+      to: 4,
+      next: {
+        start_sheet: 5,
+        note: 'You have seen sheets 1 to 4 of 7. Call again with start_sheet 5.',
+      },
+    });
+    expect(headOf(result)).not.toHaveProperty('last');
+    // The tool counts sheets from 1; the engine from 0.
+    expect(engine.reads).toEqual([['frames', VIDEO_ID, 4, 0]]);
+  });
+
+  test('says when the sheets it holds are the last of the video', async () => {
+    const all = engine.frames!;
+    const sheet = (index: number) => ({
+      ...all.sheets[0]!,
+      sheet: { ...all.sheets[0]!.sheet, index },
+    });
+    engine.frames = { ...all, sheets: [sheet(4), sheet(5), sheet(6)] };
+
+    const result = await tools.viewVideoFrames({ video: VIDEO_ID, start_sheet: 5, sheets: 6 });
+
+    expect(headOf(result)).toMatchObject({ from: 5, to: 7, last: true });
+    expect(headOf(result)).not.toHaveProperty('next');
+    expect(engine.reads).toEqual([['frames', VIDEO_ID, 6, 4]]);
+  });
+
+  test('answers, without an error, when asked to start past the last sheet', async () => {
+    engine.frames = { ...engine.frames!, sheets: [] };
+
+    const result = await tools.viewVideoFrames({ video: VIDEO_ID, start_sheet: 9 });
+
+    expect(result.isError).toBeUndefined();
+    expect(headOf(result)).toMatchObject({
+      shown: 0,
+      last: true,
+      note: 'There is no sheet 9: the video has 7.',
+    });
+  });
+
+  test('says when the frames were cut from the video file itself', async () => {
+    engine.frames = { ...engine.frames!, source: 'file' };
+
+    const result = await tools.viewVideoFrames({ video: VIDEO_ID, start_sheet: 1 });
+
+    expect(headOf(result)).toMatchObject({
+      source: 'Cut from the video file itself, one frame every second.',
+    });
+  });
+
+  test('refuses a start_sheet that is not a sheet number, before anything is read', async () => {
+    const result = await tools.viewVideoFrames({ video: VIDEO_ID, start_sheet: 0 });
+
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toBe('start_sheet is a whole number from 1 to 2000.');
+    expect(engine.reads).toEqual([]);
   });
 
   test('refuses more sheets than the limit, before anything is read', async () => {

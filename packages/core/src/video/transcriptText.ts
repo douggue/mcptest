@@ -86,3 +86,47 @@ export function formatTranscript(
     endsAtMs: segments.at(-1)?.startMs ?? null,
   };
 }
+
+/** Captions shorter than this say too little to give a pace for. */
+export const PACE_MIN_SECONDS = 30;
+/**
+ * Letters of the scripts that are written without spaces between words
+ * (Chinese, Japanese, Thai, Lao, Khmer, Burmese). When most of a transcript
+ * is in them, counting what sits between spaces counts nothing useful, and
+ * no pace is given.
+ */
+const SPACELESS_LETTER =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/gu;
+/** A label for a sound, such as [Music], which the captions carry and nobody says. */
+const SOUND_LABEL = /\[[^\]]*\]/g;
+
+export interface TranscriptPace {
+  /** Words said, sound labels left out. */
+  readonly words: number;
+  /** Seconds from the first caption line to the last. */
+  readonly spokenSeconds: number;
+  /** Words over that time, rounded; null when it cannot be told. */
+  readonly wordsPerMinute: number | null;
+}
+
+/**
+ * How fast a video is spoken, worked out from its captions: the words said
+ * over the time from the first line to the last. It is a count, not a
+ * judgement, so a reader can quote it as it is.
+ */
+export function transcriptPace(segments: readonly TranscriptSegment[]): TranscriptPace {
+  const said = segments.flatMap((segment) =>
+    segment.text.replace(SOUND_LABEL, ' ').split(/\s+/).filter(Boolean),
+  );
+  const first = segments[0]?.startMs ?? 0;
+  const last = segments.at(-1)?.startMs ?? 0;
+  const spokenSeconds = Math.round((last - first) / SECOND_MS);
+  const text = said.join('');
+  const spaceless = text.match(SPACELESS_LETTER)?.length ?? 0;
+  const countable = said.length > 0 && spaceless * 2 <= text.length;
+  const wordsPerMinute =
+    countable && spokenSeconds >= PACE_MIN_SECONDS
+      ? Math.round((said.length * MINUTE_SECONDS) / spokenSeconds)
+      : null;
+  return { words: said.length, spokenSeconds, wordsPerMinute };
+}

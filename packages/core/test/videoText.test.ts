@@ -5,9 +5,15 @@ import {
   STORYBOARD_FRAME_WIDTH,
   chooseLevel,
   describeSheet,
+  planSheetRun,
   planSheets,
 } from '../src/video/storyboard';
-import { TRANSCRIPT_STAMP_SECONDS, clock, formatTranscript } from '../src/video/transcriptText';
+import {
+  TRANSCRIPT_STAMP_SECONDS,
+  clock,
+  formatTranscript,
+  transcriptPace,
+} from '../src/video/transcriptText';
 
 describe('parseVideoRef', () => {
   test.each([
@@ -163,6 +169,61 @@ describe('planSheets', () => {
 
     expect(planSheets(even, 1, 1554)[0]).toMatchObject({ intervalMs: 15_540, frames: 100 });
     expect(planSheets(even, 1)[0]).toMatchObject({ intervalMs: null, firstFrameMs: null });
+  });
+});
+
+describe('planSheetRun', () => {
+  test('gives sheets in a row from the one asked for, so a whole video can be walked through', () => {
+    expect(planSheetRun(level(), 0, 4).map((sheet) => sheet.index)).toEqual([0, 1, 2, 3]);
+    expect(planSheetRun(level(), 4, 4).map((sheet) => sheet.index)).toEqual([4, 5, 6]);
+  });
+
+  test('gives nothing past the last sheet or before the first', () => {
+    expect(planSheetRun(level(), 7, 4)).toEqual([]);
+    expect(planSheetRun(level(), -1, 2).map((sheet) => sheet.index)).toEqual([0, 1]);
+    expect(planSheetRun(level(), 2, 0)).toEqual([]);
+  });
+
+  test('describes each sheet exactly as the spread-out plan does', () => {
+    expect(planSheetRun(level(), 6, 1)).toEqual([planSheets(level(), 3)[2]]);
+  });
+});
+
+describe('transcriptPace', () => {
+  const line = (startMs: number, text: string): TranscriptSegment => ({ startMs, text });
+
+  test('counts the words said and divides by the time from the first line to the last', () => {
+    const lines = [
+      line(0, 'one two three four five'),
+      line(30_000, 'six seven eight nine ten'),
+      line(60_000, 'eleven twelve'),
+    ];
+
+    expect(transcriptPace(lines)).toEqual({ words: 12, spokenSeconds: 60, wordsPerMinute: 12 });
+  });
+
+  test('leaves out sound labels such as [Music], which nobody says', () => {
+    const lines = [line(0, '[Music] hello there'), line(120_000, '[Applause] goodbye')];
+
+    expect(transcriptPace(lines)).toMatchObject({ words: 3 });
+  });
+
+  test('gives no pace for captions too short to judge, or with no lines at all', () => {
+    expect(transcriptPace([line(0, 'hello there'), line(5000, 'bye')])).toEqual({
+      words: 3,
+      spokenSeconds: 5,
+      wordsPerMinute: null,
+    });
+    expect(transcriptPace([])).toEqual({ words: 0, spokenSeconds: 0, wordsPerMinute: null });
+  });
+
+  test('gives no pace for a language written without spaces, where words cannot be counted', () => {
+    const lines = [
+      line(0, 'これは日本語の字幕でスペースがありません'),
+      line(90_000, '最後の行です'),
+    ];
+
+    expect(transcriptPace(lines).wordsPerMinute).toBeNull();
   });
 });
 

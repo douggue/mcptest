@@ -23,15 +23,23 @@ import {
 } from '@jgtube/core';
 import { z } from 'zod';
 import { fail, isTrustedHost, ok, readJson } from './http';
-import { cleanMessage, type JobStore } from './jobs';
+import { JobStore, cleanMessage } from './jobs';
 import type { AnalysisId } from './analyses';
 import { readEngines, runAnalysis, type AnalysisTracker } from './analysisRoutes';
 import type { EngineReport } from './engines/catalog';
 import type { EngineAnswer } from './engines/fallback';
 import type { EngineId } from './engines/types';
-import type { VideoAnswer } from './engines/videoWatch';
+import type { VideoAnswer, WatchOptions } from './engines/videoWatch';
+import type { BreakdownFocus } from './breakdownQuestions';
+import type { BreakdownChoices, BreakdownOutcome, BreakdownProgress } from './breakdownTypes';
 import { refreshState, startRefresh, type RefreshTracker } from './refreshRoutes';
-import { downloadThumbnails } from './downloadRoutes';
+import {
+  startBreakdown,
+  uploadVideo,
+  type BreakdownJobs,
+  type UploadTracker,
+} from './breakdownRoutes';
+import { downloadThumbnails, downloadTranscripts } from './downloadRoutes';
 import type { DownloadsEngine } from './downloadTypes';
 import { readTransfers, saveTransfer } from './transferRoutes';
 
@@ -169,15 +177,33 @@ export interface Engine extends DownloadsEngine {
     channel: string,
     /** The one engine the owner chose for this run; absent, the usual order with its backups. */
     only?: EngineId,
+    /** The videos chosen in code, for an analysis that studies particular ones. */
+    focus?: BreakdownFocus,
   ): Promise<EngineAnswer<EngineId>>;
   /**
    * Has an engine watch one YouTube video, picture and sound, and answer a
    * question about it. Rejects with an EngineRunError: 'not-installed' when no
    * engine on this computer can watch video.
    */
-  watchVideo(videoId: string, question: string): Promise<VideoAnswer>;
+  watchVideo(videoId: string, question: string, options?: WatchOptions): Promise<VideoAnswer>;
   /** Which AI engines are installed and signed in. Starts nothing that spends allowance. */
   engineStatus(): Promise<EngineReport>;
+  /**
+   * Breaks one channel down: studies its top videos, in depth for the best
+   * few, and has an engine write the breakdown. Takes many minutes; what
+   * could not be done is in the outcome with its reason. Rejects when the
+   * channel cannot be read, when no engine could write, or when Jgtube is closing.
+   */
+  breakDown(
+    channel: string,
+    onProgress: (progress: BreakdownProgress) => void,
+    choices?: BreakdownChoices,
+  ): Promise<BreakdownOutcome>;
+  /**
+   * The folder the owner's own video files are kept in, as a full path.
+   * Throws when the store is only in memory and no downloads folder is named.
+   */
+  ownVideosFolder(): string;
 }
 
 export interface AppOptions {
@@ -186,7 +212,12 @@ export interface AppOptions {
   readonly jobs: JobStore<JobOutcome, JobProgress>;
   /** The only `host:port` values this server answers to, such as `127.0.0.1:4317`. */
   readonly allowedHosts: readonly string[];
+  /** The largest video file taken from the page; tests shorten it. */
+  readonly maxUploadBytes?: number;
 }
+
+/** Where the owner's own video files are sent, followed by the video's id. */
+export const UPLOAD_PATH = '/api/breakdowns/videos/';
 
 const crawlRequest = z.object({
   channel: z.string().min(1).max(200),
@@ -348,15 +379,21 @@ async function discover(options: AppOptions, request: Request): Promise<Response
   }
 }
 
-function jobStatus(options: AppOptions, id: string): Response {
-  const job = options.jobs.get(id);
+/** One job's state, whichever kind it is: a crawl or a refresh, or a breakdown. */
+function jobStatus(options: AppOptions, breakdowns: BreakdownJobs, id: string): Response {
+  const job = options.jobs.get(id) ?? breakdowns.get(id);
   return job ? ok(job) : fail(404, 'No such job');
 }
 
 /** The JSON API as a plain function from request to response. */
 export function createApp(options: AppOptions): (request: Request) => Promise<Response> {
   const refreshing: RefreshTracker = { jobId: null };
+  // An analysis and a breakdown each keep an AI engine busy, so they share this one slot.
   const analysing: AnalysisTracker = { running: false };
+  // Breakdowns have a store of their own: they read YouTube a little and an
+  // engine a lot, so they do not take the slot that crawls and refreshes share.
+  const breakdowns: BreakdownJobs = new JobStore();
+  const uploading: UploadTracker = { busy: false };
   return async (request) => {
     if (!isTrustedHost(request, options.allowedHosts)) {
       return fail(403, 'This server only answers to its own address');
@@ -410,6 +447,20 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     if (pathname === '/api/thumbnails/download') {
       return method === 'POST' ? downloadThumbnails(options, request) : fail(405, 'Use POST');
     }
+    if (pathname === '/api/transcripts/download') {
+      return method === 'POST' ? downloadTranscripts(options, request) : fail(405, 'Use POST');
+    }
+    if (pathname === '/api/breakdowns') {
+      return method === 'POST'
+        ? startBreakdown(options, request, breakdowns, analysing)
+        : fail(405, 'Use POST');
+    }
+    if (pathname.startsWith(UPLOAD_PATH)) {
+      const videoId = pathname.slice(UPLOAD_PATH.length);
+      return method === 'PUT'
+        ? uploadVideo(options, request, videoId, uploading)
+        : fail(405, 'Use PUT');
+    }
     if (pathname === '/api/refresh') {
       if (method === 'GET') return refreshState(options, refreshing);
       return method === 'POST'
@@ -424,7 +475,7 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     }
     if (pathname.startsWith('/api/jobs/')) {
       const id = pathname.slice('/api/jobs/'.length);
-      return method === 'GET' ? jobStatus(options, id) : fail(405, 'Use GET');
+      return method === 'GET' ? jobStatus(options, breakdowns, id) : fail(405, 'Use GET');
     }
     return fail(404, 'Not found');
   };

@@ -6,8 +6,15 @@ import { backupStore } from './db/backup';
 import { openDatabase, transactionRunner, type Db } from './db/sqlite';
 import type { VideoPlayerSource } from './downloads/builtInVideo';
 import { downloadsRoot } from './downloads/folder';
-import { brandLines, thumbnailLines, transcriptLines, videoLines } from './downloads/text';
+import {
+  brandLines,
+  thumbnailLines,
+  transcriptFileLines,
+  transcriptLines,
+  videoLines,
+} from './downloads/text';
 import { saveChannelThumbnails } from './downloads/thumbnails';
+import { saveChannelTranscripts } from './downloads/transcripts';
 import { downloadVideo } from './downloads/video';
 import { formatCount, formatMapTable, formatVideoTable, sanitize } from './format';
 import { ingestChannel } from './ingest';
@@ -39,6 +46,7 @@ const USAGE = [
   '  npm run jgtube -- ingest <channel> [--refresh]',
   '  npm run jgtube -- map <channel> [--depth 1|2] [--sample N] [--max-channels N]',
   '  npm run jgtube -- transcript <video>',
+  '  npm run jgtube -- transcripts <channel>',
   '  npm run jgtube -- thumbnails <channel> [--per-group N]',
   '  npm run jgtube -- brand <channel>',
   '  npm run jgtube -- video <video>',
@@ -48,6 +56,7 @@ const USAGE = [
   '<channel> is an @handle, a channel id or a youtube.com URL.',
   '<video> is a video id or a link to one video.',
   'transcript prints a video’s captions and stores them; a stored copy is not read again.',
+  'transcripts saves the captions of a stored channel’s videos that took off as text files and prints the folder.',
   'thumbnails saves a stored channel’s winning and ordinary thumbnails and prints the folder.',
   'brand prints a channel’s logo, cover, bio, keywords and links.',
   'video downloads one video as a small temporary file and prints where it is.',
@@ -229,9 +238,8 @@ async function transcriptCommand(db: Db, target: string): Promise<void> {
   print(transcriptLines(result));
 }
 
-/** Saves a stored channel's winning and ordinary thumbnails and prints the folder. */
-async function thumbnailsCommand(db: Db, target: string, flags: readonly string[]): Promise<void> {
-  const channels = new SqliteChannelRepo(db);
+/** The id of a stored channel named by a handle, a link or an id; throws when it is not stored. */
+function storedChannelId(channels: SqliteChannelRepo, target: string): string {
   const ref = parseChannelRef(target);
   const stored = ref.kind === 'id' ? channels.findById(ref.id) : channels.findByHandle(ref.handle);
   if (!stored) {
@@ -239,14 +247,39 @@ async function thumbnailsCommand(db: Db, target: string, flags: readonly string[
       'That channel is not in the store yet. Read it first: npm run jgtube -- ingest <channel>',
     );
   }
+  return stored.id;
+}
+
+/** Saves a stored channel's winning and ordinary thumbnails and prints the folder. */
+async function thumbnailsCommand(db: Db, target: string, flags: readonly string[]): Promise<void> {
+  const channels = new SqliteChannelRepo(db);
   const perGroup = numberFlag(flags, 'per-group');
   const result = await saveChannelThumbnails(
     { channels, videos: new SqliteVideoRepo(db), now: () => new Date() },
-    stored.id,
+    storedChannelId(channels, target),
     downloadsRoot(loadConfig()),
     perGroup === undefined ? {} : { perGroup },
   );
   if (result) print(thumbnailLines(result));
+}
+
+/** Saves the transcripts of a stored channel's videos that took off and prints the folder. */
+async function transcriptsCommand(db: Db, target: string): Promise<void> {
+  const channels = new SqliteChannelRepo(db);
+  const pages = new SqliteVideoPageRepo(db);
+  const result = await saveChannelTranscripts(
+    {
+      channels,
+      videos: new SqliteVideoRepo(db),
+      source: lazySource(),
+      transcripts: pages,
+      details: pages,
+      now: () => new Date(),
+    },
+    storedChannelId(channels, target),
+    downloadsRoot(loadConfig()),
+  );
+  if (result) print(transcriptFileLines(result));
 }
 
 /** Downloads one video as a small temporary file and prints where it is. */
@@ -259,7 +292,7 @@ async function videoCommand(target: string): Promise<void> {
   if (!result.ok) process.exitCode = 1;
 }
 
-const SMALL_READS = ['transcript', 'thumbnails', 'brand', 'video'] as const;
+const SMALL_READS = ['transcript', 'transcripts', 'thumbnails', 'brand', 'video'] as const;
 type SmallRead = (typeof SMALL_READS)[number];
 
 interface Targeted<Command extends string> {
@@ -297,6 +330,7 @@ function parseArguments(argv: readonly string[]): Request | null {
 async function readOne(db: Db, request: SmallRequest): Promise<void> {
   const { command, target, flags } = request;
   if (command === 'transcript') return transcriptCommand(db, target);
+  if (command === 'transcripts') return transcriptsCommand(db, target);
   if (command === 'thumbnails') return thumbnailsCommand(db, target, flags);
   if (command === 'video') return videoCommand(target);
   print(brandLines(await readChannelBrand(openEngine(db), target)));

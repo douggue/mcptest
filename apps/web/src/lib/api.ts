@@ -5,6 +5,7 @@ import {
   type EngineChoice,
   type EngineReport,
 } from './analyses';
+import type { BreakdownJobState, TranscriptsSaved } from './breakdown';
 import type {
   CompetitorStatus,
   CrawlProgress,
@@ -299,6 +300,43 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
           body: JSON.stringify({ channel }),
         }),
       );
+    },
+
+    /** Saves the transcripts of a channel's videos that took off as files on this computer. */
+    async downloadTranscripts(channel: string): Promise<TranscriptsSaved> {
+      return unwrap<TranscriptsSaved>(
+        await call('/api/transcripts/download', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ channel }),
+        }),
+      );
+    },
+
+    /**
+     * Starts a breakdown of one channel and returns the id of the job to poll.
+     * With a chosen engine, only that one studies the frames and writes; with
+     * `fresh`, stored watch notes and frame studies are made again.
+     */
+    async startBreakdown(
+      channel: string,
+      choice: EngineChoice = AUTOMATIC,
+      fresh = false,
+    ): Promise<string> {
+      const envelope = await call('/api/breakdowns', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          channel,
+          ...(choice === AUTOMATIC ? {} : { engine: choice }),
+          ...(fresh ? { fresh: true } : {}),
+        }),
+      });
+      return unwrap<{ jobId: string }>(envelope).jobId;
+    },
+
+    async breakdownJob(id: string): Promise<BreakdownJobState> {
+      return unwrap<BreakdownJobState>(await call(`/api/jobs/${encodeURIComponent(id)}`));
     },
 
     async job(id: string): Promise<JobState> {

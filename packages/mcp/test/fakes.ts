@@ -13,6 +13,8 @@ import type {
   TransferIdea,
   TransferList,
   TransferVersion,
+  StoredVideoStudy,
+  StudyKind,
   VideoFrames,
 } from '@jgtube/core';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
@@ -482,9 +484,18 @@ export class FakeEngine implements ConnectorEngine {
     return Promise.resolve({ ...this.transcript, videoId });
   }
 
-  readVideoFrames(videoId: string, sheets: number): Promise<VideoFrames | null> {
-    this.reads.push(['frames', videoId, sheets]);
+  readVideoFrames(videoId: string, sheets: number, from?: number): Promise<VideoFrames | null> {
+    this.reads.push(
+      from === undefined ? ['frames', videoId, sheets] : ['frames', videoId, sheets, from],
+    );
     return Promise.resolve(this.frames);
+  }
+
+  studies: StoredVideoStudy[] = [];
+
+  findVideoStudy(videoId: string, kind: StudyKind): StoredVideoStudy | null {
+    this.reads.push(['study', videoId, kind]);
+    return this.studies.find((study) => study.videoId === videoId && study.kind === kind) ?? null;
   }
 
   readChannelBrand(channelRef: string): Promise<BrandResult> {
@@ -527,7 +538,6 @@ export function videoFrames(): VideoFrames {
   const sheet = (index: number, ok: boolean): VideoFrames['sheets'][number] => ({
     sheet: {
       index,
-      url: `https://i.ytimg.com/sb/${VIDEO_ID}/storyboard3_L2/M${index}.jpg`,
       columns: 5,
       rows: 5,
       frames: 25,
@@ -542,7 +552,9 @@ export function videoFrames(): VideoFrames {
   });
   return {
     videoId: VIDEO_ID,
+    source: 'preview',
     sheetCount: 7,
+    frameCount: 157,
     frameWidth: 160,
     frameHeight: 90,
     sheets: [sheet(0, true), sheet(3, false), sheet(6, true)],

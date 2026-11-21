@@ -181,6 +181,23 @@ ALTER TABLE channels ADD COLUMN keywords_json TEXT;
 ALTER TABLE channels ADD COLUMN links_json TEXT;
 ALTER TABLE channels ADD COLUMN brand_fetched_at TEXT;
 `,
+  // 12: what an engine wrote down about a video, one row per video and kind: 'watch' is
+  //     what it saw and heard watching the whole video, 'frames' is what the preview frames
+  //     show from start to end, with where those frames came from ('file' or 'preview') and
+  //     how many there were to look at. Kept because each costs minutes of an engine's time.
+  //     Like the tables of step 11 it does not refer to the videos table.
+  `
+CREATE TABLE IF NOT EXISTS video_studies (
+  video_id          TEXT NOT NULL,
+  kind              TEXT NOT NULL,
+  engine            TEXT NOT NULL,
+  notes             TEXT NOT NULL,
+  frame_source      TEXT,
+  frames_available  INTEGER,
+  studied_at        TEXT NOT NULL,
+  PRIMARY KEY (video_id, kind)
+);
+`,
 ];
 
 /**

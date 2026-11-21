@@ -45,6 +45,8 @@ const MAX_START_SECONDS = 86_400;
 /** Four sheets of twenty-five frames show a video's beginning, middle and end. */
 export const DEFAULT_FRAME_SHEETS = 4;
 const MAX_FRAME_SHEETS = 6;
+/** Far past the sheets any video has: a bound on what is asked for. */
+const MAX_START_SHEET = 2000;
 export const MAX_DETAIL_VIDEOS = 10;
 /** Enough of a description to show its template: the opening lines, links and hashtags. */
 export const DEFAULT_DESCRIPTION_CHARS = 1500;
@@ -236,10 +238,17 @@ export const viewVideoFramesShape = {
   video,
   sheets: wholeNumber('sheets', 1, MAX_FRAME_SHEETS)
     .optional()
+    .describe(`How many sheets of frames to look at in one call. Default ${DEFAULT_FRAME_SHEETS}.`),
+  start_sheet: wholeNumber('start_sheet', 1, MAX_START_SHEET)
+    .optional()
     .describe(
-      `How many sheets of frames to look at, spread evenly across the video. Default ${DEFAULT_FRAME_SHEETS}.`,
+      'Look at sheets in a row starting with this one (the first sheet is 1), to go through every frame of ' +
+        'the video: start at 1 and follow next.start_sheet until an answer says last. Left out, the sheets ' +
+        'are a sample spread evenly across the video.',
     ),
 };
+
+export const getVideoStudyShape = { video };
 
 export const getChannelBrandShape = {
   channel: channelRef(CHANNEL_RULE).describe(
@@ -268,6 +277,7 @@ export const getVideoDetailsShape = {
 export const getMapArgs = z.object(getMapShape);
 export const getTranscriptArgs = z.object(getTranscriptShape);
 export const viewVideoFramesArgs = z.object(viewVideoFramesShape);
+export const getVideoStudyArgs = z.object(getVideoStudyShape);
 export const getChannelBrandArgs = z.object(getChannelBrandShape);
 export const getVideoDetailsArgs = z.object(getVideoDetailsShape);
 export const getNearMissesArgs = z.object(getNearMissesShape);
@@ -283,6 +293,7 @@ export const makeMapArgs = z.object(makeMapShape);
 export type GetMapArgs = z.input<typeof getMapArgs>;
 export type GetTranscriptArgs = z.input<typeof getTranscriptArgs>;
 export type ViewVideoFramesArgs = z.input<typeof viewVideoFramesArgs>;
+export type GetVideoStudyArgs = z.input<typeof getVideoStudyArgs>;
 export type GetChannelBrandArgs = z.input<typeof getChannelBrandArgs>;
 export type GetVideoDetailsArgs = z.input<typeof getVideoDetailsArgs>;
 export type GetNearMissesArgs = z.input<typeof getNearMissesArgs>;

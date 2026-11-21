@@ -12,4 +12,4 @@ dist/
 .claude/worktrees/
 
 # Files Jgtube downloads (thumbnails, temporary video copies)
-downloads/
+/downloads/

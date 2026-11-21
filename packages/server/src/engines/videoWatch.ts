@@ -22,15 +22,31 @@ export type VideoAnswer = EngineAnswer<VideoEngineId>;
 
 /** A copy of a video on this computer, or why there is none. */
 export type VideoDownload =
-  { readonly ok: true; readonly path: string } | { readonly ok: false; readonly reason: string };
+  | {
+      readonly ok: true;
+      readonly path: string;
+      /**
+       * Removes the copy. Given by a downloader that made the copy for this
+       * watch alone; left out when the file is to be kept (the owner's own, or
+       * one the caller will use again and remove itself). It is called once
+       * the watch is over, however it ended.
+       */
+      readonly remove?: () => Promise<void>;
+    }
+  | { readonly ok: false; readonly reason: string };
 
 /**
  * Fetches a video to a file on this computer and says where it is. The file
- * stays the downloader's: the engines copy it and never change or remove it.
+ * stays the downloader's: the engines copy it and never change it, and it is
+ * removed only through the `remove` the downloader hands over with it.
  * `videoId` has been checked to be a YouTube video id. Aborting `stop` means
  * Jgtube is closing.
  */
 export type DownloadVideo = (videoId: string, stop: AbortSignal) => Promise<VideoDownload>;
+
+/** What a watch is doing now, for whoever is showing progress. */
+export type WatchStep =
+  { readonly kind: 'downloading' } | { readonly kind: 'watching'; readonly engine: VideoEngineId };
 
 export interface VideoToWatch {
   readonly videoId: string;
@@ -48,7 +64,22 @@ export interface VideoWatchContext {
   /** Absent until a downloader is connected: Antigravity then has no file to watch. */
   readonly download?: DownloadVideo | undefined;
   readonly geminiFetch?: GeminiFetch | undefined;
+  /** Told when a download starts and when an engine starts watching. */
+  readonly onStep?: ((step: WatchStep) => void) | undefined;
 }
+
+/** What a caller may set for one watch. */
+export interface WatchOptions {
+  /**
+   * Gives the copy to watch instead of the usual downloader: for a caller
+   * that already has the file, or knows there is none.
+   */
+  readonly download?: DownloadVideo | undefined;
+  readonly onStep?: ((step: WatchStep) => void) | undefined;
+}
+
+/** Remembers a copy that must be removed when the watch is over. */
+type Keep = (remove: () => Promise<void>) => void;
 
 const NOBODY = 'No engine on this computer can watch a video.';
 const NO_DOWNLOADER = 'Jgtube cannot download videos yet';
@@ -61,10 +92,17 @@ const skip = (engine: VideoEngineId, error: EngineRunError): SkippedEngine => ({
 });
 
 /** A whole copy of the video on this computer, or the reason there is none. */
-async function localCopy(videoId: string, context: VideoWatchContext): Promise<VideoDownload> {
+async function localCopy(
+  videoId: string,
+  context: VideoWatchContext,
+  keep: Keep,
+): Promise<VideoDownload> {
   if (!context.download) return { ok: false, reason: NO_DOWNLOADER };
+  context.onStep?.({ kind: 'downloading' });
   const copy = await context.download(videoId, context.deps.signal ?? NEVER_STOPPED);
   if (!copy.ok) return copy;
+  // Kept for removal before the file is even looked at: an unusable copy goes too.
+  if (copy.remove) keep(copy.remove);
   try {
     await checkVideoFile(copy.path);
     return copy;
@@ -78,17 +116,31 @@ async function agyAttempt(
   video: VideoToWatch,
   question: VideoQuestion,
   context: VideoWatchContext,
+  keep: Keep,
 ): Promise<Candidate<VideoEngineId>> {
   const { settings, deps } = context;
   if (!(await context.agyInstalled())) return skip('agy', notInstalled(AGY));
-  const copy = await localCopy(video.videoId, context);
+  const copy = await localCopy(video.videoId, context, keep);
+  const watching = (): void => context.onStep?.({ kind: 'watching', engine: 'agy' });
   if (copy.ok) {
     const request = { ...question, videoPath: copy.path };
-    return { engine: 'agy', run: () => watchWithAgy(request, deps, settings.agyModel) };
+    return {
+      engine: 'agy',
+      run: () => {
+        watching();
+        return watchWithAgy(request, deps, settings.agyModel);
+      },
+    };
   }
   if (settings.agyYouTubeLinks) {
     const request = { ...question, videoId: video.videoId };
-    return { engine: 'agy', run: () => watchLinkWithAgy(request, deps, settings.agyModel) };
+    return {
+      engine: 'agy',
+      run: () => {
+        watching();
+        return watchLinkWithAgy(request, deps, settings.agyModel);
+      },
+    };
   }
   return {
     engine: 'agy',
@@ -109,18 +161,21 @@ function geminiAttempt(video: VideoToWatch, context: VideoWatchContext): Candida
   const { geminiFetch, deps } = context;
   return {
     engine: 'gemini-api',
-    run: () =>
-      watchWithGemini({ ...video, timeoutMs: WATCH_TIMEOUT_MS }, gemini, {
+    run: () => {
+      context.onStep?.({ kind: 'watching', engine: 'gemini-api' });
+      return watchWithGemini({ ...video, timeoutMs: WATCH_TIMEOUT_MS }, gemini, {
         ...(geminiFetch ? { fetch: geminiFetch } : {}),
         ...(deps.signal ? { signal: deps.signal } : {}),
-      }),
+      });
+    },
   };
 }
 
 /**
  * Watches one video with the first engine that can. Rejects with an
  * EngineRunError: 'not-installed' when no engine can watch, else the failure
- * of the engine that tried.
+ * of the engine that tried. A copy the downloader made for this watch is
+ * removed before this returns or rejects, whichever way the watch went.
  */
 export async function watchVideo(
   video: VideoToWatch,
@@ -133,14 +188,23 @@ export async function watchVideo(
     timeoutMs: WATCH_TIMEOUT_MS,
     cwd: context.workDir,
   };
-  return firstAnswer(
-    [
-      // An engine the owner's settings leave out is never started, and is not mentioned.
-      ...(context.settings.order.includes('agy')
-        ? [await agyAttempt(video, question, context)]
-        : []),
-      geminiAttempt(video, context),
-    ],
-    NOBODY,
-  );
+  let copies: ReadonlyArray<() => Promise<void>> = [];
+  const keep: Keep = (remove) => {
+    copies = [...copies, remove];
+  };
+  try {
+    return await firstAnswer(
+      [
+        // An engine the owner's settings leave out is never started, and is not mentioned.
+        ...(context.settings.order.includes('agy')
+          ? [await agyAttempt(video, question, context, keep)]
+          : []),
+        geminiAttempt(video, context),
+      ],
+      NOBODY,
+    );
+  } finally {
+    // A copy that will not go (still held open) is cleared with the day-old ones later.
+    await Promise.all(copies.map((remove) => remove().catch(() => undefined)));
+  }
 }

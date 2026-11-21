@@ -2,7 +2,12 @@ import type { ThumbnailBoard as Board } from '@jgtube/core';
 import { Images } from 'lucide-react';
 import { useState } from 'react';
 import { BOARD_MODES, boardTotals, type BoardMode } from '../lib/board';
-import { ChannelCard, OwnCard, type DownloadThumbnails } from './ThumbnailChannel';
+import {
+  ChannelCard,
+  OwnCard,
+  type DownloadThumbnails,
+  type DownloadTranscripts,
+} from './ThumbnailChannel';
 import type { BoardState } from './useThumbnailBoard';
 
 const CHANNELS_PER_PAGE = 5;
@@ -45,10 +50,11 @@ interface CardsProps {
   readonly mode: BoardMode;
   readonly modelId: string | null;
   readonly onDownload: DownloadThumbnails;
+  readonly onDownloadTranscripts: DownloadTranscripts;
 }
 
 /** The owner's own row, then one card per channel like theirs, a few at a time. */
-function Cards({ board, mode, modelId, onDownload }: CardsProps) {
+function Cards({ board, mode, modelId, onDownload, onDownloadTranscripts }: CardsProps) {
   const [shown, setShown] = useState(CHANNELS_PER_PAGE);
   const hidden = board.channels.length - shown;
   return (
@@ -68,6 +74,7 @@ function Cards({ board, mode, modelId, onDownload }: CardsProps) {
           mode={mode}
           isModel={channel.id === modelId}
           onDownload={onDownload}
+          onDownloadTranscripts={onDownloadTranscripts}
         />
       ))}
       {hidden > 0 && (
@@ -90,10 +97,13 @@ interface Props {
   readonly modelId: string | null;
   /** Saves one channel's thumbnails as files on the owner's computer. */
   readonly onDownload: DownloadThumbnails;
+  /** Saves the transcripts of one channel's videos that took off as files. */
+  readonly onDownloadTranscripts: DownloadTranscripts;
 }
 
 /** Thumbnails that worked on the channels like yours, beside ordinary ones and your own. */
-export function ThumbnailBoard({ state, centerTitle, modelId, onDownload }: Props) {
+export function ThumbnailBoard(props: Props) {
+  const { state, centerTitle, modelId, onDownload, onDownloadTranscripts } = props;
   const [mode, setMode] = useState<BoardMode>('compare');
   if (state.status === 'idle') return null;
   const board = state.status === 'ready' ? state.board : null;
@@ -143,6 +153,7 @@ export function ThumbnailBoard({ state, centerTitle, modelId, onDownload }: Prop
             board={board}
             mode={mode}
             modelId={modelId}
+            onDownloadTranscripts={onDownloadTranscripts}
             onDownload={onDownload}
           />
         )}

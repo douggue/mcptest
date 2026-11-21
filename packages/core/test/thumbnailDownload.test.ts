@@ -89,7 +89,8 @@ describe('saveChannelThumbnails', () => {
       ...[1, 2, 3, 4, 5, 6].map((n) => `${vid(n)}.jpg`),
     ]);
     expect(new Uint8Array(readFileSync(join(folder, `${vid(1)}.jpg`)))).toEqual(JPEG);
-    expect(fetched[0]).toBe(`https://i.ytimg.com/vi/${vid(1)}/hqdefault.jpg`);
+    // Pictures are fetched side by side: which request starts first is not promised.
+    expect(fetched).toContain(`https://i.ytimg.com/vi/${vid(1)}/hqdefault.jpg`);
   });
 
   test('writes an index saying what each picture is', async () => {

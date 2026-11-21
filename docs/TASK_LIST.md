@@ -149,7 +149,7 @@ Phase 7 needs 5.
 
 ## Claude's judgement
 
-- [x] Claude connector (`packages/mcp`): fourteen tools and a thumbnail-review prompt
+- [x] Claude connector (`packages/mcp`): sixteen tools and a thumbnail-review prompt
 - [x] `get_transcript`, `view_video_frames`, `get_channel_brand`, `get_video_details`: one video's captions, frames across it, a channel's branding, and descriptions and tags, each read once and kept (not yet offered to the "Ask Claude" analyses)
 - [x] `list_transfer_opportunities`: the ideas, their versions and the formats, read-only (not yet offered to the "Ask Claude" analyses)
 - [x] "Ask Claude" on the page: thumbnail review, video ideas, same-topic channels, each one boxed-in run of Claude Code
@@ -163,22 +163,43 @@ Phase 7 needs 5.
 - [ ] Antigravity CLI run for real, with tools and on a video file (same)
 - [ ] Gemini API called with a real key (same)
 - [ ] Ask AI on a real Windows computer (the start-up code is tested with a stand-in disk only)
-- [ ] A video downloader connected to `EngineOptions.downloadVideo` (until then video is watched through the Gemini API only)
-- [ ] An analysis or route that uses `watchVideo` (the niche breakdown)
+- [x] The video downloader connected to the watcher (`videoCopies.ts`): core's `downloadVideo` with the engine's own connection; the copy is removed when the watch is over, however it ended, and at shutdown
+- [x] An analysis and a route that use `watchVideo`: the channel breakdown (below)
 - [ ] Whether Antigravity sees pictures returned by a tool (until known, the thumbnail review uses Claude Code or Codex)
 - [ ] Whether Antigravity can watch a YouTube link without the file (`npm run engines -- --try --youtube <link>`; off unless `JGTUBE_AGY_YOUTUBE_LINKS=on`)
-- [ ] Splitting a long video into parts for Antigravity (would need ffmpeg)
+- [ ] Splitting a long video into parts for Antigravity (ffmpeg is now used when installed, but only to cut frames and to shrink a large file of the owner's)
 - [x] The navigation link on the page says "Ask AI", like the section it leads to
+
+## Channel breakdown
+
+- [x] `breakdown` analysis and `POST /api/breakdowns {channel, engine?, fresh?}` as a job with progress in plain words; one breakdown or analysis at a time
+- [x] The videos chosen in code by one rule for every channel: the top five by score (`BREAKDOWN_TOP_VIDEOS`), the best three in depth (`BREAKDOWN_DEEP_VIDEOS`)
+- [x] Per deep video: a file (the owner's own, then yt-dlp, then the built-in route; one download used for everything, removed afterwards), a watch (Antigravity, then the Gemini API), a frame study in a run of its own
+- [x] Frames cut from the file with ffmpeg: one a second, 5 by 5 at 288 by 162, with an index; YouTube's preview frames when there is no file or no ffmpeg
+- [x] `view_video_frames` walks every sheet with `start_sheet` and says how many there are and where the frames came from
+- [x] Watch notes and frame studies stored per video (`video_studies`, migration 12) and reused; `get_video_watch` and `get_frame_study`; "Start again from nothing"
+- [x] `PUT /api/breakdowns/videos/:videoId`: the owner's own MP4, streamed to `my-videos/<id>.mp4`, checked whole, 2 GB cap, one at a time; "Choose the video file" on the page
+- [x] A file of the owner's over 95 MB shrunk with ffmpeg for the watch only
+- [x] The page: a fourth Ask AI card with a channel list, progress, the answer with how each video was studied, and "Break down this channel" in the channel panel
+- [x] Run for real with Claude Code on a copy of a real store: no file and nothing to watch (NOT WATCHED, preview frames), and with a test-pattern MP4 given as a file (cut and studied end to end)
+- [ ] A real video file downloaded and studied from its own frames (YouTube refused the download where this was built)
+- [ ] A real video watched by Antigravity or the Gemini API through the breakdown (neither was available; tested with stand-ins)
+- [ ] The frame study's limits checked on a real twenty-minute video from a file (about fifty sheets; measured only on preview sheets and on a test pattern)
+- [ ] A check that a file the owner gives is the right video (its length against the stored one); today the writing engine is the only thing that notices
+- [ ] The breakdown's text kept after the page is closed (the studies are kept, the written breakdown is not)
 
 ## Downloaders
 
 - [x] Transcripts: a video's captions read through the YouTube source and stored (`video_transcripts`); a video without captions is a normal answer; `npm run jgtube -- transcript`
 - [x] Thumbnails to disk: a channel's winning and ordinary thumbnails with an `index.json`, under a downloads folder beside the store (`JGTUBE_DOWNLOADS_PATH`); `npm run jgtube -- thumbnails`
+- [x] Transcripts to disk: the captions of a channel's videos that took off (up to six) as text files with an `index.json`; "Download transcripts" on the page; `npm run jgtube -- transcripts`
+- [x] yt-dlp told to use Node as its JavaScript runtime, with one retry for a yt-dlp too old to know the option; a refusal by YouTube said in plain words
+- [x] `npm run engines` says whether yt-dlp and ffmpeg are found
 - [x] Frames across a video: storyboard sheets with a caption giving the grid and the time of each frame
 - [x] Channel branding: logo, cover, bio, keywords and header links, stored on the channel by every read; `npm run jgtube -- brand`
 - [x] Video details: description and tags from the official API when a key is set, else from the watch page; stored (`video_details`)
 - [x] One video as a small temporary file with picture and sound, by yt-dlp when installed, else the built-in library; `npm run jgtube -- video`
-- [ ] The built-in video route confirmed against YouTube: where it was tried the video servers answered 403, and yt-dlp was not installed to try the other
+- [ ] Either video route confirmed against YouTube: where it was tried the video servers answered 403 to the built-in route and asked yt-dlp to "confirm you're not a bot"
 - [ ] A video longer than about twenty minutes as a file: the one single file YouTube offers (360p) is then over the 95 MB limit, and joining a smaller picture with sound needs a second program
 - [ ] The official-API path for video details checked against the real API (tested with fakes only; no key was available)
 - [ ] All of a channel's links (only the one its header shows is read)

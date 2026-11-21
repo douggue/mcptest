@@ -172,15 +172,21 @@ export {
 export { fetchVideoDetails, type ApiVideoDetails } from './sources/dataApi';
 export { SqliteVideoPageRepo } from './repos/sqliteVideoPageRepo';
 export { SqliteBrandRepo } from './repos/sqliteBrandRepo';
+export { MAX_STUDY_CHARS, STUDY_KINDS, SqliteVideoStudyRepo } from './repos/sqliteVideoStudyRepo';
 export type {
   BrandRepo,
   DetailsSource,
+  NewVideoStudy,
   StoredBrand,
   StoredStoryboard,
   StoredTranscript,
   StoredVideoDetails,
+  StoredVideoStudy,
+  StudiedFrames,
+  StudyKind,
   TranscriptRepo,
   VideoDetailsRepo,
+  VideoStudyRepo,
 } from './repos/types';
 export type {
   BrandImage,
@@ -209,6 +215,7 @@ export {
   STORYBOARD_FRAME_WIDTH,
   chooseLevel,
   describeSheet,
+  planSheetRun,
   planSheets,
   type FrameSheet,
 } from './video/storyboard';
@@ -216,12 +223,15 @@ export {
   readVideoFrames,
   type FrameDeps,
   type FrameSheetImage,
+  type FrameSource,
   type VideoFrames,
 } from './video/frames';
 export {
   TRANSCRIPT_STAMP_SECONDS,
   clock,
   formatTranscript,
+  transcriptPace,
+  type TranscriptPace,
   type TranscriptText,
   type TranscriptTextOptions,
 } from './video/transcriptText';
@@ -244,7 +254,7 @@ export {
   type ThumbnailDownloadDeps,
   type ThumbnailDownloadOptions,
 } from './downloads/thumbnails';
-export { boardChannel } from './map/thumbnails';
+export { ORDINARY_MAX_SCORE, WINNER_MIN_SCORE, boardChannel } from './map/thumbnails';
 export {
   MAX_VIDEO_BYTES,
   VIDEO_MIN_HEIGHT,
@@ -266,4 +276,54 @@ export { downloadVideo, type DownloadVideoOptions } from './downloads/video';
 export { builtInVideoFetcher, type VideoPlayerSource } from './downloads/builtInVideo';
 export { YT_DLP_PROGRAM, findProgram, ytDlpFetcher, type RunProgram } from './downloads/ytDlp';
 export { describeVideos, type StoredVideoLookup, type VideoFacts } from './video/facts';
-export { brandLines, thumbnailLines, transcriptLines, videoLines } from './downloads/text';
+export {
+  brandLines,
+  thumbnailLines,
+  transcriptFileLines,
+  transcriptLines,
+  videoLines,
+} from './downloads/text';
+export {
+  BREAKDOWN_DEEP_VIDEOS,
+  BREAKDOWN_TOP_VIDEOS,
+  WATCH_MAX_SECONDS,
+  pickBreakdownVideos,
+  tooLongToWatch,
+  type BreakdownPicks,
+  type BreakdownVideo,
+} from './breakdown/picks';
+export {
+  TRANSCRIPTS_FOLDER,
+  TRANSCRIPT_FILES_MAX,
+  TRANSCRIPT_INDEX_FILE,
+  saveChannelTranscripts,
+  type SavedTranscript,
+  type TranscriptDownload,
+  type TranscriptDownloadDeps,
+  type TranscriptDownloadOptions,
+} from './downloads/transcripts';
+export {
+  FFMPEG_PROGRAM,
+  FRAME_EVERY_SECONDS,
+  MAX_FRAME_SHEETS,
+  SHEET_COLUMNS,
+  SHEET_ROWS,
+  cutFrameSheets,
+  findFfmpeg,
+  frameSheetFolder,
+  readFileFrames,
+  removeFrameSheets,
+  type CutOptions,
+  type FrameSheetCut,
+} from './downloads/frameSheets';
+export {
+  MAX_OWN_VIDEO_BYTES,
+  OWN_VIDEOS_FOLDER,
+  OWN_VIDEO_TYPE,
+  findOwnVideo,
+  ownVideoName,
+  ownVideosFolder,
+} from './downloads/ownVideos';
+export { shrinkForWatching, type ShrinkOptions, type ShrunkVideo } from './downloads/shrinkVideo';
+export { programRunner, type ProgramResult } from './downloads/program';
+export { pathInsideAny } from './downloads/folder';
