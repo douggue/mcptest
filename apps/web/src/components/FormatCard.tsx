@@ -1,6 +1,7 @@
 import type { TransferFormat } from '@jgtube/core';
 import { formatCount, watchUrl } from '../lib/format';
 import { describeFormat } from '../lib/transfers';
+import { Card } from './layout/Card';
 import { Outbound, Stat } from './NicheCard';
 import { Template } from './TransferCard';
 
@@ -9,7 +10,7 @@ const PLACES_ON_CARD = 6;
 
 function Numbers({ format }: { readonly format: TransferFormat }) {
   return (
-    <dl className="grid grid-cols-2 gap-2 rounded bg-space-deep p-2.5 sm:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-2 rounded-lg bg-space-deep p-space-sm sm:grid-cols-4">
       <Stat label="Subjects">{format.subjectCount}</Stat>
       <Stat label="Channels">{format.channelCount}</Stat>
       <Stat label="Best video">
@@ -36,7 +37,7 @@ function madeFor(format: TransferFormat): string | null {
 export function FormatCard({ format }: { readonly format: TransferFormat }) {
   const places = madeFor(format);
   return (
-    <article className="flex min-w-0 flex-col gap-space-md rounded bg-surface-card p-space-md shadow-md">
+    <Card as="article">
       <div className="flex flex-col gap-space-sm">
         <h3 className="min-w-0 text-title-md text-on-surface">
           <Template template={format.template} />
@@ -63,6 +64,6 @@ export function FormatCard({ format }: { readonly format: TransferFormat }) {
         </ul>
       </div>
       {places && <p className="text-label-caps text-outline">{places}</p>}
-    </article>
+    </Card>
   );
 }

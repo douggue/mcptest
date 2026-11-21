@@ -1,5 +1,4 @@
 import type { TransferIdea, TransferList } from '@jgtube/core';
-import { Globe } from 'lucide-react';
 import { useState } from 'react';
 import {
   describeTransfers,
@@ -12,45 +11,15 @@ import {
   type TransferFilter,
 } from '../lib/transfers';
 import { FormatCard } from './FormatCard';
+import { Field } from './layout/Card';
+import { Details } from './layout/Details';
+import { Notice, ShowMore } from './layout/Notice';
+import { Segmented } from './layout/Segmented';
+import { SplitView, ViewPage } from './layout/SplitView';
+import { ViewHeader } from './layout/ViewHeader';
 import { TransferCard } from './TransferCard';
 import { TransferPlace } from './TransferPlace';
 import type { Transfers as TransfersData } from './useTransfers';
-
-const NOTE = 'rounded bg-surface-card p-space-lg text-body-md text-on-surface-variant';
-
-interface FilterProps {
-  /** The ideas, for the count on Saved; null until they are loaded. */
-  readonly list: TransferList | null;
-  readonly filter: TransferFilter;
-  readonly onChange: (filter: TransferFilter) => void;
-}
-
-/** Switches between the opportunities, the title formats and the ideas the owner saved. */
-function Filter({ list, filter, onChange }: FilterProps) {
-  return (
-    <div
-      role="group"
-      aria-label="Which ideas to show"
-      className="flex flex-wrap items-center gap-1.5 pb-1 sm:flex-none sm:flex-nowrap"
-    >
-      {TRANSFER_FILTERS.map((option) => (
-        <button
-          key={option.id}
-          type="button"
-          aria-pressed={filter === option.id}
-          onClick={() => onChange(option.id)}
-          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-label-caps transition-colors ${
-            filter === option.id
-              ? 'bg-surface-card font-semibold text-primary shadow-sm'
-              : 'bg-surface-container text-on-surface-variant hover:bg-surface-card hover:text-on-surface'
-          }`}
-        >
-          {filterLabel(option.id, list)}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 interface CardsProps {
   readonly list: TransferList;
@@ -59,46 +28,85 @@ interface CardsProps {
   readonly onMakeConcepts?: ((idea: TransferIdea) => void) | undefined;
 }
 
-/** The ideas or formats of the chosen view, a few at a time. */
+/** The ideas or formats of the chosen view, in one column, a few at a time. */
 function Cards({ list, filter, onSetSaved, onMakeConcepts }: CardsProps) {
   const [shown, setShown] = useState(TRANSFER_PAGE_SIZE);
   const ideas = ideasFor(list, filter);
   const formats = filter === 'formats' ? formatsFor(list) : [];
   const total = filter === 'formats' ? formats.length : ideas.length;
-  if (total === 0) return <p className={NOTE}>{emptyTransfers(list, filter)}</p>;
+  if (total === 0) return <Notice>{emptyTransfers(list, filter)}</Notice>;
   return (
-    <div className="flex flex-col gap-space-md">
-      <div className="grid grid-cols-1 gap-space-md xl:grid-cols-2">
+    <>
+      <ul className="flex flex-col gap-space-md">
         {filter === 'formats'
-          ? formats.slice(0, shown).map((format) => <FormatCard key={format.key} format={format} />)
-          : ideas
-              .slice(0, shown)
-              .map((idea) => (
+          ? formats.slice(0, shown).map((format) => (
+              <li key={format.key}>
+                <FormatCard format={format} />
+              </li>
+            ))
+          : ideas.slice(0, shown).map((idea) => (
+              <li key={idea.key}>
                 <TransferCard
-                  key={idea.key}
                   idea={idea}
                   ownerPlace={list.ownerPlace}
                   onSetSaved={(saved) => onSetSaved(idea.key, saved)}
                   onMakeConcepts={onMakeConcepts && (() => onMakeConcepts(idea))}
                 />
-              ))}
-      </div>
+              </li>
+            ))}
+      </ul>
       {total > shown && (
-        <button
-          type="button"
+        <ShowMore
+          left={total - shown}
+          noun={filter === 'formats' ? 'formats' : 'ideas'}
           onClick={() => setShown((count) => count + TRANSFER_PAGE_SIZE)}
-          className="self-center rounded-full bg-surface-container px-5 py-2.5 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-card"
-        >
-          Show more {filter === 'formats' ? 'formats' : 'ideas'} ({total - shown} left)
-        </button>
+        />
       )}
-    </div>
+    </>
+  );
+}
+
+interface SideProps {
+  readonly transfers: TransfersData;
+  readonly list: TransferList;
+  readonly filter: TransferFilter;
+  readonly onFilter: (filter: TransferFilter) => void;
+}
+
+/** The side panel: what to show, the place the ideas are judged for, and how the list is made. */
+function Side({ transfers, list, filter, onFilter }: SideProps) {
+  const { state } = transfers;
+  return (
+    <>
+      <Field label="Show">
+        <Segmented<TransferFilter>
+          fill
+          label="Which ideas to show"
+          options={TRANSFER_FILTERS.map((option) => ({
+            value: option.id,
+            label: filterLabel(option.id, list),
+          }))}
+          value={filter}
+          onChange={onFilter}
+        />
+      </Field>
+      {state.status === 'ready' && (
+        <TransferPlace
+          list={state.list}
+          countryNote={transfers.countryNote}
+          onChoose={transfers.choosePlace}
+        />
+      )}
+      <Details summary="How this works">
+        <p className="text-body-sm text-on-surface-variant">{describeTransfers(list)}</p>
+      </Details>
+    </>
   );
 }
 
 interface Props {
   readonly transfers: TransfersData;
-  /** A map is on screen. Without one, an empty list is not worth a section. */
+  /** A map is on screen. Without one, an empty list is not worth a view. */
   readonly hasMap: boolean;
   /** Takes an idea into the idea lab as inspiration and format; absent with no map. */
   readonly onMakeConcepts?: ((idea: TransferIdea) => void) | undefined;
@@ -117,65 +125,47 @@ export function Transfers({ transfers, hasMap, onMakeConcepts }: Props) {
   // With nothing read yet there is nothing to compare, and nothing to offer here.
   if (!hasMap && !hasAnything) return null;
 
-  return (
-    <section
-      aria-labelledby="transfers-title"
-      className="w-full bg-space-deep px-gutter-desktop pb-space-xl"
-    >
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-space-lg">
-        <div className="flex flex-col justify-between gap-space-md pb-space-sm sm:flex-row sm:items-end">
-          <div>
-            <div className="flex items-center gap-2">
-              <Globe aria-hidden="true" className="h-[22px] w-[22px] flex-none text-metric-amber" />
-              <h2
-                id="transfers-title"
-                className="text-headline-lg font-bold tracking-tight text-on-surface"
-              >
-                Niche transfer opportunities
-              </h2>
-            </div>
-            <p className="mt-1 max-w-4xl text-body-md text-on-surface-variant">
-              {list
-                ? describeTransfers(list)
-                : 'Ideas that took off for another country and are untried or weak for yours, from the channels on this map.'}
-            </p>
-          </div>
-          {hasAnything && <Filter list={list} filter={filter} onChange={setFilter} />}
-        </div>
+  const main = (
+    <>
+      <ViewHeader
+        titleId="transfers-title"
+        title="Transfer opportunities"
+        lead="Ideas that took off for another country and are untried or weak for yours."
+      />
+      {state.status === 'loading' && (
+        <Notice tone="working">Comparing the titles of the channels on this map</Notice>
+      )}
+      {state.status === 'failed' && (
+        <Notice tone="problem">The list could not be loaded: {state.message}</Notice>
+      )}
+      {state.status === 'ready' && state.problem && (
+        <Notice tone="problem">Your choice was not saved: {state.problem}</Notice>
+      )}
+      {list && (
+        <Cards
+          key={filter}
+          list={list}
+          filter={filter}
+          onSetSaved={setSaved}
+          onMakeConcepts={onMakeConcepts}
+        />
+      )}
+    </>
+  );
 
-        {state.status === 'loading' && (
-          <p role="status" className={`flex items-center gap-2 ${NOTE}`}>
-            <span className="h-2 w-2 animate-pulse rounded-full bg-primary-container shadow-[0_0_8px_#00d2ff]" />
-            Comparing the titles of the channels on this map
-          </p>
-        )}
-        {state.status === 'failed' && (
-          <p role="alert" className="rounded bg-surface-card p-space-lg text-body-md text-error">
-            The list could not be loaded: {state.message}
-          </p>
-        )}
-        {state.status === 'ready' && state.problem && (
-          <p role="alert" className="rounded bg-surface-card p-space-lg text-body-md text-error">
-            Your choice was not saved: {state.problem}
-          </p>
-        )}
-        {list && state.status === 'ready' && (
-          <TransferPlace
-            list={state.list}
-            countryNote={transfers.countryNote}
-            onChoose={transfers.choosePlace}
-          />
-        )}
-        {list && (
-          <Cards
-            key={filter}
-            list={list}
-            filter={filter}
-            onSetSaved={setSaved}
-            onMakeConcepts={onMakeConcepts}
-          />
-        )}
-      </div>
-    </section>
+  return (
+    <ViewPage id="transfers" labelledBy="transfers-title">
+      {list ? (
+        <SplitView
+          sideLabel="What to show and your place"
+          width="narrow"
+          side={<Side transfers={transfers} list={list} filter={filter} onFilter={setFilter} />}
+        >
+          {main}
+        </SplitView>
+      ) : (
+        main
+      )}
+    </ViewPage>
   );
 }
