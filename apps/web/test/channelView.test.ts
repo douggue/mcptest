@@ -37,7 +37,7 @@ describe("a channel's numbers", () => {
       {
         label: 'Outliers',
         value: '2',
-        note: '2× usual or more, 30 days',
+        note: 'Last 30 days · 9 in all',
         detail: 'Videos at 2× or more of its usual in the last 30 days; 9 among all stored',
       },
     ]);
@@ -65,7 +65,7 @@ describe("a channel's numbers", () => {
       ['Views', '10', 'Across 1 stored video'],
       ['Uploads', '0 a week', '0 in 30 days · 0 in 90'],
       ['Last upload', '—', 'No videos stored'],
-      ['Outliers', '2', '2× usual or more, 30 days'],
+      ['Outliers', '2', 'Last 30 days · 9 in all'],
     ]);
     expect(profileTiles(profile({ subscribers: null }))[0]?.value).toBe('—');
   });

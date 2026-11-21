@@ -66,7 +66,7 @@ export function profileTiles(profile: ChannelProfile): readonly ProfileTile[] {
     {
       label: 'Outliers',
       value: String(outliers.recent),
-      note: `${outliers.minScore}× usual or more, ${outliers.windowDays} days`,
+      note: `Last ${outliers.windowDays} days · ${outliers.all} in all`,
       detail: `Videos at ${outliers.minScore}× or more of its usual in the last ${outliers.windowDays} days; ${outliers.all} among all stored`,
     },
   ];

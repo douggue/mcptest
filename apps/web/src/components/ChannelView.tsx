@@ -119,7 +119,7 @@ function Profile(props: ActionsProps) {
         <div className="flex min-w-0 flex-col gap-space-xl">
           <ChannelVideos
             title="Its outliers"
-            lead={`${outliers.minScore}× or more of its usual views at the same age.`}
+            lead={`All stored videos at ${outliers.minScore}× or more of its usual views at the same age.`}
             videos={profile.top}
             empty="None of its stored videos stands out from its usual views yet."
           />
