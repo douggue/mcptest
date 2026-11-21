@@ -148,6 +148,18 @@ export function apiCaller(fetcher: Fetch = (input, init) => fetch(input, init)) 
   return { call, unwrap, send };
 }
 
+/** An answer as the server gives it; a field an older server leaves out reads as none. */
+export const answerFrom = (
+  reply: Partial<AnalysisAnswer> & { readonly text: string },
+): AnalysisAnswer => ({
+  text: reply.text,
+  engine: reply.engine ?? null,
+  skipped: reply.skipped ?? [],
+  prompt: reply.prompt ?? null,
+  videos: reply.videos ?? [],
+  writtenAt: reply.writtenAt ?? null,
+});
+
 /** The local server's API. `fetcher` is injectable so it can be tested without a network. */
 export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) {
   const { call, unwrap } = apiCaller(fetcher);
@@ -245,7 +257,7 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
       channel: string,
       choice: EngineChoice = AUTOMATIC,
     ): Promise<AnalysisAnswer> {
-      const { text, engine, skipped } = unwrap<Partial<AnalysisAnswer> & { text: string }>(
+      const reply = unwrap<Partial<AnalysisAnswer> & { text: string }>(
         await call('/api/analyses', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -256,7 +268,7 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
           }),
         }),
       );
-      return { text, engine: engine ?? null, skipped: skipped ?? [] };
+      return answerFrom(reply);
     },
 
     /** Which AI engines are installed and signed in on this computer, and the order they are tried in. */

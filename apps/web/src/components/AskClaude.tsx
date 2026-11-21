@@ -9,10 +9,11 @@ import {
   type EngineReport,
 } from '../lib/analyses';
 import type { ChannelChoice } from '../lib/breakdown';
-import { Answer, Credit } from './Answer';
+import { AnalysisAnswerView } from './AnalysisAnswerView';
 import { BreakdownCard, BreakdownStatus } from './Breakdown';
 import type { SendVideo } from './SupplyVideos';
 import type { Analysis, AnalysisState } from './useAnalysis';
+import { useKeptAnswer } from './useAnswers';
 import type { Breakdown } from './useBreakdown';
 
 const NOTE = 'rounded bg-surface-card p-space-lg text-body-md text-on-surface-variant';
@@ -121,6 +122,9 @@ export function AskClaude(props: Props) {
   // One analysis or breakdown runs at a time, here as on the server.
   const busy = state.status === 'running' || breakingDown;
   const available = engineSummary(engines);
+  // Read again after each answer, so the one shown when nothing is asked is the latest.
+  const kept = useKeptAnswer(centerId, state.status === 'done' ? 1 : 0);
+  const keptTitle = ANALYSIS_OPTIONS.find((option) => option.id === kept?.analysis)?.title ?? '';
 
   return (
     <section
@@ -188,11 +192,10 @@ export function AskClaude(props: Props) {
           </p>
         )}
         {state.status === 'done' && (
-          <div className="flex flex-col gap-space-sm">
-            <h3 className="text-title-md text-on-surface">{titleOf(state)}</h3>
-            <Answer text={state.answer.text} />
-            <Credit answer={state.answer} />
-          </div>
+          <AnalysisAnswerView title={titleOf(state)} answer={state.answer} kept={false} />
+        )}
+        {state.status === 'idle' && kept !== null && (
+          <AnalysisAnswerView title={keptTitle} answer={kept.answer} kept />
         )}
       </div>
     </section>
