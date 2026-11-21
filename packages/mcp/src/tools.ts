@@ -7,23 +7,28 @@ import { getBreakouts, getChannelVideos, getMap, getThumbnailBoard } from './rea
 import { failureResult } from './results';
 import type {
   GetBreakoutsArgs,
+  GetChannelBrandArgs,
   GetChannelVideosArgs,
   GetMapArgs,
   GetNearMissesArgs,
   GetThumbnailBoardArgs,
+  GetTranscriptArgs,
+  GetVideoDetailsArgs,
   ListNichesArgs,
   ListTransferOpportunitiesArgs,
   MakeMapArgs,
   SetCompetitorStatusArgs,
   ViewThumbnailsArgs,
+  ViewVideoFramesArgs,
 } from './schemas';
 import { viewThumbnails } from './thumbnailTool';
 import { listTransferOpportunities } from './transferTool';
 import type { ConnectorEngine, ToolContext } from './types';
+import { getChannelBrand, getTranscript, getVideoDetails, viewVideoFrames } from './videoTools';
 
 export interface ToolDeps {
   readonly engine: ConnectorEngine;
-  /** Replaces the network for thumbnail images; used by tests. */
+  /** Replaces the network for thumbnails and channel pictures; used by tests. */
   readonly fetchImage?: FetchImage;
   /** Where diagnostics go. Never standard output: that carries the protocol. */
   readonly log?: (line: string) => void;
@@ -40,6 +45,10 @@ export interface ToolHandlers {
   setCompetitorStatus(args: SetCompetitorStatusArgs): Promise<CallToolResult>;
   listNiches(args: ListNichesArgs): Promise<CallToolResult>;
   listTransferOpportunities(args: ListTransferOpportunitiesArgs): Promise<CallToolResult>;
+  getTranscript(args: GetTranscriptArgs): Promise<CallToolResult>;
+  viewVideoFrames(args: ViewVideoFramesArgs): Promise<CallToolResult>;
+  getChannelBrand(args: GetChannelBrandArgs): Promise<CallToolResult>;
+  getVideoDetails(args: GetVideoDetailsArgs): Promise<CallToolResult>;
 }
 
 /** The default place for diagnostics. */
@@ -83,5 +92,10 @@ export function createToolHandlers(deps: ToolDeps): ToolHandlers {
     listNiches: (args) => guarded('list_niches', () => listNiches(engine, args)),
     listTransferOpportunities: (args) =>
       guarded('list_transfer_opportunities', () => listTransferOpportunities(engine, args)),
+    getTranscript: (args) => guarded('get_transcript', () => getTranscript(engine, args)),
+    viewVideoFrames: (args) => guarded('view_video_frames', () => viewVideoFrames(engine, args)),
+    getChannelBrand: (args) =>
+      guarded('get_channel_brand', () => getChannelBrand(engine, fetchImage, args)),
+    getVideoDetails: (args) => guarded('get_video_details', () => getVideoDetails(engine, args)),
   };
 }

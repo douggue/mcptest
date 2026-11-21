@@ -44,21 +44,32 @@ const call = async (name: string, args: Record<string, unknown>): Promise<CallTo
   (await client.callTool({ name, arguments: args })) as CallToolResult;
 
 describe('the connector over the protocol', () => {
-  test('lists the ten tools, each with a description and an input schema', async () => {
+  test('lists the fourteen tools, each with a description and an input schema', async () => {
     const { tools } = await client.listTools();
 
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       'get_breakouts',
+      'get_channel_brand',
       'get_channel_videos',
       'get_map',
       'get_near_misses',
       'get_thumbnail_board',
+      'get_transcript',
+      'get_video_details',
       'list_niches',
       'list_transfer_opportunities',
       'make_map',
       'set_competitor_status',
       'view_thumbnails',
+      'view_video_frames',
     ]);
+    const study = ['get_transcript', 'view_video_frames', 'get_channel_brand', 'get_video_details'];
+    for (const name of study) {
+      expect(tools.find((tool) => tool.name === name)?.annotations).toMatchObject({
+        readOnlyHint: true,
+        openWorldHint: true,
+      });
+    }
     const setStatus = tools.find((tool) => tool.name === 'set_competitor_status');
     expect(setStatus?.description).toMatch(/only after the owner has agreed/i);
     expect(setStatus?.annotations).toMatchObject({ readOnlyHint: false, idempotentHint: true });
@@ -158,6 +169,25 @@ describe('the connector over the protocol', () => {
     expect(fetched).toEqual([
       'https://i.ytimg.com/vi/aaaaaaaaaa1/hqdefault.jpg',
       'https://i.ytimg.com/vi/bbbbbbbbbb1/hqdefault.jpg',
+    ]);
+  });
+
+  test('the close-study tools answer over the protocol, pictures included', async () => {
+    const transcript = await call('get_transcript', { video: 'bArCA8xnLqU' });
+    const frames = await call('view_video_frames', { video: 'bArCA8xnLqU', sheets: 3 });
+    const brand = await call('get_channel_brand', { channel: ALPHA_ID });
+    const details = await call('get_video_details', { video_ids: ['aaaaaaaaaa1'] });
+    const refused = await call('get_transcript', { video: 'bArCA8xnLqU', max_chars: 5 });
+
+    expect(transcript.content).toHaveLength(2);
+    expect(frames.content.filter((part) => part.type === 'image')).toHaveLength(2);
+    expect(brand.content.filter((part) => part.type === 'image')).toHaveLength(2);
+    expect(jsonOf(details)).toMatchObject({ shown: 2 });
+    expect(refused.isError).toBe(true);
+    expect(textOf(refused)).toContain('max_chars is a whole number from 1000 to 40000.');
+    expect(fetched).toEqual([
+      'https://yt3.googleusercontent.com/logo=s900',
+      'https://yt3.googleusercontent.com/cover=w1060',
     ]);
   });
 

@@ -35,6 +35,24 @@ export const DEFAULT_TRANSFERS = 10;
 const MAX_TRANSFERS = 30;
 const MAX_PLACE_LENGTH = 60;
 
+/** About three thousand tokens: a few minutes of speech, and room for several in one answer. */
+export const DEFAULT_TRANSCRIPT_CHARS = 12_000;
+const MIN_TRANSCRIPT_CHARS = 1000;
+/** A whole half-hour video's captions fit in this. */
+const MAX_TRANSCRIPT_CHARS = 40_000;
+/** A day: far past any video, and a bound on what is asked for. */
+const MAX_START_SECONDS = 86_400;
+/** Four sheets of twenty-five frames show a video's beginning, middle and end. */
+export const DEFAULT_FRAME_SHEETS = 4;
+const MAX_FRAME_SHEETS = 6;
+export const MAX_DETAIL_VIDEOS = 10;
+/** Enough of a description to show its template: the opening lines, links and hashtags. */
+export const DEFAULT_DESCRIPTION_CHARS = 1500;
+const MIN_DESCRIPTION_CHARS = 200;
+/** YouTube's own limit on a description. */
+const MAX_DESCRIPTION_CHARS = 5000;
+const MAX_VIDEO_REF_LENGTH = 200;
+
 const CENTER_RULE = 'center is a YouTube handle such as @name, a channel URL or a channel id.';
 const CHANNEL_RULE = 'channel is a YouTube handle such as @name, a channel URL or a channel id.';
 const MODEL_RULE = 'model is a YouTube handle such as @name, a channel URL or a channel id.';
@@ -43,6 +61,8 @@ export const PLACE_RULE =
 const SHOW_RULE = 'show is "opportunities", "formats", "saved" or "all".';
 const VIDEO_ID_RULE = 'Video ids are 11 characters: letters, digits, "-" and "_".';
 const VIDEO_COUNT_RULE = `Give 1 to ${MAX_THUMBNAILS_PER_CALL} video ids at a time.`;
+export const VIDEO_RULE = 'video is a YouTube video id (11 characters) or a link to one video.';
+const DETAIL_COUNT_RULE = `Give 1 to ${MAX_DETAIL_VIDEOS} video ids at a time.`;
 
 const channelRef = (rule: string) =>
   z.string({ error: rule }).min(1, rule).max(MAX_CHANNEL_REF_LENGTH, rule);
@@ -194,7 +214,62 @@ export const listTransferOpportunitiesShape = {
     .describe('Most ideas or formats returned. Default ' + String(DEFAULT_TRANSFERS) + '.'),
 };
 
+const video = z
+  .string({ error: VIDEO_RULE })
+  .min(1, VIDEO_RULE)
+  .max(MAX_VIDEO_REF_LENGTH, VIDEO_RULE)
+  .describe(
+    'One video: its id, as returned by the other tools, or a youtube.com or youtu.be link.',
+  );
+
+export const getTranscriptShape = {
+  video,
+  start_seconds: wholeNumber('start_seconds', 0, MAX_START_SECONDS)
+    .optional()
+    .describe('Leave out what is said before this many seconds in. Default 0: from the start.'),
+  max_chars: wholeNumber('max_chars', MIN_TRANSCRIPT_CHARS, MAX_TRANSCRIPT_CHARS)
+    .optional()
+    .describe(`Most characters of transcript returned. Default ${DEFAULT_TRANSCRIPT_CHARS}.`),
+};
+
+export const viewVideoFramesShape = {
+  video,
+  sheets: wholeNumber('sheets', 1, MAX_FRAME_SHEETS)
+    .optional()
+    .describe(
+      `How many sheets of frames to look at, spread evenly across the video. Default ${DEFAULT_FRAME_SHEETS}.`,
+    ),
+};
+
+export const getChannelBrandShape = {
+  channel: channelRef(CHANNEL_RULE).describe(
+    'Any channel: @handle, channel URL or channel id. One not in the store yet is read from YouTube.',
+  ),
+  images: flag('images')
+    .optional()
+    .describe('Also return the logo and the cover as pictures. Default true.'),
+};
+
+export const getVideoDetailsShape = {
+  video_ids: z
+    .array(z.string({ error: VIDEO_ID_RULE }).regex(VIDEO_ID_PATTERN, VIDEO_ID_RULE), {
+      error: DETAIL_COUNT_RULE,
+    })
+    .min(1, DETAIL_COUNT_RULE)
+    .max(MAX_DETAIL_VIDEOS, DETAIL_COUNT_RULE)
+    .describe(`1 to ${MAX_DETAIL_VIDEOS} video ids, as returned by the other tools.`),
+  description_chars: wholeNumber('description_chars', MIN_DESCRIPTION_CHARS, MAX_DESCRIPTION_CHARS)
+    .optional()
+    .describe(
+      `Most characters of each description returned. Default ${DEFAULT_DESCRIPTION_CHARS}.`,
+    ),
+};
+
 export const getMapArgs = z.object(getMapShape);
+export const getTranscriptArgs = z.object(getTranscriptShape);
+export const viewVideoFramesArgs = z.object(viewVideoFramesShape);
+export const getChannelBrandArgs = z.object(getChannelBrandShape);
+export const getVideoDetailsArgs = z.object(getVideoDetailsShape);
 export const getNearMissesArgs = z.object(getNearMissesShape);
 export const setCompetitorStatusArgs = z.object(setCompetitorStatusShape);
 export const listNichesArgs = z.object(listNichesShape);
@@ -206,6 +281,10 @@ export const getChannelVideosArgs = z.object(getChannelVideosShape);
 export const makeMapArgs = z.object(makeMapShape);
 
 export type GetMapArgs = z.input<typeof getMapArgs>;
+export type GetTranscriptArgs = z.input<typeof getTranscriptArgs>;
+export type ViewVideoFramesArgs = z.input<typeof viewVideoFramesArgs>;
+export type GetChannelBrandArgs = z.input<typeof getChannelBrandArgs>;
+export type GetVideoDetailsArgs = z.input<typeof getVideoDetailsArgs>;
 export type GetNearMissesArgs = z.input<typeof getNearMissesArgs>;
 export type SetCompetitorStatusArgs = z.input<typeof setCompetitorStatusArgs>;
 export type ListNichesArgs = z.input<typeof listNichesArgs>;

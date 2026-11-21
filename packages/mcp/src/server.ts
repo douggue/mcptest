@@ -10,15 +10,19 @@ import {
 } from './prompt';
 import {
   getBreakoutsShape,
+  getChannelBrandShape,
   getChannelVideosShape,
   getMapShape,
   getNearMissesShape,
   getThumbnailBoardShape,
+  getTranscriptShape,
+  getVideoDetailsShape,
   listNichesShape,
   listTransferOpportunitiesShape,
   makeMapShape,
   setCompetitorStatusShape,
   viewThumbnailsShape,
+  viewVideoFramesShape,
 } from './schemas';
 import { TOOL_TEXT } from './toolText';
 import { createToolHandlers, logToStderr, type ToolDeps, type ToolHandlers } from './tools';
@@ -32,13 +36,23 @@ const INSTRUCTIONS =
   'view_thumbnails to look at the pictures. get_near_misses lists channels left out only for wording their titles ' +
   'differently; set_competitor_status records a decision the owner has agreed to. list_niches shows new or small ' +
   'channels with a video that took off; list_transfer_opportunities shows ideas that won for another country ' +
-  'and are untried or weak for the owner’s. Scores are multiples of a channel’s usual views. ' +
-  'Only make_map reads YouTube, and it takes minutes; everything else reads the local store.';
+  'and are untried or weak for the owner’s. To study one channel closely: get_channel_brand (logo, cover, bio), ' +
+  'get_video_details (descriptions and tags, for its title formula and description template), get_transcript ' +
+  '(what a video says) and view_video_frames (what it shows, start to end). Scores are multiples of a channel’s ' +
+  'usual views. make_map reads YouTube at length and takes minutes. The four close-study tools and ' +
+  'view_thumbnails make a request or two for what is not stored yet and keep it; everything else reads the ' +
+  'local store.';
 
 /** Reads only the store. */
 const READS_STORE = { readOnlyHint: true, openWorldHint: false };
 /** Reads from the internet and changes nothing. */
 const READS_INTERNET = { readOnlyHint: true, openWorldHint: true };
+/**
+ * Reads one video or channel from the internet when the store does not have
+ * it, and keeps a copy so that it is read once. Nothing of the owner's is
+ * changed and nothing is deleted, so it is offered as a read.
+ */
+const READS_AND_KEEPS = { readOnlyHint: true, openWorldHint: true };
 /** Adds to the store from the internet; never deletes. */
 const ADDS_TO_STORE = { readOnlyHint: false, destructiveHint: false, openWorldHint: true };
 /** Changes one stored choice of the owner's; repeating it changes nothing more, and it can be undone. */
@@ -146,6 +160,42 @@ function registerNetworkTools(
   );
 }
 
+/** The tools that study one video or one channel closely. */
+function registerStudyTools(server: McpServer, tools: ToolHandlers): void {
+  server.registerTool(
+    'get_transcript',
+    { ...TOOL_TEXT.get_transcript, inputSchema: getTranscriptShape, annotations: READS_AND_KEEPS },
+    (args) => tools.getTranscript(args),
+  );
+  server.registerTool(
+    'view_video_frames',
+    {
+      ...TOOL_TEXT.view_video_frames,
+      inputSchema: viewVideoFramesShape,
+      annotations: READS_AND_KEEPS,
+    },
+    (args) => tools.viewVideoFrames(args),
+  );
+  server.registerTool(
+    'get_channel_brand',
+    {
+      ...TOOL_TEXT.get_channel_brand,
+      inputSchema: getChannelBrandShape,
+      annotations: READS_AND_KEEPS,
+    },
+    (args) => tools.getChannelBrand(args),
+  );
+  server.registerTool(
+    'get_video_details',
+    {
+      ...TOOL_TEXT.get_video_details,
+      inputSchema: getVideoDetailsShape,
+      annotations: READS_AND_KEEPS,
+    },
+    (args) => tools.getVideoDetails(args),
+  );
+}
+
 function registerPrompts(server: McpServer): void {
   server.registerPrompt(
     THUMBNAIL_REVIEW_PROMPT,
@@ -170,6 +220,7 @@ export function createConnectorServer(deps: ToolDeps): McpServer {
   registerReadTools(server, tools);
   registerOwnerTools(server, tools);
   registerNetworkTools(server, tools, log);
+  registerStudyTools(server, tools);
   registerPrompts(server);
   return server;
 }

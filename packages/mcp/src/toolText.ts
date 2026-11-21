@@ -116,4 +116,44 @@ export const TOOL_TEXT = {
       'was worked out; pass place when that is wrong. Only videos from the last windowDays days count. Reads the ' +
       'local store only.',
   },
+  get_transcript: {
+    title: 'Video transcript',
+    description:
+      'What is said in one video: its captions as text, with the time in square brackets every half minute or ' +
+      'so. Use it to study a script: the hook in the first thirty seconds, how the video is structured, the ' +
+      'wording, the call to action. The first part of the answer gives lang (the captions’ language), auto ' +
+      '(made by YouTube’s speech recognition, so names and numbers may be misheard), lines and lastLineAt; the ' +
+      'second part is the text. A long transcript is cut at a time mark: cut.startSeconds is where to call ' +
+      'again from. A video without captions answers captions false, which is normal and not a failure. The ' +
+      'captions are read from YouTube the first time and kept, so asking again is free.',
+  },
+  view_video_frames: {
+    title: 'Look at frames across a video',
+    description:
+      'Look at what one video shows from start to end: sheets of small frames that YouTube takes at a regular ' +
+      'interval (its storyboard). Each sheet is one picture holding a grid of frames, under a caption that says ' +
+      'how to read the grid (left to right, then top to bottom) and the time of its first and last frame. Use ' +
+      'it to describe the visual style: talking head, stock footage, animation or illustration type, on-screen ' +
+      'text, how often the picture changes. It shows pictures only: no sound, and frames several seconds ' +
+      'apart, so it cannot show sound design or the exact cut between two shots. sheets says how many to look ' +
+      'at, spread evenly across the video. A video without a storyboard answers frames false.',
+  },
+  get_channel_brand: {
+    title: 'Channel branding',
+    description:
+      'How one channel presents itself: bio (its description), keywords and links as text, then its logo and ' +
+      'its cover (the banner across the top of its page) as pictures to look at. logo and cover give the size ' +
+      'of each picture, or false when the channel has none. Works for any channel; one whose branding is not ' +
+      'stored yet is read from YouTube once and kept. Pass images false for the text alone.',
+  },
+  get_video_details: {
+    title: 'Video descriptions and tags',
+    description:
+      'The title, description, tags, length (secs), views and score (views as a multiple of the channel’s usual ' +
+      'views) of up to 10 videos. Use it to find a channel’s title formula and description template: compare ' +
+      'its winners (from get_thumbnail_board or get_channel_videos) with its ordinary videos. descriptionCut ' +
+      'marks a description longer than description_chars. views and score are absent for a video whose ' +
+      'channel is not in the store. Descriptions are read from YouTube the first time and kept; problems ' +
+      'lists a video that could not be read.',
+  },
 } as const;
