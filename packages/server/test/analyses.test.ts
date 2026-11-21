@@ -38,12 +38,13 @@ const FOCUS: Partial<Record<AnalysisId, QuestionFocus>> = {
   'script-hooks': { kind: 'script', conceptId: 1 },
   'script-draft': { kind: 'script', conceptId: 1 },
   'script-tighten': { kind: 'script', conceptId: 1 },
+  'concept-thumbnail': { kind: 'concept', conceptId: 1 },
 };
 /** Tools that change stored choices or reach the network for minutes; an analysis only reads. */
 const NOT_FOR_ANALYSIS = ['set_competitor_status', 'make_map'];
 
 describe('the analyses on offer', () => {
-  test('are thumbnails, video ideas, same-topic channels, the seven parts of a breakdown, the idea lab’s six and the script writer’s three', () => {
+  test('are thumbnails, video ideas, same-topic channels, the seven parts of a breakdown, the idea lab’s six, the script writer’s three and a concept’s thumbnail prompt', () => {
     expect(ANALYSIS_IDS).toEqual([
       'thumbnails',
       'topics',
@@ -64,6 +65,7 @@ describe('the analyses on offer', () => {
       'script-hooks',
       'script-draft',
       'script-tighten',
+      'concept-thumbnail',
     ]);
     // The parts of a breakdown are steps of a longer job, so they are not among the one-press ones.
     expect(QUICK_ANALYSIS_IDS).toEqual(['thumbnails', 'topics', 'near-misses']);
@@ -123,11 +125,9 @@ describe('the analyses on offer', () => {
     const looks = (id: (typeof ANALYSIS_IDS)[number]) =>
       ANALYSES[id].allowedTools.includes('mcp__jgtube__view_thumbnails');
 
-    expect(ANALYSIS_IDS.filter(looks)).toEqual(['thumbnails', 'breakdown-thumbnails']);
-    expect(ANALYSIS_IDS.filter((id) => ANALYSES[id].engines !== undefined)).toEqual([
-      'thumbnails',
-      'breakdown-thumbnails',
-    ]);
+    const seeing = ['thumbnails', 'breakdown-thumbnails', 'concept-thumbnail'];
+    expect(ANALYSIS_IDS.filter(looks)).toEqual(seeing);
+    expect(ANALYSIS_IDS.filter((id) => ANALYSES[id].engines !== undefined)).toEqual(seeing);
     expect(PICTURE_ENGINES).toEqual(['claude', 'codex']);
   });
 });

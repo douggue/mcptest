@@ -51,6 +51,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { analysisEngines, type AnalysisOptions } from './analysisEngine';
 import { answerEngine } from './answerEngine';
+import { conceptThumbEngine } from './conceptThumbEngine';
 import type { Engine } from './app';
 import { breakdownFiles } from './breakdownFiles';
 import { breaking } from './breakdownSetup';
@@ -467,6 +468,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       // Read at each use: the owner can change it from the settings screen while Jgtube runs.
       markFacts: () => config.markFacts !== false,
     }),
+    ...conceptThumbEngine({ now: wiring.now, repos: wiring.repos, analyse: asking.analyse }),
     analyse: asking.analyse,
     watchVideo: asking.watchVideo,
     engineStatus: asking.engineStatus,

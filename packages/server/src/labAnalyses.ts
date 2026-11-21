@@ -28,6 +28,12 @@ import {
   twistQuestion,
   whereElseQuestion,
 } from './ideaQuestions';
+import {
+  CONCEPT_THUMBNAIL_MAX_TURNS,
+  CONCEPT_THUMBNAIL_TIMEOUT_MS,
+  CONCEPT_THUMBNAIL_TOOLS,
+  conceptThumbnailQuestion,
+} from './conceptThumbQuestion';
 import { labFocusOf, type QuestionFocus } from './questionFocus';
 import {
   SCRIPT_DRAFT_TOOLS,
@@ -51,6 +57,7 @@ export const LAB_ANALYSIS_IDS = [
   'script-hooks',
   'script-draft',
   'script-tighten',
+  'concept-thumbnail',
 ] as const;
 export type LabAnalysisId = (typeof LAB_ANALYSIS_IDS)[number];
 
@@ -63,6 +70,8 @@ export interface LabSpec {
   readonly timeoutMs: number;
   /** Who the engine is for this question, when it is not the usual analyst. */
   readonly systemPrompt?: string;
+  /** Whether it looks at pictures, and so may only be asked of an engine that sees them. */
+  readonly pictures?: boolean;
   readonly question: (channel: string, focus?: QuestionFocus) => string;
 }
 
@@ -144,5 +153,15 @@ export const LAB_SPECS: Readonly<Record<LabAnalysisId, LabSpec>> = {
     timeoutMs: SCRIPT_TIMEOUT_MS,
     systemPrompt: SCRIPT_SYSTEM_PROMPT,
     question: (channel, focus) => scriptTightenQuestion(channel, labFocusOf(focus, 'script')),
+  },
+  'concept-thumbnail': {
+    title: 'Thumbnail prompt',
+    description:
+      'Looks at the winning thumbnails on this map and writes a detailed prompt for one concept’s thumbnail in that style.',
+    tools: CONCEPT_THUMBNAIL_TOOLS,
+    maxTurns: CONCEPT_THUMBNAIL_MAX_TURNS,
+    timeoutMs: CONCEPT_THUMBNAIL_TIMEOUT_MS,
+    pictures: true,
+    question: (channel, focus) => conceptThumbnailQuestion(channel, labFocusOf(focus, 'concept')),
   },
 };

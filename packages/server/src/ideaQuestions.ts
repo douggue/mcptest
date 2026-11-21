@@ -109,7 +109,7 @@ function checkedIds(ids: readonly string[]): readonly string[] {
   return ids;
 }
 
-function checkedNumber(value: number): number {
+export function checkedNumber(value: number): number {
   if (!Number.isSafeInteger(value) || value < 1) {
     throw new Error('A question may only name a stored item by its whole number');
   }

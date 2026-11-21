@@ -76,6 +76,8 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     readCountries: unused('readCountries'),
     setOwnerPlace: unused('setOwnerPlace'),
     keepAnswer: () => null,
+    listConceptThumbnails: unused('listConceptThumbnails'),
+    writeConceptThumbnail: unused('writeConceptThumbnail'),
     findAnswer: unused('findAnswer'),
     namedVideos: unused('namedVideos'),
     findChannelNote: unused('findChannelNote'),

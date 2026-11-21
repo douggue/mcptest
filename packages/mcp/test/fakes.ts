@@ -18,6 +18,8 @@ import type {
   StoredVideoStudy,
   StudyKind,
   VideoFrames,
+  ChannelNoteKind,
+  StoredChannelNote,
 } from '@jgtube/core';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { ConceptForTool, HookLibrary, IdeaBrief } from '@jgtube/server/src/labTypes';
@@ -552,6 +554,13 @@ export class FakeEngine implements ConnectorEngine {
   findBreakdownPart(channelRef: string, part: BreakdownPartId): StoredBreakdownPart | null {
     this.reads.push(['part', channelRef, part]);
     return this.parts.find((stored) => stored.part === part) ?? null;
+  }
+
+  notes: StoredChannelNote[] = [];
+
+  findChannelNote(channelRef: string, kind: ChannelNoteKind): StoredChannelNote | null {
+    this.reads.push(['note', channelRef, kind]);
+    return this.notes.find((note) => note.kind === kind) ?? null;
   }
 
   readChannelBrand(channelRef: string): Promise<BrandResult> {

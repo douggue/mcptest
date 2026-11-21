@@ -28,6 +28,7 @@ import { fail, isTrustedHost, ok, readJson } from './http';
 import { JobStore, cleanMessage } from './jobs';
 import type { AnalysisId } from './analyses';
 import type { AnswerEngine } from './answerEngine';
+import type { ConceptThumbEngine } from './conceptThumbEngine';
 import { NAMED_VIDEOS_PATH, readAnswer, readNamedVideos } from './answerRoutes';
 import { readEngines, runAnalysis, type AnalysisTracker } from './analysisRoutes';
 import type { EngineReport } from './engines/catalog';
@@ -122,7 +123,14 @@ export interface TransferChoices {
 
 /** What the API needs from the engine, so tests can stand in for it. */
 export interface Engine
-  extends DownloadsEngine, LabEngine, ScriptEngine, LogoEngine, TransferPlaceEngine, AnswerEngine {
+  extends
+    DownloadsEngine,
+    LabEngine,
+    ScriptEngine,
+    LogoEngine,
+    TransferPlaceEngine,
+    AnswerEngine,
+    ConceptThumbEngine {
   /** The latest stored map around a channel; reads the store only. */
   findSnapshot(channel: string): MapSnapshot | null;
   /** Every channel a map has been made for, the most recently mapped first. */

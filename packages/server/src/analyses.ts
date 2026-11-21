@@ -140,8 +140,12 @@ export function thumbnailPromptRule(lead: string): string {
 
 /** One of the idea lab's questions, with its tools under the names an engine knows them by. */
 function lab(id: LabAnalysisId): AnalysisSpec {
-  const { tools, ...spec } = LAB_SPECS[id];
-  return { ...spec, allowedTools: tools.map(tool) };
+  const { tools, pictures, ...spec } = LAB_SPECS[id];
+  return {
+    ...spec,
+    allowedTools: tools.map(tool),
+    ...(pictures ? { engines: PICTURE_ENGINES } : {}),
+  };
 }
 
 const QUICK_ANALYSES: Readonly<Record<QuickAnalysisId, AnalysisSpec>> = {
@@ -237,6 +241,7 @@ export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
   'script-hooks': lab('script-hooks'),
   'script-draft': lab('script-draft'),
   'script-tighten': lab('script-tighten'),
+  'concept-thumbnail': lab('concept-thumbnail'),
 };
 
 /** The channel as the question names it: a handle or an id, never free text. */
