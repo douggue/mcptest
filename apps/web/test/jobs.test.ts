@@ -12,6 +12,9 @@ import {
   runningJobOf,
   runningJobs,
   viewOfJob,
+  watchStep,
+  dismissNotice,
+  NO_WATCH,
   type JobEntry,
 } from '../src/lib/jobs';
 
@@ -129,5 +132,38 @@ describe('polling and finished work', () => {
     expect(doneLine(job({ status: 'failed', title: 'Reviewing a thumbnail' }))).toBe(
       'Stopped: Reviewing a thumbnail',
     );
+  });
+});
+
+describe('watchStep', () => {
+  test('adds a Done line for work that finished elsewhere and keeps it until its view opens', () => {
+    const running = [job({ id: 'a' }), job({ id: 'b', kind: 'claims' })];
+    const first = watchStep(NO_WATCH, running, 'home');
+    expect([...first.seen]).toEqual(['a', 'b']);
+    expect(first.notices).toEqual([]);
+
+    const finished = [job({ id: 'a', status: 'done' }), job({ id: 'b', kind: 'claims' })];
+    const second = watchStep(first, finished, 'home');
+    expect(second.notices.map(({ id }) => id)).toEqual(['a']);
+    expect([...second.seen]).toEqual(['b']);
+
+    expect(watchStep(second, finished, 'home').notices.map(({ id }) => id)).toEqual(['a']);
+    expect(watchStep(second, finished, 'risk').notices).toEqual([]);
+    expect(dismissNotice(second, 'a').notices).toEqual([]);
+  });
+
+  test('keeps only the latest few lines', () => {
+    const ids = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+    const seen = watchStep(
+      NO_WATCH,
+      ids.map((id) => job({ id })),
+      'home',
+    );
+    const done = watchStep(
+      seen,
+      ids.map((id) => job({ id, status: 'done' })),
+      'home',
+    );
+    expect(done.notices).toHaveLength(5);
   });
 });

@@ -151,3 +151,36 @@ export function finishedElsewhere(
 /** The "Done" line of a finished job. */
 export const doneLine = (job: JobEntry): string =>
   job.status === 'done' ? `Done: ${job.title}` : `Stopped: ${job.title}`;
+
+const MAX_NOTICES = 5;
+
+/** What the top bar keeps between reads: the jobs it saw running, and its "Done" lines. */
+export interface JobWatch {
+  readonly seen: ReadonlySet<string>;
+  readonly notices: readonly JobEntry[];
+}
+
+export const NO_WATCH: JobWatch = { seen: new Set(), notices: [] };
+
+/**
+ * After a read of the list: a job seen running that has finished while the
+ * owner was on another view gains a "Done" line; a line whose view the owner
+ * is on goes, since what it says is on screen.
+ */
+export function watchStep(watch: JobWatch, jobs: readonly JobEntry[], active: ViewId): JobWatch {
+  const finished = finishedElsewhere(watch.seen, jobs, active);
+  const fresh = new Set(finished.map(({ id }) => id));
+  const kept = watch.notices.filter(({ id }) => !fresh.has(id));
+  return {
+    seen: new Set(runningJobs(jobs).map(({ id }) => id)),
+    notices: [...finished, ...kept]
+      .filter((job) => viewOfJob(job) !== active)
+      .slice(0, MAX_NOTICES),
+  };
+}
+
+/** The watch without one "Done" line, once the owner has dismissed or opened it. */
+export const dismissNotice = (watch: JobWatch, id: string): JobWatch => ({
+  ...watch,
+  notices: watch.notices.filter((job) => job.id !== id),
+});
