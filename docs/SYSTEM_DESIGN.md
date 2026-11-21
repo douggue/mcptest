@@ -255,8 +255,9 @@ starts it and watches it.
   kind while one runs is answered 409 with a plain message.
 - **Closing the tab.** The run goes on to the end and its result is stored.
   Reopening the page shows it in the Working list; the views above pick their
-  runs up again. The app-level progress lines (a breakdown's steps, the idea
-  lab's) start again from the stored result rather than re-attaching.
+  runs up again, and so does the refresh. A breakdown's or the idea lab's
+  step-by-step line does not come back after a reload, but the run is in the
+  Working list and its result is read from the store when it ends.
 - **Stopping the server.** Runs end with it: any AI engine running is stopped
   and work under way winds down before the store is closed, so nothing is cut
   off mid-write. Jobs live in memory only, so after a restart the list is
