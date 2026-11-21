@@ -1,4 +1,4 @@
-import type { PlanView, SinceKind } from '@jgtube/core';
+import type { CalendarView, PlanView, ScheduleEntry, SinceKind } from '@jgtube/core';
 import { apiCaller, type Fetch } from './api';
 import type { AlertSettingsInput, AlertsReply } from './alerts';
 import type { ChangesReply } from './changes';
@@ -49,6 +49,19 @@ export function createExtrasApi(fetcher?: Fetch) {
 
     async unlinkPlanVideo(channel: string, conceptId: number): Promise<PlanView> {
       return unwrap<PlanView>(await send('/api/plan/unlink', { channel, conceptId }));
+    },
+
+    /** A channel's upload calendar; null when it has no map. */
+    calendar: (channel: string) => read<CalendarView>(`/api/calendar?${of(channel)}`),
+
+    async saveCalendarItem(
+      channel: string,
+      conceptId: number,
+      entry: ScheduleEntry,
+    ): Promise<CalendarView> {
+      return unwrap<CalendarView>(
+        await send('/api/calendar/item', { channel, conceptId, ...entry }),
+      );
     },
   };
 }
