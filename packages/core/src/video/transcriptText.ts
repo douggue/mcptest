@@ -109,24 +109,99 @@ export interface TranscriptPace {
   readonly wordsPerMinute: number | null;
 }
 
+/** The words a caption line holds, sound labels left out. */
+const wordsOf = (segment: TranscriptSegment): readonly string[] =>
+  segment.text.replace(SOUND_LABEL, ' ').split(/\s+/).filter(Boolean);
+
+/**
+ * Whether counting what sits between spaces counts words: not when most of
+ * the letters belong to a script that is written without spaces.
+ */
+function countable(said: readonly string[]): boolean {
+  const text = said.join('');
+  const spaceless = text.match(SPACELESS_LETTER)?.length ?? 0;
+  return said.length > 0 && spaceless * 2 <= text.length;
+}
+
 /**
  * How fast a video is spoken, worked out from its captions: the words said
  * over the time from the first line to the last. It is a count, not a
  * judgement, so a reader can quote it as it is.
  */
 export function transcriptPace(segments: readonly TranscriptSegment[]): TranscriptPace {
-  const said = segments.flatMap((segment) =>
-    segment.text.replace(SOUND_LABEL, ' ').split(/\s+/).filter(Boolean),
-  );
+  const said = segments.flatMap(wordsOf);
   const first = segments[0]?.startMs ?? 0;
   const last = segments.at(-1)?.startMs ?? 0;
   const spokenSeconds = Math.round((last - first) / SECOND_MS);
-  const text = said.join('');
-  const spaceless = text.match(SPACELESS_LETTER)?.length ?? 0;
-  const countable = said.length > 0 && spaceless * 2 <= text.length;
   const wordsPerMinute =
-    countable && spokenSeconds >= PACE_MIN_SECONDS
+    countable(said) && spokenSeconds >= PACE_MIN_SECONDS
       ? Math.round((said.length * MINUTE_SECONDS) / spokenSeconds)
       : null;
   return { words: said.length, spokenSeconds, wordsPerMinute };
+}
+
+/** How long a slice of a video is when a reader does not say where to cut it. */
+export const PACE_SLICE_SECONDS = 60;
+/** A stretch shorter than this holds too few words to give a pace for. */
+export const PACE_SPAN_MIN_SECONDS = 15;
+
+/** The words said in one stretch of a video, and the pace they come to. */
+export interface PaceSpan {
+  readonly fromSeconds: number;
+  /** Where the next stretch starts; for the last one, when the last caption line starts. */
+  readonly toSeconds: number;
+  readonly words: number;
+  /** Words over the stretch's length, rounded; null when it cannot be told. */
+  readonly wordsPerMinute: number | null;
+}
+
+/** Where the stretches start: the cuts given, in order and once each, with the beginning first. */
+function spanStarts(cuts: readonly number[] | undefined, lastSeconds: number): readonly number[] {
+  const given =
+    cuts ??
+    Array.from(
+      { length: Math.floor(lastSeconds / PACE_SLICE_SECONDS) + 1 },
+      (_, index) => index * PACE_SLICE_SECONDS,
+    );
+  const inside = given.filter((cut) => Number.isFinite(cut) && cut > 0 && cut < lastSeconds);
+  return [...new Set([0, ...inside.map(Math.floor)])].sort((a, b) => a - b);
+}
+
+/**
+ * How fast each stretch of a video is spoken, counted from its captions: a
+ * line's words belong to the stretch it starts in. Without `cuts` the video
+ * is cut every `PACE_SLICE_SECONDS`; with them, at those seconds, so a reader
+ * who has found the parts of a script can have each part's pace counted
+ * instead of working it out. The stretches run from the start of the video
+ * to its last caption line.
+ */
+export function transcriptPaceSpans(
+  segments: readonly TranscriptSegment[],
+  cuts?: readonly number[],
+): readonly PaceSpan[] {
+  const lastMs = segments.at(-1)?.startMs;
+  if (lastMs === undefined) return [];
+  const lastSeconds = lastMs / SECOND_MS;
+  const spoken = countable(segments.flatMap(wordsOf));
+  const starts = spanStarts(cuts, lastSeconds);
+  return starts.map((fromSeconds, index): PaceSpan => {
+    const next = starts[index + 1];
+    const toSeconds = next ?? Math.floor(lastSeconds);
+    const words = segments
+      .filter(
+        ({ startMs }) =>
+          startMs >= fromSeconds * SECOND_MS && (next === undefined || startMs < next * SECOND_MS),
+      )
+      .flatMap(wordsOf).length;
+    const length = toSeconds - fromSeconds;
+    return {
+      fromSeconds,
+      toSeconds,
+      words,
+      wordsPerMinute:
+        spoken && length >= PACE_SPAN_MIN_SECONDS
+          ? Math.round((words * MINUTE_SECONDS) / length)
+          : null,
+    };
+  });
 }

@@ -1,4 +1,12 @@
-import { MAX_OWN_VIDEO_BYTES, ownVideoName, parseChannelRef, pathInside } from '@jgtube/core';
+import {
+  BREAKDOWN_FILES,
+  BREAKDOWN_FILE_IDS,
+  MAX_OWN_VIDEO_BYTES,
+  channelFolderName,
+  ownVideoName,
+  parseChannelRef,
+  pathInside,
+} from '@jgtube/core';
 import { randomUUID } from 'node:crypto';
 import { mkdir, open, rename, rm } from 'node:fs/promises';
 import { z } from 'zod';
@@ -15,6 +23,9 @@ const MAX_CHANNEL_LENGTH = 200;
 /** The one kind of file taken: the kind the engine that watches is known to open. */
 const VIDEO_TYPE = 'video/mp4';
 const BYTES_PER_MB = 1_000_000;
+/** Where a stored breakdown's four texts are downloaded from, followed by the file's name. */
+export const BREAKDOWN_TEXT_PATH = '/api/breakdowns/texts/';
+const NO_CHANNEL = 'Give the channel: a handle, a channel link or a channel id';
 
 /** Breakdowns as jobs: each reports its steps and leaves its outcome to be read. */
 export type BreakdownJobs = JobStore<BreakdownOutcome, BreakdownProgress>;
@@ -165,4 +176,57 @@ export async function uploadVideo(
     if (partial !== null) await rm(partial, { force: true }).catch(() => undefined);
     tracker.busy = false;
   }
+}
+
+/**
+ * A channel's stored breakdown, for the page to show without running it
+ * again: every part, when it was written, which texts there are to download
+ * and the folder they were saved in. A channel with none answers with no
+ * data, as a normal answer: the page asks for every channel that is picked,
+ * and most have none.
+ */
+export async function readBreakdown(options: AppOptions, url: URL): Promise<Response> {
+  const channel = url.searchParams.get('channel') ?? '';
+  if (channel.length > MAX_CHANNEL_LENGTH || !isChannel(channel)) return fail(400, NO_CHANNEL);
+  try {
+    return ok(await options.engine.findBreakdown(channel));
+  } catch (error) {
+    return fail(500, `The breakdown could not be read: ${cleanMessage(error)}`);
+  }
+}
+
+/** A name safe inside a quoted header value: plain letters, digits and a few marks. */
+const plain = (name: string): string => name.replace(/[^\w .()-]/g, '_');
+/** A name as the header's second, encoded form carries it, for names in any script. */
+const encoded = (name: string): string =>
+  encodeURIComponent(name).replace(
+    /['()*]/g,
+    (mark) => `%${mark.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+
+/**
+ * One of a stored breakdown's four texts as a plain text file to save: the
+ * whole breakdown, the production plan, the thumbnail prompt or the master
+ * prompt. The file is put together from the store, so it is there whether
+ * or not the files on disk still are. Only the four fixed names are taken.
+ */
+export function downloadBreakdownText(options: AppOptions, url: URL, name: string): Response {
+  const id = BREAKDOWN_FILE_IDS.find((file) => BREAKDOWN_FILES[file] === name);
+  if (id === undefined) return fail(404, 'There is no such text in a breakdown');
+  const channel = url.searchParams.get('channel') ?? '';
+  if (channel.length > MAX_CHANNEL_LENGTH || !isChannel(channel)) return fail(400, NO_CHANNEL);
+  const found = options.engine.breakdownText(channel, id);
+  if (found === null) return fail(404, 'That channel has not been read yet');
+  const { file } = found;
+  if (file.text === null) return fail(404, file.reason);
+  const saveAs = `${channelFolderName(found.channel.title, found.channel.id)} - ${file.name}`;
+  return new Response(file.text, {
+    status: 200,
+    headers: {
+      'content-type': 'text/plain; charset=utf-8',
+      'content-disposition': `attachment; filename="${plain(saveAs)}"; filename*=UTF-8''${encoded(saveAs)}`,
+      'cache-control': 'no-store',
+      'x-content-type-options': 'nosniff',
+    },
+  });
 }

@@ -10,6 +10,7 @@ import {
   SqliteRefreshRepo,
   SqliteScriptRepo,
   SqliteBrandRepo,
+  SqliteBreakdownRepo,
   SqliteTransferRepo,
   SqliteVideoPageRepo,
   SqliteVideoRepo,
@@ -124,6 +125,7 @@ function openRepos(db: Db) {
     formulas: new SqliteFormulaRepo(db),
     hookLabels: new SqliteHookLabelRepo(db),
     scripts: new SqliteScriptRepo(db),
+    breakdowns: new SqliteBreakdownRepo(db),
   };
 }
 
@@ -424,6 +426,8 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       now: wiring.now,
       videos: wiring.repos.videos,
       studies: wiring.repos.studies,
+      channels: wiring.repos.channels,
+      breakdowns: wiring.repos.breakdowns,
       run: wiring.work.run,
       asking,
       reading,

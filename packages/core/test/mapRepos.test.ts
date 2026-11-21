@@ -2,14 +2,14 @@ import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, test } from 'vitest';
-import { migrate, openDatabase, type Db } from '../src/db/sqlite';
+import { LATEST_SCHEMA_VERSION, migrate, openDatabase, type Db } from '../src/db/sqlite';
 import { SqliteChannelRepo } from '../src/repos/sqliteChannelRepo';
 import { SqliteEdgeRepo } from '../src/repos/sqliteEdgeRepo';
 import { SqliteMapRepo } from '../src/repos/sqliteMapRepo';
 import type { RecEdge } from '../src/repos/types';
 
-/** The number of the newest schema step. */
-const LATEST = 14;
+/** The number of the newest schema step, whatever this version of Jgtube has. */
+const LATEST = LATEST_SCHEMA_VERSION;
 const T1 = new Date('2026-11-20T12:00:00Z');
 const T2 = new Date('2026-11-25T12:00:00Z');
 const cid = (letter: string) => `UC${letter.repeat(22)}`;

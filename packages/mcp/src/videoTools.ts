@@ -5,9 +5,11 @@ import {
   clock,
   fetchPinnedImage,
   formatTranscript,
+  PACE_SLICE_SECONDS,
   parseVideoRef,
   pickImage,
   transcriptPace,
+  transcriptPaceSpans,
   type BrandImage,
   type FetchImage,
   type VideoFacts,
@@ -26,10 +28,12 @@ import {
   checkedArgs,
   getChannelBrandArgs,
   getTranscriptArgs,
+  getTranscriptPaceArgs,
   getVideoDetailsArgs,
   viewVideoFramesArgs,
   type GetChannelBrandArgs,
   type GetTranscriptArgs,
+  type GetTranscriptPaceArgs,
   type GetVideoDetailsArgs,
   type ViewVideoFramesArgs,
 } from './schemas';
@@ -100,6 +104,45 @@ export async function getTranscript(
       : null,
   });
   return headed(head, text === '' ? [] : [{ type: 'text', text }]);
+}
+
+const NO_PACE = 'YouTube lists no captions for this video, so there is no pace to count.';
+const PACE_NOTE =
+  'Counted by Jgtube from the captions: a line’s words belong to the stretch it starts in. These are counts, not estimates; quote them as they are.';
+
+/**
+ * How fast one video is spoken, overall and stretch by stretch, counted in
+ * code from its stored captions: every minute, or between the seconds given,
+ * so the pace of each part of a script is a count and nobody's arithmetic.
+ */
+export async function getTranscriptPace(
+  engine: ConnectorEngine,
+  input: GetTranscriptPaceArgs,
+): Promise<CallToolResult> {
+  const args = checkedArgs(getTranscriptPaceArgs, input);
+  const video = videoIdOf(args.video);
+  const { transcript } = await engine.readTranscript(video);
+  if (transcript === null) return headed({ video, captions: false, note: NO_PACE });
+  const pace = transcriptPace(transcript.segments);
+  const spans = transcriptPaceSpans(transcript.segments, args.cuts);
+  return headed(
+    withoutAbsent({
+      video,
+      words: pace.words,
+      wordsPerMinute: pace.wordsPerMinute,
+      spokenSeconds: pace.spokenSeconds,
+      every: args.cuts === undefined ? PACE_SLICE_SECONDS : null,
+      spans: spans.map((span) =>
+        withoutAbsent({
+          from: clock(span.fromSeconds * SECOND_MS),
+          to: clock(span.toSeconds * SECOND_MS),
+          words: span.words,
+          wordsPerMinute: span.wordsPerMinute,
+        }),
+      ),
+      note: PACE_NOTE,
+    }),
+  );
 }
 
 const SAMPLE_NOTE =

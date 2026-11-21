@@ -1,4 +1,5 @@
 import {
+  BREAKDOWN_PARTS,
   COMPETITOR_STATUSES,
   CRAWL_DEFAULT_DEPTH,
   CRAWL_DEFAULT_MAX_CHANNELS,
@@ -54,6 +55,8 @@ const MIN_DESCRIPTION_CHARS = 200;
 /** YouTube's own limit on a description. */
 const MAX_DESCRIPTION_CHARS = 5000;
 const MAX_VIDEO_REF_LENGTH = 200;
+/** More places to cut a script at than any script has parts. */
+const MAX_PACE_CUTS = 40;
 
 const CENTER_RULE = 'center is a YouTube handle such as @name, a channel URL or a channel id.';
 const CHANNEL_RULE = 'channel is a YouTube handle such as @name, a channel URL or a channel id.';
@@ -65,6 +68,8 @@ const VIDEO_ID_RULE = 'Video ids are 11 characters: letters, digits, "-" and "_"
 const VIDEO_COUNT_RULE = `Give 1 to ${MAX_THUMBNAILS_PER_CALL} video ids at a time.`;
 export const VIDEO_RULE = 'video is a YouTube video id (11 characters) or a link to one video.';
 const DETAIL_COUNT_RULE = `Give 1 to ${MAX_DETAIL_VIDEOS} video ids at a time.`;
+const PART_RULE = `part is one of: ${BREAKDOWN_PARTS.join(', ')}.`;
+const CUTS_RULE = `cuts is up to ${MAX_PACE_CUTS} whole numbers of seconds, each from 1 to ${MAX_START_SECONDS}.`;
 
 const channelRef = (rule: string) =>
   z.string({ error: rule }).min(1, rule).max(MAX_CHANNEL_REF_LENGTH, rule);
@@ -133,9 +138,13 @@ export const getChannelVideosShape = {
     'Any channel on a stored map, or the owner’s own: @handle, channel URL or channel id.',
   ),
   order: z
-    .enum(['strongest', 'newest'], { error: 'order is "strongest" or "newest".' })
+    .enum(['strongest', 'newest', 'views'], {
+      error: 'order is "strongest", "newest" or "views".',
+    })
     .optional()
-    .describe('strongest (highest score first, the default) or newest.'),
+    .describe(
+      'strongest (highest score first, the default), newest, or views (most viewed first).',
+    ),
   limit: wholeNumber('limit', 1, MAX_CHANNEL_VIDEOS)
     .optional()
     .describe(`Most videos returned. Default ${DEFAULT_CHANNEL_VIDEOS}.`),
@@ -251,6 +260,32 @@ export const viewVideoFramesShape = {
 
 export const getVideoStudyShape = { video };
 
+export const getTranscriptPaceShape = {
+  video,
+  cuts: z
+    .array(
+      z
+        .number({ error: CUTS_RULE })
+        .int(CUTS_RULE)
+        .min(1, CUTS_RULE)
+        .max(MAX_START_SECONDS, CUTS_RULE),
+      { error: CUTS_RULE },
+    )
+    .max(MAX_PACE_CUTS, CUTS_RULE)
+    .optional()
+    .describe(
+      'Where to cut the video, in seconds from its start, to have the pace of each part of a script counted: ' +
+        'give the second each part after the first begins at. Left out, the video is cut every minute.',
+    ),
+};
+
+export const getBreakdownPartShape = {
+  channel: channelRef(CHANNEL_RULE).describe(
+    'The channel the breakdown is of: @handle, channel URL or channel id.',
+  ),
+  part: z.enum(BREAKDOWN_PARTS, { error: PART_RULE }).describe(PART_RULE),
+};
+
 export const getChannelBrandShape = {
   channel: channelRef(CHANNEL_RULE).describe(
     'Any channel: @handle, channel URL or channel id. One not in the store yet is read from YouTube.',
@@ -311,7 +346,7 @@ export const getHooksShape = {
     .describe('Only the hooks of these videos. Left out, every hook of the library.'),
 };
 
-const PART_RULE = 'part is "plan", "draft" or "tightened".';
+const SCRIPT_PART_RULE = 'part is "plan", "draft" or "tightened".';
 
 export const getScriptShape = {
   channel: labChannel,
@@ -319,7 +354,7 @@ export const getScriptShape = {
     'The number of the concept the script is for, as the question gives it.',
   ),
   part: z
-    .enum(['plan', 'draft', 'tightened'], { error: PART_RULE })
+    .enum(['plan', 'draft', 'tightened'], { error: SCRIPT_PART_RULE })
     .optional()
     .describe(
       'plan (the default): the concept, the chosen hook and the beat sheet. draft: the draft as well. ' +
@@ -335,6 +370,8 @@ export const getHooksArgs = z.object(getHooksShape);
 export const getTranscriptArgs = z.object(getTranscriptShape);
 export const viewVideoFramesArgs = z.object(viewVideoFramesShape);
 export const getVideoStudyArgs = z.object(getVideoStudyShape);
+export const getTranscriptPaceArgs = z.object(getTranscriptPaceShape);
+export const getBreakdownPartArgs = z.object(getBreakdownPartShape);
 export const getChannelBrandArgs = z.object(getChannelBrandShape);
 export const getVideoDetailsArgs = z.object(getVideoDetailsShape);
 export const getNearMissesArgs = z.object(getNearMissesShape);
@@ -355,6 +392,8 @@ export type GetHooksArgs = z.input<typeof getHooksArgs>;
 export type GetTranscriptArgs = z.input<typeof getTranscriptArgs>;
 export type ViewVideoFramesArgs = z.input<typeof viewVideoFramesArgs>;
 export type GetVideoStudyArgs = z.input<typeof getVideoStudyArgs>;
+export type GetTranscriptPaceArgs = z.input<typeof getTranscriptPaceArgs>;
+export type GetBreakdownPartArgs = z.input<typeof getBreakdownPartArgs>;
 export type GetChannelBrandArgs = z.input<typeof getChannelBrandArgs>;
 export type GetVideoDetailsArgs = z.input<typeof getVideoDetailsArgs>;
 export type GetNearMissesArgs = z.input<typeof getNearMissesArgs>;

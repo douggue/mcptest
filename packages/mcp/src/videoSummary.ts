@@ -10,7 +10,7 @@ export interface BoardSummaryOptions {
 }
 
 export interface ChannelVideosOptions {
-  readonly order: 'strongest' | 'newest';
+  readonly order: 'strongest' | 'newest' | 'views';
   readonly limit: number;
 }
 
@@ -85,7 +85,11 @@ export function summarizeChannelVideos(
 ): Record<string, unknown> {
   const { channel, videos } = found;
   const ordered =
-    options.order === 'newest' ? [...videos].sort((a, b) => a.ageDays - b.ageDays) : videos;
+    options.order === 'newest'
+      ? [...videos].sort((a, b) => a.ageDays - b.ageDays)
+      : options.order === 'views'
+        ? [...videos].sort((a, b) => b.views - a.views || a.id.localeCompare(b.id))
+        : videos;
   const { shown, more } = capped(ordered, options.limit);
   return {
     channel: withoutAbsent({

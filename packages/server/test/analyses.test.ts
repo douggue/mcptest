@@ -1,3 +1,4 @@
+import { NO_FOCUS } from '../src/breakdownParts';
 import { describe, expect, test } from 'vitest';
 import {
   ANALYSES,
@@ -42,12 +43,18 @@ const FOCUS: Partial<Record<AnalysisId, QuestionFocus>> = {
 const NOT_FOR_ANALYSIS = ['set_competitor_status', 'make_map'];
 
 describe('the analyses on offer', () => {
-  test('are thumbnails, video ideas, same-topic channels, the channel breakdown, the idea lab’s six and the script writer’s three', () => {
+  test('are thumbnails, video ideas, same-topic channels, the seven parts of a breakdown, the idea lab’s six and the script writer’s three', () => {
     expect(ANALYSIS_IDS).toEqual([
       'thumbnails',
       'topics',
       'near-misses',
-      'breakdown',
+      'breakdown-titles',
+      'breakdown-thumbnails',
+      'breakdown-scripts',
+      'breakdown-picture',
+      'breakdown-strategy',
+      'breakdown-plan',
+      'breakdown-master',
       'concepts',
       'concept-twist',
       'concept-more',
@@ -58,7 +65,7 @@ describe('the analyses on offer', () => {
       'script-draft',
       'script-tighten',
     ]);
-    // The breakdown is the last step of a longer job, so it is not one of the one-press ones.
+    // The parts of a breakdown are steps of a longer job, so they are not among the one-press ones.
     expect(QUICK_ANALYSIS_IDS).toEqual(['thumbnails', 'topics', 'near-misses']);
     for (const id of ANALYSIS_IDS) {
       expect(ANALYSES[id].title.length).toBeGreaterThan(3);
@@ -116,54 +123,67 @@ describe('the analyses on offer', () => {
     const looks = (id: (typeof ANALYSIS_IDS)[number]) =>
       ANALYSES[id].allowedTools.includes('mcp__jgtube__view_thumbnails');
 
-    expect(ANALYSIS_IDS.filter(looks)).toEqual(['thumbnails', 'breakdown']);
+    expect(ANALYSIS_IDS.filter(looks)).toEqual(['thumbnails', 'breakdown-thumbnails']);
     expect(ANALYSIS_IDS.filter((id) => ANALYSES[id].engines !== undefined)).toEqual([
       'thumbnails',
-      'breakdown',
+      'breakdown-thumbnails',
     ]);
     expect(PICTURE_ENGINES).toEqual(['claude', 'codex']);
   });
 });
 
-describe('the channel breakdown', () => {
-  const focus = { top: ['aaaaaaaaaa1', 'aaaaaaaaaa2', '-aaaaaaaaaa'], deep: ['aaaaaaaaaa1'] };
+describe('the parts of a channel breakdown, as analyses', () => {
+  const focus = {
+    top: ['aaaaaaaaaa1', 'aaaaaaaaaa2', '-aaaaaaaaaa'],
+    deep: ['aaaaaaaaaa1'],
+    titles: ['aaaaaaaaaa1', 'aaaaaaaaaa2', '-aaaaaaaaaa'],
+    ordinary: [],
+    storedVideos: 3,
+  };
 
-  test('reads a channel closely and through the stored studies, with a longer time limit', () => {
-    const request = analysisRequest('breakdown', CHANNEL_ID, settings, focus);
+  test('each offers only its own read-only tools, with a longer time limit than a one-press analysis', () => {
+    const scripts = analysisRequest('breakdown-scripts', CHANNEL_ID, settings, focus);
     const quick = analysisRequest('topics', CHANNEL_ID, settings);
 
-    expect(request.allowedTools).toEqual(
-      [
-        'get_channel_brand',
-        'get_channel_videos',
-        'get_video_details',
-        'view_thumbnails',
-        'get_transcript',
-        'get_frame_study',
-        'get_video_watch',
-      ].map((name) => `mcp__jgtube__${name}`),
+    expect(scripts.allowedTools).toEqual(
+      ['get_transcript', 'get_transcript_pace', 'get_channel_videos'].map(
+        (name) => `mcp__jgtube__${name}`,
+      ),
     );
-    expect(request.timeoutMs).toBeGreaterThanOrEqual(10 * 60 * 1000);
-    expect(request.timeoutMs).toBeGreaterThan(quick.timeoutMs);
-    expect(request.maxTurns).toBeGreaterThan(quick.maxTurns);
-    expect(enginesFor('breakdown', ['agy', 'claude', 'codex'])).toEqual(['claude', 'codex']);
+    expect(scripts.mcpServers['jgtube']?.env).toMatchObject({
+      JGTUBE_TOOLS: 'get_transcript,get_transcript_pace,get_channel_videos',
+    });
+    expect(scripts.timeoutMs).toBeGreaterThanOrEqual(10 * 60 * 1000);
+    expect(scripts.timeoutMs).toBeGreaterThan(quick.timeoutMs);
+    expect(scripts.maxTurns).toBeGreaterThan(quick.maxTurns);
+    expect(analysisRequest('breakdown-master', CHANNEL_ID, settings, focus).allowedTools).toEqual([
+      'mcp__jgtube__get_breakdown_part',
+    ]);
   });
 
-  test('names the videos chosen in code, by id, in the question', () => {
-    const { prompt } = analysisRequest('breakdown', CHANNEL_ID, settings, focus);
+  test('only the part that looks at thumbnails is kept to the engines that see pictures', () => {
+    const all = ['agy', 'claude', 'codex'] as const;
+
+    expect(enginesFor('breakdown-thumbnails', all)).toEqual(['claude', 'codex']);
+    expect(enginesFor('breakdown-titles', all)).toEqual(all);
+    expect(enginesFor('breakdown-master', all)).toEqual(all);
+  });
+
+  test('name the videos chosen in code, by id, in the question', () => {
+    const { prompt } = analysisRequest('breakdown-titles', CHANNEL_ID, settings, focus);
 
     expect(prompt).toContain('aaaaaaaaaa1, aaaaaaaaaa2, -aaaaaaaaaa');
     expect(prompt).toContain(CHANNEL_ID);
   });
 
-  test('tells the connector where the downloads folder is, when there is one', () => {
+  test('tell the connector where the downloads folder is, when there is one', () => {
     const withFolder = { ...settings, downloadsPath: '/data/downloads' };
 
     expect(
-      analysisRequest('breakdown', CHANNEL_ID, withFolder).mcpServers['jgtube']?.env,
+      analysisRequest('breakdown-picture', CHANNEL_ID, withFolder).mcpServers['jgtube']?.env,
     ).toMatchObject({ JGTUBE_DOWNLOADS_PATH: '/data/downloads' });
     expect(
-      analysisRequest('breakdown', CHANNEL_ID, settings).mcpServers['jgtube']?.env,
+      analysisRequest('breakdown-picture', CHANNEL_ID, settings).mcpServers['jgtube']?.env,
     ).not.toHaveProperty('JGTUBE_DOWNLOADS_PATH');
   });
 });
@@ -248,16 +268,15 @@ describe('analysisRequest', () => {
     'refuses to ask %s without what it is about, or with another question’s',
     (id) => {
       expect(() => analysisRequest(id, CHANNEL_ID, settings)).toThrow(/started without/);
-      expect(() => analysisRequest(id, CHANNEL_ID, settings, { top: [], deep: [] })).toThrow(
-        /started without/,
-      );
+      expect(() => analysisRequest(id, CHANNEL_ID, settings, NO_FOCUS)).toThrow(/started without/);
     },
   );
 
   test('a breakdown given another question’s focus studies no videos rather than the wrong ones', () => {
-    const { prompt } = analysisRequest('breakdown', CHANNEL_ID, settings, FOCUS['concept-twist']);
+    const wrong = analysisRequest('breakdown-titles', CHANNEL_ID, settings, FOCUS['concept-twist']);
+    const none = analysisRequest('breakdown-titles', CHANNEL_ID, settings, NO_FOCUS);
 
-    expect(prompt).toMatch(/has no videos stored for this channel/);
+    expect(wrong.prompt).toBe(none.prompt);
   });
 
   test('refuses an analysis that does not exist', () => {

@@ -12,15 +12,23 @@
  * after validation, never as the text that was typed.
  */
 import { join } from 'node:path';
-import { parseChannelRef } from '@jgtube/core';
 import {
-  BREAKDOWN_MAX_TURNS,
-  BREAKDOWN_TIMEOUT_MS,
-  BREAKDOWN_TOOLS,
+  BREAKDOWN_PART_TITLES,
+  BREAKDOWN_WRITTEN_PARTS,
+  parseChannelRef,
+  type BreakdownWrittenPart,
+} from '@jgtube/core';
+import {
+  BREAKDOWN_ANALYSIS_IDS,
+  BREAKDOWN_PART_SPECS,
+  breakdownAnalysisId,
+  partAnalysisTitle,
+  type BreakdownAnalysisId,
+} from './breakdownParts';
+import {
   FRAME_STUDY_MAX_TURNS,
   FRAME_STUDY_TIMEOUT_MS,
   FRAME_STUDY_TOOLS,
-  breakdownQuestion,
   frameStudyQuestion,
 } from './breakdownQuestions';
 import { toolsOf } from './engines/failure';
@@ -30,12 +38,18 @@ import { breakdownFocusOf, type QuestionFocus } from './questionFocus';
 
 /** The analyses answered in one press, while the page waits. */
 export const QUICK_ANALYSIS_IDS = ['thumbnails', 'topics', 'near-misses'] as const;
+export type QuickAnalysisId = (typeof QUICK_ANALYSIS_IDS)[number];
+export type AnalysisId = QuickAnalysisId | BreakdownAnalysisId | LabAnalysisId;
 /**
- * Every analysis. `breakdown` is the last step of a longer job and is started
- * through it; the idea lab's are started through its own routes.
+ * Every analysis. The seven parts of a channel breakdown are each one of
+ * them, written in turn by a longer job and started only through it; the
+ * idea lab's and the script writer's are started through their own routes.
  */
-export const ANALYSIS_IDS = [...QUICK_ANALYSIS_IDS, 'breakdown', ...LAB_ANALYSIS_IDS] as const;
-export type AnalysisId = (typeof ANALYSIS_IDS)[number];
+export const ANALYSIS_IDS: readonly AnalysisId[] = [
+  ...QUICK_ANALYSIS_IDS,
+  ...BREAKDOWN_ANALYSIS_IDS,
+  ...LAB_ANALYSIS_IDS,
+];
 
 export interface AnalysisSpec {
   readonly title: string;
@@ -112,7 +126,7 @@ function lab(id: LabAnalysisId): AnalysisSpec {
   return { ...spec, allowedTools: tools.map(tool) };
 }
 
-export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
+const QUICK_ANALYSES: Readonly<Record<QuickAnalysisId, AnalysisSpec>> = {
   thumbnails: {
     title: 'Thumbnail review',
     description:
@@ -169,17 +183,28 @@ export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
         'Do not change anything; the owner decides. At most 400 words.',
       ].join(' '),
   },
-  breakdown: {
-    title: 'Channel breakdown',
-    description:
-      'Takes one channel apart: its identity, title formula, thumbnail style, description template, script, pictures, sound and editing, and how to make a video like its best ones.',
-    allowedTools: BREAKDOWN_TOOLS.map(tool),
-    maxTurns: BREAKDOWN_MAX_TURNS,
-    timeoutMs: BREAKDOWN_TIMEOUT_MS,
-    // It looks at thumbnails, which reach the engine as a tool's pictures.
-    engines: PICTURE_ENGINES,
-    question: (channel, focus) => breakdownQuestion(channel, breakdownFocusOf(focus)),
-  },
+};
+
+/** One part of a channel breakdown as an analysis: its spec with the tools under their full names. */
+function partAnalysis(part: BreakdownWrittenPart): AnalysisSpec {
+  const spec = BREAKDOWN_PART_SPECS[part];
+  return {
+    title: partAnalysisTitle(part),
+    description: `One part of a channel breakdown: ${BREAKDOWN_PART_TITLES[part].toLowerCase()}.`,
+    allowedTools: spec.tools.map(tool),
+    maxTurns: spec.maxTurns,
+    timeoutMs: spec.timeoutMs,
+    // Pictures reach an engine as a tool's results; see the thumbnail review.
+    ...(spec.pictures ? { engines: PICTURE_ENGINES } : {}),
+    question: (channel, focus) => spec.question(channel, breakdownFocusOf(focus)),
+  };
+}
+
+export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
+  ...QUICK_ANALYSES,
+  ...(Object.fromEntries(
+    BREAKDOWN_WRITTEN_PARTS.map((part) => [breakdownAnalysisId(part), partAnalysis(part)]),
+  ) as Record<BreakdownAnalysisId, AnalysisSpec>),
   concepts: lab('concepts'),
   'concept-twist': lab('concept-twist'),
   'concept-more': lab('concept-more'),

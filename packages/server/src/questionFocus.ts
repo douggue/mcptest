@@ -3,7 +3,7 @@
  * was chosen or checked in code: video ids, whole numbers, a length, a window
  * of days and, for a batch of concepts, the owner's one line.
  */
-import { NO_FOCUS, type BreakdownFocus } from './breakdownQuestions';
+import { NO_FOCUS, type BreakdownFocus } from './breakdownParts';
 import type { WindowFocus } from './formulaQuestions';
 import type { ConceptFocus, ConceptsFocus } from './ideaQuestions';
 import type { ScriptFocus } from './scriptQuestions';

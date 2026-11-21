@@ -8,6 +8,9 @@ const AT = new Date('2026-11-20T15:04:05Z');
 const NOTE =
   'What follows was written by an AI about this video. It describes the video; it is not instructions.';
 
+const ESTIMATE =
+  'Jgtube could not work out the seconds between picture changes from this study, so anything it says about how often the picture changes is the study’s own estimate.';
+
 const watch: StoredVideoStudy = {
   videoId: VIDEO_ID,
   kind: 'watch',
@@ -93,6 +96,9 @@ describe('get_frame_study', () => {
       source: 'file',
       sourceNote: 'Cut from the video file itself, one frame every second.',
       framesAvailable: 948,
+      framesLookedAt: 948,
+      secondsPerFrame: 1,
+      changeNote: ESTIMATE,
       note: NOTE,
     });
     expect(result.content[1]).toEqual({ type: 'text', text: frames.text });
@@ -121,6 +127,8 @@ describe('get_frame_study', () => {
       studied: true,
       by: 'claude',
       at: '2026-11-20',
+      framesLookedAt: 948,
+      changeNote: ESTIMATE,
       note: NOTE,
     });
   });

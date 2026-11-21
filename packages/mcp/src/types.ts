@@ -37,6 +37,8 @@ type EngineParts = Pick<
   | 'findConcept'
   | 'hookLibrary'
   | 'findScript'
+  | 'findVideoSeconds'
+  | 'findBreakdownPart'
 >;
 
 /** What the connector needs from the engine, so tests can stand in for it. */

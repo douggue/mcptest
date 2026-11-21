@@ -7,6 +7,7 @@ import { getNearMisses, listNiches, setCompetitorStatus } from './ownerTools';
 import { getBreakouts, getChannelVideos, getMap, getThumbnailBoard } from './readTools';
 import { failureResult } from './results';
 import type {
+  GetBreakdownPartArgs,
   GetBreakoutsArgs,
   GetChannelBrandArgs,
   GetChannelVideosArgs,
@@ -18,6 +19,7 @@ import type {
   GetScriptArgs,
   GetThumbnailBoardArgs,
   GetTranscriptArgs,
+  GetTranscriptPaceArgs,
   GetVideoDetailsArgs,
   GetVideoStudyArgs,
   ListNichesArgs,
@@ -28,11 +30,17 @@ import type {
   ViewVideoFramesArgs,
 } from './schemas';
 import { getScript } from './scriptTool';
-import { getFrameStudy, getVideoWatch } from './studyTools';
+import { getBreakdownPart, getFrameStudy, getVideoWatch } from './studyTools';
 import { viewThumbnails } from './thumbnailTool';
 import { listTransferOpportunities } from './transferTool';
 import type { ConnectorEngine, ToolContext } from './types';
-import { getChannelBrand, getTranscript, getVideoDetails, viewVideoFrames } from './videoTools';
+import {
+  getChannelBrand,
+  getTranscript,
+  getTranscriptPace,
+  getVideoDetails,
+  viewVideoFrames,
+} from './videoTools';
 
 export interface ToolDeps {
   readonly engine: ConnectorEngine;
@@ -63,6 +71,8 @@ export interface ToolHandlers {
   getConcept(args: GetConceptArgs): Promise<CallToolResult>;
   getHooks(args: GetHooksArgs): Promise<CallToolResult>;
   getScript(args: GetScriptArgs): Promise<CallToolResult>;
+  getTranscriptPace(args: GetTranscriptPaceArgs): Promise<CallToolResult>;
+  getBreakdownPart(args: GetBreakdownPartArgs): Promise<CallToolResult>;
 }
 
 /** The default place for diagnostics. */
@@ -117,5 +127,8 @@ export function createToolHandlers(deps: ToolDeps): ToolHandlers {
     getConcept: (args) => guarded('get_concept', () => getConcept(engine, args)),
     getHooks: (args) => guarded('get_hooks', () => getHooks(engine, args)),
     getScript: (args) => guarded('get_script', () => getScript(engine, args)),
+    getTranscriptPace: (args) =>
+      guarded('get_transcript_pace', () => getTranscriptPace(engine, args)),
+    getBreakdownPart: (args) => guarded('get_breakdown_part', () => getBreakdownPart(engine, args)),
   };
 }

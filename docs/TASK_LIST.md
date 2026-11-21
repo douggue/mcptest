@@ -172,7 +172,7 @@ Phase 7 needs 5.
 
 ## Channel breakdown
 
-- [x] `breakdown` analysis and `POST /api/breakdowns {channel, engine?, fresh?}` as a job with progress in plain words; one breakdown or analysis at a time
+- [x] `POST /api/breakdowns {channel, engine?, fresh?}` as a job with progress in plain words; one breakdown or analysis at a time
 - [x] The videos chosen in code by one rule for every channel: the top five by score (`BREAKDOWN_TOP_VIDEOS`), the best three in depth (`BREAKDOWN_DEEP_VIDEOS`)
 - [x] Per deep video: a file (the owner's own, then yt-dlp, then the built-in route; one download used for everything, removed afterwards), a watch (Antigravity, then the Gemini API), a frame study in a run of its own
 - [x] Frames cut from the file with ffmpeg: one a second, 5 by 5 at 288 by 162, with an index; YouTube's preview frames when there is no file or no ffmpeg
@@ -186,7 +186,18 @@ Phase 7 needs 5.
 - [ ] A real video watched by Antigravity or the Gemini API through the breakdown (neither was available; tested with stand-ins)
 - [ ] The frame study's limits checked on a real twenty-minute video from a file (about fifty sheets; measured only on preview sheets and on a test pattern)
 - [ ] A check that a file the owner gives is the right video (its length against the stored one); today the writing engine is the only thing that notices
-- [ ] The breakdown's text kept after the page is closed (the studies are kept, the written breakdown is not)
+- [x] The breakdown kept after the page is closed: `breakdown_parts` (migration 13), `GET /api/breakdowns?channel=`, shown when the channel is picked, with "Run again"
+- [x] The breakdown in seven parts, each its own fixed question, tools and engine run (`breakdown-titles` … `breakdown-master`): titles, thumbnails, scripts, picture and sound, strengths weaknesses and strategy, production plan, master prompt
+- [x] At least 20 titles studied from the most viewed to the least, chosen in code (`BREAKDOWN_TITLES`), cut into a high and a low group by place in the ranking
+- [x] What the breakdown rests on worked out in code and stored as the first part; a stored part kept while that is unchanged, written again when it changes or when a part it reads was
+- [x] `get_breakdown_part`: a later part reads an earlier one as a tool result only; a test that no part's text, study, title or channel name is ever in a question
+- [x] `get_transcript_pace` (words per minute per minute or per beat, counted in code) and the seconds between picture changes worked out from a frame study's closing counts
+- [x] A part that fails is recorded with its reason and the rest are still written; "Write the missing parts"
+- [x] Four text files per breakdown in `downloads/breakdowns/<channel name>/` with an index; a prompt lifted out only between its two marker lines, never guessed; `GET /api/breakdowns/texts/<name>`; "Copy" and "Download .txt" on the page
+- [x] Run for real with Claude Code on a copy of a real store: every part written, the files saved, the page checked at 1440 and 390 wide
+- [ ] The parts written by Antigravity or Codex for real (tested with stand-ins only)
+- [ ] A breakdown with watch notes run for real, so the sound and music in the plan and the master prompt come from a watched video (the NOT WATCHED path is what was run)
+- [ ] A way to have one part written again without the others (today: all of them, or the missing ones)
 
 ## Idea lab
 

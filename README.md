@@ -136,6 +136,9 @@ compiler:
   in their own words, an AI that writes ten video ideas from videos you pick,
   and a script for one of them in three steps. See
   [Idea lab, trending formats and the hook library](#idea-lab-trending-formats-and-the-hook-library).
+  takes one channel apart in seven parts, down to a production plan, a thumbnail
+  prompt and a master prompt saved as text files. Under each answer it says
+  which AI gave it. See below for what it needs.
 - **Niche transfer opportunities**: ideas that took off for another country and
   are untried or weak for yours. Press **Save** on one and it moves to **Saved**
   and leaves the other views; unsave it to bring it back.
@@ -232,31 +235,91 @@ each program can be held to that differs:
 
 ### Channel breakdown
 
-The fourth card in Ask AI takes one channel apart so that you could make a video
-like its best ones. Pick a channel in the list (the channel you want to be like,
-your own, or any look-alike on the map) and press **Break down this channel**.
-The same button is in the panel that opens when you click a channel on the radar.
+The fourth card in Ask AI takes one channel apart, in detail, so that you could
+make videos like its best ones and beat it. Pick a channel in the list (the
+channel you want to be like, your own, any look-alike on the map, another
+channel you saved, or one from the niche lists) and press **Break down this
+channel**. The same button is in the panel that opens when you click a channel
+on the radar, and on each niche card.
 
-**What you get.** Nine sections, each saying which videos it rests on:
+**What you get.** Seven parts, written one after another, each saying which
+videos and which numbers it rests on:
 
-- **What this rests on**: how many videos were studied, and how each was studied.
-- **Channel identity**: logo, cover, bio, keywords and links.
-- **Title formula**: the patterns in the best titles as fill-in templates, next
-  to ordinary titles that used the same pattern and did not take off.
-- **Thumbnail style**: what the best thumbnails look like against ordinary ones.
-- **Description template**: how the descriptions are built.
-- **Script**: the opening 30 seconds quoted, the structure with times, the length
-  and the pace in words per minute (counted by Jgtube from the captions).
-- **Picture, frame by frame**: the kind of pictures, how often the picture
-  changes, the words on screen.
-- **Sound and editing**: voice, music, sound effects, cuts and transitions.
-- **How to make one like it**: a checklist that follows from the rest.
+1. **Titles.** At least 20 of the channel's titles, from the most viewed to the
+   least, each with its views and score. What the high ones share and the low
+   ones lack, counted: length, opening words, numbers, names, emotional words.
+   The formulas as fill-in templates, where the channel's own formula failed,
+   and **better formulas for you**, each argued from that ranking, with what to
+   avoid.
+2. **Thumbnails.** Each top thumbnail described in detail next to ordinary
+   ones: layout, colours, faces, the words and their size. What repeats, what
+   differs, what you should improve, and a **thumbnail prompt** you can paste
+   into an image generator, with a slot for the subject and a slot for the
+   words.
+3. **Scripts.** For each of the three best videos: the first minute quoted and
+   explained (what it promises, what question it opens), a beat sheet with
+   times, the pace in words per minute overall and for each beat, where tension
+   is raised and paid off, sentence style, recurring phrases, calls to action
+   and the ending. Then what the three share.
+4. **Picture and sound.** The kinds of shot and how often the picture changes,
+   from the frame studies. Sound, music and transitions only if a video was
+   watched; otherwise it says NOT WATCHED.
+5. **Strengths, weaknesses and strategy.** What the channel does well and badly,
+   each resting on named videos and numbers, and a strategy to beat it: what to
+   copy, what to do better, where it is weak or absent.
+6. **Production plan.** How the channel appears to make its videos (marked as a
+   guess from the evidence), then a step-by-step plan for one video: research
+   and fact-checking, title, thumbnail, script, voice, pictures, sound and
+   music, edit, publish, with the numbers to hit (length, words, pace, picture
+   changes). For each step it says how to do it with AI, naming the kind of tool
+   (a voice generator, an image generator, an image-to-video tool, a stock
+   library, an editor; a product name is only ever an example you can swap), or
+   by hand where that is better, with ready prompts.
+7. **Master prompt.** One prompt you can give to any AI to write a video in this
+   channel's style with the improvements built in. It tells that AI to mark
+   every fact it did not get from you as `[CHECK: ...]`.
+
+Before the seven parts there is **What this rests on**: which videos were
+studied and how, worked out by Jgtube itself, with no AI.
+
+**Check the facts yourself.** An AI wrote these parts from titles, captions and
+pictures. Captions made by YouTube mishear names and numbers, and an AI can
+state things that are not true. Before you publish, check every name, number,
+date and claim against a real source; that is what `[CHECK: ...]` in the master
+prompt is for. Read YouTube's own rules on reused content, misleading titles
+and thumbnails, and labelling AI-made content: Jgtube has not checked your
+video against them and cannot.
+
+**The four text files.** When a breakdown finishes, Jgtube saves four plain
+text files you can open in Notepad, in `downloads/breakdowns/<channel name>/`
+(the page shows the full path):
+
+- `breakdown.txt`: the whole breakdown, every part in order.
+- `production-plan.txt`: the production plan.
+- `thumbnail-prompt.txt`: only the thumbnail prompt, ready to paste.
+- `master-prompt.txt`: only the master prompt, ready to paste.
+
+On the page, the production plan, the thumbnail prompt and the master prompt
+each have a **Copy** button and a **Download .txt** button. If the AI did not
+mark a prompt the way Jgtube asked, Jgtube saves no file for it and says so; it
+never guesses where a prompt begins and ends.
+
+**It is kept.** A finished breakdown is stored. Pick the channel again, today
+or next month, and it is shown at once with the day it was written, each part
+as a section you open. **Run again** studies the videos and writes everything
+again. If a part could not be written, **Write the missing parts** writes only
+those. Pressing **Break down this channel** again when nothing about the
+channel has changed starts no AI and shows what is stored; after a refresh has
+brought new numbers, or after you gave Jgtube a video file, it writes the parts
+again from the studies it kept.
 
 **What it studies.** Always the same, whatever the channel:
 
-- The channel's **five videos furthest above its usual views**: their titles,
-  thumbnails, descriptions and transcripts. A channel with fewer has all of them
-  studied, and the breakdown says how many that was.
+- The channel's **titles**: the 20 most viewed and, when it has more, up to 20
+  of the least viewed. A channel with fewer than 20 stored has all of them
+  studied, and the breakdown says so.
+- The channel's **five videos furthest above its usual views**: their
+  thumbnails, descriptions and transcripts, next to up to five ordinary videos.
 - The **three best of those in depth**. For each one Jgtube looks for the video
   as a file, in this order: a file you gave it, then yt-dlp, then its own
   built-in download. With a file, Antigravity watches it with sound, and ffmpeg
@@ -265,16 +328,19 @@ The same button is in the panel that opens when you click a channel on the radar
   that one copy for both, and deletes it afterwards. A file you gave is never
   deleted.
 
-**It is slow.** A breakdown is a job, not a quick answer: the page shows which
-video it is on and what it is doing. Where this was tried, with no video file
-and nothing to watch with, it took five and a half minutes: about a minute and a half for each of the three frame studies and for the writing. Watching three videos adds up
-to 12 minutes each, so half an hour or more is normal. Keep the page open. Only
-one breakdown or other Ask AI question runs at a time.
+**It is slow.** A breakdown is a job, not a quick answer: the page shows what
+it is doing ("Writing part 3 of 7: the scripts"). Where this was tried, with no video file and nothing to watch with, a whole breakdown took twelve and a half minutes: about a minute and a half for each of the three frame studies, then between 40 seconds and two minutes for each of the seven parts. Watching
+three videos adds up to 12 minutes each, so half an hour or more is normal.
+Keep the page open. Only one breakdown or other Ask AI question runs at a time.
+Each part is a run of your AI plan, so a breakdown uses about as much of your
+plan's allowance as ten long questions.
 
 **What it needs.**
 
-- Claude Code or Codex, because the breakdown looks at pictures. Antigravity
-  alone cannot write it.
+- Claude Code or Codex for the thumbnail part and the frame studies, because
+  they look at pictures. Antigravity can write the other six parts; if you
+  choose Antigravity alone on the switch, the breakdown says that the thumbnail
+  part was not written and why.
 - For the deepest breakdown, two free programs: **yt-dlp** (downloads the video)
   and **ffmpeg** (cuts the frames). On Windows: `winget install yt-dlp.yt-dlp`
   and `winget install Gyan.FFmpeg`. On a Mac with Homebrew:
@@ -290,10 +356,16 @@ plainly what it could not do:
   study **YouTube's own preview frames** instead. These are the small pictures
   you see when you drag along a video's timeline, one every few seconds. The
   breakdown says so, and says how many frames were looked at out of how many
-  there were. It never claims to have seen every frame of the video.
-- Nothing can watch (no Antigravity and no Gemini key): the **Sound and editing**
-  section says NOT WATCHED and that the sound, music and transitions are
-  unknown. It does not guess them from the transcript or the pictures.
+  there were. It never claims to have seen every frame of the video. How often
+  the picture changes is then "at most every so many seconds": a change quicker
+  than the frames are apart cannot be seen.
+- Nothing can watch (no Antigravity and no Gemini key): the picture and sound
+  part says NOT WATCHED and that the sound, music and transitions are unknown,
+  and the production plan and the master prompt say the same. Nothing guesses
+  them from the transcript or the pictures.
+- One part cannot be written (the AI hit its plan limit, or took too long): the
+  other parts are still written, the page says which part is missing and why,
+  and **Write the missing parts** tries again later.
 - A video longer than about 19 minutes 47 seconds is not downloaded: its smallest
   copy would be over the 95 MB that can be handed to an engine.
 
@@ -315,11 +387,10 @@ installed, Jgtube makes a smaller copy for Antigravity to watch (360 lines high,
 sized from the video's length to fit) and deletes that copy afterwards; the
 frames are still cut from your original.
 
-**Results are kept.** What an engine wrote about a video (its watch notes and
-its frame study) is stored, as are the transcripts. A second press for the same
-channel reuses them and only writes the breakdown again, which takes a minute or
-two. A frame study made from preview frames is made again once the video's file
-can be had. Tick **Start again from nothing** to have everything made afresh.
+**What is reused.** What an engine wrote about a video (its watch notes and its
+frame study) is stored, as are the transcripts and the seven parts. A frame
+study made from preview frames is made again once the video's file can be had.
+Tick **Start again from nothing** to have everything made afresh.
 
 **Watching a whole video.** Two engines can watch a video, picture and sound:
 
@@ -550,6 +621,11 @@ folder beside the store file, or the folder you name in `JGTUBE_DOWNLOADS_PATH`.
   one text file per video named by its video id, with the time marked every half
   minute, and an `index.json`. Up to six per channel: its videos that took off.
   They stay until you delete them.
+- **A channel breakdown's text files**: `downloads/breakdowns/<channel name>/`,
+  four plain text files (`breakdown.txt`, `production-plan.txt`,
+  `thumbnail-prompt.txt`, `master-prompt.txt`) and an `index.json` saying which
+  channel they belong to. They are written again each time a breakdown of that
+  channel finishes, and stay until you delete them.
 - **Your own video files**, for a channel breakdown: `downloads/my-videos/`. Jgtube
   only reads them and never deletes them.
 - **A temporary copy of a video**, when a whole video is to be watched or its

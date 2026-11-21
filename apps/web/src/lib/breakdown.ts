@@ -1,4 +1,5 @@
-import type { AnyEngineId, EngineId, SkippedEngine } from './analyses';
+import type { AnyEngineId } from './analyses';
+import type { BreakdownView, PartRun } from './breakdownParts';
 
 /**
  * A channel breakdown as the page reads it: the job's steps while it runs,
@@ -47,6 +48,9 @@ export interface TopVideo {
   readonly videoId: string;
   readonly title: string;
   readonly captions: 'read' | 'none' | 'failed';
+  /** The words its captions hold, counted by the server; null without captions. */
+  readonly words: number | null;
+  readonly wordsPerMinute: number | null;
 }
 
 export interface BreakdownOutcome {
@@ -57,9 +61,14 @@ export interface BreakdownOutcome {
   readonly supply: readonly VideoToSupply[];
   /** The folder the owner's own files go in; null when there is nowhere to save. */
   readonly ownVideosFolder: string | null;
-  readonly text: string;
-  readonly engine: EngineId | null;
-  readonly skipped: readonly SkippedEngine[];
+  /** How many titles the title study rests on. */
+  readonly titles: number;
+  /** How writing each part went in this run. */
+  readonly parts: readonly PartRun[];
+  /** The breakdown as it is now stored. */
+  readonly breakdown: BreakdownView;
+  /** Why the text files could not be saved; null when they were. */
+  readonly notSaved: string | null;
 }
 
 export interface BreakdownJobState {
@@ -90,7 +99,7 @@ export interface TranscriptsSaved {
 
 /** Said beside the button, before it is pressed: a breakdown is not a quick answer. */
 export const SLOW_NOTE =
-  'This is slow. It studies the channel’s top five videos, three of them in depth, and can take half an hour or more. Keep this page open.';
+  'This is slow. It studies the titles and the top five videos, three of them in depth, then writes the seven parts, and can take half an hour or more. Keep this page open.';
 
 /** Where a channel offered for a breakdown comes from; the list is set out under these. */
 export const CHOICE_GROUPS = [
@@ -193,18 +202,21 @@ const ENGINE_NAMES: Readonly<Record<AnyEngineId, string>> = {
   'gemini-api': 'the Gemini API',
 };
 
-const nameOf = (id: string): string => (ENGINE_NAMES as Record<string, string>)[id] ?? id;
+/** An engine by the name a creator knows it by; an id nobody has named is given as it is. */
+export const engineName = (id: string): string =>
+  (ENGINE_NAMES as Record<string, string>)[id] ?? id;
+const nameOf = engineName;
 
 const plural = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? '' : 's'}`;
 
-/** What the breakdown rests on, in one line: how many videos out of how many, and their captions. */
+/** What the breakdown rests on, in one line: how many titles and videos out of how many, and their captions. */
 export function restsOn(outcome: BreakdownOutcome): string {
   const { top, deep, storedVideos } = outcome;
   if (top.length === 0) return 'Jgtube has no videos stored for this channel.';
   const silent = top.filter((video) => video.captions === 'none').length;
   const unread = top.filter((video) => video.captions === 'failed').length;
   return [
-    `Rests on the channel’s top ${plural(top.length, 'video')} out of ${storedVideos} stored, ${deep.length} of them studied in depth.`,
+    `Rests on ${plural(outcome.titles, 'title')} and the channel’s top ${plural(top.length, 'video')} out of ${storedVideos} stored, ${deep.length} of them studied in depth.`,
     ...(silent > 0
       ? [`${silent} of the ${top.length} ${silent === 1 ? 'has' : 'have'} no captions.`]
       : []),

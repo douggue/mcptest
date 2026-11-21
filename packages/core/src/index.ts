@@ -1,5 +1,5 @@
 export { loadConfig, type Config } from './config';
-export { openDatabase, type Db } from './db/sqlite';
+export { LATEST_SCHEMA_VERSION, openDatabase, type Db } from './db/sqlite';
 export { backupPathFor, backupStore } from './db/backup';
 export { ingestChannel, type IngestDeps, type IngestOptions, type IngestResult } from './ingest';
 export { buildVideoReport, type VideoReportRow } from './report';
@@ -227,10 +227,13 @@ export {
   type VideoFrames,
 } from './video/frames';
 export {
+  PACE_SLICE_SECONDS,
   TRANSCRIPT_STAMP_SECONDS,
   clock,
   formatTranscript,
   transcriptPace,
+  transcriptPaceSpans,
+  type PaceSpan,
   type TranscriptPace,
   type TranscriptText,
   type TranscriptTextOptions,
@@ -244,7 +247,7 @@ export {
   type BrandDeps,
   type BrandResult,
 } from './channel/brand';
-export { DOWNLOADS_FOLDER, downloadsRoot, pathInside } from './downloads/folder';
+export { DOWNLOADS_FOLDER, channelFolderName, downloadsRoot, pathInside } from './downloads/folder';
 export {
   THUMBNAILS_FOLDER,
   THUMBNAIL_INDEX_FILE,
@@ -290,7 +293,48 @@ export {
   videoLines,
 } from './downloads/text';
 export {
+  BREAKDOWN_BASIS_PART,
+  BREAKDOWN_PARTS,
+  BREAKDOWN_PART_TITLES,
+  BREAKDOWN_WRITTEN_PARTS,
+  PROMPT_MARKERS,
+  isBreakdownPart,
+  markerLines,
+  splitMarked,
+  type BreakdownPartId,
+  type BreakdownWrittenPart,
+  type MarkedText,
+  type PromptMarker,
+} from './breakdown/parts';
+export { MAX_PART_CHARS, SqliteBreakdownRepo } from './repos/sqliteBreakdownRepo';
+export {
+  BREAKDOWNS_FOLDER,
+  BREAKDOWN_FILES,
+  BREAKDOWN_FILE_IDS,
+  BREAKDOWN_INDEX_FILE,
+  breakdownFolder,
+  breakdownTexts,
+  saveBreakdownTexts,
+  type BreakdownFileId,
+  type BreakdownSaved,
+  type BreakdownTextFile,
+} from './downloads/breakdownTexts';
+export type {
+  BreakdownRepo,
+  FailedBreakdownPart,
+  StoredBreakdownPart,
+  WrittenBreakdownPart,
+} from './repos/types';
+export {
+  CHANGES_SEEN_LINE,
+  FRAMES_LOOKED_AT_LINE,
+  frameStudyNumbers,
+  type FrameStudyNumbers,
+} from './video/studyNumbers';
+export {
   BREAKDOWN_DEEP_VIDEOS,
+  BREAKDOWN_ORDINARY_VIDEOS,
+  BREAKDOWN_TITLES,
   BREAKDOWN_TOP_VIDEOS,
   WATCH_MAX_SECONDS,
   pickBreakdownVideos,

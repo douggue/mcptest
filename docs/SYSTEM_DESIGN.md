@@ -90,6 +90,13 @@ Channels, videos and recommendation edges are updated in place: only the latest
 reading of each is kept (`edge_crawls` records when a channel's edges were last
 read).
 
+`breakdown_parts` (migration 13) holds the parts of each channel's breakdown,
+one row per channel and part: `channel_id`, `part` (`basis`, `titles`,
+`thumbnails`, `scripts`, `picture`, `strategy`, `plan`, `master`), `engine`
+(who wrote it; `jgtube` for the part worked out in code), `notes` (the text),
+`problem` (why it could not be written, when it could not) and `written_at`. A
+new run replaces a row. Like `video_studies` it refers to no other table.
+
 ### Keeping the store safe
 
 - **Backup before upgrade.** When an existing store with data has pending
@@ -1166,28 +1173,48 @@ engine as the local API (`createEngine`) and opens the same store, so the owner'
 Claude reads what the app shows. Setup for the owner is in
 [CONNECTOR.md](CONNECTOR.md).
 
-| Tool                          | Input                                                                             | Returns                                                                                                                                                                  |
-| ----------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `get_map`                     | `channel`, `include_others?`, `limit?` (30)                                       | Latest map: centre, model channel, counts, look-alikes (id, title, subs, match, tier, rising, best breakout)                                                             |
-| `get_breakouts`               | `channel`, `lookalikes_only?` (true), `limit?` (15)                               | Recent videos far above usual, with score, views, usual, sample, hit rate, channel age, caution                                                                          |
-| `get_thumbnail_board`         | `channel`, `channels?` (8), `per_channel?` (4)                                    | Per look-alike with a winner: winners and ordinary videos (id, title, views, score); the centre's own videos                                                             |
-| `view_thumbnails`             | `video_ids` (1 to 8)                                                              | The thumbnails as image content, each under a line naming its video; a failed one is a line of text                                                                      |
-| `get_channel_videos`          | `channel`, `order?`, `limit?` (20)                                                | One stored channel's videos with scores (`buildVideoReport`)                                                                                                             |
-| `get_near_misses`             | `channel`, `limit?` (25)                                                          | Channels left out on titles alone (`outsideReason: 'titles'`, not kept or removed) with five recent titles                                                               |
-| `set_competitor_status`       | `center`, `channel`, `status` (kept, removed, auto)                               | Records the owner's choice (`setCompetitorStatus`) and says whether the channel now counts as a look-alike                                                               |
-| `list_niches`                 | `limit?` (15), `watched_only?`                                                    | New or small channels with a video that took off (`listNiches`)                                                                                                          |
-| `list_transfer_opportunities` | `channel?`, `place?`, `show?` (opportunities, formats, saved, all), `limit?` (10) | Ideas open or weak for the owner's place with up to five versions each, or the title formats (`listTransfers`)                                                           |
-| `make_map`                    | `channel`, `model?`, `depth?` (1..3), `max_channels?` (10..600)                   | Crawls a new map, then the same summary as `get_map` plus warnings                                                                                                       |
-| `get_transcript`              | `video` (id or link), `start_seconds?`, `max_chars?` (12,000; 1,000..40,000)      | A line of JSON (`lang`, `auto`, `lines`, `lastLineAt`, `cut`), then the captions as text with the time every half minute; `captions: false` when there are none          |
-| `view_video_frames`           | `video`, `sheets?` (4; 1..6), `start_sheet?` (from 1)                             | A line of JSON (`source`, `ofSheets`, `frames`; with `start_sheet` also `from`, `to` and `next.start_sheet` or `last`), then each sheet as image content                 |
-| `get_channel_brand`           | `channel`, `images?` (true)                                                       | A line of JSON (`bio`, `keywords`, `links`, `logo`, `cover`), then the logo and the cover as image content                                                               |
-| `get_video_details`           | `video_ids` (1 to 10), `description_chars?` (1,500; 200..5,000)                   | Per video: title, description, tags, `secs`, views, score; `problems` for a video that could not be read                                                                 |
-| `get_video_watch`             | `video`                                                                           | A line of JSON (`watched`, `by`, `at`), then the stored notes of an engine that watched the video; `watched: false` when nobody has                                      |
-| `get_frame_study`             | `video`                                                                           | A line of JSON (`studied`, `by`, `at`, `source`, `framesAvailable`), then the stored study of the video's frames; `studied: false` when there is none                    |
-| `get_idea_brief`              | `channel`, `batch`                                                                | What the owner chose for one batch of concepts: `picked`, `length`, `modelOpenings`, `format` (`wording`, `from`); never the angle                                       |
-| `get_concept`                 | `channel`, `concept`                                                              | A line of JSON (`concept`, `batch`, `length`, `restedOn`), then the stored concept in its labelled lines                                                                 |
-| `get_script`                  | `channel`, `concept`, `part?` (plan, draft, tightened)                            | A line of JSON (`voice`, `targetSeconds`, `targetWords`, `hookWords`, `modelHooks`, `frameStudies`), then the concept, the chosen hook, the beats and the asked-for text |
-| `get_hooks`                   | `channel`, `video_ids?` (1 to 12)                                                 | A line of JSON (`built`, `seconds`, `hooks`, `noWords`), then per hook a line of JSON (`video`, `title`, `score`, `style`, `how`) and its first-minute words             |
+| Tool                          | Input                                                                                   | Returns                                                                                                                                                                                                                                                              |
+| ----------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_map`                     | `channel`, `include_others?`, `limit?` (30)                                             | Latest map: centre, model channel, counts, look-alikes (id, title, subs, match, tier, rising, best breakout)                                                                                                                                                         |
+| `get_breakouts`               | `channel`, `lookalikes_only?` (true), `limit?` (15)                                     | Recent videos far above usual, with score, views, usual, sample, hit rate, channel age, caution                                                                                                                                                                      |
+| `get_thumbnail_board`         | `channel`, `channels?` (8), `per_channel?` (4)                                          | Per look-alike with a winner: winners and ordinary videos (id, title, views, score); the centre's own videos                                                                                                                                                         |
+| `view_thumbnails`             | `video_ids` (1 to 8)                                                                    | The thumbnails as image content, each under a line naming its video; a failed one is a line of text                                                                                                                                                                  |
+| `get_channel_videos`          | `channel`, `order?`, `limit?` (20)                                                      | One stored channel's videos with scores (`buildVideoReport`)                                                                                                                                                                                                         |
+| `get_near_misses`             | `channel`, `limit?` (25)                                                                | Channels left out on titles alone (`outsideReason: 'titles'`, not kept or removed) with five recent titles                                                                                                                                                           |
+| `set_competitor_status`       | `center`, `channel`, `status` (kept, removed, auto)                                     | Records the owner's choice (`setCompetitorStatus`) and says whether the channel now counts as a look-alike                                                                                                                                                           |
+| `list_niches`                 | `limit?` (15), `watched_only?`                                                          | New or small channels with a video that took off (`listNiches`)                                                                                                                                                                                                      |
+| `list_transfer_opportunities` | `channel?`, `place?`, `show?` (opportunities, formats, saved, all), `limit?` (10)       | Ideas open or weak for the owner's place with up to five versions each, or the title formats (`listTransfers`)                                                                                                                                                       |
+| `make_map`                    | `channel`, `model?`, `depth?` (1..3), `max_channels?` (10..600)                         | Crawls a new map, then the same summary as `get_map` plus warnings                                                                                                                                                                                                   |
+| `get_transcript`              | `video` (id or link), `start_seconds?`, `max_chars?` (12,000; 1,000..40,000)            | A line of JSON (`lang`, `auto`, `lines`, `lastLineAt`, `cut`), then the captions as text with the time every half minute; `captions: false` when there are none                                                                                                      |
+| `view_video_frames`           | `video`, `sheets?` (4; 1..6), `start_sheet?` (from 1)                                   | A line of JSON (`source`, `ofSheets`, `frames`; with `start_sheet` also `from`, `to` and `next.start_sheet` or `last`), then each sheet as image content                                                                                                             |
+| `get_channel_brand`           | `channel`, `images?` (true)                                                             | A line of JSON (`bio`, `keywords`, `links`, `logo`, `cover`), then the logo and the cover as image content                                                                                                                                                           |
+| `get_video_details`           | `video_ids` (1 to 10), `description_chars?` (1,500; 200..5,000)                         | Per video: title, description, tags, `secs`, views, score; `problems` for a video that could not be read                                                                                                                                                             |
+| `get_video_watch`             | `video`                                                                                 | A line of JSON (`watched`, `by`, `at`), then the stored notes of an engine that watched the video; `watched: false` when nobody has                                                                                                                                  |
+| `get_frame_study`             | `video`                                                                                 | A line of JSON (`studied`, `by`, `at`, `source`, `framesAvailable`), then the stored study of the video's frames; `studied: false` when there is none                                                                                                                |
+| `get_idea_brief`              | `channel`, `batch`                                                                      | What the owner chose for one batch of concepts: `picked`, `length`, `modelOpenings`, `format` (`wording`, `from`); never the angle                                                                                                                                   |
+| `get_concept`                 | `channel`, `concept`                                                                    | A line of JSON (`concept`, `batch`, `length`, `restedOn`), then the stored concept in its labelled lines                                                                                                                                                             |
+| `get_script`                  | `channel`, `concept`, `part?` (plan, draft, tightened)                                  | A line of JSON (`voice`, `targetSeconds`, `targetWords`, `hookWords`, `modelHooks`, `frameStudies`), then the concept, the chosen hook, the beats and the asked-for text                                                                                             |
+| `get_hooks`                   | `channel`, `video_ids?` (1 to 12)                                                       | A line of JSON (`built`, `seconds`, `hooks`, `noWords`), then per hook a line of JSON (`video`, `title`, `score`, `style`, `how`) and its first-minute words                                                                                                         |
+| Tool                          | Input                                                                                   | Returns                                                                                                                                                                                                                                                              |
+| ----------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_map`                     | `channel`, `include_others?`, `limit?` (30)                                             | Latest map: centre, model channel, counts, look-alikes (id, title, subs, match, tier, rising, best breakout)                                                                                                                                                         |
+| `get_breakouts`               | `channel`, `lookalikes_only?` (true), `limit?` (15)                                     | Recent videos far above usual, with score, views, usual, sample, hit rate, channel age, caution                                                                                                                                                                      |
+| `get_thumbnail_board`         | `channel`, `channels?` (8), `per_channel?` (4)                                          | Per look-alike with a winner: winners and ordinary videos (id, title, views, score); the centre's own videos                                                                                                                                                         |
+| `view_thumbnails`             | `video_ids` (1 to 8)                                                                    | The thumbnails as image content, each under a line naming its video; a failed one is a line of text                                                                                                                                                                  |
+| `get_channel_videos`          | `channel`, `order?` (strongest, newest, views), `limit?` (20)                           | One stored channel's videos with scores (`buildVideoReport`)                                                                                                                                                                                                         |
+| `get_near_misses`             | `channel`, `limit?` (25)                                                                | Channels left out on titles alone (`outsideReason: 'titles'`, not kept or removed) with five recent titles                                                                                                                                                           |
+| `set_competitor_status`       | `center`, `channel`, `status` (kept, removed, auto)                                     | Records the owner's choice (`setCompetitorStatus`) and says whether the channel now counts as a look-alike                                                                                                                                                           |
+| `list_niches`                 | `limit?` (15), `watched_only?`                                                          | New or small channels with a video that took off (`listNiches`)                                                                                                                                                                                                      |
+| `list_transfer_opportunities` | `channel?`, `place?`, `show?` (opportunities, formats, saved, all), `limit?` (10)       | Ideas open or weak for the owner's place with up to five versions each, or the title formats (`listTransfers`)                                                                                                                                                       |
+| `make_map`                    | `channel`, `model?`, `depth?` (1..3), `max_channels?` (10..600)                         | Crawls a new map, then the same summary as `get_map` plus warnings                                                                                                                                                                                                   |
+| `get_transcript`              | `video` (id or link), `start_seconds?`, `max_chars?` (12,000; 1,000..40,000)            | A line of JSON (`lang`, `auto`, `lines`, `lastLineAt`, `cut`), then the captions as text with the time every half minute; `captions: false` when there are none                                                                                                      |
+| `view_video_frames`           | `video`, `sheets?` (4; 1..6), `start_sheet?` (from 1)                                   | A line of JSON (`source`, `ofSheets`, `frames`; with `start_sheet` also `from`, `to` and `next.start_sheet` or `last`), then each sheet as image content                                                                                                             |
+| `get_channel_brand`           | `channel`, `images?` (true)                                                             | A line of JSON (`bio`, `keywords`, `links`, `logo`, `cover`), then the logo and the cover as image content                                                                                                                                                           |
+| `get_video_details`           | `video_ids` (1 to 10), `description_chars?` (1,500; 200..5,000)                         | Per video: title, description, tags, `secs`, views, score; `problems` for a video that could not be read                                                                                                                                                             |
+| `get_video_watch`             | `video`                                                                                 | A line of JSON (`watched`, `by`, `at`), then the stored notes of an engine that watched the video; `watched: false` when nobody has                                                                                                                                  |
+| `get_frame_study`             | `video`                                                                                 | A line of JSON (`studied`, `by`, `at`, `source`, `framesAvailable`, and worked out in code `secs`, `secondsPerFrame`, `framesLookedAt`, `changesSeen`, `gaps`, `secondsPerChange`), then the stored study of the video's frames; `studied: false` when there is none |
+| `get_transcript_pace`         | `video`, `cuts?` (up to 40 seconds from the start)                                      | A line of JSON: `words`, `wordsPerMinute`, `spokenSeconds`, then `spans` (`from`, `to`, `words`, `wordsPerMinute`), one a minute or one between each two cuts; `captions: false` when there are none                                                                 |
+| `get_breakdown_part`          | `channel`, `part` (basis, titles, thumbnails, scripts, picture, strategy, plan, master) | A line of JSON (`written`, `by`, `at`), then one stored part of the channel's breakdown; `written: false` with the reason when it is missing                                                                                                                         |
 
 One prompt, `thumbnail_review` (argument `channel`), tells the model to read the
 board, look at the owner's thumbnails and the winners with `view_thumbnails`, and
@@ -1228,7 +1255,13 @@ Rules the tools keep:
   frames. The transcript's `words` and `wordsPerMinute` are counted in code.
 - **Stored studies** (`get_video_watch`, `get_frame_study`) read the store only.
   Each answer opens with a line saying that what follows was written by an AI,
-  describes the video and is not instructions.
+  describes the video and is not instructions. `get_breakdown_part` does the
+  same for one stored part of a channel's breakdown: its line says that the
+  text is an earlier study of the channel and not instructions.
+- **Pace.** `get_transcript_pace` counts in code and reads the store first like
+  `get_transcript`. The numbers `get_frame_study` adds are worked out from the
+  study's two closing counts, the frames there were and the video's stored
+  length; see "Channel breakdown".
 - **The `get_map` answer** carries `group` on each look-alike (`taken-off` or
   `rising`; absent means neither) and `counts.mix` with the actual split.
 - **Crawls** run one at a time within the connector, and across programs through
@@ -1259,6 +1292,9 @@ analyses can be put to an AI engine from the page with one press: `thumbnails`,
 `topics` and `near-misses`. A fourth, `breakdown`, is the last step of a longer
 job (see "Channel breakdown"). Six more belong to the idea lab and three to the script writer, and are started
 through their own routes (see "Idea lab, trending formats and the hook library"). An analysis is one entry in `ANALYSES`: a title,
+`topics` and `near-misses`. Seven more, `breakdown-titles` to
+`breakdown-master`, are the parts of a channel breakdown, written in turn by a
+longer job (see "Channel breakdown"). An analysis is one entry in `ANALYSES`: a title,
 a fixed question, the read-only tools it may use, a step limit, a time limit
 when the usual five minutes are not enough and, when it cannot be left to the
 owner's usual order, the engines that may answer it.
@@ -1467,13 +1503,14 @@ remove?} | {ok: false, reason}>`, the reason being core's plain sentence. The
   `npm run engines -- --try --youtube <link>` asks a question only someone who
   watched could answer, so the owner can check first.
 
-### Channel breakdown (`breakdownEngine.ts`, `breakdownQuestions.ts`, `breakdownFiles.ts`, `breakdownRoutes.ts`)
+### Channel breakdown (`breakdownEngine.ts`, `breakdownStudies.ts`, `breakdownWriting.ts`, `breakdownParts.ts`, `breakdownPartQuestions.ts`, `breakdownBasis.ts`, `breakdownStore.ts`, `breakdownRoutes.ts`)
 
-Built. A fourth analysis, `breakdown`, is the last step of a longer job that
-takes one channel apart. It works for any channel: the owner's model, a
+Built. A longer job that takes one channel apart and writes the result in
+seven parts, each kept. It works for any channel: the owner's model, a
 look-alike, a channel from the niche list. Nothing in the code or the questions
 is fitted to a channel or a niche: the only things put into a question from
-outside are the channel in its fixed form and video ids, each checked first.
+outside are the channel in its fixed form, video ids, each checked first, and
+counts worked out in code.
 
 **What is chosen, in code** (`core/src/breakdown/picks.ts`):
 
@@ -1481,6 +1518,17 @@ outside are the channel in its fixed form and video ids, each checked first.
   views, best first (`buildVideoReport`; a video too new or too alone to score
   comes after the scored ones, by views). A channel with fewer has all of them.
 - `BREAKDOWN_DEEP_VIDEOS = 3`: the first three of those, studied in depth.
+- `BREAKDOWN_TITLES = 20`: the titles a title study rests on at least. The 20
+  most viewed and, of the rest, up to 20 of the least viewed, most viewed first
+  (videos with the same views in one fixed order, by id); so 21 to 40 stored
+  videos are all studied, and a channel with more has its middle left out. A
+  channel with fewer than 20 has all of them studied and the answer says that
+  the patterns rest on few titles. The ranking is cut into thirds by place, in
+  code: the first third is the HIGH group, the last third the LOW group, and the
+  question carries those two ranges as numbers.
+- `BREAKDOWN_ORDINARY_VIDEOS = 5`: videos scored at or under
+  `ORDINARY_MAX_SCORE` and at least `ORDINARY_MIN_AGE_DAYS` old, newest first,
+  none of them a top video: set beside the top ones.
 - `WATCH_MAX_SECONDS = floor(MAX_VIDEO_BYTES / WATCH_BYTES_PER_SECOND)` = 1,187
   seconds: a video longer than that is not downloaded, because its smallest
   watchable copy (YouTube's 360p file, about 80 kB a second) would be over the
@@ -1490,7 +1538,9 @@ outside are the channel in its fixed form and video ids, each checked first.
 
 1. Read the channel (stored, or read from YouTube once with its branding) and
    the captions of the top five. A video without captions is recorded as such.
-2. For each of the three deep videos, in turn:
+   A channel with no videos stored fails here with a plain sentence and starts
+   no engine.
+2. For each of the three deep videos, in turn (`breakdownStudies.ts`):
    - **A file.** The owner's own (`<downloads>/my-videos/`, a file named
      `<id>.mp4`, else any `.mp4` whose name holds the id), then one download
      (yt-dlp, then the built-in route). A file is looked for only when
@@ -1510,16 +1560,115 @@ outside are the channel in its fixed form and video ids, each checked first.
      and ffmpeg the frames are cut from the file, one a second
      (`cutFrameSheets`); otherwise they are YouTube's preview frames; with
      neither, the study is recorded as not done. The run walks every sheet in
-     order and ends with `FRAMES LOOKED AT: X of Y` and the tool's source line.
-3. The writing run: `analyse('breakdown', channel, only, { top, deep })`, with
-   `get_channel_brand`, `get_channel_videos`, `get_video_details`,
-   `view_thumbnails`, `get_transcript`, `get_frame_study` and `get_video_watch`.
+     order and ends with three lines: `FRAMES LOOKED AT: X of Y`,
+     `PICTURE CHANGES SEEN: N` and the tool's source line.
+3. **What it rests on** (`breakdownBasis.ts`): written in code, with no engine.
+   The channel, how many titles are studied and by what rule, each top video
+   with its views, score, length and what its captions come to (words and words
+   a minute, counted), the ordinary videos, and for each deep video where its
+   frames came from, how many there were, the gap between two frames, the
+   picture changes counted and what they come to, and whether it was watched.
+   It is stored as the part `basis`, written by `jgtube`.
+4. **The seven parts** (`breakdownWriting.ts`), one engine run each, in order,
+   each stored as soon as it is written:
 
-What could not be done (no file, nobody to watch, a frame study that failed)
-is recorded with a plain reason and does not fail the job. The job fails only
-when the channel cannot be read, when no engine could write, or when Jgtube is
-closing; it checks for closing between steps, and every run it starts is
-stopped by the same signal as the other engine runs.
+   | Part         | Tools                                                                             | Reads earlier parts                           | What it holds                                                                                                                                                                                                                                                                                                                                                            |
+   | ------------ | --------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+   | `titles`     | `get_channel_videos`, `get_video_details`                                         | none                                          | The titles studied, numbered with views and score; word patterns counted in the HIGH and LOW groups (length, opening words, numbers, names, emotional words, punctuation); the formulas as fill-in templates; where the formula failed; what the low ones lack; better formulas for the owner, each argued from the ranking, and what to avoid; the description template |
+   | `thumbnails` | `get_channel_brand`, `get_channel_videos`, `view_thumbnails`                      | none                                          | Channel identity; composition thumbnail by thumbnail (layout, colours, faces, words, devices) for the top and the ordinary videos; what repeats; winners against ordinary; improvements for the owner; a thumbnail prompt between marker lines, with the slots `[SUBJECT]` and `[OVERLAY TEXT]`                                                                          |
+   | `scripts`    | `get_transcript`, `get_transcript_pace`, `get_channel_videos`                     | none                                          | For each deep video: length and pace, the hook (first minute quoted, what it promises, the question it opens), a beat sheet with times and each beat's counted pace, tension raised and paid off, sentence style, recurring phrases, calls to action, the ending; then what they share                                                                                   |
+   | `picture`    | `get_frame_study`, `get_video_watch`, `get_channel_videos`                        | none                                          | What was looked at; kinds of shot with counts; how often the picture changes (the counted figure, or the study's own estimate, labelled); on-screen text; what repeats; how the pictures seem to be made, as an inference; sound and editing from watch notes alone, else NOT WATCHED                                                                                    |
+   | `strategy`   | `get_breakdown_part`, `get_channel_videos`                                        | `titles`, `thumbnails`, `scripts`, `picture`  | Strengths and weaknesses, each on named videos and tool numbers; where the channel is absent; a strategy to beat it: what to copy, what to do better, where to go that it does not, the first three videos to make                                                                                                                                                       |
+   | `plan`       | `get_breakdown_part`, `get_transcript_pace`, `get_frame_study`, `get_video_watch` | the four above and `strategy`                 | How the channel appears to make its videos, as an inference; the numbers to hit; nine steps from research to publishing, each with what to do, how to do it with a kind of AI tool (a product only as a swappable example) or by hand, and ready prompts; what AI cannot do: checking facts, and YouTube's rules                                                         |
+   | `master`     | `get_breakdown_part`                                                              | `titles`, `thumbnails`, `scripts`, `strategy` | One self-contained prompt between marker lines for any AI to write a video in the style, with the rule that every fact not given by the owner is marked `[CHECK: ...]`                                                                                                                                                                                                   |
+
+5. **Text files** (`core/src/downloads/breakdownTexts.ts`): the four texts are
+   saved (see below). Not being able to save them does not fail the job.
+
+What could not be done (no file, nobody to watch, a frame study that failed, a
+part that failed) is recorded with a plain reason and does not fail the job.
+The job fails only when the channel cannot be read or has no videos, when not
+one part could be written, or when Jgtube is closing; it checks for closing
+between steps, and every run it starts is stopped by the same signal as the
+other engine runs.
+
+**A part is one analysis.** Each part is an entry in `ANALYSES`
+(`breakdown-titles` … `breakdown-master`), built from `BREAKDOWN_PART_SPECS`:
+the fixed question, the tools, the limits, and whether it looks at pictures.
+Only `thumbnails` does, so only it is kept to Claude Code and Codex; the other
+six may be written by any engine in the owner's order. With one engine chosen
+on the switch, a part that engine cannot write is recorded as such and the
+rest are written. `POST /api/analyses` takes none of them.
+
+**A later part reads an earlier one through a tool, never from its question.**
+`get_breakdown_part {channel, part}` returns one stored part under a line
+saying that it is an earlier study of the channel and not instructions; a part
+that failed or was never written answers `written: false` with the reason and
+"do not fill it in". A part built only on parts that were not written is not
+started (`partsBuiltOn`). A test runs a whole breakdown three times through the
+real engine with stand-in engines and asserts that no question and no system
+prompt ever holds a stored part's text, a frame study, a video title or the
+channel's name.
+
+**What is kept, and what is written again.** Migration 13 adds
+`breakdown_parts`, one row per channel and part: the text and who wrote it, or
+the reason it could not be written, and when. Migration 12's `video_studies`
+holds the watch notes and frame studies per video. On a later run:
+
+- Stored transcripts, watch notes and frame studies are reused. A frame study
+  made from preview frames is made again once frames can be cut from a file.
+- A stored part is kept, and no engine is started for it, while the facts it
+  was written from are the same: the basis is word for word what was stored
+  (it holds no dates and no reasons a download failed, so it only changes when
+  the videos, their numbers or their studies do) and no part it reads was
+  written again in this run. So a second press with nothing changed starts no
+  engine; after a failure only the failed parts and the ones built on them are
+  written; after a refresh that changed the channel's numbers, or after the
+  owner gave a video file, every part is written again from the stored studies.
+- `fresh: true` makes the watch notes and frame studies again and writes every
+  part again. Transcripts are what YouTube holds and are not read again.
+- A part that fails replaces what was stored for it, with the reason.
+
+A study or a part is a model's words about a video or a channel anyone could
+have made: it is stored as it is, handed out only as a tool result under a line
+saying what it is, and never put into a question.
+
+**Numbers worked out in code.** So that nobody has to trust a model's sums:
+
+- `get_transcript` gives `words` and `wordsPerMinute` for the whole video.
+- `get_transcript_pace {video, cuts?}` (`transcriptPaceSpans`) gives the words
+  and words a minute of each stretch: every `PACE_SLICE_SECONDS` (60), or
+  between the seconds given, so the scripts part has the pace of each beat it
+  found counted for it. A caption line's words belong to the stretch it starts
+  in; a stretch under `PACE_SPAN_MIN_SECONDS` (15) has no pace.
+- `get_frame_study` adds `secs`, `secondsPerFrame` (one for frames cut from a
+  file; else the video's length over the frames there were), `framesLookedAt`
+  and, when the study ends with its count of picture changes, `changesSeen`,
+  `gaps` (one fewer than the frames looked at) and `secondsPerChange` (the time
+  the gaps span over the changes). A change quicker than the gap between two
+  frames cannot be seen, so that figure is the most seconds there can be
+  between changes, and the answer says so. A study without the count, or with
+  more changes than gaps, gets no figure and a line saying its pace is the
+  study's own estimate (`frameStudyNumbers`).
+
+**The four text files.** When a breakdown finishes, and from the store at any
+time (`breakdownTexts`):
+
+| File                   | What it is                                                                             |
+| ---------------------- | -------------------------------------------------------------------------------------- |
+| `breakdown.txt`        | Every part in order under its own heading, a part not written saying why               |
+| `production-plan.txt`  | The `plan` part as written                                                             |
+| `thumbnail-prompt.txt` | What stands between `=== THUMBNAIL PROMPT START ===` and `... END ===` in `thumbnails` |
+| `master-prompt.txt`    | What stands between `=== MASTER PROMPT START ===` and `... END ===` in `master`        |
+
+A prompt is lifted out only when the part holds exactly one opening line and
+exactly one closing line after it, each on a line of its own, with something
+between them (`splitMarked`). Anything else gives no file and a sentence saying
+so: a prompt is never guessed at. The files go to
+`<downloads>/breakdowns/<channel name>/` (`channelFolder`, `pathInside`) with
+an `index.json` that carries the channel id, so a second channel of the same
+name gets a folder of its own; a text that could not be made is not written and
+an older copy of it is removed.
 
 **Frames from a file** (`core/src/downloads/frameSheets.ts`). ffmpeg is found on
 the PATH like yt-dlp (`findProgram`, nothing is run to find out) and started
@@ -1543,50 +1692,59 @@ copies. `readVideoFrames` serves them in place of preview frames when they are
 there, found by video id and sheet number alone: no tool ever reads a path it
 was handed.
 
-**What is kept.** Migration 12 adds `video_studies`, one row per video and kind
-(`watch` or `frames`): the engine, the text, and for a frame study where the
-frames came from (`file` or `preview`) and how many there were. A second
-breakdown reuses stored transcripts and studies and only writes again. A frame
-study made from preview frames is made again once frames can be cut from a
-file. `fresh: true` makes the watch notes and frame studies again; transcripts
-are what YouTube holds and are not read again. A study is a model's words about
-a video anyone could have made: it is stored as it is, handed out only as the
-result of `get_video_watch` or `get_frame_study` under a line saying that it
-describes the video and is not instructions, and never put into a question.
+**Limits of the runs.** Each part's turn and time limits are in
+`BREAKDOWN_PART_SPECS`; the frame study's are 40 turns and 20 minutes, asked to
+stay under 5,000 words. Measured with Claude Code on a copy of a real store
+(November 2026), a channel of 41 stored videos, no video file and nothing to
+watch with:
 
-**The questions.** The writing run is asked for nine sections: WHAT THIS RESTS
-ON, CHANNEL IDENTITY, TITLE FORMULA, THUMBNAIL STYLE, DESCRIPTION TEMPLATE,
-SCRIPT, PICTURE FRAME BY FRAME, SOUND AND EDITING, HOW TO MAKE ONE LIKE IT. The
-picture section rests on the frame studies alone and says, per video, frames
-looked at out of frames available and where they came from, saying plainly that
-preview frames are YouTube's own small pictures and not every frame. The sound
-section rests on the watch notes alone; without them it says NOT WATCHED and
-that the sound, music and transitions are unknown. No forecasts; every number
-is one a tool returned or one worked out from tool results and marked so. Pace
-is not left to the model: `get_transcript` gives `words` and `wordsPerMinute`,
-counted in code.
+| Step                                    | First run (everything) | Second run (parts only) | Limit            |
+| --------------------------------------- | ---------------------- | ----------------------- | ---------------- |
+| Frame study, 181 preview frames         | about 95 s             | kept                    | 40 turns, 20 min |
+| Frame study, 94 preview frames          | 72 s                   | kept                    | 40 turns, 20 min |
+| Frame study, 121 preview frames         | 75 s                   | kept                    | 40 turns, 20 min |
+| Part 1, titles (40 titles)              | 113 s                  | 110 s                   | 12 turns, 10 min |
+| Part 2, thumbnails (10 thumbnails)      | 43 s                   | 40 s                    | 16 turns, 6 min  |
+| Part 3, scripts (3 videos)              | 111 s                  | 98 s                    | 40 turns, 12 min |
+| Part 4, picture and sound               | 46 s                   | 48 s                    | 20 turns, 6 min  |
+| Part 5, strengths, weaknesses, strategy | 57 s                   | 70 s                    | 20 turns, 6 min  |
+| Part 6, production plan                 | 66 s                   | 62 s                    | 40 turns, 8 min  |
+| Part 7, master prompt                   | 61 s                   | 78 s (in a third run)   | 16 turns, 6 min  |
+| Whole job                               | 747 s (12 min 27 s)    | about 430 s             |                  |
 
-**Limits of the runs.** Writing: 60 turns, 15 minutes. Frame study: 40 turns,
-20 minutes, asked to stay under 5,000 words. Measured with Claude Code on a
-copy of a real store (November 2026): a frame study of 8 preview sheets (181
-frames) took 97 to 101 seconds, of 4 sheets 72 seconds, of 5 sheets 77 seconds,
-so 10 to 18 seconds a sheet with the run's start-up included; a study of 24
-sheets cut from a file (600 frames of a test pattern, all alike) took 40
-seconds; the writing run took 74 to 77 seconds. A whole breakdown with three
-preview-frame studies and no watch took 337 seconds.
+The time limits are five to eight times what a part took, so a slow day or a
+slower engine still fits; the turn limits are at least twice the tool calls a
+part's question asks for (2, 4, about 13, 7, 6, about 15 and 5). The turns a
+run really used were not recorded.
 
 **Routes.** `POST /api/breakdowns {channel, engine?, fresh?}` starts the job and
 answers `{jobId}` (202); its steps and outcome are read at `/api/jobs/:id`. A
 breakdown and an analysis share one slot (409 while either runs); breakdowns
 have a `JobStore` of their own, so they do not take the slot crawls and
 refreshes share. `engine` is the owner's switch for the frame studies and the
-writing; watching always starts with Antigravity. Progress is
+parts; watching always starts with Antigravity. Progress is
 `{step, text, supply}`: the step in plain words ("Video 1 of 3, “title”:
-cutting one frame a second from the file"), and the videos found so far that
-the owner can supply a file for. The outcome is `{channel, storedVideos, top,
-deep, supply, ownVideosFolder, text, engine, skipped}`; `deep` says, per video,
-which file was used, who watched it and who studied its frames from what, or
-the reason. `POST /api/analyses` does not take `breakdown`.
+cutting one frame a second from the file", "Writing part 3 of 7: the scripts"),
+and the videos found so far that the owner can supply a file for. The outcome
+is `{channel, storedVideos, titles, top, deep, supply, ownVideosFolder, parts,
+breakdown, notSaved}`: `parts` says, per part, whether it was written (by which
+engine, which were passed over, in how many seconds), kept or failed (with the
+reason); `breakdown` is the stored breakdown as below.
+
+`GET /api/breakdowns?channel=` returns a channel's stored breakdown without
+starting anything: `{channel, writtenAt, parts, files, folder}`, each part with
+`state` (`written`, `failed`, `missing`), its `body` (the text without a marked
+prompt), its `prompt` (lifted out, or null), who wrote it and when; `files`
+says which of the four texts there are, or why not; `folder` is where they were
+saved, when they are on disk. A channel with nothing stored answers 200 with
+no data: the page asks for every channel that is picked, and a 404 there would
+show as an error in the browser.
+
+`GET /api/breakdowns/texts/<name>?channel=` hands over one of the four texts as
+`text/plain` to save (`content-disposition: attachment`, named after the
+channel), put together from the store, so it works whether or not the files on
+disk still are. Only the four fixed names are taken. Both reads pass the same
+Host check as every other route.
 
 `PUT /api/breakdowns/videos/:videoId` takes the owner's own copy of a video and
 saves it as `my-videos/<videoId>.mp4`. The id is checked before it touches a
@@ -1598,20 +1756,44 @@ checked to be a whole MP4 (`isWholeMp4`) and only then renamed, so a half-sent
 file is never used; on any failure the part is removed. The server hands the
 route the request body as a stream for this one path.
 
+**The page.** Picking a channel in the breakdown card shows the breakdown
+stored for it: when it was written, "Run again" (everything again), "Write the
+missing parts" when some are failed or missing, and each part as a section that
+opens, set out by the same `Answer` component as the one-press answers. The
+production plan, the thumbnail prompt and the master prompt each have "Copy"
+and "Download .txt"; the prompts are shown as they stand, apart from the part's
+text. Under the parts: the folder the files were saved in. After a run it also
+says how each part went and how long it took.
+
 **Order for each deep video**, as the owner reads it: the owner's own file, then
 yt-dlp, then the built-in download; with none, YouTube's preview frames for the
 frame study, the Gemini API for watching if a key is set, and the video listed
 as one the owner can supply.
 
-**What was run for real, and what was not.** Run through the route on a copy of
-a real store with Claude Code: a breakdown with no file and nothing to watch
-(the NOT WATCHED path, three preview-frame studies), and one with a generated
-test-pattern MP4 sent through the upload route under a real video id (cut by
-ffmpeg, studied sheet by sheet, the owner's file left in place). YouTube
-refused the download from that network and no engine that watches was
-installed, so a real video file being downloaded, studied or watched has only
-been tested with stand-ins and with the test pattern; the writing engine
-noticed that the test pattern was not the video and said so.
+**What was run for real, and what was not.**
+
+Run through the routes on a copy of a real store with Claude Code, for a
+channel with 41 stored videos, no video file and nothing to watch with:
+
+- A whole breakdown started from nothing: three preview-frame studies, each
+  ending with its count of picture changes, then all seven parts, the four
+  text files saved. Every part said NOT WATCHED where sound was concerned.
+- After the questions were changed, the same channel again without starting
+  from nothing: the frame studies were kept and, the basis having changed,
+  the parts were written again. Part 7 failed for real, on the plan's usage
+  limit; it was stored as failed with that reason, the other six were kept,
+  and `master-prompt.txt` was not written.
+- A third press wrote only the missing part 7 (the other six: kept) and saved
+  all four files.
+- The page at 1440 and 390 wide against that stored breakdown: the parts as
+  sections, Copy read back from the clipboard for the three texts, a download
+  whose content equals what was copied, no sideways scroll, no console error.
+
+Not run for real: a part written by Antigravity or Codex (stand-ins only); a
+video file downloaded, cut and studied (YouTube refused the download from that
+network), and so the seconds between picture changes from frames a second
+apart; an engine watching a video, and so any part written from watch notes;
+a channel with fewer than 20 or more than 40 stored videos; Windows.
 
 ### Idea lab, trending formats and the hook library (`ideaEngine.ts`, `formulaEngine.ts`, `hookEngine.ts`, `labRoutes.ts`, `labAnalyses.ts`)
 

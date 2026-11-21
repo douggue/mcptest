@@ -12,7 +12,9 @@ import {
   TRANSCRIPT_STAMP_SECONDS,
   clock,
   formatTranscript,
+  PACE_SLICE_SECONDS,
   transcriptPace,
+  transcriptPaceSpans,
 } from '../src/video/transcriptText';
 
 describe('parseVideoRef', () => {
@@ -224,6 +226,95 @@ describe('transcriptPace', () => {
     ];
 
     expect(transcriptPace(lines).wordsPerMinute).toBeNull();
+  });
+});
+
+describe('transcriptPaceSpans', () => {
+  const line = (startMs: number, text: string): TranscriptSegment => ({ startMs, text });
+  /** One line of `words` words every ten seconds, from 0:00 to `lastSeconds`. */
+  const steady = (lastSeconds: number, words: number): TranscriptSegment[] =>
+    Array.from({ length: lastSeconds / 10 + 1 }, (_, index) =>
+      line(index * 10_000, Array.from({ length: words }, () => 'word').join(' ')),
+    );
+
+  test('cuts the video into slices of one minute unless told where to cut', () => {
+    expect(PACE_SLICE_SECONDS).toBe(60);
+  });
+
+  test('counts the words of each minute and the pace they come to', () => {
+    // 0:00 to 2:30, a line of five words every ten seconds: six lines a minute.
+    const spans = transcriptPaceSpans(steady(150, 5));
+
+    expect(spans).toEqual([
+      { fromSeconds: 0, toSeconds: 60, words: 30, wordsPerMinute: 30 },
+      { fromSeconds: 60, toSeconds: 120, words: 30, wordsPerMinute: 30 },
+      { fromSeconds: 120, toSeconds: 150, words: 20, wordsPerMinute: 40 },
+    ]);
+  });
+
+  test('shows where a video speeds up', () => {
+    const lines = [...steady(50, 2), ...steady(50, 6).map((l) => line(l.startMs + 60_000, l.text))];
+
+    const [slow, fast] = transcriptPaceSpans(lines);
+
+    expect(slow?.wordsPerMinute).toBe(12);
+    expect(fast?.wordsPerMinute).toBeGreaterThan(slow?.wordsPerMinute ?? 0);
+  });
+
+  test('cuts where it is told to, so each part of a video has its own pace', () => {
+    const spans = transcriptPaceSpans(steady(150, 5), [0, 30, 90]);
+
+    expect(spans.map((span) => [span.fromSeconds, span.toSeconds, span.words])).toEqual([
+      [0, 30, 15],
+      [30, 90, 30],
+      [90, 150, 35],
+    ]);
+    expect(spans[1]?.wordsPerMinute).toBe(30);
+  });
+
+  test('puts the cuts in order, once each, and starts from the beginning', () => {
+    const spans = transcriptPaceSpans(steady(150, 5), [90, 30, 90]);
+
+    expect(spans.map((span) => span.fromSeconds)).toEqual([0, 30, 90]);
+  });
+
+  test('ignores a cut after the last line, and one that is not a time', () => {
+    const spans = transcriptPaceSpans(steady(150, 5), [60, 400, -5, Number.NaN]);
+
+    expect(spans.map((span) => [span.fromSeconds, span.toSeconds])).toEqual([
+      [0, 60],
+      [60, 150],
+    ]);
+  });
+
+  test('leaves sound labels out of the count', () => {
+    const spans = transcriptPaceSpans([line(0, '[Music] one two'), line(90_000, 'three')]);
+
+    expect(spans[0]?.words).toBe(2);
+  });
+
+  test('gives no pace for a stretch too short to say anything about', () => {
+    const spans = transcriptPaceSpans([line(0, 'one two three'), line(65_000, 'four five')]);
+
+    expect(spans.at(-1)).toEqual({
+      fromSeconds: 60,
+      toSeconds: 65,
+      words: 2,
+      wordsPerMinute: null,
+    });
+  });
+
+  test('gives no pace for a language written without spaces', () => {
+    const spans = transcriptPaceSpans([
+      line(0, 'これは日本語の字幕でスペースがありません'),
+      line(90_000, '最後の行です'),
+    ]);
+
+    expect(spans.every((span) => span.wordsPerMinute === null)).toBe(true);
+  });
+
+  test('has nothing to say about an empty transcript', () => {
+    expect(transcriptPaceSpans([])).toEqual([]);
   });
 });
 

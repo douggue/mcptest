@@ -213,6 +213,8 @@ describe('the folder a channel’s files are saved in', () => {
     expect(channelFolderName('Some Bakery', CHANNEL)).toBe('Some Bakery');
     expect(channelFolderName('What? A/B: "Test" <1>|*', CHANNEL)).toBe('What A B Test 1');
     expect(channelFolderName('Ends with dots...  ', CHANNEL)).toBe('Ends with dots');
+    expect(channelFolderName('...And More', CHANNEL)).toBe('And More');
+    expect(channelFolderName('../../outside', CHANNEL)).toBe('outside');
     expect(channelFolderName('日本の発明', CHANNEL)).toBe('日本の発明');
     expect(channelFolderName('x'.repeat(200), CHANNEL)).toHaveLength(80);
   });
