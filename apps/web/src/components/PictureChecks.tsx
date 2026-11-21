@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { engineName, type EngineId, type EngineReport } from '../lib/analyses';
 import { enginesToCheck, pictureCheckLine, type PictureCheck } from '../lib/pictureCheck';
+import { useRunningOnOpen } from './useReattach';
 
 interface Props {
   readonly report: EngineReport | null;
@@ -11,6 +12,8 @@ interface Props {
 
 type Running = { readonly engine: EngineId } | null;
 
+const PICTURE_KINDS: readonly string[] = ['picture-check'];
+
 const QUIET =
   'min-h-11 self-start rounded-lg border border-border-subtle px-3 py-1.5 text-body-sm text-on-surface-variant transition-colors hover:border-border-highlight hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-50';
 
@@ -19,19 +22,23 @@ const QUIET =
  * picture check, and the last result. A pass lets the picture questions use it.
  */
 export function PictureChecks({ report, busy, check }: Props) {
-  const [running, setRunning] = useState<Running>(null);
+  const [started, setStarted] = useState<Running>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  // A check started before the owner left Settings still runs; its result arrives by itself.
+  const elsewhere = useRunningOnOpen(PICTURE_KINDS);
+  const running: Running =
+    started ?? (elsewhere?.engine ? { engine: elsewhere.engine as EngineId } : null);
   const engines = enginesToCheck(report);
   if (engines.length === 0) return null;
 
   const start = (engine: EngineId): void => {
-    setRunning({ engine });
+    setStarted({ engine });
     setProblem(null);
     check(engine)
       .catch((error: unknown) =>
         setProblem(error instanceof Error ? error.message : 'The picture check did not finish.'),
       )
-      .finally(() => setRunning(null));
+      .finally(() => setStarted(null));
   };
 
   return (
