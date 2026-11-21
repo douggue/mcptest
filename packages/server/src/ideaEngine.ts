@@ -99,6 +99,12 @@ function batchOf(deps: LabDeps, request: ConceptRequest): NewBatch | { readonly 
   if (wording) return { problem: wording };
   const format = formatOf(deps, centerChannelId, request.format);
   if (format !== null && 'problem' in format) return format;
+  const from = request.formulasFrom ?? null;
+  if (from !== null && deps.repos.breakdowns?.find(from, 'titles')?.written !== true) {
+    return {
+      problem: 'That channel’s breakdown has no written titles part to take formulas from.',
+    };
+  }
   return { centerChannelId, inspiration, hookModels, format, angle, length };
 }
 
@@ -233,6 +239,7 @@ async function makeBatch(
     hasFormat: checked.format !== null,
     angle: checked.angle,
     length: checked.length,
+    formulasFrom: request.formulasFrom ?? null,
   };
   const asked: Asked = {
     analysis: 'concepts',

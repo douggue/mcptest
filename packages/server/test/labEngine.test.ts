@@ -1,4 +1,5 @@
 import {
+  SqliteBreakdownRepo,
   SqliteChannelRepo,
   SqliteConceptRepo,
   SqliteFormulaRepo,
@@ -223,6 +224,23 @@ describe('what the owner chose for a batch', () => {
     expect(engine.conceptProblem(request(overrides))).toMatch(problem);
   });
 
+  test('may take its title formulas from a channel whose breakdown has a written titles part', async () => {
+    const breakdowns = new SqliteBreakdownRepo(openDatabase(':memory:'));
+    deps = { ...deps, repos: { ...deps.repos, breakdowns } };
+    engine = lab(deps);
+    const studied = cid('alike');
+
+    expect(engine.conceptProblem(request({ formulasFrom: studied }))).toMatch(/titles part/);
+    breakdowns.saveWritten(
+      { channelId: studied, part: 'titles', engine: 'claude', text: 'FORMULAS\n- Why [X] Left' },
+      NOW,
+    );
+    expect(engine.conceptProblem(request({ formulasFrom: studied }))).toBeNull();
+
+    await engine.makeConcepts(request({ formulasFrom: studied }), () => undefined);
+    expect(asked[0]?.focus).toMatchObject({ formulasFrom: studied });
+  });
+
   test('may name a transfer template or a stored formula of this channel', () => {
     deps.repos.formulas.replace(
       { centerChannelId: MINE, windowDays: 90, engine: 'claude' },
@@ -257,6 +275,7 @@ describe('a batch of concepts', () => {
       hasFormat: false,
       angle: 'machines that outlived us',
       length: 'long',
+      formulasFrom: null,
     });
     expect(outcome).toMatchObject({
       kind: 'concepts',
