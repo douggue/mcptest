@@ -57,3 +57,23 @@ describe('the style lock over HTTP', () => {
     expect(stopped).toEqual([CHANNEL_ID]);
   });
 });
+
+describe('GET /api/flow', () => {
+  test('gives the counts for a channel with a map, and 404 without one', async () => {
+    const counts = {
+      breakouts: 4,
+      formulas: 2,
+      hooks: 12,
+      concepts: 3,
+      scripts: 1,
+      breakdowns: 1,
+      thumbnailReview: false,
+      styleLock: true,
+    };
+    const app = appWith({ flowCounts: (channel) => (channel === CHANNEL_ID ? counts : null) });
+
+    expect((await read(await get(app, `/api/flow?channel=${CHANNEL_ID}`))).data).toEqual(counts);
+    expect((await get(app, `/api/flow?channel=${FROM}`)).status).toBe(404);
+    expect((await get(app, '/api/flow')).status).toBe(400);
+  });
+});

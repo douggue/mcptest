@@ -94,6 +94,7 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     keepAnswer: () => null,
     listConceptThumbnails: unused('listConceptThumbnails'),
     findStyleLock: unused('findStyleLock'),
+    flowCounts: unused('flowCounts'),
     useStyleLock: unused('useStyleLock'),
     stopStyleLock: unused('stopStyleLock'),
     writeConceptThumbnail: unused('writeConceptThumbnail'),

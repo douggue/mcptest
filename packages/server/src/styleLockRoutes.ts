@@ -43,6 +43,14 @@ async function stopLock(options: AppOptions, request: Request): Promise<Response
   return ok({ stopped: true });
 }
 
+/** How many of each thing are stored for the channel on screen; 404 with no map. */
+export function readFlow(options: AppOptions, url: URL): Response {
+  const parsed = channel.safeParse(url.searchParams.get('channel'));
+  if (!parsed.success) return fail(400, 'Give the channel as a channel id');
+  const counts = options.engine.flowCounts(parsed.data);
+  return counts ? ok(counts) : fail(404, 'No map has been made for this channel yet');
+}
+
 /** The answer to a request for one of the style lock's paths; null for any other path. */
 export function styleLockRoute(
   options: AppOptions,

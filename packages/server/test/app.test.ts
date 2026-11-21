@@ -73,6 +73,7 @@ class FakeEngine implements Engine {
   keepAnswer = (): null => null;
   listConceptThumbnails = this.missingLogos;
   findStyleLock = this.missingLogos;
+  flowCounts = this.missingLogos;
   useStyleLock = this.missingLogos;
   stopStyleLock = this.missingLogos;
   writeConceptThumbnail = this.missingLogos;
