@@ -517,7 +517,8 @@ describe('the built-in route', () => {
     expect(result).toMatchObject({
       ok: false,
       kind: 'unreadable',
-      message: 'The file could not be fetched: The server responded with a non 2xx status code',
+      message:
+        'The file could not be fetched: The server responded with a non 2xx status code. YouTube often refuses this way of fetching; installing yt-dlp is the fix.',
     });
     expect(readdirSync(join(root, 'video-temp'))).toEqual([]);
   });

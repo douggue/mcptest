@@ -18,7 +18,8 @@ interface Props {
 export function Benchmarks({ snapshot, selectedId, onSelect }: Props) {
   const [expanded, setExpanded] = useState(false);
   const channels = expanded ? snapshot.channels : snapshot.channels.slice(0, ROWS_SHOWN);
-  const rising = snapshot.channels.filter((channel) => channel.rising).length;
+  // The same meaning of rising as the labels on the rows and the split beside the toggle.
+  const rising = snapshot.channels.filter((channel) => channel.group === 'rising').length;
   const crawled = new Date(snapshot.createdAt).toLocaleDateString('en', {
     day: 'numeric',
     month: 'short',
@@ -74,7 +75,7 @@ export function Benchmarks({ snapshot, selectedId, onSelect }: Props) {
                   <span className="rounded-full bg-metric-amber-bg px-2 py-0.5 text-metric-badge text-metric-amber">
                     {formatScore(score)}
                   </span>
-                ) : channel.rising && !channel.peer ? (
+                ) : channel.group === 'rising' && !channel.peer ? (
                   <span className="text-label-caps text-secondary">Rising</span>
                 ) : null}
                 <button

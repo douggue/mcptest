@@ -54,11 +54,9 @@ export function Inspector({ channel, onClose, onSetStatus }: Props) {
             <span className="text-label-caps text-outline">
               {TIER_LABEL[channel.tier]} ·{' '}
               {channel.steps === 1 ? '1 step' : `${channel.steps} steps`}
-              {channel.peer
+              {channel.peer || channel.group !== 'neither'
                 ? ` · ${GROUP_LABEL[channel.group]}`
-                : channel.rising
-                  ? ' · Rising'
-                  : ''}
+                : ''}
               {channel.kept ? ' · Kept by you' : ''}
             </span>
           </div>

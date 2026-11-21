@@ -40,6 +40,7 @@ export interface RadarNode {
   readonly tier: Tier;
   /** Best recent breakout multiple, when it is large enough to be worth a badge. */
   readonly badge: number | null;
+  /** In the rising group: young, far above its size, with small totals so far. */
   readonly rising: boolean;
 }
 
@@ -106,7 +107,7 @@ function placeRing(channels: readonly SnapshotChannel[], tier: Tier): readonly R
       y: radius * Math.sin(angle),
       tier,
       badge: score >= BADGE_MIN_SCORE ? score : null,
-      rising: channel.rising,
+      rising: channel.group === 'rising',
     };
   });
 }

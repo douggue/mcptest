@@ -24,6 +24,12 @@ const PLAYABLE = 'OK';
 const BITS_PER_BYTE = 8;
 const BYTES_PER_MB = 1_000_000;
 const MAX_REASON_LENGTH = 200;
+/**
+ * Said when this route is refused. YouTube's video servers answered 403 to it
+ * in the live check (November 2026) although the player listed the file;
+ * yt-dlp keeps up with such changes, which the library inside Jgtube does not.
+ */
+const INSTALL_YT_DLP = 'YouTube often refuses this way of fetching; installing yt-dlp is the fix.';
 /** What the player says about a video it will not give to anyone signed out. */
 const NOT_AVAILABLE =
   /\b(unavailable|private|removed|not available|confirm your age|age-restricted|members|sign in)\b/i;
@@ -235,7 +241,7 @@ export function builtInVideoFetcher(source: VideoPlayerSource): VideoFetcher {
       const result = await fetchVideo(source, videoId, folder, maxBytes, (started) => {
         path = started;
       }).catch((error: unknown) =>
-        failure('unreadable', `The file could not be fetched: ${firstLine(error)}`),
+        failure('unreadable', `The file could not be fetched: ${firstLine(error)}. ${INSTALL_YT_DLP}`),
       );
       if (!result.ok && path !== null) await rm(path, { force: true });
       return result;

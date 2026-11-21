@@ -330,13 +330,16 @@ describe('layoutRadar', () => {
     const breakout = { videoId: 'abcdefghijk', title: 'Hit', views: 9, score: 83 };
     const { nodes } = layoutRadar(
       snapshotOf([
-        channel(1, { breakout, rising: true }),
+        channel(1, { breakout, rising: true, group: 'rising' }),
+        // Young and above its size, but already past the bar: taken off, so not drawn as rising.
+        channel(3, { rising: true, group: 'taken-off' }),
         channel(2, { breakout: { ...breakout, score: 2 } }),
       ]),
     );
 
-    expect(nodes[0]).toMatchObject({ badge: 83, rising: true });
-    expect(nodes[1]).toMatchObject({ badge: null, rising: false });
+    expect(nodes.find((node) => node.id === cid(1))).toMatchObject({ badge: 83, rising: true });
+    expect(nodes.find((node) => node.id === cid(2))).toMatchObject({ badge: null, rising: false });
+    expect(nodes.find((node) => node.id === cid(3))).toMatchObject({ rising: false });
   });
 
   test('draws a link from the centre to each direct neighbour, weighted by share', () => {
