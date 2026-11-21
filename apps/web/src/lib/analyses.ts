@@ -63,6 +63,34 @@ export const ENGINE_CHOICES: readonly ChoiceOption[] = [
 export const choiceFrom = (text: string | null): EngineChoice =>
   ENGINE_CHOICES.find((option) => option.choice === text)?.choice ?? AUTOMATIC;
 
+/** The engines that can look at pictures, as the server's PICTURE_ENGINES. */
+const PICTURE_ENGINES: readonly EngineId[] = ['claude', 'codex'];
+/** The questions that need an engine able to look at pictures. */
+const PICTURE_ANALYSES: readonly AnalysisId[] = ['thumbnails'];
+
+export interface ChoicePlan {
+  /** The choice the question is sent with. */
+  readonly choice: EngineChoice;
+  /** Why it differs from the owner's choice; null when it does not. */
+  readonly note: string | null;
+}
+
+/**
+ * Which AI a question goes to. A question the chosen AI cannot answer goes to
+ * Automatic for that one run, with a note saying so, rather than failing.
+ */
+export function choiceFor(analysis: AnalysisId, choice: EngineChoice): ChoicePlan {
+  const needsPictures = PICTURE_ANALYSES.includes(analysis);
+  if (!needsPictures || choice === AUTOMATIC || PICTURE_ENGINES.includes(choice)) {
+    return { choice, note: null };
+  }
+  const name = ENGINE_CHOICES.find((option) => option.choice === choice)?.label ?? choice;
+  return {
+    choice: AUTOMATIC,
+    note: `${name} cannot look at pictures, so this one goes to Claude Code, or else Codex. Your choice stays as it is for everything else.`,
+  };
+}
+
 /** What the server knows about one engine on this computer. */
 export interface EngineStatus {
   readonly id: AnyEngineId;

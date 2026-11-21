@@ -4,6 +4,7 @@ import {
   AUTOMATIC,
   ENGINE_CHOICES,
   answerCredit,
+  choiceFor,
   choiceFrom,
   choiceHelp,
   engineSummary,
@@ -438,5 +439,22 @@ describe('the line saying when a kept answer was written', () => {
     expect(keptLine('2026-11-20T12:00:00Z', () => '20 Nov')).toBe('Kept from 20 Nov.');
     expect(keptLine(null)).toBe('');
     expect(keptLine('not a time')).toBe('');
+  });
+});
+
+describe('a question the chosen AI cannot answer', () => {
+  test('sends a thumbnail review chosen for Antigravity to Automatic, and says so', () => {
+    const plan = choiceFor('thumbnails', 'agy');
+
+    expect(plan.choice).toBe(AUTOMATIC);
+    expect(plan.note).toMatch(/Antigravity cannot look at pictures/);
+    expect(plan.note).toMatch(/Claude Code, or else Codex/);
+  });
+
+  test('keeps the chosen AI when it can answer', () => {
+    expect(choiceFor('thumbnails', 'claude')).toEqual({ choice: 'claude', note: null });
+    expect(choiceFor('thumbnails', 'codex')).toEqual({ choice: 'codex', note: null });
+    expect(choiceFor('topics', 'agy')).toEqual({ choice: 'agy', note: null });
+    expect(choiceFor('thumbnails', AUTOMATIC)).toEqual({ choice: AUTOMATIC, note: null });
   });
 });

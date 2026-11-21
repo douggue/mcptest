@@ -1,6 +1,6 @@
 import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
-import { ANALYSIS_OPTIONS, engineSummary, type AnalysisId } from '../lib/analyses';
+import { ANALYSIS_OPTIONS, choiceFor, engineSummary, type AnalysisId } from '../lib/analyses';
 import { SLOW_NOTE, type ChannelChoice } from '../lib/breakdown';
 import { BreakdownChooser, chosenOf } from './BreakdownChooser';
 import { EngineSwitch } from './EngineSwitch';
@@ -110,9 +110,10 @@ export function AskPanel(props: Props) {
   const [fresh, setFresh] = useState(false);
   const chosen = chosenOf(channels, breakdown.picked);
   const available = engineSummary(analysis.engines);
+  const plan = question === 'breakdown' ? null : choiceFor(question, analysis.choice);
   const ask = (): void => {
     if (question !== 'breakdown') {
-      analysis.run(question, centerId);
+      analysis.run(question, centerId, plan?.choice);
       return;
     }
     if (chosen) breakdown.start({ id: chosen.id, title: chosen.title }, analysis.choice, fresh);
@@ -149,6 +150,7 @@ export function AskPanel(props: Props) {
           onFresh={setFresh}
         />
       )}
+      {plan?.note && <p className="text-body-sm text-metric-amber">{plan.note}</p>}
       <Details summary="How this works">
         <div className="flex flex-col gap-2 text-body-sm text-on-surface-variant">
           <p>

@@ -28,8 +28,8 @@ export interface Analysis {
   /** Which AI the owner wants answers from; remembered in this browser. */
   readonly choice: EngineChoice;
   readonly choose: (choice: EngineChoice) => void;
-  /** Asks the chosen AI for one analysis of a channel. Ignored while one is running. */
-  readonly run: (analysis: AnalysisId, channelId: string) => void;
+  /** Asks the chosen AI, or `only` for this run, for one analysis of a channel. Ignored while one is running. */
+  readonly run: (analysis: AnalysisId, channelId: string, only?: EngineChoice) => void;
 }
 
 const CHOICE_KEY = 'jgtube.engine';
@@ -74,12 +74,12 @@ export function useAnalysis(api: Api): Analysis {
   }, [api]);
 
   const run = useCallback(
-    (analysis: AnalysisId, channelId: string) => {
+    (analysis: AnalysisId, channelId: string, only?: EngineChoice) => {
       if (running.current) return;
       running.current = true;
       setState({ status: 'running', analysis });
       api
-        .analyse(analysis, channelId, choice)
+        .analyse(analysis, channelId, only ?? choice)
         .then((answer) => setState({ status: 'done', analysis, answer }))
         .catch((error: unknown) =>
           setState({
