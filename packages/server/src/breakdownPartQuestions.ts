@@ -14,6 +14,7 @@ import {
   BREAKDOWN_TITLES,
   BREAKDOWN_TOP_VIDEOS,
   ORDINARY_MAX_SCORE,
+  VIDEO_REF_RULE,
   markerLines,
 } from '@jgtube/core';
 import { isVideoId } from './engines/videoId';
@@ -64,8 +65,11 @@ function checked(focus: BreakdownFocus): BreakdownFocus {
 
 const NO_VIDEOS =
   'Jgtube has no videos stored for this channel. Say so plainly in one line and stop.';
+/** Videos are named in a form the page can turn into their thumbnails; never inside a ready prompt. */
+const NAMING = `${VIDEO_REF_RULE} Put the marker right after the video’s title. Never put one inside a ready prompt: a prompt is pasted somewhere else and names no video.`;
 const RULES =
-  'Every point must rest on what a tool returned, and name the video it rests on by its title. Every number must be one a tool returned, or one you worked out from tool results and marked (worked out). Do not forecast or predict views. Stay with this channel: use only what these tools return for it, and carry nothing over from any other channel or subject. The owner has never seen these tools: never name a tool or a field of a tool’s answer in what you write; say in plain words where a number comes from (“counted from the captions”, “from the frame study”, “from the titles part”).';
+  'Every point must rest on what a tool returned, and name the video it rests on by its title. Every number must be one a tool returned, or one you worked out from tool results and marked (worked out). Do not forecast or predict views. Stay with this channel: use only what these tools return for it, and carry nothing over from any other channel or subject. The owner has never seen these tools: never name a tool or a field of a tool’s answer in what you write; say in plain words where a number comes from (“counted from the captions”, “from the frame study”, “from the titles part”).' +
+  ` ${NAMING}`;
 const READER =
   'The reader is the owner of another channel who wants to compete with this one: “the owner”, “us” and “you” mean that reader.';
 const EARLIER_PARTS =

@@ -52,6 +52,9 @@ describe('POST /api/analyses', () => {
     expect(response.status).toBe(200);
     expect((await read(response)).data).toEqual({
       analysis: 'thumbnails',
+      prompt: null,
+      videos: [],
+      writtenAt: null,
       text: 'Make the invention the hero.',
       engine: 'claude',
       skipped: [],
@@ -74,6 +77,9 @@ describe('POST /api/analyses', () => {
     const reply = await read(await post(app, PATH, { analysis: 'topics', channel: CHANNEL_ID }));
 
     expect(reply.data).toEqual({
+      prompt: null,
+      videos: [],
+      writtenAt: null,
       analysis: 'topics',
       text: 'Eight ideas.',
       engine: 'claude',
@@ -149,7 +155,12 @@ describe('POST /api/analyses', () => {
   test('accepts only POST from this site', async () => {
     const app = appWith(async () => ({ text: '' }));
 
-    expect((await get(app, PATH)).status).toBe(405);
+    // A read of this path asks for a kept answer, and must name the channel and the analysis.
+    expect((await get(app, PATH)).status).toBe(400);
+    const put = await app(
+      new Request(`http://${HOST}${PATH}`, { method: 'PUT', headers: { host: HOST } }),
+    );
+    expect(put.status).toBe(405);
     const crossSite = await post(
       app,
       PATH,

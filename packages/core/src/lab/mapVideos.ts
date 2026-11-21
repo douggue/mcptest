@@ -71,6 +71,44 @@ export function pickedVideos(
   };
 }
 
+/** A video an AI's answer names, as the page shows it beside the point it was named for. */
+export interface NamedVideo extends PickedVideo {
+  readonly views: number;
+}
+
+/**
+ * The videos an answer names that are stored videos of this channel's map,
+ * each once, in the order named. An id that is not stored, or is a video of
+ * a channel off the map, is dropped: a made-up or stray id is never shown.
+ * `alsoOf` adds the videos of one more stored channel, for an answer about a
+ * channel that was studied without being on the map.
+ */
+export function videosNamed(
+  deps: MapVideoDeps,
+  centerChannelId: string,
+  videoIds: readonly string[],
+  alsoOf: string | null = null,
+): readonly NamedVideo[] {
+  const onMap = mapChannelIds(deps.maps, centerChannelId);
+  const allowed = new Set([
+    ...(onMap ?? []),
+    ...(alsoOf && deps.channels.findById(alsoOf) ? [alsoOf] : []),
+  ]);
+  return [...new Set(videoIds)].flatMap((id) => {
+    const video = deps.videos.findById(id);
+    if (!video || !allowed.has(video.channelId)) return [];
+    return [
+      {
+        videoId: video.id,
+        title: video.title,
+        channelId: video.channelId,
+        channelTitle: deps.channels.findById(video.channelId)?.title ?? '',
+        views: video.views,
+      },
+    ];
+  });
+}
+
 /**
  * Every stored video of the channels on a map that was published in the last
  * `windowDays`, by id, with its views and its score from the store. Null when

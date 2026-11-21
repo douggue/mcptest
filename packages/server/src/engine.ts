@@ -12,6 +12,8 @@ import {
   SqliteScriptRepo,
   SqliteBrandRepo,
   SqliteBreakdownRepo,
+  SqliteChannelNoteRepo,
+  SqliteConceptThumbnailRepo,
   SqliteTransferRepo,
   SqliteVideoPageRepo,
   SqliteVideoRepo,
@@ -48,6 +50,7 @@ import {
 } from '@jgtube/core';
 import { randomUUID } from 'node:crypto';
 import { analysisEngines, type AnalysisOptions } from './analysisEngine';
+import { answerEngine } from './answerEngine';
 import type { Engine } from './app';
 import { breakdownFiles } from './breakdownFiles';
 import { breaking } from './breakdownSetup';
@@ -129,6 +132,8 @@ function openRepos(db: Db) {
     hookLabels: new SqliteHookLabelRepo(db),
     scripts: new SqliteScriptRepo(db),
     breakdowns: new SqliteBreakdownRepo(db),
+    notes: new SqliteChannelNoteRepo(db),
+    conceptThumbnails: new SqliteConceptThumbnailRepo(db),
   };
 }
 
@@ -433,6 +438,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     ...ownerChoices(wiring),
     ...transferring,
     ...logos({ ...wiring, findSnapshot: maps.findSnapshot }),
+    ...answerEngine(wiring),
     ...reading,
     ...crawling(wiring),
     ...refreshing(wiring, fillFacts),

@@ -318,6 +318,33 @@ CREATE TABLE IF NOT EXISTS owner_places (
   set_at             TEXT NOT NULL
 );
 `,
+  // 17: what an engine wrote for a channel that is kept to be read again, one row per
+  //     channel and kind: a thumbnail review (with its ready prompt), a quick analysis's
+  //     answer, the style lock lifted out of a breakdown. A new run replaces a row. Like
+  //     the tables of steps 12 and 15 it refers to no other table.
+  `
+CREATE TABLE IF NOT EXISTS channel_notes (
+  channel_id  TEXT NOT NULL,
+  kind        TEXT NOT NULL,
+  engine      TEXT NOT NULL,
+  notes       TEXT NOT NULL,
+  written_at  TEXT NOT NULL,
+  PRIMARY KEY (channel_id, kind)
+);
+`,
+  // 18: the thumbnail prompt written for one concept: the prompt, why that style, and
+  //     the videos whose thumbnails it was learned from. It belongs to its concept and
+  //     goes with it (step 13), and so to one centre channel. A new run replaces it.
+  `
+CREATE TABLE IF NOT EXISTS concept_thumbnails (
+  concept_id      INTEGER PRIMARY KEY REFERENCES concepts (id) ON DELETE CASCADE,
+  prompt          TEXT NOT NULL,
+  why             TEXT NOT NULL DEFAULT '',
+  video_ids_json  TEXT NOT NULL DEFAULT '[]',
+  engine          TEXT NOT NULL,
+  written_at      TEXT NOT NULL
+);
+`,
 ];
 
 /** The number of the newest step: what `user_version` reads in a store that is up to date. */

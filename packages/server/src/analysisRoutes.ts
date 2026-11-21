@@ -66,7 +66,18 @@ export async function runAnalysis(
   try {
     const { analysis, channel, engine: only } = parsed.data;
     const { text, engine, skipped } = await options.engine.analyse(analysis, channel, only);
-    return ok({ analysis, text, engine, skipped });
+    // Kept for the channel, so it can be read again and a later question can read it
+    // through a tool. A channel that is not stored has nowhere to keep it.
+    const kept = options.engine.keepAnswer(analysis, channel, { text, engine });
+    return ok({
+      analysis,
+      text: kept?.text ?? text,
+      prompt: kept?.prompt ?? null,
+      videos: kept?.videos ?? [],
+      writtenAt: kept?.writtenAt ?? null,
+      engine,
+      skipped,
+    });
   } catch (error) {
     return error instanceof EngineRunError
       ? fail(STATUS[error.reason], error.message)

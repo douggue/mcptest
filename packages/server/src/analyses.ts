@@ -15,6 +15,9 @@ import { join } from 'node:path';
 import {
   BREAKDOWN_PART_TITLES,
   BREAKDOWN_WRITTEN_PARTS,
+  THUMBNAIL_PROMPT_MARKER,
+  VIDEO_REF_RULE,
+  markerLines,
   parseChannelRef,
   type BreakdownWrittenPart,
 } from '@jgtube/core';
@@ -120,6 +123,21 @@ export const VIDEO_SYSTEM_PROMPT = [
   'Answer in plain text. Put section titles in CAPITALS on their own line and start list items with "- ". Do not use markdown symbols such as #, * or backticks.',
 ].join(' ');
 
+/**
+ * How a question asks for a ready thumbnail prompt: between two fixed lines,
+ * so code can lift it out as it stands, and with slots where a subject and
+ * the words go. It names no country, flag or channel, so it serves any video.
+ */
+export function thumbnailPromptRule(lead: string): string {
+  const { start, end } = markerLines(THUMBNAIL_PROMPT_MARKER);
+  return [
+    lead,
+    `Put it between these two lines, each on a line of its own, written exactly so and used nowhere else in your answer: ${start} and ${end}.`,
+    'The prompt must stand on its own for someone who has seen none of these thumbnails, and be detailed enough to paste into an image tool as it is, 150 to 300 words: the frame (16:9, 1280 by 720 pixels); the composition, saying what sits left, right, centre, in front and behind, and how much of the frame the subject fills; how the subject is shown; the background; the lighting; the colour palette, with each colour named; the overlay words: how many at most, how tall against the frame, the weight of the letters, their colour, their outline or box, and where they sit; the mood; and last a line of what must not appear.',
+    'It has two slots, written exactly as [SUBJECT] and [OVERLAY TEXT]. It names no channel, no video, no video id, no real person, no logo, no country and no flag: where the thumbnails show a mark of one country, write “a national flag” and name neither the country nor its colours.',
+  ].join(' ');
+}
+
 /** One of the idea lab's questions, with its tools under the names an engine knows them by. */
 function lab(id: LabAnalysisId): AnalysisSpec {
   const { tools, ...spec } = LAB_SPECS[id];
@@ -143,7 +161,12 @@ const QUICK_ANALYSES: Readonly<Record<QuickAnalysisId, AnalysisSpec>> = {
         "Look at the pictures with view_thumbnails, in at most three calls: the owner's own videos; two winners and two ordinary thumbnails from the model channel and from each of the three closest look-alikes; and winners from up to four other look-alike channels, choosing ones whose winners might look different.",
         "Find every thumbnail style that is winning on these channels. The owner is open to a new style when it wins on channels in the same niche or format, so do not assume that the owner's style or the model's is the right one.",
         "Write five sections: HOW MANY I LOOKED AT (the number of thumbnails and the channels they came from), WINNING STYLES (for each style: what it looks like, the channels and videos it is seen in, and whether those channels' ordinary thumbnails look different; when a channel's winners and ordinary thumbnails look the same, say that the topic, not the thumbnail, made the difference there), WHAT YOURS DO DIFFERENTLY, THREE THINGS TO TEST NEXT (specific: example wording of four words or fewer, what to show, colours, layout; at least one must be a style the owner does not use yet), and ONE THUMBNAIL TO MODEL (which video and why).",
-        'Describe only what you can see, and do not generalise beyond the thumbnails you looked at. At most 450 words.',
+        VIDEO_REF_RULE,
+        "Write each style, each difference and each thing to test as a list item of its own, with the markers of the thumbnails it rests on at its end: the winners that show it, an ordinary thumbnail it is set against, and the owner's own where the point is about theirs. The id of each thumbnail is the one view_thumbnails names above its picture.",
+        'Describe only what you can see, and do not generalise beyond the thumbnails you looked at. At most 450 words, the prompt not counted.',
+        thumbnailPromptRule(
+          'After the five sections, end with one ready prompt for an image tool: a thumbnail in the winning style you would have the owner test first, with the improvements for the owner built in.',
+        ),
       ].join(' '),
   },
   topics: {
@@ -163,7 +186,7 @@ const QUICK_ANALYSES: Readonly<Record<QuickAnalysisId, AnalysisSpec>> = {
         "Every idea must belong to this channel's own niche: the subjects this channel and its look-alikes on this map make videos about. The store may hold other channels the owner has looked up, in other niches; nothing from them is an idea for this channel, so use only what these calls return for this channel and never carry a subject, a country or a title format over from anywhere else.",
         'Propose eight videos to make next, best first. Prefer subjects where a small channel got large views, and skip anything this channel has already made. If the tools support fewer than eight ideas in this niche, give fewer and say so.',
         "When list_transfer_opportunities returns ideas that are open or weak for the owner's place, at least three of the eight should come from them: an idea that took off for another place and has not been made, or did poorly, for the owner's. Where it lists a title for the owner's place that differs by one word, judge by meaning whether that is the same idea already made, and skip it if so.",
-        "For each give: SOURCE (TRANSFER, naming where the idea worked and its views there, or BREAKOUT), TITLE (two options in the title format the owner and the look-alikes use), WHY (one or two breakout videos that prove demand, with channel, views and score, and any caution on that score), CROWDING (how many look-alike channels already covered the subject and how those versions did, or 'fresh'), PROOF AT YOUR SIZE (the smallest channel in the tool results that got large views on this subject, with its subscriber count and that video's views, or 'none yet' when only larger channels did), and THUMBNAIL (one line on what to show).",
+        `For each give: SOURCE (TRANSFER, naming where the idea worked and its views there, or BREAKOUT), TITLE (two options in the title format the owner and the look-alikes use), WHY (one or two breakout videos that prove demand, with channel, views and score, and any caution on that score; ${VIDEO_REF_RULE}), CROWDING (how many look-alike channels already covered the subject and how those versions did, or 'fresh'), PROOF AT YOUR SIZE (the smallest channel in the tool results that got large views on this subject, with its subscriber count and that video's views, or 'none yet' when only larger channels did), and THUMBNAIL (one line on what to show).`,
         'Every number you give must be one a tool returned. Do not estimate, forecast or predict views for the owner.',
         "Write each title yourself in the niche's format: never reuse a competitor's title word for word, or with only the country or one word changed. If the tool results do not show which real invention, product or event an idea is about, mark it NEEDS A REAL STORY and say what to look up before making it.",
         'At most 650 words.',
