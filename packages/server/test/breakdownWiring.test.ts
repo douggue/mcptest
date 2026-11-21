@@ -329,7 +329,7 @@ describe('the engine’s readers a breakdown rests on', () => {
 
     const saved = await engine.saveTranscripts(CHANNEL);
 
-    expect(saved?.folder).toBe(join(downloads, 'transcripts', CHANNEL));
+    expect(saved?.folder).toBe(join(downloads, 'transcripts', 'Channel W'));
     expect(saved?.saved.map((entry) => entry.videoId)).toEqual([vid(1), vid(2), vid(3)]);
     expect(readFileSync(join(saved?.folder ?? '', `${vid(1)}.txt`), 'utf8')).toContain('hello');
     expect(await engine.saveTranscripts(`UC${'z'.repeat(22)}`)).toBeNull();

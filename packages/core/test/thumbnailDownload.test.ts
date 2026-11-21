@@ -3,7 +3,13 @@ import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { openDatabase } from '../src/db/sqlite';
-import { DOWNLOADS_FOLDER, downloadsRoot, pathInside } from '../src/downloads/folder';
+import {
+  DOWNLOADS_FOLDER,
+  channelFolder,
+  channelFolderName,
+  downloadsRoot,
+  pathInside,
+} from '../src/downloads/folder';
 import { saveChannelThumbnails, type ThumbnailDownloadDeps } from '../src/downloads/thumbnails';
 import { SqliteChannelRepo } from '../src/repos/sqliteChannelRepo';
 import { SqliteVideoRepo } from '../src/repos/sqliteVideoRepo';
@@ -75,7 +81,7 @@ describe('saveChannelThumbnails', () => {
   test('saves a channel’s winners and ordinary videos as files, named by video id', async () => {
     const result = await saveChannelThumbnails(deps, CHANNEL, root);
 
-    const folder = join(root, 'thumbnails', CHANNEL);
+    const folder = join(root, 'thumbnails', 'Some Bakery');
     expect(result).toMatchObject({
       channelId: CHANNEL,
       channelTitle: 'Some Bakery',
@@ -90,7 +96,8 @@ describe('saveChannelThumbnails', () => {
     ]);
     expect(new Uint8Array(readFileSync(join(folder, `${vid(1)}.jpg`)))).toEqual(JPEG);
     // Pictures are fetched side by side: which request starts first is not promised.
-    expect(fetched).toContain(`https://i.ytimg.com/vi/${vid(1)}/hqdefault.jpg`);
+    expect(fetched).toContain(`https://i.ytimg.com/vi/${vid(1)}/maxresdefault.jpg`);
+    expect(fetched.some((url) => url.endsWith('hqdefault.jpg'))).toBe(false);
   });
 
   test('writes an index saying what each picture is', async () => {
@@ -173,6 +180,61 @@ describe('saveChannelThumbnails', () => {
     const again = await saveChannelThumbnails(deps, CHANNEL, root);
 
     expect(again).toMatchObject({ saved: 1, alreadyThere: 5 });
+  });
+});
+
+describe('the size of a saved thumbnail', () => {
+  test('falls back to the next size down when a video has no full-size picture', async () => {
+    answer = (url) =>
+      url.endsWith('maxresdefault.jpg')
+        ? new Response('missing', { status: 404 })
+        : new Response(JPEG, { headers: { 'content-type': 'image/jpeg' } });
+
+    const result = await saveChannelThumbnails(deps, CHANNEL, root, { perGroup: 1 });
+
+    expect(result?.failed).toEqual([]);
+    expect(
+      fetched.filter((url) => url.includes(vid(1))).map((url) => url.split('/').at(-1)),
+    ).toEqual(['maxresdefault.jpg', 'sddefault.jpg']);
+  });
+
+  test('reports the picture as failed only when no size can be had', async () => {
+    answer = () => new Response('missing', { status: 404 });
+
+    const result = await saveChannelThumbnails(deps, CHANNEL, root, { perGroup: 1 });
+
+    expect(result?.saved).toBe(0);
+    expect(result?.failed.map((failure) => failure.videoId)).toContain(vid(1));
+  });
+});
+
+describe('the folder a channel’s files are saved in', () => {
+  test('is named after the channel, without the characters a file system refuses', () => {
+    expect(channelFolderName('Some Bakery', CHANNEL)).toBe('Some Bakery');
+    expect(channelFolderName('What? A/B: "Test" <1>|*', CHANNEL)).toBe('What A B Test 1');
+    expect(channelFolderName('Ends with dots...  ', CHANNEL)).toBe('Ends with dots');
+    expect(channelFolderName('日本の発明', CHANNEL)).toBe('日本の発明');
+    expect(channelFolderName('x'.repeat(200), CHANNEL)).toHaveLength(80);
+  });
+
+  test('is the channel id when the title leaves nothing usable or is a name Windows keeps', () => {
+    expect(channelFolderName('???', CHANNEL)).toBe(CHANNEL);
+    expect(channelFolderName('..', CHANNEL)).toBe(CHANNEL);
+    expect(channelFolderName('CON', CHANNEL)).toBe(CHANNEL);
+    expect(channelFolderName('nul.txt', CHANNEL)).toBe(CHANNEL);
+  });
+
+  test('gets the channel id added when another channel already has a folder of that name', async () => {
+    const other = 'UCotherotherotherother00';
+    const parent = join(root, 'thumbnails');
+    const mine = { id: CHANNEL, title: 'Some Bakery' };
+
+    expect(await channelFolder(parent, mine, 'index.json')).toBe(join(parent, 'Some Bakery'));
+    await saveChannelThumbnails(deps, CHANNEL, root, { perGroup: 1 });
+    expect(await channelFolder(parent, mine, 'index.json')).toBe(join(parent, 'Some Bakery'));
+    expect(await channelFolder(parent, { id: other, title: 'Some Bakery' }, 'index.json')).toBe(
+      join(parent, `Some Bakery [${other}]`),
+    );
   });
 });
 

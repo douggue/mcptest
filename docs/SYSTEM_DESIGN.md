@@ -829,7 +829,7 @@ all stored, so a transcript read also saves the description and the storyboard.
 | Video details    | The official API's `videos.list` with `part=snippet`, fifty ids a request, when a key is set; else the page | `video_details`          | An API refusal falls back to the pages and is reported, not hidden. The API gives no length; one a page gave is kept                                      |
 | Frames           | The storyboard: sprite sheets on `i.ytimg.com/sb/…` of small frames at a regular interval                   | `video_storyboards`      | Addresses are signed, so stored ones are used for 6 hours (`STORYBOARD_FRESH_HOURS`), and the page is read again once if every stored sheet fails to load |
 | Channel branding | The channel page every ingest already fetches: logo, cover, bio, keywords, the link the header shows        | columns of `channels`    | No extra request. A channel stored before this is read again once when its branding is asked for                                                          |
-| Thumbnails       | `https://i.ytimg.com/vi/<id>/hqdefault.jpg`                                                                 | files, with `index.json` | `<downloads>/thumbnails/<channel id>/<video id>.jpg`; a file already there is not fetched again                                                           |
+| Thumbnails       | `https://i.ytimg.com/vi/<id>/maxresdefault.jpg` (1280 by 720), else `sddefault.jpg`, else `hqdefault.jpg`   | files, with `index.json` | `<downloads>/thumbnails/<channel id>/<video id>.jpg`; a file already there is not fetched again                                                           |
 | Transcript files | The stored transcript, else one read as above                                                               | files, with `index.json` | `<downloads>/transcripts/<channel id>/<video id>.txt` for the channel's winners (the thumbnail download's), at most six (`TRANSCRIPT_FILES_MAX`)          |
 
 **Frames.** No image-processing library is used: whole sheets are handed over, each
@@ -919,6 +919,14 @@ winners and answers `{channel, folder, indexFile, saved, noCaptions, failed}`. O
 the command line: `transcript <video>`, `transcripts <channel>`,
 `thumbnails <channel> [--per-group N]`, `brand <channel>` and `video <video>`.
 `npm run engines` also says whether yt-dlp and ffmpeg are found.
+
+Saved files go into a folder named after the channel
+(`channelFolderName`: the title without the characters a file system refuses,
+at most 80 characters; the channel id when nothing usable is left or the name
+is one Windows keeps). When a folder of that name already belongs to another
+channel, which its `index.json` says, the channel id is added in brackets.
+Thumbnails saved to disk are the largest size YouTube has for the video; the
+pictures shown to a model through `view_thumbnails` stay the small ones.
 
 ### Filling a limited map
 

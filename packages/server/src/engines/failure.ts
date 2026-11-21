@@ -66,7 +66,7 @@ const LIMIT_PATTERN =
  * what a tool reports when a website turns it away.
  */
 const SIGN_IN_PATTERN =
-  /authentication required|authentication_error|not (?:logged|signed) in|please run \/login|log ?in required|oauth token (?:has )?expired|invalid api key|^(?:\d{3} )?unauthori[sz]ed/i;
+  /authentication required|authentication_error|not (?:logged|signed) in|please run \/login|log ?in required|oauth token (?:has )?expired|invalid api key|failed to authenticate|auth login|^(?:\d{3} )?unauthori[sz]ed/i;
 const TIMEOUT_PATTERN = /timed? ?out|deadline exceeded/i;
 
 /** What a program said, safe to show: no control characters, no file paths, not too long. */

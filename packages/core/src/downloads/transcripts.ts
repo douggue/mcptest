@@ -10,7 +10,7 @@ import { CHANNEL_ID_PATTERN, VIDEO_ID_PATTERN } from '../sources/parse';
 import type { VideoTranscript } from '../sources/types';
 import { readTranscript, type VideoPageDeps } from '../video/pages';
 import { clock, formatTranscript, transcriptPace } from '../video/transcriptText';
-import { pathInside } from './folder';
+import { channelFolder, pathInside } from './folder';
 
 /**
  * Saves the transcripts of one channel's videos that took off (the winners
@@ -139,7 +139,7 @@ async function saveAll(
 
 /**
  * Saves the transcripts of one stored channel's winning videos under
- * `<root>/transcripts/<channel id>/`, one text file per video named by its
+ * `<root>/transcripts/<channel name>/`, one text file per video named by its
  * id, and writes `index.json` beside them. A stored transcript is used as it
  * is; one not stored is read from YouTube once and kept. A video without
  * captions is named in the answer, not written as an empty file. Returns
@@ -163,7 +163,11 @@ export async function saveChannelTranscripts(
   );
   // A video id becomes a file name, so one that is not an id is never written.
   const winners = board.winners.filter((video) => VIDEO_ID_PATTERN.test(video.videoId));
-  const folder = pathInside(root, TRANSCRIPTS_FOLDER, channelId);
+  const folder = await channelFolder(
+    pathInside(root, TRANSCRIPTS_FOLDER),
+    channel,
+    TRANSCRIPT_INDEX_FILE,
+  );
   await mkdir(folder, { recursive: true });
   const outcomes = await saveAll(deps, folder, winners);
   const result = {

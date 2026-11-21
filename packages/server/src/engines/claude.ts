@@ -82,6 +82,10 @@ export function buildClaudeArgs(request: EngineRunRequest): readonly string[] {
   ];
 }
 
+/** What the owner does when Claude Code is signed out, in words they can follow. */
+const SIGN_IN_AGAIN =
+  'Claude Code is signed out on this computer, or its login has run out. Open a terminal, type "claude auth login", follow it, then try again.';
+
 /** Turns what the process printed into an answer, or the reason there is none. */
 function readReply({ stdout, stderr, code }: ProcessOutput): EngineRunResult {
   const parsed = replySchema.safeParse(jsonReply(stdout));
@@ -102,7 +106,8 @@ function readReply({ stdout, stderr, code }: ProcessOutput): EngineRunResult {
   }
   const message = said(result ?? '');
   const kind = failureKind(message);
-  if (kind === 'limit' || kind === 'not-signed-in') throw new EngineRunError(kind, message);
+  if (kind === 'not-signed-in') throw new EngineRunError(kind, `${SIGN_IN_AGAIN} (${message})`);
+  if (kind === 'limit') throw new EngineRunError(kind, message);
   if (subtype === 'error_max_turns') {
     throw new EngineRunError('failed', 'Claude ran out of steps before it finished. Try again.');
   }

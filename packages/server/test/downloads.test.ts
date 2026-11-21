@@ -279,7 +279,10 @@ describe('the downloaders through the real engine', () => {
 
     const result = await made.engine.saveThumbnails(CHANNEL);
 
-    expect(result?.folder).toBe(join(made.folder, 'downloads', 'thumbnails', CHANNEL));
+    expect(result?.folder).toBe(
+      join(made.folder, 'downloads', 'thumbnails', result?.channelTitle ?? ''),
+    );
+    expect(result?.channelTitle).not.toBe('');
     expect(result).toMatchObject({ saved: 5, alreadyThere: 0, failed: [] });
     expect(readdirSync(result?.folder ?? '').sort()).toEqual([
       ...[0, 1, 2, 3, 4].map((n) => `${vid(n)}.jpg`),

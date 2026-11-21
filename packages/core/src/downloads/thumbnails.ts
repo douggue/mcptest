@@ -6,9 +6,9 @@ import {
   type ScoredBoardVideo,
 } from '../map/thumbnails';
 import type { ChannelRepo, VideoRepo } from '../repos/types';
-import { fetchThumbnail, type FetchImage } from '../sources/images';
+import { fetchFullThumbnail, type FetchImage } from '../sources/images';
 import { CHANNEL_ID_PATTERN, VIDEO_ID_PATTERN } from '../sources/parse';
-import { pathInside } from './folder';
+import { channelFolder, pathInside } from './folder';
 
 /**
  * Saves the thumbnails of one channel's winning and ordinary videos (the ones
@@ -84,7 +84,7 @@ async function saveOne(
 ): Promise<Outcome> {
   const path = pathInside(folder, entry.file);
   if (await isSaved(path)) return { kind: 'there', entry };
-  const image = await fetchThumbnail(entry.videoId, fetchImage);
+  const image = await fetchFullThumbnail(entry.videoId, fetchImage);
   if (!image.ok) return { kind: 'failed', videoId: entry.videoId, reason: image.reason };
   await writeFile(path, image.bytes);
   return { kind: 'saved', entry };
@@ -123,8 +123,9 @@ async function saveAll(
 }
 
 /**
- * Saves one stored channel's winning and ordinary thumbnails under
- * `<root>/thumbnails/<channel id>/`, one JPEG per video named by its id, and
+ * Saves one stored channel's winning and ordinary thumbnails, at the largest
+ * size YouTube has for each, under `<root>/thumbnails/<channel name>/`, one
+ * JPEG per video named by its id, and
  * writes `index.json` beside them listing video id, title, views, score and
  * group for each. A picture already in the folder is not fetched again.
  * Returns null when the channel is not in the store.
@@ -147,7 +148,11 @@ export async function saveChannelThumbnails(
       ? {}
       : { winnersPerChannel: options.perGroup, ordinaryPerChannel: options.perGroup },
   );
-  const folder = pathInside(root, THUMBNAILS_FOLDER, channelId);
+  const folder = await channelFolder(
+    pathInside(root, THUMBNAILS_FOLDER),
+    channel,
+    THUMBNAIL_INDEX_FILE,
+  );
   await mkdir(folder, { recursive: true });
   const outcomes = await saveAll(
     folder,

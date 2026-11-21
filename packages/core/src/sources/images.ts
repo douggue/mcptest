@@ -165,6 +165,33 @@ export async function fetchPinnedImage(
   }
 }
 
+/**
+ * A video's thumbnail at each size YouTube keeps, the largest first. Not every
+ * video has the largest (1280 by 720), so the next is tried when one is missing.
+ */
+export const FULL_THUMBNAIL_FILES = ['maxresdefault.jpg', 'sddefault.jpg', THUMBNAIL_FILE] as const;
+/** A full-size thumbnail is several times the weight of the small one shown to a model. */
+const MAX_FULL_THUMBNAIL_BYTES = 2_000_000;
+const FULL_THUMBNAIL_RULE: ImageRule = { ...THUMBNAIL_RULE, maxBytes: MAX_FULL_THUMBNAIL_BYTES };
+
+/**
+ * Fetches one video's thumbnail at the largest size it has, for saving to
+ * disk. Never throws; when no size can be had, the last reason is returned.
+ */
+export async function fetchFullThumbnail(
+  videoId: string,
+  fetchImage: FetchImage = fetch,
+): Promise<FetchedImage> {
+  if (!VIDEO_ID_PATTERN.test(videoId)) return failed('that is not a video id');
+  let last: FetchedImage = failed('the image could not be reached');
+  for (const file of FULL_THUMBNAIL_FILES) {
+    const url = `https://${VIDEO_IMAGE_HOST}/vi/${videoId}/${file}`;
+    last = await fetchPinnedImage(url, FULL_THUMBNAIL_RULE, fetchImage);
+    if (last.ok) return last;
+  }
+  return last;
+}
+
 /** Fetches one video's thumbnail; see `fetchPinnedImage`. */
 export async function fetchThumbnail(
   videoId: string,

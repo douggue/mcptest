@@ -374,10 +374,10 @@ Deleting or replacing the folder deletes it.
 Jgtube saves these files besides its store, all into one folder: a `downloads`
 folder beside the store file, or the folder you name in `JGTUBE_DOWNLOADS_PATH`.
 
-- **Thumbnails** you ask it to download: `downloads/thumbnails/<channel id>/`, one
+- **Thumbnails** you ask it to download: `downloads/thumbnails/<channel name>/`, one
   picture per video named by its video id, and an `index.json` listing each
   picture's video id, title, views and score. They stay until you delete them.
-- **Transcripts** you ask it to download: `downloads/transcripts/<channel id>/`,
+- **Transcripts** you ask it to download: `downloads/transcripts/<channel name>/`,
   one text file per video named by its video id, with the time marked every half
   minute, and an `index.json`. Up to six per channel: its videos that took off.
   They stay until you delete them.

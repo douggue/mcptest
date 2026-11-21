@@ -105,7 +105,7 @@ describe('saveChannelTranscripts', () => {
   test('saves the captions of the channel’s videos that took off, one text file each', async () => {
     const result = await saveChannelTranscripts(deps, CHANNEL, root);
 
-    const folder = join(root, 'transcripts', CHANNEL);
+    const folder = join(root, 'transcripts', 'Some Bakery');
     expect(result).toMatchObject({
       channelId: CHANNEL,
       channelTitle: 'Some Bakery',

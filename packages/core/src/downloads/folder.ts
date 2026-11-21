@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { Config } from '../config';
 import { isFileStore } from '../db/backup';
@@ -24,6 +25,47 @@ export function downloadsRoot(config: Pick<Config, 'dbPath' | 'downloadsPath'>):
     );
   }
   return join(dirname(resolve(config.dbPath)), DOWNLOADS_FOLDER);
+}
+
+/** Characters a folder name may not hold on Windows, and control characters. */
+const UNSAFE_IN_NAME = /[<>:"/\\|?*\u0000-\u001f]/g;
+/** Names Windows keeps for itself, whatever follows a dot. */
+const RESERVED_NAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i;
+const MAX_FOLDER_NAME = 80;
+
+/**
+ * A folder name made from a channel's title, safe on Windows and Mac: the
+ * title with the characters a file system refuses taken out. A title that
+ * leaves nothing usable gives the channel id instead.
+ */
+export function channelFolderName(title: string, channelId: string): string {
+  const cleaned = title
+    .replace(UNSAFE_IN_NAME, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_FOLDER_NAME)
+    .replace(/[. ]+$/, '');
+  return cleaned === '' || RESERVED_NAME.test(cleaned) ? channelId : cleaned;
+}
+
+/**
+ * The folder a channel's saved files go into, inside `parent`: named after
+ * the channel. Two channels can share a title, so when a folder of that name
+ * already belongs to another channel (its index file says which), the
+ * channel id is added to the name.
+ */
+export async function channelFolder(
+  parent: string,
+  channel: { readonly id: string; readonly title: string },
+  indexFile: string,
+): Promise<string> {
+  const name = channelFolderName(channel.title, channel.id);
+  const folder = pathInside(parent, name);
+  const owner = await readFile(pathInside(folder, indexFile), 'utf8')
+    .then((text) => (JSON.parse(text) as { channelId?: unknown }).channelId)
+    .catch(() => undefined);
+  const taken = typeof owner === 'string' && owner !== channel.id;
+  return taken ? pathInside(parent, `${name} [${channel.id}]`) : folder;
 }
 
 /**

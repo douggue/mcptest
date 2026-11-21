@@ -523,3 +523,24 @@ describe('reading what Claude Code printed', () => {
     expect(started[0]?.env).toEqual({ Path: 'C:\\bin' });
   });
 });
+
+describe('a Claude Code login that has run out', () => {
+  test('is a missing sign-in, said with the one command that fixes it', async () => {
+    const { child, run } = harness();
+    const pending = run();
+    child.finish(
+      {
+        ...success(
+          'Failed to authenticate: this login reached its time limit and cannot be renewed. Run `claude auth login` to sign in again',
+        ),
+        is_error: true,
+      },
+      1,
+    );
+
+    await expect(pending).rejects.toMatchObject({
+      reason: 'not-signed-in',
+      message: expect.stringMatching(/^Claude Code is signed out.*type "claude auth login"/),
+    });
+  });
+});
