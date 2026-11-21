@@ -438,8 +438,11 @@ this for the three videos it studies in depth, and keeps what was written.
   been run for real with preview frames and the NOT WATCHED section, and with a
   test-pattern video given as a file (which proves the file is cut into frames
   and studied, not how good the study of a real video is).
-- Whether Antigravity can see the pictures a tool returns is not documented, so
-  the thumbnail review uses Claude Code or Codex only.
+- Antigravity's CLI does not see the pictures a tool returns, so it is handed
+  thumbnails as files instead. Until it passes the picture check (Settings,
+  "Which AI answers", **Check it can see pictures**), the thumbnail review and
+  the thumbnail prompt use Claude Code or Codex. The check has not been run
+  against a real `agy` yet.
 - Whether Antigravity can watch a YouTube video from a link alone, without the
   file, is unproven. To see for yourself:
   `npm run engines -- --try --youtube https://www.youtube.com/watch?v=...`

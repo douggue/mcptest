@@ -1743,10 +1743,38 @@ switch. Then only that engine is asked and there is no backup; if the analysis
 cannot be done by it, or the setting leaves it out, the reply says so without
 starting anything. The page keeps the choice in the browser's local storage.
 
-`thumbnails` names its own engines, Claude Code and Codex, tried in the owner's
-order: the pictures arrive as tool results, and nothing documents that
-Antigravity passes a tool's pictures to its model. An engine the owner's
-setting leaves out is never used.
+The picture questions (`thumbnails`, the idea lab's `concept-thumbnail`, a
+breakdown's thumbnail part and the frame study) go to the engines that see
+pictures, tried in the owner's order: Claude Code and Codex always, since the
+pictures reach them as tool results (`view_thumbnails`). Antigravity's CLI does
+not see a tool's pictures. Its documentation says "Non-UI surfaces such as the
+Antigravity CLI run the same tools using their plain-text `content` results"
+(antigravity.google/docs/mcp), and of an `@file` mention that the agent gets the
+full path and "The agent reads it when it needs to" (antigravity.google/docs/at-mentions).
+So Antigravity is shown pictures as files: the thumbnail review and the thumbnail
+prompt have a files route (`filesRoute`), where code chooses the thumbnails from
+the board (`thumbnailFiles.ts`: the owner's latest four, two winners and two
+ordinary ones of each of the four closest channels, two winners of the next
+four), fetches them, writes them into the run's own folder as
+`thumb-<video id>.jpg` and names them in the question as `@thumb-….jpg`, by role
+only; `view_thumbnails` is then not offered. The other two picture questions have
+no files route and stay with Claude Code and Codex.
+
+Antigravity joins the picture engines only after it passes the **picture check**
+(`pictureCheck.ts`, `POST /api/engines/picture-check {engine}`): two 64-pixel PNGs
+made in code (`solidPng.ts`, zlib only), each one solid colour picked at random
+from eight clearly different ones (red, orange, yellow, green, blue, purple,
+grey, black), are written into the run folder and named as `@picture-1.png` and
+`@picture-2.png`; the prompt names no colour, the run has no tools, and code
+checks the answer: both colours right and in order passes. A guess passes one
+time in 8 × 7 = 56 (under 2%). The last result per engine is kept in a small file
+beside the store (`<store>.picture-checks.json`, owner-only, checked against a
+schema when read; anything unreadable counts as never run), and `GET /api/engines`
+returns it as `pictureChecks`. A failed or never-run check changes nothing; a run
+that fails (not installed, timed out) keeps nothing and the earlier result stands.
+Claude Code and Codex are refused (400): they need no check. The check shares the
+analyses' one-at-a-time turn (409). An engine the owner's setting leaves out is
+never used.
 
 The connector an analysis starts is given `JGTUBE_TOOLS`, the bare names of the
 tools that analysis may use, and registers no others. So the limit on tools
