@@ -131,6 +131,18 @@ class FakeEngine implements Engine {
     return this.stored;
   }
 
+  saved: ReturnType<Engine['listSavedChannels']> = [];
+  deleted: string[] = [];
+
+  deleteSavedChannel(channelId: string): boolean {
+    this.deleted.push(channelId);
+    return this.saved.some((channel) => channel.id === channelId);
+  }
+
+  listSavedChannels(): ReturnType<Engine['listSavedChannels']> {
+    return this.saved;
+  }
+
   choices: Parameters<Engine['crawl']>[3];
 
   crawl(
@@ -234,6 +246,84 @@ describe('GET /api/maps/latest', () => {
       expect(engine.lookups).toEqual([]);
     },
   );
+});
+
+describe('GET /api/maps', () => {
+  test('lists the channels a map has been made for', async () => {
+    engine.saved = [
+      {
+        id: CHANNEL_ID,
+        title: 'Veritasium',
+        handle: 'veritasium',
+        subscribers: 1200,
+        logoUrl: null,
+        mapMadeAt: '2026-11-20T12:00:00.000Z',
+        channelCount: 21,
+      },
+    ];
+
+    const response = await get('/api/maps');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      success: true,
+      data: { channels: engine.saved },
+    });
+  });
+});
+
+describe('POST /api/maps/delete', () => {
+  const send = (body: unknown) =>
+    app(
+      new Request(`http://${HOST}/api/maps/delete`, {
+        method: 'POST',
+        headers: { host: HOST, 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    );
+  const savedChannel = {
+    id: CHANNEL_ID,
+    title: 'Veritasium',
+    handle: 'veritasium',
+    subscribers: 1200,
+    logoUrl: null,
+    mapMadeAt: '2026-11-20T12:00:00.000Z',
+    channelCount: 21,
+  };
+
+  test('deletes the maps of a saved channel', async () => {
+    engine.saved = [savedChannel];
+
+    const response = await send({ channel: CHANNEL_ID });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ success: true, data: { channel: CHANNEL_ID } });
+    expect(engine.deleted).toEqual([CHANNEL_ID]);
+  });
+
+  test('answers 404 for a channel with no map, and 400 for anything that is not a channel id', async () => {
+    expect((await send({ channel: CHANNEL_ID })).status).toBe(404);
+    expect((await send({ channel: '@veritasium' })).status).toBe(400);
+    expect((await send({})).status).toBe(400);
+    expect(engine.deleted).toEqual([CHANNEL_ID]);
+  });
+
+  test('waits while a map is being made', async () => {
+    engine.saved = [savedChannel];
+    engine.outcome = new Promise(() => {});
+    await app(
+      new Request(`http://${HOST}/api/maps`, {
+        method: 'POST',
+        headers: { host: HOST, 'content-type': 'application/json' },
+        body: JSON.stringify({ channel: CHANNEL_ID }),
+      }),
+    );
+
+    const response = await send({ channel: CHANNEL_ID });
+
+    expect(response.status).toBe(409);
+    expect(engine.deleted).toEqual([]);
+  });
 });
 
 describe('GET /api/maps/latest/thumbnails', () => {

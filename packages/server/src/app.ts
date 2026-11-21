@@ -13,6 +13,7 @@ import {
   type FactsOutcome,
   type MapSnapshot,
   type NicheList,
+  type SavedChannel,
   type Place,
   type RefreshProgress,
   type RefreshStatus,
@@ -96,6 +97,13 @@ export interface TransferChoices {
 export interface Engine extends DownloadsEngine {
   /** The latest stored map around a channel; reads the store only. */
   findSnapshot(channel: string): MapSnapshot | null;
+  /** Every channel a map has been made for, the most recently mapped first. */
+  listSavedChannels(): readonly SavedChannel[];
+  /**
+   * Deletes a saved channel's maps and the choices made for it; what was read
+   * about the channels stays. False when the channel has no map.
+   */
+  deleteSavedChannel(channelId: string): boolean;
   /** The thumbnails that worked around a channel, from its latest map; reads the store only. */
   findThumbnailBoard(channel: string): ThumbnailBoard | null;
   /**
@@ -283,6 +291,21 @@ async function setWatched(options: AppOptions, request: Request): Promise<Respon
     : fail(404, 'That channel has not been read yet');
 }
 
+const deleteRequest = z.object({ channel: z.string().regex(CHANNEL_ID) });
+
+/** Deletes a saved channel's maps. Refused while a map is being made, which may be this one. */
+async function deleteSaved(options: AppOptions, request: Request): Promise<Response> {
+  const body = await readJson(options.allowedHosts, request);
+  if (body instanceof Response) return body;
+  const parsed = deleteRequest.safeParse(body);
+  if (!parsed.success) return fail(400, 'Give the id of the channel to delete');
+  if (options.jobs.isBusy()) return fail(409, BUSY);
+  const { channel } = parsed.data;
+  return options.engine.deleteSavedChannel(channel)
+    ? ok({ channel })
+    : fail(404, 'No map has been made for that channel');
+}
+
 const discoverRequest = z.object({ keyword: z.string().trim().min(1).max(MAX_KEYWORD_LENGTH) });
 
 /** The counts the screen shows for a finished keyword search. */
@@ -358,7 +381,11 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
         : fail(405, 'Use GET');
     }
     if (pathname === '/api/maps') {
-      return method === 'POST' ? startCrawl(options, request) : fail(405, 'Use POST');
+      if (method === 'GET') return ok({ channels: options.engine.listSavedChannels() });
+      return method === 'POST' ? startCrawl(options, request) : fail(405, 'Use GET or POST');
+    }
+    if (pathname === '/api/maps/delete') {
+      return method === 'POST' ? deleteSaved(options, request) : fail(405, 'Use POST');
     }
     if (pathname === '/api/competitors') {
       return method === 'POST' ? setCompetitor(options, request) : fail(405, 'Use POST');

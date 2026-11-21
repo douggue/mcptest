@@ -12,6 +12,7 @@ import type {
   NicheList,
   RefreshProgress,
   RefreshStatus,
+  SavedChannel,
   SameTopicList,
   ThumbnailBoard,
   TransferList,
@@ -141,6 +142,22 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
       const envelope = await call(`/api/maps/latest?channel=${encodeURIComponent(channel)}`);
       if (envelope.status === 404) return null;
       return unwrap<MapSnapshot>(envelope);
+    },
+
+    /** Every channel a map has been made for, the most recently mapped first. */
+    async savedChannels(): Promise<readonly SavedChannel[]> {
+      return unwrap<{ channels: readonly SavedChannel[] }>(await call('/api/maps')).channels;
+    },
+
+    /** Deletes a saved channel's maps; what was read about the channels stays in the store. */
+    async deleteSavedChannel(channelId: string): Promise<void> {
+      unwrap<unknown>(
+        await call('/api/maps/delete', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ channel: channelId }),
+        }),
+      );
     },
 
     /** The thumbnails that worked around a channel, or null when it has no map yet. */

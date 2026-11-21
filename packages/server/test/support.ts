@@ -11,6 +11,8 @@ const unused = (name: string) => (): never => {
 export function stubEngine(parts: Partial<Engine>): Engine {
   return {
     findSnapshot: unused('findSnapshot'),
+    listSavedChannels: unused('listSavedChannels'),
+    deleteSavedChannel: unused('deleteSavedChannel'),
     findThumbnailBoard: unused('findThumbnailBoard'),
     findSameTopic: unused('findSameTopic'),
     crawl: unused('crawl'),

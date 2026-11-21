@@ -1,4 +1,4 @@
-import type { CompetitorStatus, MapSnapshot } from '@jgtube/core';
+import type { CompetitorStatus, MapSnapshot, SavedChannel } from '@jgtube/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Benchmarks } from './components/Benchmarks';
 import { BreakoutFeed } from './components/BreakoutFeed';
@@ -6,6 +6,7 @@ import { Inspector } from './components/Inspector';
 import { MapToolbar } from './components/MapToolbar';
 import { Niches } from './components/Niches';
 import { SameTopic } from './components/SameTopic';
+import { SavedChannels } from './components/SavedChannels';
 import { ScopeToggle } from './components/ScopeToggle';
 import { Radar } from './components/Radar';
 import { RefreshBar } from './components/RefreshBar';
@@ -72,6 +73,17 @@ export function App() {
   const [scope, setScope] = useState<Scope>('peers');
   const [model, setModel] = useState(() => recall(MODEL_STORAGE_KEY));
   const [size, setSize] = useState(DEFAULT_SIZE);
+  const [saved, setSaved] = useState<readonly SavedChannel[]>([]);
+
+  // Every channel a map was made for. The row is a way back to them; if the
+  // list cannot be read, the row keeps what it had and the rest of the page works.
+  const loadSaved = useCallback(() => {
+    api
+      .savedChannels()
+      .then(setSaved)
+      .catch(() => undefined);
+  }, [api]);
+  useEffect(loadSaved, [loadSaved]);
 
   const load = useCallback(
     async (channel: string): Promise<boolean> => {
@@ -107,7 +119,10 @@ export function App() {
         .job(job.id)
         .then((next) => {
           setJob(next);
-          if (next.status === 'done' && next.result) void load(next.result.centerChannelId);
+          if (next.status === 'done' && next.result) {
+            void load(next.result.centerChannelId);
+            loadSaved();
+          }
           if (next.status === 'failed') setMessage(next.error ?? 'The map could not be made');
         })
         .catch((error: unknown) => {
@@ -116,7 +131,40 @@ export function App() {
         });
     }, POLL_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [api, job, load]);
+  }, [api, job, load, loadSaved]);
+
+  // Back to a channel looked up earlier: its stored map, with nothing read from YouTube.
+  const open = (channel: SavedChannel) => {
+    const typed = channel.handle ? `@${channel.handle}` : channel.id;
+    setQuery(typed);
+    remember(typed);
+    setMessage(null);
+    void load(channel.id);
+  };
+
+  // Deletes a saved channel's map. If it was the one on screen, the screen
+  // moves to the next saved channel, or back to the start when none is left.
+  const remove = async (channel: SavedChannel) => {
+    try {
+      await api.deleteSavedChannel(channel.id);
+    } catch (error) {
+      setMessage(messageOf(error));
+      return;
+    }
+    const rest = saved.filter((other) => other.id !== channel.id);
+    setSaved(rest);
+    if (snapshot?.center.id !== channel.id) return;
+    const [next] = rest;
+    if (next) {
+      open(next);
+      return;
+    }
+    setSnapshot(null);
+    setSelectedId(null);
+    setQuery('');
+    remember('');
+    setMessage(null);
+  };
 
   const submit = async () => {
     const channel = query.trim();
@@ -188,6 +236,13 @@ export function App() {
         size={size}
         onSizeChange={setSize}
         onExport={snapshot ? () => download(snapshot) : null}
+      />
+      <SavedChannels
+        channels={saved}
+        currentId={snapshot?.center.id ?? null}
+        busy={job?.status === 'running'}
+        onOpen={open}
+        onDelete={(channel) => void remove(channel)}
       />
       <Radar
         snapshot={visible}

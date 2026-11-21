@@ -125,6 +125,12 @@ export interface MapRepo {
   latestForCenter(centerChannelId: string): StoredMap | null;
   /** Each channel a map has been made around. */
   listCenterIds(): readonly string[];
+  /**
+   * Deletes every map made around a channel, with the owner's keep and remove
+   * choices for it. The channels and videos that were read stay in the store.
+   * Returns how many maps were deleted.
+   */
+  deleteForCenter(centerChannelId: string): number;
   /** Stores the map as it looked when it was made, as JSON. */
   saveSnapshot(mapId: number, snapshotJson: string): void;
   findSnapshot(mapId: number): string | null;

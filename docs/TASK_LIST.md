@@ -198,3 +198,5 @@ Phase 7 needs 5.
 - [ ] Topic grouping across channels as a screen of its own
 - [ ] Fixtures from a small and an empty channel
 - [ ] Moving the engine into core so the connector no longer imports the server
+- [x] Saved channels: every looked-up channel listed above the radar, opened from the store, deleted on request
+- [x] Channel logos on the radar, the inspector and the channel list

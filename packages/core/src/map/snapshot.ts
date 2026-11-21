@@ -102,6 +102,45 @@ export interface SnapshotDeps extends MapViewDeps {
   readonly brands?: Pick<BrandRepo, 'find'>;
 }
 
+/** A channel the owner has made a map for: enough to offer it again without reading anything. */
+export interface SavedChannel {
+  readonly id: string;
+  readonly title: string;
+  readonly handle: string | null;
+  readonly subscribers: number | null;
+  readonly logoUrl: string | null;
+  /** When its latest map was made, as an ISO-8601 string. */
+  readonly mapMadeAt: string;
+  /** How many other channels that map holds. */
+  readonly channelCount: number;
+}
+
+/**
+ * Every channel a map has been made for, the most recently mapped first.
+ * Maps are kept when another channel is looked up, so each of these can be
+ * opened again from the store without a new crawl.
+ */
+export function listSavedChannels(deps: SnapshotDeps): readonly SavedChannel[] {
+  const saved = deps.maps.listCenterIds().flatMap((centerId): SavedChannel[] => {
+    const map = deps.maps.latestForCenter(centerId);
+    const channel = deps.channels.findById(centerId);
+    if (!map || !channel) return [];
+    const logo = pickImage(deps.brands?.find(centerId)?.avatar ?? [], LOGO_SHOWN_MIN_WIDTH);
+    return [
+      {
+        id: channel.id,
+        title: channel.title,
+        handle: channel.handle,
+        subscribers: channel.subscribers,
+        logoUrl: logo?.url ?? null,
+        mapMadeAt: map.createdAt.toISOString(),
+        channelCount: map.members.filter((member) => member.channelId !== centerId).length,
+      },
+    ];
+  });
+  return [...saved].sort((a, b) => b.mapMadeAt.localeCompare(a.mapMadeAt));
+}
+
 /**
  * The snapshot with each channel's logo as the store has it now. Logos are
  * read when a channel is, so a map frozen earlier gains them as its channels

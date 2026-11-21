@@ -31,8 +31,10 @@ export { SqliteEdgeRepo } from './repos/sqliteEdgeRepo';
 export { SqliteMapRepo } from './repos/sqliteMapRepo';
 export { listBreakouts, type BreakoutVideo } from './map/breakouts';
 export {
+  listSavedChannels,
   loadMapSnapshot,
   type MapSnapshot,
+  type SavedChannel,
   type SnapshotChannel,
   type SnapshotDeps,
   type SnapshotEdge,

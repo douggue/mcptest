@@ -94,6 +94,20 @@ export class SqliteMapRepo implements MapRepo {
     };
   }
 
+  deleteForCenter(centerChannelId: string): number {
+    const remove = this.db.transaction((centerId: string): number => {
+      this.db
+        .prepare(
+          'DELETE FROM map_channels WHERE map_id IN (SELECT id FROM maps WHERE center_channel = ?)',
+        )
+        .run(centerId);
+      this.db.prepare('DELETE FROM map_removals WHERE center_channel = ?').run(centerId);
+      this.db.prepare('DELETE FROM map_keeps WHERE center_channel = ?').run(centerId);
+      return this.db.prepare('DELETE FROM maps WHERE center_channel = ?').run(centerId).changes;
+    });
+    return remove.immediate(centerChannelId);
+  }
+
   listCenterIds(): readonly string[] {
     return this.db
       .prepare<[], { center_channel: string }>(

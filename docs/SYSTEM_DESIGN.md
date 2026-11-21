@@ -451,6 +451,27 @@ Copies frozen before this existed carry no `kept` field; it is filled in on read
 
 Not built: adding a channel that is not on the map at all (phase 4, "Manual add").
 
+### Saved channels
+
+Every map stays in the store when another channel is looked up, so each channel
+a map was made for can be opened again without reading YouTube.
+`listSavedChannels` (`packages/core/src/map/snapshot.ts`, `GET /api/maps`)
+returns them, the most recently mapped first: id, title, handle, subscribers,
+logo, when the latest map was made and how many channels it holds. The page
+shows them as the "Your channels" row above the radar; choosing one loads its
+stored map.
+
+`POST /api/maps/delete {channel}` (a channel id) deletes every map made around
+that channel together with the keep and remove choices made for it
+(`MapRepo.deleteForCenter`, one transaction). The channels and videos that were
+read stay, since the niche list and the transfer ideas draw on them. It is
+refused with 409 while a map is being made, and the page asks before sending it.
+
+A stored map gains each channel's logo on every read (`logoUrl` on the centre
+and on each channel), from the branding stored when a channel is read; a frozen
+copy never holds logos, so a map made before logos were stored shows them once
+its channels have been read again.
+
 ### Same topic, different wording
 
 Built (`packages/core/src/map/sameTopic.ts`, `GET /api/maps/latest/same-topic`). Title

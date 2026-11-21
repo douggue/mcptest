@@ -14,6 +14,7 @@ import {
   discoverByKeyword,
   fetchChannelFacts,
   fillNicheFacts,
+  listSavedChannels,
   loadMapSnapshot,
   loadNicheList,
   loadRefreshStatus,
@@ -157,7 +158,14 @@ function wire(config: Config, options: EngineOptions): Wiring {
   };
 }
 
-type MapReads = Pick<Engine, 'findSnapshot' | 'findThumbnailBoard' | 'findSameTopic'>;
+type MapReads = Pick<
+  Engine,
+  | 'findSnapshot'
+  | 'findThumbnailBoard'
+  | 'findSameTopic'
+  | 'listSavedChannels'
+  | 'deleteSavedChannel'
+>;
 
 /** Reads of a channel's latest map; the store only. */
 function mapReads({ repos, now }: Wiring): MapReads {
@@ -176,6 +184,8 @@ function mapReads({ repos, now }: Wiring): MapReads {
     };
   return {
     findSnapshot: latest((id) => loadMapSnapshot(repos, id, now())),
+    listSavedChannels: () => listSavedChannels(repos),
+    deleteSavedChannel: (channelId) => repos.maps.deleteForCenter(channelId) > 0,
     findThumbnailBoard: latest((id) => loadThumbnailBoard(repos, id, now())),
     findSameTopic: latest((id) => loadSameTopicList(repos, id, now())),
   };

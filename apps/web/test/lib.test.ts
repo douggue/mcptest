@@ -397,6 +397,32 @@ describe('api', () => {
     await expect(api.latestMap('@x')).resolves.toEqual({ mapId: 7 });
   });
 
+  test('lists the channels a map has been made for', async () => {
+    const channels = [{ id: 'UCabc', title: 'One', handle: 'one' }];
+    const asked: string[] = [];
+    const api = createApi(async (url) => {
+      asked.push(String(url));
+      return new Response(JSON.stringify({ success: true, data: { channels }, error: null }));
+    });
+
+    await expect(api.savedChannels()).resolves.toEqual(channels);
+    expect(asked).toEqual(['/api/maps']);
+  });
+
+  test('asks for a saved channel to be deleted', async () => {
+    const sent: string[] = [];
+    const api = createApi(async (url, init) => {
+      sent.push(`${init?.method} ${String(url)} ${String(init?.body)}`);
+      return new Response(
+        JSON.stringify({ success: true, data: { channel: 'UCabc' }, error: null }),
+      );
+    });
+
+    await api.deleteSavedChannel('UCabc');
+
+    expect(sent).toEqual(['POST /api/maps/delete {"channel":"UCabc"}']);
+  });
+
   test('returns null when no map exists yet', async () => {
     const api = createApi(respond(404, { success: false, data: null, error: 'No map' }));
 

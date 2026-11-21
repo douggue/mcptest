@@ -9,6 +9,7 @@ import {
 import {
   SNAPSHOT_FORMAT,
   freezeMapSnapshot,
+  listSavedChannels,
   loadMapSnapshot,
   type SnapshotDeps,
 } from '../src/map/snapshot';
@@ -279,6 +280,60 @@ describe('loadMapSnapshot', () => {
 
     expect(snapshot?.center.logoUrl).toBeUndefined();
     expect(snapshot?.channels[0]?.logoUrl).toBeUndefined();
+  });
+
+  test('lists every channel a map was made for, the latest map first, with what the page needs to offer it again', () => {
+    saveMap();
+    deps.maps.create(
+      {
+        centerChannelId: cid('A'),
+        depth: 1,
+        region: 'US',
+        members: [{ channelId: cid('A'), steps: 0 }],
+      },
+      new Date(NOW.getTime() + DAY_MS),
+    );
+    const brands = {
+      find: (id: string) =>
+        id === cid('C')
+          ? {
+              channelId: id,
+              description: null,
+              avatar: [
+                { url: 'https://yt3.googleusercontent.com/c=s176', width: 176, height: 176 },
+              ],
+              banner: [],
+              keywords: [],
+              links: [],
+              fetchedAt: NOW,
+            }
+          : null,
+    };
+
+    expect(listSavedChannels({ ...deps, brands })).toEqual([
+      {
+        id: cid('A'),
+        title: 'Channel A',
+        handle: 'handleA',
+        subscribers: 900,
+        logoUrl: null,
+        mapMadeAt: '2026-11-21T12:00:00.000Z',
+        channelCount: 0,
+      },
+      {
+        id: cid('C'),
+        title: 'Channel C',
+        handle: 'handleC',
+        subscribers: null,
+        logoUrl: 'https://yt3.googleusercontent.com/c=s176',
+        mapMadeAt: '2026-11-20T12:00:00.000Z',
+        channelCount: 2,
+      },
+    ]);
+  });
+
+  test('lists no saved channels before any map is made', () => {
+    expect(listSavedChannels(deps)).toEqual([]);
   });
 
   test('lists each channel with its tier, link to the centre and best breakout', () => {

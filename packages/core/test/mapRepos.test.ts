@@ -136,6 +136,25 @@ describe('SqliteMapRepo', () => {
     expect(maps.listCenterIds()).toEqual([cid('A'), cid('C')]);
   });
 
+  test('deletes every map made around a channel, with the choices made for it, and nothing else', () => {
+    const kept = maps.create({ centerChannelId: cid('A'), depth: 1, region: 'US', members }, T1);
+    maps.create({ centerChannelId: cid('C'), depth: 1, region: 'US', members }, T1);
+    maps.create({ centerChannelId: cid('C'), depth: 2, region: 'US', members }, T2);
+    maps.setRemoved(cid('C'), cid('B'), true, T1);
+    maps.setKept(cid('C'), cid('A'), true, T1);
+    maps.setRemoved(cid('A'), cid('B'), true, T1);
+
+    expect(maps.deleteForCenter(cid('C'))).toBe(2);
+
+    expect(maps.latestForCenter(cid('C'))).toBeNull();
+    expect(maps.listRemoved(cid('C'))).toEqual([]);
+    expect(maps.listKept(cid('C'))).toEqual([]);
+    expect(maps.listCenterIds()).toEqual([cid('A')]);
+    expect(maps.latestForCenter(cid('A'))?.id).toBe(kept);
+    expect(maps.listRemoved(cid('A'))).toEqual([cid('B')]);
+    expect(maps.deleteForCenter(cid('C'))).toBe(0);
+  });
+
   test('starts with no stored snapshot and no removals', () => {
     const id = maps.create({ centerChannelId: cid('C'), depth: 2, region: 'US', members }, T1);
 

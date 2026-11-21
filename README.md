@@ -95,6 +95,11 @@ compiler:
 
 ## What is on the page
 
+- **Your channels.** Every channel you look up is kept. They are listed in a row
+  above the radar: press one to see its map again at once, with nothing read from
+  YouTube. Looking up a new channel never removes an earlier one. The small cross
+  on a channel deletes it and its map, after asking you; the videos Jgtube read
+  stay, because the niche list and the transfer ideas use them.
 - **The radar** shows the channels around yours. **Like yours** is the filtered
   list; **Everything** is every channel that was read. Click a channel for
   details. You can remove one that is not a competitor, or keep one the filter
