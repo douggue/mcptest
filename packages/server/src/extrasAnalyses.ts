@@ -10,8 +10,14 @@
  */
 import { FINDING_MAX_QUOTES, FINDING_MIN_QUOTES } from '@jgtube/core';
 import type { AnalysisSpec } from './analyses';
+import { thumbReviewAnalyses, type ThumbReviewFocus } from './thumbReviewQuestions';
 
-export const EXTRA_ANALYSIS_IDS = ['viewer-requests', 'risk-check'] as const;
+export const EXTRA_ANALYSIS_IDS = [
+  'viewer-requests',
+  'risk-check',
+  'thumbnail-tags',
+  'thumbnail-advice',
+] as const;
 export type ExtrasAnalysisId = (typeof EXTRA_ANALYSIS_IDS)[number];
 
 /** The videos a "What viewers ask for" is about: winners of the map, checked in code. */
@@ -24,7 +30,7 @@ export interface RiskFocus {
   readonly kind: 'risk';
   readonly conceptId: number;
 }
-export type ExtrasFocus = CommentsFocus | RiskFocus;
+export type ExtrasFocus = CommentsFocus | RiskFocus | ThumbReviewFocus;
 
 export const VIEWER_TOOLS = ['get_viewer_comments'] as const;
 const VIEWER_MAX_TURNS = 6;
@@ -131,5 +137,6 @@ export function extraAnalyses(
       timeoutMs: RISK_TIMEOUT_MS,
       question: (channel, focus) => riskCheckQuestion(channel, riskFocusOf(focus)),
     },
+    ...thumbReviewAnalyses(tool),
   };
 }

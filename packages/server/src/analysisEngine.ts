@@ -90,7 +90,10 @@ export interface AnalysisOptions {
    * A channel's thumbnails as files, for an engine shown pictures that way.
    * Without it, such an engine is passed over for picture questions.
    */
-  readonly pictureFiles?: (channel: string) => Promise<PictureFileSet>;
+  readonly pictureFiles?: (
+    channel: string,
+    videoIds?: readonly string[],
+  ) => Promise<PictureFileSet>;
   /** Where the picture checks are kept; defaults to a file beside the store, none for one in memory. */
   readonly pictureChecksPath?: string | null;
   /** Replaces Math.random for the picture check's colours; used by tests. */
@@ -302,11 +305,14 @@ function asker(
       () => stop.aborted,
     );
   /** The thumbnails as files, fetched only when such an engine's turn comes. */
-  const filesFor = async (channel: string): Promise<PictureFileSet> => {
+  const filesFor = async (
+    channel: string,
+    videoIds: readonly string[] | undefined,
+  ): Promise<PictureFileSet> => {
     const fetch = wiring.options.pictureFiles;
     if (!fetch) throw new EngineRunError('failed', 'Jgtube cannot hand this engine pictures here.');
     try {
-      return await fetch(channel);
+      return await fetch(channel, videoIds);
     } catch (error) {
       throw new EngineRunError(
         'failed',
@@ -329,7 +335,13 @@ function asker(
         order,
         async (engine) =>
           spec.pictures && seesFiles(engine)
-            ? analysisRequest(analysis, channel, at(engine), focus, await filesFor(channel))
+            ? analysisRequest(
+                analysis,
+                channel,
+                at(engine),
+                focus,
+                await filesFor(channel, spec.filesRoute?.pictureIds?.(focus)),
+              )
             : analysisRequest(analysis, channel, at(engine), focus),
         nobodyFor(asked, order, engines, only),
       );

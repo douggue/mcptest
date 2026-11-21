@@ -1,5 +1,6 @@
 import type { ProfileVideo } from '@jgtube/core';
 import { formatCount, formatDuration, formatScore, thumbnailUrl, watchUrl } from '../lib/format';
+import { reviewHref } from '../lib/thumbReview';
 
 /** One video: its thumbnail, title, views, date and outlier score, linked to YouTube. */
 function VideoTile({ video }: { readonly video: ProfileVideo }) {
@@ -34,6 +35,12 @@ function VideoTile({ video }: { readonly video: ProfileVideo }) {
       <span className="text-label text-outline">
         {formatCount(video.views)} views · {video.publishedRaw}
       </span>
+      <a
+        href={reviewHref(video.videoId)}
+        className="self-start text-label text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
+      >
+        Review this thumbnail
+      </a>
     </li>
   );
 }

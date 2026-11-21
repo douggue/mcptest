@@ -7,6 +7,7 @@ import { RadarArea } from './RadarArea';
 import { RefreshBar } from './RefreshBar';
 import { SameTopic } from './SameTopic';
 import { ThumbnailBoard } from './ThumbnailBoard';
+import { ThumbnailReview } from './ThumbnailReview';
 import { Transfers } from './Transfers';
 import { withMap, type ViewDraw, type ViewParts } from './viewParts';
 
@@ -61,6 +62,14 @@ export const RESEARCH_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
       state={work.board}
       centerTitle={snapshot.center.title}
       modelId={snapshot.model?.id ?? null}
+      review={
+        <ThumbnailReview
+          channelId={snapshot.center.id}
+          choice={work.analysis.choice}
+          engines={work.analysis.engines}
+          busy={work.asking}
+        />
+      }
       onDownload={(channelId) => api.downloadThumbnails(channelId)}
       onDownloadTranscripts={(channelId) => api.downloadTranscripts(channelId)}
     />

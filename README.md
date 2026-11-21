@@ -146,7 +146,12 @@ compiler:
   channels, and your own. **Download thumbnails** under a channel saves its
   pictures as files on your computer and tells you the folder. **Download
   transcripts** saves what is said in the channel's videos that took off (up to
-  six) as text files, and tells you the folder.
+  six) as text files, and tells you the folder. **Review one thumbnail** at the
+  top: pick one of your videos (or any on the map, or press **Review this
+  thumbnail** under a video on a channel page) and press **Review this
+  thumbnail**. Its thumbnail is set against the winners closest to it, Jgtube
+  counts what they share that yours lacks, and the AI says how to improve it
+  and writes a full prompt for an image tool, with a Copy button.
 - **Ask AI**: three one-press questions (thumbnail review, video ideas, and
   judging the same-topic channels), and **Channel breakdown**, a longer job that
   takes one channel apart. Under each answer it says which AI gave it. See below
@@ -193,7 +198,7 @@ because it can open a video file with picture and sound.
 | Engine          | What to install and do once                                                       | Notes                                                                     |
 | --------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | Claude Code     | Install [Claude Code](https://code.claude.com), run `claude` once and sign in     | The main one, and the only one run with Jgtube from start to finish       |
-| Antigravity CLI | Install it, run `agy` once and sign in, then add one line to its settings (below) | First backup; first for watching video. Not used for the thumbnail review |
+| Antigravity CLI | Install it, run `agy` once and sign in, then add one line to its settings (below) | First backup; first for watching video. Looks at thumbnails only after it passes the picture check |
 | Codex CLI       | Install it, then type `codex login` and follow it                                 | Second backup                                                             |
 
 To see what Jgtube finds on your computer, open a terminal in the Jgtube folder

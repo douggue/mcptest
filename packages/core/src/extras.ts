@@ -155,3 +155,4 @@ export {
 export { scriptOverlaps, scriptSentences, type Overlap, type StoredText } from './risk/overlap';
 export type { RiskRepo, StoredRiskCheck } from './risk/store';
 export { SqliteRiskRepo } from './repos/sqliteRiskRepo';
+export * from './thumbReview/index';

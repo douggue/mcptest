@@ -15,6 +15,7 @@ import { PACING_ROUTES } from './pacingRoutes';
 import { PLAN_ROUTES } from './planRoutes';
 import { PROFILE_ROUTES } from './profileRoutes';
 import { RISK_ROUTES } from './riskRoutes';
+import { THUMB_REVIEW_ROUTES } from './thumbReviewRoutes';
 import { JobStore } from './jobs';
 
 const ROUTES: ExtrasRouteTable = {
@@ -26,6 +27,7 @@ const ROUTES: ExtrasRouteTable = {
   ...COMMENTS_ROUTES,
   ...RISK_ROUTES,
   ...PROFILE_ROUTES,
+  ...THUMB_REVIEW_ROUTES,
   '/api/extras/job': { GET: (context, _request, url) => readExtrasJob(context, url) },
 };
 
