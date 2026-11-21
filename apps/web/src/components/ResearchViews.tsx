@@ -1,8 +1,7 @@
 import type { ViewId } from '../lib/routes';
-import { Benchmarks } from './Benchmarks';
 import { BreakoutFeed } from './BreakoutFeed';
 import { ChangesSection } from './ChangesSection';
-import { SplitView, ViewPage } from './layout/SplitView';
+import { ViewPage } from './layout/SplitView';
 import { Niches } from './Niches';
 import { RadarArea } from './RadarArea';
 import { RefreshBar } from './RefreshBar';
@@ -11,33 +10,27 @@ import { ThumbnailBoard } from './ThumbnailBoard';
 import { Transfers } from './Transfers';
 import { withMap, type ViewDraw, type ViewParts } from './viewParts';
 
-/** Breaking out: the feed of videos taking off, beside the channels to measure against. */
-function Breakouts({ page, work, openChannel }: ViewParts) {
+/** Breaking out: the feed of videos taking off, each one press from the ideas. */
+function Breakouts({ page, work }: ViewParts) {
   const { visible } = page;
   const { lab } = work;
   if (!visible) return null;
   return (
     <ViewPage id="breakouts" labelledBy="breakouts-title">
-      <SplitView
-        sideLabel="This map and its channels"
-        width="narrow"
-        side={<Benchmarks snapshot={visible} selectedId={null} onSelect={openChannel} />}
-      >
-        <BreakoutFeed
-          items={visible.breakouts}
-          centerTitle={visible.center.title}
-          pickedIds={lab.picks.map((pick) => pick.videoId)}
-          onPick={(item) =>
-            lab.pick({
-              videoId: item.videoId,
-              title: item.title,
-              channelTitle: item.channelTitle,
-              modelOpening: false,
-              from: 'breakout',
-            })
-          }
-        />
-      </SplitView>
+      <BreakoutFeed
+        items={visible.breakouts}
+        centerTitle={visible.center.title}
+        pickedIds={lab.picks.map((pick) => pick.videoId)}
+        onPick={(item) =>
+          lab.pick({
+            videoId: item.videoId,
+            title: item.title,
+            channelTitle: item.channelTitle,
+            modelOpening: false,
+            from: 'breakout',
+          })
+        }
+      />
     </ViewPage>
   );
 }
