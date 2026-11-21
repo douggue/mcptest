@@ -1,7 +1,7 @@
 import type { ScriptFields } from '@jgtube/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EngineChoice } from '../lib/analyses';
-import type { LabApi } from '../lib/labApi';
+import type { LabApi, LengthInput } from '../lib/labApi';
 import type { ScriptStage, ScriptView } from '../lib/scriptWriter';
 import type { LabJobs } from './useLabJob';
 
@@ -21,6 +21,8 @@ export interface Script {
   readonly runStage: (stage: ScriptStage) => void;
   /** Reads from YouTube the captions of the voice channel's best videos, then measures it again. */
   readonly readVoice: () => void;
+  /** Stores a length typed in minutes or words. */
+  readonly setLength: (length: LengthInput) => void;
 }
 
 /** How long typing must pause before a change is stored. */
@@ -134,5 +136,19 @@ export function useScript(
     );
   };
 
-  return { view, saving, problem, open, close: () => setView(null), change, runStage, readVoice };
+  const setLength = (length: LengthInput): void => {
+    if (centerId === null || conceptId === null) return;
+    void flush()
+      .then(() => api.setLength(centerId, conceptId, length))
+      .then((saved) => {
+        setView(saved);
+        setProblem(null);
+      })
+      .catch((error: unknown) => setProblem(messageOf(error)));
+  };
+
+  return {
+    ...{ view, saving, problem, open, close: () => setView(null), change, runStage, readVoice },
+    setLength,
+  };
 }

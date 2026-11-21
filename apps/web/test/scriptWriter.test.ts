@@ -325,3 +325,23 @@ describe('the step the script writer opens on', () => {
     );
   });
 });
+
+describe('the Markdown export with its sources', () => {
+  test('ends with the numbered source list, after the thumbnail prompt', () => {
+    const file = exportMarkdown('T', 'It opened [F1].', true, {
+      thumbnailPrompt: 'P',
+      sources: ['## Sources', '', '1. [F1] It opened in 2020. https://a.example/1', ''],
+    });
+
+    expect(file.indexOf('## Thumbnail prompt')).toBeLessThan(file.indexOf('## Sources'));
+    expect(file.trimEnd().endsWith('1. [F1] It opened in 2020. https://a.example/1')).toBe(true);
+  });
+});
+
+describe('the clean voiceover and fact markers', () => {
+  test('leaves out the [F3] markers and the notes of applied corrections', () => {
+    const copy = voiceoverCopy('It opened in 2020 [F1]. It is small. [FIXED: its size]', true);
+
+    expect(copy.text).toBe('It opened in 2020. It is small.');
+  });
+});

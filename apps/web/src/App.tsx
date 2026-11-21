@@ -164,7 +164,15 @@ export function App() {
             onDraft={(concept) => path.draft(concept.id)}
           />
         )}
-        {snapshot && <ScriptWriter script={script} lab={lab} busy={asking} voices={work.voices} />}
+        {snapshot && (
+          <ScriptWriter
+            script={script}
+            research={work.research}
+            lab={lab}
+            busy={asking}
+            voices={work.voices}
+          />
+        )}
 
         {/* Study */}
         {snapshot && (

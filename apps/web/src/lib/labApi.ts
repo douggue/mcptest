@@ -1,4 +1,5 @@
 import type { DroppedFormula, VerifiedFormula } from '@jgtube/core';
+import type { ClaimsOutcome, ResearchOutcome, ResearchView } from './research';
 import { AUTOMATIC, type EngineChoice } from './analyses';
 import { apiCaller, type Fetch } from './api';
 import type { HookBuildOutcome, HookLabelOutcome, HookLibrary } from './hookLibrary';
@@ -18,6 +19,11 @@ import type {
   VoiceOutcome,
   VoiceView,
 } from './scriptWriter';
+
+/** A length as the owner typed it: minutes (as seconds) or words. */
+export type LengthInput =
+  | { readonly typed: 'minutes'; readonly seconds: number }
+  | { readonly typed: 'words'; readonly words: number };
 
 /** The idea lab's part of the local server's API: concepts, title formulas and the hook library. */
 
@@ -49,7 +55,9 @@ export type LabOutcome =
   | HookLabelOutcome
   | ScriptOutcome
   | VoiceOutcome
-  | ConceptThumbnailOutcome;
+  | ConceptThumbnailOutcome
+  | ResearchOutcome
+  | ClaimsOutcome;
 
 export interface LabJob {
   readonly id: string;
@@ -140,6 +148,28 @@ export function createLabApi(fetcher?: Fetch) {
       changes: Partial<ScriptFields>,
     ): Promise<ScriptView> {
       return unwrap<ScriptView>(await send('/api/lab/scripts', { channel, concept, changes }));
+    },
+
+    /** A concept's fact sheet and claims check. */
+    async research(channel: string, concept: number): Promise<ResearchView> {
+      return unwrap<ResearchView>(
+        await call(`/api/lab/research?${of(channel)}&concept=${concept}`),
+      );
+    },
+
+    /** Starts a web research run for a concept's subject. */
+    startResearch: (channel: string, concept: number, choice: EngineChoice) =>
+      started('/api/lab/research', { channel, concept, ...withEngine(choice) }),
+
+    /** Starts a claims check of the next marked claims of a concept's script. */
+    startClaims: (channel: string, concept: number, choice: EngineChoice) =>
+      started('/api/lab/claims', { channel, concept, ...withEngine(choice) }),
+
+    /** Stores a length typed in minutes or words and returns the script as it now stands. */
+    async setLength(channel: string, concept: number, length: LengthInput): Promise<ScriptView> {
+      return unwrap<ScriptView>(
+        await send('/api/lab/scripts/length', { channel, concept, length }),
+      );
     },
 
     /** Starts one stage of a script: hooks and beats, the draft, or the tighten pass. */
