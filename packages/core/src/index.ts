@@ -108,7 +108,7 @@ export { SqliteRefreshRepo } from './repos/sqliteRefreshRepo';
 export type { RefreshRun, RefreshRunRepo, VideoReading } from './repos/types';
 export { fillNicheFacts, type FactsDeps, type FactsOutcome } from './niches/facts';
 export { SqliteFactsRepo } from './repos/sqliteFactsRepo';
-export type { FactsRepo, NewFacts, StoredFacts } from './repos/types';
+export type { FactsRepo, NewFacts, OwnerPlaceRepo, StoredFacts } from './repos/types';
 export { NICHE_MIN_LATIN_SHARE, dominantScript, latinShare } from './niches/script';
 export {
   READING_ELSEWHERE,
@@ -137,11 +137,26 @@ export {
   type TransferDeps,
   type TransferOptions,
 } from './transfer/transfers';
-export { findPlaces, placeForCountry, placeNamed, type Place } from './transfer/places';
+export {
+  findPlaces,
+  listPlaces,
+  placeForCountry,
+  placeForKey,
+  placeNamed,
+  type Place,
+} from './transfer/places';
+export {
+  MAX_COUNTRIES_PER_RUN,
+  channelsLackingCountry,
+  readCountries,
+  type CountryOutcome,
+} from './transfer/countries';
+export { SqliteOwnerPlaceRepo } from './repos/sqliteOwnerPlaceRepo';
 export { PLACE_SLOT, NUMBER_SLOT, SUBJECT_SLOT } from './transfer/template';
 export type {
   FormatSubject,
   OwnerPlace,
+  PlaceCheck,
   PlaceResult,
   TransferFormat,
   TransferIdea,

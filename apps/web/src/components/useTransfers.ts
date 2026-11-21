@@ -1,14 +1,19 @@
-import type { TransferList } from '@jgtube/core';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Api } from '../lib/api';
 import { requestCounter } from '../lib/requests';
+import {
+  createTransferPlaceApi,
+  describeCountryRead,
+  shouldReadCountries,
+  type TransferReply,
+} from '../lib/transferPlace';
 import { withSaved } from '../lib/transfers';
 
 export type TransfersState =
   | { readonly status: 'loading' }
   | {
       readonly status: 'ready';
-      readonly list: TransferList;
+      readonly list: TransferReply;
       /** Set when the last save could not be stored. */
       readonly problem: string | null;
     }
@@ -22,6 +27,10 @@ const messageOf = (error: unknown, fallback: string): string =>
 export interface Transfers {
   readonly state: TransfersState;
   readonly setSaved: (key: string, saved: boolean) => void;
+  /** Stores the place the owner chose for the channel on screen (null removes it), then reads the list again. */
+  readonly choosePlace: (placeKey: string | null) => void;
+  /** What reading the missing countries did, in a sentence; null when nothing to say. */
+  readonly countryNote: string | null;
   /** Reads the list again, after something else has changed the store. */
   readonly reload: () => void;
 }
@@ -64,7 +73,7 @@ export function useTransfers(api: Api, channelId: string | null, mapId: number |
 
   const setSaved = useCallback(
     (key: string, saved: boolean) => {
-      const settle = (change: (list: TransferList) => TransferList, problem: string | null) =>
+      const settle = (change: (list: TransferReply) => TransferReply, problem: string | null) =>
         setState((previous) =>
           previous.status === 'ready'
             ? { ...previous, list: change(previous.list), problem }
@@ -72,7 +81,7 @@ export function useTransfers(api: Api, channelId: string | null, mapId: number |
         );
       api
         .setTransferSaved(key, saved)
-        .then(() => settle((list) => withSaved(list, key, saved), null))
+        .then(() => settle((list) => ({ ...list, ...withSaved(list, key, saved) }), null))
         .catch((error: unknown) =>
           settle((list) => list, messageOf(error, 'Your choice could not be saved')),
         );
@@ -84,5 +93,42 @@ export function useTransfers(api: Api, channelId: string | null, mapId: number |
     void read(() => true);
   }, [read]);
 
-  return { state, setSaved, reload };
+  const placeApi = useMemo(() => createTransferPlaceApi(), []);
+  const [countryNote, setCountryNote] = useState<string | null>(null);
+  const choosePlace = useCallback(
+    (placeKey: string | null) => {
+      if (channelId === null) return;
+      placeApi
+        .setPlace(channelId, placeKey)
+        .then(reload, (error: unknown) =>
+          setState((previous) =>
+            previous.status === 'ready'
+              ? { ...previous, problem: messageOf(error, 'Your place could not be saved') }
+              : previous,
+          ),
+        );
+    },
+    [channelId, placeApi, reload],
+  );
+
+  // The countries the list lacks are read once per channel when a key is set:
+  // the channel's own, and those of the channels behind the listed ideas.
+  const triedFor = useRef<string | null>(null);
+  const list = state.status === 'ready' ? state.list : null;
+  useEffect(() => {
+    if (channelId === null || list === null) return;
+    if (list.placeCheck.channelId !== channelId) return;
+    if (!shouldReadCountries(list, triedFor.current === channelId)) return;
+    triedFor.current = channelId;
+    placeApi.readCountries(channelId).then(
+      (outcome) => {
+        setCountryNote(describeCountryRead(outcome));
+        if (outcome.added > 0) reload();
+      },
+      (error: unknown) => setCountryNote(messageOf(error, 'The countries could not be read')),
+    );
+  }, [channelId, list, placeApi, reload]);
+  useEffect(() => setCountryNote(null), [channelId]);
+
+  return { state, setSaved, choosePlace, countryNote, reload };
 }

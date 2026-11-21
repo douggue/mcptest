@@ -1,13 +1,21 @@
 import { buildVideoReport } from '../report';
-import type { FactsRepo, MapRepo, SavedIdea, TransferRepo, VideoRepo } from '../repos/types';
+import type {
+  FactsRepo,
+  MapRepo,
+  OwnerPlaceRepo,
+  SavedIdea,
+  TransferRepo,
+  VideoRepo,
+} from '../repos/types';
 import { groupFormats, indexBySubject, oneWordVariants, type SubjectIndex } from './formats';
 import { groupIdeas, isShared, type Idea, type TitledVideo } from './ideas';
 import { isStrong, judge } from './opportunity';
-import { inferOwnerPlace, placeOfChannel, type CentreChannel } from './ownerPlace';
-import { placeForCountry, type Place } from './places';
+import { inferOwnerPlace, placeInTitles, placeOfChannel, type CentreChannel } from './ownerPlace';
+import { placeForCountry, placeForKey, type Place } from './places';
 import { placeResults } from './results';
 import type {
   OwnerPlace,
+  PlaceCheck,
   RecentVideo,
   TransferIdea,
   TransferList,
@@ -45,6 +53,10 @@ export interface TransferInput {
   readonly videos: readonly RecentVideo[];
   /** The place the owner makes videos for; null when it is not known. */
   readonly ownerPlace: OwnerPlace | null;
+  /** What each source says about the place of the channel on screen; nothing known when left out. */
+  readonly placeCheck?: PlaceCheck;
+  /** Whether the official API was ever asked about a channel; left out, every channel counts as asked. */
+  readonly countryAsked?: (channelId: string) => boolean;
   /**
    * A channel's outlier scores by video id. Asked for once for each channel
    * that takes part in a shared idea, and for no other.
@@ -66,6 +78,8 @@ function placeOfVideo(entry: TitledVideo): VersionPlace | null {
 function toVersion(entry: TitledVideo, scores: Scores, now: Date): TransferVersion {
   const { video } = entry;
   const score = scores.get(video.channelId)?.get(video.id) ?? null;
+  const channelCountry = placeForCountry(video.country);
+  const named = entry.template.places[0] ?? null;
   return {
     videoId: video.id,
     title: video.title,
@@ -78,7 +92,33 @@ function toVersion(entry: TitledVideo, scores: Scores, now: Date): TransferVersi
     ageDays: Math.max(0, (now.getTime() - video.publishedAt.getTime()) / DAY_MS),
     durationSeconds: video.durationSeconds,
     strong: isStrong(video.views, score, video.subscribers),
+    channelCountry,
+    elsewhere: named !== null && channelCountry !== null && named.key !== channelCountry.key,
   };
+}
+
+/** What is said of the place when no channel is on screen: nothing. */
+export const NO_PLACE_CHECK: PlaceCheck = {
+  channelId: null,
+  chosen: null,
+  fromTitles: null,
+  fromCountry: null,
+  countryCode: null,
+  countryAsked: false,
+  disagree: false,
+};
+
+/** How many channels behind the listed ideas, and the one on screen, were never asked about. */
+function countMissing(
+  ideas: readonly TransferIdea[],
+  input: TransferInput,
+  centerChannelId: string | null,
+): number {
+  const asked = input.countryAsked;
+  if (!asked) return 0;
+  const behind = ideas.flatMap((idea) => idea.versions.map((version) => version.channelId));
+  const wanted = new Set([...(centerChannelId ? [centerChannelId] : []), ...behind]);
+  return [...wanted].filter((channelId) => !asked(channelId)).length;
 }
 
 /** The titles one word away from an idea that were made for the owner's place. */
@@ -205,14 +245,18 @@ export function buildTransferList(input: TransferInput, now: Date): TransferList
   const ideas = listed.map((idea) => describeIdea(idea, context)).sort(byPromise);
   const found = new Set(all.map((idea) => idea.key));
   const formats = groupFormats(index);
+  const shown = [
+    ...ideas.filter((idea, position) => position < TRANSFER_MAX_IDEAS || idea.saved),
+    ...input.savedIdeas.filter((saved) => !found.has(saved.key)).map(goneIdea),
+  ];
+  const placeCheck = input.placeCheck ?? NO_PLACE_CHECK;
   return {
     ownerPlace: input.ownerPlace,
+    placeCheck,
+    countriesMissing: countMissing(shown, input, placeCheck.channelId),
     windowDays: TRANSFER_WINDOW_DAYS,
     videosChecked: input.videos.length,
-    ideas: [
-      ...ideas.filter((idea, position) => position < TRANSFER_MAX_IDEAS || idea.saved),
-      ...input.savedIdeas.filter((saved) => !found.has(saved.key)).map(goneIdea),
-    ],
+    ideas: shown,
     ideaCount: shared.length,
     opportunityCount: ideas.filter((idea) => idea.opportunity).length,
     formats: formats.slice(0, TRANSFER_MAX_FORMATS),
@@ -226,6 +270,8 @@ export interface TransferDeps {
   readonly maps: MapRepo;
   /** Where channel countries from the official API are kept. Without it none is known. */
   readonly facts?: FactsRepo;
+  /** Where the place the owner chose for a channel is kept. Without it none is chosen. */
+  readonly ownerPlaces?: OwnerPlaceRepo;
 }
 
 export interface TransferOptions {
@@ -235,13 +281,36 @@ export interface TransferOptions {
   readonly centerChannelId?: string | null;
 }
 
+/** What each source says about the place of one channel; nothing for no channel. */
+function placeCheckOf(deps: TransferDeps, centerChannelId: string | null): PlaceCheck {
+  if (!centerChannelId) return NO_PLACE_CHECK;
+  const titles = deps.videos.listByChannel(centerChannelId).map((video) => video.title);
+  const fromTitles = placeInTitles(titles);
+  const countryCode = deps.facts?.find(centerChannelId)?.country ?? null;
+  const fromCountry = placeForCountry(countryCode);
+  return {
+    channelId: centerChannelId,
+    chosen: placeForKey(deps.ownerPlaces?.find(centerChannelId)),
+    fromTitles,
+    fromCountry,
+    countryCode,
+    countryAsked: deps.facts ? deps.facts.listMissing([centerChannelId]).length === 0 : false,
+    disagree: fromTitles !== null && fromCountry !== null && fromTitles.key !== fromCountry.key,
+  };
+}
+
 /**
- * The owner's place: the one given, else the channel on screen's. Only when no
+ * The owner's place: the one given, else the one the owner chose for the
+ * channel on screen, else the channel on screen's. Only when no
  * mapped channel is on screen is it worked out from the map centres: a channel
  * with a map of its own is never given the place of another channel's map.
  */
 function ownerPlaceOf(deps: TransferDeps, options: TransferOptions): OwnerPlace | null {
   if (options.ownerPlace) return { ...options.ownerPlace, source: 'given' };
+  const chosen = options.centerChannelId
+    ? placeForKey(deps.ownerPlaces?.find(options.centerChannelId))
+    : null;
+  if (chosen) return { ...chosen, source: 'owner' };
   const describe = (channelId: string): CentreChannel => ({
     titles: deps.videos.listByChannel(channelId).map((video) => video.title),
     country: deps.facts?.find(channelId)?.country ?? null,
@@ -291,11 +360,16 @@ export function loadTransferList(
       buildVideoReport(deps.videos.listByChannel(channelId), now).map((row) => [row.id, row.score]),
     );
   const compared = channelsCompared(deps, options);
+  const { facts } = deps;
   const recent = deps.transfers.listRecentVideos(since);
   return buildTransferList(
     {
       videos: compared ? recent.filter((video) => compared.has(video.channelId)) : recent,
       ownerPlace: ownerPlaceOf(deps, options),
+      placeCheck: placeCheckOf(deps, options.centerChannelId ?? null),
+      ...(facts
+        ? { countryAsked: (channelId: string) => facts.listMissing([channelId]).length === 0 }
+        : {}),
       scoresOf,
       savedIdeas: deps.transfers.listSaved(),
     },

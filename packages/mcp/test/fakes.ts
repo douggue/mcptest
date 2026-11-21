@@ -316,6 +316,8 @@ export function version(overrides: Partial<TransferVersion> = {}): TransferVersi
     ageDays: 21.4,
     durationSeconds: 840,
     strong: true,
+    channelCountry: null,
+    elsewhere: false,
     ...overrides,
   };
 }
@@ -390,6 +392,16 @@ export function format(overrides: Partial<TransferFormat> = {}): TransferFormat 
 export function transferList(overrides: Partial<TransferList> = {}): TransferList {
   return {
     ownerPlace: { key: 'US', name: 'America', source: 'titles' },
+    placeCheck: {
+      channelId: null,
+      chosen: null,
+      fromTitles: null,
+      fromCountry: null,
+      countryCode: null,
+      countryAsked: false,
+      disagree: false,
+    },
+    countriesMissing: 0,
     windowDays: 90,
     videosChecked: 15_092,
     ideas: [idea()],

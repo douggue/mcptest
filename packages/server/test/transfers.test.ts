@@ -3,14 +3,29 @@ import { describe, expect, test } from 'vitest';
 import { createApp, type TransferChoices } from '../src/app';
 import { createEngine } from '../src/engine';
 import { JobStore } from '../src/jobs';
+import { NO_KEY_FOR_COUNTRIES } from '../src/transferRoutes';
 import { CHANNEL_ID, HOST, get, post, read, stubEngine } from './support';
 
 const PATH = '/api/transfers';
 const SAVE = '/api/transfers/save';
+const PLACE = '/api/transfers/place';
+/** The parts of a channel's facts these tests do not look at. */
+const NO_COUNTS = { videoCount: null, subscribers: null, subscribersHidden: true };
+const COUNTRIES = '/api/transfers/countries';
 const KEY = '{place} just found fuel shouldn exist';
 
 const list: TransferList = {
   ownerPlace: { key: 'US', name: 'America', source: 'titles' },
+  placeCheck: {
+    channelId: null,
+    chosen: null,
+    fromTitles: null,
+    fromCountry: null,
+    countryCode: null,
+    countryAsked: false,
+    disagree: false,
+  },
+  countriesMissing: 0,
   windowDays: 90,
   videosChecked: 12,
   ideas: [],
@@ -47,7 +62,12 @@ describe('GET /api/transfers', () => {
     const response = await get(appWith(calls), PATH);
 
     expect(response.status).toBe(200);
-    expect(await read(response)).toEqual({ success: true, data: list, error: null, meta: null });
+    expect(await read(response)).toEqual({
+      success: true,
+      data: { ...list, canReadCountries: false },
+      error: null,
+      meta: null,
+    });
     expect(calls.reads).toEqual([{}]);
   });
 
@@ -284,5 +304,148 @@ describe('the transfer list with the real engine and store', () => {
     expect((await post(live, SAVE, { key, saved: false })).status).toBe(200);
     expect((await listed()).ideas.map((idea) => idea.saved)).toEqual([false]);
     real.close();
+  });
+
+  test('the owner sets the place for a channel, and it is used from then on', async () => {
+    const real = createEngine(
+      { dbPath: ':memory:', region: 'US' },
+      { createSource: async () => source, now: () => NOW },
+    );
+    const live = createApp({ engine: real, jobs: new JobStore(), allowedHosts: [HOST] });
+    const listed = async () =>
+      (await read<TransferList>(await get(live, `${PATH}?channel=${cid('C')}`))).data;
+    await real.crawl('@handleC', 1, () => {});
+
+    const set = await post(live, PLACE, { channel: cid('C'), place: 'chile' });
+
+    expect(set.status).toBe(200);
+    expect((await read(set)).data).toEqual({
+      channel: cid('C'),
+      place: { key: 'CL', name: 'Chile' },
+    });
+    const chosen = await listed();
+    expect(chosen.ownerPlace).toEqual({ key: 'CL', name: 'Chile', source: 'owner' });
+    expect(chosen.placeCheck).toMatchObject({
+      chosen: { key: 'CL', name: 'Chile' },
+      fromTitles: { key: 'PE', name: 'Peru' },
+      fromCountry: null,
+      countryAsked: false,
+    });
+    expect(chosen.ideas[0]?.verdict.status).toBe('weak');
+
+    expect((await post(live, PLACE, { channel: cid('C'), place: null })).status).toBe(200);
+    expect((await listed()).ownerPlace?.source).toBe('titles');
+    real.close();
+  });
+
+  test('without a key it says so; with one the countries are read, stored and shown', async () => {
+    const asked: string[][] = [];
+    const config = { dbPath: ':memory:', region: 'US' };
+    const options = {
+      createSource: async () => source,
+      now: () => NOW,
+      fetchFacts: async (ids: readonly string[]) => {
+        asked.push([...ids]);
+        return [
+          { id: cid('C'), createdAt: NOW, country: 'GB', totalViews: null, ...NO_COUNTS },
+          { id: cid('A'), createdAt: NOW, country: 'KE', totalViews: null, ...NO_COUNTS },
+        ];
+      },
+    };
+    const without = createEngine(config, options);
+    const noKey = createApp({ engine: without, jobs: new JobStore(), allowedHosts: [HOST] });
+    await without.crawl('@handleC', 1, () => {});
+    const refused = await post(noKey, COUNTRIES, { channel: cid('C') });
+    expect(refused.status).toBe(400);
+    expect((await read(refused)).error).toBe(NO_KEY_FOR_COUNTRIES);
+    expect(asked).toEqual([]);
+    without.close();
+
+    const real = createEngine(
+      { ...config, youtubeApiKey: 'fake-youtube-key-000000000000' },
+      options,
+    );
+    const live = createApp({ engine: real, jobs: new JobStore(), allowedHosts: [HOST] });
+    const listed = async () =>
+      (
+        await read<TransferList & { canReadCountries: boolean }>(
+          await get(live, `${PATH}?channel=${cid('C')}`),
+        )
+      ).data;
+    await real.crawl('@handleC', 1, () => {});
+    expect(await listed()).toMatchObject({ canReadCountries: true, countriesMissing: 3 });
+
+    const outcome = await post(live, COUNTRIES, { channel: cid('C') });
+
+    expect((await read(outcome)).data).toEqual({ asked: 3, added: 2, problem: null });
+    expect(asked.map((ids) => [...ids].sort())).toEqual([[cid('A'), cid('B'), cid('C')]]);
+    const after = await listed();
+    expect(after.countriesMissing).toBe(0);
+    expect(after.placeCheck).toMatchObject({
+      fromTitles: { key: 'PE', name: 'Peru' },
+      fromCountry: { key: 'GB', name: 'UK' },
+      countryAsked: true,
+      disagree: true,
+    });
+    expect(
+      after.ideas[0]?.versions.map((v) => [v.channelCountry?.key ?? null, v.elsewhere]),
+    ).toEqual([
+      ['KE', false],
+      [null, false],
+    ]);
+    real.close();
+  });
+});
+
+describe('POST /api/transfers/place and /api/transfers/countries', () => {
+  const app = () =>
+    createApp({
+      engine: stubEngine({
+        setOwnerPlace: (channel) => channel === CHANNEL_ID,
+        canReadCountries: () => true,
+        readCountries: async (channel) =>
+          channel === CHANNEL_ID ? { asked: 1, added: 1, problem: null } : null,
+      }),
+      jobs: new JobStore(),
+      allowedHosts: [HOST],
+    });
+
+  test.each([
+    [{ channel: CHANNEL_ID, place: 'Atlantis' }, 400],
+    [{ channel: CHANNEL_ID, place: '' }, 400],
+    [{ channel: 'not-an-id', place: 'Chile' }, 400],
+    [{ channel: CHANNEL_ID }, 400],
+    [{ channel: `UC${'z'.repeat(22)}`, place: 'Chile' }, 404],
+    [{ channel: CHANNEL_ID, place: 'CL' }, 200],
+    [{ channel: CHANNEL_ID, place: 'region:africa' }, 200],
+  ])('place: %j is answered %d', async (body, status) => {
+    expect((await post(app(), PLACE, body)).status).toBe(status);
+  });
+
+  test('both are POSTs from this site only', async () => {
+    const elsewhere = { origin: 'https://elsewhere.example' };
+
+    expect((await get(app(), PLACE)).status).toBe(405);
+    expect((await get(app(), COUNTRIES)).status).toBe(405);
+    expect((await post(app(), PLACE, { channel: CHANNEL_ID, place: 'CL' }, elsewhere)).status).toBe(
+      403,
+    );
+    expect((await post(app(), COUNTRIES, { channel: CHANNEL_ID }, elsewhere)).status).toBe(403);
+  });
+
+  test('countries: a channel that is not stored, a bad body and a failure are told apart', async () => {
+    const failing = createApp({
+      engine: stubEngine({
+        canReadCountries: () => true,
+        readCountries: () => Promise.reject(new Error('no network')),
+      }),
+      jobs: new JobStore(),
+      allowedHosts: [HOST],
+    });
+
+    expect((await post(app(), COUNTRIES, { channel: `UC${'z'.repeat(22)}` })).status).toBe(404);
+    expect((await post(app(), COUNTRIES, {})).status).toBe(400);
+    expect((await post(failing, COUNTRIES, { channel: CHANNEL_ID })).status).toBe(502);
+    expect((await post(app(), COUNTRIES, { channel: CHANNEL_ID })).status).toBe(200);
   });
 });

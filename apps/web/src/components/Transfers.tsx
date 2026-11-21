@@ -13,6 +13,7 @@ import {
 } from '../lib/transfers';
 import { FormatCard } from './FormatCard';
 import { TransferCard } from './TransferCard';
+import { TransferPlace } from './TransferPlace';
 import type { Transfers as TransfersData } from './useTransfers';
 
 const NOTE = 'rounded bg-surface-card p-space-lg text-body-md text-on-surface-variant';
@@ -153,6 +154,13 @@ export function Transfers({ transfers, hasMap }: Props) {
           <p role="alert" className="rounded bg-surface-card p-space-lg text-body-md text-error">
             Your choice was not saved: {state.problem}
           </p>
+        )}
+        {list && state.status === 'ready' && (
+          <TransferPlace
+            list={state.list}
+            countryNote={transfers.countryNote}
+            onChoose={transfers.choosePlace}
+          />
         )}
         {list && <Cards key={filter} list={list} filter={filter} onSetSaved={setSaved} />}
       </div>

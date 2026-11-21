@@ -57,7 +57,8 @@ import { LOGOS_PATH, logoRoutes, type LogoRoutes } from './logoRoutes';
 import type { LogoEngine } from './logoTypes';
 import type { ScriptEngine } from './scriptTypes';
 import { settingsRoute, type SettingsEngine } from './settingsRoutes';
-import { readTransfers, saveTransfer } from './transferRoutes';
+import type { TransferPlaceEngine } from './transferEngine';
+import { readCountries, readTransfers, saveTransfer, setPlace } from './transferRoutes';
 
 const CHANNEL_ID = /^UC[\w-]{22}$/;
 const MAX_KEYWORD_LENGTH = 200;
@@ -118,7 +119,8 @@ export interface TransferChoices {
 }
 
 /** What the API needs from the engine, so tests can stand in for it. */
-export interface Engine extends DownloadsEngine, LabEngine, ScriptEngine, LogoEngine {
+export interface Engine
+  extends DownloadsEngine, LabEngine, ScriptEngine, LogoEngine, TransferPlaceEngine {
   /** The latest stored map around a channel; reads the store only. */
   findSnapshot(channel: string): MapSnapshot | null;
   /** Every channel a map has been made for, the most recently mapped first. */
@@ -507,6 +509,12 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     }
     if (pathname === '/api/transfers') {
       return method === 'GET' ? readTransfers(options, url, channelProblem) : fail(405, 'Use GET');
+    }
+    if (pathname === '/api/transfers/place') {
+      return method === 'POST' ? setPlace(options, request) : fail(405, 'Use POST');
+    }
+    if (pathname === '/api/transfers/countries') {
+      return method === 'POST' ? readCountries(options, request) : fail(405, 'Use POST');
     }
     if (pathname === '/api/transfers/save') {
       return method === 'POST' ? saveTransfer(options, request) : fail(405, 'Use POST');

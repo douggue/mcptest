@@ -7,6 +7,7 @@ import {
 } from './analyses';
 import type { BreakdownJobState, TranscriptsSaved } from './breakdown';
 import type { BreakdownView } from './breakdownParts';
+import type { TransferReply } from './transferPlace';
 import type {
   CompetitorStatus,
   CrawlProgress,
@@ -17,7 +18,6 @@ import type {
   SavedChannel,
   SameTopicList,
   ThumbnailBoard,
-  TransferList,
 } from '@jgtube/core';
 
 /** The niche list, plus whether keyword search can run (it needs a YouTube API key). */
@@ -290,9 +290,9 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
      * Ideas several channels made, judged as transfer opportunities for the
      * place of the channel on screen (or of the mapped channels, with none).
      */
-    async transfers(channel: string | null): Promise<TransferList> {
+    async transfers(channel: string | null): Promise<TransferReply> {
       const query = channel ? `?channel=${encodeURIComponent(channel)}` : '';
-      return unwrap<TransferList>(await call(`/api/transfers${query}`));
+      return unwrap<TransferReply>(await call(`/api/transfers${query}`));
     },
 
     /** Saves an idea as a transfer opportunity, or stops saving it. */

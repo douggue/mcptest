@@ -70,6 +70,9 @@ class FakeEngine implements Engine {
     throw new Error('not used in these tests');
   };
   fetchLogos = this.missingLogos;
+  canReadCountries = (): boolean => false;
+  readCountries = this.missingLogos;
+  setOwnerPlace = this.missingLogos;
   nicheReads = 0;
   /** The channels the fake store holds, for the watchlist. */
   known: readonly string[] = [CHANNEL_ID];
