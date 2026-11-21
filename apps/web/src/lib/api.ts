@@ -6,6 +6,7 @@ import {
   type EngineReport,
 } from './analyses';
 import type { BreakdownJobState, TranscriptsSaved } from './breakdown';
+import type { BreakdownView } from './breakdownParts';
 import type {
   CompetitorStatus,
   CrawlProgress,
@@ -333,6 +334,13 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
         }),
       });
       return unwrap<{ jobId: string }>(envelope).jobId;
+    },
+
+    /** A channel's stored breakdown, or null when none has been written for it. */
+    async storedBreakdown(channel: string): Promise<BreakdownView | null> {
+      const envelope = await call(`/api/breakdowns?channel=${encodeURIComponent(channel)}`);
+      if (envelope.status === 404) return null;
+      return unwrap<BreakdownView>(envelope);
     },
 
     async breakdownJob(id: string): Promise<BreakdownJobState> {

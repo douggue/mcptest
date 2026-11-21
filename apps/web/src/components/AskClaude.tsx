@@ -109,7 +109,8 @@ interface Props {
  * Three questions are answered with one press: what the winning thumbnails
  * do, which videos to make next, and which left-out channels cover the same
  * ground in other words. The fourth, a breakdown of one channel, is a longer
- * job that reports its steps. Claude Code is the main engine, with
+ * job that reports its steps and is kept: picking a channel shows the
+ * breakdown stored for it. Claude Code is the main engine, with
  * Antigravity and Codex as backups; the switch lets the owner pick one of
  * them instead. (The component keeps its first name; it is no longer Claude only.)
  */
@@ -160,6 +161,8 @@ export function AskClaude(props: Props) {
           ))}
           <BreakdownCard
             choices={channels}
+            picked={breakdown.picked}
+            onPick={breakdown.pick}
             busy={busy}
             active={breakingDown}
             onRun={(channel, fresh) => breakdown.start(channel, choice, fresh)}
@@ -167,10 +170,10 @@ export function AskClaude(props: Props) {
         </div>
 
         <BreakdownStatus
-          state={breakdown.state}
+          breakdown={breakdown}
           busy={busy}
           onSend={onSendVideo}
-          onAgain={(channel) => breakdown.start(channel, choice, false)}
+          onRun={(channel, fresh) => breakdown.start(channel, choice, fresh)}
         />
 
         {state.status === 'running' && (

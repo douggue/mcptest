@@ -48,13 +48,22 @@ const outcome = (overrides: Partial<BreakdownOutcome> = {}): BreakdownOutcome =>
     videoId: `video00000${n}`,
     title: `V${n}`,
     captions: 'read',
+    words: 2000,
+    wordsPerMinute: 150,
   })),
   deep: [studied()],
   supply: [],
   ownVideosFolder: 'C:\\jgtube\\downloads\\my-videos',
-  text: 'CHANNEL IDENTITY',
-  engine: 'claude',
-  skipped: [],
+  titles: 40,
+  parts: [],
+  breakdown: {
+    channel: { id: cid(3), title: 'alpha history' },
+    writtenAt: '2026-11-21T09:30:00.000Z',
+    parts: [],
+    files: [],
+    folder: null,
+  },
+  notSaved: null,
   ...overrides,
 });
 
@@ -111,7 +120,7 @@ describe('breakdownChoices', () => {
 describe('restsOn', () => {
   test('says how many videos the breakdown rests on, out of how many stored', () => {
     expect(restsOn(outcome())).toBe(
-      'Rests on the channel’s top 5 videos out of 40 stored, 1 of them studied in depth.',
+      'Rests on 40 titles and the channel’s top 5 videos out of 40 stored, 1 of them studied in depth.',
     );
   });
 
@@ -119,18 +128,21 @@ describe('restsOn', () => {
     const few = outcome({
       storedVideos: 2,
       top: [
-        { videoId: 'a', title: 'A', captions: 'none' },
-        { videoId: 'b', title: 'B', captions: 'failed' },
+        { videoId: 'a', title: 'A', captions: 'none', words: null, wordsPerMinute: null },
+        { videoId: 'b', title: 'B', captions: 'failed', words: null, wordsPerMinute: null },
       ],
       deep: [],
+      titles: 2,
     });
 
     expect(restsOn(few)).toBe(
-      'Rests on the channel’s top 2 videos out of 2 stored, 0 of them studied in depth. 1 of the 2 has no captions. The captions of 1 could not be read this time.',
+      'Rests on 2 titles and the channel’s top 2 videos out of 2 stored, 0 of them studied in depth. 1 of the 2 has no captions. The captions of 1 could not be read this time.',
     );
-    expect(restsOn(outcome({ top: [{ videoId: 'a', title: 'A', captions: 'read' }] }))).toContain(
-      'top 1 video out of',
-    );
+    const one = outcome({
+      top: [{ videoId: 'a', title: 'A', captions: 'read', words: 9, wordsPerMinute: null }],
+      titles: 1,
+    });
+    expect(restsOn(one)).toContain('Rests on 1 title and the channel’s top 1 video out of');
   });
 
   test('says there are no videos for a channel with none stored', () => {

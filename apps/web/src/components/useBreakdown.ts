@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EngineChoice } from '../lib/analyses';
 import type { Api } from '../lib/api';
 import type { BreakdownOutcome, BreakdownProgress, VideoToSupply } from '../lib/breakdown';
+import type { BreakdownView } from '../lib/breakdownParts';
 
 /** The channel a breakdown is for, as the page names it. */
 export interface BreakdownChannel {
@@ -30,34 +31,82 @@ export type BreakdownState =
       readonly supply: readonly VideoToSupply[];
     };
 
+/** The breakdown the store holds for the channel that is picked. */
+export type StoredBreakdown =
+  | { readonly status: 'none' | 'loading' | 'absent' }
+  | { readonly status: 'ready'; readonly view: BreakdownView }
+  | { readonly status: 'failed'; readonly message: string };
+
 export interface Breakdown {
   readonly state: BreakdownState;
-  /** Starts a breakdown of a channel. Ignored while one is running. */
+  /** The channel picked for a breakdown; null until one is. */
+  readonly picked: BreakdownChannel | null;
+  /** Picks a channel, so that its stored breakdown is shown. */
+  readonly pick: (channel: BreakdownChannel) => void;
+  /** The stored breakdown of the picked channel, as far as it has been read. */
+  readonly stored: StoredBreakdown;
+  /** Starts a breakdown of a channel, and picks it. Ignored while one is running. */
   readonly start: (channel: BreakdownChannel, choice: EngineChoice, fresh: boolean) => void;
 }
 
 const POLL_INTERVAL_MS = 1500;
 const IDLE: BreakdownState = { status: 'idle' };
+const NONE: StoredBreakdown = { status: 'none' };
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : 'The breakdown could not finish';
 
 /**
+ * The stored breakdown of the picked channel, read again whenever the pick
+ * changes or a run ends (`version` counts the runs that have ended).
+ */
+function useStored(api: Api, picked: BreakdownChannel | null, version: number): StoredBreakdown {
+  const [stored, setStored] = useState<StoredBreakdown>(NONE);
+  const pickedId = picked?.id ?? null;
+  useEffect(() => {
+    if (pickedId === null) {
+      setStored(NONE);
+      return;
+    }
+    let current = true;
+    setStored({ status: 'loading' });
+    api
+      .storedBreakdown(pickedId)
+      .then((view) => {
+        if (current) setStored(view === null ? { status: 'absent' } : { status: 'ready', view });
+      })
+      .catch((error: unknown) => {
+        if (current) setStored({ status: 'failed', message: messageOf(error) });
+      });
+    return () => {
+      current = false;
+    };
+  }, [api, pickedId, version]);
+  return stored;
+}
+
+/**
  * One breakdown at a time. It runs as a job on the server for many minutes,
  * so the page asks how it is going every second or two and shows the step.
- * The last outcome stays on screen until the next breakdown is started.
+ * The last outcome stays on screen until the next breakdown is started or
+ * another channel is picked; a finished breakdown is kept by the server and
+ * is shown again when its channel is picked.
  */
 export function useBreakdown(api: Api): Breakdown {
   const [state, setState] = useState<BreakdownState>(IDLE);
   const [jobId, setJobId] = useState<string | null>(null);
+  const [picked, setPicked] = useState<BreakdownChannel | null>(null);
+  const [ended, setEnded] = useState(0);
   // A ref, not state: a second press must be refused before the screen has redrawn.
   const running = useRef(false);
+  const stored = useStored(api, picked, ended);
 
   useEffect(() => {
     if (jobId === null) return;
     const finish = (next: (channel: BreakdownChannel) => BreakdownState): void => {
       running.current = false;
       setJobId(null);
+      setEnded((count) => count + 1);
       setState((current) => (current.status === 'running' ? next(current.channel) : current));
     };
     const timer = window.setInterval(() => {
@@ -85,10 +134,15 @@ export function useBreakdown(api: Api): Breakdown {
     return () => window.clearInterval(timer);
   }, [api, jobId]);
 
+  const pick = useCallback((channel: BreakdownChannel) => {
+    setPicked((current) => (current?.id === channel.id ? current : channel));
+  }, []);
+
   const start = useCallback(
     (channel: BreakdownChannel, choice: EngineChoice, fresh: boolean) => {
       if (running.current) return;
       running.current = true;
+      pick(channel);
       setState({ status: 'running', channel, progress: null });
       api
         .startBreakdown(channel.id, choice, fresh)
@@ -98,8 +152,8 @@ export function useBreakdown(api: Api): Breakdown {
           setState({ status: 'failed', channel, message: messageOf(error), supply: [] });
         });
     },
-    [api],
+    [api, pick],
   );
 
-  return { state, start };
+  return { state, picked, pick, stored, start };
 }
