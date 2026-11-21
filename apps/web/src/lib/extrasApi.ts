@@ -11,6 +11,8 @@ import { apiCaller, type Fetch } from './api';
 import type { AlertSettingsInput, AlertsReply } from './alerts';
 import type { CommentsView } from './comments';
 import type { RiskView } from './risk';
+import { AUTOMATIC, type EngineChoice } from './analyses';
+import type { PickableVideos, ThumbReviewView } from './thumbReview';
 import type { ChangesReply } from './changes';
 
 /** The later features' part of the local server's API, each call for one channel by its id. */
@@ -93,6 +95,27 @@ export function createExtrasApi(fetcher?: Fetch) {
       return unwrap<{ jobId: string }>(await send('/api/risk/ask', { channel, conceptId })).jobId;
     },
 
+    /** The videos a thumbnail review can be asked for; null when the channel has no map. */
+    thumbnailVideos: (channel: string) =>
+      read<PickableVideos>(`/api/thumbnail-review/videos?${of(channel)}`),
+
+    /** A video's kept thumbnail review; null when none is kept. */
+    async thumbnailReview(channel: string, videoId: string): Promise<ThumbReviewView | null> {
+      return unwrap<ThumbReviewView | null>(
+        await call(`/api/thumbnail-review?${of(channel)}&video=${encodeURIComponent(videoId)}`),
+      );
+    },
+
+    /** Starts a thumbnail review of one video; resolves with the job id. */
+    async askThumbnailReview(
+      channel: string,
+      videoId: string,
+      choice: EngineChoice,
+    ): Promise<string> {
+      const body = { channel, videoId, ...(choice === AUTOMATIC ? {} : { engine: choice }) };
+      return unwrap<{ jobId: string }>(await send('/api/thumbnail-review/ask', body)).jobId;
+    },
+
     /** One of the later features' jobs. */
     async extrasJob(id: string): Promise<ExtrasJob> {
       return unwrap<ExtrasJob>(await call(`/api/extras/job?id=${encodeURIComponent(id)}`));
@@ -128,6 +151,15 @@ export interface ExtrasJob {
           readonly proposed: number;
           readonly dropped: number;
           readonly unread: number;
+          readonly engine: string;
+        };
+      }
+    | {
+        readonly kind: 'thumbnail-review';
+        readonly outcome: {
+          readonly winners: number;
+          readonly tagged: number;
+          readonly rejected: number;
           readonly engine: string;
         };
       }

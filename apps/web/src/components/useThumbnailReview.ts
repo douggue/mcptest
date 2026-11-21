@@ -1,0 +1,90 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { choiceFor, type EngineChoice, type EngineReport } from '../lib/analyses';
+import { createExtrasApi } from '../lib/extrasApi';
+import { requestCounter } from '../lib/requests';
+import { firstPick, type PickableVideos, type ThumbReviewView } from '../lib/thumbReview';
+import { follow, type Work } from './useComments';
+
+export interface ThumbnailReview {
+  readonly videos: PickableVideos | null;
+  readonly picked: string | null;
+  readonly choose: (videoId: string) => void;
+  /** The picked video's kept review; null when it has none. */
+  readonly view: ThumbReviewView | null;
+  readonly problem: string | null;
+  readonly work: Work;
+  /** Why this review goes to another AI than the one chosen; null when it does not. */
+  readonly note: string | null;
+  readonly ask: () => void;
+}
+
+const messageOf = (error: unknown, fallback: string): string =>
+  error instanceof Error ? error.message : fallback;
+
+/** The thumbnail review of one picked video on the map on screen. */
+export function useThumbnailReview(
+  channelId: string | null,
+  choice: EngineChoice,
+  engines: EngineReport | null,
+): ThumbnailReview {
+  const api = useMemo(() => createExtrasApi(), []);
+  const requests = useMemo(() => requestCounter(), []);
+  const [videos, setVideos] = useState<PickableVideos | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [view, setView] = useState<ThumbReviewView | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [work, setWork] = useState<Work>({ status: 'idle' });
+  const [turn, setTurn] = useState(0);
+  const plan = choiceFor('thumbnails', choice, engines);
+
+  useEffect(() => {
+    setPicked(null);
+    if (channelId === null) return;
+    api
+      .thumbnailVideos(channelId)
+      .then((found) => {
+        setVideos(found);
+        setPicked((current) => current ?? firstPick(found));
+      })
+      .catch((error: unknown) => setProblem(messageOf(error, 'The videos could not be loaded')));
+  }, [api, channelId]);
+
+  useEffect(() => {
+    if (channelId === null || picked === null) {
+      setView(null);
+      return;
+    }
+    const isNewest = requests.begin();
+    api
+      .thumbnailReview(channelId, picked)
+      .then((found) => {
+        if (!isNewest()) return;
+        setView(found);
+        setProblem(null);
+      })
+      .catch((error: unknown) => {
+        if (isNewest()) setProblem(messageOf(error, 'The review could not be loaded'));
+      });
+  }, [api, requests, channelId, picked, turn]);
+
+  const ask = useCallback(() => {
+    if (channelId === null || picked === null) return;
+    setWork({ status: 'running', text: 'Starting' });
+    api
+      .askThumbnailReview(channelId, picked, plan.choice)
+      .then((id) => follow(api, id, (text) => setWork({ status: 'running', text })))
+      .then((job) =>
+        setWork(
+          job.status === 'done' && job.result?.kind === 'thumbnail-review'
+            ? { status: 'done', text: 'Reviewed.' }
+            : { status: 'failed', text: job.error ?? 'It did not finish' },
+        ),
+      )
+      .catch((error: unknown) =>
+        setWork({ status: 'failed', text: messageOf(error, 'It could not start') }),
+      )
+      .finally(() => setTurn((value) => value + 1));
+  }, [api, channelId, picked, plan.choice]);
+
+  return { videos, picked, choose: setPicked, view, problem, work, note: plan.note, ask };
+}
