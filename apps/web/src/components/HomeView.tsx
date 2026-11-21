@@ -1,5 +1,5 @@
 import { Card } from './layout/Card';
-import { SplitView, ViewPage } from './layout/SplitView';
+import { ViewPage } from './layout/SplitView';
 import { ViewHeader } from './layout/ViewHeader';
 import { MapToolbar } from './MapToolbar';
 import { NextStepCard } from './NextStepCard';
@@ -18,7 +18,7 @@ function Welcome({ running }: { readonly running: boolean }) {
         <p className="text-body-md text-on-surface-variant">
           {running
             ? 'This takes a few minutes. Keep this page open.'
-            : 'Paste your channel and press Find competitors.'}
+            : 'Paste your channel below and press Find competitors.'}
         </p>
       </div>
     </Card>
@@ -26,42 +26,21 @@ function Welcome({ running }: { readonly running: boolean }) {
 }
 
 /**
- * Home: the next step for the channel on screen, your channels, and the
- * search for competitors at the side. The channel's numbers are on its own
- * page, under Channel.
+ * Home, in one column: the next step for the channel on screen, your
+ * channels as cards, and the search that adds a channel. The channel's
+ * numbers are on its own page, under Channel.
  */
 export function HomeView({ page, work, path, openChannel }: ViewParts) {
   const { snapshot } = page;
   const running = page.job?.status === 'running';
   return (
     <ViewPage labelledBy="home-title">
-      <ViewHeader
-        titleId="home-title"
-        title="Home"
-        lead="Pick a channel, then take the next step."
-      />
-      <SplitView
-        sideLabel="Find competitors"
-        width="narrow"
-        mainFirst
-        side={
-          <MapToolbar
-            query={page.query}
-            onQueryChange={page.setQuery}
-            model={page.model}
-            onModelChange={page.setModel}
-            measuredAgainst={snapshot?.model?.title ?? null}
-            onSubmit={() => void page.submit()}
-            job={page.job}
-            message={page.message}
-            depth={page.depth}
-            onDepthChange={page.setDepth}
-            size={page.size}
-            onSizeChange={page.setSize}
-            onExport={snapshot ? () => downloadMap(snapshot) : null}
-          />
-        }
-      >
+      <div className="mx-auto flex w-full max-w-4xl min-w-0 flex-col gap-space-lg">
+        <ViewHeader
+          titleId="home-title"
+          title="Home"
+          lead="Pick a channel, then take the next step."
+        />
         {snapshot ? (
           <NextStepCard
             counts={path.flow.counts}
@@ -81,8 +60,29 @@ export function HomeView({ page, work, path, openChannel }: ViewParts) {
           }}
           onDelete={(channel) => void page.remove(channel)}
           badges={work.alertCounts.counts}
+          breakouts={page.visible?.breakouts.length ?? null}
         />
-      </SplitView>
+        <section
+          aria-label="Add a channel"
+          className="rounded-lg border border-border-subtle bg-space-canvas p-space-md sm:p-space-lg"
+        >
+          <MapToolbar
+            query={page.query}
+            onQueryChange={page.setQuery}
+            model={page.model}
+            onModelChange={page.setModel}
+            measuredAgainst={snapshot?.model?.title ?? null}
+            onSubmit={() => void page.submit()}
+            job={page.job}
+            message={page.message}
+            depth={page.depth}
+            onDepthChange={page.setDepth}
+            size={page.size}
+            onSizeChange={page.setSize}
+            onExport={snapshot ? () => downloadMap(snapshot) : null}
+          />
+        </section>
+      </div>
     </ViewPage>
   );
 }

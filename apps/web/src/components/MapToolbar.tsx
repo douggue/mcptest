@@ -121,9 +121,9 @@ export function MapToolbar(props: Props) {
   return (
     <form onSubmit={submit} className="flex min-w-0 flex-col gap-space-lg">
       <div className="flex flex-col gap-1">
-        <h3 className="text-title-md font-semibold text-on-surface">Find competitors</h3>
+        <h3 className="text-headline-md font-bold text-on-surface">Add a channel</h3>
         <p className="text-body-sm text-on-surface-variant">
-          Jgtube follows YouTube&rsquo;s recommendations out from a channel.
+          Paste a channel to map who it competes with on YouTube.
         </p>
       </div>
       <Field label={<label htmlFor="channel-query">Your channel</label>}>
