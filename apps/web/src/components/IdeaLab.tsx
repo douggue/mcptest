@@ -1,5 +1,5 @@
 import type { BreakoutVideo, TransferList } from '@jgtube/core';
-import { Lightbulb, Trash2 } from 'lucide-react';
+import { Lightbulb, Plus, Trash2 } from 'lucide-react';
 import { thumbnailFor, type ConceptView } from '../lib/ideaLab';
 import type { AiChoice } from './AiEngines';
 import { ConceptCard } from './ConceptCard';
@@ -72,15 +72,14 @@ export function IdeaLab(props: Props) {
               : undefined
           }
           actions={
-            unkept > 0 && (
-              <button
-                type="button"
-                onClick={lab.clear}
-                className={`flex items-center gap-1.5 ${QUIET_BUTTON}`}
+            concepts.length > 0 && (
+              <a
+                href="#idea-lab-title"
+                className={`flex items-center gap-1.5 lg:hidden ${QUIET_BUTTON}`}
               >
-                <Trash2 aria-hidden="true" className="h-4 w-4" />
-                Clear unkept ({unkept})
-              </button>
+                <Plus aria-hidden="true" className="h-4 w-4" />
+                New ideas
+              </a>
             )
           }
         />
@@ -120,6 +119,16 @@ export function IdeaLab(props: Props) {
               </li>
             ))}
           </ol>
+        )}
+        {unkept > 0 && (
+          <button
+            type="button"
+            onClick={lab.clear}
+            className={`flex items-center gap-1.5 self-start ${QUIET_BUTTON}`}
+          >
+            <Trash2 aria-hidden="true" className="h-4 w-4" />
+            Clear the {unkept} not kept
+          </button>
         )}
       </SplitView>
     </ViewPage>

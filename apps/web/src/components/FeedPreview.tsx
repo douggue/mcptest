@@ -18,15 +18,12 @@ function Draft({ title, overlay, shorts }: DraftProps) {
   return (
     <div className={`${CARD} ring-1 ring-border-highlight`}>
       <div className={`${PICTURE} flex items-center justify-center p-space-sm`}>
-        <span className="break-words text-center text-headline-md font-bold uppercase tracking-tight text-on-surface">
+        <span className="break-words text-center text-body-lg font-bold uppercase tracking-tight text-on-surface sm:text-headline-md">
           {overlay}
-        </span>
-        <span className="absolute bottom-2 right-2 rounded bg-space-deep/90 px-1.5 py-0.5 text-label font-semibold text-on-surface">
-          {shorts ? 'Short' : 'Long-form'}
         </span>
       </div>
       <p className={TITLE}>{title}</p>
-      <p className="text-body-sm text-on-surface-variant">Your channel · your draft</p>
+      <p className="text-body-sm text-on-surface-variant">Your draft{shorts ? ' · Short' : ''}</p>
     </div>
   );
 }

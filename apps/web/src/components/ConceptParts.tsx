@@ -1,4 +1,3 @@
-import { needsSomething } from '@jgtube/core/src/concepts/parse';
 import {
   ArrowRight,
   Bookmark,
@@ -28,82 +27,77 @@ interface HeadProps {
   readonly onToggle: () => void;
 }
 
-/** The title's length against what a phone's feed shows, as "68/55", amber when it may be cut. */
+/** The title's length, shown only when a phone's feed may cut it, as "68/55". */
 function LengthBadge({ concept }: { readonly concept: ConceptView }) {
   const check = titleCheck(concept.title, concept.length);
+  if (!check.warning) return null;
   return (
     <span
-      title={check.warning ?? `${check.count} characters`}
-      aria-label={check.warning ?? `${check.count} characters, fits a phone`}
-      className={`flex-none rounded-full px-2 py-0.5 text-body-sm tabular-nums ${
-        check.warning ? 'bg-metric-amber-bg text-metric-amber' : 'text-outline'
-      }`}
+      title={check.warning}
+      aria-label={check.warning}
+      className="flex-none rounded-full bg-surface-container-high px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant"
     >
       {check.count}/{check.limit}
     </span>
   );
 }
 
-/** What kind of concept it is, in one quiet line. */
+/** What sets this concept apart, in a few words; empty for a plain long-form idea. */
 function kindLine(concept: ConceptView): string {
-  return [
-    concept.length === 'shorts' ? 'Short' : 'Long-form',
-    ORIGIN[concept.origin],
-    needsSomething(concept.needs) ? 'Look up facts first' : null,
-  ]
+  return [concept.length === 'shorts' ? 'Short' : null, ORIGIN[concept.origin]]
     .filter((part) => part !== null)
     .join(' · ');
 }
 
-const ROW_BUTTON =
-  'flex min-h-11 items-center gap-1.5 rounded px-2 text-body-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container';
+const ICON_BUTTON =
+  'flex h-11 min-w-11 flex-none items-center justify-center gap-1.5 rounded px-2 text-body-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container';
 
 /**
- * A concept as a compact row: its number, title and length, what kind it
- * is, then Keep, "Write the script" and the way to open the rest of the card.
+ * A concept as one compact row: its number, title and, when a phone may cut
+ * it, its length; then Keep, Write the script and the way to open the rest.
  */
 export function ConceptHead({ number, concept, onKeep, onDraft, open, onToggle }: HeadProps) {
   const KeepIcon = concept.kept ? BookmarkCheck : Bookmark;
+  const kind = kindLine(concept);
   return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <div className="flex min-w-0 items-start gap-3">
-        <span className="flex-none pt-0.5 text-body-md text-outline">{number}</span>
-        <h3 className="min-w-0 flex-1 break-words text-title-md text-on-surface">
-          {concept.title}
-        </h3>
-        <LengthBadge concept={concept} />
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+      <span className="w-5 flex-none text-body-md text-outline">{number}</span>
+      <div className="flex min-w-0 flex-1 basis-60 flex-col">
+        <h3 className="break-words text-title-md text-on-surface">{concept.title}</h3>
+        {kind && <span className="text-body-sm text-outline">{kind}</span>}
       </div>
-      <p className="pl-7 text-body-sm text-outline">{kindLine(concept)}</p>
-      <div className="flex flex-wrap items-center gap-1 pl-5">
+      <div className="ml-auto flex flex-none items-center gap-1">
+        <LengthBadge concept={concept} />
         <button
           type="button"
           aria-pressed={concept.kept}
+          aria-label={concept.kept ? 'Kept' : 'Keep'}
+          title={concept.kept ? 'Kept' : 'Keep'}
           onClick={() => onKeep(!concept.kept)}
-          className={`${ROW_BUTTON} ${concept.kept ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
+          className={`${ICON_BUTTON} ${concept.kept ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
         >
-          <KeepIcon aria-hidden="true" className="h-4 w-4" />
-          {concept.kept ? 'Kept' : 'Keep'}
+          <KeepIcon aria-hidden="true" className="h-5 w-5" />
         </button>
         {onDraft && (
           <button
             type="button"
             onClick={onDraft}
-            className={`${ROW_BUTTON} text-on-surface-variant hover:text-on-surface`}
+            className={`${ICON_BUTTON} text-on-surface-variant hover:text-on-surface`}
           >
-            Write the script
+            Write
             <ArrowRight aria-hidden="true" className="h-4 w-4" />
           </button>
         )}
         <button
           type="button"
           aria-expanded={open}
+          aria-label={open ? 'Hide the thumbnail and hook' : 'Show the thumbnail and hook'}
           onClick={onToggle}
-          className={`${ROW_BUTTON} ml-auto text-on-surface-variant hover:text-on-surface`}
+          className={`${ICON_BUTTON} text-on-surface-variant hover:text-on-surface`}
         >
-          {open ? 'Less' : 'Thumbnail and hook'}
           <ChevronDown
             aria-hidden="true"
-            className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`}
+            className={`h-5 w-5 transition-transform ${open ? 'rotate-180' : ''}`}
           />
         </button>
       </div>

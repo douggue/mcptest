@@ -168,7 +168,7 @@ interface Props {
 function LiftNote({ concept, hooks }: HookProps) {
   if (!liftedFrom(concept.hook, hooks)) return null;
   return (
-    <p role="note" className="pl-7 text-body-sm text-metric-amber">
+    <p role="note" className="pl-8 text-body-sm text-metric-amber">
       Reword the opening: it shares words with a breakout&rsquo;s.
     </p>
   );
@@ -188,6 +188,9 @@ function ConceptBody(props: Props) {
             ))}
           </ul>
         </Details>
+      )}
+      {needsSomething(concept.needs) && (
+        <p className="text-body-sm text-metric-amber">Look up its facts before making it.</p>
       )}
       <ThumbnailBrief concept={concept} />
       <Opening concept={concept} hooks={hooks} />
@@ -212,7 +215,7 @@ export function ConceptCard(props: Props) {
   const { number, concept, hooks } = props;
   const [open, setOpen] = useState(false);
   return (
-    <Card as="article" id={`concept-${concept.id}`} highlighted={concept.kept}>
+    <Card as="article" compact id={`concept-${concept.id}`} highlighted={concept.kept}>
       <ConceptHead
         number={number}
         concept={concept}
