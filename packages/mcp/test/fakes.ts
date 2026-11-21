@@ -18,6 +18,7 @@ import type {
   VideoFrames,
 } from '@jgtube/core';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { ConceptForTool, HookLibrary, IdeaBrief } from '@jgtube/server/src/labTypes';
 import type {
   ChannelVideos,
   ConnectorEngine,
@@ -489,6 +490,25 @@ export class FakeEngine implements ConnectorEngine {
       from === undefined ? ['frames', videoId, sheets] : ['frames', videoId, sheets, from],
     );
     return Promise.resolve(this.frames);
+  }
+
+  brief: IdeaBrief | null = null;
+  concept: ConceptForTool | null = null;
+  library: HookLibrary | null = null;
+
+  findIdeaBrief(channel: string, batchId: number): IdeaBrief | null {
+    this.reads.push(['brief', channel, batchId]);
+    return this.brief;
+  }
+
+  findConcept(channel: string, conceptId: number): ConceptForTool | null {
+    this.reads.push(['concept', channel, conceptId]);
+    return this.concept;
+  }
+
+  hookLibrary(channel: string): HookLibrary | null {
+    this.reads.push(['hooks', channel]);
+    return this.library;
   }
 
   studies: StoredVideoStudy[] = [];

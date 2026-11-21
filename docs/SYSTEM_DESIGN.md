@@ -66,9 +66,20 @@ videos of every channel at once, which the transfer list does on each read.
 There is no HTTP cache table; freshness is decided from `fetched_at` (a channel
 younger than 24 hours is served from the store with no request).
 
+Migration 13 adds the idea lab's four tables. `concept_batches` is what one run
+of concepts rests on (centre channel, picked video ids, the ids whose opening is
+to be modelled, the title format with its text as it read then, the owner's
+angle, the length); `concepts` are its concepts (`ON DELETE CASCADE` from the
+batch; a twist or a more-like-this names its parent concept); `title_formulas`
+are the formulas kept per centre channel and window; `hook_labels` is the name an
+engine gave to one video's way of opening, per centre channel. Every read and
+write goes through the centre channel id: see "Idea lab, trending formats and
+the hook library".
+
 **Not built.** The original plan had `topic_runs`, `topics`, `topic_titles` and
-`fact_claims` for a topic writer that stored its runs. Video ideas now come from
-an AI engine on demand (see "Ask AI") and are not stored.
+`fact_claims` for a topic writer that stored its runs. The one-press "Video
+ideas" answer comes from an AI engine on demand (see "Ask AI") and is not
+stored; the idea lab's concepts are.
 
 `video_snapshots` exists so that true views-per-day can be computed once a video
 has been seen twice. That data calibrates the age ramp below and replaces the
@@ -1173,6 +1184,9 @@ Claude reads what the app shows. Setup for the owner is in
 | `get_video_details`           | `video_ids` (1 to 10), `description_chars?` (1,500; 200..5,000)                   | Per video: title, description, tags, `secs`, views, score; `problems` for a video that could not be read                                                        |
 | `get_video_watch`             | `video`                                                                           | A line of JSON (`watched`, `by`, `at`), then the stored notes of an engine that watched the video; `watched: false` when nobody has                             |
 | `get_frame_study`             | `video`                                                                           | A line of JSON (`studied`, `by`, `at`, `source`, `framesAvailable`), then the stored study of the video's frames; `studied: false` when there is none           |
+| `get_idea_brief`              | `channel`, `batch`                                                                | What the owner chose for one batch of concepts: `picked`, `length`, `modelOpenings`, `format` (`wording`, `from`); never the angle                              |
+| `get_concept`                 | `channel`, `concept`                                                              | A line of JSON (`concept`, `batch`, `length`, `restedOn`), then the stored concept in its labelled lines                                                        |
+| `get_hooks`                   | `channel`, `video_ids?` (1 to 12)                                                 | A line of JSON (`built`, `seconds`, `hooks`, `noWords`), then per hook a line of JSON (`video`, `title`, `score`, `style`, `how`) and its first-minute words    |
 
 One prompt, `thumbnail_review` (argument `channel`), tells the model to read the
 board, look at the owner's thumbnails and the winners with `view_thumbnails`, and
@@ -1242,7 +1256,8 @@ Built (`packages/server/src/engines/`, `analyses.ts`, `analysisEngine.ts`,
 `analysisRoutes.ts`, `POST /api/analyses`, `GET /api/engines`). Three fixed
 analyses can be put to an AI engine from the page with one press: `thumbnails`,
 `topics` and `near-misses`. A fourth, `breakdown`, is the last step of a longer
-job (see "Channel breakdown"). An analysis is one entry in `ANALYSES`: a title,
+job (see "Channel breakdown"). Six more belong to the idea lab and are started
+through its own routes (see "Idea lab, trending formats and the hook library"). An analysis is one entry in `ANALYSES`: a title,
 a fixed question, the read-only tools it may use, a step limit, a time limit
 when the usual five minutes are not enough and, when it cannot be left to the
 owner's usual order, the engines that may answer it.
@@ -1596,6 +1611,133 @@ refused the download from that network and no engine that watches was
 installed, so a real video file being downloaded, studied or watched has only
 been tested with stand-ins and with the test pattern; the writing engine
 noticed that the test pattern was not the video and said so.
+
+### Idea lab, trending formats and the hook library (`ideaEngine.ts`, `formulaEngine.ts`, `hookEngine.ts`, `labRoutes.ts`, `labAnalyses.ts`)
+
+Built. Six more analyses, none offered on `POST /api/analyses`: `concepts`,
+`concept-twist`, `concept-more`, `where-else`, `title-formulas` and
+`hook-styles`. Each is a fixed question, read-only tools and limits
+(`labAnalyses.ts`), started through `/api/lab/...` as a job read at
+`/api/jobs/:id`. An AI run takes the one slot the analyses and the breakdown
+share (409 otherwise); the lab's jobs have a `JobStore` of their own.
+
+**Scope.** Everything is for one centre channel, by its channel id, and never
+reaches past the channels on that channel's latest map (`core/src/lab/mapVideos.ts`).
+Concepts, batches, formulas and hook labels are stored with the centre channel
+id and every repo method takes it, so one channel's cannot be listed, kept,
+changed or handed to an engine for another. Nothing in the code or the
+questions is fitted to a channel or a niche: no word list, no example title,
+no preset style names.
+
+**What goes into a question.** A channel in its fixed form, video ids checked
+to be ids, whole numbers (a batch, a concept, a window of days), a length, and
+one free text: the owner's angle. The angle is one line of at most 200
+characters; line breaks, control characters and the invisible marks that
+reorder text are refused by the route (zod) and again by `quotedAngle`, which
+also turns every kind of double quote inside it into a single one. It appears
+once, between double quotes, introduced as the owner's own wording of a
+subject area and stated not to be instructions. Everything else that is other
+people's words or a model's reaches an engine only as a tool result: a picked
+title format (`get_idea_brief`), a stored concept (`get_concept`), the hooks
+(`get_hooks`).
+
+**Concepts.** `POST /api/lab/concepts {channel, inspiration[1..5], hookModels?,
+format?, angle?, length, engine?}`. Before anything runs, `conceptProblem`
+checks against the store that every picked video is a stored video of a channel
+on this channel's latest map, that each opening to model is one of the picked
+videos, and that the format is this channel's: `{source: 'transfer', key}` must
+be a template of its transfer list, `{source: 'formula', id}` a stored formula
+of this channel. The batch row is stored first, so the engine can read it; a
+run that stores nothing removes it again. The question asks for exactly ten
+concepts as `CONCEPT n` then `TITLE:`, `ALT:` twice, `THUMBNAIL:`, `OVERLAY:`
+(four words or fewer), `HOOK:` (one sentence), `HOOK STYLE:` (the library hook
+whose way of opening it follows, or none), `RESTS ON:` and `NEEDS:`. Its rules:
+one specific subject per title, in this channel's niche; never the owner's
+angle set into a template; never a competitor's title word for word or with a
+word changed; no forecast; every number from a tool; "not made on this map"
+never passed off as "untried on YouTube"; no web access, so whatever real fact
+a concept depends on goes under NEEDS; a library hook is a model for the way of
+opening only, never its words, names, numbers or subject.
+
+`parseConcepts` (core) is strict. It reads through the marks an engine adds
+(`#`, `**`, `- `), takes a continuation line only directly under a labelled
+line, and counts a concept as unread when a part is missing, given twice or
+over its cap (title 100 characters, YouTube's limit). It never fills a gap. A
+batch with fewer than ten is stored and shown with one plain sentence
+(`batchNote`); a run with none that could be read fails, says why for the
+first, and changes nothing. `RESTS ON` is shown as written, and the page links
+only the ids in it that the owner really picked (`namedVideoIds`).
+
+**Concepts not kept.** A new batch replaces them: when a batch is stored, every
+concept of that channel that was not kept, from any earlier batch, is deleted
+in the same transaction. A twist or a more-like-this adds to its concept's
+batch and deletes nothing. `POST /api/lab/concepts/clear` deletes them on
+request. Kept concepts are deleted by nothing.
+
+**Twist and more.** `concept-twist` (three concepts, the same subject from
+another angle) and `concept-more` (five, other subjects in the same vein) take
+one stored concept's number; its text is read through `get_concept`.
+
+**Where else.** `where-else` reads `get_map`, `get_breakouts` and
+`list_transfer_opportunities` for this channel and suggests up to five moves to
+another language and five to another category, each with `STARTS FROM`,
+`EVIDENCE`, `MOVES TO`, `EXAMPLE TITLE`, `IN ENGLISH`, `SEARCH TO CHECK` and
+`NOT CHECKED: Jgtube has not looked for this in ...`. It is told never to say
+something is untried elsewhere, and the page prints its own fixed sentence to
+the same effect above every answer, whatever the answer says.
+
+**Title formulas** (`core/src/formulas/formulas.ts`). The engine reads the
+breakouts of the map (and, for the 90-day window, up to eight look-alikes' own
+lists) and proposes formulas as `FORMULA:`, `WHY:`, `VIDEOS:`. The code decides
+what is kept (`verifyFormulas`):
+
+| Constant                      | Value  | Why                                                               |
+| ----------------------------- | ------ | ----------------------------------------------------------------- |
+| `FORMULA_WINDOWS`             | 30, 90 | The breakout list's month, and what the transfer list calls "now" |
+| `FORMULA_DEFAULT_WINDOW_DAYS` | 90     | Enough titles to see a pattern in                                 |
+| `FORMULA_MIN_VIDEOS`          | 2      | One video is an example, not a format                             |
+| `FORMULA_MIN_FIXED_WORDS`     | 2      | One fixed word around a row of slots is a shape any title fits    |
+| `FORMULA_MAX_KEPT`            | 12     | More than a page of cards helps nobody choose                     |
+
+A video id counts only when it is a stored video of a channel on this map
+published inside the window (`videosOnMap`); a formula left with fewer than two
+is dropped; so is one with no slot (a title, not a format), with an unclosed
+or unnamed slot, or with fewer than two fixed words; a formula given twice is
+kept once. Each drop is reported with its reason. The count of videos and of
+channels, the average score and how many videos it was taken over, the views
+and the scores are computed from the store on every read, never taken from the
+answer. A run that keeps nothing fails and leaves the last run in place; a run
+that keeps something replaces the formulas of that channel and window.
+
+**Hook library** (`core/src/hooks/`). `HOOK_SECONDS = 60`: a hook is every
+caption line that starts inside the first minute, each taken whole, so the cut
+falls at the end of the last line that starts inside the window (`firstMinute`);
+sound labels such as [Music] are left out. Captions made by YouTube's speech
+recognition can mishear names and numbers, and the page says which hooks come
+from such captions. `HOOK_LIBRARY_VIDEOS = 12`: the look-alikes' breakouts on
+the map, highest score first (every breakout when no look-alike has one). The
+words are cut from the stored captions on each read and are not stored a
+second time. `POST /api/lab/hooks/build` reads the missing captions one video
+at a time through the existing transcript reader and its rate limiter; it is
+not an AI run and does not take the AI slot. A video without captions, or
+whose captions were never read, is listed as such. `hook-styles` is the only
+AI part: it reads `get_hooks` and answers `VIDEO:`, `STYLE:` (one to three
+words), `HOW:` (one sentence). It is given no list of styles and no example
+name, and is told to use exactly the same name for the same way of opening.
+`parseHookLabels` keeps labels only for video ids that were sent, the first
+for each; they are stored per centre channel and video.
+
+**The phone cut-off.** `PHONE_TITLE_CHARS = 55` and `SHORTS_TITLE_CHARS = 40`
+(core `concepts/parse.ts`) are where the page starts warning that a title may
+be cut off, and what the concept question names as the part of a title that
+shows. YouTube publishes no such number, only its limit of 100 characters;
+title-checking tools put the cut between 45 and 60 characters depending on the
+letters. It is a rule of thumb, stated as one on the page.
+
+**Measured** with Claude Code on copies of two real stores (November 2026): a
+batch of ten concepts 92 seconds; a twist 42; a more-like-this 57; where-else
+57; title formulas for 90 days about two minutes; building a hook library of
+twelve 20 to 25 seconds; naming its styles 37 to 90 seconds.
 
 ### Starting a program on Windows (`engines/executable.ts`)
 

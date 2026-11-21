@@ -73,6 +73,10 @@ packages/
     downloads/    files saved to disk: thumbnails and transcripts with an index, a temporary
                   video copy, frames cut from one with ffmpeg, the owner's own video files
     breakdown/    which of a channel's videos a breakdown studies
+    concepts/     packaging concepts: their shapes and the strict reader of an engine's answer
+    formulas/     title formulas: reading an engine's proposals and deciding what is shown
+    hooks/        the first minute of a transcript, the hook library, reading style labels
+    lab/          the videos of one channel's own map, which all of the above rest on
     discovery/    keyword search into the store
     refresh/      re-reading the stalest channels
     db/           SQLite connection and migrations
@@ -93,13 +97,19 @@ packages/
                   finds a file of the best three, has them watched and their frames
                   studied, keeps what was written and has an engine write it up;
                   and the route that takes the owner's own video file
+    labAnalyses.ts, ideaQuestions.ts, formulaQuestions.ts, hookQuestions.ts,
+    ideaEngine.ts, formulaEngine.ts, hookEngine.ts, labSetup.ts, labRoutes.ts
+                  the idea lab: concepts from picked videos, where else a format
+                  could work, title formulas and the hook library, each a fixed
+                  question run as a job, for one centre channel only
     engines/      the engine interface; Claude Code, Codex CLI and Antigravity CLI
                   behind it; trying them in order; watching a video (Antigravity on a
                   file, the Gemini API on a link); starting programs safely on Windows
     cli.ts        `npm run engines`: what is installed and signed in, and `--try`
-  mcp/src/        the connector: sixteen tools and one prompt over the same store
+  mcp/src/        the connector: nineteen tools and one prompt over the same store
 apps/web/src/     one page: radar, breakouts, same-topic list, thumbnail board,
-                  Ask AI, niches, refresh bar
+                  Ask AI, trending formats, hook library, idea lab, transfers,
+                  niches, refresh bar
 docs/  design/
 ```
 
@@ -146,6 +156,19 @@ file by ffmpeg, one a second, or YouTube's preview frames when there is no
 file). What each engine wrote is stored per video and reused. Then one engine
 writes the breakdown through read-only tools. What an engine wrote about a
 video travels only as a tool result, never inside a question.
+
+**The idea lab.** Three sections for the channel on screen, each reading only
+that channel's own map. Title formulas: an engine groups the breakout titles
+into wordings with named slots; code keeps a formula only when at least two
+stored videos of the map inside the window stand behind it and computes every
+number shown. Hook library: the first minute of what the map's top breakouts
+say, cut in code from stored captions; an engine only names the way each opens.
+Concepts: the owner picks up to five videos, optionally a format (by key or
+id) and an angle of one line; the batch is stored, an engine reads it through
+tools and answers in a fixed labelled form that a strict reader takes apart;
+concepts not kept are replaced by the next batch. The owner's angle is the one
+free text in any question; a format, a stored concept and the hooks reach an
+engine as tool results only.
 
 ## Cross-cutting
 

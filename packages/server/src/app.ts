@@ -30,7 +30,7 @@ import type { EngineReport } from './engines/catalog';
 import type { EngineAnswer } from './engines/fallback';
 import type { EngineId } from './engines/types';
 import type { VideoAnswer, WatchOptions } from './engines/videoWatch';
-import type { BreakdownFocus } from './breakdownQuestions';
+import type { QuestionFocus } from './questionFocus';
 import type { BreakdownChoices, BreakdownOutcome, BreakdownProgress } from './breakdownTypes';
 import { refreshState, startRefresh, type RefreshTracker } from './refreshRoutes';
 import {
@@ -41,6 +41,8 @@ import {
 } from './breakdownRoutes';
 import { downloadThumbnails, downloadTranscripts } from './downloadRoutes';
 import type { DownloadsEngine } from './downloadTypes';
+import { labRoutes, type LabRoutes } from './labRoutes';
+import type { LabEngine } from './labTypes';
 import { readTransfers, saveTransfer } from './transferRoutes';
 
 const CHANNEL_ID = /^UC[\w-]{22}$/;
@@ -102,7 +104,7 @@ export interface TransferChoices {
 }
 
 /** What the API needs from the engine, so tests can stand in for it. */
-export interface Engine extends DownloadsEngine {
+export interface Engine extends DownloadsEngine, LabEngine {
   /** The latest stored map around a channel; reads the store only. */
   findSnapshot(channel: string): MapSnapshot | null;
   /** Every channel a map has been made for, the most recently mapped first. */
@@ -177,8 +179,8 @@ export interface Engine extends DownloadsEngine {
     channel: string,
     /** The one engine the owner chose for this run; absent, the usual order with its backups. */
     only?: EngineId,
-    /** The videos chosen in code, for an analysis that studies particular ones. */
-    focus?: BreakdownFocus,
+    /** What else the question is told, chosen or checked in code. */
+    focus?: QuestionFocus,
   ): Promise<EngineAnswer<EngineId>>;
   /**
    * Has an engine watch one YouTube video, picture and sound, and answer a
@@ -379,9 +381,14 @@ async function discover(options: AppOptions, request: Request): Promise<Response
   }
 }
 
-/** One job's state, whichever kind it is: a crawl or a refresh, or a breakdown. */
-function jobStatus(options: AppOptions, breakdowns: BreakdownJobs, id: string): Response {
-  const job = options.jobs.get(id) ?? breakdowns.get(id);
+/** One job's state, whichever kind it is: a crawl or a refresh, a breakdown, or one of the idea lab's. */
+function jobStatus(
+  options: AppOptions,
+  breakdowns: BreakdownJobs,
+  lab: LabRoutes,
+  id: string,
+): Response {
+  const job = options.jobs.get(id) ?? breakdowns.get(id) ?? lab.job(id);
   return job ? ok(job) : fail(404, 'No such job');
 }
 
@@ -394,6 +401,8 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
   // engine a lot, so they do not take the slot that crawls and refreshes share.
   const breakdowns: BreakdownJobs = new JobStore();
   const uploading: UploadTracker = { busy: false };
+  // The idea lab's AI runs take the same one slot as an analysis or a breakdown.
+  const lab = labRoutes(options, analysing);
   return async (request) => {
     if (!isTrustedHost(request, options.allowedHosts)) {
       return fail(403, 'This server only answers to its own address');
@@ -402,6 +411,8 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     const { pathname } = url;
     const { method } = request;
 
+    const labAnswer = lab.handle(request, url);
+    if (labAnswer) return labAnswer;
     if (pathname === '/api/maps/latest') {
       return method === 'GET'
         ? readLatest(url, (channel) => options.engine.findSnapshot(channel))
@@ -475,7 +486,7 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     }
     if (pathname.startsWith('/api/jobs/')) {
       const id = pathname.slice('/api/jobs/'.length);
-      return method === 'GET' ? jobStatus(options, breakdowns, id) : fail(405, 'Use GET');
+      return method === 'GET' ? jobStatus(options, breakdowns, lab, id) : fail(405, 'Use GET');
     }
     return fail(404, 'Not found');
   };

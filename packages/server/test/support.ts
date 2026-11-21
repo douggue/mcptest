@@ -1,10 +1,29 @@
 import type { Engine } from '../src/app';
+import type { LabEngine } from '../src/labTypes';
 
 export const HOST = '127.0.0.1:4317';
 export const CHANNEL_ID = 'UCHnyfMqiRRG1u-2MsSQLbXA';
 
 const unused = (name: string) => (): never => {
   throw new Error(`${name} is not used in this test`);
+};
+
+/** The idea lab's part of an engine, failing loudly when a test reaches it. */
+export const UNUSED_LAB: LabEngine = {
+  listConcepts: unused('listConcepts'),
+  setConceptKept: unused('setConceptKept'),
+  clearConcepts: unused('clearConcepts'),
+  conceptProblem: unused('conceptProblem'),
+  makeConcepts: unused('makeConcepts'),
+  growConcept: unused('growConcept'),
+  whereElse: unused('whereElse'),
+  listFormulas: unused('listFormulas'),
+  findFormulas: unused('findFormulas'),
+  hookLibrary: unused('hookLibrary'),
+  buildHookLibrary: unused('buildHookLibrary'),
+  labelHooks: unused('labelHooks'),
+  findIdeaBrief: unused('findIdeaBrief'),
+  findConcept: unused('findConcept'),
 };
 
 /** An engine where every part a test does not replace fails loudly when reached. */
@@ -39,6 +58,7 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     readVideoFrames: unused('readVideoFrames'),
     readChannelBrand: unused('readChannelBrand'),
     readVideoDetails: unused('readVideoDetails'),
+    ...UNUSED_LAB,
     ...parts,
   };
 }

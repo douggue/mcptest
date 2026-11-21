@@ -5,7 +5,10 @@ import {
   HardDrive,
   Image,
   Layers,
+  Lightbulb,
+  Quote,
   Radar,
+  Shapes,
   Sparkles,
   Sprout,
 } from 'lucide-react';
@@ -22,6 +25,9 @@ const RAIL = [
   { label: 'Same topic, other words', icon: Layers, target: 'same-topic-title' },
   { label: 'Thumbnails that worked', icon: Image, target: 'thumbnail-board-title' },
   { label: 'Ask AI', icon: Sparkles, target: 'ask-claude-title' },
+  { label: 'Trending formats', icon: Shapes, target: 'formulas-title' },
+  { label: 'Hook library', icon: Quote, target: 'hook-library-title' },
+  { label: 'Idea lab', icon: Lightbulb, target: 'idea-lab-title' },
   { label: 'Transfer opportunities', icon: Globe, target: 'transfers-title' },
   { label: 'New niches', icon: Sprout, target: 'niches-title' },
 ] as const;

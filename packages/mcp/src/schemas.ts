@@ -275,7 +275,46 @@ export const getVideoDetailsShape = {
     ),
 };
 
+/** Far past the number of concepts or batches any store holds: a bound on what is asked for. */
+const MAX_ITEM_NUMBER = 1_000_000_000;
+/** As many as a hook library holds. */
+const MAX_HOOK_VIDEOS = 12;
+const HOOK_COUNT_RULE = `Give 1 to ${MAX_HOOK_VIDEOS} video ids at a time.`;
+
+const labChannel = channelRef(CHANNEL_RULE).describe(
+  'The channel the idea lab is working for (the centre of a map): @handle, channel URL or channel id.',
+);
+
+export const getIdeaBriefShape = {
+  channel: labChannel,
+  batch: wholeNumber('batch', 1, MAX_ITEM_NUMBER).describe(
+    'The number of the batch, as the question gives it.',
+  ),
+};
+
+export const getConceptShape = {
+  channel: labChannel,
+  concept: wholeNumber('concept', 1, MAX_ITEM_NUMBER).describe(
+    'The number of the concept, as the question gives it.',
+  ),
+};
+
+export const getHooksShape = {
+  channel: labChannel,
+  video_ids: z
+    .array(z.string({ error: VIDEO_ID_RULE }).regex(VIDEO_ID_PATTERN, VIDEO_ID_RULE), {
+      error: HOOK_COUNT_RULE,
+    })
+    .min(1, HOOK_COUNT_RULE)
+    .max(MAX_HOOK_VIDEOS, HOOK_COUNT_RULE)
+    .optional()
+    .describe('Only the hooks of these videos. Left out, every hook of the library.'),
+};
+
 export const getMapArgs = z.object(getMapShape);
+export const getIdeaBriefArgs = z.object(getIdeaBriefShape);
+export const getConceptArgs = z.object(getConceptShape);
+export const getHooksArgs = z.object(getHooksShape);
 export const getTranscriptArgs = z.object(getTranscriptShape);
 export const viewVideoFramesArgs = z.object(viewVideoFramesShape);
 export const getVideoStudyArgs = z.object(getVideoStudyShape);
@@ -292,6 +331,9 @@ export const getChannelVideosArgs = z.object(getChannelVideosShape);
 export const makeMapArgs = z.object(makeMapShape);
 
 export type GetMapArgs = z.input<typeof getMapArgs>;
+export type GetIdeaBriefArgs = z.input<typeof getIdeaBriefArgs>;
+export type GetConceptArgs = z.input<typeof getConceptArgs>;
+export type GetHooksArgs = z.input<typeof getHooksArgs>;
 export type GetTranscriptArgs = z.input<typeof getTranscriptArgs>;
 export type ViewVideoFramesArgs = z.input<typeof viewVideoFramesArgs>;
 export type GetVideoStudyArgs = z.input<typeof getVideoStudyArgs>;

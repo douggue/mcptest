@@ -9,8 +9,10 @@ import {
   connectionCheck,
   enginesFor,
   frameStudyRequest,
+  type AnalysisId,
   type AnalysisSettings,
 } from '../src/analyses';
+import type { QuestionFocus } from '../src/questionFocus';
 
 const settings: AnalysisSettings = {
   projectRoot: '/app/jgtube',
@@ -18,12 +20,38 @@ const settings: AnalysisSettings = {
   workDir: '/tmp/jgtube-claude',
 };
 const CHANNEL_ID = 'UCHnyfMqiRRG1u-2MsSQLbXA';
+/** What the idea lab's questions are told besides the channel; the others need nothing. */
+const FOCUS: Partial<Record<AnalysisId, QuestionFocus>> = {
+  concepts: {
+    kind: 'concepts',
+    batchId: 1,
+    inspiration: ['aaaaaaaaaa1'],
+    hookModels: [],
+    hasFormat: false,
+    angle: null,
+    length: 'long',
+  },
+  'concept-twist': { kind: 'concept', conceptId: 1 },
+  'concept-more': { kind: 'concept', conceptId: 1 },
+  'title-formulas': { kind: 'window', windowDays: 90 },
+};
 /** Tools that change stored choices or reach the network for minutes; an analysis only reads. */
 const NOT_FOR_ANALYSIS = ['set_competitor_status', 'make_map'];
 
 describe('the analyses on offer', () => {
-  test('are thumbnails, video ideas, same-topic channels and the channel breakdown', () => {
-    expect(ANALYSIS_IDS).toEqual(['thumbnails', 'topics', 'near-misses', 'breakdown']);
+  test('are thumbnails, video ideas, same-topic channels, the channel breakdown and the idea lab’s six', () => {
+    expect(ANALYSIS_IDS).toEqual([
+      'thumbnails',
+      'topics',
+      'near-misses',
+      'breakdown',
+      'concepts',
+      'concept-twist',
+      'concept-more',
+      'where-else',
+      'title-formulas',
+      'hook-styles',
+    ]);
     // The breakdown is the last step of a longer job, so it is not one of the one-press ones.
     expect(QUICK_ANALYSIS_IDS).toEqual(['thumbnails', 'topics', 'near-misses']);
     for (const id of ANALYSIS_IDS) {
@@ -186,8 +214,10 @@ describe('analysisRequest', () => {
   });
 
   test.each(ANALYSIS_IDS)('names the channel in the question for %s', (id) => {
-    expect(analysisRequest(id, '@americainvents2', settings).prompt).toContain('@americainvents2');
-    expect(analysisRequest(id, CHANNEL_ID, settings).prompt).toContain(CHANNEL_ID);
+    const asked = (channel: string) => analysisRequest(id, channel, settings, FOCUS[id]).prompt;
+
+    expect(asked('@americainvents2')).toContain('@americainvents2');
+    expect(asked(CHANNEL_ID)).toContain(CHANNEL_ID);
   });
 
   test('puts the channel into the question in a fixed form, not as typed', () => {
@@ -208,6 +238,22 @@ describe('analysisRequest', () => {
     },
   );
 
+  test.each(['concepts', 'concept-twist', 'concept-more', 'title-formulas'] as const)(
+    'refuses to ask %s without what it is about, or with another question’s',
+    (id) => {
+      expect(() => analysisRequest(id, CHANNEL_ID, settings)).toThrow(/started without/);
+      expect(() => analysisRequest(id, CHANNEL_ID, settings, { top: [], deep: [] })).toThrow(
+        /started without/,
+      );
+    },
+  );
+
+  test('a breakdown given another question’s focus studies no videos rather than the wrong ones', () => {
+    const { prompt } = analysisRequest('breakdown', CHANNEL_ID, settings, FOCUS['concept-twist']);
+
+    expect(prompt).toMatch(/has no videos stored for this channel/);
+  });
+
   test('refuses an analysis that does not exist', () => {
     expect(() => analysisRequest('everything' as never, '@americainvents2', settings)).toThrow(
       /analysis/i,
@@ -217,7 +263,7 @@ describe('analysisRequest', () => {
 
 describe('the connector an analysis starts', () => {
   test.each(ANALYSIS_IDS)('is told to offer %s only the tools it may use', (id) => {
-    const { mcpServers } = analysisRequest(id, CHANNEL_ID, settings);
+    const { mcpServers } = analysisRequest(id, CHANNEL_ID, settings, FOCUS[id]);
     const offered = (mcpServers['jgtube']?.env?.['JGTUBE_TOOLS'] ?? '').split(',');
 
     expect(offered.map((name) => `mcp__jgtube__${name}`)).toEqual(ANALYSES[id].allowedTools);

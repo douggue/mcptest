@@ -131,6 +131,10 @@ compiler:
   judging the same-topic channels), and **Channel breakdown**, a longer job that
   takes one channel apart. Under each answer it says which AI gave it. See below
   for what it needs.
+- **Trending formats**, **Hook library** and **Idea lab**: title wordings that
+  several winning videos share, how the winning videos open in their own words,
+  and an AI that writes ten video ideas from videos you pick. See
+  [Idea lab, trending formats and the hook library](#idea-lab-trending-formats-and-the-hook-library).
 - **Niche transfer opportunities**: ideas that took off for another country and
   are untried or weak for yours. Press **Save** on one and it moves to **Saved**
   and leaves the other views; unsave it to bring it back.
@@ -363,6 +367,90 @@ this for the three videos it studies in depth, and keeps what was written.
 The connector gives Claude the same information as tools, so you can ask
 follow-up questions. Setting it up in the Claude desktop app or Claude Code
 takes a few minutes: see [the connector guide](docs/CONNECTOR.md).
+
+## Idea lab, trending formats and the hook library
+
+These three parts of the page work as one flow. All three use only the channels
+on the map of the channel on screen. If you have looked up several channels in
+different niches, an idea or a hook from one never shows up for another.
+
+### Trending formats
+
+Press **Find formats** and an AI reads the titles of the videos doing unusually
+well on this map (from the last 30 or 90 days; 90 unless you choose) and groups
+them into formulas with named slots, such as a wording where only the place
+and the thing change. Under each formula is one line on why it works and the
+videos behind it, with their real thumbnails, views and score.
+
+- It is an AI run: two to three minutes, and it uses some of that AI's plan
+  allowance. The AI is the one chosen on the switch under **Ask AI**.
+- The AI only proposes. Jgtube keeps a formula only when at least two of the
+  videos it names really are stored videos of this map inside the window. One
+  video is an example, not a format. The average score, the count of videos and
+  of channels, the views and the scores are worked out by Jgtube from what it
+  has stored, never taken from the AI's answer. When it leaves a formula out it
+  says which and why.
+- **Remix in idea lab** takes a formula into the idea lab as its title format.
+- The next run for the same window replaces the formulas of the one before.
+
+### Hook library
+
+A hook here is real: the first 60 seconds of what a winning video says, taken
+word for word from its captions. No AI writes or rewrites it.
+
+- **Build the hook library** reads the captions of the twelve strongest
+  breakout videos on this map from YouTube, a request or two for each one not
+  read before (about half a minute in all). A video without captions is listed
+  as such.
+- Captions that YouTube made by listening can mishear a name or a number. The
+  card says when that is the case.
+- **Name the styles** is the one AI part: it gives each opening a short name for
+  the way it works (the AI chooses the names from what it reads; Jgtube gives
+  it no list) and one sentence on how. One to two minutes. The filters above
+  the cards are the names that came back. A hook that has no name yet is still
+  shown.
+- **Copy hook** copies the words. **Use in idea lab** adds that video to the
+  idea lab's inspiration and marks it as an opening to model.
+- A hook is a model for a way of opening. Do not reuse its words.
+
+### Idea lab
+
+1. Pick one to five videos as inspiration: **Use as inspiration** on a video
+   under **Breaking out right now**, or **Use in idea lab** on a hook.
+2. Optionally pick a title format (a trending format or one of the title
+   formats of the transfer list), type your topic or angle in one line (at most
+   200 characters), and choose long-form or Shorts.
+3. Press **Write 10 concepts**. It takes two to four minutes and uses some of
+   the AI's plan allowance.
+
+Each concept is a title, two alternate titles, what the thumbnail shows, the
+few words on it, and the opening sentence. The card also shows:
+
+- **Rests on**: which of your picked videos it draws on, with links. If it
+  names none of them, the card says so.
+- **Look up before making it**: the AI cannot search the web, so it does not
+  know real facts about a subject. This line says what you must check (which
+  company, which product, what really happened) before you make the video. Take
+  it seriously: a concept is an idea for a title, not a finding.
+- The number of characters in each title, with a warning when a phone may cut
+  it off. The warning starts at 55 characters (40 for Shorts). YouTube
+  publishes no such number, only its limit of 100; 55 is a rule of thumb from
+  title-checking tools, which put the cut between 45 and 60.
+- **Feed preview**: your draft beside two real videos that took off on this map.
+
+On each concept: **Keep** keeps it. **Twist angle** asks for three other angles
+on the same subject. **More like this** asks for five other subjects in the same
+vein. Both take about a minute.
+
+Kept concepts stay and are listed first, also after you close the page.
+Concepts you did not keep are removed when the next batch arrives, or when you
+press **Clear the ones not kept**.
+
+**Where else this could work** suggests other languages and other categories
+the formats and ideas on this map could be made for, each with an example
+title and the exact phrase to type into YouTube search. Jgtube has not looked
+at YouTube in those languages or categories: every suggestion is a place to
+check, never a finding that nobody has done it there. About a minute.
 
 ## Keeping your research safe
 

@@ -33,6 +33,9 @@ type EngineParts = Pick<
   | 'readChannelBrand'
   | 'readVideoDetails'
   | 'findVideoStudy'
+  | 'findIdeaBrief'
+  | 'findConcept'
+  | 'hookLibrary'
 >;
 
 /** What the connector needs from the engine, so tests can stand in for it. */

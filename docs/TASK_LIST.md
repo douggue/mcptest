@@ -188,6 +188,21 @@ Phase 7 needs 5.
 - [ ] A check that a file the owner gives is the right video (its length against the stored one); today the writing engine is the only thing that notices
 - [ ] The breakdown's text kept after the page is closed (the studies are kept, the written breakdown is not)
 
+## Idea lab
+
+- [x] Store: batches, concepts, title formulas and hook labels (migration 13), each read through its centre channel only
+- [x] Concepts: one to five picked videos of the channel's own map, an optional format by key or id, an angle of one line, long or Shorts; ten concepts in a fixed labelled form, read strictly; a short batch shown with a plain note
+- [x] The angle as the one free text: quoted, said to be a description, unable to break out
+- [x] Twist angle and More like this, reading the concept through `get_concept`
+- [x] Keep, and concepts not kept replaced by the next batch or cleared on request
+- [x] Where else this could work: other languages and categories, each with the search to check and a NOT CHECKED line
+- [x] Trending formats: formulas proposed by an engine, kept and counted in code; Remix into the idea lab
+- [x] Hook library: the first minute of the map's top breakouts from stored captions; styles named by an engine with no preset list; search, filters, Copy hook, Use in idea lab
+- [x] Feed preview with the title's length and a phone cut-off warning
+- [x] Real runs on copies of two stores in different niches
+- [ ] A check, in code, that a concept's title is not a competitor's title with a word changed (it is a rule of the question only)
+- [ ] The phone cut-off measured, not taken from a rule of thumb: YouTube publishes no number
+
 ## Downloaders
 
 - [x] Transcripts: a video's captions read through the YouTube source and stored (`video_transcripts`); a video without captions is a normal answer; `npm run jgtube -- transcript`

@@ -102,8 +102,6 @@ export class ApiError extends Error {
   }
 }
 
-type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
-
 interface Envelope {
   readonly success: boolean;
   readonly data: unknown;
@@ -124,18 +122,34 @@ async function readEnvelope(response: Response): Promise<Envelope> {
   throw new ApiError('The Jgtube server gave an unexpected reply', response.status);
 }
 
-/** The local server's API. `fetcher` is injectable so it can be tested without a network. */
-export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) {
-  const call = async (path: string, init?: RequestInit): Promise<Envelope & { status: number }> => {
+export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
+export type Reply = Envelope & { readonly status: number };
+
+/** How every part of the API asks the server and reads its envelope. */
+export function apiCaller(fetcher: Fetch = (input, init) => fetch(input, init)) {
+  const call = async (path: string, init?: RequestInit): Promise<Reply> => {
     const response = await fetcher(path, init);
     return { ...(await readEnvelope(response)), status: response.status };
   };
-  const unwrap = <T>(envelope: Envelope & { status: number }): T => {
+  const unwrap = <T>(envelope: Reply): T => {
     if (!envelope.success) {
       throw new ApiError(envelope.error ?? 'The request failed', envelope.status);
     }
     return envelope.data as T;
   };
+  /** A write: the body as JSON, the way the server takes every write. */
+  const send = (path: string, body: unknown): Promise<Reply> =>
+    call(path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  return { call, unwrap, send };
+}
+
+/** The local server's API. `fetcher` is injectable so it can be tested without a network. */
+export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) {
+  const { call, unwrap } = apiCaller(fetcher);
 
   return {
     /** The stored map around a channel, or null when none has been made. */
