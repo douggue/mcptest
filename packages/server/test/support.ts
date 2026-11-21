@@ -51,6 +51,10 @@ export const UNUSED_EXTRAS: ExtrasEngine = {
   findCalendar: unused('findCalendar'),
   saveCalendarItem: unused('saveCalendarItem'),
   findPacing: unused('findPacing'),
+  findComments: unused('findComments'),
+  readComments: unused('readComments'),
+  askViewers: unused('askViewers'),
+  viewerComments: unused('viewerComments'),
 };
 
 /** An engine whose later features are these, failing loudly on any other. */

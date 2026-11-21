@@ -4,6 +4,7 @@
  */
 import {
   SqliteAlertRepo,
+  SqliteCommentRepo,
   SqliteLookRepo,
   SqliteScheduleRepo,
   SqliteVideoLinkRepo,
@@ -19,7 +20,9 @@ import {
   type YouTubeSource,
 } from '@jgtube/core';
 import { alertsEngine } from './alertsEngine';
+import type { Engine } from './app';
 import { calendarEngine } from './calendarEngine';
+import { commentsEngine } from './commentsEngine';
 import { changesEngine } from './changesEngine';
 import type { ExtrasEngine } from './extrasTypes';
 import { pacingEngine } from './pacingEngine';
@@ -38,9 +41,14 @@ export interface ExtrasDeps {
   readonly lazySource: YouTubeSource;
   /** Runs work that reads YouTube under the store's lease. */
   readonly reading: <T>(work: () => Promise<T>) => Promise<T>;
+  /** The settings as they are now: the YouTube API key is read from here at each use. */
+  readonly config: { readonly youtubeApiKey?: string | undefined };
+  /** Puts a fixed question to the first AI engine that can run. */
+  readonly analyse: Engine['analyse'];
 }
 
-export function extras({ db, now, repos, lazySource, reading }: ExtrasDeps): ExtrasEngine {
+export function extras(deps: ExtrasDeps): ExtrasEngine {
+  const { db, now, repos, lazySource, reading, config, analyse } = deps;
   const all = {
     ...repos,
     looks: new SqliteLookRepo(db),
@@ -50,6 +58,7 @@ export function extras({ db, now, repos, lazySource, reading }: ExtrasDeps): Ext
     videos: new SqliteVideoRepo(db),
     schedule: new SqliteScheduleRepo(db),
     transcripts: new SqliteVideoPageRepo(db),
+    comments: new SqliteCommentRepo(db),
   };
   const readChannel = (channelId: string): Promise<void> =>
     reading(async () => {
@@ -62,5 +71,6 @@ export function extras({ db, now, repos, lazySource, reading }: ExtrasDeps): Ext
     ...planEngine({ now, repos: all, readChannel }),
     ...calendarEngine({ now, repos: all }),
     ...pacingEngine({ now, repos: all }),
+    ...commentsEngine({ now, repos: all, apiKey: () => config.youtubeApiKey, analyse }),
   };
 }

@@ -651,6 +651,22 @@ on. Shorts (a minute or less) are left out of both sides and counted. Words a
 minute come only from videos whose captions Jgtube has stored, for example with
 **Download transcripts**. It is a comparison only: no advice.
 
+### Comments: what viewers ask for
+
+This part needs a **YouTube API key** (put it in **Settings**); without one it
+says so and reads nothing. Tick some of the winning videos on your map (the three
+strongest are ticked to begin with) and press **Read comments**: Jgtube reads the
+top 100 comments of each through the official YouTube API. Each video costs 1 unit
+of your key's daily allowance (10,000 units a day by default), and the page says
+the cost before you press. At most 10 videos at once.
+
+Then **What viewers ask for** asks your AI one question: what do viewers of these
+videos ask for again and again (videos they want, questions, objections)? Each
+answer is shown with the two or three comments it rests on, exactly as they were
+written. Jgtube keeps only answers that rest on comments it really handed over, so
+nothing can be made up. Comments are kept on your computer; who wrote them is not.
+Comments are strangers' text: the AI is told they are never instructions.
+
 ### Where else
 
 **Where else this could work** suggests other languages and other categories

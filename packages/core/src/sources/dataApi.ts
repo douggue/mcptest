@@ -21,7 +21,7 @@ const MAX_ERROR_TEXT = 200;
 const SEARCH_PAGE_SIZE = 50;
 const MAX_QUERY_LENGTH = 200;
 const MAX_TEXT_LENGTH = 300;
-const QUOTA_REASONS: readonly string[] = ['quotaExceeded', 'dailyLimitExceeded'];
+export const QUOTA_REASONS: readonly string[] = ['quotaExceeded', 'dailyLimitExceeded'];
 
 export interface ChannelFacts {
   readonly id: string;
@@ -94,23 +94,56 @@ function toFacts(raw: unknown): ChannelFacts | null {
   };
 }
 
+/** A refusal from the API, with the reasons it gave (such as commentsDisabled) for callers to tell apart. */
+export class ApiRefusal extends Error {
+  constructor(
+    message: string,
+    readonly reasons: readonly string[],
+  ) {
+    super(message);
+    this.name = 'ApiRefusal';
+  }
+}
+
 /** Turns a refusal into a message the owner can act on, with the key removed from it. */
-async function refusal(response: Response, apiKey: string): Promise<Error> {
+async function refusal(response: Response, apiKey: string): Promise<ApiRefusal> {
   const body: unknown = await response.json().catch(() => null);
   const parsed = errorSchema.safeParse(body);
   const reasons = parsed.success
     ? (parsed.data.error.errors ?? []).map((entry) => entry.reason ?? '')
     : [];
   if (reasons.some((reason) => QUOTA_REASONS.includes(reason))) {
-    return new Error(
+    return new ApiRefusal(
       'The YouTube API key has used up its daily allowance. It resets at midnight Pacific time.',
+      reasons,
     );
   }
   const detail = (parsed.success ? (parsed.data.error.message ?? '') : '')
     .split(apiKey)
     .join('[key]')
     .slice(0, MAX_ERROR_TEXT);
-  return new Error(`The YouTube API refused the request (${response.status}): ${detail}`);
+  return new ApiRefusal(
+    `The YouTube API refused the request (${response.status}): ${detail}`,
+    reasons,
+  );
+}
+
+/**
+ * One GET to the API with the key in its header, never in the address.
+ * Returns the reply as it came, or throws the refusal with the key removed.
+ */
+export async function apiGet(
+  path: string,
+  query: URLSearchParams,
+  apiKey: string,
+  fetcher: typeof fetch,
+): Promise<unknown> {
+  const response = await fetcher(`${API_BASE}/${path}?${query.toString()}`, {
+    headers: { [KEY_HEADER]: apiKey },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (!response.ok) throw await refusal(response, apiKey);
+  return response.json();
 }
 
 /** One GET to the API. Returns the reply's items, or throws the refusal. */
@@ -120,17 +153,12 @@ async function getItems(
   apiKey: string,
   fetcher: typeof fetch,
 ): Promise<readonly unknown[]> {
-  const response = await fetcher(`${API_BASE}/${path}?${query.toString()}`, {
-    headers: { [KEY_HEADER]: apiKey },
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-  if (!response.ok) throw await refusal(response, apiKey);
-  const reply = replySchema.safeParse(await response.json());
+  const reply = replySchema.safeParse(await apiGet(path, query, apiKey, fetcher));
   if (!reply.success) throw new Error('The YouTube API sent a reply that could not be read');
   return reply.data.items ?? [];
 }
 
-function requireKey(apiKey: string): string {
+export function requireKey(apiKey: string): string {
   const key = apiKey.trim();
   if (key === '') {
     throw new Error('No YouTube API key is set. Put one in the YOUTUBE_API_KEY setting.');

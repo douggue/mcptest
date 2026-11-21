@@ -1,6 +1,7 @@
 import {
   CalendarDays,
   Ruler,
+  MessageSquareText,
   Circle,
   Compass,
   Eye,
@@ -36,6 +37,7 @@ const ICONS: Readonly<Record<string, LucideIcon>> = {
   'own-videos-title': Target,
   'upload-calendar-title': CalendarDays,
   'length-pacing-title': Ruler,
+  'comment-mining-title': MessageSquareText,
 };
 
 /**

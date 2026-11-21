@@ -17,6 +17,7 @@ describe('the left rail', () => {
       'Your videos against the plan',
       'Upload calendar',
       'Length and pacing',
+      'What viewers ask for',
     ]);
   });
 });

@@ -21,6 +21,7 @@ import { ThumbnailBoard } from './components/ThumbnailBoard';
 import { Transfers } from './components/Transfers';
 import { UploadCalendar } from './components/UploadCalendar';
 import { LengthPacing } from './components/LengthPacing';
+import { CommentMining } from './components/CommentMining';
 import { downloadMap, useMapPage } from './components/useMapPage';
 import { usePagePath } from './components/usePagePath';
 import { useWorkspace } from './components/useWorkspace';
@@ -181,6 +182,7 @@ export function App() {
         <OwnVideos channelId={centerId} reloadKey={refresh.run.status} />
         <UploadCalendar channelId={centerId} reloadKey={refresh.run.status} />
         <LengthPacing channelId={centerId} reloadKey={refresh.run.status} />
+        <CommentMining channelId={centerId} reloadKey={refresh.run.status} />
 
         <RefreshBar refresh={refresh} />
         <p className="mx-auto w-full max-w-[1440px] px-gutter-desktop pb-space-xl text-label-caps text-outline">

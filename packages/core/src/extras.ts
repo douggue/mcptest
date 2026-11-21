@@ -99,9 +99,39 @@ export type { ScheduleEntry, ScheduleRepo } from './calendar/store';
 export { SqliteScheduleRepo } from './repos/sqliteScheduleRepo';
 export {
   comparePacing,
+  winnerRows,
   winnerVideos,
+  type WinnerRow,
   type PacingComparison,
   type PacingInput,
 } from './pacing/compare';
 export { loadPacing, type PacingDeps, type PacingView } from './pacing/load';
 export { spreadOf, type Spread } from './pacing/spread';
+export { commentCandidates, type CommentCandidate } from './comments/candidates';
+export { COMMENTS_IN_QUESTION, commentsForQuestion } from './comments/question';
+export {
+  FINDING_KINDS,
+  FINDING_MAX_QUOTES,
+  FINDING_MIN_QUOTES,
+  parseViewerFindings,
+  verifyFindings,
+  type FindingKind,
+  type ViewerFinding,
+} from './comments/findings';
+export {
+  COMMENT_MINING_MAX_VIDEOS,
+  mineComments,
+  type MineDeps,
+  type MineOutcome,
+} from './comments/mine';
+export type { CommentRead, CommentRepo, StoredComment, ViewerAnswer } from './comments/store';
+export { SqliteCommentRepo } from './repos/sqliteCommentRepo';
+export {
+  COMMENTS_PER_VIDEO,
+  COMMENT_UNITS_PER_VIDEO,
+  MAX_COMMENT_CHARS,
+  fetchTopComments,
+  type CommentsResult,
+  type FetchedComment,
+} from './sources/commentsApi';
+export { ApiRefusal } from './sources/dataApi';

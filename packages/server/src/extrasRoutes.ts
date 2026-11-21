@@ -7,19 +7,22 @@ import type { AnalysisTracker } from './analysisRoutes';
 import type { AppOptions } from './app';
 import { ALERTS_ROUTES } from './alertsRoutes';
 import { CHANGES_ROUTES } from './changesRoutes';
+import { COMMENTS_ROUTES } from './commentsRoutes';
+import { readExtrasJob, type ExtrasContext, type ExtrasRouteTable } from './extrasJobs';
 import { fail } from './http';
 import { CALENDAR_ROUTES } from './calendarRoutes';
 import { PACING_ROUTES } from './pacingRoutes';
 import { PLAN_ROUTES } from './planRoutes';
 import { JobStore } from './jobs';
-import type { Context, Routes } from './labHttp';
 
-const ROUTES: Routes = {
+const ROUTES: ExtrasRouteTable = {
   ...CHANGES_ROUTES,
   ...ALERTS_ROUTES,
   ...PLAN_ROUTES,
   ...CALENDAR_ROUTES,
   ...PACING_ROUTES,
+  ...COMMENTS_ROUTES,
+  '/api/extras/job': { GET: (context, _request, url) => readExtrasJob(context, url) },
 };
 
 export interface ExtraRoutes {
@@ -28,7 +31,12 @@ export interface ExtraRoutes {
 }
 
 export function extraRoutes(options: AppOptions, tracker: AnalysisTracker): ExtraRoutes {
-  const context: Context = { options, jobs: new JobStore(), tracker };
+  const context: ExtrasContext = {
+    options,
+    jobs: new JobStore(),
+    tracker,
+    extraJobs: new JobStore(),
+  };
   return {
     handle(request, url) {
       const route = ROUTES[url.pathname];

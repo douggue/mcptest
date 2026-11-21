@@ -91,6 +91,8 @@ packages/
     plan/         the owner's published videos against the concepts they came from: links,
                   views at the same age, the table of formats, hook styles and lengths
     pacing/       a channel's lengths and words a minute beside its map's breakouts
+    comments/     comments of a map's winning videos: kept, picked, handed to a question and
+                  its answer checked against the ids handed out (sources/commentsApi.ts reads them)
     calendar/     the upload calendar: kept concepts by week, their status and planned date,
                   and the look-alike winners' uploads a week
     extras.ts     the later features' exports, named once by index.ts
@@ -143,13 +145,14 @@ packages/
                   changes (what changed since the last look), alerts (plus
                   `alertsTypes.ts`), plan (your videos against the plan, plus
                   `planTypes.ts`), calendar (the upload calendar, plus `calendarTypes.ts`), pacing
-                  (length and pacing, plus `pacingTypes.ts`)
+                  (length and pacing, plus `pacingTypes.ts`), comments (plus `commentsTypes.ts`,
+                  `commentsView.ts`); `extrasJobs.ts` runs their long work as jobs and
+                  `extrasAnalyses.ts` holds their AI questions, registered in `analyses.ts`
     engines/      the engine interface; Claude Code, Codex CLI and Antigravity CLI
                   behind it; trying them in order; watching a video (Antigravity on a
                   file, the Gemini API on a link); starting programs safely on Windows
     cli.ts        `npm run engines`: what is installed and signed in, and `--try`
-  mcp/src/        the connector: twenty tools and one prompt over the same store
-  mcp/src/        the connector: eighteen tools and one prompt over the same store
+  mcp/src/        the connector: twenty-four tools and one prompt over the same store
 apps/web/src/     one page: radar, breakouts, same-topic list, thumbnail board,
                   Ask AI, trending formats, hook library, idea lab, script writer, transfers,
                   niches, refresh bar
