@@ -53,7 +53,7 @@ function Picker({ view, comments }: { readonly view: CommentsView; readonly comm
   return (
     <>
       <Field label={`Winning videos (${chosen.length} chosen)`}>
-        <ul className="flex max-h-[22rem] min-w-0 flex-col gap-1.5 overflow-y-auto pr-1">
+        <ul className="flex min-w-0 flex-col gap-1.5">
           {shown.map((entry) => (
             <CandidateRow
               key={entry.videoId}

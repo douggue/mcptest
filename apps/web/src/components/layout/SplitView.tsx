@@ -19,8 +19,8 @@ const WIDTH = {
 } as const;
 
 /**
- * Two columns at most: a side panel that stays in view while the main area
- * scrolls, and the main area. On a phone or a narrow window the side panel
+ * Two columns at most: a side panel that scrolls with the page, so its button
+ * is never hidden inside it, and the main area. On a phone or a narrow window the side panel
  * comes first, above the main area.
  */
 export function SplitView({ side, children, sideLabel, width = 'wide', mainFirst }: Props) {
@@ -28,7 +28,7 @@ export function SplitView({ side, children, sideLabel, width = 'wide', mainFirst
     <div className={`grid min-w-0 grid-cols-1 items-start gap-space-lg ${WIDTH[width]}`}>
       <aside
         aria-label={sideLabel}
-        className={`flex min-w-0 flex-col gap-space-lg rounded-lg border border-border-subtle bg-space-canvas p-space-md lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto ${mainFirst ? 'order-2 lg:order-none' : ''}`}
+        className={`flex min-w-0 flex-col gap-space-lg rounded-lg border border-border-subtle bg-space-canvas p-space-md ${mainFirst ? 'order-2 lg:order-none' : ''}`}
       >
         {side}
       </aside>
