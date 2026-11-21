@@ -104,6 +104,7 @@ describe('loadCalendar', () => {
       ['Three', 'published'],
     ]);
     expect(calendar?.undated[2]?.linkedVideoId).toBe('mine_______');
+    expect(calendar?.undated.map((item) => item.setStatus)).toEqual([null, null, null]);
     expect(calendar?.pace).toEqual({ channels: 0, medianPerWeek: null, windowDays: 14 });
     expect(calendar?.today).toBe(TODAY);
   });
@@ -116,7 +117,11 @@ describe('loadCalendar', () => {
     const calendar = loadCalendar(deps, CENTER, NOW, TODAY);
 
     expect(calendar?.weeks[1]).toMatchObject({ start: '2026-11-23', planned: 1 });
-    expect(calendar?.weeks[1]?.items[0]).toMatchObject({ title: 'One', status: 'ready' });
+    expect(calendar?.weeks[1]?.items[0]).toMatchObject({
+      title: 'One',
+      status: 'ready',
+      setStatus: 'ready',
+    });
   });
 
   test('clears a date and a status', () => {

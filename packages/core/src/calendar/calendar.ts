@@ -18,7 +18,10 @@ const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 export interface CalendarItem {
   readonly conceptId: number;
   readonly title: string;
+  /** The status shown: worked out from a linked video, what the owner set, or the script. */
   readonly status: ConceptStatus;
+  /** The status the owner set in the calendar; null when it is worked out. Sent back with a date. */
+  readonly setStatus: ConceptStatus | null;
   readonly plannedDate: string | null;
   readonly hasScript: boolean;
   /** The video linked to the concept in "your videos against the plan"; null when none. */

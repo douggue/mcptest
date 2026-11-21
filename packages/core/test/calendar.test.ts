@@ -19,6 +19,7 @@ const item = (conceptId: number, plannedDate: string | null): CalendarItem => ({
   conceptId,
   title: `Concept ${conceptId}`,
   status: 'idea',
+  setStatus: null,
   plannedDate,
   hasScript: false,
   linkedVideoId: null,
