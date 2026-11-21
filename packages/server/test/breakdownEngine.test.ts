@@ -70,6 +70,8 @@ interface World {
   readonly failing?: Partial<Record<BreakdownWrittenPart, Error>>;
   /** The text files cannot be saved. */
   readonly noFolder?: boolean;
+  /** What the engine that goes through frames writes; a line about the video when absent. */
+  readonly frameNotes?: (videoId: string) => string;
 }
 
 function world(setup: World = {}): BreakdownDeps {
@@ -157,7 +159,8 @@ function world(setup: World = {}): BreakdownDeps {
     studyFrames: async (videoId, only) => {
       log.push(`study frames ${videoId}${only ? ` only ${only}` : ''}`);
       if (videoId === vid(3)) throw new EngineRunError('timeout', 'Claude took too long.');
-      return { text: `Frames of ${videoId}.`, turns: 9, engine: 'claude', skipped: [] };
+      const text = setup.frameNotes?.(videoId) ?? `Frames of ${videoId}.`;
+      return { text, turns: 9, engine: 'claude', skipped: [] };
     },
     write: async (part, channel, only, focus) => {
       log.push(
@@ -593,7 +596,21 @@ describe('the seven parts of a breakdown', () => {
       '- Frames: 120 frames, YouTube’s own preview frames (small pictures several seconds apart, not every frame of the video), studied by Claude Code. One frame every 5 seconds (worked out).',
     );
     expect(text).toContain('- Frames: NO FRAME STUDY.');
+    expect(text).toContain('The study did not count its picture changes');
     expect(text).toContain('- Sound and editing: NOT WATCHED.');
+  });
+
+  test('rest on the seconds between picture changes, worked out from the frame study’s own counts', async () => {
+    const counted = (videoId: string): string =>
+      `Frames of ${videoId}.\nFRAMES LOOKED AT: 120 of 120\nPICTURE CHANGES SEEN: 85\nSOURCE: preview`;
+
+    await run(world({ frameNotes: counted }));
+
+    const basis = parts.find(CHANNEL, 'basis');
+    // 600 seconds over 120 frames: 5 seconds a frame. 119 gaps span 595 seconds; 85 changes: one every 7.
+    expect(basis?.written && basis.text).toContain(
+      'One frame every 5 seconds (worked out). 85 of the 119 gaps between frames showed a picture change: at most 7 seconds between changes on average (worked out). A change quicker than the frames are apart cannot be seen, so the real pace may be faster.',
+    );
   });
 
   test('carry on when one cannot be written, and record why in plain words', async () => {

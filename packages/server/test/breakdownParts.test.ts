@@ -158,6 +158,8 @@ describe('part 1, the titles', () => {
 
   test('argues every better formula from the ranking, and does not take a new video for a weak one', () => {
     expect(titles).toMatch(/REASON, which must point at this ranking/);
+    expect(titles).toMatch(/better than the channel’s own formula in a way you name/);
+    expect(titles).toMatch(/WHAT TO AVOID:/);
     expect(titles).toMatch(/because the video is new/);
   });
 
@@ -245,6 +247,8 @@ describe('part 4, the picture and the sound', () => {
   test('takes the pictures from the frame studies and the counted seconds between changes', () => {
     expect(picture).toMatch(/get_frame_study/);
     expect(picture).toMatch(/secondsPerChange/);
+    expect(picture).toMatch(/the most seconds there can be between changes/);
+    expect(picture).toMatch(/the smallest secondsPerFrame/);
     expect(picture).toMatch(/the study’s own estimate/);
     expect(picture).toMatch(/write NO FRAME STUDY/);
     expect(picture).toMatch(/not every frame of the video/);

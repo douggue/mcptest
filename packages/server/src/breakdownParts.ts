@@ -31,8 +31,10 @@ export interface BreakdownPartSpec {
   /** The tools the run may use, by their bare names. All of them only read. */
   readonly tools: readonly string[];
   /**
-   * The limits of one run. Each is about three times what a real run took
-   * (see "Limits of the runs" in the system design), so a slow day still fits.
+   * The limits of one run, set from a real run (see "Limits of the runs" in
+   * the system design). The time is five to eight times what the part took,
+   * so a slow day or a slower engine still fits; the turns are at least twice
+   * the tool calls its question asks for.
    */
   readonly maxTurns: number;
   readonly timeoutMs: number;
@@ -46,6 +48,7 @@ export interface BreakdownPartSpec {
 export const BREAKDOWN_PART_SPECS: Readonly<Record<BreakdownWrittenPart, BreakdownPartSpec>> = {
   titles: {
     tools: ['get_channel_videos', 'get_video_details'],
+    // Measured: 113 seconds, about 2 tool calls.
     maxTurns: 12,
     timeoutMs: 10 * MINUTE_MS,
     pictures: false,
@@ -54,48 +57,54 @@ export const BREAKDOWN_PART_SPECS: Readonly<Record<BreakdownWrittenPart, Breakdo
   },
   thumbnails: {
     tools: ['get_channel_brand', 'get_channel_videos', 'view_thumbnails'],
+    // Measured: 43 seconds, about 4 tool calls.
     maxTurns: 16,
-    timeoutMs: 10 * MINUTE_MS,
+    timeoutMs: 6 * MINUTE_MS,
     pictures: true,
     builtOn: [],
     question: thumbnailsQuestion,
   },
   scripts: {
     tools: ['get_transcript', 'get_transcript_pace', 'get_channel_videos'],
+    // Measured: 111 seconds, about 13 tool calls.
     maxTurns: 40,
-    timeoutMs: 15 * MINUTE_MS,
+    timeoutMs: 12 * MINUTE_MS,
     pictures: false,
     builtOn: [],
     question: scriptsQuestion,
   },
   picture: {
     tools: ['get_frame_study', 'get_video_watch', 'get_channel_videos'],
+    // Measured: 46 seconds, about 7 tool calls.
     maxTurns: 20,
-    timeoutMs: 10 * MINUTE_MS,
+    timeoutMs: 6 * MINUTE_MS,
     pictures: false,
     builtOn: [],
     question: pictureQuestion,
   },
   strategy: {
     tools: ['get_breakdown_part', 'get_channel_videos'],
+    // Measured: 57 seconds, about 6 tool calls.
     maxTurns: 20,
-    timeoutMs: 10 * MINUTE_MS,
+    timeoutMs: 6 * MINUTE_MS,
     pictures: false,
     builtOn: ['titles', 'thumbnails', 'scripts', 'picture'],
     question: strategyQuestion,
   },
   plan: {
     tools: ['get_breakdown_part', 'get_transcript_pace', 'get_frame_study', 'get_video_watch'],
+    // Measured: 66 seconds, about 15 tool calls.
     maxTurns: 40,
-    timeoutMs: 15 * MINUTE_MS,
+    timeoutMs: 8 * MINUTE_MS,
     pictures: false,
     builtOn: ['titles', 'thumbnails', 'scripts', 'picture', 'strategy'],
     question: planQuestion,
   },
   master: {
     tools: ['get_breakdown_part'],
+    // Measured: 61 seconds, about 5 tool calls.
     maxTurns: 16,
-    timeoutMs: 10 * MINUTE_MS,
+    timeoutMs: 6 * MINUTE_MS,
     pictures: false,
     builtOn: ['titles', 'thumbnails', 'scripts', 'strategy'],
     question: masterQuestion,

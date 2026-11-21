@@ -188,26 +188,27 @@ describe('get_frame_study, with the numbers Jgtube works out', () => {
     videoId: VIDEO_ID,
     kind: 'frames',
     engine: 'claude',
-    text: 'Sheet 1: a map.\nFRAMES LOOKED AT: 180 of 180\nPICTURE CHANGES SEEN: 150\nSOURCE: preview',
-    frames: { source: 'preview', available: 180 },
+    text: 'Sheet 1: a map.\nFRAMES LOOKED AT: 181 of 181\nPICTURE CHANGES SEEN: 150\nSOURCE: preview',
+    frames: { source: 'preview', available: 181 },
     studiedAt: AT,
   };
 
   test('gives the seconds between picture changes, worked out from the study’s own counts', async () => {
     engine.studies = [frames];
-    engine.videoSeconds = 900;
+    engine.videoSeconds = 905;
 
     const head = headOf(await tools.getFrameStudy({ video: VIDEO_ID }));
 
     expect(head).toMatchObject({
-      framesAvailable: 180,
-      secs: 900,
-      framesLookedAt: 180,
+      framesAvailable: 181,
+      secs: 905,
+      framesLookedAt: 181,
       secondsPerFrame: 5,
       changesSeen: 150,
+      gaps: 180,
       secondsPerChange: 6,
       changeNote:
-        'secondsPerChange was worked out by Jgtube: the time the frames looked at span, over the picture changes the study counted. A change quicker than the gap between two frames cannot be seen, so the picture changes at least this often.',
+        'secondsPerChange was worked out by Jgtube: the time the frames looked at span, over the picture changes the study counted. changesSeen of the gaps between two frames showed a change. A change quicker than the gap between two frames cannot be seen, so secondsPerChange is the most seconds there can be between changes; the nearer changesSeen is to gaps, the more likely the picture really changes faster.',
     });
   });
 
@@ -219,6 +220,7 @@ describe('get_frame_study, with the numbers Jgtube works out', () => {
 
     expect(head['secondsPerChange']).toBeUndefined();
     expect(head['changesSeen']).toBeUndefined();
+    expect(head['gaps']).toBeUndefined();
     expect(head['changeNote']).toBe(
       'Jgtube could not work out the seconds between picture changes from this study, so anything it says about how often the picture changes is the study’s own estimate.',
     );

@@ -97,7 +97,7 @@ function framesLine(video: StudiedVideo, numbers: FrameStudyNumbers | null): str
   const changes =
     perChange === null
       ? ' The study did not count its picture changes, so their pace is the study’s own estimate.'
-      : ` ${count(numbers?.changesSeen ?? 0)} picture changes seen: one every ${perChange} seconds on average (worked out), so the picture changes at least this often.`;
+      : ` ${count(numbers?.changesSeen ?? 0)} of the ${count(numbers?.gaps ?? 0)} gaps between frames showed a picture change: at most ${perChange} seconds between changes on average (worked out). A change quicker than the frames are apart cannot be seen, so the real pace may be faster.`;
   return `- Frames: ${many}${from}, studied by ${nameOf(frames.by)}.${gap}${changes}`;
 }
 

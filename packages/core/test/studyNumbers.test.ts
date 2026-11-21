@@ -15,16 +15,18 @@ describe('the numbers worked out from a frame study', () => {
   });
 
   test('give the seconds between picture changes from preview frames and the video’s length', () => {
-    // 900 seconds over 180 frames: one frame every 5 seconds. 150 changes over 900 seconds: one every 6.
+    // 905 seconds over 181 frames: one frame every 5 seconds, 180 gaps spanning 900 seconds.
+    // 150 changes over those 900 seconds: one every 6.
     const numbers = frameStudyNumbers(
-      study('FRAMES LOOKED AT: 180 of 180', 'PICTURE CHANGES SEEN: 150', 'SOURCE: preview'),
-      { source: 'preview', available: 180 },
-      900,
+      study('FRAMES LOOKED AT: 181 of 181', 'PICTURE CHANGES SEEN: 150', 'SOURCE: preview'),
+      { source: 'preview', available: 181 },
+      905,
     );
 
     expect(numbers).toEqual({
-      framesLookedAt: 180,
+      framesLookedAt: 181,
       changesSeen: 150,
+      gaps: 180,
       secondsPerFrame: 5,
       secondsPerChange: 6,
     });
@@ -32,22 +34,22 @@ describe('the numbers worked out from a frame study', () => {
 
   test('take one frame a second for frames cut from the file, whatever the video’s length', () => {
     const numbers = frameStudyNumbers(
-      study('FRAMES LOOKED AT: 600 of 600', 'PICTURE CHANGES SEEN: 80'),
-      { source: 'file', available: 600 },
+      study('FRAMES LOOKED AT: 601 of 601', 'PICTURE CHANGES SEEN: 80'),
+      { source: 'file', available: 601 },
       null,
     );
 
-    expect(numbers).toMatchObject({ secondsPerFrame: 1, secondsPerChange: 7.5 });
+    expect(numbers).toMatchObject({ gaps: 600, secondsPerFrame: 1, secondsPerChange: 7.5 });
   });
 
   test('count only the frames that were looked at', () => {
     const numbers = frameStudyNumbers(
-      study('FRAMES LOOKED AT: 90 of 180', 'PICTURE CHANGES SEEN: 45'),
+      study('FRAMES LOOKED AT: 91 of 180', 'PICTURE CHANGES SEEN: 45'),
       { source: 'preview', available: 180 },
       900,
     );
 
-    expect(numbers).toMatchObject({ framesLookedAt: 90, secondsPerChange: 10 });
+    expect(numbers).toMatchObject({ framesLookedAt: 91, gaps: 90, secondsPerChange: 10 });
   });
 
   test('read numbers written with commas, and lines in any letter case', () => {
@@ -84,9 +86,20 @@ describe('the numbers worked out from a frame study', () => {
     expect(numbers).toEqual({
       framesLookedAt: 180,
       changesSeen: null,
+      gaps: 179,
       secondsPerFrame: 5,
       secondsPerChange: null,
     });
+  });
+
+  test('take a change at every gap for what it is: the frames are too far apart to see more', () => {
+    const numbers = frameStudyNumbers(
+      study('FRAMES LOOKED AT: 91 of 91', 'PICTURE CHANGES SEEN: 90'),
+      { source: 'preview', available: 91 },
+      910,
+    );
+
+    expect(numbers).toMatchObject({ changesSeen: 90, gaps: 90, secondsPerChange: 10 });
   });
 
   test.each([
@@ -116,6 +129,7 @@ describe('the numbers worked out from a frame study', () => {
     expect(frameStudyNumbers('Maps and factories.', null, 900)).toEqual({
       framesLookedAt: null,
       changesSeen: null,
+      gaps: null,
       secondsPerFrame: null,
       secondsPerChange: null,
     });

@@ -21,13 +21,20 @@ export interface FrameStudyNumbers {
   readonly framesLookedAt: number | null;
   /** Places where a frame differs from the one before it, as the study counted; null when it did not. */
   readonly changesSeen: number | null;
+  /**
+   * The places between two frames looked at, where a change could be seen at
+   * all: one fewer than the frames. Null when the study does not say how many
+   * frames it looked at.
+   */
+  readonly gaps: number | null;
   /** Seconds from one frame to the next, worked out; null when it cannot be. */
   readonly secondsPerFrame: number | null;
   /**
    * Seconds between picture changes on average, worked out: the time the
    * frames looked at span, over the changes seen. A change quicker than the
-   * gap between two frames cannot be seen, so the picture changes at least
-   * this often. Null when the study gives no usable count.
+   * gap between two frames cannot be seen, so this is the most it can be: the
+   * nearer `changesSeen` is to `gaps`, the more likely the picture really
+   * changes faster. Null when the study gives no usable count.
    */
   readonly secondsPerChange: number | null;
 }
@@ -64,17 +71,19 @@ export function frameStudyNumbers(
   const framesLookedAt = closingCount(text, FRAMES_LOOKED_AT_LINE);
   const changesSeen = closingCount(text, CHANGES_SEEN_LINE);
   const gap = frameGap(frames, durationSeconds);
+  const gaps = framesLookedAt === null || framesLookedAt < 2 ? null : framesLookedAt - 1;
   const countable =
     gap !== null &&
-    framesLookedAt !== null &&
+    gaps !== null &&
     changesSeen !== null &&
     changesSeen > 0 &&
     // There is one place a picture can change between each two frames, and no more.
-    changesSeen < framesLookedAt;
+    changesSeen <= gaps;
   return {
     framesLookedAt,
     changesSeen,
+    gaps,
     secondsPerFrame: gap === null ? null : oneDecimal(gap),
-    secondsPerChange: countable ? oneDecimal((framesLookedAt * gap) / changesSeen) : null,
+    secondsPerChange: countable ? oneDecimal((gaps * gap) / changesSeen) : null,
   };
 }
