@@ -97,6 +97,10 @@ one row per channel and part: `channel_id`, `part` (`basis`, `titles`,
 `problem` (why it could not be written, when it could not) and `written_at`. A
 new run replaces a row. Like `video_studies` it refers to no other table.
 
+`owner_places` (step 16) holds the place the owner chose for a channel of
+theirs, one row per centre channel: `center_channel_id`, `place_key` (a key of
+the place list) and `set_at`. It refers to no other table.
+
 ### Keeping the store safe
 
 - **Backup before upgrade.** When an existing store with data has pending
@@ -493,6 +497,24 @@ and on each channel), from the branding stored when a channel is read; a frozen
 copy never holds logos, so a map made before logos were stored shows them once
 its channels have been read again.
 
+**Logos for an older map.** The page does not wait for that. When it opens a
+map on which a channel has no logo it sends `POST /api/logos {channel}`. The
+server lists the map's channels whose branding was never read
+(`channelsMissingLogos`, `packages/core/src/channel/logoBackfill.ts`): the
+centre, then the look-alikes the owner still counts, then the rest, at most
+`LOGO_BACKFILL_MAX_CHANNELS` (60) a run. A job (`logoRoutes.ts`,
+`logoEngine.ts`) then reads each channel page once, with no videos
+(`fetchChannel(id, 0)`: one request through the shared rate limiter), stores
+its branding and reports the logos found so far, which the page puts on the
+map as they arrive (`apps/web/src/lib/logos.ts`, `useLogos.ts`). A page that
+shows no branding is stored as read, so it is not asked for again; three
+channels in a row that cannot be read end the run. One such job runs at a
+time. It holds the YouTube lease, is refused (409) while a map, a refresh or a
+keyword search is running here or in another program, and stops after the
+channel it is on the moment one of those is asked for (`standDown`), so the
+owner never waits for logos. The page asks again for the next batch, or thirty
+seconds later after a refusal, at most eight times per opening of a map.
+
 ### Same topic, different wording
 
 Built (`packages/core/src/map/sameTopic.ts`, `GET /api/maps/latest/same-topic`). Title
@@ -821,6 +843,33 @@ idea's template words. It goes through the same Host, Origin, content-type and
 size checks as `POST /api/niches/watch`, and answers 404 for an idea no recent
 video has. A saved idea is kept in `transfer_saves` with its title as it read
 then, and stays listed (as `gone`) after its videos have aged out.
+
+**The place, checked.** The list carries `placeCheck` for the channel on
+screen: the place the owner chose (`chosen`), the place most of its titles name
+(`fromTitles`), its country from the official API (`fromCountry`, with the raw
+`countryCode`), whether the API was ever asked (`countryAsked`) and whether
+titles and country both say a place and differ (`disagree`). The owner's place
+is taken in this order: a place named for one request (`given`), the owner's
+stored choice (`owner`), the titles (`titles`), the country (`country`). The
+page says which is in use and where it came from, always says what is known of
+the country (and, with no API key, that it is not known and why), flags a
+disagreement, and offers the whole place list to choose from.
+`POST /api/transfers/place {channel, place}` stores the choice per channel in
+`owner_places`; `place: null` removes it.
+
+Each version also carries `channelCountry` (its channel's country as a place)
+and `elsewhere`: true when its title names one place and its channel is in
+another country. The page shows the country beside the place and marks such a
+version "made from elsewhere"; with either unknown it is never marked.
+
+`countriesMissing` counts the channels the list rests on (the one on screen and
+those behind the listed ideas) the API was never asked about. With a key set
+(`canReadCountries` on the reply) the page sends
+`POST /api/transfers/countries {channel}` once per channel on screen, which
+reads them in one or two API requests (`readCountries`,
+`packages/core/src/transfer/countries.ts`, at most 200 channels) and stores
+them; without a key the route answers 400 with the reason. It reads no YouTube
+page, so it takes no lease.
 
 ### Downloaders and close reading
 
@@ -2032,6 +2081,53 @@ Written for Windows, tested with a stand-in disk, never run on Windows.
   an analysis cannot change stored choices or start a crawl.
 - Each engine starts in a private folder of its own, inside one owner-only
   folder that is removed when Jgtube closes.
+
+## Settings screen
+
+Opened from the header (`Settings.tsx`). It reads and writes the `.env` file
+beside where Jgtube is started, the one `process.loadEnvFile` reads.
+
+| Setting                 | Name in `.env`                             | Takes effect |
+| ----------------------- | ------------------------------------------ | ------------ |
+| YouTube Data API key    | `YOUTUBE_API_KEY`                          | at once      |
+| Gemini API key          | `GEMINI_API_KEY`                           | at once      |
+| AI engines, in order    | `JGTUBE_ENGINES`                           | at once      |
+| Antigravity model       | `JGTUBE_AGY_MODEL`                         | restart      |
+| Mark facts in scripts   | `JGTUBE_MARK_FACTS`                        | at once      |
+| yt-dlp and ffmpeg paths | `JGTUBE_YT_DLP_PATH`, `JGTUBE_FFMPEG_PATH` | at once      |
+| Downloads folder        | `JGTUBE_DOWNLOADS_PATH`                    | restart      |
+| Refresh interval        | `JGTUBE_REFRESH_HOURS`                     | restart      |
+| Region                  | `JGTUBE_REGION`                            | restart      |
+
+- **Routes** (`settingsRoutes.ts`): `GET /api/settings` lists them;
+  `POST /api/settings {changes: {NAME: value | null}}` saves;
+  `GET /api/settings/programs` returns what `npm run engines` prints (asked
+  afresh); `POST /api/settings/allow-antigravity` does what
+  `npm run engines -- --allow-antigravity` does and returns its lines. All go
+  through the Host check, and the POSTs through the Origin and JSON checks.
+- **Keys.** A key's value is never sent to the page, logged or put in an
+  error. A view says `set: true|false` and `value: null`; the page can replace
+  or clear a key. A refusal names the setting, never the value.
+- **Rules.** Each value is checked with the zod rule the configuration is read
+  with (`CONFIG_ENV_RULES` in core's `config.ts`, `ENGINE_ENV_RULES` in
+  `engines/settings.ts`, `PROGRAM_PATH_RULE` for the two program paths), and
+  the whole result is passed through `loadConfig` and `loadEngineSettings`
+  before anything is written, so a save can never leave Jgtube unable to start.
+- **Writing** (`core/src/envFile.ts`, `settingsStore.ts`). Only the lines that
+  set a changed name are touched; every other line, comment and the file's
+  line endings stay. A new setting goes under its commented example when there
+  is one. Each value is written in the first form (bare, then each kind of
+  quote) that Node's own parser reads back unchanged. The text goes to a
+  temporary file that is renamed over `.env`, and the file as it was is kept
+  as `.env.backup` (one copy).
+- **Without a restart** (`liveSettings.ts`). The configuration handed to the
+  engine reads the two keys, the engine order and the mark-facts switch from
+  the latest settings each time they are looked at; the helper program paths
+  are read from the environment at each use. The rest is read at start, and
+  the screen says "restart Jgtube".
+- **Set outside the file.** A setting the environment already held when
+  Jgtube started wins over the file. The screen says so, and a change is
+  written to the file without touching the running value.
 
 ## Testing
 
