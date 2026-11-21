@@ -64,6 +64,8 @@ export const UNUSED_EXTRAS: ExtrasEngine = {
   findThumbnailReview: unused('findThumbnailReview'),
   askThumbnailReview: unused('askThumbnailReview'),
   thumbnailComparison: unused('thumbnailComparison'),
+  findMoney: unused('findMoney'),
+  checkMoney: unused('checkMoney'),
 };
 
 /** An engine whose later features are these, failing loudly on any other. */

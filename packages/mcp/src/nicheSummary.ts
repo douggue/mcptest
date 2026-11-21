@@ -1,10 +1,13 @@
-import type { NicheChannel, NicheList, RateTier } from '@jgtube/core';
+import type { MoneyVerdict, NicheChannel, NicheList, RateTier } from '@jgtube/core';
+import { moneyFacts } from './moneyFacts';
 import { capped, oneDecimal, withoutAbsent } from './results';
 
 export interface NicheSummaryOptions {
   readonly limit: number;
   /** Only the channels the owner marked to watch. */
   readonly watchedOnly: boolean;
+  /** The stored monetization verdicts by channel id; channels without one carry no `money`. */
+  readonly money?: ReadonlyMap<string, MoneyVerdict>;
 }
 
 const UNNAMED_SCRIPT = 'another alphabet';
@@ -16,7 +19,10 @@ function adRate(tier: RateTier): string {
     : `${tier.id} (${tier.country}), ${tier.multiplier} of the top rate`;
 }
 
-function nicheEntry(niche: NicheChannel): Record<string, unknown> {
+function nicheEntry(
+  niche: NicheChannel,
+  money: MoneyVerdict | undefined,
+): Record<string, unknown> {
   const topIds = new Set(niche.outperformers.map((video) => video.videoId));
   // The sample titles often repeat the outperformers; only the others add anything.
   const otherTitles = niche.sampleTitles
@@ -36,6 +42,7 @@ function nicheEntry(niche: NicheChannel): Record<string, unknown> {
     earns90dUsd: [niche.ninetyDayEarnings.low, niche.ninetyDayEarnings.high],
     adRate: adRate(niche.earnings.rateTier),
     notPaidYet: niche.earnings.belowAdThreshold ? true : null,
+    money: moneyFacts(money),
     country: niche.country,
     otherLanguage: niche.otherLanguage ? (niche.otherLanguage.script ?? UNNAMED_SCRIPT) : null,
     channelAgeDays: niche.channelAgeDays === null ? null : Math.round(niche.channelAgeDays),
@@ -68,6 +75,6 @@ export function summarizeNiches(
     newMaxAgeDays: list.newMaxAgeDays,
     shown: shown.length,
     ...(more > 0 ? { more } : {}),
-    niches: shown.map(nicheEntry),
+    niches: shown.map((niche) => nicheEntry(niche, options.money?.get(niche.id))),
   };
 }

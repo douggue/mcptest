@@ -67,6 +67,7 @@ import {
   onceUntilItWorks,
   stopWhen,
   youtubeSource,
+  type LazySource,
   type PlayerSource,
 } from './connection';
 import { downloads } from './downloadEngine';
@@ -161,7 +162,7 @@ interface Wiring {
    * A source that connects on first use, so work that reads nothing makes no
    * request. It can also ask for a video's files, for the built-in download.
    */
-  readonly lazySource: YouTubeSource & VideoPlayerSource;
+  readonly lazySource: LazySource;
   /**
    * Runs work that reads YouTube while holding the store's lease, so it never
    * runs beside the same kind of work in another program (the connector, the

@@ -17,6 +17,7 @@ import {
 } from '@jgtube/core';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { ToolFailure } from './failure';
+import { moneyFacts } from './moneyFacts';
 import { requireChannelRef } from './readTools';
 import { imageBlock, jsonResult, oneDecimal, withoutAbsent } from './results';
 import { FRAME_SOURCE_NOTE } from './studyTools';
@@ -255,6 +256,7 @@ export async function getChannelBrand(
     title: channel.title,
     handle: channel.handle,
     subs: channel.subscribers,
+    money: moneyFacts(engine.extras.findMoney([channel.id])[0]),
   });
   if (brand === null) {
     return headed({ ...who, branding: false, note: 'Its page gave no branding to read.' });

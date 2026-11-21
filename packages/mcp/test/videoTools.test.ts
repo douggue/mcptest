@@ -320,7 +320,32 @@ describe('get_channel_brand', () => {
       'https://yt3.googleusercontent.com/logo=s900',
       'https://yt3.googleusercontent.com/cover=w1060',
     ]);
-    expect(engine.reads).toEqual([['brand', '@alpha']]);
+    expect(engine.reads).toEqual([
+      ['brand', '@alpha'],
+      ['money', [ALPHA_ID]],
+    ]);
+  });
+
+  test('carries the stored monetization verdict and the sign it rests on', async () => {
+    engine.money = [
+      {
+        channelId: ALPHA_ID,
+        status: 'monetized',
+        says: 'Monetized (sign: memberships)',
+        short: '$ Monetized',
+        sign: 'Its watch page offers a Join button.',
+        checkedAt: '2026-11-21T10:00:00.000Z',
+        videoId: VIDEO_ID,
+        bar: { key: 'over-1000', says: '1,000+ subscribers', subscribers: 5000, note: 'n' },
+      },
+    ];
+    const head = headOf(await tools.getChannelBrand({ channel: ALPHA_ID, images: false }));
+    expect(head['money']).toEqual({
+      says: 'Monetized (sign: memberships)',
+      sign: 'Its watch page offers a Join button.',
+      at: '2026-11-21T10:00:00.000Z',
+      bar: '1,000+ subscribers',
+    });
   });
 
   test('gives the facts alone when the pictures are not wanted', async () => {
@@ -392,7 +417,7 @@ describe('get_channel_brand', () => {
 
     expect(headOf(none)).toMatchObject({ id: ALPHA_ID, branding: false });
     expect(bad.isError).toBe(true);
-    expect(engine.reads).toHaveLength(1);
+    expect(engine.reads.filter(([kind]) => kind === 'brand')).toHaveLength(1);
   });
 });
 

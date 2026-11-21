@@ -2,6 +2,7 @@ import { parseChannelRef, type MapSnapshot } from '@jgtube/core';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { ToolFailure } from './failure';
 import { summarizeNearMisses } from './mapSummary';
+import { moneyById } from './moneyFacts';
 import { summarizeNiches } from './nicheSummary';
 import { NO_MAP_YET, requireChannelRef } from './readTools';
 import { jsonResult } from './results';
@@ -87,10 +88,13 @@ export function setCompetitorStatus(
 
 export function listNiches(engine: ConnectorEngine, input: ListNichesArgs): CallToolResult {
   const args = checkedArgs(listNichesArgs, input);
+  const list = engine.listNiches();
+  const ids = list.channels.map((niche) => niche.id);
   return jsonResult(
-    summarizeNiches(engine.listNiches(), {
+    summarizeNiches(list, {
       limit: args.limit ?? DEFAULT_NICHES,
       watchedOnly: args.watched_only ?? false,
+      money: moneyById(ids.length > 0 ? engine.extras.findMoney(ids) : []),
     }),
   );
 }
