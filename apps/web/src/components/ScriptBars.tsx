@@ -20,7 +20,7 @@ const savedWords = (saving: Script['saving']): string =>
 /** The export choices in a menu that opens under its button. */
 function ExportMenu(props: ComponentProps<typeof Exports>) {
   return (
-    <details className="group/export relative">
+    <details className="group/export relative max-sm:open:basis-full">
       <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-lg bg-on-surface px-3 text-body-sm font-semibold text-space-deep hover:bg-white focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container [&::-webkit-details-marker]:hidden">
         <Download aria-hidden="true" className="h-4 w-4" />
         Export
@@ -29,7 +29,7 @@ function ExportMenu(props: ComponentProps<typeof Exports>) {
           className="h-4 w-4 transition-transform group-open/export:rotate-180"
         />
       </summary>
-      <div className="absolute right-0 top-full z-40 mt-2 w-[min(28rem,calc(100vw-2rem))] rounded-lg border border-border-subtle bg-surface-card p-space-md shadow-2xl">
+      <div className="absolute right-0 top-full z-40 mt-2 w-[min(28rem,calc(100vw-2rem))] max-sm:static max-sm:w-full rounded-lg border border-border-subtle bg-surface-card p-space-md shadow-2xl">
         <Exports {...props} />
       </div>
     </details>
