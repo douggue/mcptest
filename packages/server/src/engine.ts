@@ -475,7 +475,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       stop,
     }),
     ...labbing,
-    extras: extras({ db: wiring.db, now: wiring.now, repos: wiring.repos }),
+    extras: extras(wiring),
     ...conceptThumbEngine({ now: wiring.now, repos: wiring.repos, analyse: asking.analyse }),
     ...styleLockEngine(wiring),
     ...flowEngine({

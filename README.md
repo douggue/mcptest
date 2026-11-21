@@ -607,6 +607,40 @@ of the voice channel's videos, the draft sets cues at that rate. If not, the
 page says so and cues are set where the subject changes; no cut rate is
 invented.
 
+### Your videos against the plan
+
+When you have published a video from a concept you kept (with or without its
+script), paste the video's link next to the concept and press **Link**. Jgtube
+checks that the video is one of this channel's; if it has not read that video
+yet, it reads your channel once to find it. Then it shows, from what it has
+stored only:
+
+- the video's views at its age, and how that compares with what your channel's
+  videos usually have at the same age (the outlier score);
+- each video the concept was inspired by, and how many views it had at about the
+  same age, when Jgtube happened to read it then; otherwise it says plainly that
+  they cannot be compared;
+- a table over all your linked videos: which title formats, hook styles and
+  lengths you used, how many videos each, and their median score.
+
+It never forecasts views and gives no advice. With only a few videos linked, the
+table proves little, and it says so. **Unlink** undoes a link. The numbers are
+read again by each refresh.
+
+### Upload calendar
+
+Every concept you kept, with or without a script, listed by the week you plan to
+publish it, from this week on. Give each a status (**Idea**, **Drafting**,
+**Ready**, **Published**) and, if you like, a date; both are saved as soon as
+you change them. A concept with a script shares its status with the script
+writer. One you have linked to its published video counts as published, and
+links to its video and to **Your videos against the plan**.
+
+Above the weeks, Jgtube says how often the channels like yours that took off on
+this map upload, as a median a week counted over the last 14 days, and how many
+channels that rests on. A week with fewer videos planned than that is marked.
+It is a comparison, not a target.
+
 ### Where else
 
 **Where else this could work** suggests other languages and other categories

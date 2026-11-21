@@ -45,6 +45,11 @@ export const UNUSED_EXTRAS: ExtrasEngine = {
   alertCounts: unused('alertCounts'),
   saveAlertRule: unused('saveAlertRule'),
   markAlertsRead: unused('markAlertsRead'),
+  findPlan: unused('findPlan'),
+  linkPlanVideo: unused('linkPlanVideo'),
+  unlinkPlanVideo: unused('unlinkPlanVideo'),
+  findCalendar: unused('findCalendar'),
+  saveCalendarItem: unused('saveCalendarItem'),
 };
 
 /** An engine whose later features are these, failing loudly on any other. */

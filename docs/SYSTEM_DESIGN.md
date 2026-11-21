@@ -147,6 +147,17 @@ each kept once per centre channel, kind and subject. They refer to no other tabl
 so a deleted map leaves its rule and alerts; the page shows counts only for
 saved channels. See "Alerts".
 
+`concept_videos` (step 21) links a kept concept to the
+published video it became: `concept_id` (primary key, `ON DELETE CASCADE` from
+`concepts`), `center_channel_id`, `video_id` (unique per centre channel) and
+`linked_at`. See "Your videos against the plan".
+
+`concept_schedule` (step 22) holds a kept
+concept's place in the upload calendar: `concept_id` (primary key,
+`ON DELETE CASCADE` from `concepts`), `center_channel_id`, `status` (`idea`,
+`drafting`, `ready`, `published`, or empty), `planned_date` (YYYY-MM-DD or empty)
+and `updated_at`. See "Upload calendar".
+
 ### Keeping the store safe
 
 - **Backup before upgrade.** When an existing store with data has pending
@@ -1196,6 +1207,80 @@ newest alerts, `ALERTS_SHOWN`; 404 with no map); `GET /api/alerts/counts` answer
 `{counts: {channelId: unread}}` for the badges on "Your channels";
 `POST /api/alerts/rule {channel, minScore, takenOff, enabled}` and
 `POST /api/alerts/read {channel}` answer the same as the first.
+
+### Your videos against the plan
+
+Built (`packages/core/src/plan/`, `packages/server/src/planEngine.ts`,
+`planRoutes.ts`, `apps/web/src/lib/plan.ts`, `components/OwnVideos.tsx`). For one
+centre channel, from stored readings only; no AI, no forecast, no advice.
+
+Linking (`linkVideo`): the owner pastes a video id or a youtube.com or youtu.be
+link (`parseVideoRef`) beside a kept concept. The video must be stored and of
+the centre channel; when it is not stored the server reads the centre channel
+once (`ingestChannel` with `refresh`, under the store's lease) and looks again.
+A video is linked to one concept per channel; linking a concept again replaces
+its video.
+
+Per linked video (`loadPlan`): its views and age now, its outlier score
+(`buildVideoReport` on the channel's stored videos) and the views the channel's
+videos usually have at that age (baseline × `ageRamp(age)`). For each of the
+concept's inspiration videos (its batch's `inspiration`), its views at the same
+age as the owner's video now (`viewsAtAge`):
+
+| Rule           | Value                                                                                                                     | Constant                              |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| Window         | A reading taken within a quarter of the age, never under a day; the closest one counts                                    | `SAME_AGE_SHARE`, `SAME_AGE_MIN_DAYS` |
+| Date too rough | Either upload date's uncertainty (half its unit: hour, day, 3.5 days for a week, 15 for a month) is wider than the window | `DATE_SLACK_DAYS`                     |
+| Not comparable | No reading in the window, a rough date, or the video no longer stored; said with its reason                               |                                       |
+
+The page says the owner's views now and its age beside the inspiration's views
+then and its age, and that views on channels of other sizes are not directly
+comparable.
+
+The table (`planTable`) counts linked videos by the batch's title format, the
+concept's hook style (its name, without the video id the engine wrote before it)
+and a length band (under 1, 1 to 8, 8 to 15, 15 to 25, 25 minutes or more;
+`PLAN_LENGTH_BANDS`), with the median outlier score of those scored. Under it:
+how many videos it rests on, and that a handful proves little.
+
+Routes: `GET /api/plan?channel=UC…` answers `{centerChannelId, linked, table,
+linkable}` (404 with no map); `POST /api/plan/link {channel, conceptId, link}`
+answers the plan, or 400 (not a video link, another channel's video), 404 (not
+found after one read, no kept concept, no map), 409 (the video is linked to
+another concept) or 502 (YouTube could not be read), each with a plain reason;
+`POST /api/plan/unlink {channel, conceptId}`.
+
+### Upload calendar
+
+Built (`packages/core/src/calendar/`, `packages/server/src/calendarEngine.ts`,
+`calendarRoutes.ts`, `apps/web/src/lib/calendar.ts`, `components/UploadCalendar.tsx`).
+One centre channel's kept concepts, from the store only.
+
+Status shown, in order: `published` when a video is linked ("Your videos against
+the plan"); else the status the owner set in the calendar; else its script's
+status; else `idea`. Setting idea, drafting or ready on a concept with a script
+writes the script's own status, so the script writer and the calendar agree;
+`published`, and any status of a concept with no script, is kept in
+`concept_schedule`. Changing only a date sends back the status the owner set
+(`setStatus`), so a worked-out status is never frozen.
+
+Weeks start on Monday and are counted from this computer's own date
+(`localDate`). They run from this week for at least 8 weeks
+(`CALENDAR_MIN_WEEKS`), or to the last planned week up to 26
+(`CALENDAR_MAX_WEEKS`); concepts planned before this week or past the last week
+are listed apart, and undated ones under "No date yet".
+
+Pace (`winnersPace`): the median of `uploadsPerWeek` (the map's own measure,
+over the last 14 days, `CADENCE_WINDOW_DAYS`) of the look-alikes on the latest
+map whose group is taken off, with how many there are. A week with fewer videos
+planned than that median is marked; with no look-alike taken off there is no
+pace and no week is marked. A comparison, not a target.
+
+Routes: `GET /api/calendar?channel=UC…` answers `{centerChannelId, today, pace:
+{channels, medianPerWeek, windowDays}, weeks, undated, earlier, later}` (404 with no
+map); `POST /api/calendar/item {channel, conceptId, status | null, plannedDate |
+null}` answers the calendar, or 404 (no kept concept, no map) or 400 (not a real
+date).
 
 ### Exact channel dates
 

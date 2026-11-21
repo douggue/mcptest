@@ -14,6 +14,8 @@ import { useFlow } from './components/useFlow';
 import { ideaFromTransfer } from './lib/flow';
 import { ChangesSection } from './components/ChangesSection';
 import { useAlertCounts } from './components/useAlerts';
+import { OwnVideos } from './components/OwnVideos';
+import { UploadCalendar } from './components/UploadCalendar';
 import { BreakoutFeed } from './components/BreakoutFeed';
 import { Formulas } from './components/Formulas';
 import { HookLibrary } from './components/HookLibrary';
@@ -525,6 +527,8 @@ export function App() {
           />
         )}
         {snapshot && <ScriptWriter script={script} lab={lab} busy={asking} voices={voices} />}
+        <OwnVideos channelId={snapshot?.center.id ?? null} reloadKey={refresh.run.status} />
+        <UploadCalendar channelId={snapshot?.center.id ?? null} reloadKey={refresh.run.status} />
         <Transfers
           transfers={transfers}
           hasMap={snapshot !== null}
