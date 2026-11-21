@@ -19,7 +19,7 @@ import {
   type VideoPageDeps,
   type YouTubeSource,
 } from '@jgtube/core';
-import type { Engine } from './app';
+import type { DownloadsEngine } from './downloadTypes';
 
 /** What the downloaders are built from: the store, the settings and a way to YouTube. */
 export interface DownloadWiring {
@@ -43,11 +43,6 @@ export interface DownloadWiring {
     ((videoIds: readonly string[]) => Promise<readonly ApiVideoDetails[]>) | undefined;
 }
 
-type Downloads = Pick<
-  Engine,
-  'saveThumbnails' | 'readTranscript' | 'readVideoFrames' | 'readChannelBrand' | 'readVideoDetails'
->;
-
 /**
  * The downloaders and the readers Claude's tools use: thumbnails to disk,
  * transcripts, frames, branding and video details. Each reads the store
@@ -55,7 +50,7 @@ type Downloads = Pick<
  * the rest of the engine shares. They make a request or two, so they do not
  * take the lease that a crawl or a refresh holds.
  */
-export function downloads(wiring: DownloadWiring): Downloads {
+export function downloads(wiring: DownloadWiring): DownloadsEngine {
   const { config, now, repos, lazySource, run } = wiring;
   const apiKey = config.youtubeApiKey;
   const fetchDetails =

@@ -16,15 +16,9 @@ import {
   type Place,
   type RefreshProgress,
   type RefreshStatus,
-  type BrandResult,
-  type DetailsProblem,
   type SameTopicList,
   type ThumbnailBoard,
-  type ThumbnailDownload,
-  type TranscriptResult,
   type TransferList,
-  type VideoFacts,
-  type VideoFrames,
 } from '@jgtube/core';
 import { z } from 'zod';
 import { fail, isTrustedHost, ok, readJson } from './http';
@@ -33,6 +27,7 @@ import type { AnalysisId } from './analyses';
 import { runAnalysis, type AnalysisTracker } from './analysisRoutes';
 import { refreshState, startRefresh, type RefreshTracker } from './refreshRoutes';
 import { downloadThumbnails } from './downloadRoutes';
+import type { DownloadsEngine } from './downloadTypes';
 import { readTransfers, saveTransfer } from './transferRoutes';
 
 const CHANNEL_ID = /^UC[\w-]{22}$/;
@@ -93,17 +88,8 @@ export interface TransferChoices {
   readonly place?: Place;
 }
 
-/** The description and tags of some videos beside their stored views and scores. */
-export interface VideoDetailsAnswer {
-  readonly videos: readonly VideoFacts[];
-  /** The videos that could not be read, each with why. */
-  readonly problems: readonly DetailsProblem[];
-  /** Why the official API could not be used, when it was asked and refused. */
-  readonly apiProblem: string | null;
-}
-
 /** What the API needs from the engine, so tests can stand in for it. */
-export interface Engine {
+export interface Engine extends DownloadsEngine {
   /** The latest stored map around a channel; reads the store only. */
   findSnapshot(channel: string): MapSnapshot | null;
   /** The thumbnails that worked around a channel, from its latest map; reads the store only. */
@@ -166,19 +152,6 @@ export interface Engine {
    * answer as plain text. Rejects with a ClaudeRunError when Claude cannot run.
    */
   analyse(analysis: AnalysisId, channel: string): Promise<{ readonly text: string }>;
-  /**
-   * Saves a stored channel's winning and ordinary thumbnails as image files
-   * in the downloads folder, with an index. Null when the channel is not stored.
-   */
-  saveThumbnails(channel: string): Promise<ThumbnailDownload | null>;
-  /** One video's captions, read once and then served from the store. */
-  readTranscript(videoId: string): Promise<TranscriptResult>;
-  /** Sheets of frames spread across one video; null when it has no storyboard. */
-  readVideoFrames(videoId: string, sheets: number): Promise<VideoFrames | null>;
-  /** A channel's logo, cover, bio, keywords and links; the channel is read when they are not stored. */
-  readChannelBrand(channel: string): Promise<BrandResult>;
-  /** The description and tags of the given videos, with their stored views and scores. */
-  readVideoDetails(videoIds: readonly string[]): Promise<VideoDetailsAnswer>;
 }
 
 export interface AppOptions {

@@ -16,6 +16,9 @@ channels        id PK (UC…), handle, title, subscribers NULL, subs_hidden,   -
                 facts_fetched_at NULL          -- set once the API has been asked
                 read_failures, read_failed_at NULL   -- reads that failed in a row, so a
                 -- refresh backs off from a channel that is gone
+                description NULL, avatar_json, banner_json, keywords_json,   -- built; how the
+                links_json, brand_fetched_at NULL   -- channel presents itself: bio, logo and
+                -- cover in the sizes offered, keywords, header links; written by every read
 videos          id PK, channel_id FK, title, views, duration_s,
                 published_at, published_precision (day|week|month|year),
                 published_raw ("2w ago"), fetched_at                    -- built
@@ -41,7 +44,18 @@ work_leases     name PK, owner, expires_at        -- built; the right to read Yo
                 -- held by one piece of work at a time across every program
 transfer_saves  idea_key PK, template, saved_at   -- built; ideas the owner saved as
                 -- transfer opportunities, kept by the words of their title template
+video_transcripts video_id PK, language NULL, auto_generated,   -- built; a video's captions,
+                segments_json NULL, fetched_at   -- read once; NULL lines: it had none then
+video_details   video_id PK, title NULL, description, tags_json,   -- built; from the official
+                duration_s NULL, source (api|web), fetched_at   -- API or the watch page
+video_storyboards video_id PK, levels_json, fetched_at   -- built; the sizes of a video's
+                -- sprite sheets of frames; an empty list means it has none
 ```
+
+The three `video_` tables (migration 11) do not refer to `videos`: a video can be
+read by its id before any crawl has stored its channel. Lists are kept as JSON and
+checked against a schema again when read; a stored picture address that is not on
+its pinned host is dropped.
 
 `videos` has a second index, on `published_at` alone, for reading the recent
 videos of every channel at once, which the transfer list does on each read.
@@ -136,6 +150,63 @@ therefore rebuilt from the store when read, which gives them a full feed.
 A channel is "rising" when its first long-form upload is under 90 days old and
 either its views on uploads from the last 30 days exceed 20× its subscriber count,
 or it has two or more videos above 10×.
+
+### Taken off, rising, and the mix among look-alikes
+
+Built (`packages/core/src/map/mix.ts`). The owner asked that the channels like
+theirs be shown as roughly 70% channels that have already taken off and 30% that
+are rising. The matching rules (below) decide who is a look-alike and are not
+touched; this decides each look-alike's group and the order they are listed in.
+Nothing in it reads a title or a subject: every number is about views, uploads
+and dates, and it was checked on a map in a niche unlike any fixture.
+
+Each channel on a map is in exactly one group:
+
+| Group       | Rule                                                                                                                                              |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `taken-off` | Of its uploads in the last 90 days, 3 or more have 10,000 views or more; together they have 100,000 or more; and that is at least its subscribers |
+| `rising`    | Not taken off, and "rising" as above: first upload under 90 days ago and already far above its size                                               |
+| `neither`   | The rest. It stays a look-alike                                                                                                                   |
+
+"Taken off" is asked first, so a young channel that already meets the bar has
+taken off, and rising is what the owner asked for: new, first signs, small totals
+so far.
+
+| Constant                             | Value   | Why                                                                                                                                 |
+| ------------------------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `MIX_TAKEN_OFF_PERCENT`              | 70      | The owner's own number                                                                                                              |
+| `TAKEN_OFF_WINDOW_DAYS`              | 90      | The window the niche list judges demand over: one month swings with a single video                                                  |
+| `TAKEN_OFF_MIN_VIDEO_VIEWS`          | 10,000  | The floor the niche list sets for a video that means something; under it a few hundred people decide the number                     |
+| `TAKEN_OFF_MIN_VIDEOS`               | 3       | One can be luck and two a coincidence; three in three months is a pattern                                                           |
+| `TAKEN_OFF_MIN_WINDOW_VIEWS`         | 100,000 | Ten times the floor for one video: three uploads at the floor come to 30,000, so it takes real hits or a body of work               |
+| `TAKEN_OFF_MIN_VIEWS_PER_SUBSCRIBER` | 1       | Uploads seen fewer times than the channel has subscribers mean an audience that has stopped watching. A hidden count is not judged  |
+
+**The order** (`mixOrder`). Look-alikes are sorted by title match as before, then
+the two groups are interleaved so that the first _n_ listed hold `round(0.7 × n)`
+that have taken off: never more than one channel away from seven in ten, at any
+length (six shown: 4 and 2; twelve: 8 and 4; eighteen: 13 and 5). Each group
+keeps its title-match order. When one group runs out the other fills its
+places; the channels in neither group follow at the end. If a map does not have
+enough of one group, what there is is shown and the actual split is stated.
+
+Where it applies: the channel list of a map (`buildMapView`, so the stored
+snapshot, the "Radar benchmarks" list, the thumbnail board's channel order and
+`get_map` follow it); each ring of the radar, which shows only its first few
+channels and so mixes its own share again (`radarLayout.ts`); and again whenever
+a stored map is read (`applyOwnerChoices`), over the look-alikes the owner sees:
+a kept channel joins its group, and a removed one is listed after them so that
+it holds no place in the mix.
+
+Each channel carries `group`, `ninetyDayViews` and `widelySeenUploads`. The list
+and the channel panel label the group, the panel says what it rests on, and the
+line under the "Like yours" toggle states the split ("21 like yours: 15 taken
+off, 6 rising"). The stored snapshot gained these fields, so its format was
+raised to 6 and older copies are rebuilt from the store when read; who is a
+look-alike on them is unchanged.
+
+On the map of a small established channel (172 channels, 21 look-alikes) the
+split is 15 taken off, 6 rising, none neither; the first twelve listed are 8
+and 4.
 
 ### Closeness tiers
 
@@ -441,10 +512,11 @@ channel, one they want to be like.
 ### Thumbnail board
 
 Built (`packages/core/src/map/thumbnails.ts`, `GET /api/maps/latest/thumbnails?channel=`).
-The owner asked which thumbnails work on channels like theirs and which to copy. This
-first version shows the pictures and leaves the judgement to the owner's eyes; no
-image is read, downloaded or stored. The browser loads each thumbnail from YouTube by
-video id.
+The owner asked which thumbnails work on channels like theirs and which to copy. The
+board shows the pictures and leaves the judgement to the owner's eyes: the browser
+loads each thumbnail from YouTube by video id. Nothing is saved unless the owner
+presses **Download thumbnails** on a channel, which writes that channel's winners and
+ordinary thumbnails to disk (see "Downloaders and close reading").
 
 For each peer the owner has not removed, in the map's own order (closest title match
 first):
@@ -541,9 +613,17 @@ NicheList { channelsChecked, smallMaxSubscribers, newMaxAgeDays,
               createdAt: string | null, country: string | null }] }
 ```
 
+Each entry also carries `logoUrl`: the channel's stored logo at a size for showing
+beside its name, or null until the channel has been read since logos were kept.
+
 The owner can mark a channel as watched (`niche_watchlist`, one row per channel, no
 map involved). A watched channel stays on the list after it stops qualifying, with
-`qualifies: false`. `POST /api/niches/watch` takes `{ channel, watched }`, accepts
+`qualifies: false`. On the page a watched channel is shown under **Watched** and
+nowhere else: the All, New, Small and Other language views hold only what the owner
+has not taken up yet, the intro sentence counts what the view on screen shows and
+says how many are under Watched, and unwatching brings the channel back. That is the
+page's doing (`apps/web/src/lib/niches.ts`): the stored list, the API and the
+connector's `list_niches` still return every channel with its `watched` flag. `POST /api/niches/watch` takes `{ channel, watched }`, accepts
 only a well-formed channel id of a stored channel (404 otherwise), and goes through
 the same Host, Origin, content-type and size checks as every other write.
 
@@ -674,11 +754,115 @@ Version { videoId, title, channelId, channelTitle, subscribers,
 At most 200 ideas, 50 formats, 12 versions an idea and 8 subjects a format are
 handed over; the counts cover them all.
 
+**Saved ideas on the page.** An idea the owner saved is shown under **Saved** and
+nowhere else: it leaves Opportunities, and its subject leaves the format it belongs
+to (a format with no subject left is not shown). Each format subject carries
+`ideaKeys`, the ideas behind it, so the page can tell. The intro sentence counts the
+opportunities not yet saved and says how many are under Saved; unsaving brings an
+idea back. The API and `list_transfer_opportunities` still return every idea with its
+`saved` flag.
+
 **Saving.** `POST /api/transfers/save` takes `{ key, saved }`, where the key is the
 idea's template words. It goes through the same Host, Origin, content-type and
 size checks as `POST /api/niches/watch`, and answers 404 for an idea no recent
 video has. A saved idea is kept in `transfer_saves` with its title as it read
 then, and stays listed (as `gone`) after its videos have aged out.
+
+### Downloaders and close reading
+
+Built (`packages/core/src/video/`, `channel/`, `downloads/`, `sources/images.ts`,
+`sources/videoPage.ts`, `sources/brandMapper.ts`). A breakdown of a niche needs more
+than titles and view counts: what a video says, what it shows, how a channel
+presents itself, and the descriptions and tags of its videos. Each of these is read
+from the store when it is there and from YouTube when it is not, through the shared
+rate limiter, and kept. They make a request or two, so they do not take the lease a
+crawl or a refresh holds.
+
+**One read of a video's page** (`YouTubeSource.fetchVideoPage`). The player is asked
+for one video as the `ANDROID_VR` client, which answers in full when signed out:
+description, length, storyboard and caption tracks in one request. (Asked as the web
+client, the player answered "The page needs to be reloaded" with neither a storyboard
+nor captions, and the library's own transcript call was refused with status 400;
+both seen live in November 2026.) When the player will not answer, the watch page
+and the library's `getTranscript()` are used instead. Whatever one read returns is
+all stored, so a transcript read also saves the description and the storyboard.
+
+| What             | Read from                                                                                                    | Kept in                    | Notes                                                                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Transcript       | The caption track of the original audio, from `https://www.youtube.com/api/timedtext` only, as timed JSON    | `video_transcripts`        | Read once. "No captions" is a normal answer, believed for 24 hours (`TRANSCRIPT_NONE_RETRY_HOURS`): automatic captions appear some hours after an upload    |
+| Video details    | The official API's `videos.list` with `part=snippet`, fifty ids a request, when a key is set; else the page | `video_details`            | An API refusal falls back to the pages and is reported, not hidden. The API gives no length; one a page gave is kept                                        |
+| Frames           | The storyboard: sprite sheets on `i.ytimg.com/sb/…` of small frames at a regular interval                   | `video_storyboards`        | Addresses are signed, so stored ones are used for 6 hours (`STORYBOARD_FRESH_HOURS`), and the page is read again once if every stored sheet fails to load   |
+| Channel branding | The channel page every ingest already fetches: logo, cover, bio, keywords, the link the header shows        | columns of `channels`      | No extra request. A channel stored before this is read again once when its branding is asked for                                                            |
+| Thumbnails       | `https://i.ytimg.com/vi/<id>/hqdefault.jpg`                                                                  | files, with `index.json`   | `<downloads>/thumbnails/<channel id>/<video id>.jpg`; a file already there is not fetched again                                                             |
+
+**Frames.** No image-processing library is used: whole sheets are handed over, each
+with a caption that says how to read it ("Sheet 1 of 7: a grid 5 across and 5 down,
+in order left to right, then top to bottom. 25 frames, one every 10 seconds, from
+0:00 to 4:00."). The size used is the widest whose frames are at most 160 pixels
+wide (`STORYBOARD_FRAME_WIDTH`): large enough to tell a talking head from a diagram,
+and twenty-five to a sheet. The sheets asked for are spread evenly across the video,
+both ends included.
+
+**Pictures** (`sources/images.ts`, one implementation for the engine and the
+connector). Every picture address is checked before any request: plain https, no
+port, no name or password, and one of a short list of hosts. Redirects are refused,
+every read has a 10 second limit and a size cap, and a failure is a short reason
+with no network detail in it.
+
+| Rule                 | Host                        | Kinds           | Cap    |
+| -------------------- | --------------------------- | --------------- | ------ |
+| Thumbnail            | `i.ytimg.com`               | JPEG            | 400 KB |
+| Storyboard sheet     | `i.ytimg.com`, under `/sb/` | JPEG, WebP      | 400 KB |
+| Channel logo, cover  | `yt3.googleusercontent.com` | JPEG, PNG, WebP | 1 MB   |
+
+`yt3.googleusercontent.com` is the only host seen for channel pictures, in the
+recorded fixture and in the live read alike; a picture on any other host is not
+stored and not fetched. The page's Content-Security-Policy allows that one host
+beside `i.ytimg.com`, for the logo on a niche card.
+
+**Files on disk** (`downloads/folder.ts`). Everything saved besides the store goes
+under one folder: `JGTUBE_DOWNLOADS_PATH`, or `downloads` beside the store file.
+Paths are built with `node:path` from validated ids, and `pathInside` refuses any
+that would land outside the folder.
+
+**A video as a file** (`downloads/videoFile.ts`, `ytDlp.ts`, `builtInVideo.ts`,
+`downloadVideo` in core's index). A tool that watches a whole video, sound included,
+needs it as a local file. `downloadVideo(video, { root, source })` returns
+`{ ok: true, path, bytes, durationSeconds, format, via }` or
+`{ ok: false, kind, message, via }` with `kind` one of `not-available`, `too-large`
+and `unreadable`.
+
+- **Which file.** The smallest single file with picture and sound at 240 lines or
+  more (`VIDEO_MIN_HEIGHT`). In practice that is YouTube's 360p MP4, the one file
+  it still offers with both together; sharper pictures come apart from their sound
+  and need a second program to join, which is not assumed.
+- **Size.** Nothing over 95 MB is handed over (`MAX_VIDEO_BYTES`; the tool that
+  watches refuses media over 100 MB). The built-in route decides from the size the
+  player reports, before fetching a byte. A file is never cut to fit: the failure
+  says about how many minutes would have fitted. At the bitrate seen (a 15:48 video
+  listed at 75.2 MB) the limit is about twenty minutes.
+- **How.** `yt-dlp` when it is on the PATH: found by looking in the PATH's absolute
+  folders (`yt-dlp.exe` on Windows), never by running anything; started without a
+  shell, arguments as a list, the video id validated first, output confined to the
+  temporary folder. Otherwise, or when yt-dlp cannot read the video, the library's
+  own download call on the chosen file. The answer says which was used.
+- **Housekeeping.** Files go to `<downloads>/video-temp/`. The caller deletes a
+  file after use (`removeVideoFile`, which removes nothing outside that folder),
+  and files older than a day are cleared before each download.
+- **What was seen live.** The player listed the file, and YouTube's video servers
+  then answered 403 to the built-in route, by address and by range alike. yt-dlp
+  was not installed where this was tried, so no file has been confirmed to arrive
+  by either route. The failure message tells the owner to install yt-dlp.
+
+Downloading a video is outside YouTube's terms of service, as reading its pages
+this way is. The copy is temporary and stays on the owner's computer.
+
+**Routes and commands.** `POST /api/thumbnails/download {channel}` (a channel id of
+a stored channel; 404 otherwise) saves that channel's thumbnails and answers
+`{channel, folder, indexFile, total, saved, alreadyThere, failed}`, through the same
+Host, Origin, content-type and size checks as every other write. On the command
+line: `transcript <video>`, `thumbnails <channel> [--per-group N]`, `brand <channel>`
+and `video <video>`.
 
 ### Filling a limited map
 
@@ -909,6 +1093,10 @@ Claude reads what the app shows. Setup for the owner is in
 | `list_niches`           | `limit?` (15), `watched_only?`                                  | New or small channels with a video that took off (`listNiches`)                                              |
 | `list_transfer_opportunities` | `channel?`, `place?`, `show?` (opportunities, formats, saved, all), `limit?` (10) | Ideas open or weak for the owner's place with up to five versions each, or the title formats (`listTransfers`) |
 | `make_map`              | `channel`, `model?`, `depth?` (1..3), `max_channels?` (10..600) | Crawls a new map, then the same summary as `get_map` plus warnings                                           |
+| `get_transcript`        | `video` (id or link), `start_seconds?`, `max_chars?` (12,000; 1,000..40,000) | A line of JSON (`lang`, `auto`, `lines`, `lastLineAt`, `cut`), then the captions as text with the time every half minute; `captions: false` when there are none |
+| `view_video_frames`     | `video`, `sheets?` (4; 1..6)                                    | A line of JSON, then each storyboard sheet as image content under a caption giving its grid and times; `frames: false` when there are none |
+| `get_channel_brand`     | `channel`, `images?` (true)                                     | A line of JSON (`bio`, `keywords`, `links`, `logo`, `cover`), then the logo and the cover as image content   |
+| `get_video_details`     | `video_ids` (1 to 10), `description_chars?` (1,500; 200..5,000) | Per video: title, description, tags, `secs`, views, score; `problems` for a video that could not be read    |
 
 One prompt, `thumbnail_review` (argument `channel`), tells the model to read the
 board, look at the owner's thumbnails and the winners with `view_thumbnails`, and
@@ -928,12 +1116,28 @@ Rules the tools keep:
   removed. Input that breaks a rule is refused by the same Zod schema the tool
   list is generated from, with the rule as the message.
 - **Thumbnails** are fetched only from `https://i.ytimg.com/vi/<id>/hqdefault.jpg`,
-  with redirects refused, a 10 second limit, JPEG only and at most 400 KB each. No
-  image is stored.
-- **Crawls** run one at a time within the connector. `make_map` sends a progress
-  notification for each crawl event when the client asked for progress. A crawl is
-  not stopped when the client gives up waiting; the map is stored and `get_map`
-  returns it. The connector and the app do not know about each other's crawls.
+  with redirects refused, a 10 second limit, JPEG only and at most 400 KB each. The
+  connector stores no image. The fetch is core's `fetchPinnedImage`, shared with the
+  engine.
+- **The four close-study tools** (`get_transcript`, `view_video_frames`,
+  `get_channel_brand`, `get_video_details`) read the store first, fetch what is
+  missing from YouTube once and keep it. They are offered as reads: nothing of the
+  owner's is changed. A video without captions or without a storyboard is a normal
+  answer, not an error. A transcript is cut at a time mark to fit `max_chars`, with
+  `cut.startSeconds` saying where to call again from. Measured on a 26-minute
+  video: a whole transcript is about 23,000 characters (two calls at the default),
+  two frame sheets are 52 KB and 16 KB, and three videos' details are under 5,000
+  characters.
+- **The `get_map` answer** carries `group` on each look-alike (`taken-off` or
+  `rising`; absent means neither) and `counts.mix` with the actual split.
+- **Crawls** run one at a time within the connector, and across programs through
+  the store's lease. `make_map` sends a progress notification for each crawl event
+  when the client asked for progress. A crawl is not stopped when the client gives
+  up waiting; the map is stored and `get_map` returns it.
+- **The API key.** The connector's engine keeps the owner's `YOUTUBE_API_KEY`, when
+  one is set, for `get_video_details` alone. It is sent as a header to the official
+  API, stripped from errors, removed from the connector's process environment, and
+  never part of a tool's answer.
 - **Standard output** carries only the protocol. Diagnostics go to standard error.
 - **Store location** is `loadConfig` (`JGTUBE_DB_PATH`, `JGTUBE_REGION`), after
   reading the project folder's `.env` as the app does. A path that is not absolute
@@ -983,6 +1187,14 @@ Built (`packages/server/src/claudeRunner.ts`, `analyses.ts`, `analysisRoutes.ts`
 - **Connector:** tool handlers against a fake engine, and a real client connected
   over the SDK's in-memory transport.
 - **Claude runner:** a stand-in process; the real command line was checked by hand.
+- **Downloaders:** fixtures trimmed from live reads of a small established channel
+  (a player answer with its storyboard and caption tracks, a timed-text answer, a
+  channel page with a logo and nothing else); fakes for the network, for yt-dlp and
+  for the library's download call; real files in a temporary folder.
 - **Not covered by automated tests:** React components and hooks, the two
-  `main.ts` entry points, the refresh timer in a running process, and a real
-  Claude Code run. These were exercised by driving the app in a browser.
+  `main.ts` entry points, the command line, the refresh timer in a running
+  process, and a real Claude Code run. These were exercised by driving the app in a
+  browser and by running the commands against a copy of a real store.
+- **Tested with fakes only:** the official API's video details (no key was
+  available), yt-dlp (not installed where this was built), and a video file
+  actually arriving.

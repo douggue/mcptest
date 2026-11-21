@@ -103,6 +103,9 @@ every phase; coverage floor is 80%.
 - [x] "Same topic, different wording?" section on the map page: six channels at a time, one-press keep, a "Kept by you" row with undo
 - [x] "New niches to watch" section: a card per channel with why it is listed, its numbers, the thumbnails that took off and its hit rate; filters for new, small and watched
 - [x] Thumbnail patterns in words on the screen: the "Ask Claude" thumbnail review looks at the winners, the ordinary ones and the owner's own, and says what to change
+- [x] Look-alikes labelled taken off, rising or neither, and listed about seven taken off to three rising (the list, each ring of the radar, `get_map`); the split is stated beside the "Like yours" toggle; stored maps are format 6
+- [x] A watched niche channel is shown under "Watched" only, and a saved idea under "Saved" only; each intro sentence counts what its view shows
+- [x] "Download thumbnails" on each channel of the thumbnail board and on the owner's own row (`POST /api/thumbnails/download`); a channel's logo on its niche card once read
 - [ ] Star, hide, copy
 - [ ] Follow-up chat over a stored run
 - [ ] Keyboard and screen-reader pass; phone layout
@@ -146,12 +149,26 @@ Phase 7 needs 5.
 
 ## Claude's judgement
 
-- [x] Claude connector (`packages/mcp`): ten tools and a thumbnail-review prompt
+- [x] Claude connector (`packages/mcp`): fourteen tools and a thumbnail-review prompt
+- [x] `get_transcript`, `view_video_frames`, `get_channel_brand`, `get_video_details`: one video's captions, frames across it, a channel's branding, and descriptions and tags, each read once and kept (not yet offered to the "Ask Claude" analyses)
 - [x] `list_transfer_opportunities`: the ideas, their versions and the formats, read-only (not yet offered to the "Ask Claude" analyses)
 - [x] "Ask Claude" on the page: thumbnail review, video ideas, same-topic channels, each one boxed-in run of Claude Code
 - [x] Thumbnail patterns in words (through Ask Claude and the connector; Claude sees the real images)
 - [ ] Connector tried in the Claude desktop app on the owner's computer (checked here only through a test client and Claude Code)
 - [ ] Ask Claude on Windows (checked on macOS-style and Linux environments only)
+
+## Downloaders
+
+- [x] Transcripts: a video's captions read through the YouTube source and stored (`video_transcripts`); a video without captions is a normal answer; `npm run jgtube -- transcript`
+- [x] Thumbnails to disk: a channel's winning and ordinary thumbnails with an `index.json`, under a downloads folder beside the store (`JGTUBE_DOWNLOADS_PATH`); `npm run jgtube -- thumbnails`
+- [x] Frames across a video: storyboard sheets with a caption giving the grid and the time of each frame
+- [x] Channel branding: logo, cover, bio, keywords and header links, stored on the channel by every read; `npm run jgtube -- brand`
+- [x] Video details: description and tags from the official API when a key is set, else from the watch page; stored (`video_details`)
+- [x] One video as a small temporary file with picture and sound, by yt-dlp when installed, else the built-in library; `npm run jgtube -- video`
+- [ ] The built-in video route confirmed against YouTube: where it was tried the video servers answered 403, and yt-dlp was not installed to try the other
+- [ ] A video longer than about twenty minutes as a file: the one single file YouTube offers (360p) is then over the 95 MB limit, and joining a smaller picture with sound needs a second program
+- [ ] The official-API path for video details checked against the real API (tested with fakes only; no key was available)
+- [ ] All of a channel's links (only the one its header shows is read)
 
 ## Safety, from the final reviews
 
