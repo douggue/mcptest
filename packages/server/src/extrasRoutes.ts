@@ -8,10 +8,11 @@ import type { AppOptions } from './app';
 import { ALERTS_ROUTES } from './alertsRoutes';
 import { CHANGES_ROUTES } from './changesRoutes';
 import { fail } from './http';
+import { PLAN_ROUTES } from './planRoutes';
 import { JobStore } from './jobs';
 import type { Context, Routes } from './labHttp';
 
-const ROUTES: Routes = { ...CHANGES_ROUTES, ...ALERTS_ROUTES };
+const ROUTES: Routes = { ...CHANGES_ROUTES, ...ALERTS_ROUTES, ...PLAN_ROUTES };
 
 export interface ExtraRoutes {
   /** The answer to a request for one of these paths; null for any other path. */

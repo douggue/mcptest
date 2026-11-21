@@ -4,6 +4,7 @@
  */
 import type { ChangesView, SinceKind } from '@jgtube/core';
 import type { AlertsEngine } from './alertsTypes';
+import type { PlanEngine } from './planTypes';
 
 /** What changed around a channel, with the moment it was asked for and the one it was answered for. */
 export interface ChangesReply extends ChangesView {
@@ -22,4 +23,4 @@ export interface ChangesEngine {
 }
 
 /** Everything the later features add to the engine. */
-export type ExtrasEngine = ChangesEngine & AlertsEngine;
+export type ExtrasEngine = ChangesEngine & AlertsEngine & PlanEngine;
