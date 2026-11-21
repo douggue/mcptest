@@ -2,12 +2,13 @@ import type { TransferList } from '@jgtube/core';
 import { Globe } from 'lucide-react';
 import { useState } from 'react';
 import {
-  TRANSFER_FILTERS,
-  TRANSFER_PAGE_SIZE,
   describeTransfers,
   emptyTransfers,
+  filterLabel,
   formatsFor,
   ideasFor,
+  TRANSFER_FILTERS,
+  TRANSFER_PAGE_SIZE,
   type TransferFilter,
 } from '../lib/transfers';
 import { FormatCard } from './FormatCard';
@@ -17,12 +18,14 @@ import type { Transfers as TransfersData } from './useTransfers';
 const NOTE = 'rounded bg-surface-card p-space-lg text-body-md text-on-surface-variant';
 
 interface FilterProps {
+  /** The ideas, for the count on Saved; null until they are loaded. */
+  readonly list: TransferList | null;
   readonly filter: TransferFilter;
   readonly onChange: (filter: TransferFilter) => void;
 }
 
 /** Switches between the opportunities, the title formats and the ideas the owner saved. */
-function Filter({ filter, onChange }: FilterProps) {
+function Filter({ list, filter, onChange }: FilterProps) {
   return (
     <div
       role="group"
@@ -41,7 +44,7 @@ function Filter({ filter, onChange }: FilterProps) {
               : 'bg-surface-container text-on-surface-variant hover:bg-surface-card hover:text-on-surface'
           }`}
         >
-          {option.label}
+          {filterLabel(option.id, list)}
         </button>
       ))}
     </div>
@@ -132,7 +135,7 @@ export function Transfers({ transfers, hasMap }: Props) {
                 : 'Ideas that took off for another country and are untried or weak for yours, from every channel Jgtube has read.'}
             </p>
           </div>
-          {hasAnything && <Filter filter={filter} onChange={setFilter} />}
+          {hasAnything && <Filter list={list} filter={filter} onChange={setFilter} />}
         </div>
 
         {state.status === 'loading' && (

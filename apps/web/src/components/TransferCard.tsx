@@ -55,14 +55,14 @@ function SaveToggle({ idea, onSetSaved }: SaveProps) {
         idea.saved ? `Stop saving the idea ${idea.template}` : `Save the idea ${idea.template}`
       }
       onClick={() => onSetSaved(!idea.saved)}
-      className={`ml-auto flex flex-none items-center gap-1.5 rounded-full px-3 py-2 text-label-caps transition-colors ${
+      className={`ml-auto flex flex-none items-center gap-1.5 rounded-full px-4 py-2 text-body-sm font-semibold transition-colors ${
         idea.saved
-          ? 'bg-primary-container font-semibold text-on-primary'
-          : 'bg-surface-container-high text-on-surface hover:bg-surface-variant'
+          ? 'bg-primary-container text-on-primary hover:opacity-90'
+          : 'bg-surface-container-high text-primary ring-1 ring-primary-container hover:bg-primary-container hover:text-on-primary'
       }`}
     >
       <Icon aria-hidden="true" className="h-4 w-4" />
-      {idea.saved ? 'Saved' : 'Save'}
+      {idea.saved ? 'Saved' : 'Save idea'}
     </button>
   );
 }

@@ -21,6 +21,19 @@ export const TRANSFER_FILTERS: readonly {
   { id: 'saved', label: 'Saved' },
 ];
 
+/**
+ * The name of a view on its button. Saved carries how many ideas are in it,
+ * so an idea that leaves the list when it is saved is seen to have gone there.
+ */
+export function filterLabel(
+  filter: TransferFilter,
+  list: { readonly ideas: ReadonlyArray<Pick<TransferIdea, 'saved'>> } | null,
+): string {
+  const label = TRANSFER_FILTERS.find((option) => option.id === filter)?.label ?? '';
+  const saved = filter === 'saved' ? (list?.ideas.filter((idea) => idea.saved).length ?? 0) : 0;
+  return saved > 0 ? `${label} · ${saved}` : label;
+}
+
 /** Ideas and formats shown before "show more". */
 export const TRANSFER_PAGE_SIZE = 6;
 

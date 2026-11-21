@@ -9,6 +9,7 @@ import { describe, expect, test } from 'vitest';
 import { createApi } from '../src/lib/api';
 import {
   TRANSFER_FILTERS,
+  filterLabel,
   describeFormat,
   describeIdeaReach,
   describeTransfers,
@@ -421,5 +422,18 @@ describe('the transfer calls', () => {
     const api = createApi(async () => reply(null, 404));
 
     await expect(api.setTransferSaved('gone', true)).rejects.toThrow('No');
+  });
+});
+
+describe('the label of each view of the ideas', () => {
+  test('says how many ideas are saved, so a saved idea is seen to have gone somewhere', () => {
+    const saved = (key: string, isSaved: boolean) => ({ key, saved: isSaved });
+
+    expect(
+      filterLabel('saved', { ideas: [saved('a', true), saved('b', false), saved('c', true)] }),
+    ).toBe('Saved · 2');
+    expect(filterLabel('saved', { ideas: [saved('a', false)] })).toBe('Saved');
+    expect(filterLabel('saved', null)).toBe('Saved');
+    expect(filterLabel('opportunities', { ideas: [saved('a', true)] })).toBe('Opportunities');
   });
 });
