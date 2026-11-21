@@ -21,7 +21,7 @@ const RAIL = [
   { label: 'Breaking out', icon: Flame, target: 'breakouts-title' },
   { label: 'Same topic, other words', icon: Layers, target: 'same-topic-title' },
   { label: 'Thumbnails that worked', icon: Image, target: 'thumbnail-board-title' },
-  { label: 'Ask Claude', icon: Sparkles, target: 'ask-claude-title' },
+  { label: 'Ask AI', icon: Sparkles, target: 'ask-claude-title' },
   { label: 'Transfer opportunities', icon: Globe, target: 'transfers-title' },
   { label: 'New niches', icon: Sprout, target: 'niches-title' },
 ] as const;

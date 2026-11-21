@@ -164,7 +164,7 @@ Phase 7 needs 5.
 - [ ] Whether Antigravity sees pictures returned by a tool (until known, the thumbnail review uses Claude Code or Codex)
 - [ ] Whether Antigravity can watch a YouTube link without the file (`npm run engines -- --try --youtube <link>`; off unless `JGTUBE_AGY_YOUTUBE_LINKS=on`)
 - [ ] Splitting a long video into parts for Antigravity (would need ffmpeg)
-- [ ] The navigation link on the page still says "Ask Claude" (`Shell.tsx`); the section itself is "Ask AI"
+- [x] The navigation link on the page says "Ask AI", like the section it leads to
 
 ## Safety, from the final reviews
 
