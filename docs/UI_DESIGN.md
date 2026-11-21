@@ -98,7 +98,6 @@ an existing product; the build replaces them with Jgtube.
 Three directions (Control room, Tabloid, Deep field) were sketched on a design
 canvas before the owner's design arrived. They are not being taken forward.
 
-
 ## Views and navigation
 
 - Each feature opens in a view of its own; only that view is drawn. The
@@ -139,7 +138,8 @@ new one-off styles.
   what, and the one button that makes it) in a side panel that stays in view,
   and the results in the main area. Below 1024 px the side panel comes first,
   above the main area. Lists of things go in one column of roomy `Card`s, not
-  a grid of dense ones.
+  a grid of dense ones. Short cards of the same kind (hooks) may sit two to a
+  row on wide screens.
 - **Details closed by default.** What an owner needs only sometimes (where a
   thing came from, the sources, the prompt, the longer explanation) goes
   behind one `Details` per card or panel. Warnings that change what the owner
@@ -148,7 +148,10 @@ new one-off styles.
   "How this works". Labels are short capitals (`Label`, `Field`).
 - **Numbers** go in `StatTile`s with what each rests on under it
   (`StatGrid` wraps to two columns on a phone). A working surface keeps its
-  running counts in a slim `StatusBar` at the foot.
+  running counts in a slim `StatusBar` at the foot. In a narrow main area a
+  few tiles share a card's width in a `StatRow`.
+- **A side panel** starts with a `PanelTitle` and has one `PanelAction`: the
+  full-width primary button with a short line under it.
 - **Choices of one** are a `Segmented` control; channels in a list are
   `ChannelRow`s (logo, name, a coloured level, a count, a remove cross).
 - The idea lab and the script writer are the worked examples: controls in
