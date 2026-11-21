@@ -25,6 +25,8 @@ import {
 } from '@jgtube/core';
 import { z } from 'zod';
 import { fail, isTrustedHost, ok, readJson } from './http';
+import { channelLabel } from './jobLabels';
+import { heldRuns, listJobs } from './jobList';
 import { JobStore, cleanMessage } from './jobs';
 import type { AnalysisId } from './analyses';
 import type { AnswerEngine } from './answerEngine';
@@ -357,8 +359,9 @@ async function startCrawl(options: AppOptions, request: Request): Promise<Respon
 
   const refused = refusal(options);
   if (refused) return refused;
-  const job = options.jobs.start((report) =>
-    options.engine.crawl(channel, depth, report, { model, maxChannels }),
+  const job = options.jobs.start(
+    (report) => options.engine.crawl(channel, depth, report, { model, maxChannels }),
+    channelLabel(options.engine, 'map', 'Making a map of', channel),
   );
   if (!job) return fail(409, BUSY);
   return ok({ jobId: job.id }, 202);
@@ -471,7 +474,8 @@ function jobStatus(
 export function createApp(options: AppOptions): (request: Request) => Promise<Response> {
   const refreshing: RefreshTracker = { jobId: null };
   // An analysis and a breakdown each keep an AI engine busy, so they share this one slot.
-  const analysing: AnalysisTracker = { running: false };
+  const held = heldRuns();
+  const analysing: AnalysisTracker = { running: false, held };
   // Breakdowns have a store of their own: they read YouTube a little and an
   // engine a lot, so they do not take the slot that crawls and refreshes share.
   const breakdowns: BreakdownJobs = new JobStore();
@@ -600,6 +604,11 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     }
     if (pathname === '/api/engines') {
       return method === 'GET' ? readEngines(options) : fail(405, 'Use GET');
+    }
+    if (pathname === '/api/jobs') {
+      if (method !== 'GET') return fail(405, 'Use GET');
+      const sources = [options.jobs, breakdowns, held].map((store) => () => store.list());
+      return ok({ jobs: listJobs([...sources, lab.listJobs, logos.listJobs, extra.listJobs]) });
     }
     if (pathname.startsWith('/api/jobs/')) {
       const id = pathname.slice('/api/jobs/'.length);

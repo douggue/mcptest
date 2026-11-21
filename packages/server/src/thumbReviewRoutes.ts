@@ -39,19 +39,28 @@ async function startAsk(context: ExtrasContext, request: Request): Promise<Respo
   if (body instanceof Response) return body;
   const { extras } = context.options.engine;
   if (!extras.thumbnailVideos(body.channel)) return fail(404, NO_MAP);
-  return startExtrasAiJob(context, async (report) => {
-    try {
-      const outcome = await extras.askThumbnailReview(
-        body.channel,
-        body.videoId,
-        body.engine,
-        (text) => report({ text }),
-      );
-      return { kind: 'thumbnail-review', outcome };
-    } catch (error) {
-      throw new Error(cleanMessage(error));
-    }
-  });
+  return startExtrasAiJob(
+    context,
+    async (report) => {
+      try {
+        const outcome = await extras.askThumbnailReview(
+          body.channel,
+          body.videoId,
+          body.engine,
+          (text) => report({ text }),
+        );
+        return { kind: 'thumbnail-review', outcome };
+      } catch (error) {
+        throw new Error(cleanMessage(error));
+      }
+    },
+    {
+      kind: 'thumbnail-review',
+      title: 'Reviewing a thumbnail',
+      channelId: body.channel,
+      videoId: body.videoId,
+    },
+  );
 }
 
 export const THUMB_REVIEW_ROUTES: ExtrasRouteTable = {

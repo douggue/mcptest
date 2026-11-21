@@ -47,7 +47,10 @@ export async function startRefresh(
   const { maxChannels } = parsed.data;
   const refused = refusal(options);
   if (refused) return refused;
-  const job = options.jobs.start((report) => options.engine.refresh(report, maxChannels));
+  const job = options.jobs.start((report) => options.engine.refresh(report, maxChannels), {
+    kind: 'refresh',
+    title: 'Refreshing the stored channels',
+  });
   if (!job) return fail(409, BUSY);
   tracker.jobId = job.id;
   return ok({ jobId: job.id }, 202);

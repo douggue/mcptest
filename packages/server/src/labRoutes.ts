@@ -13,7 +13,8 @@ import type { AppOptions } from './app';
 import { ENGINE_IDS } from './engines/settings';
 import { fail, ok } from './http';
 import { MAX_ANGLE_CHARS, angleProblem } from './ideaQuestions';
-import { JobStore, type Job } from './jobs';
+import { channelLabel, conceptLabel } from './jobLabels';
+import { JobStore, type Job, type JobRecord } from './jobs';
 import {
   CHANNEL_ID,
   NO_MAP,
@@ -92,7 +93,11 @@ async function startBatch(context: Context, request: Request): Promise<Response>
   const { engine: lab } = context.options;
   const problem = lab.conceptProblem(asked);
   if (problem) return fail(400, problem);
-  return startAiJob(context, (report) => lab.makeConcepts(asked, report));
+  return startAiJob(
+    context,
+    (report) => lab.makeConcepts(asked, report),
+    channelLabel(lab, 'concepts', 'Writing concepts for', body.channel),
+  );
 }
 
 async function startGrowth(
@@ -106,8 +111,11 @@ async function startGrowth(
   if (lab.findConcept(body.channel, body.concept) === null) {
     return fail(404, 'That concept is not one of this channel’s concepts');
   }
-  return startAiJob(context, (report) =>
-    lab.growConcept(kind, body.channel, body.concept, body.engine, report),
+  const doing = kind === 'twist' ? 'Twisting' : 'Writing more like';
+  return startAiJob(
+    context,
+    (report) => lab.growConcept(kind, body.channel, body.concept, body.engine, report),
+    conceptLabel(lab, kind, doing, body.channel, body.concept),
   );
 }
 
@@ -135,7 +143,11 @@ async function startWhereElse(context: Context, request: Request): Promise<Respo
   if (body instanceof Response) return body;
   const { engine: lab } = context.options;
   if (lab.listConcepts(body.channel) === null) return fail(404, NO_MAP);
-  return startAiJob(context, (report) => lab.whereElse(body.channel, body.engine, report));
+  return startAiJob(
+    context,
+    (report) => lab.whereElse(body.channel, body.engine, report),
+    channelLabel(lab, 'where-else', 'Finding where else the ideas of', body.channel),
+  );
 }
 
 function readConcepts(context: Context, url: URL): Response {
@@ -163,7 +175,11 @@ async function startFormulas(context: Context, request: Request): Promise<Respon
   const { engine: lab } = context.options;
   const days = body.window ?? FORMULA_DEFAULT_WINDOW_DAYS;
   if (lab.listFormulas(body.channel, days) === null) return fail(404, NO_MAP);
-  return startAiJob(context, (report) => lab.findFormulas(body.channel, days, body.engine, report));
+  return startAiJob(
+    context,
+    (report) => lab.findFormulas(body.channel, days, body.engine, report),
+    channelLabel(lab, 'formulas', 'Finding the title formats of', body.channel),
+  );
 }
 
 function readHooks(context: Context, url: URL): Response {
@@ -179,7 +195,11 @@ async function startHookBuild(context: Context, request: Request): Promise<Respo
   if (body instanceof Response) return body;
   const { engine: lab } = context.options;
   if (lab.hookLibrary(body.channel) === null) return fail(404, NO_MAP);
-  return startLabJob(context, (report) => lab.buildHookLibrary(body.channel, report));
+  return startLabJob(
+    context,
+    (report) => lab.buildHookLibrary(body.channel, report),
+    channelLabel(lab, 'hooks-build', 'Reading the hooks around', body.channel),
+  );
 }
 
 async function startHookLabels(context: Context, request: Request): Promise<Response> {
@@ -187,7 +207,11 @@ async function startHookLabels(context: Context, request: Request): Promise<Resp
   if (body instanceof Response) return body;
   const { engine: lab } = context.options;
   if (lab.hookLibrary(body.channel) === null) return fail(404, NO_MAP);
-  return startAiJob(context, (report) => lab.labelHooks(body.channel, body.engine, report));
+  return startAiJob(
+    context,
+    (report) => lab.labelHooks(body.channel, body.engine, report),
+    channelLabel(lab, 'hooks-label', 'Naming the hook styles around', body.channel),
+  );
 }
 
 /** Each path of the lab with what answers a read of it and what answers a write to it. */
@@ -218,6 +242,8 @@ export interface LabRoutes {
   handle(request: Request, url: URL): Promise<Response> | null;
   /** One of the lab's jobs, for `/api/jobs/:id`. */
   job(id: string): Job<LabOutcome, LabProgress> | null;
+  /** The lab's jobs, for `/api/jobs`. */
+  listJobs(): readonly JobRecord[];
 }
 
 /** The idea lab's routes, with a job store of their own and the AI slot they share. */
@@ -236,5 +262,6 @@ export function labRoutes(options: AppOptions, tracker: AnalysisTracker): LabRou
       return Promise.resolve(handler(context, request, url));
     },
     job: (id) => context.jobs.get(id),
+    listJobs: () => context.jobs.list(),
   };
 }

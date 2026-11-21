@@ -5,6 +5,7 @@ import { viewHref, type ViewId } from '../lib/routes';
 import { destinationOf } from '../lib/sections';
 import { AiBadge } from './AiBadge';
 import { RailLinks } from './RailLinks';
+import { WorkingIndicator } from './WorkingIndicator';
 
 const TOP_BUTTON =
   'flex min-h-11 flex-none items-center gap-2 rounded-full px-3 text-body-sm text-on-surface-variant transition-colors hover:bg-surface-card hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container';
@@ -50,6 +51,7 @@ export function Shell({ active, ai, centerId, switcher, children }: Props) {
           </a>
           <div className="hidden min-w-0 md:block">{switcher}</div>
           <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
+            <WorkingIndicator active={active} />
             <AiBadge badge={ai} />
             <button
               type="button"
