@@ -6,6 +6,7 @@ import {
   SCRIPT_SYSTEM_PROMPT,
   SCRIPT_DRAFT_TOOLS,
   scriptDraftQuestion,
+  SCRIPT_HOOK_TOOLS,
   scriptHooksQuestion,
   scriptTightenQuestion,
   type ScriptFocus,
@@ -171,5 +172,34 @@ describe('the draft and the owner’s style lock', () => {
     expect(draft).toContain(`get_channel_note with channel ${CHANNEL} and kind style-lock`);
     expect(draft).toMatch(/do not repeat the style block word for word in each cue/);
     expect(draft).toMatch(/When none is kept, describe only what to show/);
+  });
+});
+
+describe('the stages and the concept’s fact sheet', () => {
+  const marked = { kind: 'script' as const, conceptId: 42 };
+  const hooks = scriptHooksQuestion(CHANNEL, marked);
+  const written = scriptDraftQuestion(CHANNEL, marked);
+  const tightened = scriptTightenQuestion(CHANNEL, marked);
+
+  test('the writing stages read the fact sheet through its tool and mark each fact from it', () => {
+    for (const question of [hooks, written]) {
+      expect(question).toContain(`get_fact_sheet with channel ${CHANNEL} and concept 42`);
+      expect(question).toContain('[F3]');
+      expect(question).toMatch(/KEEP THE FORMULA/);
+    }
+    expect(SCRIPT_DRAFT_TOOLS).toContain('get_fact_sheet');
+    expect(SCRIPT_HOOK_TOOLS).toContain('get_fact_sheet');
+  });
+
+  test('a fact in neither the tools nor the sheet is still marked to check, when marking is on', () => {
+    expect(written).toMatch(/not on the fact sheet/);
+    expect(written).toContain('[CHECK: what to verify]');
+    const quiet = scriptDraftQuestion(CHANNEL, { ...marked, markFacts: false });
+    expect(quiet).toContain('[F3]');
+    expect(quiet).not.toContain('[CHECK: what to verify]');
+  });
+
+  test('the tighten pass keeps every fact marker with its fact', () => {
+    expect(tightened).toMatch(/Keep every \[F/);
   });
 });

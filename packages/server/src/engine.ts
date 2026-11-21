@@ -14,6 +14,7 @@ import {
   SqliteBreakdownRepo,
   SqliteChannelNoteRepo,
   SqliteConceptThumbnailRepo,
+  SqliteResearchRepo,
   SqliteTransferRepo,
   SqliteVideoPageRepo,
   SqliteVideoRepo,
@@ -55,6 +56,7 @@ import { answerEngine } from './answerEngine';
 import { conceptThumbEngine } from './conceptThumbEngine';
 import { styleLockEngine } from './styleLockEngine';
 import { flowEngine } from './flowEngine';
+import { researchEngine } from './researchEngine';
 import type { Engine } from './app';
 import { breakdownFiles } from './breakdownFiles';
 import { breaking } from './breakdownSetup';
@@ -139,6 +141,7 @@ function openRepos(db: Db) {
     breakdowns: new SqliteBreakdownRepo(db),
     notes: new SqliteChannelNoteRepo(db),
     conceptThumbnails: new SqliteConceptThumbnailRepo(db),
+    research: new SqliteResearchRepo(db),
   };
 }
 
@@ -478,6 +481,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     extras: extras({ ...wiring, analyse: asking.analyse }),
     ...conceptThumbEngine({ now: wiring.now, repos: wiring.repos, analyse: asking.analyse }),
     ...styleLockEngine(wiring),
+    ...researchEngine({ now: wiring.now, repos: wiring.repos, runWeb: asking.runWeb }),
     ...flowEngine({
       repos: wiring.repos,
       findSnapshot: maps.findSnapshot,

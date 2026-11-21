@@ -4,7 +4,15 @@
  * the Host, Origin and JSON checks, zod on every body, a channel always a
  * channel id. A stage is an AI run and takes the slot every AI run shares.
  */
-import { MAX_HOOK_MODELS, MAX_SCRIPT_CHARS, SCRIPT_STATUSES } from '@jgtube/core';
+import {
+  MAX_HOOK_MODELS,
+  MAX_SCRIPT_CHARS,
+  MAX_TARGET_SECONDS,
+  MAX_TARGET_WORDS,
+  MIN_TARGET_SECONDS,
+  MIN_TARGET_WORDS,
+  SCRIPT_STATUSES,
+} from '@jgtube/core';
 import { z } from 'zod';
 import { ENGINE_IDS } from './engines/settings';
 import { fail, ok } from './http';
@@ -25,7 +33,6 @@ import { SCRIPT_STAGES } from './scriptTypes';
 /** A save carries up to four texts of a script; this is room for all of them and the JSON around them. */
 const MAX_SAVE_CHARACTERS = 4 * MAX_SCRIPT_CHARS + 20_000;
 const MAX_WORDS_PER_MINUTE = 400;
-const MAX_TARGET_SECONDS = 4 * 60 * 60;
 const NOT_THIS_CHANNELS = 'That concept is not one of this channel’s concepts';
 
 const channel = z.string().regex(CHANNEL_ID);
@@ -41,7 +48,7 @@ const saveRequest = z.object({
       status: z.enum(SCRIPT_STATUSES),
       voiceChannelId: z.string().regex(CHANNEL_ID),
       wordsPerMinute: z.number().int().positive().max(MAX_WORDS_PER_MINUTE),
-      targetSeconds: z.number().int().positive().max(MAX_TARGET_SECONDS),
+      targetSeconds: z.number().int().min(MIN_TARGET_SECONDS).max(MAX_TARGET_SECONDS),
       hookModels: z.array(z.string().regex(VIDEO_ID)).max(MAX_HOOK_MODELS),
       chosenHook: text,
       beats: text,
@@ -58,6 +65,33 @@ const stageRequest = z.object({
   engine: z.enum(ENGINE_IDS).optional(),
 });
 const voiceRequest = z.object({ channel, voice: channel });
+const lengthRequest = z.object({
+  channel,
+  concept,
+  length: z.discriminatedUnion('typed', [
+    z.object({
+      typed: z.literal('minutes'),
+      seconds: z.number().int().min(MIN_TARGET_SECONDS).max(MAX_TARGET_SECONDS),
+    }),
+    z.object({
+      typed: z.literal('words'),
+      words: z.number().int().min(MIN_TARGET_WORDS).max(MAX_TARGET_WORDS),
+    }),
+  ]),
+});
+const LENGTH_RULE = `Give the channel, the concept and a length: ${MIN_TARGET_SECONDS} seconds to 3 hours, or ${MIN_TARGET_WORDS} to ${MAX_TARGET_WORDS} words`;
+
+/** A length the owner typed, in minutes or in words. */
+async function setLength(context: Context, request: Request): Promise<Response> {
+  const body = await bodyOf(context, request, lengthRequest, LENGTH_RULE);
+  if (body instanceof Response) return body;
+  try {
+    const view = context.options.engine.setScriptLength(body.channel, body.concept, body.length);
+    return view ? ok(view) : fail(404, NOT_THIS_CHANNELS);
+  } catch (error) {
+    return fail(400, cleanMessage(error));
+  }
+}
 
 function readScript(context: Context, url: URL): Response {
   const asked = channelOf(url);
@@ -140,6 +174,7 @@ export const SCRIPT_ROUTES: Routes = {
   },
   '/api/lab/scripts/open': { POST: openScript },
   '/api/lab/scripts/stage': { POST: startStage },
+  '/api/lab/scripts/length': { POST: setLength },
   '/api/lab/voice': { GET: (context, _request, url) => readVoice(context, url) },
   '/api/lab/voice/read': { POST: startVoiceRead },
 };

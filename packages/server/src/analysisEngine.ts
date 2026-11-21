@@ -33,6 +33,8 @@ import type {
   SpawnProcess,
 } from './engines/types';
 import { watchVideo, type DownloadVideo } from './engines/videoWatch';
+import { runClaudeWeb, type WebRunRequest } from './engines/webRun';
+import { inPrivateFolder } from './webRunner';
 import type { WorkTracker } from './running';
 
 const IN_MEMORY = ':memory:';
@@ -69,6 +71,8 @@ export interface AnalysisOptions {
     request: EngineRunRequest,
     stop: AbortSignal,
   ) => Promise<EngineRunResult>;
+  /** Replaces a web research run; used by tests. */
+  readonly runWeb?: (request: WebRunRequest) => Promise<EngineRunResult>;
   /** Replaces asking the engines about themselves; used by tests. */
   readonly checkEngines?: () => Promise<readonly EngineStatus[]>;
   /** Replaces starting programs; used by tests. */
@@ -92,6 +96,11 @@ export interface AnalysisParts extends Pick<Engine, 'analyse' | 'engineStatus' |
   studyFrames(videoId: string, only?: EngineId): Promise<EngineAnswer<EngineId>>;
   /** Whether an engine here would watch a video from a file: Antigravity, installed and not left out. */
   watchesFiles(): Promise<boolean>;
+  /**
+   * One web research run of Claude Code (the web and nothing else), in a fresh
+   * private folder. Rejects when Claude Code is left out in the settings file.
+   */
+  runWeb(request: WebRunRequest): Promise<EngineRunResult>;
   /** Removes the private folder the engines were started in, if one was made. */
   cleanUp(): void;
 }
@@ -323,6 +332,16 @@ export function analysisEngines(wiring: AnalysisWiring, stop: AbortSignal): Anal
     watchVideo: (videoId, question, options) => work.run(() => watch(videoId, question, options)),
     engineStatus: (fresh) =>
       work.run(async () => ({ engines: await statuses(fresh), order: settings.order })),
+    runWeb: (request) =>
+      work.run(() => {
+        if (!settings.order.includes('claude')) {
+          throw new Error(
+            'Research on the web needs Claude Code, which is switched off in the settings file (JGTUBE_ENGINES).',
+          );
+        }
+        const run = options.runWeb ?? inPrivateFolder((asked) => runClaudeWeb(asked, deps));
+        return run(request);
+      }),
     cleanUp: shared.folders.remove,
   };
 }

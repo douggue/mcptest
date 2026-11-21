@@ -1,3 +1,4 @@
+import type { TypedLength } from './scriptLength';
 import type { LengthRange, ScriptFields, VoiceProfile } from '@jgtube/core';
 import { parseCues, shotListCsv } from '@jgtube/core/src/script/cues';
 import {
@@ -51,6 +52,8 @@ export interface ScriptView {
   readonly voice: VoiceView | null;
   /** Whether the owner has facts marked for checking (a setting); absent from an older server means yes. */
   readonly markFacts?: boolean;
+  /** Which length field the owner typed last; absent from an older server. */
+  readonly typedLength?: TypedLength | null;
 }
 
 export interface ScriptOutcome extends Answered {
@@ -204,11 +207,15 @@ export function exportText(title: string, text: string, markFacts = true): strin
 export interface MarkdownExtras {
   /** The concept's thumbnail prompt, added at the end under its own heading. */
   readonly thumbnailPrompt?: string | null;
+  /** The numbered source list of the facts the script names, last of all. */
+  readonly sources?: readonly string[];
 }
 
 /** What follows the script in the file: the concept's thumbnail prompt when it has one. */
-const extrasOf = ({ thumbnailPrompt }: MarkdownExtras): readonly string[] =>
-  thumbnailPrompt ? ['## Thumbnail prompt', '', thumbnailPrompt.trim(), ''] : [];
+const extrasOf = ({ thumbnailPrompt, sources = [] }: MarkdownExtras): readonly string[] => [
+  ...(thumbnailPrompt ? ['## Thumbnail prompt', '', thumbnailPrompt.trim(), ''] : []),
+  ...sources,
+];
 
 /**
  * The whole script as a Markdown file: the title as a heading, the text with

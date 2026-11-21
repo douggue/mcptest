@@ -13,7 +13,9 @@ export type LabTask =
         | 'script-hooks'
         | 'script-draft'
         | 'script-tighten'
-        | 'voice-read';
+        | 'voice-read'
+        | 'research'
+        | 'claims';
     }
   | { readonly kind: 'twist' | 'more' | 'thumbnail'; readonly conceptId: number };
 

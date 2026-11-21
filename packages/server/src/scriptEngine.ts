@@ -24,11 +24,13 @@ import {
   type LengthRange,
   type ScriptFields,
   type StoredScript,
+  type TypedLength,
   type VideoTranscript,
 } from '@jgtube/core';
 import type { AnalysisId } from './analyses';
 import { findConceptOf, type FoundConcept } from './ideaEngine';
 import { cleanMessage } from './jobs';
+import { lengthAfterRate, targetWordsOf, typedLength } from './scriptLength';
 import { storedChannel, type LabDeps } from './labDeps';
 import { CLOSING } from './running';
 import type { ScriptEngine, ScriptPlan, ScriptStage, ScriptView, VoiceView } from './scriptTypes';
@@ -89,7 +91,11 @@ function winnersRange(deps: LabDeps, centerChannelId: string): LengthRange | nul
   return lengthRange(winners.flatMap((video) => video.durationSeconds ?? []));
 }
 
-function planOf(found: FoundConcept, script: StoredScript | null): ScriptPlan {
+function planOf(
+  found: FoundConcept,
+  script: StoredScript | null,
+  typed: TypedLength | null,
+): ScriptPlan {
   const hookSeconds = found.batch.length === 'shorts' ? SHORTS_HOOK_SECONDS : LONG_HOOK_SECONDS;
   const rate = script?.wordsPerMinute ?? null;
   const words = (seconds: number | null): number | null =>
@@ -97,7 +103,7 @@ function planOf(found: FoundConcept, script: StoredScript | null): ScriptPlan {
   return {
     hookSeconds,
     hookWords: words(hookSeconds),
-    targetWords: words(script?.targetSeconds ?? null),
+    targetWords: targetWordsOf(script, typed),
   };
 }
 
@@ -107,10 +113,12 @@ const marksFacts = (deps: LabDeps): boolean => deps.markFacts?.() ?? true;
 function viewOf(deps: LabDeps, found: FoundConcept): ScriptView {
   const center = found.batch.centerChannelId;
   const script = deps.repos.scripts.find(center, found.concept.id);
+  const typed = deps.repos.research?.findLength(center, found.concept.id) ?? null;
   return {
     concept: found.view,
     script,
-    plan: planOf(found, script),
+    typedLength: typed,
+    plan: planOf(found, script, typed),
     lengthRange: winnersRange(deps, center),
     markFacts: marksFacts(deps),
     voice: script?.voiceChannelId ? voiceView(deps, center, script.voiceChannelId) : null,
@@ -234,7 +242,21 @@ export function scriptEngine(deps: LabDeps): ScriptEngine {
       if (!concept) return null;
       const problem = changeProblem(deps, concept, changes);
       if (problem) throw new Error(problem);
-      scripts.save(center, conceptId, withVoiceNumbers(deps, center, changes), deps.now());
+      const typed = deps.repos.research?.findLength(center, conceptId) ?? null;
+      const withVoice = withVoiceNumbers(deps, center, changes);
+      const kept = { ...withVoice, ...lengthAfterRate(withVoice.wordsPerMinute, typed) };
+      scripts.save(center, conceptId, kept, deps.now());
+      return viewOf(deps, findConceptOf(deps, center, conceptId) ?? concept);
+    },
+
+    setScriptLength(center, conceptId, input) {
+      const concept = found(center, conceptId);
+      if (!concept) return null;
+      const shorts = concept.batch.length === 'shorts';
+      const length = typedLength(input, scripts.find(center, conceptId), shorts);
+      if ('problem' in length) throw new Error(length.problem);
+      scripts.save(center, conceptId, { targetSeconds: length.seconds }, deps.now());
+      deps.repos.research?.saveLength(conceptId, length.typed, deps.now());
       return viewOf(deps, findConceptOf(deps, center, conceptId) ?? concept);
     },
 

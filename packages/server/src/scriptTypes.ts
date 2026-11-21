@@ -3,6 +3,7 @@
  * one concept, and through it to one centre channel; a voice is a channel on
  * that channel's own map, measured from its own captions.
  */
+import type { TypedLength } from '@jgtube/core';
 import type { LengthRange, ScriptFields, StoredScript, VoiceProfile } from '@jgtube/core';
 import type { SkippedEngine } from './engines/failure';
 import type { EngineId } from './engines/types';
@@ -44,7 +45,14 @@ export interface ScriptView {
   readonly voice: VoiceView | null;
   /** Whether the owner has facts marked for checking (Settings); the page hides the marker count and list when not. */
   readonly markFacts: boolean;
+  /** Which length field the owner typed last, with the words when it was words; null when neither. */
+  readonly typedLength: TypedLength | null;
 }
+
+/** A length as the owner typed it: minutes (as seconds) or words. */
+export type LengthInput =
+  | { readonly typed: 'minutes'; readonly seconds: number }
+  | { readonly typed: 'words'; readonly words: number };
 
 export interface ScriptOutcome {
   readonly kind: 'script';
@@ -90,6 +98,12 @@ export interface ScriptEngine {
     centerChannelId: string,
     conceptId: number,
     changes: Partial<ScriptFields>,
+  ): ScriptView | null;
+  /** Stores a length typed in minutes or words; throws when it cannot be. Null when the concept is not this channel's. */
+  setScriptLength(
+    centerChannelId: string,
+    conceptId: number,
+    input: LengthInput,
   ): ScriptView | null;
   /** Why a stage cannot be run yet, in plain words, or null when it can. */
   stageProblem(stage: ScriptStage, centerChannelId: string, conceptId: number): string | null;
