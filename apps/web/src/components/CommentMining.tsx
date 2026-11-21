@@ -2,7 +2,12 @@ import { MessageSquareText } from 'lucide-react';
 import { useState } from 'react';
 import { askedLine, quotaLine, type CommentsView } from '../lib/comments';
 import { CandidateRow, FindingCard } from './CommentParts';
-import { NOTE, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
+import { Card, Field } from './layout/Card';
+import { Details } from './layout/Details';
+import { PanelButton } from './layout/PanelButton';
+import { SplitView, ViewPage } from './layout/SplitView';
+import { ViewHeader } from './layout/ViewHeader';
+import { QUIET_BUTTON } from './LabStatus';
 import { useComments, type Comments } from './useComments';
 
 /** The winners listed to choose from, strongest first. */
@@ -13,6 +18,7 @@ const FIRST_CHOSEN = 3;
 const NO_KEY =
   'No YouTube API key is set. Comments can only be read through the official YouTube API: add a key in Settings, then read the comments here.';
 
+/** The side panel: the winning videos to read, the quiet read button and the one question. */
 function Picker({ view, comments }: { readonly view: CommentsView; readonly comments: Comments }) {
   const shown = view.candidates.slice(0, CANDIDATES_SHOWN);
   const [chosen, setChosen] = useState<readonly string[]>(() =>
@@ -29,61 +35,107 @@ function Picker({ view, comments }: { readonly view: CommentsView; readonly comm
     (id) => (shown.find((entry) => entry.videoId === id)?.read?.count ?? 0) > 0,
   );
   const now = new Date();
-  if (shown.length === 0)
-    return <p className={NOTE}>No video of a look-alike on this map counts as a winner yet.</p>;
+  if (shown.length === 0) {
+    return (
+      <p className="text-body-sm text-on-surface-variant">
+        No video of a look-alike on this map counts as a winner yet.
+      </p>
+    );
+  }
   return (
-    <div className="flex flex-col gap-space-sm">
-      <ul className="grid grid-cols-1 gap-space-sm lg:grid-cols-2">
-        {shown.map((entry) => (
-          <CandidateRow
-            key={entry.videoId}
-            entry={entry}
-            chosen={chosen.includes(entry.videoId)}
-            onToggle={() => toggle(entry.videoId)}
-            now={now}
-          />
-        ))}
-      </ul>
-      <p className="text-body-sm text-outline">{quotaLine(view, chosen.length)}</p>
-      <div className="flex flex-wrap gap-space-sm">
-        <button
-          type="button"
-          disabled={busy || !view.keySet || chosen.length === 0}
-          onClick={() => comments.read(chosen)}
-          className={QUIET_BUTTON}
-        >
-          Read comments of {chosen.length} chosen
-        </button>
-        <button
-          type="button"
-          disabled={busy || readable.length === 0}
-          onClick={() => comments.ask(readable)}
-          className={PRIMARY_BUTTON}
-        >
-          What viewers ask for ({readable.length} with comments)
-        </button>
-      </div>
-    </div>
+    <>
+      <Field label={`Winning videos (${chosen.length} chosen)`}>
+        <ul className="flex max-h-[22rem] min-w-0 flex-col gap-1.5 overflow-y-auto pr-1">
+          {shown.map((entry) => (
+            <CandidateRow
+              key={entry.videoId}
+              entry={entry}
+              chosen={chosen.includes(entry.videoId)}
+              onToggle={() => toggle(entry.videoId)}
+              now={now}
+            />
+          ))}
+        </ul>
+        <p className="text-body-sm text-outline">{quotaLine(view, chosen.length)}</p>
+      </Field>
+      <button
+        type="button"
+        disabled={busy || !view.keySet || chosen.length === 0}
+        onClick={() => comments.read(chosen)}
+        className={QUIET_BUTTON}
+      >
+        Read comments of {chosen.length} chosen
+      </button>
+      <PanelButton
+        icon={MessageSquareText}
+        disabled={busy || readable.length === 0}
+        onClick={() => comments.ask(readable)}
+      >
+        What viewers ask for ({readable.length} with comments)
+      </PanelButton>
+    </>
   );
 }
 
-function Answer({ view }: { readonly view: CommentsView }) {
-  const { answer } = view;
-  if (!answer) return null;
+function Panel({ view, comments }: { readonly view: CommentsView; readonly comments: Comments }) {
   return (
-    <div className="flex flex-col gap-space-sm">
-      <h3 className="text-label-caps uppercase text-outline">What viewers ask for</h3>
+    <>
+      <div className="flex min-w-0 flex-col gap-1">
+        <h2 className="flex items-center gap-2 text-headline-md font-bold text-on-surface">
+          <MessageSquareText aria-hidden="true" className="h-5 w-5 flex-none text-metric-amber" />
+          Read the comments
+        </h2>
+        <p className="text-body-sm text-on-surface-variant">
+          Of winning videos on this map, then ask what comes up again and again.
+        </p>
+      </div>
+      <Details summary="How this works">
+        <p className="text-body-sm text-on-surface-variant">
+          Reads the top comments through the official YouTube API, then one AI question lists the
+          requests, questions and objections that come up again and again, each shown with the
+          comments it rests on. Comments are kept on this computer; who wrote them is not.
+        </p>
+      </Details>
+      {!view.keySet && (
+        <p className="rounded-lg border border-border-subtle p-space-sm text-body-sm text-metric-amber">
+          {NO_KEY}
+        </p>
+      )}
+      <Picker key={view.centerChannelId} view={view} comments={comments} />
+    </>
+  );
+}
+
+function Findings({ view }: { readonly view: CommentsView }) {
+  const { answer } = view;
+  if (!answer) {
+    return (
+      <Card>
+        <MessageSquareText aria-hidden="true" className="h-6 w-6 text-metric-amber" />
+        <p className="text-body-md text-on-surface">Nothing asked yet.</p>
+        <p className="text-body-sm text-on-surface-variant">
+          Choose winning videos on the left, read their comments, then press What viewers ask for.
+        </p>
+      </Card>
+    );
+  }
+  return (
+    <>
       {answer.findings.length === 0 ? (
-        <p className={NOTE}>Nothing recurs in two or more of the comments read.</p>
+        <Card>
+          <p className="text-body-md text-on-surface-variant">
+            Nothing recurs in two or more of the comments read.
+          </p>
+        </Card>
       ) : (
-        <div className="grid grid-cols-1 gap-space-md lg:grid-cols-2">
+        <ol className="flex min-w-0 flex-col gap-space-md">
           {answer.findings.map((finding) => (
             <FindingCard key={`${finding.kind}:${finding.says}`} finding={finding} />
           ))}
-        </div>
+        </ol>
       )}
       <p className="text-body-sm text-outline">{askedLine(answer, new Date())}</p>
-    </div>
+    </>
   );
 }
 
@@ -97,54 +149,33 @@ export function CommentMining({ channelId, reloadKey }: Props) {
   const comments = useComments(channelId, reloadKey);
   const { view, work, problem } = comments;
   if (!view) return null;
+  const count = view.answer?.findings.length;
   return (
-    <section
-      id="comment-mining"
-      aria-labelledby="comment-mining-title"
-      className="w-full scroll-mt-16 bg-space-deep px-gutter-desktop pb-space-xl"
-    >
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-space-lg">
-        <div>
-          <div className="flex items-center gap-2">
-            <MessageSquareText
-              aria-hidden="true"
-              className="h-[22px] w-[22px] flex-none text-metric-amber"
-            />
-            <h2
-              id="comment-mining-title"
-              className="text-headline-lg font-bold tracking-tight text-on-surface"
-            >
-              Comments: what viewers ask for
-            </h2>
-          </div>
-          <p className="mt-1 max-w-4xl text-body-md text-on-surface-variant">
-            Reads the top comments of winning videos on this map through the official YouTube API,
-            then one AI question lists the requests, questions and objections that come up again and
-            again, each shown with the comments it rests on. Comments are kept on this computer; who
-            wrote them is not.
-          </p>
-        </div>
-        {!view.keySet && <p className={NOTE}>{NO_KEY}</p>}
+    <ViewPage id="comment-mining" labelledBy="comment-mining-title">
+      <SplitView sideLabel="Comments to read" side={<Panel view={view} comments={comments} />}>
+        <ViewHeader
+          titleId="comment-mining-title"
+          title="What viewers ask for"
+          count={count}
+          lead="Requests, questions and objections that recur in the comments of winning videos."
+        />
         {problem && (
-          <p role="alert" className="text-body-md text-error">
+          <p role="alert" className="rounded-lg bg-surface-card p-space-md text-body-md text-error">
             {problem}
           </p>
         )}
-        <Picker key={view.centerChannelId} view={view} comments={comments} />
         {work.status !== 'idle' && (
           <p
             role={work.status === 'failed' ? 'alert' : 'status'}
-            className={
-              work.status === 'failed'
-                ? 'text-body-md text-error'
-                : 'text-body-md text-on-surface-variant'
-            }
+            className={`rounded-lg bg-surface-card p-space-md text-body-md ${
+              work.status === 'failed' ? 'text-error' : 'text-on-surface-variant'
+            }`}
           >
             {work.text}
           </p>
         )}
-        <Answer view={view} />
-      </div>
-    </section>
+        <Findings view={view} />
+      </SplitView>
+    </ViewPage>
   );
 }

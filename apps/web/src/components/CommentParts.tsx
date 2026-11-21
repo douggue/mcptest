@@ -1,5 +1,8 @@
 import { FINDING_LABELS, readLine, type CandidateView, type FindingView } from '../lib/comments';
-import { formatCount, formatScore, watchUrl } from '../lib/format';
+import { formatCount, formatScore, thumbnailUrl, watchUrl } from '../lib/format';
+import { Card } from './layout/Card';
+import { Details } from './layout/Details';
+import { PILL } from './LabStatus';
 
 /** One winning video to choose, with what is known of its comments. */
 export function CandidateRow({
@@ -14,8 +17,13 @@ export function CandidateRow({
   readonly now: Date;
 }) {
   const href = watchUrl(entry.videoId);
+  const thumbnail = thumbnailUrl(entry.videoId);
   return (
-    <li className="flex min-w-0 items-start gap-space-sm rounded bg-surface-card p-space-sm">
+    <li
+      className={`flex min-w-0 items-start gap-space-sm rounded-lg border p-2.5 ${
+        chosen ? 'border-border-highlight bg-surface-card' : 'border-border-subtle bg-space-deep'
+      }`}
+    >
       <input
         type="checkbox"
         checked={chosen}
@@ -23,8 +31,17 @@ export function CandidateRow({
         aria-label={`Choose ${entry.title}`}
         className="mt-1 h-4 w-4 flex-none accent-primary-container"
       />
-      <div className="min-w-0">
-        <p className="line-clamp-2 text-body-md font-semibold text-on-surface">
+      {thumbnail && (
+        <img
+          src={thumbnail}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          className="aspect-video w-16 flex-none rounded bg-surface-container-high object-cover"
+        />
+      )}
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <p className="line-clamp-2 break-words text-body-sm font-semibold text-on-surface">
           {href ? (
             <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-primary">
               {entry.title}
@@ -33,7 +50,7 @@ export function CandidateRow({
             entry.title
           )}
         </p>
-        <p className="text-body-sm text-outline">
+        <p className="break-words text-body-sm text-outline">
           {entry.channelTitle} · {formatScore(entry.score)} · {formatCount(entry.views)} views ·{' '}
           {readLine(entry.read, now)}
         </p>
@@ -42,29 +59,44 @@ export function CandidateRow({
   );
 }
 
-/** One recurring request, question or objection, with the stored comments it rests on. */
-export function FindingCard({ finding }: { readonly finding: FindingView }) {
+type StoredComment = FindingView['comments'][number];
+
+function Comment({ comment }: { readonly comment: StoredComment }) {
   return (
-    <article className="flex min-w-0 flex-col gap-space-sm rounded bg-surface-card p-space-md">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-surface-container-high px-2 py-0.5 text-label-caps text-on-surface-variant">
-          {FINDING_LABELS[finding.kind]}
-        </span>
-        <p className="text-body-md font-semibold text-on-surface">{finding.says}</p>
+    <li className="border-l-2 border-border-subtle pl-space-sm text-body-sm text-on-surface-variant">
+      <p className="line-clamp-4 break-words">“{comment.text}”</p>
+      <p className="text-outline">
+        A viewer · {comment.likes} likes · id {comment.commentId}
+      </p>
+    </li>
+  );
+}
+
+/** One recurring request, question or objection: the first comment it rests on, the rest closed. */
+export function FindingCard({ finding }: { readonly finding: FindingView }) {
+  const [first, ...rest] = finding.comments;
+  return (
+    <Card as="li">
+      <div className="flex min-w-0 flex-col items-start gap-2">
+        <span className={`${PILL} text-on-surface-variant`}>{FINDING_LABELS[finding.kind]}</span>
+        <h3 className="break-words text-title-md font-semibold text-on-surface">{finding.says}</h3>
       </div>
-      <ul className="flex flex-col gap-1">
-        {finding.comments.map((comment) => (
-          <li
-            key={comment.commentId}
-            className="border-l-2 border-surface-container-high pl-space-sm text-body-sm text-on-surface-variant"
-          >
-            <p className="line-clamp-4 break-words">“{comment.text}”</p>
-            <p className="text-outline">
-              A viewer · {comment.likes} likes · id {comment.commentId}
-            </p>
-          </li>
-        ))}
-      </ul>
-    </article>
+      {first && (
+        <ul className="flex flex-col gap-space-sm">
+          <Comment comment={first} />
+        </ul>
+      )}
+      {rest.length > 0 && (
+        <Details
+          summary={`${rest.length} more ${rest.length === 1 ? 'comment' : 'comments'} it rests on`}
+        >
+          <ul className="flex flex-col gap-space-sm">
+            {rest.map((comment) => (
+              <Comment key={comment.commentId} comment={comment} />
+            ))}
+          </ul>
+        </Details>
+      )}
+    </Card>
   );
 }
