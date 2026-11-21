@@ -89,6 +89,7 @@ function Workbench(props: Props & { readonly view: ScriptView }) {
   return (
     <SplitView
       width="narrow"
+      mainFirst
       sideLabel="The script's voice, length and checks"
       side={<ScriptPanel {...panel} stage={step} onChange={edit} />}
     >

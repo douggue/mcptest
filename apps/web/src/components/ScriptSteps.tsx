@@ -58,6 +58,12 @@ export function StepTabs({ states, current, onPick }: TabsProps) {
   );
 }
 
+/** A step not yet run is the screen's next step; running one again is a quiet choice. */
+const RUN_FIRST =
+  'flex min-h-11 items-center gap-2 rounded bg-primary-container px-4 text-body-sm font-semibold text-on-primary transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50';
+const RUN_AGAIN =
+  'flex min-h-11 items-center gap-2 rounded border border-border-subtle px-4 text-body-sm font-semibold text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-50';
+
 interface RunProps {
   readonly about: string;
   readonly state: StageState | undefined;
@@ -77,12 +83,15 @@ export function StepRun({ about, state, busy, onRun }: RunProps) {
         </h3>
         <p className="text-body-sm text-on-surface-variant">{about}</p>
         {state?.blocked && <p className="text-body-sm text-outline">{state.blocked}</p>}
+        {busy && !state?.blocked && (
+          <p className="text-body-sm text-outline">Waits for the AI run under way to finish.</p>
+        )}
       </div>
       <button
         type="button"
         disabled={busy || state === undefined || state.blocked !== null}
         onClick={onRun}
-        className="flex items-center gap-2 rounded-lg bg-primary-container px-4 py-2 text-body-sm font-semibold text-on-primary shadow-[0_0_12px_rgba(0,210,255,0.3)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+        className={state?.done ? RUN_AGAIN : RUN_FIRST}
       >
         <Sparkles aria-hidden="true" className="h-4 w-4" />
         {state?.done ? `${ACTIONS[stage]} again` : ACTIONS[stage]}
