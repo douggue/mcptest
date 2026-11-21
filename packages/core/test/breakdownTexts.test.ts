@@ -25,6 +25,7 @@ const AT = new Date('2026-11-21T09:30:00Z');
 const CHANNEL = { id: `UC${'a'.repeat(22)}`, title: 'Some Bakery' };
 const thumb = markerLines('THUMBNAIL PROMPT');
 const master = markerLines('MASTER PROMPT');
+const lock = markerLines('STYLE LOCK');
 
 const written = (part: StoredBreakdownPart['part'], text: string): StoredBreakdownPart => ({
   channelId: CHANNEL.id,
@@ -50,7 +51,10 @@ const WHOLE: readonly StoredBreakdownPart[] = [
     `COMPOSITION\n- A face.\n\n${thumb.start}\nA photo of [SUBJECT] with the words [OVERLAY TEXT].\n${thumb.end}`,
   ),
   written('scripts', 'THE HOOK\n- A question.'),
-  written('picture', 'KINDS OF SHOT\n- Stills.'),
+  written(
+    'picture',
+    `PICTURE STYLE\n- Flat ink drawings.\n\n${lock.start}\nSTYLE BLOCK: Flat ink drawing.\n${lock.end}`,
+  ),
   written('strategy', 'STRENGTHS\n- Hooks.'),
   written('plan', 'STEP 1: RESEARCH\n- Check every fact.'),
   written(
@@ -69,13 +73,15 @@ describe('the four texts of a breakdown', () => {
       plan: 'production-plan.txt',
       thumbnail: 'thumbnail-prompt.txt',
       master: 'master-prompt.txt',
+      style: 'style-lock.txt',
     });
   });
 
   test('are the whole breakdown, the production plan and the two prompts lifted out as they stand', () => {
     const files = byId(WHOLE);
 
-    expect(Object.keys(files)).toEqual(['whole', 'plan', 'thumbnail', 'master']);
+    expect(Object.keys(files)).toEqual(['whole', 'plan', 'thumbnail', 'master', 'style']);
+    expect(files['style']?.text).toBe('STYLE BLOCK: Flat ink drawing.\n');
     expect(files['plan']).toMatchObject({
       name: 'production-plan.txt',
       text: 'STEP 1: RESEARCH\n- Check every fact.\n',
@@ -146,6 +152,18 @@ describe('the four texts of a breakdown', () => {
     expect(files['thumbnail']?.text).not.toBeNull();
   });
 
+  test('say the picture part found no style to lock when it holds no style lock', () => {
+    const parts = WHOLE.map((part) =>
+      part.part === 'picture' ? written('picture', 'PICTURE STYLE\nNO CONSISTENT STYLE') : part,
+    );
+
+    expect(byId(parts)['style']).toMatchObject({
+      text: null,
+      reason:
+        'The picture and sound part found no consistent picture style to lock, or did not set one out between its marker lines, so nothing was saved.',
+    });
+  });
+
   test('have nothing to give for a channel with no part written', () => {
     const files = breakdownTexts(CHANNEL, [failed('titles', 'No.')]);
 
@@ -174,6 +192,7 @@ describe('saving a breakdown’s texts', () => {
       'index.json',
       'master-prompt.txt',
       'production-plan.txt',
+      'style-lock.txt',
       'thumbnail-prompt.txt',
     ]);
     expect(saved.saved).toEqual([
@@ -181,6 +200,7 @@ describe('saving a breakdown’s texts', () => {
       'production-plan.txt',
       'thumbnail-prompt.txt',
       'master-prompt.txt',
+      'style-lock.txt',
     ]);
     expect(saved.notSaved).toEqual([]);
     expect(readFileSync(join(saved.folder, 'master-prompt.txt'), 'utf8')).toBe(

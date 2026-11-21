@@ -25,7 +25,7 @@ export interface BreakdownPartView {
   readonly reason: string | null;
 }
 
-export type BreakdownFileId = 'whole' | 'plan' | 'thumbnail' | 'master';
+export type BreakdownFileId = 'whole' | 'plan' | 'thumbnail' | 'master' | 'style';
 
 export interface BreakdownFileView {
   readonly id: BreakdownFileId;
@@ -126,6 +126,7 @@ const ATTACHED: Partial<
   plan: { label: 'production plan', file: 'plan', whole: true },
   thumbnails: { label: 'thumbnail prompt', file: 'thumbnail', whole: false },
   master: { label: 'master prompt', file: 'master', whole: false },
+  picture: { label: 'style lock', file: 'style', whole: false },
 };
 
 const NO_PROMPT = 'No prompt could be found in this part.';
@@ -159,6 +160,7 @@ const FILE_WORDS: Readonly<Record<BreakdownFileId, string>> = {
   plan: 'the production plan',
   thumbnail: 'the thumbnail prompt',
   master: 'the master prompt',
+  style: 'the style lock',
 };
 
 const listed = (names: readonly string[]): string =>
