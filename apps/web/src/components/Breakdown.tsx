@@ -53,10 +53,9 @@ export function BreakdownCard({ choices, picked, onPick, busy, active, onRun }: 
       <div>
         <h3 className="text-title-md text-on-surface">Channel breakdown</h3>
         <p className="mt-1 text-body-sm text-on-surface-variant">
-          Takes one channel apart, from this map, your other saved channels or the niche lists, in
-          seven parts: its titles, thumbnails, scripts, picture and sound, its strengths and
-          weaknesses with a strategy to beat it, a production plan and a master prompt. Each is kept
-          and saved as a text file.
+          Takes one channel apart in seven parts: titles, thumbnails, scripts, picture and sound,
+          strengths and weaknesses with a strategy to beat it, a production plan and a master
+          prompt. It is kept, and saved as text files.
         </p>
         <p className="mt-1 text-body-sm text-outline">{SLOW_NOTE}</p>
       </div>

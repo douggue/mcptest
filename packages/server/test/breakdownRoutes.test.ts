@@ -243,15 +243,13 @@ describe('GET /api/breakdowns', () => {
     expect(asked).toEqual([CHANNEL_ID]);
   });
 
-  test('says so when no breakdown has been written for the channel', async () => {
+  test('answers with nothing, and no failure, when no breakdown has been written for the channel', async () => {
     const app = appWith({ findBreakdown: async () => null });
 
     const response = await get(app, '/api/breakdowns?channel=@channel');
 
-    expect(response.status).toBe(404);
-    expect((await read<null>(response)).error).toBe(
-      'No breakdown has been written for this channel yet',
-    );
+    expect(response.status).toBe(200);
+    expect(await read<null>(response)).toMatchObject({ success: true, data: null, error: null });
   });
 
   test.each(['', 'not a channel!', `UC${'x'.repeat(300)}`])(

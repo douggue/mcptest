@@ -181,14 +181,15 @@ export async function uploadVideo(
 /**
  * A channel's stored breakdown, for the page to show without running it
  * again: every part, when it was written, which texts there are to download
- * and the folder they were saved in.
+ * and the folder they were saved in. A channel with none answers with no
+ * data, as a normal answer: the page asks for every channel that is picked,
+ * and most have none.
  */
 export async function readBreakdown(options: AppOptions, url: URL): Promise<Response> {
   const channel = url.searchParams.get('channel') ?? '';
   if (channel.length > MAX_CHANNEL_LENGTH || !isChannel(channel)) return fail(400, NO_CHANNEL);
   try {
-    const found = await options.engine.findBreakdown(channel);
-    return found ? ok(found) : fail(404, 'No breakdown has been written for this channel yet');
+    return ok(await options.engine.findBreakdown(channel));
   } catch (error) {
     return fail(500, `The breakdown could not be read: ${cleanMessage(error)}`);
   }

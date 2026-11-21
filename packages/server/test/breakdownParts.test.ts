@@ -46,6 +46,7 @@ describe('the parts of a breakdown, as questions', () => {
       expect(question(part)).toMatch(/Every number must be one a tool returned/);
       expect(question(part)).toMatch(/marked \(worked out\)/);
       expect(question(part)).toMatch(/carry nothing over from any other channel/);
+      expect(question(part)).toMatch(/never name a tool or a field of a tool’s answer/);
     },
   );
 
@@ -340,6 +341,8 @@ describe('part 7, the master prompt', () => {
     expect(master).toContain(start);
     expect(master).toContain(end);
     expect(master).toMatch(/stand on its own/);
+    expect(master).toMatch(/WHAT EACH SECTION RESTS ON/);
+    expect(master).toMatch(/Call it “the master prompt” there/);
   });
 
   test('carries the rule that every fact the AI did not get from the owner is marked', () => {

@@ -99,7 +99,7 @@ export interface TranscriptsSaved {
 
 /** Said beside the button, before it is pressed: a breakdown is not a quick answer. */
 export const SLOW_NOTE =
-  'This is slow. It studies the channel’s titles and its top five videos, three of them in depth, then writes seven parts one after another, and can take half an hour or more. Keep this page open.';
+  'This is slow. It studies the titles and the top five videos, three of them in depth, then writes the seven parts, and can take half an hour or more. Keep this page open.';
 
 /** Where a channel offered for a breakdown comes from; the list is set out under these. */
 export const CHOICE_GROUPS = [

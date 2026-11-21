@@ -272,7 +272,7 @@ describe('the stored breakdown, through the API', () => {
 
   test('is nothing when none has been written, and a failure otherwise', async () => {
     const none = createApi(async () =>
-      reply(404, { success: false, data: null, error: 'No breakdown', meta: null }),
+      reply(200, { success: true, data: null, error: null, meta: null }),
     );
     const broken = createApi(async () =>
       reply(500, {

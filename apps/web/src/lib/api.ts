@@ -339,8 +339,7 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
     /** A channel's stored breakdown, or null when none has been written for it. */
     async storedBreakdown(channel: string): Promise<BreakdownView | null> {
       const envelope = await call(`/api/breakdowns?channel=${encodeURIComponent(channel)}`);
-      if (envelope.status === 404) return null;
-      return unwrap<BreakdownView>(envelope);
+      return unwrap<BreakdownView | null>(envelope);
     },
 
     async breakdownJob(id: string): Promise<BreakdownJobState> {
