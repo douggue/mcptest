@@ -18,10 +18,11 @@ export are not stored; the HTML renders the same screens.
   borders, a cyan signal colour, amber for breakout multipliers.
 - **Colour:** ground `#05070E` / `#0B0F19`, cards `#0F1626`, primary `#00D2FF`,
   secondary `#38BDF8`, amber `#FBBF24`, text `#E1E2ED`, muted `#BBC9CF`.
-- **Type:** Geist throughout; tabular figures for numbers; 11 px uppercase
-  labels with wide tracking.
-- **Shape:** pills for buttons, badges and inputs; 16 to 24 px corners on cards;
-  circular channel nodes with ring outlines.
+- **Type:** Geist throughout; tabular figures for numbers; see "Type and
+  spacing" below (the 11 px uppercase labels of the original design are
+  retired).
+- **Shape:** cards 16 px corners, controls 12 px, pills only for chips and
+  small buttons (see "Type and spacing").
 - **Layout:** top bar plus left rail; content up to 1360 px; a full-bleed radar
   canvas mode and a card-stream mode.
 
@@ -98,67 +99,106 @@ an existing product; the build replaces them with Jgtube.
 Three directions (Control room, Tabloid, Deep field) were sketched on a design
 canvas before the owner's design arrived. They are not being taken forward.
 
-## Views and navigation
+## Design direction (November 2026)
 
-- Each feature opens in a view of its own; only that view is drawn. The
-  address names it after `#/` (`#/radar`, `#/ideas`, `#/script`,
-  `#/settings`), so back, forward and reload keep it. The views and their
-  titles are in `apps/web/src/lib/routes.ts`; an older in-page link
-  (`#concept-12`) opens the view that holds the element and scrolls to it.
-- The left rail opens the **Overview** (`#/`), then the views under
-  **Research** (radar, what changed, breaking out, same topic, thumbnails that
-  worked, transfer opportunities, new niches), **Create** (trending formats,
-  hook library, idea lab, script writer, check before publishing) and
-  **Study** (Ask AI and breakdowns, your videos against the plan, upload
-  calendar, length and pacing, what viewers ask for), and marks the view on
-  screen. The groups are in `apps/web/src/lib/sections.ts`; a new view adds a
-  line in `routes.ts`, one in `sections.ts`, one icon in `RailLinks.tsx` and
-  its drawing in the `*Views.tsx` table of its group. On a phone the rail is
-  the Menu in the top bar.
-- A channel anywhere (a chip of your channels, a node of the radar, a row of a
-  list) opens its own view, `#/channel/<id>`: back arrow, logo, name and
-  handle, labelled numbers from the store, its outliers and newest videos, the
-  buttons into the other views for it, and its competitors as rows.
-- The top bar says on every view which AI answers (on Automatic, the first
-  engine that is ready) and lists each engine as ready or not set up; it
-  opens Settings, where the choice is made. Each answer still says which
-  engine gave it.
-- The flow strip (Research → Formats and hooks → Ideas → Script → Breakdown)
-  sits above the views on that path and opens each step's view.
+The owner found the app dense and confusing: 19 menu entries, small capital
+labels everywhere, many buttons per card, long notes, legal-sounding
+warnings, and screens that end in a dead end. `docs/UX_AUDIT.md` ranks the
+problems. The reference the owner likes is a calm, mobile-first research app:
+large readable type, very few controls, plain conversational AI text with
+small inline video and channel chips, almost no badges, one obvious next
+step. These rules replace the earlier ones where they disagree.
 
-## How a view is laid out
+### Information architecture
 
-The pieces are in `apps/web/src/components/layout/`; use them rather than
-new one-off styles.
+Five destinations in the rail (the Menu on a phone), Settings behind the gear
+in the top bar:
 
-- **One primary action per view**, at the right of its `ViewHeader` (title,
-  one short line, optional back arrow) or at the foot of its side panel. Other
-  buttons are quiet.
-- **At most two columns.** `SplitView` puts the controls (what to make, from
-  what, and the one button that makes it) in a side panel that stays in view,
-  and the results in the main area. Below 1024 px the side panel comes first,
-  above the main area. Lists of things go in one column of roomy `Card`s, not
-  a grid of dense ones. Short cards of the same kind (hooks) may sit two to a
-  row on wide screens.
-- **Details closed by default.** What an owner needs only sometimes (where a
-  thing came from, the sources, the prompt, the longer explanation) goes
-  behind one `Details` per card or panel. Warnings that change what the owner
-  should do (facts to check, a cut-off title, lifted words) stay visible.
-- **No walls of text.** A lead is one line. Longer explanations sit behind
-  "How this works". Labels are short capitals (`Label`, `Field`).
-- **Numbers** go in `StatTile`s with what each rests on under it
-  (`StatGrid` wraps to two columns on a phone). A working surface keeps its
-  running counts in a slim `StatusBar` at the foot. In a narrow main area a
-  few tiles share a card's width in a `StatRow` (`TileRow` draws tiles worked
-  out in `lib/tiles.ts`). Long AI answers open on "In short", then one card
-  per section with the rest of its points closed (`lib/longAnswer.ts`).
-- **A side panel** starts with a `PanelTitle` and has one `PanelAction`: the
-  full-width primary button with a short line under it.
-- **Choices of one** are a `Segmented` control; channels in a list are
-  `ChannelRow`s (logo, name, a coloured level, a count, a remove cross).
-- The idea lab and the script writer are the worked examples: controls in
-  the side panel, then "Concepts (n)" with one column of cards; and the
-  script's steps as a segmented control with status, save and export at the
-  right, the concept's title and thumbnail line, the step with its one button,
-  and the footer of words, spoken time, reading grade and facts to check.
+| Destination  | Opens                               | Tabs (each its own address)                                                 |
+| ------------ | ----------------------------------- | --------------------------------------------------------------------------- |
+| **Home**     | `#/`                                | none: your channels, Find competitors, your next step                       |
+| **Channel**  | the map's channel, `#/channel/<id>` | Overview, Radar, What changed, Your videos, Calendar, Pacing, Viewers ask   |
+| **Research** | `#/breakouts`                       | Breaking out, Formats, Hooks, Same topic, Thumbnails, Transfers, New niches |
+| **Create**   | `#/ideas`                           | Ideas, Script, Check                                                        |
+| **Ask AI**   | `#/ask`                             | none                                                                        |
+
+- Every older address (`#/radar`, `#/hooks`, `#concept-12`) still opens its
+  view; the view now shows as a tab of its destination. The destinations and
+  their tabs are in `apps/web/src/lib/sections.ts`; a new view adds a line in
+  `routes.ts` and one tab in `sections.ts`.
+- A channel that is not the map's own (a competitor) opens its page with a
+  back arrow and no tabs.
+- The step strip (Research → Formats → Ideas → Script → Breakdown) is shown on
+  Home only, as "Your next step". Inside a destination the tabs do the job.
+- Ideas and Script are one flow: a concept's "Write the script" opens the
+  Script tab; the Script tab with nothing open lists the kept concepts, each
+  opening its script.
+
+### Type and spacing
+
+| Token          | Size / line | Use                                              |
+| -------------- | ----------- | ------------------------------------------------ |
+| `display`      | 40 / 48     | Rare: a channel's name on its page               |
+| `headline-lg`  | 30 / 38     | A view's title                                   |
+| `headline-md`  | 22 / 30     | A card's or panel's title                        |
+| `title-md`     | 18 / 26     | A video or concept title in a list               |
+| `body-lg`      | 18 / 28     | AI answers and the lead under a title            |
+| `body-md`      | 16 / 24     | Body text (the default)                          |
+| `body-sm`      | 14 / 20     | Meta lines (views · age), notes under numbers    |
+| `label`        | 14 / 20     | A short label, **sentence case, never capitals** |
+| `metric-badge` | 13 / 16     | The amber breakout multiple                      |
+
+- Corners: `rounded` 12 px for controls and inner boxes, `rounded-lg` 16 px
+  for cards and side panels, `rounded-xl` 24 px for sheets. `rounded-full`
+  only for chips, avatars and small buttons. Never a pill-shaped card.
+- Spacing: 16 px gutters on a phone, 24 px on a desktop; 24 px between cards,
+  16 px inside a card on a phone and 24 px on a desktop.
+- No cards inside cards. A card holds rows, not more cards.
+
+### Controls
+
+- **At most one primary button per screen** (filled accent). A card in a
+  list may have one filled-quiet button for its main action; everything else
+  is a text link or an icon button with a label.
+- **Never a control that cannot work.** If it cannot work now, it is either
+  hidden, or disabled with the reason in one line beside it, or it handles
+  the case itself (for example, a choice the engine cannot serve goes to one
+  that can, with a short note).
+- A side panel has one `PanelAction` at its foot.
+
+### Words
+
+- A lead is one short sentence. An explanation is at most one sentence;
+  anything longer sits behind "How this works", and only where the owner
+  could need it.
+- Warnings only when they change what to do, said once, next to the thing
+  they are about. The note about reading YouTube's public pages lives in
+  Settings, not under every view.
+- Numbers come from stored or computed data only and carry a short label
+  ("30× average · 15 videos"); the note under a number is one line at most.
+  No forecasts.
+- Empty states say in one line what to do next, with the button that does it.
+
+### AI answers
+
+- Rendered as readable prose at `body-lg`: bold lead-ins, short paragraphs,
+  bullet lists, with videos and channels as small inline chips (thumbnail or
+  logo, then the number) instead of links or ids. Long answers open on "In
+  short" with the rest behind "Show more".
+
+### Layout pieces
+
+The pieces are in `apps/web/src/components/layout/`; use them rather than new
+one-off styles.
+
+- `ViewPage` holds a view; `ViewHeader` gives it a title, one short lead, an
+  optional back arrow and its one primary action.
+- `SectionTabs` (drawn by the view host) shows the tabs of the destination.
+- `SplitView`: controls in a side panel, results in the main area, at most two
+  columns; below 1024 px the panel comes first.
+- `Card` for one thing; `Details` for what is needed only sometimes, closed
+  by default; `Notice` for a one-line note, work under way or a problem.
+- `StatTile` / `StatRow` for a few labelled numbers; `ChannelRow` for a
+  channel in a list (logo, name, coloured level, count, remove cross).
+- `Segmented` for a choice of one.
 - Every view works at 390 px wide with no sideways scroll.
