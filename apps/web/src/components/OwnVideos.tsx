@@ -61,7 +61,11 @@ function LinkForm({ plan, actions }: { readonly plan: PlanView; readonly actions
           className={FIELD}
         />
       </Field>
-      <PanelButton submit disabled={actions.linking || link.trim() === ''}>
+      <PanelButton
+        submit
+        disabled={actions.linking}
+        blocked={link.trim() === '' ? 'Paste the link of your published video first.' : null}
+      >
         {actions.linking ? 'Checking' : 'Link'}
       </PanelButton>
     </form>

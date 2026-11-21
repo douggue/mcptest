@@ -39,6 +39,8 @@ interface PanelProps {
 
 /** The controls: which videos to look at, and the one button that finds the formats. */
 function FormulaPanel({ lab, busy, centerTitle }: PanelProps) {
+  // Once formats are found, finding them again is a quiet choice: the next step is to remix one.
+  const found = (lab.formulas?.formulas.length ?? 0) > 0;
   return (
     <>
       <PanelTitle
@@ -58,11 +60,13 @@ function FormulaPanel({ lab, busy, centerTitle }: PanelProps) {
       </Field>
       <PanelAction
         icon={Sparkles}
+        quiet={found}
         disabled={busy}
         onClick={lab.findFormulas}
         note="An AI run of two to three minutes."
+        blocked={busy ? 'Waits for the AI run under way to finish.' : null}
       >
-        Find formats
+        {found ? 'Find formats again' : 'Find formats'}
       </PanelAction>
       <Notes lab={lab} />
       <Details summary="How this works">

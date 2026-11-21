@@ -1,4 +1,4 @@
-import { PANEL_BUTTON } from './layout/PanelAction';
+import { DisabledReason, PANEL_BUTTON } from './layout/PanelAction';
 import { Download, Search } from 'lucide-react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import type { JobState } from '../lib/api';
@@ -173,6 +173,9 @@ export function MapToolbar(props: Props) {
         >
           {running ? 'Mapping…' : 'Find competitors'}
         </button>
+        {!running && props.query.trim() === '' && (
+          <DisabledReason reason="Paste a channel above first." />
+        )}
         <Progress job={props.job} message={props.message} />
       </div>
       {props.onExport && (

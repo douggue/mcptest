@@ -1,3 +1,5 @@
+import { viewHref } from '../lib/routes';
+import { DisabledReason } from './layout/PanelAction';
 import { MessageSquareText } from 'lucide-react';
 import { useState } from 'react';
 import { askedLine, quotaLine, type CommentsView } from '../lib/comments';
@@ -15,8 +17,14 @@ const CANDIDATES_SHOWN = 15;
 /** Chosen at first: enough to see what recurs, at a small cost. */
 const FIRST_CHOSEN = 3;
 
-const NO_KEY =
-  'No YouTube API key is set. Comments can only be read through the official YouTube API: add a key in Settings, then read the comments here.';
+const NO_KEY = 'Add a YouTube key in Settings to read comments.';
+
+/** Why the comments cannot be read now, in one line; null when they can. */
+function readBlocked(keySet: boolean, chosen: number, busy: boolean): string | null {
+  if (!keySet) return 'Needs a YouTube key in Settings.';
+  if (chosen === 0) return 'Choose a video above.';
+  return busy ? 'Waits for the run under way to finish.' : null;
+}
 
 /** The side panel: the winning videos to read, the quiet read button and the one question. */
 function Picker({ view, comments }: { readonly view: CommentsView; readonly comments: Comments }) {
@@ -66,9 +74,11 @@ function Picker({ view, comments }: { readonly view: CommentsView; readonly comm
       >
         Read comments of {chosen.length} chosen
       </button>
+      <DisabledReason reason={readBlocked(view.keySet, chosen.length, busy)} />
       <PanelButton
         icon={MessageSquareText}
-        disabled={busy || readable.length === 0}
+        disabled={busy}
+        blocked={readable.length === 0 ? 'Read the comments of a video first.' : null}
         onClick={() => comments.ask(readable)}
       >
         What viewers ask for ({readable.length} with comments)
@@ -97,9 +107,12 @@ function Panel({ view, comments }: { readonly view: CommentsView; readonly comme
         </p>
       </Details>
       {!view.keySet && (
-        <p className="rounded-lg border border-border-subtle p-space-sm text-body-sm text-metric-amber">
-          {NO_KEY}
-        </p>
+        <div className="flex flex-col gap-2 rounded-lg border border-border-subtle p-space-sm">
+          <p className="text-body-sm text-metric-amber">{NO_KEY}</p>
+          <a href={viewHref('settings')} className="w-fit text-body-sm font-semibold text-primary">
+            Open Settings
+          </a>
+        </div>
       )}
       <Picker key={view.centerChannelId} view={view} comments={comments} />
     </>

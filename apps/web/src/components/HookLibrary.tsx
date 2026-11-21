@@ -38,24 +38,34 @@ interface StateProps {
 /** Building the library and naming its styles: the one needed next is the primary one. */
 function Actions({ lab, busy, state }: StateProps) {
   const running = lab.jobs.state.status === 'running';
+  // Only the step needed next is primary; naming the styles again is a quiet choice.
+  const nameFirst = state.toRead === 0 && state.unnamed > 0;
+  const again = state.unnamed === 0 && state.withWords > 0;
   return (
     <>
-      <button
-        type="button"
-        disabled={running || state.toRead === 0}
-        onClick={lab.buildHooks}
-        className={state.toRead > 0 ? PRIMARY_BUTTON : QUIET_BUTTON}
-      >
-        {state.built ? 'Read the missing captions' : 'Build the hook library'}
-      </button>
-      <button
-        type="button"
-        disabled={busy || state.withWords === 0}
-        onClick={lab.nameHooks}
-        className={state.toRead > 0 ? QUIET_BUTTON : PRIMARY_BUTTON}
-      >
-        {state.unnamed === 0 && state.withWords > 0 ? 'Name the styles again' : 'Name the styles'}
-      </button>
+      {state.toRead > 0 && (
+        <button
+          type="button"
+          disabled={running}
+          onClick={lab.buildHooks}
+          className={PRIMARY_BUTTON}
+        >
+          {state.built ? 'Read the missing captions' : 'Build the hook library'}
+        </button>
+      )}
+      {state.withWords > 0 && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={lab.nameHooks}
+          className={nameFirst ? PRIMARY_BUTTON : QUIET_BUTTON}
+        >
+          {again ? 'Name the styles again' : 'Name the styles'}
+        </button>
+      )}
+      {(running || busy) && (
+        <span className="text-body-sm text-outline">Waits for the AI run under way.</span>
+      )}
     </>
   );
 }
