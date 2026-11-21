@@ -5,6 +5,7 @@
 import { createAgyEngine } from './agy';
 import { claudeEngine } from './claude';
 import { codexEngine } from './codex';
+import type { PictureCheckRecord } from '../pictureChecks';
 import { ENGINE_IDS, type EngineSettings } from './settings';
 import type { AnalysisEngine, EngineDeps, EngineId, EngineStatus } from './types';
 
@@ -14,6 +15,8 @@ export type Engines = Readonly<Record<EngineId, AnalysisEngine>>;
 export interface EngineReport {
   readonly engines: readonly EngineStatus[];
   readonly order: readonly EngineId[];
+  /** The last picture check of each engine that has had one. */
+  readonly pictureChecks?: readonly PictureCheckRecord[];
 }
 
 const GEMINI_LABEL = 'Gemini API';

@@ -1,3 +1,4 @@
+import { seeingEngines, type PictureCheck } from './pictureCheck';
 import type { NamedVideo } from './videoRefs';
 
 /** The analyses an AI engine can run from the screen; the ids are the server's. */
@@ -63,8 +64,6 @@ export const ENGINE_CHOICES: readonly ChoiceOption[] = [
 export const choiceFrom = (text: string | null): EngineChoice =>
   ENGINE_CHOICES.find((option) => option.choice === text)?.choice ?? AUTOMATIC;
 
-/** The engines that can look at pictures, as the server's PICTURE_ENGINES. */
-const PICTURE_ENGINES: readonly EngineId[] = ['claude', 'codex'];
 /** The questions that need an engine able to look at pictures. */
 const PICTURE_ANALYSES: readonly AnalysisId[] = ['thumbnails'];
 
@@ -76,18 +75,23 @@ export interface ChoicePlan {
 }
 
 /**
- * Which AI a question goes to. A question the chosen AI cannot answer goes to
- * Automatic for that one run, with a note saying so, rather than failing.
+ * Which AI a question goes to. A picture question asked of an engine that has
+ * not passed the picture check goes to Automatic for that one run, with a
+ * note saying so and what to do, rather than failing.
  */
-export function choiceFor(analysis: AnalysisId, choice: EngineChoice): ChoicePlan {
+export function choiceFor(
+  analysis: AnalysisId,
+  choice: EngineChoice,
+  report: EngineReport | null = null,
+): ChoicePlan {
   const needsPictures = PICTURE_ANALYSES.includes(analysis);
-  if (!needsPictures || choice === AUTOMATIC || PICTURE_ENGINES.includes(choice)) {
+  if (!needsPictures || choice === AUTOMATIC || seeingEngines(report).includes(choice)) {
     return { choice, note: null };
   }
   const name = ENGINE_CHOICES.find((option) => option.choice === choice)?.label ?? choice;
   return {
     choice: AUTOMATIC,
-    note: `${name} cannot look at pictures, so this one goes to Claude Code, or else Codex. Your choice stays as it is for everything else.`,
+    note: `${name} has not passed the picture check yet, so this one goes to Claude Code, or else Codex. Run the check in Settings to let ${name} do it.`,
   };
 }
 
@@ -108,6 +112,8 @@ export interface EngineReport {
   readonly engines: readonly EngineStatus[];
   /** The order the engines are tried in. */
   readonly order: readonly EngineId[];
+  /** The last picture check of each engine that has had one; absent from an older server. */
+  readonly pictureChecks?: readonly PictureCheck[];
 }
 
 /** An engine that was passed over, and the reason in plain words. */
@@ -187,7 +193,9 @@ export function choiceHelp(choice: EngineChoice, report: EngineReport | null): s
   if (status && !status.ready) {
     return `${name} is ${stateOf(status)} on this computer${status.note ? `. ${status.note}` : '.'}`;
   }
-  const pictures = choice === 'agy' ? ' The thumbnail review needs Claude Code or Codex.' : '';
+  const pictures = seeingEngines(report).includes(choice)
+    ? ''
+    : ` The thumbnail review needs Claude Code or Codex until ${name} passes the picture check in Settings.`;
   return `Only ${name} answers; nothing else is tried if it cannot.${pictures}`;
 }
 

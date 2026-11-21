@@ -44,6 +44,7 @@ import {
   type Config,
   type Db,
   type FactsOutcome,
+  fetchThumbnail,
   type FetchImage,
   type SearchHit,
   type StoredChannel,
@@ -52,6 +53,7 @@ import {
 } from '@jgtube/core';
 import { randomUUID } from 'node:crypto';
 import { analysisEngines, type AnalysisOptions } from './analysisEngine';
+import { thumbnailFiles, type PictureFileSet } from './thumbnailFiles';
 import { answerEngine } from './answerEngine';
 import { conceptThumbEngine } from './conceptThumbEngine';
 import { styleLockEngine } from './styleLockEngine';
@@ -400,6 +402,15 @@ function discovery(wiring: Wiring, fillFacts: FillFacts): Discovery {
   };
 }
 
+/** A channel's thumbnails as files, chosen from its board and fetched from YouTube. */
+const boardFiles =
+  (maps: MapReads, fetchImage: FetchImage | undefined) =>
+  (channel: string): Promise<PictureFileSet> => {
+    const board = maps.findThumbnailBoard(channel);
+    if (!board) return Promise.reject(new Error('this channel has no map yet'));
+    return thumbnailFiles(board, (videoId) => fetchThumbnail(videoId, fetchImage));
+  };
+
 /** Wires the API to the store and to YouTube. */
 export function createEngine(config: Config, options: EngineOptions = {}): RunningEngine {
   const wiring = wire(config, options);
@@ -417,8 +428,16 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       ((videoId, signal) =>
         downloadVideo(videoId, { root: root(), source: wiring.lazySource, signal, ...env })),
   });
+  const maps = mapReads(wiring);
   const asking = analysisEngines(
-    { ...wiring, options: { ...options, downloadVideo: options.downloadVideo ?? copies.fetch } },
+    {
+      ...wiring,
+      options: {
+        ...options,
+        downloadVideo: options.downloadVideo ?? copies.fetch,
+        pictureFiles: options.pictureFiles ?? boardFiles(maps, options.fetchImage),
+      },
+    },
     stop,
   );
   const reading = downloads({
@@ -429,7 +448,6 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     fetchVideoDetails: options.fetchVideoDetails,
   });
   const files = breakdownFiles({ root, fetch: copies.fetch, stop, ...env });
-  const maps = mapReads(wiring);
   const transferring = transfers({ ...wiring, factsFetcher: () => factsFetcher(wiring) });
   const labbing = lab({
     now: wiring.now,
@@ -491,6 +509,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     analyse: asking.analyse,
     watchVideo: asking.watchVideo,
     engineStatus: asking.engineStatus,
+    checkPictures: asking.checkPictures,
 
     isReadingYouTube() {
       return wiring.leases.holder(wiring.now()) !== null;

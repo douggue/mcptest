@@ -129,6 +129,10 @@ class FakeEngine implements Engine {
     throw new Error('not used in these tests');
   }
 
+  checkPictures(): never {
+    throw new Error('not used in these tests');
+  }
+
   discover(keyword: string): Promise<DiscoveryResult> {
     this.searched.push(keyword);
     return this.searchOutcome;

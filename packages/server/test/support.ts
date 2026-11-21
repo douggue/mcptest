@@ -90,6 +90,7 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     analyse: unused('analyse'),
     watchVideo: unused('watchVideo'),
     engineStatus: unused('engineStatus'),
+    checkPictures: unused('checkPictures'),
     breakDown: unused('breakDown'),
     findBreakdown: unused('findBreakdown'),
     breakdownText: unused('breakdownText'),

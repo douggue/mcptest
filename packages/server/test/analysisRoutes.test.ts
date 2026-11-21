@@ -431,7 +431,11 @@ describe('the engine’s engineStatus', () => {
     const first = await engine.engineStatus();
     await engine.engineStatus();
 
-    expect(first).toEqual({ engines: [status('claude', true)], order: ['claude'] });
+    expect(first).toEqual({
+      engines: [status('claude', true)],
+      order: ['claude'],
+      pictureChecks: [],
+    });
     expect(asked).toBe(1);
     engine.close();
   });
@@ -536,7 +540,11 @@ describe('what is known about the engines after a failed check', () => {
     });
 
     await expect(engine.engineStatus()).rejects.toThrow(/could not start/);
-    await expect(engine.engineStatus()).resolves.toEqual({ engines: [], order: ['claude'] });
+    await expect(engine.engineStatus()).resolves.toEqual({
+      engines: [],
+      order: ['claude'],
+      pictureChecks: [],
+    });
     engine.close();
   });
 });
@@ -584,7 +592,7 @@ describe('an analysis from the one engine the owner chose', () => {
 
     await expect(engine.analyse('thumbnails', CHANNEL_ID, 'agy')).rejects.toMatchObject({
       message:
-        'Thumbnail review cannot be done by Antigravity CLI: it needs Claude Code or Codex CLI. Choose one of those, or Automatic.',
+        'Thumbnail review cannot be done by Antigravity CLI: it needs Claude Code or Codex CLI. Antigravity CLI has not passed the picture check yet: run it in Settings. Choose one of those, or Automatic.',
     });
     expect(tried).toEqual([]);
     engine.close();

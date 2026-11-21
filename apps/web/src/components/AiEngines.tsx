@@ -4,8 +4,11 @@ import {
   choiceFrom,
   choiceHelp,
   type EngineChoice,
+  type EngineId,
   type EngineReport,
 } from '../lib/analyses';
+import type { PictureCheck } from '../lib/pictureCheck';
+import { PictureChecks } from './PictureChecks';
 import { EngineStatusLine } from './AiBadge';
 import { EngineSwitch } from './EngineSwitch';
 import { Details } from './layout/Details';
@@ -18,6 +21,8 @@ export interface AiChoice {
   /** An AI run is under way, so the choice waits until it is done. */
   readonly busy: boolean;
   readonly choose: (choice: EngineChoice) => void;
+  /** Runs the picture check on one engine; absent where it is not offered. */
+  readonly checkPictures?: (engine: EngineId) => Promise<PictureCheck>;
 }
 
 /** The engine choice as a compact list for a side panel, with what the choice means under it. */
@@ -60,6 +65,9 @@ export function AiEngines({ ai }: { readonly ai: AiChoice }) {
             <EngineStatusLine key={line.id} line={line} />
           ))}
         </ul>
+      )}
+      {ai.checkPictures && (
+        <PictureChecks report={ai.engines} busy={ai.busy} check={ai.checkPictures} />
       )}
       <Details summary="What this choice covers">
         <p className="text-body-sm text-on-surface-variant">

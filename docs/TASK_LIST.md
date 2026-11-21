@@ -165,7 +165,8 @@ Phase 7 needs 5.
 - [ ] Ask AI on a real Windows computer (the start-up code is tested with a stand-in disk only)
 - [x] The video downloader connected to the watcher (`videoCopies.ts`): core's `downloadVideo` with the engine's own connection; the copy is removed when the watch is over, however it ended, and at shutdown
 - [x] An analysis and a route that use `watchVideo`: the channel breakdown (below)
-- [ ] Whether Antigravity sees pictures returned by a tool (until known, the thumbnail review uses Claude Code or Codex)
+- [x] Whether Antigravity sees pictures returned by a tool: its docs say the CLI passes on only a tool's text, so it is shown thumbnails as files (`thumbnailFiles.ts`)
+- [ ] The picture check (`POST /api/engines/picture-check`) run against a real `agy` (built and tested with a stand-in only)
 - [ ] Whether Antigravity can watch a YouTube link without the file (`npm run engines -- --try --youtube <link>`; off unless `JGTUBE_AGY_YOUTUBE_LINKS=on`)
 - [ ] Splitting a long video into parts for Antigravity (ffmpeg is now used when installed, but only to cut frames and to shrink a large file of the owner's)
 - [x] The navigation link on the page says "Ask AI", like the section it leads to

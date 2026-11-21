@@ -42,6 +42,18 @@ export interface EngineRunRequest {
   readonly timeoutMs: number;
   /** Where the run starts. A private, empty folder, so no project settings are picked up. */
   readonly cwd: string;
+  /**
+   * Pictures put into the run's own folder before it starts, which the prompt
+   * names as `@name`. Only Antigravity is handed these: its CLI passes on a
+   * tool's text alone, so it is shown pictures as files instead.
+   */
+  readonly files?: readonly RunFile[];
+}
+
+/** One file for a run's folder. The name is made in code, never taken from outside. */
+export interface RunFile {
+  readonly name: string;
+  readonly bytes: Uint8Array;
 }
 
 export interface EngineRunResult {

@@ -16,8 +16,15 @@ import {
   analysisRequest,
   enginesFor,
   frameStudyRequest,
+  picturesNeeded,
+  seesFiles,
   type AnalysisSettings,
 } from './analyses';
+import { runPictureCheck } from './pictureCheckEngine';
+import { pictureChecks, pictureChecksPath, type PictureChecks } from './pictureChecks';
+import type { PictureFileSet } from './thumbnailFiles';
+import { EngineRunError } from './engines/failure';
+import { cleanMessage } from './jobs';
 import type { Engine } from './app';
 import { checkEngines, createEngines, type Engines } from './engines/catalog';
 import { firstAnswer, type EngineAnswer } from './engines/fallback';
@@ -79,6 +86,15 @@ export interface AnalysisOptions {
   readonly spawn?: SpawnProcess;
   /** Replaces the request to Google; used by tests. */
   readonly geminiFetch?: GeminiFetch;
+  /**
+   * A channel's thumbnails as files, for an engine shown pictures that way.
+   * Without it, such an engine is passed over for picture questions.
+   */
+  readonly pictureFiles?: (channel: string) => Promise<PictureFileSet>;
+  /** Where the picture checks are kept; defaults to a file beside the store, none for one in memory. */
+  readonly pictureChecksPath?: string | null;
+  /** Replaces Math.random for the picture check's colours; used by tests. */
+  readonly random?: () => number;
 }
 
 export interface AnalysisWiring {
@@ -88,7 +104,10 @@ export interface AnalysisWiring {
   readonly work: WorkTracker;
 }
 
-export interface AnalysisParts extends Pick<Engine, 'analyse' | 'engineStatus' | 'watchVideo'> {
+export interface AnalysisParts extends Pick<
+  Engine,
+  'analyse' | 'engineStatus' | 'watchVideo' | 'checkPictures'
+> {
   /**
    * Has the first engine that sees pictures go through one video's frames,
    * start to end. Rejects with an EngineRunError like `analyse`.
@@ -178,7 +197,9 @@ function remembered<T>(load: () => Promise<T>, freshMs: number): (fresh?: boolea
 interface Asked {
   readonly title: string;
   /** The engines that may answer it, when it cannot be left to every engine. */
-  readonly engines?: readonly EngineId[];
+  readonly engines?: readonly EngineId[] | null;
+  /** Whether an engine that passed the picture check could answer it. */
+  readonly checkable?: boolean;
 }
 
 /** What to say when no engine could answer; `only` is the one engine the owner chose, if any. */
@@ -194,10 +215,13 @@ function nobodyFor(
       ? 'None of the AI engines on this computer could answer.'
       : `${chosen} could not answer. Choose another AI, or Automatic, and try again.`;
   }
-  const { title, engines: needed } = asked;
+  const { title, engines: needed, checkable = false } = asked;
   const names = (needed ?? []).map((id) => engines[id].label).join(' or ');
-  if (chosen !== null && only !== undefined && needed !== undefined && !needed.includes(only)) {
-    return `${title} cannot be done by ${chosen}: it needs ${names}. Choose one of those, or Automatic.`;
+  if (chosen !== null && only !== undefined && needed && !needed.includes(only)) {
+    const check = checkable
+      ? ` ${chosen} has not passed the picture check yet: run it in Settings.`
+      : '';
+    return `${title} cannot be done by ${chosen}: it needs ${names}.${check} Choose one of those, or Automatic.`;
   }
   if (chosen !== null) return `${chosen} is left out by the JGTUBE_ENGINES setting.`;
   return `${title} needs ${names}, and the JGTUBE_ENGINES setting leaves that out.`;
@@ -211,6 +235,8 @@ interface Shared {
   readonly folders: ReturnType<typeof privateFolders>;
   /** What is known about the engines, found out at most once a minute. */
   readonly statuses: (fresh?: boolean) => Promise<readonly EngineStatus[]>;
+  /** The last picture check of each engine. */
+  readonly checks: PictureChecks;
 }
 
 /** The store as a file an engine's connector can open. Throws when it is only in memory. */
@@ -222,6 +248,14 @@ function storeFile({ config, options }: AnalysisWiring): string {
     );
   }
   return resolve(config.dbPath);
+}
+
+/** Where the picture checks are kept: beside the store on disk, nowhere for one in memory. */
+function checksPathOf({ config, options }: AnalysisWiring): string | null {
+  if (options.pictureChecksPath !== undefined) return options.pictureChecksPath;
+  const store =
+    options.storePath ?? (config.dbPath === IN_MEMORY ? IN_MEMORY : resolve(config.dbPath));
+  return pictureChecksPath(store);
 }
 
 /** The downloads folder, for the connector to look in; none for a store that is only in memory. */
@@ -238,8 +272,8 @@ function asker(
   shared: Shared,
   wiring: AnalysisWiring,
   stop: AbortSignal,
-): Pick<AnalysisParts, 'analyse' | 'studyFrames'> {
-  const { settings, engines, deps, folders } = shared;
+): Pick<AnalysisParts, 'analyse' | 'studyFrames' | 'checkPictures'> {
+  const { settings, engines, deps, folders, checks } = shared;
   const run =
     wiring.options.runEngine ??
     ((id: EngineId, request: EngineRunRequest) => engines[id].run(request, deps));
@@ -259,24 +293,56 @@ function asker(
   };
   const ask = (
     order: readonly EngineId[],
-    requestFor: (engine: EngineId) => EngineRunRequest,
+    requestFor: (engine: EngineId) => EngineRunRequest | Promise<EngineRunRequest>,
     nobody: string,
   ): Promise<EngineAnswer<EngineId>> =>
     firstAnswer(
-      order.map((id) => ({ engine: id, run: () => run(id, requestFor(id), stop) })),
+      order.map((id) => ({ engine: id, run: async () => run(id, await requestFor(id), stop) })),
       nobody,
       () => stop.aborted,
     );
+  /** The thumbnails as files, fetched only when such an engine's turn comes. */
+  const filesFor = async (channel: string): Promise<PictureFileSet> => {
+    const fetch = wiring.options.pictureFiles;
+    if (!fetch) throw new EngineRunError('failed', 'Jgtube cannot hand this engine pictures here.');
+    try {
+      return await fetch(channel);
+    } catch (error) {
+      throw new EngineRunError(
+        'failed',
+        `The thumbnails could not be made into files: ${cleanMessage(error)}`,
+      );
+    }
+  };
   return {
     async analyse(analysis, channel, only, focus) {
       const at = settingsFor();
-      const order = enginesFor(analysis, allowedBy(only));
+      const passed = checks.passed();
+      const order = enginesFor(analysis, allowedBy(only), passed);
+      const spec = ANALYSES[analysis];
+      const asked = {
+        title: spec.title,
+        engines: picturesNeeded(analysis, passed),
+        checkable: spec.filesRoute !== undefined,
+      };
       return ask(
         order,
-        (engine) => analysisRequest(analysis, channel, at(engine), focus),
-        nobodyFor(ANALYSES[analysis], order, engines, only),
+        async (engine) =>
+          spec.pictures && seesFiles(engine)
+            ? analysisRequest(analysis, channel, at(engine), focus, await filesFor(channel))
+            : analysisRequest(analysis, channel, at(engine), focus),
+        nobodyFor(asked, order, engines, only),
       );
     },
+    checkPictures: (engine) =>
+      runPictureCheck(engine, {
+        run: (id, request) => run(id, request, stop),
+        workDir: (id) => folders.for(id),
+        checks,
+        order: () => settings.order,
+        now: () => new Date(),
+        random: wiring.options.random,
+      }),
     async studyFrames(videoId, only) {
       const at = settingsFor();
       const order = allowedBy(only).filter((id) => PICTURE_ENGINES.includes(id));
@@ -321,17 +387,23 @@ export function analysisEngines(wiring: AnalysisWiring, stop: AbortSignal): Anal
     () => options.checkEngines?.() ?? checkEngines(engines, settings, deps),
     STATUS_FRESH_MS,
   );
-  const shared: Shared = { settings, engines, deps, folders: privateFolders(), statuses };
+  const checks = pictureChecks(checksPathOf(wiring));
+  const shared: Shared = { settings, engines, deps, folders: privateFolders(), statuses, checks };
   const asking = asker(shared, wiring, stop);
   const watch = watcher(shared, options);
   return {
     analyse: (analysis, channel, only, focus) =>
       work.run(() => asking.analyse(analysis, channel, only, focus)),
     studyFrames: (videoId, only) => work.run(() => asking.studyFrames(videoId, only)),
+    checkPictures: (engine) => work.run(() => asking.checkPictures(engine)),
     watchesFiles: async () => settings.order.includes('agy') && (await agyInstalled(shared)),
     watchVideo: (videoId, question, options) => work.run(() => watch(videoId, question, options)),
     engineStatus: (fresh) =>
-      work.run(async () => ({ engines: await statuses(fresh), order: settings.order })),
+      work.run(async () => ({
+        engines: await statuses(fresh),
+        order: settings.order,
+        pictureChecks: checks.all(),
+      })),
     runWeb: (request) =>
       work.run(() => {
         if (!settings.order.includes('claude')) {
