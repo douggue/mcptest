@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { constants } from 'node:fs';
 import { access, readdir, stat } from 'node:fs/promises';
-import { delimiter, isAbsolute, join } from 'node:path';
+import { basename, delimiter, isAbsolute, join } from 'node:path';
 
 /**
  * Finding and starting the helper programs the owner may have installed
@@ -59,11 +59,14 @@ async function foldersIn(parent: string): Promise<readonly string[]> {
   return entries.filter((entry) => entry.isDirectory()).map((entry) => join(parent, entry.name));
 }
 
+/** How the folders of Python installed from the Microsoft Store are named. */
+const STORE_PYTHON = 'PythonSoftwareFoundation.Python.';
+
 /**
  * Where the usual Windows installers put a program without always adding it
  * to the PATH of a terminal that was already open: winget's links, scoop's
- * shims, Chocolatey, and the Scripts folders of Python (where `pip install`
- * puts yt-dlp). Only folders named by the owner's own environment are used.
+ * shims, Chocolatey, and the Scripts folders of Python, including Python
+ * from the Microsoft Store (where `pip install` puts yt-dlp). Only folders named by the owner's own environment are used.
  */
 async function windowsInstallFolders(
   env: Readonly<Record<string, string | undefined>>,
@@ -73,7 +76,12 @@ async function windowsInstallFolders(
     return root !== undefined && isAbsolute(root) ? [join(root, ...parts)] : [];
   };
   const pythons = [...under('LOCALAPPDATA', 'Programs', 'Python'), ...under('APPDATA', 'Python')];
-  const scripts = (await Promise.all(pythons.map(foldersIn)))
+  // Python from the Microsoft Store keeps what `pip install` adds in its own package folder.
+  const storePythons = (await Promise.all(under('LOCALAPPDATA', 'Packages').map(foldersIn)))
+    .flat()
+    .filter((folder) => basename(folder).startsWith(STORE_PYTHON))
+    .map((folder) => join(folder, 'LocalCache', 'local-packages'));
+  const scripts = (await Promise.all([...pythons, ...storePythons].map(foldersIn)))
     .flat()
     .map((folder) => join(folder, 'Scripts'));
   return [

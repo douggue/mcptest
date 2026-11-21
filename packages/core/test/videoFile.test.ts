@@ -301,6 +301,17 @@ describe('findProgram', () => {
     expect(await findProgram('yt-dlp', { ALLUSERSPROFILE: join(root, 'all') }, 'win32')).toBe(
       choco,
     );
+    const store = place(
+      'store',
+      'Packages',
+      'PythonSoftwareFoundation.Python.3.13_abc',
+      'LocalCache',
+      'local-packages',
+      'Python313',
+      'Scripts',
+    );
+    place('store', 'Packages', 'SomeOtherApp_abc', 'LocalCache', 'local-packages', 'X', 'Scripts');
+    expect(await findProgram('yt-dlp', { LocalAppData: join(root, 'store') }, 'win32')).toBe(store);
     expect(await findProgram('yt-dlp', { LOCALAPPDATA: local }, 'linux')).toBeNull();
     expect(await findProgram('ffmpeg', { LOCALAPPDATA: local }, 'win32')).toBeNull();
   });
