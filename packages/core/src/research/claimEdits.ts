@@ -1,4 +1,4 @@
-import { HEADING_LINE, CUE_LINE, checkMarkers } from '../script/measure';
+import { HEADING_LINE, CUE_LINE, checkMarkers, markerSentence } from '../script/measure';
 import type { Claim } from './claims';
 
 /**
@@ -58,27 +58,16 @@ export function acceptClaim(script: string, claim: Claim): string {
   return withLine(script, spot.line, `${before}${text.slice(spot.end)}`);
 }
 
-/** Where the sentence around a marker starts and ends in its line. */
-function sentenceBounds(text: string, spot: Spot): { readonly from: number; readonly to: number } {
-  const before = text.slice(0, spot.start);
-  const start = Math.max(
-    before.lastIndexOf('. '),
-    before.lastIndexOf('! '),
-    before.lastIndexOf('? '),
-  );
-  const rest = text.slice(spot.end);
-  const end = rest.search(/[.!?](\s|$)/);
-  return { from: start < 0 ? 0 : start + 2, to: end < 0 ? text.length : spot.end + end + 1 };
-}
-
 /** The script with this claim's sentence replaced by the correction, and a note that says so. */
 export function applyCorrection(script: string, claim: Claim, correction: string): string {
   const spot = spotOf(script, claim);
   if (spot === null) return script;
   const text = script.split('\n')[spot.line] ?? '';
-  const { from, to } = sentenceBounds(text, spot);
+  const { from, to } = markerSentence(text, spot.start, spot.end);
   const said = correction.trim().replace(/\s+/g, ' ');
   const ended = /[.!?]$/.test(said) ? said : `${said}.`;
   const note = `[FIXED: ${claim.what.replace(/[[\]]/g, '')}]`;
-  return withLine(script, spot.line, `${text.slice(0, from)}${ended} ${note}${text.slice(to)}`);
+  // A marker after its sentence goes with the sentence; one inside it is inside the range already.
+  const rest = to <= spot.start ? text.slice(spot.end) : text.slice(to);
+  return withLine(script, spot.line, `${text.slice(0, from)}${ended} ${note}${rest}`);
 }

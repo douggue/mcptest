@@ -49,3 +49,22 @@ describe('applying a correction', () => {
     expect(fixed).toContain('It is small. [FIXED: its size]');
   });
 });
+
+describe('a marker set after the full stop of its sentence', () => {
+  const after = 'Workers fill boxes with iron. [CHECK: the pellets] Then they let air in.';
+
+  test('belongs to the sentence before it, not the one after', () => {
+    expect(checkMarkers(after)).toEqual([
+      { what: 'the pellets', near: 'Workers fill boxes with iron.' },
+    ]);
+  });
+
+  test('is accepted and corrected in that sentence', () => {
+    const claim = { what: 'the pellets', sentence: 'Workers fill boxes with iron.' };
+
+    expect(acceptClaim(after, claim)).toBe('Workers fill boxes with iron. Then they let air in.');
+    expect(applyCorrection(after, claim, 'Workers fill boxes with powdered iron.')).toBe(
+      'Workers fill boxes with powdered iron. [FIXED: the pellets] Then they let air in.',
+    );
+  });
+});

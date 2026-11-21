@@ -43,7 +43,7 @@ export interface ResearchSubject {
 
 const FORM = [
   'Answer in exactly this form and nothing else.',
-  'For each fact, a line "FACT 1:" (then FACT 2, and so on) followed by one sentence that gives what, who, when, where and the figures where there are any; then one or two lines "SOURCE:" each followed by one https address of a page you read that supports it. A fact with no such page is not a fact here: put it under NOT FOUND.',
+  'For each fact, a line "FACT 1:" (then FACT 2, and so on) followed by exactly one sentence (never a second) that gives what, who, when, where and the figures where there are any; then one or two lines "SOURCE:" each followed by one https address of a page you read that supports it. A fact with no such page is not a fact here: put it under NOT FOUND.',
   'Then a line "NOT FOUND:" for each thing you looked for and could not find or could not support with a page.',
   'Then a line "DISPUTED:" for each point where sources disagree, saying what each side says.',
   'Write 8 to 25 facts, the ones a script about this subject would need, most important first.',
@@ -82,8 +82,9 @@ export function claimsQuestion(claims: readonly Claim[]): string {
     'Answer in exactly this form for every statement, in order, and nothing else.',
     'A line "CLAIM 1: CONFIRMED, WRONG or UNSURE" with one of the three words (then CLAIM 2, and so on).',
     'A line "WHY:" with one sentence on what the sources say.',
-    'For WRONG only, a line "CORRECTION:" with the statement as it should read.',
+    'For WRONG only, a line "CORRECTION:" with the statement rewritten as it should read: one sentence, in the same voice, that can replace it in the script as it stands.',
     'One or two lines "SOURCE:" each with one https address of a page you read that supports your verdict.',
+    'Judge the statement itself. The "to verify" note says what its writer doubted; when the note asks about something the statement does not say, judge the statement and say so in WHY.',
     'Write CONFIRMED only when a page you read says so, and WRONG only when a page you read says otherwise. When you cannot tell, write UNSURE.',
   ].join('\n');
 }

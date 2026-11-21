@@ -93,18 +93,37 @@ export interface CheckMarker {
   readonly near: string;
 }
 
-/** The sentence around a position in a line: from the end of the one before to its own end. */
-function sentenceAround(line: string, at: number, after: number): string {
-  const before = line.slice(0, at);
-  const start = Math.max(
-    before.lastIndexOf('. '),
-    before.lastIndexOf('! '),
-    before.lastIndexOf('? '),
-  );
+/** Where the sentence that starts after the last sentence end in a text begins. */
+function sentenceStart(text: string): number {
+  const end = Math.max(text.lastIndexOf('. '), text.lastIndexOf('! '), text.lastIndexOf('? '));
+  return end < 0 ? 0 : end + 2;
+}
+
+const FINISHED = /[.!?]["'”’)]*$/;
+
+/**
+ * Where the claim a marker stands for begins and ends in its line. A marker
+ * set after the full stop of a sentence belongs to that sentence; one set
+ * inside a sentence belongs to the sentence it stands in.
+ */
+export function markerSentence(
+  line: string,
+  at: number,
+  after: number,
+): { readonly from: number; readonly to: number } {
+  const before = line.slice(0, at).trimEnd();
+  if (FINISHED.test(before)) {
+    return { from: sentenceStart(before.replace(FINISHED, '')), to: before.length };
+  }
   const rest = line.slice(after);
   const end = rest.search(/[.!?](\s|$)/);
-  const sentence = line.slice(start < 0 ? 0 : start + 2, end < 0 ? line.length : after + end + 1);
-  return withoutMarkers(sentence);
+  return { from: sentenceStart(line.slice(0, at)), to: end < 0 ? line.length : after + end + 1 };
+}
+
+/** The sentence a marker stands for, without its markers. */
+function sentenceAround(line: string, at: number, after: number): string {
+  const { from, to } = markerSentence(line, at, after);
+  return withoutMarkers(line.slice(from, to));
 }
 
 /** Every check marker in the spoken lines of a script, in order. */
