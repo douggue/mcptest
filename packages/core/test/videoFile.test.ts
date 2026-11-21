@@ -882,3 +882,76 @@ describe('what a failed download tells the owner', () => {
     expect(message).not.toMatch(/did not find yt-dlp/);
   });
 });
+
+describe('a video YouTube offers only as picture and sound apart', () => {
+  const formatOf = (args: readonly string[]): string => args[args.indexOf('--format') + 1] ?? '';
+
+  test('is asked for as one file only, when there is no ffmpeg to join the two', () => {
+    const args = ytDlpArguments(VIDEO, '/tmp/x', 95_000_000, null);
+
+    expect(formatOf(args)).not.toContain('+');
+    expect(args).not.toContain('--ffmpeg-location');
+    expect(args).not.toContain('--merge-output-format');
+  });
+
+  test('is also asked for as the two joined into an MP4, when ffmpeg is on the computer', () => {
+    const ffmpeg = 'C:\\Tools\\ffmpeg\\bin\\ffmpeg.exe';
+    const args = ytDlpArguments(VIDEO, '/tmp/x', 95_000_000, null, ffmpeg);
+    const choices = formatOf(args).split('/');
+
+    expect(choices).toHaveLength(3);
+    expect(choices[0]).not.toContain('+');
+    expect(choices[1]).toMatch(
+      /^worstvideo\[height>=\d+\]\[vcodec\^=avc1\]\+worstaudio\[acodec\^=mp4a\]$/,
+    );
+    expect(choices[2]).toMatch(/^worstvideo\[height>=\d+\]\+worstaudio$/);
+    expect(args[args.indexOf('--ffmpeg-location') + 1]).toBe(ffmpeg);
+    expect(args[args.indexOf('--merge-output-format') + 1]).toBe('mp4');
+    // The link still comes last, after the marker that ends the options.
+    expect(args.at(-2)).toBe('--');
+  });
+
+  test('says ffmpeg is what is missing when yt-dlp finds no single file and there is none', async () => {
+    const noFormat = async () => ({
+      code: 1,
+      stdout: '',
+      stderr: 'ERROR: [youtube] x: Requested format is not available. Use --list-formats',
+    });
+
+    const without = await ytDlpFetcher('/bin/yt-dlp', noFormat, { nodePath: null }).fetch(
+      VIDEO,
+      videoTempFolder(root),
+      95_000_000,
+    );
+    const withIt = await ytDlpFetcher('/bin/yt-dlp', noFormat, {
+      nodePath: null,
+      ffmpegPath: '/usr/bin/ffmpeg',
+    }).fetch(VIDEO, videoTempFolder(root), 95_000_000);
+
+    expect(without).toMatchObject({ ok: false, kind: 'not-available' });
+    expect(without.ok ? '' : without.message).toMatch(/needs ffmpeg/);
+    expect(withIt.ok ? '' : withIt.message).not.toMatch(/ffmpeg/);
+  });
+
+  test('hands yt-dlp the ffmpeg Jgtube found', async () => {
+    const bin = mkdtempSync(join(root, 'bin-'));
+    for (const name of ['yt-dlp', 'ffmpeg']) {
+      writeFileSync(join(bin, name), '');
+      chmodSync(join(bin, name), 0o755);
+    }
+    let seen: readonly string[] = [];
+
+    await downloadVideo(VIDEO, {
+      root,
+      now: () => NOW,
+      env: { PATH: bin },
+      platform: 'linux',
+      run: async (_program, args) => {
+        seen = args;
+        return { code: 1, stdout: '', stderr: 'ERROR: nope' };
+      },
+    });
+
+    expect(seen[seen.indexOf('--ffmpeg-location') + 1]).toBe(join(bin, 'ffmpeg'));
+  });
+});

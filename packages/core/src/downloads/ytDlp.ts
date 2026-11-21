@@ -35,6 +35,17 @@ const MAX_REASON_LENGTH = 200;
  * to join them, which is not assumed here.
  */
 const FORMAT = `worst[height>=${VIDEO_MIN_HEIGHT}][vcodec!=none][acodec!=none]`;
+/**
+ * For many videos YouTube no longer offers one file with picture and sound,
+ * only the two apart. With ffmpeg on the computer yt-dlp can fetch the
+ * smallest watchable picture and the smallest sound and join them into one
+ * MP4: the kinds every player reads first (H.264 with AAC), then any.
+ */
+const JOINED_FORMATS = [
+  `worstvideo[height>=${VIDEO_MIN_HEIGHT}][vcodec^=avc1]+worstaudio[acodec^=mp4a]`,
+  `worstvideo[height>=${VIDEO_MIN_HEIGHT}]+worstaudio`,
+];
+const JOINED_AS = 'mp4';
 /** Printed once the file is in place: its length, height, container and format id. */
 const REPORT = 'after_move:%(duration)s|%(height)s|%(ext)s|%(format_id)s';
 /** What yt-dlp says about a video YouTube will not give to anyone signed out. */
@@ -74,16 +85,21 @@ export function ytDlpArguments(
   folder: string,
   maxBytes: number,
   nodePath: string | null = null,
+  ffmpegPath: string | null = null,
 ): string[] {
+  const format = ffmpegPath === null ? FORMAT : [FORMAT, ...JOINED_FORMATS].join('/');
   return [
     ...(nodePath === null ? [] : [JS_RUNTIMES, `node:${nodePath}`]),
+    ...(ffmpegPath === null
+      ? []
+      : ['--ffmpeg-location', ffmpegPath, '--merge-output-format', JOINED_AS]),
     '--no-playlist',
     '--no-progress',
     '--no-warnings',
     '--no-part',
     '--no-simulate',
     '--format',
-    FORMAT,
+    format,
     '--max-filesize',
     String(maxBytes),
     '--paths',
@@ -96,6 +112,11 @@ export function ytDlpArguments(
     `https://www.youtube.com/watch?v=${videoId}`,
   ];
 }
+
+const NO_SINGLE_FILE =
+  'YouTube offers no file with picture and sound that yt-dlp could fetch for it.';
+const NEEDS_FFMPEG =
+  'Most videos now come as picture and sound apart, and joining them needs ffmpeg, which Jgtube did not find on this computer.';
 
 const failure = (kind: VideoFailure['kind'], message: string): VideoFailure => ({
   ok: false,
@@ -137,10 +158,7 @@ async function readOutcome(
     if (result.code === null) return failure('unreadable', 'yt-dlp took too long and was stopped.');
     if (REFUSED.test(reason)) return failure('refused', REFUSED_MESSAGE);
     if (NO_FORMAT.test(reason)) {
-      return failure(
-        'not-available',
-        'YouTube offers no single file with picture and sound for it.',
-      );
+      return failure('not-available', NO_SINGLE_FILE);
     }
     return NOT_AVAILABLE.test(reason)
       ? failure('not-available', `YouTube will not give this video: ${reason}`)
@@ -179,6 +197,12 @@ export interface YtDlpOptions {
   readonly nodePath?: string | null;
   /** Aborted when Jgtube is closing: yt-dlp is stopped and its file removed. */
   readonly signal?: AbortSignal;
+  /**
+   * Where ffmpeg is, when it is on this computer: yt-dlp can then join a
+   * picture and a sound that YouTube only offers apart. Without it only a
+   * single file with both can be fetched.
+   */
+  readonly ffmpegPath?: string | null;
 }
 
 /**
@@ -193,8 +217,9 @@ export function ytDlpFetcher(
 ): VideoFetcher {
   const nodePath = options.nodePath === undefined ? process.execPath : options.nodePath;
   const { signal } = options;
+  const ffmpegPath = options.ffmpegPath ?? null;
   const start = (videoId: string, folder: string, maxBytes: number, node: string | null) =>
-    run(program, ytDlpArguments(videoId, folder, maxBytes, node), signal);
+    run(program, ytDlpArguments(videoId, folder, maxBytes, node, ffmpegPath), signal);
   return {
     route: 'yt-dlp',
     async fetch(videoId, folder, maxBytes) {
@@ -206,9 +231,13 @@ export function ytDlpFetcher(
       const tooOld =
         nodePath !== null && first.code !== 0 && UNKNOWN_JS_RUNTIMES.test(first.stderr);
       const result = tooOld ? await start(videoId, folder, maxBytes, null) : first;
-      const outcome = signal?.aborted
+      const read = signal?.aborted
         ? failure('unreadable', STOPPED_MESSAGE)
         : await readOutcome(result, videoId, folder, maxBytes);
+      const outcome =
+        !read.ok && read.message === NO_SINGLE_FILE && ffmpegPath === null
+          ? failure('not-available', `${NO_SINGLE_FILE} ${NEEDS_FFMPEG}`)
+          : read;
       if (!outcome.ok) await removeFilesOf(folder, videoId);
       return outcome;
     },

@@ -40,10 +40,16 @@ export async function downloadVideo(
 ): Promise<VideoDownload> {
   const videoId = parseVideoRef(video);
   const program = await findProgram(YT_DLP_PROGRAM, options.env, options.platform);
+  const ffmpegPath = await findProgram(FFMPEG, options.env, options.platform);
   const fetchers: readonly VideoFetcher[] = [
     ...(program === null
       ? []
-      : [ytDlpFetcher(program, options.run, options.signal ? { signal: options.signal } : {})]),
+      : [
+          ytDlpFetcher(program, options.run, {
+            ffmpegPath,
+            ...(options.signal ? { signal: options.signal } : {}),
+          }),
+        ]),
     ...(options.source ? [builtInVideoFetcher(options.source)] : []),
   ];
   const result = await downloadVideoFile(
@@ -53,6 +59,9 @@ export async function downloadVideo(
   );
   return result.ok ? result : { ...result, message: whatHappened(result, program) };
 }
+
+/** The program yt-dlp needs to join a picture and a sound that YouTube offers apart. */
+const FFMPEG = 'ffmpeg';
 
 const GIVE_THE_FILE = 'You can also give Jgtube the video file yourself.';
 
