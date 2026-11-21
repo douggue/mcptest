@@ -36,13 +36,11 @@ function WinnerChip({ thumb }: { readonly thumb: CompareThumb }) {
           referrerPolicy="no-referrer"
           className="h-full w-full object-cover"
         />
-        <span className="absolute bottom-1 right-1 rounded bg-space-deep/90 px-1 text-label-caps text-metric-amber">
+        <span className="absolute bottom-1 right-1 rounded bg-space-deep/90 px-1 text-label text-metric-amber">
           {scoreText(thumb.score)}
         </span>
       </span>
-      <span className="truncate text-label-caps normal-case text-outline">
-        {thumb.channelTitle}
-      </span>
+      <span className="truncate text-label text-outline">{thumb.channelTitle}</span>
     </a>
   );
 }
@@ -119,9 +117,7 @@ function Advice({
     <div className="flex min-w-0 flex-col gap-space-md">
       {readSections(text).map((section, index) => (
         <section key={`${index}-${section.title ?? ''}`} className="flex min-w-0 flex-col gap-2">
-          {section.title && (
-            <h4 className="text-label-caps uppercase text-outline">{section.title}</h4>
-          )}
+          {section.title && <h4 className="text-label text-outline">{section.title}</h4>}
           {section.blocks.map((block, at) => (
             <AdviceBlock key={at} block={block} winners={winners} />
           ))}

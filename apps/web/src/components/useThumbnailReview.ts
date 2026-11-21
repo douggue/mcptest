@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { choiceFor, type EngineChoice, type EngineReport } from '../lib/analyses';
 import { createExtrasApi } from '../lib/extrasApi';
 import { requestCounter } from '../lib/requests';
-import { firstPick, type PickableVideos, type ThumbReviewView } from '../lib/thumbReview';
+import {
+  firstPick,
+  reviewVideoOf,
+  type PickableVideos,
+  type ThumbReviewView,
+} from '../lib/thumbReview';
 import { follow, type Work } from './useComments';
 
 export interface ThumbnailReview {
@@ -37,6 +42,16 @@ export function useThumbnailReview(
   const [turn, setTurn] = useState(0);
   const plan = choiceFor('thumbnails', choice, engines);
 
+  // A "Review this thumbnail" link elsewhere names the video in the address.
+  useEffect(() => {
+    const follow = (): void => {
+      const wanted = reviewVideoOf(window.location.hash);
+      if (wanted !== null) setPicked(wanted);
+    };
+    window.addEventListener('hashchange', follow);
+    return () => window.removeEventListener('hashchange', follow);
+  }, []);
+
   useEffect(() => {
     setPicked(null);
     if (channelId === null) return;
@@ -44,7 +59,7 @@ export function useThumbnailReview(
       .thumbnailVideos(channelId)
       .then((found) => {
         setVideos(found);
-        setPicked((current) => current ?? firstPick(found));
+        setPicked(reviewVideoOf(window.location.hash) ?? firstPick(found));
       })
       .catch((error: unknown) => setProblem(messageOf(error, 'The videos could not be loaded')));
   }, [api, channelId]);

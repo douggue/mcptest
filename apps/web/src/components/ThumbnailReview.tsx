@@ -1,5 +1,6 @@
 import { ScanSearch } from 'lucide-react';
 import type { EngineChoice, EngineReport } from '../lib/analyses';
+import { reviewAnchor } from '../lib/thumbReview';
 import { Card } from './layout/Card';
 import { Notice } from './layout/Notice';
 import { ThumbnailReviewPicker } from './ThumbnailReviewPicker';
@@ -23,7 +24,7 @@ export function ThumbnailReview({ channelId, choice, engines, busy }: Props) {
   const review = useThumbnailReview(channelId, choice, engines);
   const running = review.work.status === 'running';
   return (
-    <Card as="section" label="Review one thumbnail">
+    <Card as="section" label="Review one thumbnail" id={reviewAnchor(review.picked)}>
       <div className="flex min-w-0 flex-col gap-1">
         <h3 className="text-headline-md font-bold text-on-surface">Review one thumbnail</h3>
         <p className="text-body-sm text-on-surface-variant">

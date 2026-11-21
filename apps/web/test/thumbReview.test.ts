@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { createExtrasApi } from '../src/lib/extrasApi';
+import { routeFromHash } from '../src/lib/routes';
 import {
   comparedLine,
   firstPick,
@@ -7,6 +8,9 @@ import {
   liftText,
   missingRows,
   pickList,
+  reviewAnchor,
+  reviewHref,
+  reviewVideoOf,
   scoreText,
   shownRows,
   valueText,
@@ -108,6 +112,18 @@ describe('which rows the page shows', () => {
         }),
       ),
     ).toMatch(/2 could not be looked at and are not counted/);
+  });
+});
+
+describe('a link to the review of one video', () => {
+  test('opens Thumbnails that worked at that video, and is read back from the address', () => {
+    expect(reviewHref('aaaaaaaaaaa')).toBe('#thumbnail-review-aaaaaaaaaaa');
+    expect(routeFromHash(reviewHref('aaaaaaaaaaa')).view).toBe('thumbnails');
+    expect(reviewVideoOf('#thumbnail-review-aaaaaaaaaaa')).toBe('aaaaaaaaaaa');
+    expect(reviewVideoOf('#thumbnail-review-short')).toBeNull();
+    expect(reviewVideoOf('#/thumbnails')).toBeNull();
+    expect(reviewAnchor('aaaaaaaaaaa')).toBe('thumbnail-review-aaaaaaaaaaa');
+    expect(reviewAnchor(null)).toBe('thumbnail-review');
   });
 });
 

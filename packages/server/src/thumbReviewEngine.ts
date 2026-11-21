@@ -22,11 +22,7 @@ import {
 } from '@jgtube/core';
 import type { Engine } from './app';
 import { THUMB_TAG_IDS_MAX } from './thumbReviewQuestions';
-import type {
-  PickableVideo,
-  ThumbReviewEngine,
-  ThumbReviewView,
-} from './thumbReviewTypes';
+import type { PickableVideo, ThumbReviewEngine, ThumbReviewView } from './thumbReviewTypes';
 
 const MAX_OWN = 30;
 const MAX_MAP = 40;

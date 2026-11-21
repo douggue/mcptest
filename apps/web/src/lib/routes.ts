@@ -57,6 +57,7 @@ const ANCHOR_VIEWS: readonly (readonly [string, ViewId])[] = [
   ['breakouts', 'breakouts'],
   ['same-topic', 'same-topic'],
   ['thumbnail-board', 'thumbnails'],
+  ['thumbnail-review', 'thumbnails'],
   ['transfers', 'transfers'],
   ['niches', 'niches'],
   ['formulas', 'formats'],

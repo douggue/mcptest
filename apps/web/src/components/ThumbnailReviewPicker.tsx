@@ -47,7 +47,7 @@ export function ThumbnailReviewPicker({ videos, picked, onPick }: Props) {
                   )}
                 </span>
                 <span className="line-clamp-2 text-body-sm text-on-surface">{video.title}</span>
-                <span className="truncate text-label-caps normal-case text-outline">
+                <span className="truncate text-label text-outline">
                   {own.has(video.videoId) ? 'Yours' : video.channelTitle} · {scoreText(video.score)}
                 </span>
               </button>

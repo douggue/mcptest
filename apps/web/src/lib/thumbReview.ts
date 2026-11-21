@@ -127,6 +127,19 @@ export function pickList(videos: PickableVideos | null): readonly PickableVideo[
   return [...videos.own, ...videos.map.filter((video) => !seen.has(video.videoId))];
 }
 
+const REVIEW_ANCHOR = 'thumbnail-review';
+const REVIEW_HASH = /^#thumbnail-review-([\w-]{11})$/;
+
+/** The address that opens the review of one video, as a link from anywhere in the app. */
+export const reviewHref = (videoId: string): string => `#${REVIEW_ANCHOR}-${videoId}`;
+
+/** The element id the review carries while a video is picked, so a link can scroll to it. */
+export const reviewAnchor = (videoId: string | null): string =>
+  videoId === null ? REVIEW_ANCHOR : `${REVIEW_ANCHOR}-${videoId}`;
+
+/** The video an address asks to review; null when it asks for none. */
+export const reviewVideoOf = (hash: string): string | null => REVIEW_HASH.exec(hash)?.[1] ?? null;
+
 /** The video shown first: the last one reviewed, else the owner's newest. */
 export function firstPick(videos: PickableVideos | null): string | null {
   if (videos === null) return null;
