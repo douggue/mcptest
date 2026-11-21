@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ENGINE_IDS } from './engines/settings';
 import { startExtrasAiJob, type ExtrasContext, type ExtrasRouteTable } from './extrasJobs';
 import { fail, ok } from './http';
+import { conceptLabel } from './jobLabels';
 import { CHANNEL_ID, NO_MAP, bodyOf, channelOf } from './labHttp';
 
 const WHOLE = /^[1-9]\d{0,8}$/;
@@ -35,11 +36,21 @@ async function startAsk(context: ExtrasContext, request: Request): Promise<Respo
   if (body instanceof Response) return body;
   const { extras } = context.options.engine;
   if (!extras.findRisk(body.channel, null)) return fail(404, NO_MAP);
-  return startExtrasAiJob(context, async (report) => {
-    report({ text: 'Asking the AI to check the script before publishing' });
-    const outcome = await extras.askRisk(body.channel, body.conceptId, body.engine);
-    return { kind: 'risk-check', outcome };
-  });
+  return startExtrasAiJob(
+    context,
+    async (report) => {
+      report({ text: 'Asking the AI to check the script before publishing' });
+      const outcome = await extras.askRisk(body.channel, body.conceptId, body.engine);
+      return { kind: 'risk-check', outcome };
+    },
+    conceptLabel(
+      context.options.engine,
+      'risk-check',
+      'Checking before publishing',
+      body.channel,
+      body.conceptId,
+    ),
+  );
 }
 
 export const RISK_ROUTES: ExtrasRouteTable = {
