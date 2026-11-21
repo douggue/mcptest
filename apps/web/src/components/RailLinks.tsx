@@ -70,3 +70,44 @@ export function RailLinks({
     </nav>
   );
 }
+
+/**
+ * The destinations at the foot of a phone: one tab each, icon over a short
+ * name, the one on screen marked. Six fit at 390px; a new destination adds
+ * itself from the same list as the rail.
+ */
+export function BottomTabs({
+  active,
+  centerId,
+}: {
+  readonly active: DestinationId | null;
+  readonly centerId: string | null;
+}) {
+  return (
+    <nav
+      aria-label="Main tabs"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border-subtle bg-space-canvas/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
+    >
+      <ul className="grid auto-cols-fr grid-flow-col">
+        {DESTINATIONS.map((destination) => {
+          const Icon = ICONS[destination.id];
+          const current = destination.id === active;
+          return (
+            <li key={destination.id} className="min-w-0">
+              <a
+                href={destinationHref(destination, centerId)}
+                aria-current={current ? 'page' : undefined}
+                className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 px-1 text-[12px] leading-4 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container ${
+                  current ? 'font-semibold text-primary' : 'text-on-surface-variant'
+                }`}
+              >
+                <Icon aria-hidden="true" className="h-5 w-5 flex-none" />
+                <span className="max-w-full truncate">{destination.label}</span>
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
