@@ -4,9 +4,11 @@ import {
   type AnalysisAnswer,
   type AnalysisId,
   type EngineChoice,
+  type EngineId,
   type EngineReport,
 } from '../lib/analyses';
 import type { Api } from '../lib/api';
+import { withCheck, type PictureCheck } from '../lib/pictureCheck';
 
 export type AnalysisState =
   | { readonly status: 'idle' }
@@ -30,6 +32,8 @@ export interface Analysis {
   readonly choose: (choice: EngineChoice) => void;
   /** Asks the chosen AI, or `only` for this run, for one analysis of a channel. Ignored while one is running. */
   readonly run: (analysis: AnalysisId, channelId: string, only?: EngineChoice) => void;
+  /** Runs the picture check on one engine and keeps its result in the report. Rejects with the server's message. */
+  readonly checkPictures: (engine: EngineId) => Promise<PictureCheck>;
 }
 
 const CHOICE_KEY = 'jgtube.engine';
@@ -100,5 +104,14 @@ export function useAnalysis(api: Api): Analysis {
     rememberChoice(next);
   }, []);
 
-  return { state, engines, choice, choose, run };
+  const checkPictures = useCallback(
+    async (engine: EngineId) => {
+      const check = await api.checkPictures(engine);
+      setEngines((report) => withCheck(report, check));
+      return check;
+    },
+    [api],
+  );
+
+  return { state, engines, choice, choose, run, checkPictures };
 }

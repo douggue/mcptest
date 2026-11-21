@@ -110,7 +110,8 @@ export function AskPanel(props: Props) {
   const [fresh, setFresh] = useState(false);
   const chosen = chosenOf(channels, breakdown.picked);
   const available = engineSummary(analysis.engines);
-  const plan = question === 'breakdown' ? null : choiceFor(question, analysis.choice);
+  const plan =
+    question === 'breakdown' ? null : choiceFor(question, analysis.choice, analysis.engines);
   const ask = (): void => {
     if (question !== 'breakdown') {
       analysis.run(question, centerId, plan?.choice);

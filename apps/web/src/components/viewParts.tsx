@@ -26,6 +26,7 @@ export const aiOf = (work: Workspace): AiChoice => ({
   engines: work.analysis.engines,
   busy: work.asking,
   choose: work.analysis.choose,
+  checkPictures: work.analysis.checkPictures,
 });
 
 /** Draws one view; a table of these is a group of the rail. */
