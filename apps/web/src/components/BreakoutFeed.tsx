@@ -1,5 +1,5 @@
 import type { BreakoutVideo } from '@jgtube/core';
-import { ArrowUpRight, Flame, TrendingUp } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 import {
   BREAKOUT_FILTERS,
@@ -15,6 +15,10 @@ import {
   thumbnailUrl,
   watchUrl,
 } from '../lib/format';
+import { Card } from './layout/Card';
+import { Notice, ShowMore } from './layout/Notice';
+import { Segmented } from './layout/Segmented';
+import { ViewHeader } from './layout/ViewHeader';
 import { CAUTION_LABEL } from './tiers';
 
 const PAGE_SIZE = 8;
@@ -27,13 +31,13 @@ interface CardProps {
   readonly onPick: () => void;
 }
 
-function Card({ item, picked, onPick }: CardProps) {
+function BreakoutCard({ item, picked, onPick }: CardProps) {
   const href = watchUrl(item.videoId);
   const thumbnail = thumbnailUrl(item.videoId);
   const duration = formatDuration(item.durationSeconds);
   return (
-    <article className="group flex flex-col items-start gap-space-md rounded bg-surface-card p-space-md shadow-md transition-colors duration-300 hover:bg-surface-container-low sm:flex-row">
-      <div className="relative aspect-video w-full flex-shrink-0 overflow-hidden rounded bg-surface-container-high sm:w-56">
+    <Card as="article" className="group sm:flex-row sm:items-start">
+      <div className="relative aspect-video w-full flex-shrink-0 overflow-hidden rounded-lg bg-surface-container-high sm:w-60">
         {thumbnail && (
           <img
             src={thumbnail}
@@ -49,56 +53,48 @@ function Card({ item, picked, onPick }: CardProps) {
           </span>
         )}
       </div>
-      <div className="flex min-w-0 flex-1 flex-col justify-between gap-space-sm py-0.5">
-        <div>
-          <div className="mb-1.5 flex flex-wrap items-center gap-2">
-            <span className="flex items-center gap-1 rounded-full bg-metric-amber-bg px-2 py-0.5 text-metric-badge text-metric-amber shadow-sm">
-              <TrendingUp aria-hidden="true" className="h-3.5 w-3.5" />
-              {formatScore(item.score)}
+      <div className="flex min-w-0 flex-1 flex-col gap-space-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1 rounded-full bg-metric-amber-bg px-2 py-0.5 text-metric-badge text-metric-amber">
+            <TrendingUp aria-hidden="true" className="h-3.5 w-3.5" />
+            {formatScore(item.score)}
+          </span>
+          {item.caution && (
+            <span
+              title={CAUTION_LABEL[item.caution].detail}
+              className="rounded-full bg-surface-container-high px-2 py-0.5 text-label-caps text-on-surface-variant"
+            >
+              {CAUTION_LABEL[item.caution].label}
             </span>
-            {item.caution && (
-              <span
-                title={CAUTION_LABEL[item.caution].detail}
-                className="rounded-full bg-surface-container-high px-2 py-0.5 text-label-caps text-on-surface-variant"
-              >
-                {CAUTION_LABEL[item.caution].label}
-              </span>
-            )}
-            <span className="text-label-caps text-outline">
-              {formatCount(item.views)} views · {item.publishedRaw}
-            </span>
-          </div>
-          <h3 className="line-clamp-2 text-title-md text-on-surface transition-colors group-hover:text-primary">
-            {href ? (
-              <a href={href} target="_blank" rel="noopener noreferrer">
-                {item.title}
-              </a>
-            ) : (
-              item.title
-            )}
-          </h3>
-          <p className="mt-1 text-label-caps text-outline">{describeEvidence(item)}</p>
+          )}
+          <span className="text-body-sm text-on-surface-variant">
+            {formatCount(item.views)} views · {item.publishedRaw}
+          </span>
         </div>
-        <div className="flex items-center justify-between text-body-sm text-on-surface-variant">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="flex h-5 w-5 flex-none items-center justify-center rounded-full bg-surface-container-high text-[10px] font-bold text-outline">
-              {initials(item.channelTitle).charAt(0)}
-            </span>
-            <span className="truncate">{item.channelTitle}</span>
-            <span className="flex-none text-outline">
-              · {formatCount(item.channelSubscribers)} subscribers
-            </span>
-          </div>
-          <ArrowUpRight
-            aria-hidden="true"
-            className="h-[18px] w-[18px] flex-none text-outline transition-colors group-hover:text-primary"
-          />
+        <h3 className="line-clamp-2 text-title-md text-on-surface transition-colors group-hover:text-primary">
+          {href ? (
+            <a href={href} target="_blank" rel="noopener noreferrer">
+              {item.title}
+            </a>
+          ) : (
+            item.title
+          )}
+        </h3>
+        <div className="flex min-w-0 items-center gap-2 text-body-sm text-on-surface-variant">
+          <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-surface-container-high text-[11px] font-bold text-outline">
+            {initials(item.channelTitle).charAt(0)}
+          </span>
+          <span className="truncate">{item.channelTitle}</span>
+          <span className="flex-none text-outline">
+            · {formatCount(item.channelSubscribers)} subscribers
+          </span>
         </div>
+        <p className="text-body-sm text-outline">{describeEvidence(item)}</p>
         <button
           type="button"
           aria-pressed={picked}
           onClick={onPick}
-          className={`self-start rounded-full px-3 py-1 text-body-sm font-semibold transition-colors ${
+          className={`mt-1 min-h-9 self-start rounded-full px-4 text-body-sm font-semibold transition-colors ${
             picked
               ? 'bg-primary-container text-on-primary hover:opacity-90'
               : 'bg-surface-container-high text-primary hover:bg-surface-container-highest'
@@ -107,7 +103,7 @@ function Card({ item, picked, onPick }: CardProps) {
           {picked ? 'Picked as inspiration' : 'Use as inspiration'}
         </button>
       </div>
-    </article>
+    </Card>
   );
 }
 
@@ -130,69 +126,46 @@ export function BreakoutFeed({ items, centerTitle, pickedIds, onPick }: Props) {
   };
 
   return (
-    <div className="flex flex-col gap-space-lg xl:col-span-8">
-      <div className="flex flex-col justify-between gap-space-md pb-space-sm sm:flex-row sm:items-end">
-        <div>
-          <div className="flex items-center gap-2">
-            <Flame aria-hidden="true" className="h-[22px] w-[22px] text-metric-amber" />
-            <h2
-              id="breakouts-title"
-              className="text-headline-lg font-bold tracking-tight text-on-surface"
-            >
-              Breaking out right now
-            </h2>
-          </div>
-          <p className="mt-1 text-body-md text-on-surface-variant">
-            Videos from the last 30 days far above their channel&rsquo;s usual views, on the
-            channels around {centerTitle}.
-          </p>
-        </div>
-        <div role="group" aria-label="Filter breakouts" className="flex items-center gap-1.5 pb-1">
-          {BREAKOUT_FILTERS.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              aria-pressed={filter === option.id}
-              onClick={() => choose(option.id)}
-              className={`whitespace-nowrap rounded-full px-3 py-1.5 text-label-caps transition-colors ${
-                filter === option.id
-                  ? 'bg-surface-card font-semibold text-primary shadow-sm'
-                  : 'bg-surface-container text-on-surface-variant hover:bg-surface-card hover:text-on-surface'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+    <>
+      <ViewHeader
+        titleId="breakouts-title"
+        title="Breaking out"
+        count={matching.length}
+        lead={`Videos from the last 30 days far above their channel’s usual views, around ${centerTitle}.`}
+      />
+      <div className="flex min-w-0">
+        <Segmented<BreakoutFilter>
+          label="Filter breakouts"
+          options={BREAKOUT_FILTERS.map((option) => ({ value: option.id, label: option.label }))}
+          value={filter}
+          onChange={choose}
+        />
       </div>
-
       {matching.length === 0 ? (
-        <p className="rounded bg-surface-card p-space-lg text-body-md text-on-surface-variant">
+        <Notice>
           {items.length === 0
             ? 'No video on this map is far enough above its channel’s usual views yet.'
             : 'Nothing on this map matches that filter.'}
-        </p>
+        </Notice>
       ) : (
-        <div className="flex flex-col gap-space-md">
+        <ol className="flex flex-col gap-space-md">
           {matching.slice(0, shown).map((item) => (
-            <Card
-              key={item.videoId}
-              item={item}
-              picked={pickedIds.includes(item.videoId)}
-              onPick={() => onPick(item)}
-            />
+            <li key={item.videoId}>
+              <BreakoutCard
+                item={item}
+                picked={pickedIds.includes(item.videoId)}
+                onPick={() => onPick(item)}
+              />
+            </li>
           ))}
-          {matching.length > shown && (
-            <button
-              type="button"
-              onClick={() => setShown((count) => count + PAGE_SIZE)}
-              className="self-center rounded-full bg-surface-container px-5 py-2.5 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-card"
-            >
-              Show more ({matching.length - shown} left)
-            </button>
-          )}
-        </div>
+        </ol>
       )}
-    </div>
+      {matching.length > shown && (
+        <ShowMore
+          left={matching.length - shown}
+          onClick={() => setShown((count) => count + PAGE_SIZE)}
+        />
+      )}
+    </>
   );
 }

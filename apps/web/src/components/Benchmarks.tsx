@@ -1,129 +1,120 @@
 import type { MapSnapshot } from '@jgtube/core';
-import { Eye, Network } from 'lucide-react';
 import { useState } from 'react';
 import { formatCount, formatScore } from '../lib/format';
-import { ChannelLogo } from './ChannelLogo';
 import { GROUP_LABEL } from '../lib/mix';
+import { ChannelLogo } from './ChannelLogo';
+import { Field } from './layout/Card';
+import { Details } from './layout/Details';
+import { StatTile } from './layout/StatTile';
 import { TIER_LABEL } from './tiers';
 
 const ROWS_SHOWN = 8;
 const BADGE_MIN_SCORE = 2;
 
+type MapChannel = MapSnapshot['channels'][number];
+
 interface Props {
   readonly snapshot: MapSnapshot;
   readonly selectedId: string | null;
+  /** Opens the channel's own view. */
   readonly onSelect: (channelId: string) => void;
 }
 
-/** Every channel on the map as a list, plus a summary of the map itself. */
-export function Benchmarks({ snapshot, selectedId, onSelect }: Props) {
-  const [expanded, setExpanded] = useState(false);
-  const channels = expanded ? snapshot.channels : snapshot.channels.slice(0, ROWS_SHOWN);
-  // The same meaning of rising as the labels on the rows and the split beside the toggle.
+/** The line under a channel's name: its group when it is like yours, its ring and its size. */
+function rowLine(channel: MapChannel): string {
+  const group = channel.peer ? `${GROUP_LABEL[channel.group]} · ` : '';
+  return `${group}${TIER_LABEL[channel.tier]} · ${formatCount(channel.subscribers)} subs`;
+}
+
+interface RowProps {
+  readonly channel: MapChannel;
+  readonly selected: boolean;
+  readonly onSelect: () => void;
+}
+
+/** One channel on the map: logo, name, its place, and its best breakout in amber. */
+function Row({ channel, selected, onSelect }: RowProps) {
+  const score = channel.breakout?.score ?? 0;
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-current={selected ? 'true' : undefined}
+        className="flex w-full min-w-0 items-center gap-space-sm rounded-lg p-1.5 text-left transition-colors hover:bg-surface-container"
+      >
+        <span className="flex h-10 w-10 flex-none items-center justify-center overflow-hidden rounded-full bg-surface-container-high text-xs font-bold text-secondary ring-2 ring-border-subtle">
+          <ChannelLogo title={channel.title} logoUrl={channel.logoUrl} letters={1} />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-body-md text-on-surface">{channel.title}</span>
+          <span className="truncate text-body-sm text-on-surface-variant">{rowLine(channel)}</span>
+        </span>
+        {score >= BADGE_MIN_SCORE ? (
+          <span className="flex-none rounded-full bg-metric-amber-bg px-2 py-0.5 text-metric-badge text-metric-amber">
+            {formatScore(score)}
+          </span>
+        ) : channel.group === 'rising' && !channel.peer ? (
+          <span className="flex-none text-label-caps text-secondary">Rising</span>
+        ) : null}
+      </button>
+    </li>
+  );
+}
+
+/** The map's own numbers, each with what it is. */
+function MapNumbers({ snapshot }: { readonly snapshot: MapSnapshot }) {
+  // The same meaning of rising as the labels on the rows and the split under the radar.
   const rising = snapshot.channels.filter((channel) => channel.group === 'rising').length;
   const crawled = new Date(snapshot.createdAt).toLocaleDateString('en', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   });
-
   return (
-    <div className="flex flex-col gap-space-lg xl:col-span-4">
-      <div className="flex items-center justify-between pb-space-sm">
-        <div className="flex items-center gap-2">
-          <Network aria-hidden="true" className="h-5 w-5 text-primary" />
-          <h2 className="text-title-md text-on-surface">Radar benchmarks</h2>
-        </div>
-        <span className="text-label-caps text-outline">{snapshot.channels.length} channels</span>
-      </div>
+    <dl className="grid grid-cols-2 gap-2">
+      <StatTile label="Channels" value={snapshot.channels.length} note="on this map" />
+      <StatTile label="Rising" value={rising} note="young and far above their size" />
+      <StatTile label="Made on" value={<span className="text-title-md">{crawled}</span>} />
+      <StatTile
+        label="Depth, region"
+        value={<span className="text-title-md">{`L${snapshot.depth} · ${snapshot.region}`}</span>}
+      />
+    </dl>
+  );
+}
 
-      <div className="flex flex-col gap-3 rounded bg-surface-card p-space-md shadow-xl">
-        {channels.map((channel) => {
-          const score = channel.breakout?.score ?? 0;
-          return (
-            <div
+/** The map in brief, then every channel on it behind a disclosure; a channel opens its view. */
+export function Benchmarks({ snapshot, selectedId, onSelect }: Props) {
+  const [expanded, setExpanded] = useState(false);
+  const channels = expanded ? snapshot.channels : snapshot.channels.slice(0, ROWS_SHOWN);
+  return (
+    <>
+      <Field label="This map">
+        <MapNumbers snapshot={snapshot} />
+      </Field>
+      <Details summary={`Channels on this map (${snapshot.channels.length})`}>
+        <ul className="flex flex-col gap-1">
+          {channels.map((channel) => (
+            <Row
               key={channel.id}
-              className={`flex items-center justify-between gap-2 rounded p-2.5 transition-colors ${
-                channel.id === selectedId
-                  ? 'bg-surface-container ring-1 ring-border-highlight'
-                  : 'bg-surface-container-low hover:bg-surface-container'
-              }`}
-            >
-              <div className="flex min-w-0 items-center gap-space-sm">
-                <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-space-deep text-xs font-bold text-secondary">
-                  <ChannelLogo title={channel.title} logoUrl={channel.logoUrl} letters={1} />
-                </div>
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-body-sm font-semibold text-on-surface">
-                    {channel.title}
-                  </span>
-                  <span className="truncate text-label-caps text-outline">
-                    {channel.peer && (
-                      <span
-                        className={
-                          channel.group === 'neither' ? undefined : 'text-primary-fixed-dim'
-                        }
-                      >
-                        {GROUP_LABEL[channel.group]} ·{' '}
-                      </span>
-                    )}
-                    {TIER_LABEL[channel.tier]} · {formatCount(channel.subscribers)} subs
-                  </span>
-                </div>
-              </div>
-              <div className="flex flex-none items-center gap-1">
-                {score >= BADGE_MIN_SCORE ? (
-                  <span className="rounded-full bg-metric-amber-bg px-2 py-0.5 text-metric-badge text-metric-amber">
-                    {formatScore(score)}
-                  </span>
-                ) : channel.group === 'rising' && !channel.peer ? (
-                  <span className="text-label-caps text-secondary">Rising</span>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => onSelect(channel.id)}
-                  aria-label={`Show ${channel.title} on the radar`}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-outline hover:text-on-surface"
-                >
-                  <Eye aria-hidden="true" className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          );
-        })}
+              channel={channel}
+              selected={channel.id === selectedId}
+              onSelect={() => onSelect(channel.id)}
+            />
+          ))}
+        </ul>
         {snapshot.channels.length > ROWS_SHOWN && (
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
             aria-expanded={expanded}
-            className="rounded-full bg-surface-container py-2.5 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-high"
+            className="min-h-10 rounded-full bg-surface-container px-4 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-high"
           >
             {expanded ? 'Show fewer' : `Show all ${snapshot.channels.length}`}
           </button>
         )}
-      </div>
-
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded bg-surface-card p-space-md shadow-xl">
-        <div className="col-span-2 text-label-caps uppercase text-outline">This map</div>
-        <div>
-          <dt className="text-body-sm text-on-surface-variant">Channels shown</dt>
-          <dd className="text-headline-md text-on-surface">{snapshot.channels.length}</dd>
-        </div>
-        <div>
-          <dt className="text-body-sm text-on-surface-variant">Rising</dt>
-          <dd className="text-headline-md text-primary">{rising}</dd>
-        </div>
-        <div>
-          <dt className="text-body-sm text-on-surface-variant">Made on</dt>
-          <dd className="text-body-md font-semibold text-on-surface">{crawled}</dd>
-        </div>
-        <div>
-          <dt className="text-body-sm text-on-surface-variant">Depth and region</dt>
-          <dd className="text-body-md font-semibold text-on-surface">
-            L{snapshot.depth} · {snapshot.region}
-          </dd>
-        </div>
-      </dl>
-    </div>
+      </Details>
+    </>
   );
 }
