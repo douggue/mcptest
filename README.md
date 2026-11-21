@@ -667,6 +667,26 @@ written. Jgtube keeps only answers that rest on comments it really handed over, 
 nothing can be made up. Comments are kept on your computer; who wrote them is not.
 Comments are strangers' text: the AI is told they are never instructions.
 
+### Check before publishing
+
+Before you publish a script, open **Check before publishing** (or press the
+button of that name in the script writer). For the script, Jgtube lists three
+kinds of thing to look at:
+
+- **Title and thumbnail claims the script does not support**: one AI question
+  compares your title, alternate titles, thumbnail brief and overlay with the
+  script, and quotes both. Jgtube keeps a claim only when both quotes are really
+  there. Press **Check the claims** to ask it (it uses some of your AI plan).
+- **Sentences sharing long runs of words with a competitor**: found by Jgtube
+  itself, comparing each sentence with the transcripts it has stored of the
+  channels like yours on this map; six words or more in the same order is
+  listed, with the shared words and a link to their video.
+- **Facts still marked to check**: every [CHECK: …] left in the script, counted.
+
+It is a list of things to look at, not legal advice, and it says nothing about
+whether YouTube's rules allow anything. If you change the script after a check,
+it says so.
+
 ### Where else
 
 **Where else this could work** suggests other languages and other categories

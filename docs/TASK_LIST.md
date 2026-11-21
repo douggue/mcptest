@@ -287,3 +287,7 @@ or computed in code and labelled; no view forecasts; nothing published to YouTub
 - [x] Checked on a copy of a real store with stand-in comments: the real connector over its protocol, and the code check dropping a finding resting on an invented id
 - [ ] The comments client checked against the real YouTube API: no key exists here, so it is built to the documented API and tested with stand-ins
 - [ ] A real AI run of "What viewers ask for": tested with a stand-in answer only, as agreed
+- [x] Check before publishing: for a kept concept's script, sentences sharing six or more words in a row with a stored competitor transcript (found in code, reusing the hook library's check), facts still marked to check (counted in code), and title or thumbnail claims the script does not support from one fixed question (`risk-check`), kept only when both quotes are really there; a new read-only tool, `get_risk_findings`; store step 42, provisional
+- [x] A section in the Create group and a button in the script writer that jumps to it; no legal advice, no verdict
+- [x] Checked on a copy of a real store: the real tightened script against 12 stored transcripts, 1 overlap and 76 facts still marked, found in code
+- [ ] The one real AI run of the risk check: refused by the engine, whose plan limit was reached, until 24 Nov; the claims part is tested with stand-in answers only

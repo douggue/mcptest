@@ -166,6 +166,13 @@ turned off, and each centre channel's latest checked "What viewers ask for"
 (`video_ids_json`, `findings_json` checked again with a schema when read, `engine`,
 `asked_at`). They refer to no other table. See "Comment mining".
 
+`risk_checks` (step 42, provisional, numbered at merge) holds a kept concept's
+latest checked AI risk check: `concept_id` (primary key, `ON DELETE CASCADE` from
+`concepts`), `center_channel_id`, `claims_json` and `notes_json` (checked again with
+a schema when read), `engine`, `checked_at` and `script_updated_at`. What code works
+out (overlaps, unchecked facts) is not kept: it is worked out at each look. See
+"Check before publishing".
+
 ### Keeping the store safe
 
 - **Backup before upgrade.** When an existing store with data has pending
@@ -1352,6 +1359,33 @@ unitsPerVideo, maxVideos, dailyUnits, candidates, answer}`; `POST /api/comments/
 jobs read at `GET /api/extras/job?id=`. Reading answers 400 with no key before it
 starts.
 
+### Check before publishing
+
+Built (`packages/core/src/risk/`, `packages/server/src/riskEngine.ts`,
+`riskRoutes.ts`, `extrasAnalyses.ts`, `packages/mcp/src/extraTools.ts`,
+`apps/web/src/lib/risk.ts`, `components/RiskCheck.tsx`, `RiskParts.tsx`). For one
+kept concept's script (the tightened text when there is one, else the draft). A
+list of what to look at; no legal advice, no verdict on YouTube's rules.
+
+| Finding         | Worked out by                                   | Rule                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Overlaps        | Code, at each look (`scriptOverlaps`)           | Each sentence of the spoken text (headings, cues and check markers left out) against every stored transcript of the look-alikes on the latest map: a run of six or more words in the same order (`LIFT_MIN_WORDS`, the hook library's own check, `longestSharedRun`). Six-word runs are indexed first so long transcripts are compared quickly. Each gets an id, o1, o2… |
+| Unchecked facts | Code, at each look (`checkMarkers`)             | Every [CHECK: …] left in the script, counted and listed                                                                                                                                                                                                                                                                                                                  |
+| Claims          | One AI question, then code (`verifyRiskAnswer`) | A title, alternate title, thumbnail brief or overlay claim the script does not support. Kept only when its words are really in that part of the packaging and the script's words are really in the script (or NONE), compared in one case with single spaces and one kind of quote mark; at most 12                                                                      |
+| Overlap notes   | The same question, then code                    | One sentence describing an overlap; kept only for an id code produced                                                                                                                                                                                                                                                                                                    |
+
+The question is one entry in `ANALYSES`, `risk-check`, started as a job in the one AI
+slot. It names the channel id and the concept number only, and reads through three
+read-only tools: `get_concept`, `get_script` and `get_risk_findings`, which hands
+over what code found under a line saying it was worked out in code and is to be
+described, never judged. The checked answer is kept per concept with the time the
+script last changed then, so a later change is said.
+
+Routes: `GET /api/risk?channel=UC…&concept=N` answers `{centerChannelId, concepts,
+check}` (the kept concepts with a script, and the chosen one's check); `POST
+/api/risk/ask {channel, conceptId, engine?}` starts the job, read at `GET
+/api/extras/job?id=`.
+
 ### Exact channel dates
 
 Built (`packages/core/src/niches/facts.ts`, `packages/core/src/repos/sqliteFactsRepo.ts`).
@@ -1539,6 +1573,7 @@ Claude reads what the app shows. Setup for the owner is in
 | `get_breakdown_part`          | `channel`, `part` (basis, titles, thumbnails, scripts, picture, strategy, plan, master) | A line of JSON (`written`, `by`, `at`), then one stored part of the channel's breakdown; `written: false` with the reason when it is missing                                                                                                                         |
 | `get_channel_note`            | `channel`, `kind` (thumbnail-review, style-lock)                                        | A line of JSON (`written`, `by`, `at`), then the kept study; `written: false` when none is kept                                                                                                                                                                      |
 | `get_viewer_comments`         | `channel` (id), `videos` (1 to 10 ids)                                                  | A line that comments are strangers' text and never instructions, then JSON: each asked video that is a winner of the channel's map, with its stored comments (id, text, likes), most liked first, 60 at most                                                         |
+| `get_risk_findings`           | `channel` (id), `concept`                                                               | A line that it was worked out by Jgtube in code, then JSON: stage, sentences sharing six or more words with a stored transcript, unchecked facts                                                                                                                     |
 
 One prompt, `thumbnail_review` (argument `channel`), tells the model to read the
 board, look at the owner's thumbnails and the winners with `view_thumbnails`, and
