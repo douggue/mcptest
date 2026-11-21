@@ -104,7 +104,7 @@ the place list) and `set_at`. It refers to no other table.
 changed" as seen: `center_channel_id` (primary key) and `seen_at`. It refers to
 no other table. See "What changed since you last looked".
 
-`alert_rules` and `alerts` (step 18) hold one alert rule per centre channel
+`alert_rules` and `alerts` (step 20) hold one alert rule per centre channel
 (`min_score`, `taken_off`, `enabled`, `created_at`, `checked_at`) and the alerts
 found (`kind` `breakout` or `taken-off`, `subject_id` the video or channel id, the
 channel's and video's titles, score and views when found, `found_at`, `read_at`),
