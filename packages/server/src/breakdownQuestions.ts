@@ -40,6 +40,12 @@ export const BREAKDOWN_TIMEOUT_MS = 15 * 60 * 1000;
  */
 export const FRAME_STUDY_MAX_TURNS = 40;
 export const FRAME_STUDY_TIMEOUT_MS = 20 * 60 * 1000;
+/**
+ * The most words asked of one frame study, so that it is stored whole and the
+ * writing run can read three of them. A study of eight preview sheets came to
+ * about 2,300 words when left unbounded.
+ */
+export const FRAME_STUDY_MAX_WORDS = 5000;
 /** Ordinary videos set beside the top ones for the title, thumbnail and description comparisons. */
 const ORDINARY_COMPARED = 5;
 
@@ -80,7 +86,8 @@ export function frameStudyQuestion(videoId: string): string {
     `For the video ${video}: look at every sheet of its frames, in order, with view_video_frames.`,
     'Call it with start_sheet 1. Each answer says where the frames came from (source), how many sheets and frames the video has (ofSheets, frames), which sheets it holds, and under next the start_sheet to ask for next. Keep calling with that number until an answer says last. Do not stop early and do not skip a sheet.',
     'Describe only sheets you were shown: a sheet that was not shown, or that could not be loaded, must be named as not seen and not described.',
-    'Write one short entry for each sheet, headed by its start and end time from its caption: what is on screen; the kind of picture (for example filmed footage, stock footage, screen recording, map, diagram, drawn or generated illustration, photograph, text card, a person talking to the camera); any words on screen, quoted; and at which frames the picture changes.',
+    'Write one entry for each sheet, headed by its start and end time from its caption: what is on screen; the kind of picture (for example filmed footage, stock footage, screen recording, map, diagram, drawn or generated illustration, photograph, text card, a person talking to the camera); any words on screen, quoted; and at which frames the picture changes.',
+    `Keep the whole study under ${FRAME_STUDY_MAX_WORDS} words. With few sheets, go frame by frame; with many, put neighbouring frames that show the same thing into one line with their times.`,
     'Then write four sections. WHAT REPEATS: visual devices used again and again, with times. HOW OFTEN THE PICTURE CHANGES: for the opening, the middle and the end, how many changes you can see between neighbouring frames on a sheet; say that a change quicker than the gap between two frames cannot be seen. OPENING: the first 30 seconds, frame by frame. ENDING: what the last sheet shows.',
     'End with two lines in exactly this form. FRAMES LOOKED AT: X of Y, where Y is the number of frames the tool said the video has and X is the number of frames on the sheets you were shown. SOURCE: the tool’s own words for where the frames came from.',
     'Say only what the pictures show. Do not guess at sound, music or the exact cut between two shots: frames cannot show them.',

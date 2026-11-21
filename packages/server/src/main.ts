@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
+import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { loadConfig } from '@jgtube/core';
-import { createApp } from './app';
+import { UPLOAD_PATH, createApp } from './app';
 import { createEngine } from './engine';
 import { loadEngineSettings } from './engines/settings';
 import { JobStore } from './jobs';
@@ -67,7 +68,21 @@ async function toRequest(request: IncomingMessage): Promise<Request> {
     if (typeof value === 'string') headers.set(name, value);
   }
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
-  return new Request(`http://${request.headers.host ?? HOST}${request.url ?? '/'}`, {
+  const url = `http://${request.headers.host ?? HOST}${request.url ?? '/'}`;
+  // A video file is far larger than any other body: it is handed on as a
+  // stream for the route to write to disk, with the route's own size cap.
+  if (request.method === 'PUT' && (request.url ?? '').startsWith(UPLOAD_PATH)) {
+    // A request whose body is a stream must say it does not expect to read
+    // the reply while it sends; the browser's type for this lacks the field.
+    const streamed: RequestInit & { duplex: 'half' } = {
+      method: 'PUT',
+      headers,
+      body: Readable.toWeb(request) as ReadableStream<Uint8Array>,
+      duplex: 'half',
+    };
+    return new Request(url, streamed);
+  }
+  return new Request(url, {
     method: request.method,
     headers,
     body: hasBody ? new Uint8Array(await readBody(request)) : undefined,

@@ -35,7 +35,7 @@ export function isTrustedHost(request: Request, allowedHosts: readonly string[])
  * A browser sends an Origin header on cross-site POSTs. Refusing any origin
  * that is not this server stops another website from changing anything here.
  */
-function isCrossSite(request: Request, allowedHosts: readonly string[]): boolean {
+export function isCrossSite(request: Request, allowedHosts: readonly string[]): boolean {
   const origin = request.headers.get('origin');
   if (origin === null) return false;
   try {
