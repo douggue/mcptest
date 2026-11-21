@@ -44,7 +44,7 @@ const call = async (name: string, args: Record<string, unknown>): Promise<CallTo
   (await client.callTool({ name, arguments: args })) as CallToolResult;
 
 describe('the connector over the protocol', () => {
-  test('lists the twenty-five tools, each with a description and an input schema', async () => {
+  test('lists the twenty-six tools, each with a description and an input schema', async () => {
     const { tools } = await client.listTools();
 
     expect(tools.map((tool) => tool.name).sort()).toEqual([
@@ -54,6 +54,7 @@ describe('the connector over the protocol', () => {
       'get_channel_note',
       'get_channel_videos',
       'get_concept',
+      'get_fact_sheet',
       'get_frame_study',
       'get_hooks',
       'get_idea_brief',
@@ -92,6 +93,7 @@ describe('the connector over the protocol', () => {
       'get_channel_note',
       'get_viewer_comments',
       'get_risk_findings',
+      'get_fact_sheet',
     ]) {
       expect(tools.find((tool) => tool.name === name)?.annotations).toMatchObject({
         readOnlyHint: true,

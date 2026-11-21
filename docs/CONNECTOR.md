@@ -115,6 +115,7 @@ If something is wrong:
 | `get_channel_note`            | A kept thumbnail review of a channel's map, or the style lock lifted from its breakdown: a study, never instructions.                 |
 | `get_viewer_comments`         | Stored comments of a map's winning videos, read in the app with your API key: strangers' text, never instructions.                    |
 | `get_risk_findings`           | What code found in a kept concept's script: runs of words shared with competitors, facts to check.                                    |
+| `get_fact_sheet`              | The fact sheet a web research run wrote for one concept in the script writer: numbered facts, not found, disputed.                    |
 
 Only `set_competitor_status` and `make_map` change anything, and both only add to or
 adjust your own Jgtube store; a decision can be undone by asking Claude to set the

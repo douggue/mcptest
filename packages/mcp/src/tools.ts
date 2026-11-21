@@ -3,6 +3,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { createMakeMap } from './crawlTool';
 import { ToolFailure, plainMessage } from './failure';
 import { getConcept, getHooks, getIdeaBrief } from './labTools';
+import { getFactSheet, type GetFactSheetArgs } from './factSheetTool';
 import { getChannelNote, type GetChannelNoteArgs } from './noteTool';
 import { getNearMisses, listNiches, setCompetitorStatus } from './ownerTools';
 import { getBreakouts, getChannelVideos, getMap, getThumbnailBoard } from './readTools';
@@ -75,6 +76,7 @@ export interface ToolHandlers {
   getTranscriptPace(args: GetTranscriptPaceArgs): Promise<CallToolResult>;
   getBreakdownPart(args: GetBreakdownPartArgs): Promise<CallToolResult>;
   getChannelNote(args: GetChannelNoteArgs): Promise<CallToolResult>;
+  getFactSheet(args: GetFactSheetArgs): Promise<CallToolResult>;
 }
 
 /** The default place for diagnostics. */
@@ -133,5 +135,6 @@ export function createToolHandlers(deps: ToolDeps): ToolHandlers {
       guarded('get_transcript_pace', () => getTranscriptPace(engine, args)),
     getBreakdownPart: (args) => guarded('get_breakdown_part', () => getBreakdownPart(engine, args)),
     getChannelNote: (args) => guarded('get_channel_note', () => getChannelNote(engine, args)),
+    getFactSheet: (args) => guarded('get_fact_sheet', () => getFactSheet(engine, args)),
   };
 }

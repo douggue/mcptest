@@ -23,6 +23,7 @@ import type {
 } from '@jgtube/core';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { ConceptForTool, HookLibrary, IdeaBrief } from '@jgtube/server/src/labTypes';
+import type { ResearchView } from '@jgtube/server/src/researchEngine';
 import type { ScriptForTool } from '@jgtube/server/src/scriptTypes';
 import type { ToolComments } from '@jgtube/server/src/commentsTypes';
 import type { RiskToolFindings } from '@jgtube/server/src/riskTypes';
@@ -556,6 +557,13 @@ export class FakeEngine implements ConnectorEngine {
   findBreakdownPart(channelRef: string, part: BreakdownPartId): StoredBreakdownPart | null {
     this.reads.push(['part', channelRef, part]);
     return this.parts.find((stored) => stored.part === part) ?? null;
+  }
+
+  research: ResearchView = { sheet: null, claims: [] };
+
+  findResearch(channel: string, conceptId: number): ResearchView {
+    this.reads.push(['research', channel, conceptId]);
+    return this.research;
   }
 
   notes: StoredChannelNote[] = [];

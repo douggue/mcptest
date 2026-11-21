@@ -12,6 +12,7 @@ import { useLabJob } from './useLabJob';
 import { useNiches } from './useNiches';
 import { useRefresh } from './useRefresh';
 import { useSameTopic } from './useSameTopic';
+import { useResearch } from './useResearch';
 import { useScript } from './useScript';
 import { useThumbnailBoard } from './useThumbnailBoard';
 import { useTransfers } from './useTransfers';
@@ -50,6 +51,13 @@ export function useWorkspace(
     breakdown.state.status === 'running' ||
     labJobs.state.status === 'running';
   const script = useScript(labApi, labJobs, centerId, analysis.choice);
+  const research = useResearch(
+    labApi,
+    labJobs,
+    centerId,
+    script.view?.concept.id ?? null,
+    analysis.choice,
+  );
   const voices = useMemo(() => (snapshot ? voiceChoices(snapshot) : []), [snapshot]);
   const reloadNiches = niches.reload;
   const reloadTransfers = transfers.reload;
@@ -63,7 +71,7 @@ export function useWorkspace(
   const alertCounts = useAlertCounts(refresh.run.status);
   return {
     ...{ board, sameTopic, niches, transfers, analysis, breakdown, breakdownChannels },
-    ...{ labJobs, lab, asking, script, voices, refresh, alertCounts },
+    ...{ labJobs, lab, asking, script, research, voices, refresh, alertCounts },
   };
 }
 

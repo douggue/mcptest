@@ -30,6 +30,7 @@ import type { AnalysisId } from './analyses';
 import type { AnswerEngine } from './answerEngine';
 import type { ConceptThumbEngine } from './conceptThumbEngine';
 import type { FlowEngine } from './flowEngine';
+import type { ResearchEngine } from './researchEngine';
 import type { StyleLockEngine } from './styleLockEngine';
 import { readFlow, styleLockRoute } from './styleLockRoutes';
 import { NAMED_VIDEOS_PATH, readAnswer, readNamedVideos } from './answerRoutes';
@@ -137,7 +138,8 @@ export interface Engine
     AnswerEngine,
     ConceptThumbEngine,
     StyleLockEngine,
-    FlowEngine {
+    FlowEngine,
+    ResearchEngine {
   /** The later features, kept together: what changed since the owner last looked. */
   readonly extras: ExtrasEngine;
   /** The latest stored map around a channel; reads the store only. */

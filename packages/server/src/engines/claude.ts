@@ -87,7 +87,7 @@ const SIGN_IN_AGAIN =
   'Claude Code is signed out on this computer, or its login has run out. Open a terminal, type "claude auth login", follow it, then try again.';
 
 /** Turns what the process printed into an answer, or the reason there is none. */
-function readReply({ stdout, stderr, code }: ProcessOutput): EngineRunResult {
+export function readClaudeReply({ stdout, stderr, code }: ProcessOutput): EngineRunResult {
   const parsed = replySchema.safeParse(jsonReply(stdout));
   if (!parsed.success) {
     const detail = said(stderr);
@@ -128,7 +128,7 @@ export async function runClaude(
     },
     deps,
   );
-  return readReply(output);
+  return readClaudeReply(output);
 }
 
 const knowsAuthStatus = (version: string | null): boolean => {

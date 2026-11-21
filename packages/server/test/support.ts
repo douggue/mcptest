@@ -35,6 +35,7 @@ export const UNUSED_LAB: LabEngine & ScriptEngine = {
   voiceOf: unused('voiceOf'),
   readVoice: unused('readVoice'),
   findScript: unused('findScript'),
+  setScriptLength: unused('setScriptLength'),
 };
 
 /** The later features' part of an engine, failing loudly when a test reaches it. */
@@ -109,6 +110,9 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     listConceptThumbnails: unused('listConceptThumbnails'),
     findStyleLock: unused('findStyleLock'),
     flowCounts: unused('flowCounts'),
+    findResearch: unused('findResearch'),
+    researchConcept: unused('researchConcept'),
+    checkClaims: unused('checkClaims'),
     useStyleLock: unused('useStyleLock'),
     stopStyleLock: unused('stopStyleLock'),
     writeConceptThumbnail: unused('writeConceptThumbnail'),

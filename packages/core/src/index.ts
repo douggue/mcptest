@@ -541,6 +541,44 @@ export {
 export * from './extras';
 export { liftStyleLock, readStyleLock, styleLockNote } from './breakdown/styleLock';
 export {
+  FACT_REF,
+  MAX_FACTS,
+  MAX_SOURCES_PER_FACT,
+  factRefs,
+  httpsSource,
+  parseFactSheet,
+  sentencesOnFacts,
+  type Fact,
+  type FactSheet,
+} from './research/factSheet';
+export {
+  MAX_CLAIMS_PER_RUN,
+  claimsToCheck,
+  parseClaimVerdicts,
+  type Claim,
+  type ClaimVerdict,
+  type Verdict,
+} from './research/claims';
+export type {
+  CheckedClaim,
+  ResearchRepo,
+  StoredClaim,
+  StoredFactSheet,
+  TypedLength,
+} from './research/types';
+export { SqliteResearchRepo } from './repos/sqliteResearchRepo';
+export {
+  MAX_TARGET_SECONDS,
+  MAX_TARGET_WORDS,
+  MIN_TARGET_SECONDS,
+  MIN_TARGET_WORDS,
+  lengthProblem,
+  parseMinutes,
+  secondsForWords,
+  wordsForSeconds,
+} from './script/length';
+export { acceptClaim, applyCorrection } from './research/claimEdits';
+export {
   PROFILE_VIDEOS,
   loadChannelProfile,
   type ChannelProfile,

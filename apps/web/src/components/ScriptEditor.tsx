@@ -1,5 +1,5 @@
 import { Check, ClipboardCopy, Download, Square } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   checklist,
   clockOf,
@@ -39,6 +39,7 @@ interface ExportProps {
   readonly markFacts: boolean;
   /** The concept's thumbnail prompt, carried at the end of the Markdown file; null when none. */
   readonly thumbnailPrompt: string | null;
+  readonly sources: readonly string[];
 }
 
 /**
@@ -47,7 +48,14 @@ interface ExportProps {
  * leaves the check markers out, so it is never copied silently while facts
  * are still unchecked: the first press says how many, the second copies.
  */
-function Exports({ title, text, wordsPerMinute, markFacts, thumbnailPrompt }: ExportProps) {
+function Exports({
+  title,
+  text,
+  wordsPerMinute,
+  markFacts,
+  thumbnailPrompt,
+  sources,
+}: ExportProps) {
   const [copy, setCopy] = useState<'idle' | 'warned' | 'copied' | 'refused'>('idle');
   const voiceover = voiceoverCopy(text, markFacts);
   const empty = text.trim() === '';
@@ -101,7 +109,7 @@ function Exports({ title, text, wordsPerMinute, markFacts, thumbnailPrompt }: Ex
           onClick={() =>
             download(
               exportName(title, 'md'),
-              exportMarkdown(title, text, markFacts, { thumbnailPrompt }),
+              exportMarkdown(title, text, markFacts, { thumbnailPrompt, sources }),
               'text/markdown',
             )
           }
@@ -241,6 +249,10 @@ interface Props {
   readonly onChange: (text: string) => void;
   /** The concept's thumbnail prompt; null when it has none. */
   readonly thumbnailPrompt: string | null;
+  /** The numbered source list the Markdown file ends with; none when no fact is named. */
+  readonly sources?: readonly string[];
+  /** What sits at the top of the side panel, such as the fact sheet. */
+  readonly aside?: ReactNode;
 }
 
 /**
@@ -248,7 +260,8 @@ interface Props {
  * about the text beside it: words, spoken time, reading grade, the facts
  * still to check, the checklist, and the exports.
  */
-export function ScriptEditor({ view, which, onChange, thumbnailPrompt }: Props) {
+export function ScriptEditor(props: Props) {
+  const { view, which, onChange, thumbnailPrompt, sources = [], aside } = props;
   const text = view.script?.[which] ?? '';
   const rate = view.script?.wordsPerMinute ?? null;
   const markFacts = view.markFacts ?? true;
@@ -281,9 +294,11 @@ export function ScriptEditor({ view, which, onChange, thumbnailPrompt }: Props) 
           wordsPerMinute={rate}
           markFacts={markFacts}
           thumbnailPrompt={thumbnailPrompt}
+          sources={sources}
         />
       </div>
       <div className="flex min-w-0 flex-col gap-space-md xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto">
+        {aside}
         <Counts stats={stats} view={view} />
         <Checklist beats={view.script?.beats ?? ''} text={text} />
       </div>

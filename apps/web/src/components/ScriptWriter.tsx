@@ -8,22 +8,28 @@ import {
   type ScriptView,
   type VoiceChoice,
 } from '../lib/scriptWriter';
+import { sourcesMarkdown } from '../lib/research';
+import { ClaimsCheck } from './ClaimsCheck';
 import { ConceptThumbnail } from './ConceptThumbnail';
 import { LabStatus, NOTE } from './LabStatus';
 import { ScriptEditor } from './ScriptEditor';
 import { HooksAndBeats, Models } from './ScriptHooks';
 import { RiskCheckLink } from './RiskParts';
 import { ScriptOrigins } from './ScriptOrigins';
+import { ScriptResearch } from './ScriptResearch';
 import { ScriptSetup } from './ScriptSetup';
 import { StepRun, StepTabs } from './ScriptSteps';
 import { SectionFrame } from './SectionFrame';
 import type { Lab } from './useLab';
+import type { Research } from './useResearch';
 import type { Script } from './useScript';
 
 const CARD = 'flex min-w-0 flex-col gap-space-md rounded bg-surface-card p-space-md shadow-md';
 
 interface Props {
   readonly script: Script;
+  /** The open concept's fact sheet and claims check. */
+  readonly research: Research;
   readonly lab: Lab;
   /** An AI run is under way somewhere on the page. */
   readonly busy: boolean;
@@ -43,7 +49,8 @@ function aboutOf(stage: ScriptStage, view: ScriptView): string {
 }
 
 /** The open script: its setup, the three steps as tabs, and the step on screen. */
-function Workbench({ script, lab, busy, voices, view }: Props & { readonly view: ScriptView }) {
+function Workbench(props: Props & { readonly view: ScriptView }) {
+  const { script, research, lab, busy, voices, view } = props;
   const states = stageStates(view.script);
   const [picked, setPicked] = useState<ScriptStage | null>(null);
   const step = picked ?? openingStep(states);
@@ -51,6 +58,10 @@ function Workbench({ script, lab, busy, voices, view }: Props & { readonly view:
   const hooks = lab.library?.hooks ?? [];
   const thumbnail = thumbnailFor(lab.thumbnails, view.concept.id);
   const run = (): void => script.runStage(step);
+  const field = step === 'tighten' && view.script?.tightened ? 'tightened' : 'draft';
+  const text = view.script?.[field] ?? '';
+  const edit = (next: string): void =>
+    script.change(field === 'tightened' ? { tightened: next } : { draft: next });
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -86,18 +97,18 @@ function Workbench({ script, lab, busy, voices, view }: Props & { readonly view:
         {step !== 'hooks' && (
           <ScriptEditor
             view={view}
-            which={step === 'tighten' && view.script?.tightened ? 'tightened' : 'draft'}
-            onChange={(text) =>
-              script.change(
-                step === 'tighten' && view.script?.tightened
-                  ? { tightened: text }
-                  : { draft: text },
-              )
-            }
+            which={field}
+            onChange={edit}
             thumbnailPrompt={thumbnail?.prompt ?? null}
+            sources={sourcesMarkdown(text, research.view?.sheet ?? null)}
+            aside={<ScriptResearch research={research} text={text} busy={busy} />}
           />
         )}
+        {step === 'hooks' && <ScriptResearch research={research} text={text} busy={busy} />}
       </div>
+      {step !== 'hooks' && (
+        <ClaimsCheck research={research} text={text} which={field} busy={busy} onChange={edit} />
+      )}
       <ConceptThumbnail
         title={view.concept.title}
         thumbnail={thumbnail}

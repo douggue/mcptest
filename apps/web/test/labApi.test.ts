@@ -114,3 +114,21 @@ describe('a concept’s thumbnail prompt through the API', () => {
     await expect(recording(null, 404).api.conceptThumbnails(CHANNEL)).resolves.toBeNull();
   });
 });
+
+describe('the script writer’s research through the API', () => {
+  test('reads the research, starts a research run and a claims check, and sets a typed length', async () => {
+    const { api, sent } = recording({ sheet: null, claims: [], jobId: 'job-3' });
+
+    await expect(api.research(CHANNEL, 7)).resolves.toMatchObject({ sheet: null });
+    await expect(api.startResearch(CHANNEL, 7, 'auto')).resolves.toBe('job-3');
+    await expect(api.startClaims(CHANNEL, 7, 'draft', 'claude')).resolves.toBe('job-3');
+    await api.setLength(CHANNEL, 7, { typed: 'words', words: 1800 });
+
+    expect(sent).toEqual([
+      `GET /api/lab/research?channel=${CHANNEL}&concept=7`,
+      `POST /api/lab/research {"channel":"${CHANNEL}","concept":7}`,
+      `POST /api/lab/claims {"channel":"${CHANNEL}","concept":7,"which":"draft","engine":"claude"}`,
+      `POST /api/lab/scripts/length {"channel":"${CHANNEL}","concept":7,"length":{"typed":"words","words":1800}}`,
+    ]);
+  });
+});

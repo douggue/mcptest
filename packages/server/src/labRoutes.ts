@@ -27,6 +27,7 @@ import {
 } from './labHttp';
 import type { ConceptRequest, LabOutcome, LabProgress } from './labTypes';
 import { CONCEPT_THUMBNAIL_ROUTES } from './conceptThumbRoutes';
+import { RESEARCH_ROUTES } from './researchRoutes';
 import { SCRIPT_ROUTES } from './scriptRoutes';
 
 /** A transfer template's key is the words of a title; no title is this long. */
@@ -193,6 +194,7 @@ async function startHookLabels(context: Context, request: Request): Promise<Resp
 const ROUTES: Routes = {
   ...SCRIPT_ROUTES,
   ...CONCEPT_THUMBNAIL_ROUTES,
+  ...RESEARCH_ROUTES,
   '/api/lab/concepts': {
     GET: (context, _request, url) => readConcepts(context, url),
     POST: startBatch,
