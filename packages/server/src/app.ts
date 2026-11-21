@@ -51,6 +51,8 @@ import {
 } from './breakdownRoutes';
 import { downloadThumbnails, downloadTranscripts } from './downloadRoutes';
 import type { DownloadsEngine } from './downloadTypes';
+import { extraRoutes } from './extrasRoutes';
+import type { ExtrasEngine } from './extrasTypes';
 import { labRoutes, type LabRoutes } from './labRoutes';
 import type { LabEngine } from './labTypes';
 import type { ScriptEngine } from './scriptTypes';
@@ -116,6 +118,8 @@ export interface TransferChoices {
 
 /** What the API needs from the engine, so tests can stand in for it. */
 export interface Engine extends DownloadsEngine, LabEngine, ScriptEngine {
+  /** The later features, kept together: what changed since the owner last looked. */
+  readonly extras: ExtrasEngine;
   /** The latest stored map around a channel; reads the store only. */
   findSnapshot(channel: string): MapSnapshot | null;
   /** Every channel a map has been made for, the most recently mapped first. */
@@ -431,6 +435,7 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
   const uploading: UploadTracker = { busy: false };
   // The idea lab's AI runs take the same one slot as an analysis or a breakdown.
   const lab = labRoutes(options, analysing);
+  const extra = extraRoutes(options, analysing);
   return async (request) => {
     if (!isTrustedHost(request, options.allowedHosts)) {
       return fail(403, 'This server only answers to its own address');
@@ -441,6 +446,8 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
 
     const labAnswer = lab.handle(request, url);
     if (labAnswer) return labAnswer;
+    const extraAnswer = extra.handle(request, url);
+    if (extraAnswer) return extraAnswer;
     if (pathname === '/api/maps/latest') {
       return method === 'GET'
         ? readLatest(url, (channel) => options.engine.findSnapshot(channel))

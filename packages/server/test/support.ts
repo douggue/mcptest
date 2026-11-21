@@ -1,4 +1,5 @@
 import type { Engine } from '../src/app';
+import type { ExtrasEngine } from '../src/extrasTypes';
 import type { LabEngine } from '../src/labTypes';
 import type { ScriptEngine } from '../src/scriptTypes';
 
@@ -35,6 +36,17 @@ export const UNUSED_LAB: LabEngine & ScriptEngine = {
   readVoice: unused('readVoice'),
   findScript: unused('findScript'),
 };
+
+/** The later features' part of an engine, failing loudly when a test reaches it. */
+export const UNUSED_EXTRAS: ExtrasEngine = {
+  findChanges: unused('findChanges'),
+  markChangesSeen: unused('markChangesSeen'),
+};
+
+/** An engine whose later features are these, failing loudly on any other. */
+export const withExtras = (parts: Partial<ExtrasEngine>): Partial<Engine> => ({
+  extras: { ...UNUSED_EXTRAS, ...parts },
+});
 
 /** An engine where every part a test does not replace fails loudly when reached. */
 export function stubEngine(parts: Partial<Engine>): Engine {
@@ -73,6 +85,7 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     readChannelBrand: unused('readChannelBrand'),
     readVideoDetails: unused('readVideoDetails'),
     ...UNUSED_LAB,
+    extras: UNUSED_EXTRAS,
     ...parts,
   };
 }

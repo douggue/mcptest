@@ -58,6 +58,7 @@ import {
   type PlayerSource,
 } from './connection';
 import { downloads } from './downloadEngine';
+import { extras } from './extrasSetup';
 import { cleanMessage } from './jobs';
 import { lab } from './labSetup';
 import { trackWork, type WorkTracker } from './running';
@@ -443,6 +444,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       readTranscript: reading.readTranscript,
       isClosing: wiring.work.isClosing,
     }),
+    extras: extras({ db: wiring.db, now: wiring.now, repos: wiring.repos }),
     analyse: asking.analyse,
     watchVideo: asking.watchVideo,
     engineStatus: asking.engineStatus,
