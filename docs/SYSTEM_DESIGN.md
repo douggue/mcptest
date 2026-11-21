@@ -158,7 +158,7 @@ concept's place in the upload calendar: `concept_id` (primary key,
 `drafting`, `ready`, `published`, or empty), `planned_date` (YYYY-MM-DD or empty)
 and `updated_at`. See "Upload calendar".
 
-`video_comments`, `comment_reads` and `comment_answers` (step 23, provisional,
+`video_comments`, `comment_reads` and `comment_answers` (step 23,
 numbered at merge) hold the top-level comments read for a video (`comment_id`,
 `video_id`, `text` up to 2,000 characters, `likes`, `published_at`, `fetched_at`;
 never who wrote them), when each video was read and whether its comments were
@@ -166,7 +166,7 @@ turned off, and each centre channel's latest checked "What viewers ask for"
 (`video_ids_json`, `findings_json` checked again with a schema when read, `engine`,
 `asked_at`). They refer to no other table. See "Comment mining".
 
-`risk_checks` (step 42, provisional, numbered at merge) holds a kept concept's
+`risk_checks` (step 24) holds a kept concept's
 latest checked AI risk check: `concept_id` (primary key, `ON DELETE CASCADE` from
 `concepts`), `center_channel_id`, `claims_json` and `notes_json` (checked again with
 a schema when read), `engine`, `checked_at` and `script_updated_at`. What code works

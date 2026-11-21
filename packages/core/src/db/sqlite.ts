@@ -435,7 +435,7 @@ CREATE TABLE IF NOT EXISTS comment_answers (
   asked_at           TEXT NOT NULL
 );
 `,
-  // 42 (provisional, numbered at merge): the risk check before publishing. One row per kept
+  // 24: the risk check before publishing. One row per kept
   //     concept: the claims and overlap notes an engine gave, as checked in code, who gave
   //     them, when, and when the script had last changed then. What code works out (overlaps,
   //     unchecked facts) is not kept: it is worked out again at each look. It refers only to
