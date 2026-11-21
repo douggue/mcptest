@@ -35,8 +35,12 @@ export const videoIndex = (videos: readonly NamedVideo[]): VideoIndex =>
 export const namedIds = (text: string): readonly string[] =>
   videoRefIds(text).slice(0, MAX_NAMED_IDS);
 
+/** The stop or comma a marker at the very start of a point leaves behind. */
+const LEFT_BEHIND = /^[.,;:]\s*/;
+
 /** A text without its markers, for copying or reading aloud. */
-export const withoutRefs = (text: string): string => stripVideoRefs(text).trim();
+export const withoutRefs = (text: string): string =>
+  stripVideoRefs(text).trim().replace(LEFT_BEHIND, '');
 
 /** A point's words, and the stored videos it names, each once, in the order named. */
 export function pointOf(text: string, known: VideoIndex): NamedPoint {

@@ -35,7 +35,7 @@ export function conceptThumbnailQuestion(channel: string, focus: ConceptFocus): 
     `Call get_thumbnail_board for this channel, then look at the pictures with view_thumbnails, in at most three calls: the winners of the channels on this map first, and a few of their ordinary thumbnails to see what the winners do differently.`,
     'Choose the one thumbnail style that wins on this map and suits this concept. Judge by what you can see; where an earlier study says otherwise, trust the pictures.',
     'Answer in exactly this form. First a line starting "STYLE:" naming the style in a few words. Then a line starting "WHY:" saying in one or two sentences why this style, for this concept.',
-    `Then a line starting "LEARNED FROM:" listing the thumbnails the style was learned from, at most eight. ${VIDEO_REF_RULE}`,
+    `Then a line starting "LEARNED FROM:" listing the winning thumbnails whose style the prompt takes, at most eight; not the ordinary ones you compared them with. ${VIDEO_REF_RULE}`,
     `Last, the prompt, between these two lines, each on a line of its own, written exactly so and used nowhere else: ${start} and ${end}. The prompt is for this concept: its subject as the concept’s THUMBNAIL line describes it and its OVERLAY words. ${PROMPT_PARTS}`,
     'The prompt names no channel, no video, no video id, no real person, no logo, no country and no flag: where the thumbnails show a mark of one country, write “a national flag” and name neither the country nor its colours. Nothing else after the second line.',
   ].join(' ');

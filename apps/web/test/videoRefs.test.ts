@@ -60,6 +60,14 @@ describe('the ids an answer names', () => {
   });
 });
 
+describe('a point that opens with a marker', () => {
+  test('does not start with the stop the marker leaves behind', () => {
+    const point = pointOf(`[video:${A}]. It has one object.`, videoIndex([video(A)]));
+
+    expect(point.text).toBe('It has one object.');
+  });
+});
+
 describe('a text with its markers taken out', () => {
   test('reads as plain words, for copying', () => {
     expect(withoutRefs(`Model this one [video:${A}].`)).toBe('Model this one.');

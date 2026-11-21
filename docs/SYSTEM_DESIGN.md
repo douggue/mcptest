@@ -101,6 +101,22 @@ new run replaces a row. Like `video_studies` it refers to no other table.
 theirs, one row per centre channel: `center_channel_id`, `place_key` (a key of
 the place list) and `set_at`. It refers to no other table.
 
+`channel_notes` (step 17) keeps what an engine wrote for a channel to be read
+again, one row per `channel_id` and `kind` (`thumbnail-review`, `video-ideas`,
+`near-misses`, `style-lock`): `engine`, `notes` and `written_at`. A new run
+replaces the row. It refers to no other table.
+
+`concept_thumbnails` (step 18) keeps one concept's thumbnail prompt:
+`concept_id` (goes with its concept), `prompt`, `why`, `video_ids_json` (the
+thumbnails of the map it was learned from, checked against the store) and
+`engine`, `written_at`. A new run replaces it.
+
+Named videos. A fixed question that rests points on videos asks for each as
+`[video:ID]` (`VIDEO_REF_RULE`). The page looks the ids up through
+`GET /api/videos/named` and shows each stored video of the map as its real
+thumbnail beside the point; an id that is not a stored video of the map is
+dropped and never shown.
+
 ### Keeping the store safe
 
 - **Backup before upgrade.** When an existing store with data has pending
@@ -1264,6 +1280,7 @@ Claude reads what the app shows. Setup for the owner is in
 | `get_frame_study`             | `video`                                                                                 | A line of JSON (`studied`, `by`, `at`, `source`, `framesAvailable`, and worked out in code `secs`, `secondsPerFrame`, `framesLookedAt`, `changesSeen`, `gaps`, `secondsPerChange`), then the stored study of the video's frames; `studied: false` when there is none |
 | `get_transcript_pace`         | `video`, `cuts?` (up to 40 seconds from the start)                                      | A line of JSON: `words`, `wordsPerMinute`, `spokenSeconds`, then `spans` (`from`, `to`, `words`, `wordsPerMinute`), one a minute or one between each two cuts; `captions: false` when there are none                                                                 |
 | `get_breakdown_part`          | `channel`, `part` (basis, titles, thumbnails, scripts, picture, strategy, plan, master) | A line of JSON (`written`, `by`, `at`), then one stored part of the channel's breakdown; `written: false` with the reason when it is missing                                                                                                                         |
+| `get_channel_note`            | `channel`, `kind` (thumbnail-review, style-lock)                                        | A line of JSON (`written`, `by`, `at`), then the kept study; `written: false` when none is kept                                                                                                                                                                      |
 
 One prompt, `thumbnail_review` (argument `channel`), tells the model to read the
 board, look at the owner's thumbnails and the winners with `view_thumbnails`, and
