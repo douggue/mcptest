@@ -97,3 +97,23 @@ an existing product; the build replaces them with Jgtube.
 
 Three directions (Control room, Tabloid, Deep field) were sketched on a design
 canvas before the owner's design arrived. They are not being taken forward.
+
+## Page structure (from the polish pass)
+
+- The left rail groups the sections as **Research** (radar, what changed,
+  breaking out, same topic, thumbnails that worked, transfer opportunities,
+  new niches), **Create** (trending formats, hook library, idea lab, script
+  writer) and **Study** (Ask AI and breakdowns, your videos against the plan,
+  upload calendar). The groups are in `apps/web/src/lib/sections.ts`; a new
+  section adds one item there and one icon in `RailLinks.tsx`. On a phone a
+  Sections menu in the top bar opens the same links.
+- A flow strip under the toolbar (Research → Formats and hooks → Ideas →
+  Script → Breakdown) jumps to each step with what is stored for the channel.
+- Working sections share `SectionFrame`: a title that opens and closes the
+  section (remembered in the browser), one short line, the longer explanation
+  behind "How this works", one primary action. Warnings about unchecked facts
+  stay visible, never behind the disclosure.
+- Wherever a video is named it is shown as its real thumbnail, linking to it.
+- The script writer is a working surface: its three steps are tabs opening on
+  the step to do next, a wide editor, and the numbers and facts to check in a
+  side panel that stays in view.
