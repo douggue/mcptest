@@ -45,7 +45,7 @@ export interface FlowDeps {
     readonly notes: Pick<ChannelNoteRepo, 'find'>;
   };
   readonly findSnapshot: Engine['findSnapshot'];
-  /** How many openings the hook library holds; zero when it is not built. */
+  /** How many openings of the hook library have their words read; zero when it is not built. */
   readonly hookCount: (centerChannelId: string) => number;
 }
 

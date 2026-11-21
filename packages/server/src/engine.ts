@@ -481,7 +481,8 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     ...flowEngine({
       repos: wiring.repos,
       findSnapshot: maps.findSnapshot,
-      hookCount: (center) => labbing.hookLibrary(center)?.hooks.length ?? 0,
+      hookCount: (center) =>
+        labbing.hookLibrary(center)?.hooks.filter((hook) => hook.text !== null).length ?? 0,
     }),
     analyse: asking.analyse,
     watchVideo: asking.watchVideo,
