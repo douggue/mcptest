@@ -2,22 +2,25 @@
  * The part of the engine that asks an AI: the fixed analyses, watching a
  * video, and what is known about the AI engines on this computer.
  */
-import type { Config } from '@jgtube/core';
+import { downloadsRoot, type Config } from '@jgtube/core';
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   ANALYSES,
+  FRAME_STUDY_TITLE,
+  PICTURE_ENGINES,
   SERVER_NAME,
   VIDEO_SYSTEM_PROMPT,
   analysisRequest,
   enginesFor,
-  type AnalysisId,
+  frameStudyRequest,
+  type AnalysisSettings,
 } from './analyses';
 import type { Engine } from './app';
 import { checkEngines, createEngines, type Engines } from './engines/catalog';
-import { firstAnswer } from './engines/fallback';
+import { firstAnswer, type EngineAnswer } from './engines/fallback';
 import type { GeminiFetch } from './engines/geminiVideo';
 import { spawnProcess } from './engines/process';
 import { DEFAULT_ENGINE_SETTINGS, type EngineSettings } from './engines/settings';
@@ -55,9 +58,9 @@ export interface AnalysisOptions {
   /** The owner's settings for the engines; without them, the usual order and no Gemini key. */
   readonly engines?: EngineSettings;
   /**
-   * Fetches a video to a file on this computer for an engine to watch. Absent
-   * until a downloader is connected: video is then watched through the Gemini
-   * API only.
+   * Fetches a video to a file on this computer for an engine to watch. The
+   * engine connects core's downloader here; a test may put a stand-in. With
+   * none, video is watched through the Gemini API only.
    */
   readonly downloadVideo?: DownloadVideo;
   /** Replaces running an engine; used by tests. The signal aborts when the engine shuts down. */
@@ -81,7 +84,14 @@ export interface AnalysisWiring {
   readonly work: WorkTracker;
 }
 
-interface AnalysisParts extends Pick<Engine, 'analyse' | 'engineStatus' | 'watchVideo'> {
+export interface AnalysisParts extends Pick<Engine, 'analyse' | 'engineStatus' | 'watchVideo'> {
+  /**
+   * Has the first engine that sees pictures go through one video's frames,
+   * start to end. Rejects with an EngineRunError like `analyse`.
+   */
+  studyFrames(videoId: string, only?: EngineId): Promise<EngineAnswer<EngineId>>;
+  /** Whether an engine here would watch a video from a file: Antigravity, installed and not left out. */
+  watchesFiles(): Promise<boolean>;
   /** Removes the private folder the engines were started in, if one was made. */
   cleanUp(): void;
 }
@@ -155,9 +165,16 @@ function remembered<T>(load: () => Promise<T>, freshMs: number): () => Promise<T
   };
 }
 
-/** What to say when no engine could answer an analysis; `only` is the one engine the owner chose, if any. */
+/** What is being asked, as far as the message for "nobody could" needs it. */
+interface Asked {
+  readonly title: string;
+  /** The engines that may answer it, when it cannot be left to every engine. */
+  readonly engines?: readonly EngineId[];
+}
+
+/** What to say when no engine could answer; `only` is the one engine the owner chose, if any. */
 function nobodyFor(
-  analysis: AnalysisId,
+  asked: Asked,
   order: readonly EngineId[],
   engines: Engines,
   only?: EngineId,
@@ -168,7 +185,7 @@ function nobodyFor(
       ? 'None of the AI engines on this computer could answer.'
       : `${chosen} could not answer. Choose another AI, or Automatic, and try again.`;
   }
-  const { title, engines: needed } = ANALYSES[analysis];
+  const { title, engines: needed } = asked;
   const names = (needed ?? []).map((id) => engines[id].label).join(' or ');
   if (chosen !== null && only !== undefined && needed !== undefined && !needed.includes(only)) {
     return `${title} cannot be done by ${chosen}: it needs ${names}. Choose one of those, or Automatic.`;
@@ -198,46 +215,89 @@ function storeFile({ config, options }: AnalysisWiring): string {
   return resolve(config.dbPath);
 }
 
-/** One fixed analysis, put to the engines in order until one answers. */
-function analyser(shared: Shared, wiring: AnalysisWiring, stop: AbortSignal): Engine['analyse'] {
+/** The downloads folder, for the connector to look in; none for a store that is only in memory. */
+function downloadsPathOf(config: Config): string | undefined {
+  try {
+    return downloadsRoot(config);
+  } catch {
+    return undefined;
+  }
+}
+
+/** The fixed analyses and the frame study, each put to the engines in order until one answers. */
+function asker(
+  shared: Shared,
+  wiring: AnalysisWiring,
+  stop: AbortSignal,
+): Pick<AnalysisParts, 'analyse' | 'studyFrames'> {
   const { settings, engines, deps, folders } = shared;
   const run =
     wiring.options.runEngine ??
     ((id: EngineId, request: EngineRunRequest) => engines[id].run(request, deps));
-  return async (analysis, channel, only) => {
+  // The owner's choice of one engine means that engine and no backup.
+  const allowedBy = (only?: EngineId): readonly EngineId[] =>
+    only === undefined ? settings.order : settings.order.filter((id) => id === only);
+  /** Where an engine's connector finds the store; throws when the store is only in memory. */
+  const settingsFor = (): ((engine: EngineId) => AnalysisSettings) => {
     const dbPath = storeFile(wiring);
-    // The owner's choice of one engine means that engine and no backup.
-    const allowed =
-      only === undefined ? settings.order : settings.order.filter((id) => id === only);
-    const order = enginesFor(analysis, allowed);
-    const requestFor = (engine: EngineId): EngineRunRequest =>
-      analysisRequest(analysis, channel, {
-        projectRoot: PROJECT_ROOT,
-        dbPath,
-        workDir: folders.for(engine),
-      });
-    return firstAnswer(
+    const downloadsPath = downloadsPathOf(wiring.config);
+    return (engine) => ({
+      projectRoot: PROJECT_ROOT,
+      dbPath,
+      workDir: folders.for(engine),
+      downloadsPath,
+    });
+  };
+  const ask = (
+    order: readonly EngineId[],
+    requestFor: (engine: EngineId) => EngineRunRequest,
+    nobody: string,
+  ): Promise<EngineAnswer<EngineId>> =>
+    firstAnswer(
       order.map((id) => ({ engine: id, run: () => run(id, requestFor(id), stop) })),
-      nobodyFor(analysis, order, engines, only),
+      nobody,
       () => stop.aborted,
     );
+  return {
+    async analyse(analysis, channel, only, focus) {
+      const at = settingsFor();
+      const order = enginesFor(analysis, allowedBy(only));
+      return ask(
+        order,
+        (engine) => analysisRequest(analysis, channel, at(engine), focus),
+        nobodyFor(ANALYSES[analysis], order, engines, only),
+      );
+    },
+    async studyFrames(videoId, only) {
+      const at = settingsFor();
+      const order = allowedBy(only).filter((id) => PICTURE_ENGINES.includes(id));
+      return ask(
+        order,
+        (engine) => frameStudyRequest(videoId, at(engine)),
+        nobodyFor({ title: FRAME_STUDY_TITLE, engines: PICTURE_ENGINES }, order, engines, only),
+      );
+    },
   };
 }
 
+/** Whether Antigravity is on this computer. */
+const agyInstalled = async (shared: Shared): Promise<boolean> =>
+  (await shared.statuses()).some((status) => status.id === 'agy' && status.installed);
+
 /** One video, watched by the first engine that can. */
 function watcher(shared: Shared, options: AnalysisOptions): Engine['watchVideo'] {
-  const { settings, deps, folders, statuses } = shared;
-  return (videoId, question) =>
+  const { settings, deps, folders } = shared;
+  return (videoId, question, watch = {}) =>
     watchVideo(
       { videoId, question, systemPrompt: VIDEO_SYSTEM_PROMPT },
       {
         settings,
         deps,
         workDir: folders.for(VIDEO_FOLDER),
-        agyInstalled: async () =>
-          (await statuses()).some((status) => status.id === 'agy' && status.installed),
-        download: options.downloadVideo,
+        agyInstalled: () => agyInstalled(shared),
+        download: watch.download ?? options.downloadVideo,
         geminiFetch: options.geminiFetch,
+        onStep: watch.onStep,
       },
     );
 }
@@ -253,11 +313,14 @@ export function analysisEngines(wiring: AnalysisWiring, stop: AbortSignal): Anal
     STATUS_FRESH_MS,
   );
   const shared: Shared = { settings, engines, deps, folders: privateFolders(), statuses };
-  const analyse = analyser(shared, wiring, stop);
+  const asking = asker(shared, wiring, stop);
   const watch = watcher(shared, options);
   return {
-    analyse: (analysis, channel, only) => work.run(() => analyse(analysis, channel, only)),
-    watchVideo: (videoId, question) => work.run(() => watch(videoId, question)),
+    analyse: (analysis, channel, only, focus) =>
+      work.run(() => asking.analyse(analysis, channel, only, focus)),
+    studyFrames: (videoId, only) => work.run(() => asking.studyFrames(videoId, only)),
+    watchesFiles: async () => settings.order.includes('agy') && (await agyInstalled(shared)),
+    watchVideo: (videoId, question, options) => work.run(() => watch(videoId, question, options)),
     engineStatus: () =>
       work.run(async () => ({ engines: await statuses(), order: settings.order })),
     cleanUp: shared.folders.remove,

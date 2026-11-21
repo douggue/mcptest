@@ -1,7 +1,10 @@
 import type {
   BrandResult,
   DetailsProblem,
+  StoredVideoStudy,
+  StudyKind,
   ThumbnailDownload,
+  TranscriptDownload,
   TranscriptResult,
   VideoFacts,
   VideoFrames,
@@ -28,10 +31,25 @@ export interface DownloadsEngine {
    * in the downloads folder, with an index. Null when the channel is not stored.
    */
   saveThumbnails(channel: string): Promise<ThumbnailDownload | null>;
+  /**
+   * Saves the transcripts of a stored channel's videos that took off as text
+   * files in the downloads folder, with an index. Null when the channel is not stored.
+   */
+  saveTranscripts(channel: string): Promise<TranscriptDownload | null>;
   /** One video's captions, read once and then served from the store. */
   readTranscript(videoId: string): Promise<TranscriptResult>;
-  /** Sheets of frames spread across one video; null when it has no storyboard. */
-  readVideoFrames(videoId: string, sheets: number): Promise<VideoFrames | null>;
+  /**
+   * Sheets of frames of one video: spread across it, or, with `from`, in a
+   * row starting at that sheet (numbered from 0). Frames cut from the video's
+   * file are served when Jgtube has cut them; otherwise YouTube's preview
+   * frames. Null when there are neither.
+   */
+  readVideoFrames(videoId: string, sheets: number, from?: number): Promise<VideoFrames | null>;
+  /**
+   * What an engine wrote down about one video ('watch' or 'frames'); reads
+   * the store only. Null when there is no such study.
+   */
+  findVideoStudy(videoId: string, kind: StudyKind): StoredVideoStudy | null;
   /** A channel's logo, cover, bio, keywords and links; the channel is read when they are not stored. */
   readChannelBrand(channel: string): Promise<BrandResult>;
   /** The description and tags of the given videos, with their stored views and scores. */

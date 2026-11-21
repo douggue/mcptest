@@ -1,4 +1,19 @@
-import { InnertubeSource, RateLimiter, type Config, type YouTubeSource } from '@jgtube/core';
+import {
+  InnertubeSource,
+  RateLimiter,
+  type Config,
+  type VideoPlayerSource,
+  type YouTubeSource,
+} from '@jgtube/core';
+
+/**
+ * A connection to YouTube that may also be able to answer for a video's
+ * files, which the built-in video download works from. The real connection
+ * can; a stand-in in a test need not.
+ */
+export type PlayerSource = YouTubeSource & Partial<VideoPlayerSource>;
+
+const NO_PLAYER = 'This connection to YouTube cannot fetch a video file';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -42,11 +57,20 @@ export const NOT_READING = 'Jgtube is closing, so nothing more is read from YouT
  * under way then finishes the request it is on, finds every further one
  * refused, and winds down by its own rules for failures in a row.
  */
-export function stopWhen(source: YouTubeSource, isStopped: () => boolean): YouTubeSource {
+export function stopWhen(source: PlayerSource, isStopped: () => boolean): PlayerSource {
   const check = (): void => {
     if (isStopped()) throw new Error(NOT_READING);
   };
+  const { fetchPlayer } = source;
   return {
+    ...(fetchPlayer === undefined
+      ? {}
+      : {
+          fetchPlayer: async (videoId: string) => {
+            check();
+            return fetchPlayer.call(source, videoId);
+          },
+        }),
     resolveChannelId: async (handle) => {
       check();
       return source.resolveChannelId(handle);
@@ -70,8 +94,15 @@ export function stopWhen(source: YouTubeSource, isStopped: () => boolean): YouTu
  * A source that connects on first use. Work that finds nothing to read then
  * makes no request at all, which matters to a timer that fires every few hours.
  */
-export function connectOnUse(connect: () => Promise<YouTubeSource>): YouTubeSource {
+export function connectOnUse(
+  connect: () => Promise<PlayerSource>,
+): YouTubeSource & VideoPlayerSource {
   return {
+    fetchPlayer: async (videoId) => {
+      const source = await connect();
+      if (source.fetchPlayer === undefined) throw new Error(NO_PLAYER);
+      return source.fetchPlayer(videoId);
+    },
     resolveChannelId: async (handle) => (await connect()).resolveChannelId(handle),
     fetchChannel: async (channelId, maxVideos) =>
       (await connect()).fetchChannel(channelId, maxVideos),

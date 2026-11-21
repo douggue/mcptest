@@ -153,6 +153,22 @@ class FakeEngine implements Engine {
     return true;
   }
 
+  breakDown(): never {
+    throw new Error('breakDown is not used in this test');
+  }
+
+  ownVideosFolder(): never {
+    throw new Error('ownVideosFolder is not used in this test');
+  }
+
+  saveTranscripts(): never {
+    throw new Error('saveTranscripts is not used in this test');
+  }
+
+  findVideoStudy(): never {
+    throw new Error('findVideoStudy is not used in this test');
+  }
+
   saveThumbnails(): never {
     throw new Error('not used in these tests');
   }

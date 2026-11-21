@@ -28,7 +28,9 @@ import { readEngines, runAnalysis, type AnalysisTracker } from './analysisRoutes
 import type { EngineReport } from './engines/catalog';
 import type { EngineAnswer } from './engines/fallback';
 import type { EngineId } from './engines/types';
-import type { VideoAnswer } from './engines/videoWatch';
+import type { VideoAnswer, WatchOptions } from './engines/videoWatch';
+import type { BreakdownFocus } from './breakdownQuestions';
+import type { BreakdownChoices, BreakdownOutcome, BreakdownProgress } from './breakdownTypes';
 import { refreshState, startRefresh, type RefreshTracker } from './refreshRoutes';
 import { downloadThumbnails } from './downloadRoutes';
 import type { DownloadsEngine } from './downloadTypes';
@@ -161,15 +163,33 @@ export interface Engine extends DownloadsEngine {
     channel: string,
     /** The one engine the owner chose for this run; absent, the usual order with its backups. */
     only?: EngineId,
+    /** The videos chosen in code, for an analysis that studies particular ones. */
+    focus?: BreakdownFocus,
   ): Promise<EngineAnswer<EngineId>>;
   /**
    * Has an engine watch one YouTube video, picture and sound, and answer a
    * question about it. Rejects with an EngineRunError: 'not-installed' when no
    * engine on this computer can watch video.
    */
-  watchVideo(videoId: string, question: string): Promise<VideoAnswer>;
+  watchVideo(videoId: string, question: string, options?: WatchOptions): Promise<VideoAnswer>;
   /** Which AI engines are installed and signed in. Starts nothing that spends allowance. */
   engineStatus(): Promise<EngineReport>;
+  /**
+   * Breaks one channel down: studies its top videos, in depth for the best
+   * few, and has an engine write the breakdown. Takes many minutes; what
+   * could not be done is in the outcome with its reason. Rejects when the
+   * channel cannot be read, when no engine could write, or when Jgtube is closing.
+   */
+  breakDown(
+    channel: string,
+    onProgress: (progress: BreakdownProgress) => void,
+    choices?: BreakdownChoices,
+  ): Promise<BreakdownOutcome>;
+  /**
+   * The folder the owner's own video files are kept in, as a full path.
+   * Throws when the store is only in memory and no downloads folder is named.
+   */
+  ownVideosFolder(): string;
 }
 
 export interface AppOptions {

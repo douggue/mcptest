@@ -252,7 +252,7 @@ export {
   type ThumbnailDownloadDeps,
   type ThumbnailDownloadOptions,
 } from './downloads/thumbnails';
-export { boardChannel } from './map/thumbnails';
+export { ORDINARY_MAX_SCORE, WINNER_MIN_SCORE, boardChannel } from './map/thumbnails';
 export {
   MAX_VIDEO_BYTES,
   VIDEO_MIN_HEIGHT,

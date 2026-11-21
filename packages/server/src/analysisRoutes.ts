@@ -1,6 +1,6 @@
 import { parseChannelRef } from '@jgtube/core';
 import { z } from 'zod';
-import { ANALYSIS_IDS } from './analyses';
+import { QUICK_ANALYSIS_IDS } from './analyses';
 import type { AppOptions } from './app';
 import { EngineRunError } from './engines/failure';
 import { ENGINE_IDS } from './engines/settings';
@@ -16,7 +16,7 @@ export interface AnalysisTracker {
 }
 
 const analysisRequest = z.object({
-  analysis: z.enum(ANALYSIS_IDS),
+  analysis: z.enum(QUICK_ANALYSIS_IDS),
   channel: z.string().min(1).max(MAX_CHANNEL_LENGTH),
   // The owner's choice of one engine for this run; left out, the usual order with its backups.
   engine: z.enum(ENGINE_IDS).optional(),
@@ -56,7 +56,7 @@ export async function runAnalysis(
   if (body instanceof Response) return body;
   const parsed = analysisRequest.safeParse(body);
   if (!parsed.success || !isChannel(parsed.data.channel)) {
-    return fail(400, `Name an analysis (${ANALYSIS_IDS.join(', ')}) and a channel`);
+    return fail(400, `Name an analysis (${QUICK_ANALYSIS_IDS.join(', ')}) and a channel`);
   }
   if (tracker.running) {
     return fail(409, 'An analysis is already running. Wait for it to finish.');

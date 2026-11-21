@@ -13,10 +13,25 @@
  */
 import { join } from 'node:path';
 import { parseChannelRef } from '@jgtube/core';
+import {
+  BREAKDOWN_MAX_TURNS,
+  BREAKDOWN_TIMEOUT_MS,
+  BREAKDOWN_TOOLS,
+  FRAME_STUDY_MAX_TURNS,
+  FRAME_STUDY_TIMEOUT_MS,
+  FRAME_STUDY_TOOLS,
+  NO_FOCUS,
+  breakdownQuestion,
+  frameStudyQuestion,
+  type BreakdownFocus,
+} from './breakdownQuestions';
 import { toolsOf } from './engines/failure';
 import type { EngineId, EngineRunRequest, McpServerSpec } from './engines/types';
 
-export const ANALYSIS_IDS = ['thumbnails', 'topics', 'near-misses'] as const;
+/** The analyses answered in one press, while the page waits. */
+export const QUICK_ANALYSIS_IDS = ['thumbnails', 'topics', 'near-misses'] as const;
+/** Every analysis. `breakdown` is the last step of a longer job and is started through it. */
+export const ANALYSIS_IDS = [...QUICK_ANALYSIS_IDS, 'breakdown'] as const;
 export type AnalysisId = (typeof ANALYSIS_IDS)[number];
 
 export interface AnalysisSpec {
@@ -25,8 +40,13 @@ export interface AnalysisSpec {
   readonly description: string;
   readonly allowedTools: readonly string[];
   readonly maxTurns: number;
-  /** The question, for a channel already put into its fixed form. */
-  readonly question: (channel: string) => string;
+  /** How long one run may take, when the usual limit is not enough. */
+  readonly timeoutMs?: number;
+  /**
+   * The question, for a channel already put into its fixed form. `focus`
+   * names the videos chosen in code for the analyses that study particular ones.
+   */
+  readonly question: (channel: string, focus?: BreakdownFocus) => string;
   /**
    * The engines that may answer, when the analysis cannot be left to every
    * engine. They are tried in the owner's order, and an engine the owner's
@@ -42,6 +62,11 @@ export interface AnalysisSettings {
   readonly dbPath: string;
   /** An empty folder for the run to start in, so no project settings are picked up. */
   readonly workDir: string;
+  /**
+   * The downloads folder as a full path, when there is one: the connector
+   * looks there for frames cut from a video file.
+   */
+  readonly downloadsPath?: string | undefined;
 }
 
 /** The connector's name as every engine knows it. */
@@ -53,6 +78,9 @@ const TIMEOUT_MS = 5 * 60 * 1000;
 /** One tool call is enough to prove an engine can reach the connector. */
 const CHECK_TIMEOUT_MS = 2 * 60 * 1000;
 const CHECK_MAX_TURNS = 4;
+
+/** The engines known to see the pictures a tool returns; see the thumbnail review. */
+export const PICTURE_ENGINES: readonly EngineId[] = ['claude', 'codex'];
 
 const SYSTEM_PROMPT = [
   'You are an analyst working for the owner of a small faceless YouTube channel.',
@@ -82,7 +110,7 @@ export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
     // The pictures reach the engine as tool results. Claude Code is known to see
     // them and Codex documents that it does; nothing says Antigravity passes a
     // tool's pictures on, and a review written without seeing them would be invented.
-    engines: ['claude', 'codex'],
+    engines: PICTURE_ENGINES,
     question: (channel) =>
       [
         `For the channel ${channel}: call get_map to learn which channel is the owner's model, if there is one, and which look-alikes match most closely. Then call get_thumbnail_board.`,
@@ -129,6 +157,17 @@ export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
         'Do not change anything; the owner decides. At most 400 words.',
       ].join(' '),
   },
+  breakdown: {
+    title: 'Channel breakdown',
+    description:
+      'Takes one channel apart: its identity, title formula, thumbnail style, description template, script, pictures, sound and editing, and how to make a video like its best ones.',
+    allowedTools: BREAKDOWN_TOOLS.map(tool),
+    maxTurns: BREAKDOWN_MAX_TURNS,
+    timeoutMs: BREAKDOWN_TIMEOUT_MS,
+    // It looks at thumbnails, which reach the engine as a tool's pictures.
+    engines: PICTURE_ENGINES,
+    question: breakdownQuestion,
+  },
 };
 
 /** The channel as the question names it: a handle or an id, never free text. */
@@ -155,6 +194,9 @@ function connectorServer(
     env: {
       JGTUBE_DB_PATH: settings.dbPath,
       JGTUBE_TOOLS: toolsOf(SERVER_NAME, allowedTools).join(','),
+      ...(settings.downloadsPath === undefined
+        ? {}
+        : { JGTUBE_DOWNLOADS_PATH: settings.downloadsPath }),
     },
   };
 }
@@ -170,15 +212,36 @@ export function analysisRequest(
   id: AnalysisId,
   channel: string,
   settings: AnalysisSettings,
+  focus: BreakdownFocus = NO_FOCUS,
 ): EngineRunRequest {
   const spec = specOf(id);
   return {
-    prompt: spec.question(fixedForm(channel)),
+    prompt: spec.question(fixedForm(channel), focus),
     systemPrompt: SYSTEM_PROMPT,
     mcpServers: { [SERVER_NAME]: connectorServer(settings, spec.allowedTools) },
     allowedTools: spec.allowedTools,
     maxTurns: spec.maxTurns,
-    timeoutMs: TIMEOUT_MS,
+    timeoutMs: spec.timeoutMs ?? TIMEOUT_MS,
+    cwd: settings.workDir,
+  };
+}
+
+/** What a frame study is called when it is named to the owner. */
+export const FRAME_STUDY_TITLE = 'A frame study';
+
+/**
+ * A study of one video's frames, start to end, as a boxed-in run of an engine
+ * with the one tool that shows them. The video is named by its id alone.
+ */
+export function frameStudyRequest(videoId: string, settings: AnalysisSettings): EngineRunRequest {
+  const allowedTools = FRAME_STUDY_TOOLS.map(tool);
+  return {
+    prompt: frameStudyQuestion(videoId),
+    systemPrompt: SYSTEM_PROMPT,
+    mcpServers: { [SERVER_NAME]: connectorServer(settings, allowedTools) },
+    allowedTools,
+    maxTurns: FRAME_STUDY_MAX_TURNS,
+    timeoutMs: FRAME_STUDY_TIMEOUT_MS,
     cwd: settings.workDir,
   };
 }

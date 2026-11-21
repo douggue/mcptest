@@ -4,10 +4,12 @@ import {
   fetchVideoDetails,
   parseChannelRef,
   readChannelBrand,
+  readFileFrames,
   readTranscript,
   readVideoDetails,
   readVideoFrames,
   saveChannelThumbnails,
+  saveChannelTranscripts,
   type ApiVideoDetails,
   type BrandRepo,
   type ChannelRepo,
@@ -15,8 +17,11 @@ import {
   type FetchImage,
   type SqliteVideoPageRepo,
   type SqliteVideoRepo,
+  type StoredChannel,
   type transactionRunner,
+  type VideoFrames,
   type VideoPageDeps,
+  type VideoStudyRepo,
   type YouTubeSource,
 } from '@jgtube/core';
 import type { DownloadsEngine } from './downloadTypes';
@@ -30,6 +35,7 @@ export interface DownloadWiring {
     readonly videos: SqliteVideoRepo;
     readonly brands: BrandRepo;
     readonly pages: SqliteVideoPageRepo;
+    readonly studies: VideoStudyRepo;
   };
   readonly transact: ReturnType<typeof transactionRunner>;
   /** A source that connects on first use, so a read the store can answer makes no request. */
@@ -66,14 +72,31 @@ export function downloads(wiring: DownloadWiring): DownloadsEngine {
     ...(fetchDetails ? { fetchDetails } : {}),
   };
   const imageDeps = wiring.fetchImage ? { fetchImage: wiring.fetchImage } : {};
+  const storedChannel = (channel: string): StoredChannel | null => {
+    const ref = parseChannelRef(channel);
+    return ref.kind === 'id'
+      ? repos.channels.findById(ref.id)
+      : repos.channels.findByHandle(ref.handle);
+  };
+  /** Frames cut from the video's own file, when Jgtube has cut them and has a folder to look in. */
+  const fileFrames = async (
+    videoId: string,
+    sheets: number,
+    from: number | undefined,
+  ): Promise<VideoFrames | null> => {
+    let root: string;
+    try {
+      root = downloadsRoot(config);
+    } catch {
+      // A store that is only in memory has no downloads folder, so nothing was ever cut.
+      return null;
+    }
+    return readFileFrames(root, videoId, sheets, from);
+  };
 
   return {
     saveThumbnails(channel) {
-      const ref = parseChannelRef(channel);
-      const stored =
-        ref.kind === 'id'
-          ? repos.channels.findById(ref.id)
-          : repos.channels.findByHandle(ref.handle);
+      const stored = storedChannel(channel);
       if (!stored) return Promise.resolve(null);
       return run(() =>
         saveChannelThumbnails(
@@ -84,10 +107,28 @@ export function downloads(wiring: DownloadWiring): DownloadsEngine {
       );
     },
 
+    saveTranscripts(channel) {
+      const stored = storedChannel(channel);
+      if (!stored) return Promise.resolve(null);
+      return run(() =>
+        saveChannelTranscripts(
+          { ...pageDeps, channels: repos.channels, videos: repos.videos },
+          stored.id,
+          downloadsRoot(config),
+        ),
+      );
+    },
+
     readTranscript: (videoId) => run(() => readTranscript(pageDeps, videoId)),
 
-    readVideoFrames: (videoId, sheets) =>
-      run(() => readVideoFrames({ ...pageDeps, ...imageDeps }, videoId, sheets)),
+    readVideoFrames: (videoId, sheets, from) =>
+      run(
+        async () =>
+          (await fileFrames(videoId, sheets, from)) ??
+          readVideoFrames({ ...pageDeps, ...imageDeps }, videoId, sheets, from),
+      ),
+
+    findVideoStudy: (videoId, kind) => repos.studies.find(videoId, kind),
 
     readChannelBrand: (channel) =>
       run(() =>

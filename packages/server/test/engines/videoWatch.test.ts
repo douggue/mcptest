@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
@@ -8,6 +8,7 @@ import {
   watchVideo,
   type DownloadVideo,
   type VideoWatchContext,
+  type WatchStep,
 } from '../../src/engines/videoWatch';
 import { scripted, tinyMp4, type Scripted } from './standIn';
 
@@ -58,9 +59,35 @@ interface Setup {
   readonly installed?: boolean;
   readonly download?: DownloadVideo;
   readonly geminiFetch?: GeminiFetch;
+  readonly onStep?: (step: WatchStep) => void;
 }
 
-function setup({ settings = {}, agy = {}, installed = true, download, geminiFetch }: Setup) {
+/** A downloader whose copy is its own to remove, as the real one's is. */
+function removableCopy(bytes: Buffer = tinyMp4()) {
+  let removed = 0;
+  const path = (): string => join(folder, `${VIDEO_ID}.mp4`);
+  const download: DownloadVideo = async () => {
+    writeFileSync(path(), bytes);
+    return {
+      ok: true,
+      path: path(),
+      remove: async () => {
+        removed += 1;
+        rmSync(path(), { force: true });
+      },
+    };
+  };
+  return { download, path, removed: () => removed };
+}
+
+function setup({
+  settings = {},
+  agy = {},
+  installed = true,
+  download,
+  geminiFetch,
+  onStep,
+}: Setup) {
   const { started, deps } = scripted(() => agy);
   const context: VideoWatchContext = {
     settings: { order: ['agy', 'claude', 'codex'], agyYouTubeLinks: false, ...settings },
@@ -69,6 +96,7 @@ function setup({ settings = {}, agy = {}, installed = true, download, geminiFetc
     agyInstalled: async () => installed,
     download,
     geminiFetch,
+    onStep,
   };
   return { started, context };
 }
@@ -239,5 +267,102 @@ describe('watchVideo', () => {
       watchVideo({ ...video, videoId: '../../etc/passwd' }, context),
     ).rejects.toMatchObject({ reason: 'failed', message: expect.stringMatching(/video id/) });
     expect(asked).toEqual([]);
+  });
+
+  test('removes the downloaded copy once Antigravity has watched it', async () => {
+    const copy = removableCopy();
+    const { context } = setup({ agy: agySays('Seen.'), download: copy.download });
+
+    await watchVideo(video, context);
+
+    expect(copy.removed()).toBe(1);
+    expect(existsSync(copy.path())).toBe(false);
+  });
+
+  test('removes the downloaded copy when the watch fails', async () => {
+    const copy = removableCopy();
+    const { context } = setup({
+      agy: { stderr: 'authentication required', code: 1 },
+      download: copy.download,
+    });
+
+    await expect(watchVideo(video, context)).rejects.toMatchObject({ reason: 'not-signed-in' });
+    expect(copy.removed()).toBe(1);
+    expect(existsSync(copy.path())).toBe(false);
+  });
+
+  test('removes a downloaded copy that turned out not to be a whole video', async () => {
+    const copy = removableCopy(tinyMp4().subarray(0, 30));
+    const { context } = setup({
+      settings: withKey,
+      download: copy.download,
+      geminiFetch: gemini('From Gemini.').fetch,
+    });
+
+    await expect(watchVideo(video, context)).resolves.toMatchObject({ engine: 'gemini-api' });
+    expect(existsSync(copy.path())).toBe(false);
+  });
+
+  test('still answers when the copy cannot be removed', async () => {
+    const download: DownloadVideo = async (videoId) => {
+      const path = join(folder, `${videoId}.mp4`);
+      writeFileSync(path, tinyMp4());
+      return {
+        ok: true,
+        path,
+        remove: async () => {
+          throw new Error('the file is still open');
+        },
+      };
+    };
+    const { context } = setup({ agy: agySays('Seen.'), download });
+
+    await expect(watchVideo(video, context)).resolves.toMatchObject({ text: 'Seen.' });
+  });
+
+  test('leaves alone a copy that came with no way to remove it', async () => {
+    const { download } = downloader();
+    const { context } = setup({ agy: agySays('Seen.'), download });
+
+    await watchVideo(video, context);
+
+    expect(existsSync(join(folder, `${VIDEO_ID}.mp4`))).toBe(true);
+  });
+
+  test('watches a video whose id begins with a dash without it reaching a command line', async () => {
+    const dashed = '-aaaaaaaaaa';
+    const { asked, download } = downloader();
+    const { started, context } = setup({ agy: agySays('Seen.'), download });
+
+    await expect(watchVideo({ ...video, videoId: dashed }, context)).resolves.toMatchObject({
+      engine: 'agy',
+    });
+    expect(asked).toEqual([dashed]);
+    // The engine is pointed at its own copy under a fixed name, never at the id.
+    expect(started[0]?.args.some((arg) => arg.includes(dashed))).toBe(false);
+  });
+
+  test('says when the download starts and which engine is watching', async () => {
+    const steps: WatchStep[] = [];
+    const first = setup({
+      agy: agySays('Seen.'),
+      download: downloader().download,
+      onStep: (step) => steps.push(step),
+    });
+    const second = setup({
+      settings: withKey,
+      installed: false,
+      geminiFetch: gemini('From Gemini.').fetch,
+      onStep: (step) => steps.push(step),
+    });
+
+    await watchVideo(video, first.context);
+    await watchVideo(video, second.context);
+
+    expect(steps).toEqual([
+      { kind: 'downloading' },
+      { kind: 'watching', engine: 'agy' },
+      { kind: 'watching', engine: 'gemini-api' },
+    ]);
   });
 });

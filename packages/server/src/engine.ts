@@ -9,9 +9,12 @@ import {
   SqliteTransferRepo,
   SqliteVideoPageRepo,
   SqliteVideoRepo,
+  SqliteVideoStudyRepo,
   SqliteWatchlistRepo,
   crawlMap,
   discoverByKeyword,
+  downloadVideo,
+  downloadsRoot,
   fetchChannelFacts,
   fillNicheFacts,
   loadMapSnapshot,
@@ -20,6 +23,7 @@ import {
   loadSameTopicList,
   loadThumbnailBoard,
   openDatabase,
+  ownVideosFolder,
   parseChannelRef,
   refreshStalest,
   searchRecentVideos,
@@ -33,16 +37,27 @@ import {
   type FetchImage,
   type SearchHit,
   type StoredChannel,
+  type VideoPlayerSource,
   type YouTubeSource,
 } from '@jgtube/core';
 import { randomUUID } from 'node:crypto';
-import { analysisEngines, type AnalysisOptions } from './analysisEngine';
+import { analysisEngines, type AnalysisOptions, type AnalysisParts } from './analysisEngine';
 import type { Engine } from './app';
-import { connectOnUse, onceUntilItWorks, stopWhen, youtubeSource } from './connection';
+import { breakDown, type BreakdownFiles } from './breakdownEngine';
+import { breakdownFiles } from './breakdownFiles';
+import {
+  connectOnUse,
+  onceUntilItWorks,
+  stopWhen,
+  youtubeSource,
+  type PlayerSource,
+} from './connection';
 import { downloads } from './downloadEngine';
+import type { DownloadsEngine } from './downloadTypes';
 import { cleanMessage } from './jobs';
 import { trackWork, type WorkTracker } from './running';
 import { transfers } from './transferEngine';
+import { videoCopies, type FetchVideoFile } from './videoCopies';
 
 /**
  * How long shutting down waits for work under way. Work that reads YouTube
@@ -66,7 +81,11 @@ export interface RunningEngine extends Engine {
 
 export interface EngineOptions extends AnalysisOptions {
   /** Replaces the connection to YouTube; used by tests. */
-  readonly createSource?: () => Promise<YouTubeSource>;
+  readonly createSource?: () => Promise<PlayerSource>;
+  /** Replaces fetching a video file (core's `downloadVideo`); used by tests. */
+  readonly fetchVideoFile?: FetchVideoFile;
+  /** Where the helper programs (yt-dlp, ffmpeg) are looked for; tests replace it. */
+  readonly programEnv?: Readonly<Record<string, string | undefined>>;
   readonly now?: () => Date;
   /** Replaces the official API's search; used by tests. */
   readonly search?: (
@@ -96,6 +115,7 @@ function openRepos(db: Db) {
     // With this among them, every read of a channel also stores its logo, cover and bio.
     brands: new SqliteBrandRepo(db),
     pages: new SqliteVideoPageRepo(db),
+    studies: new SqliteVideoStudyRepo(db),
   };
 }
 
@@ -109,8 +129,11 @@ interface Wiring {
   readonly leases: SqliteLeaseRepo;
   /** The connection to YouTube, made on first use and shared by all work. */
   readonly connected: () => Promise<YouTubeSource>;
-  /** A source that connects on first use, so work that reads nothing makes no request. */
-  readonly lazySource: YouTubeSource;
+  /**
+   * A source that connects on first use, so work that reads nothing makes no
+   * request. It can also ask for a video's files, for the built-in download.
+   */
+  readonly lazySource: YouTubeSource & VideoPlayerSource;
   /**
    * Runs work that reads YouTube while holding the store's lease, so it never
    * runs beside the same kind of work in another program (the connector, the
@@ -132,7 +155,7 @@ function wire(config: Config, options: EngineOptions): Wiring {
   // shared by crawls, refreshes and keyword searches. Once the engine is
   // shutting down it asks YouTube for nothing more.
   const connect = onceUntilItWorks(options.createSource ?? (() => youtubeSource(config)));
-  const connected = async (): Promise<YouTubeSource> => stopWhen(await connect(), work.isClosing);
+  const connected = async (): Promise<PlayerSource> => stopWhen(await connect(), work.isClosing);
   // The leases this engine holds now, by owner, so closing can give them back.
   let held: ReadonlySet<string> = new Set();
   const holding = <T>(reads: () => Promise<T>): Promise<T> => {
@@ -328,12 +351,82 @@ function discovery(wiring: Wiring, fillFacts: FillFacts): Discovery {
   };
 }
 
+/** What a breakdown is built from, beyond the wiring every part shares. */
+interface BreakdownParts {
+  readonly asking: AnalysisParts;
+  readonly reading: DownloadsEngine;
+  readonly files: BreakdownFiles;
+  readonly stop: AbortSignal;
+}
+
+type Breaking = Pick<Engine, 'breakDown' | 'ownVideosFolder'>;
+
+/** A channel breakdown: the steps in `breakdownEngine`, given this engine's parts to work with. */
+function breaking(wiring: Wiring, parts: BreakdownParts): Breaking {
+  const { config, now, repos, work } = wiring;
+  const { asking, reading, files, stop } = parts;
+  return {
+    breakDown: (channel, onProgress, choices) =>
+      work.run(() =>
+        breakDown(
+          {
+            now,
+            stop,
+            studies: repos.studies,
+            files,
+            readChannel: async (ref) => (await reading.readChannelBrand(ref)).channel,
+            listVideos: (channelId) => repos.videos.listByChannel(channelId),
+            readTranscript: reading.readTranscript,
+            framesAvailable: async (videoId) => {
+              const frames = await reading.readVideoFrames(videoId, 1, 0);
+              return frames === null || frames.frameCount < 1
+                ? null
+                : { source: frames.source, available: frames.frameCount };
+            },
+            watchesFiles: asking.watchesFiles,
+            watchVideo: asking.watchVideo,
+            studyFrames: asking.studyFrames,
+            write: (stored, only, focus) => asking.analyse('breakdown', stored, only, focus),
+          },
+          channel,
+          onProgress,
+          choices,
+        ),
+      ),
+
+    ownVideosFolder: () => ownVideosFolder(downloadsRoot(config)),
+  };
+}
+
 /** Wires the API to the store and to YouTube. */
 export function createEngine(config: Config, options: EngineOptions = {}): RunningEngine {
   const wiring = wire(config, options);
   const fillFacts = factsFiller(wiring);
   const stopEngines = new AbortController();
-  const asking = analysisEngines(wiring, stopEngines.signal);
+  const stop = stopEngines.signal;
+  const root = (): string => downloadsRoot(config);
+  // Temporary copies of videos: each comes with the way to remove it, and any
+  // still on disk when the engine closes is removed then.
+  const env = options.programEnv ? { env: options.programEnv } : {};
+  const copies = videoCopies({
+    root,
+    fetch:
+      options.fetchVideoFile ??
+      ((videoId, signal) =>
+        downloadVideo(videoId, { root: root(), source: wiring.lazySource, signal, ...env })),
+  });
+  const asking = analysisEngines(
+    { ...wiring, options: { ...options, downloadVideo: options.downloadVideo ?? copies.fetch } },
+    stop,
+  );
+  const reading = downloads({
+    ...wiring,
+    transact: transactionRunner(wiring.db),
+    run: wiring.work.run,
+    fetchImage: options.fetchImage,
+    fetchVideoDetails: options.fetchVideoDetails,
+  });
+  const files = breakdownFiles({ root, fetch: copies.fetch, stop, ...env });
   let closed = false;
   let shuttingDown: Promise<void> | null = null;
   const close = (): void => {
@@ -342,22 +435,18 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     // Work cut short cannot give its lease back once the store is closed.
     wiring.releaseLeases();
     asking.cleanUp();
+    copies.removeLeftovers();
     wiring.db.close();
   };
   return {
     ...mapReads(wiring),
     ...ownerChoices(wiring),
     ...transfers(wiring),
-    ...downloads({
-      ...wiring,
-      transact: transactionRunner(wiring.db),
-      run: wiring.work.run,
-      fetchImage: options.fetchImage,
-      fetchVideoDetails: options.fetchVideoDetails,
-    }),
+    ...reading,
     ...crawling(wiring),
     ...refreshing(wiring, fillFacts),
     ...discovery(wiring, fillFacts),
+    ...breaking(wiring, { asking, reading, files, stop }),
     analyse: asking.analyse,
     watchVideo: asking.watchVideo,
     engineStatus: asking.engineStatus,
