@@ -355,10 +355,9 @@ export function ScriptWriter({ script, lab, busy, voices }: Props) {
           </div>
           <p className="mt-1 max-w-4xl text-body-md text-on-surface-variant">
             Takes one kept concept to a script in three steps: hooks and a beat sheet, the draft,
-            and a tighten pass. The AI that writes it cannot look anything up, so it does not know
-            real facts about the subject. Every fact it could not vouch for is followed by [CHECK:
-            what to verify]. Check each one yourself before you record: a video that states invented
-            facts as true breaks YouTube&rsquo;s rules on misleading content.
+            and a tighten pass. An AI writes it from memory, and some facts may be wrong.
+            {(view?.markFacts ?? true) &&
+              ' Every fact it could not vouch for is followed by [CHECK: what to verify]. Check each one yourself before you record: a video that states invented facts as true breaks YouTube’s rules on misleading content.'}
           </p>
         </div>
 

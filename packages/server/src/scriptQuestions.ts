@@ -12,12 +12,19 @@
  * The engines cannot look anything up. Every stage therefore carries the
  * same rule: a fact the tools did not supply is written with a marker,
  * `[CHECK: what to verify]`, right after it. The page counts the markers.
+ * The owner can turn the marking off in Settings; the rule against inventing
+ * a quotation from a real person holds either way.
  */
 
 /** What a stage of a script is told besides the channel: the concept, by its number. */
 export interface ScriptFocus {
   readonly kind: 'script';
   readonly conceptId: number;
+  /**
+   * False when the owner has turned "Mark facts to check in scripts" off: the
+   * stage is then not asked for `[CHECK: ...]` markers. Absent means on.
+   */
+  readonly markFacts?: boolean;
 }
 
 export const SCRIPT_HOOK_TOOLS = [
@@ -62,6 +69,24 @@ export const HONESTY_RULE = [
   'The owner will check every marker before recording: a script with invented facts presented as true breaks YouTube’s rules on misleading content.',
 ].join(' ');
 
+/** What is never done, marked or not: words put in a real person's mouth. */
+const QUOTE_RULE =
+  'Never present words as a quotation from a named real person unless a tool gave you those words.';
+
+/**
+ * The rule in its place when the owner has chosen not to have facts marked.
+ * Checking facts is the owner's choice; inventing a quotation never is.
+ */
+export const NO_MARKERS_RULE = [
+  'You cannot look anything up: you have no access to the web, and the tools hold only what other channels put in their own videos.',
+  'The owner has chosen not to have facts marked, so do not add [CHECK: ...] markers.',
+  QUOTE_RULE,
+].join(' ');
+
+/** The fact rule a stage carries, by the owner's setting. */
+const factRule = (focus: ScriptFocus): string =>
+  focus.markFacts === false ? NO_MARKERS_RULE : `${HONESTY_RULE} ${QUOTE_RULE}`;
+
 const MODEL_RULE =
   'A library hook is a model for the way of opening only: what it does first, what it holds back, how it turns. Never reuse its words, names, numbers or subject, and never continue its story.';
 
@@ -91,11 +116,13 @@ export function scriptHooksQuestion(channel: string, focus: ScriptFocus): string
     'Write three hooks for the video of this concept. Each opens in a different way: name the way in a few words. Each is about hookWords words long, which is hookSeconds seconds at this voice’s rate, and each names the library hook it learns from.',
     MODEL_RULE,
     'Then write a beat sheet for the rest of the video, from the end of the hook to targetSeconds: for each beat the time it starts, a short name, and in one sentence what happens in it and what it holds back for later. Build it the way the videos you read are built, not as a list of topics. A video under two minutes has three to five beats.',
-    HONESTY_RULE,
+    factRule(focus),
     'Answer in exactly this form and nothing else. For each hook a line "HOOK 1" (then HOOK 2, HOOK 3) and under it these lines, each starting with its label.',
     'WAY: the way it opens, in a few words.',
     'MODEL: the video id of the library hook it learns from; or none.',
-    'TEXT: the hook, all on one line, with its [CHECK: ...] markers.',
+    focus.markFacts === false
+      ? 'TEXT: the hook, all on one line.'
+      : 'TEXT: the hook, all on one line, with its [CHECK: ...] markers.',
     'Then a line "BEATS" and, for each beat, one line in this form: BEAT: the time it starts as minutes:seconds | its name | what happens.',
   ].join(' ');
 }
@@ -110,7 +137,7 @@ export function scriptDraftQuestion(channel: string, focus: ScriptFocus): string
     'Set a picture cue before the words it covers, on a line of its own, in exactly this form: [B-ROLL: what to show | a phrase to search stock footage with, or a prompt to make the picture from | a sound effect or music note, or nothing]. Write no times in a cue: Jgtube works out when each starts and ends from the words.',
     `How often to set a cue: get_script lists under frameStudies the videos of the voice channel whose frames a channel breakdown has studied. When it lists any, call get_frame_study for up to ${FRAME_STUDIES_READ} of them and set cues about as often as the picture really changes there. When it lists none, do not invent a cut rate: set a cue wherever what is said moves to a new thing to look at.`,
     'Start each part with a heading line: "## HOOK" for the hook, then "## " and the beat’s name for each beat. Under a heading come cue lines and spoken words, nothing else: no stage directions, no speaker names, no notes to the owner.',
-    HONESTY_RULE,
+    factRule(focus),
     MODEL_RULE,
     'Answer with the script only.',
   ].join(' ');
@@ -123,7 +150,7 @@ export function scriptTightenQuestion(channel: string, focus: ScriptFocus): stri
     'The draft it returns is the script to work on.',
     'Rewrite the same script so that it is easier to say aloud and easier to follow: one idea to a sentence, plain words, no sentence a narrator would stumble over, and nothing said twice. When get_script gives targetGrade, aim at that reading grade, which is the voice channel’s own; when it gives sentenceWords, keep most sentences near that length; when it gives neither, keep sentences short enough to say in one breath.',
     'Add nothing: no fact, name, number, example or claim that is not in the draft. Keep every [CHECK: ...] marker with the claim it follows, unless you drop the whole sentence. Keep every heading line and every [B-ROLL: ...] line, in order, each cue still before the words it covers. Keep the length within a tenth of the draft’s.',
-    HONESTY_RULE,
+    factRule(focus),
     'Answer with the script only.',
   ].join(' ');
 }

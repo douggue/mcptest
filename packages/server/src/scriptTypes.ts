@@ -42,6 +42,8 @@ export interface ScriptView {
   readonly lengthRange: LengthRange | null;
   /** The voice the script is written in, as it measures now; null until one is chosen. */
   readonly voice: VoiceView | null;
+  /** Whether the owner has facts marked for checking (Settings); the page hides the marker count and list when not. */
+  readonly markFacts: boolean;
 }
 
 export interface ScriptOutcome {

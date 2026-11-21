@@ -339,6 +339,22 @@ describe('the three stages', () => {
     engine.openScript(MINE, conceptId);
   });
 
+  test('with marking facts turned off, the stage is told so and the view says so', async () => {
+    const quiet = lab({ ...deps, markFacts: () => false });
+
+    const outcome = await quiet.runScriptStage('hooks', MINE, conceptId, 'claude', () => {});
+
+    expect(asked).toEqual([
+      {
+        analysis: 'script-hooks',
+        focus: { kind: 'script', conceptId, markFacts: false },
+        only: 'claude',
+      },
+    ]);
+    expect(outcome.view.markFacts).toBe(false);
+    expect(engine.findScriptView(MINE, conceptId)?.markFacts).toBe(true);
+  });
+
   test('hooks: asks by the concept’s number and stores three hooks and the beats', async () => {
     const outcome = await engine.runScriptStage('hooks', MINE, conceptId, 'claude', () => {});
 

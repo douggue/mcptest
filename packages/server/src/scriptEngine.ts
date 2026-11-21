@@ -101,6 +101,9 @@ function planOf(found: FoundConcept, script: StoredScript | null): ScriptPlan {
   };
 }
 
+/** Whether the owner has facts marked for checking; on unless they turned it off. */
+const marksFacts = (deps: LabDeps): boolean => deps.markFacts?.() ?? true;
+
 function viewOf(deps: LabDeps, found: FoundConcept): ScriptView {
   const center = found.batch.centerChannelId;
   const script = deps.repos.scripts.find(center, found.concept.id);
@@ -109,6 +112,7 @@ function viewOf(deps: LabDeps, found: FoundConcept): ScriptView {
     script,
     plan: planOf(found, script),
     lengthRange: winnersRange(deps, center),
+    markFacts: marksFacts(deps),
     voice: script?.voiceChannelId ? voiceView(deps, center, script.voiceChannelId) : null,
   };
 }
@@ -241,6 +245,7 @@ export function scriptEngine(deps: LabDeps): ScriptEngine {
       const answer = await deps.analyse(ANALYSIS[stage], center, only, {
         kind: 'script',
         conceptId,
+        ...(marksFacts(deps) ? {} : { markFacts: false }),
       });
       onProgress({ step: 'reading', text: 'Reading what the AI wrote' });
       scripts.save(center, conceptId, fieldsFrom(stage, answer.text), deps.now());

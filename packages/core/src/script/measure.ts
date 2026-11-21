@@ -43,6 +43,17 @@ export function spokenText(script: string): string {
     .trim();
 }
 
+/**
+ * The whole script with its check markers taken out: headings, picture cues
+ * and every claim stay. For an owner who has chosen not to have facts marked.
+ */
+export function stripCheckMarkers(script: string): string {
+  return script
+    .split('\n')
+    .map((line) => (line.includes('[CHECK:') ? withoutMarkers(line) : line))
+    .join('\n');
+}
+
 /** The spoken text as paragraphs with one empty line between them, ready to hand to a voice. */
 export function cleanVoiceover(script: string): string {
   return spokenText(script)

@@ -444,6 +444,8 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       findSnapshot: maps.findSnapshot,
       readTranscript: reading.readTranscript,
       isClosing: wiring.work.isClosing,
+      // Read at each use: the owner can change it from the settings screen while Jgtube runs.
+      markFacts: () => config.markFacts !== false,
     }),
     analyse: asking.analyse,
     watchVideo: asking.watchVideo,
