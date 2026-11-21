@@ -96,3 +96,21 @@ describe('the idea lab’s API', () => {
     ]);
   });
 });
+
+describe('a concept’s thumbnail prompt through the API', () => {
+  test('lists the stored prompts and starts a run with the chosen engine', async () => {
+    const { api, sent } = recording({ thumbnails: [{ conceptId: 7 }], jobId: 'job-2' });
+
+    await expect(api.conceptThumbnails(CHANNEL)).resolves.toEqual([{ conceptId: 7 }]);
+    await expect(api.startThumbnail(CHANNEL, 7, 'codex')).resolves.toBe('job-2');
+
+    expect(sent).toEqual([
+      `GET /api/lab/concepts/thumbnails?channel=${CHANNEL}`,
+      `POST /api/lab/concepts/thumbnail {"channel":"${CHANNEL}","concept":7,"engine":"codex"}`,
+    ]);
+  });
+
+  test('gives none for a channel with no map', async () => {
+    await expect(recording(null, 404).api.conceptThumbnails(CHANNEL)).resolves.toBeNull();
+  });
+});

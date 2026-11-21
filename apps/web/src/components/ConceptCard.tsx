@@ -5,7 +5,14 @@ import { Bookmark, BookmarkCheck, PenLine, Shuffle, Sparkles, Smartphone } from 
 import { useState } from 'react';
 import { watchUrl } from '../lib/format';
 import type { LibraryHook } from '../lib/hookLibrary';
-import { hookModelOf, overlayNote, titleCheck, type ConceptView } from '../lib/ideaLab';
+import {
+  hookModelOf,
+  overlayNote,
+  titleCheck,
+  type ConceptThumbnailView,
+  type ConceptView,
+} from '../lib/ideaLab';
+import { ConceptThumbnail } from './ConceptThumbnail';
 import { FeedPreview } from './FeedPreview';
 import { PILL, QUIET_BUTTON } from './LabStatus';
 import { Outbound } from './NicheCard';
@@ -169,10 +176,14 @@ interface Props extends Omit<ActionsProps, 'previewing' | 'onPreview'> {
   readonly hooks: readonly LibraryHook[];
   /** The breakouts of the map on screen, for the feed preview. */
   readonly breakouts: readonly BreakoutVideo[];
+  /** The concept's stored thumbnail prompt; null when it has none. */
+  readonly thumbnail: ConceptThumbnailView | null;
+  readonly onThumbnail: () => void;
 }
 
 /** One packaging concept: the title large, then everything it comes with and what can be done with it. */
-export function ConceptCard({ concept, hooks, breakouts, ...actions }: Props) {
+export function ConceptCard(props: Props) {
+  const { concept, hooks, breakouts, thumbnail, onThumbnail, ...actions } = props;
   const [previewing, setPreviewing] = useState(false);
   const check = titleCheck(concept.title, concept.length);
   const tooManyWords = overlayNote(concept.overlay);
@@ -222,6 +233,13 @@ export function ConceptCard({ concept, hooks, breakouts, ...actions }: Props) {
           {tooManyWords && <p className="text-body-sm text-metric-amber">{tooManyWords}</p>}
         </div>
       </div>
+
+      <ConceptThumbnail
+        title={concept.title}
+        thumbnail={thumbnail}
+        busy={actions.busy}
+        onWrite={onThumbnail}
+      />
 
       <Hook concept={concept} hooks={hooks} />
       <RestsOn concept={concept} />
