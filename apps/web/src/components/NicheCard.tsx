@@ -14,6 +14,8 @@ import {
   formatPerSubscriber,
   otherTitles,
 } from '../lib/niches';
+import { Card, Label } from './layout/Card';
+import { Details } from './layout/Details';
 import { ThumbnailTile } from './ThumbnailTile';
 
 /** The multiple from which a score is drawn in amber, as on the thumbnail board. */
@@ -131,7 +133,7 @@ function Evidence({ channel }: { readonly channel: NicheChannel }) {
  */
 function Numbers({ channel }: { readonly channel: NicheChannel }) {
   return (
-    <dl className="grid grid-cols-2 gap-2 rounded bg-space-deep p-2.5 sm:grid-flow-col sm:grid-cols-3 sm:grid-rows-2">
+    <dl className="grid grid-cols-2 gap-3 rounded-lg bg-space-deep p-space-sm sm:grid-flow-col sm:grid-cols-3 sm:grid-rows-2">
       <Stat label="Subscribers">{formatCount(channel.subscribers)}</Stat>
       <Stat label="Per subscriber">
         <span className="text-secondary">{formatPerSubscriber(channel.viewsPerSubscriber)}</span>
@@ -151,14 +153,17 @@ function Numbers({ channel }: { readonly channel: NicheChannel }) {
 /** What the views are worth over both windows, and which ad rate that was worked out at. */
 function Earnings({ channel }: { readonly channel: NicheChannel }) {
   return (
-    <div
-      className="flex flex-col gap-0.5 text-label-caps text-outline"
-      title="A rough range from typical ad rates for the views on this channel's uploads. Jgtube cannot see whether the channel is monetised or where its viewers live; the rate is scaled by a rough tier for the channel's own country when YouTube's records give one."
-    >
-      <p>{describeEarnings(channel.ninetyDayEarnings, 90)} · estimate</p>
-      <p>{describeEarnings(channel.earnings)} · estimate</p>
-      <p>{describeRateTier(channel.earnings.rateTier)}</p>
-    </div>
+    <Details summary="What the views may be worth (estimate)">
+      <div className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
+        <p>{describeEarnings(channel.ninetyDayEarnings, 90)} · estimate</p>
+        <p>{describeEarnings(channel.earnings)} · estimate</p>
+        <p className="text-outline">{describeRateTier(channel.earnings.rateTier)}</p>
+        <p className="text-outline">
+          A rough range from typical ad rates for the views on this channel&rsquo;s uploads. Jgtube
+          cannot see whether the channel is monetised or where its viewers live.
+        </p>
+      </div>
+    </Details>
   );
 }
 
@@ -169,11 +174,12 @@ function Videos({ channel }: { readonly channel: NicheChannel }) {
     <>
       {channel.outperformers.length > 0 && (
         <div className="flex min-w-0 flex-col gap-space-sm">
-          <div className="flex flex-wrap items-center gap-1.5 text-label-caps text-outline">
-            <span aria-hidden="true" className="h-2 w-2 rounded-full bg-metric-amber" />
-            <span className="uppercase text-on-surface-variant">Took off</span>
-            <span>far above its size or its usual views</span>
-          </div>
+          <Label>
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-metric-amber" />
+              Took off: far above its size or its usual views
+            </span>
+          </Label>
           <div className="grid grid-cols-2 gap-x-3 gap-y-space-md sm:grid-cols-3">
             {channel.outperformers.map((video) => (
               <ThumbnailTile
@@ -186,8 +192,7 @@ function Videos({ channel }: { readonly channel: NicheChannel }) {
         </div>
       )}
       {others.length > 0 && (
-        <div className="flex flex-col gap-space-sm">
-          <span className="text-label-caps uppercase text-outline">Also publishing</span>
+        <Details summary={`Also publishing (${others.length})`}>
           <ul className="flex flex-col gap-space-sm">
             {others.map((sample) => (
               <li key={sample.videoId} className="flex items-baseline justify-between gap-3">
@@ -200,7 +205,7 @@ function Videos({ channel }: { readonly channel: NicheChannel }) {
               </li>
             ))}
           </ul>
-        </div>
+        </Details>
       )}
     </>
   );
@@ -209,7 +214,7 @@ function Videos({ channel }: { readonly channel: NicheChannel }) {
 /** The channel's own logo once it has been read, and its initial until then. */
 function Logo({ channel }: { readonly channel: NicheChannel }) {
   return (
-    <div className="flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full bg-space-deep text-xs font-bold text-secondary">
+    <div className="flex h-10 w-10 flex-none items-center justify-center overflow-hidden rounded-full bg-surface-container-high text-body-sm font-bold text-secondary ring-2 ring-border-subtle">
       <ChannelLogo title={channel.title} logoUrl={channel.logoUrl} letters={1} />
     </div>
   );
@@ -218,11 +223,7 @@ function Logo({ channel }: { readonly channel: NicheChannel }) {
 /** One channel worth a look: why it is here, its numbers, and the videos that took off. */
 export function NicheCard({ channel, onSetWatched, onBreakDown }: Props) {
   return (
-    <article
-      className={`flex min-w-0 flex-col gap-space-md rounded bg-surface-card p-space-md shadow-md ${
-        channel.watched ? 'ring-1 ring-border-highlight' : ''
-      }`}
-    >
+    <Card as="article" highlighted={channel.watched}>
       <div className="flex min-w-0 items-center gap-space-sm">
         <Logo channel={channel} />
         <div className="flex min-w-0 flex-col">
@@ -230,7 +231,7 @@ export function NicheCard({ channel, onSetWatched, onBreakDown }: Props) {
             <Outbound href={channelUrl(channel.id)}>{channel.title}</Outbound>
           </h3>
           {channel.handle && (
-            <span className="truncate text-label-caps text-outline">@{channel.handle}</span>
+            <span className="truncate text-body-sm text-outline">@{channel.handle}</span>
           )}
         </div>
         <WatchToggle channel={channel} onSetWatched={onSetWatched} />
@@ -257,6 +258,6 @@ export function NicheCard({ channel, onSetWatched, onBreakDown }: Props) {
           Break down this channel
         </button>
       )}
-    </article>
+    </Card>
   );
 }
