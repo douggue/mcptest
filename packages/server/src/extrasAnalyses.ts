@@ -11,7 +11,7 @@
 import { FINDING_MAX_QUOTES, FINDING_MIN_QUOTES } from '@jgtube/core';
 import type { AnalysisSpec } from './analyses';
 
-export const EXTRA_ANALYSIS_IDS = ['viewer-requests'] as const;
+export const EXTRA_ANALYSIS_IDS = ['viewer-requests', 'risk-check'] as const;
 export type ExtrasAnalysisId = (typeof EXTRA_ANALYSIS_IDS)[number];
 
 /** The videos a "What viewers ask for" is about: winners of the map, checked in code. */
@@ -19,7 +19,12 @@ export interface CommentsFocus {
   readonly kind: 'comments';
   readonly videoIds: readonly string[];
 }
-export type ExtrasFocus = CommentsFocus;
+/** The kept concept whose script a risk check is about, checked in code to have one. */
+export interface RiskFocus {
+  readonly kind: 'risk';
+  readonly conceptId: number;
+}
+export type ExtrasFocus = CommentsFocus | RiskFocus;
 
 export const VIEWER_TOOLS = ['get_viewer_comments'] as const;
 const VIEWER_MAX_TURNS = 6;
@@ -30,7 +35,7 @@ const VIEWER_MAX_FINDINGS = 12;
 const VIDEO_ID = /^[\w-]{11}$/;
 
 /** The focus as the kind a question needs; a question is never asked half-filled. */
-export function extrasFocusOf(focus: unknown): ExtrasFocus {
+export function commentsFocusOf(focus: unknown): CommentsFocus {
   const ids: unknown =
     typeof focus === 'object' && focus !== null && 'kind' in focus && focus.kind === 'comments'
       ? (focus as { readonly videoIds?: unknown }).videoIds
@@ -60,6 +65,46 @@ export function viewerRequestsQuestion(channel: string, focus: CommentsFocus): s
   ].join('\n');
 }
 
+export const RISK_TOOLS = ['get_concept', 'get_script', 'get_risk_findings'] as const;
+const RISK_MAX_TURNS = 10;
+const RISK_TIMEOUT_MS = 8 * 60 * 1000;
+const RISK_MAX_CLAIMS = 12;
+
+/** The risk focus, or a refusal: a question is never asked half-filled. */
+export function riskFocusOf(focus: unknown): RiskFocus {
+  const conceptId: unknown =
+    typeof focus === 'object' && focus !== null && 'kind' in focus && focus.kind === 'risk'
+      ? (focus as { readonly conceptId?: unknown }).conceptId
+      : null;
+  if (typeof conceptId !== 'number' || !Number.isInteger(conceptId) || conceptId < 1) {
+    throw new Error('This question was started without what it is to be asked about');
+  }
+  return { kind: 'risk', conceptId };
+}
+
+export function riskCheckQuestion(channel: string, focus: RiskFocus): string {
+  return [
+    `Channel: ${channel}. Concept number: ${focus.conceptId}.`,
+    'This is a check of a script before it is published: a list of things for its maker to look at. It is not legal advice and not a verdict on YouTube’s rules; say nothing about either.',
+    `Call get_concept with this channel and concept ${focus.conceptId} for its title, alternate titles, thumbnail brief and overlay. Call get_script with the same, part tightened (or draft when nothing is tightened), for the script.`,
+    'Call get_risk_findings with the same for what Jgtube worked out in code: sentences of the script sharing six or more words in a row with a stored competitor transcript, each with an id, and facts the script still marks to check.',
+    `First, list each claim the title, an alternate title, the thumbnail brief or the overlay makes that the script does not support. Up to ${RISK_MAX_CLAIMS}.`,
+    'Then, for each sentence Jgtube found sharing words with a competitor, write one sentence describing what is shared. Do not judge whether it is allowed.',
+    'Do not list the facts marked to check: Jgtube counts them itself.',
+    'Answer in plain text and nothing else, in exactly these forms:',
+    'CLAIM',
+    'WHERE: title, alternate title, thumbnail or overlay',
+    'SAYS: the words of the claim, copied exactly',
+    'SCRIPT: the script’s nearest words on it, copied exactly, or NONE',
+    'WHY: one sentence on what the script does not support',
+    '',
+    'OVERLAP',
+    'ID: the id Jgtube gave',
+    'NOTE: one sentence describing what is shared',
+    'If there is nothing to list, answer only: NOTHING TO LIST',
+  ].join('\n');
+}
+
 /** The later features' analyses, with their tools under the names an engine knows them by. */
 export function extraAnalyses(
   tool: (name: string) => string,
@@ -73,9 +118,18 @@ export function extraAnalyses(
       maxTurns: VIEWER_MAX_TURNS,
       timeoutMs: VIEWER_TIMEOUT_MS,
       question: (channel, focus) => {
-        const asked = extrasFocusOf(focus);
+        const asked = commentsFocusOf(focus);
         return viewerRequestsQuestion(channel, asked);
       },
+    },
+    'risk-check': {
+      title: 'Check before publishing',
+      description:
+        'Lists title or thumbnail claims the script does not support, quoting both, and describes the sentences Jgtube found sharing long runs of words with competitors.',
+      allowedTools: RISK_TOOLS.map(tool),
+      maxTurns: RISK_MAX_TURNS,
+      timeoutMs: RISK_TIMEOUT_MS,
+      question: (channel, focus) => riskCheckQuestion(channel, riskFocusOf(focus)),
     },
   };
 }

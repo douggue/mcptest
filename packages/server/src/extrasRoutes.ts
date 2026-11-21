@@ -13,6 +13,7 @@ import { fail } from './http';
 import { CALENDAR_ROUTES } from './calendarRoutes';
 import { PACING_ROUTES } from './pacingRoutes';
 import { PLAN_ROUTES } from './planRoutes';
+import { RISK_ROUTES } from './riskRoutes';
 import { JobStore } from './jobs';
 
 const ROUTES: ExtrasRouteTable = {
@@ -22,6 +23,7 @@ const ROUTES: ExtrasRouteTable = {
   ...CALENDAR_ROUTES,
   ...PACING_ROUTES,
   ...COMMENTS_ROUTES,
+  ...RISK_ROUTES,
   '/api/extras/job': { GET: (context, _request, url) => readExtrasJob(context, url) },
 };
 

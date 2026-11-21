@@ -40,12 +40,13 @@ const FOCUS: Partial<Record<AnalysisId, QuestionFocus>> = {
   'script-tighten': { kind: 'script', conceptId: 1 },
   'concept-thumbnail': { kind: 'concept', conceptId: 1 },
   'viewer-requests': { kind: 'comments', videoIds: ['aaaaaaaaaa1'] },
+  'risk-check': { kind: 'risk', conceptId: 1 },
 };
 /** Tools that change stored choices or reach the network for minutes; an analysis only reads. */
 const NOT_FOR_ANALYSIS = ['set_competitor_status', 'make_map'];
 
 describe('the analyses on offer', () => {
-  test('are thumbnails, video ideas, same-topic channels, the seven parts of a breakdown, the idea lab’s six, the script writer’s three, a concept’s thumbnail prompt and what viewers ask for', () => {
+  test('are thumbnails, video ideas, same-topic channels, the seven parts of a breakdown, the idea lab’s six, the script writer’s three, a concept’s thumbnail prompt, what viewers ask for and the risk check', () => {
     expect(ANALYSIS_IDS).toEqual([
       'thumbnails',
       'topics',
@@ -68,6 +69,7 @@ describe('the analyses on offer', () => {
       'script-tighten',
       'concept-thumbnail',
       'viewer-requests',
+      'risk-check',
     ]);
     // The parts of a breakdown are steps of a longer job, so they are not among the one-press ones.
     expect(QUICK_ANALYSIS_IDS).toEqual(['thumbnails', 'topics', 'near-misses']);

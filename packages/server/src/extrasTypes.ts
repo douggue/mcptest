@@ -7,6 +7,7 @@ import type { AlertsEngine } from './alertsTypes';
 import type { CalendarEngine } from './calendarTypes';
 import type { CommentsEngine } from './commentsTypes';
 import type { PacingEngine } from './pacingTypes';
+import type { RiskEngine } from './riskTypes';
 import type { PlanEngine } from './planTypes';
 
 /** What changed around a channel, with the moment it was asked for and the one it was answered for. */
@@ -31,4 +32,5 @@ export type ExtrasEngine = ChangesEngine &
   PlanEngine &
   CalendarEngine &
   PacingEngine &
-  CommentsEngine;
+  CommentsEngine &
+  RiskEngine;

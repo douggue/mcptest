@@ -68,10 +68,60 @@ export async function getViewerComments(
   }
 }
 
+/** Said first with every risk finding, so the reader takes it for what it is. */
+export const FOUND_IN_CODE =
+  'What follows was worked out by Jgtube in code: sentences of the script sharing six or more words in a row with a stored competitor transcript (each with an id), and the facts the script still marks to check. Describe them; do not judge whether anything is allowed.';
+const NO_SCRIPT =
+  'There is no kept concept with that number for this channel, or it has no script yet, or the channel has no map.';
+const CONCEPT_RULE = 'concept is the concept number the question gives, a whole number from 1.';
+
+export const getRiskFindingsShape = {
+  channel: getViewerCommentsShape.channel,
+  concept: z
+    .number({ error: CONCEPT_RULE })
+    .int(CONCEPT_RULE)
+    .min(1, CONCEPT_RULE)
+    .describe('The number of the concept whose script is checked, as the question gives it.'),
+};
+const getRiskFindingsArgs = z.object(getRiskFindingsShape);
+export type GetRiskFindingsArgs = z.input<typeof getRiskFindingsArgs>;
+
+const GET_RISK_FINDINGS_TEXT = {
+  title: 'What Jgtube found in a script before publishing',
+  description:
+    'For one kept concept’s script: the sentences sharing six or more words in a row with a stored ' +
+    'competitor transcript, with the shared words and the video, and the facts still marked to check. ' +
+    'Worked out in code; describe them, never judge them. Reads the local store only.',
+} as const;
+
+export async function getRiskFindings(
+  engine: Pick<ConnectorEngine, 'extras'>,
+  args: GetRiskFindingsArgs,
+): Promise<CallToolResult> {
+  try {
+    const { channel, concept } = checkedArgs(getRiskFindingsArgs, args);
+    const found = engine.extras.riskFindings(channel, concept);
+    if (found === null) throw new ToolFailure(NO_SCRIPT);
+    return {
+      content: [
+        { type: 'text', text: FOUND_IN_CODE },
+        { type: 'text', text: JSON.stringify(found) },
+      ],
+    };
+  } catch (error) {
+    return failureResult(plainMessage(error));
+  }
+}
+
 export function registerExtraTools(server: McpServer, engine: ConnectorEngine): void {
   server.registerTool(
     'get_viewer_comments',
     { ...GET_VIEWER_COMMENTS_TEXT, inputSchema: getViewerCommentsShape, annotations: READS_STORE },
     (args) => getViewerComments(engine, args),
+  );
+  server.registerTool(
+    'get_risk_findings',
+    { ...GET_RISK_FINDINGS_TEXT, inputSchema: getRiskFindingsShape, annotations: READS_STORE },
+    (args) => getRiskFindings(engine, args),
   );
 }

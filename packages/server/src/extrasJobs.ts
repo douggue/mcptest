@@ -5,13 +5,15 @@
  */
 import type { MineOutcome } from '@jgtube/core';
 import type { ViewerAskOutcome } from './commentsTypes';
+import type { RiskAskOutcome } from './riskTypes';
 import { fail, ok } from './http';
 import type { JobStore } from './jobs';
 import type { Context } from './labHttp';
 
 export type ExtrasOutcome =
   | { readonly kind: 'comments-read'; readonly outcomes: readonly MineOutcome[] }
-  | { readonly kind: 'viewer-answer'; readonly outcome: ViewerAskOutcome };
+  | { readonly kind: 'viewer-answer'; readonly outcome: ViewerAskOutcome }
+  | { readonly kind: 'risk-check'; readonly outcome: RiskAskOutcome };
 
 export interface ExtrasProgress {
   readonly text: string;

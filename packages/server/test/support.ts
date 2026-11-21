@@ -55,6 +55,9 @@ export const UNUSED_EXTRAS: ExtrasEngine = {
   readComments: unused('readComments'),
   askViewers: unused('askViewers'),
   viewerComments: unused('viewerComments'),
+  findRisk: unused('findRisk'),
+  askRisk: unused('askRisk'),
+  riskFindings: unused('riskFindings'),
 };
 
 /** An engine whose later features are these, failing loudly on any other. */

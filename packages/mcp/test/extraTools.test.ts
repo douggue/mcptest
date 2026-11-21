@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'vitest';
-import { STRANGERS_TEXT, getViewerComments } from '../src/extraTools';
+import {
+  FOUND_IN_CODE,
+  STRANGERS_TEXT,
+  getRiskFindings,
+  getViewerComments,
+} from '../src/extraTools';
 import { CENTER_ID, FakeEngine, VIDEO_ID, textOf } from './fakes';
 
 describe('get_viewer_comments', () => {
@@ -38,5 +43,28 @@ describe('get_viewer_comments', () => {
 
     expect(bad.isError).toBe(true);
     expect(noVideos.isError).toBe(true);
+  });
+});
+
+describe('get_risk_findings', () => {
+  test('says the findings were worked out in code, then hands them over', async () => {
+    const engine = new FakeEngine();
+
+    const result = await getRiskFindings(engine, { channel: CENTER_ID, concept: 3 });
+
+    const [first, second] = result.content;
+    expect(first).toEqual({ type: 'text', text: FOUND_IN_CODE });
+    expect(FOUND_IN_CODE).toMatch(/worked out by Jgtube in code/);
+    expect(JSON.parse(second?.type === 'text' ? second.text : '')).toEqual(engine.risk);
+    expect(engine.reads).toContainEqual(['risk', CENTER_ID, 3]);
+  });
+
+  test('says so when there is no such kept concept with a script, and refuses bad input', async () => {
+    const engine = new FakeEngine();
+    engine.risk = null;
+
+    expect((await getRiskFindings(engine, { channel: CENTER_ID, concept: 3 })).isError).toBe(true);
+    expect((await getRiskFindings(engine, { channel: '@x', concept: 3 })).isError).toBe(true);
+    expect((await getRiskFindings(engine, { channel: CENTER_ID, concept: 0 })).isError).toBe(true);
   });
 });

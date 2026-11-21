@@ -25,6 +25,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { ConceptForTool, HookLibrary, IdeaBrief } from '@jgtube/server/src/labTypes';
 import type { ScriptForTool } from '@jgtube/server/src/scriptTypes';
 import type { ToolComments } from '@jgtube/server/src/commentsTypes';
+import type { RiskToolFindings } from '@jgtube/server/src/riskTypes';
 import type {
   ChannelVideos,
   ConnectorEngine,
@@ -585,7 +586,26 @@ export class FakeEngine implements ConnectorEngine {
     ],
   };
 
+  risk: RiskToolFindings | null = {
+    stage: 'tightened',
+    overlaps: [
+      {
+        id: 'o1',
+        sentence: 'The army quietly built a city under the ice.',
+        videoId: VIDEO_ID,
+        phrase: 'the army quietly built a city under the ice',
+        words: 9,
+      },
+    ],
+    transcriptsCompared: 4,
+    unchecked: [{ what: 'the year', near: 'In 1959 the army began.' }],
+  };
+
   readonly extras = {
+    riskFindings: (channelId: string, conceptId: number): RiskToolFindings | null => {
+      this.reads.push(['risk', channelId, conceptId]);
+      return this.risk;
+    },
     viewerComments: (channelId: string, videoIds: readonly string[]): ToolComments | null => {
       this.reads.push(['comments', channelId, [...videoIds]]);
       return this.comments;

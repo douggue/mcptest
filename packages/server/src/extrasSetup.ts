@@ -6,6 +6,7 @@ import {
   SqliteAlertRepo,
   SqliteCommentRepo,
   SqliteLookRepo,
+  SqliteRiskRepo,
   SqliteScheduleRepo,
   SqliteVideoLinkRepo,
   SqliteVideoPageRepo,
@@ -27,6 +28,7 @@ import { changesEngine } from './changesEngine';
 import type { ExtrasEngine } from './extrasTypes';
 import { pacingEngine } from './pacingEngine';
 import { planEngine } from './planEngine';
+import { riskEngine } from './riskEngine';
 
 export interface ExtrasDeps {
   readonly db: Db;
@@ -59,6 +61,7 @@ export function extras(deps: ExtrasDeps): ExtrasEngine {
     schedule: new SqliteScheduleRepo(db),
     transcripts: new SqliteVideoPageRepo(db),
     comments: new SqliteCommentRepo(db),
+    risks: new SqliteRiskRepo(db),
   };
   const readChannel = (channelId: string): Promise<void> =>
     reading(async () => {
@@ -72,5 +75,6 @@ export function extras(deps: ExtrasDeps): ExtrasEngine {
     ...calendarEngine({ now, repos: all }),
     ...pacingEngine({ now, repos: all }),
     ...commentsEngine({ now, repos: all, apiKey: () => config.youtubeApiKey, analyse }),
+    ...riskEngine({ now, repos: all, analyse }),
   };
 }
