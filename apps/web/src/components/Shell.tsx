@@ -16,6 +16,7 @@ import {
   Sprout,
   Target,
   CalendarDays,
+  Ruler,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Settings } from './Settings';
@@ -38,6 +39,7 @@ const RAIL = [
   { label: 'Script writer', icon: PenLine, target: 'script-writer-title' },
   { label: 'Your videos against the plan', icon: Target, target: 'own-videos-title' },
   { label: 'Upload calendar', icon: CalendarDays, target: 'upload-calendar-title' },
+  { label: 'Length and pacing', icon: Ruler, target: 'length-pacing-title' },
   { label: 'Transfer opportunities', icon: Globe, target: 'transfers-title' },
   { label: 'New niches', icon: Sprout, target: 'niches-title' },
 ] as const;
