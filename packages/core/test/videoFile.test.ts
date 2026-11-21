@@ -27,6 +27,7 @@ import {
 } from '../src/downloads/videoFile';
 import {
   findProgram,
+  programSetting,
   ytDlpArguments,
   ytDlpFetcher,
   type ProgramResult,
@@ -145,12 +146,17 @@ describe('downloadVideoFile', () => {
 
     expect(await downloadVideoFile({ fetchers: both, now: () => NOW }, VIDEO, root)).toMatchObject({
       message: 'built-in failed',
+      attempts: [
+        { route: 'yt-dlp', message: 'yt-dlp failed' },
+        { route: 'built-in', message: 'built-in failed' },
+      ],
     });
     expect(await downloadVideoFile({ fetchers: [], now: () => NOW }, VIDEO, root)).toEqual({
       ok: false,
       kind: 'unreadable',
       message: 'Jgtube has no way to fetch a video file on this computer.',
       via: null,
+      attempts: [],
     });
   });
 
@@ -255,6 +261,48 @@ describe('findProgram', () => {
     expect(await findProgram('yt-dlp', {}, 'linux')).toBeNull();
     mkdirSync(join(root, 'dir', 'yt-dlp'), { recursive: true });
     expect(await findProgram('yt-dlp', { PATH: join(root, 'dir') }, 'linux')).toBeNull();
+  });
+
+  test('uses the full path the owner named in the setting, ahead of the PATH', async () => {
+    const elsewhere = join(bin('yt-dlp.exe', 0o644), 'yt-dlp.exe');
+    const onPath = bin('yt-dlp.exe', 0o644);
+
+    expect(programSetting('yt-dlp')).toBe('JGTUBE_YT_DLP_PATH');
+    expect(programSetting('ffmpeg')).toBe('JGTUBE_FFMPEG_PATH');
+    expect(
+      await findProgram('yt-dlp', { Path: onPath, jgtube_yt_dlp_path: elsewhere }, 'win32'),
+    ).toBe(elsewhere);
+    expect(
+      await findProgram(
+        'yt-dlp',
+        { Path: onPath, JGTUBE_YT_DLP_PATH: join(root, 'gone.exe') },
+        'win32',
+      ),
+    ).toBe(join(onPath, 'yt-dlp.exe'));
+    expect(await findProgram('yt-dlp', { JGTUBE_YT_DLP_PATH: 'yt-dlp.exe' }, 'win32')).toBeNull();
+  });
+
+  test('on Windows, looks where winget, scoop, Chocolatey and Python put programs', async () => {
+    const place = (...parts: string[]): string => {
+      const folder = join(root, ...parts);
+      mkdirSync(folder, { recursive: true });
+      writeFileSync(join(folder, 'yt-dlp.exe'), '');
+      return join(folder, 'yt-dlp.exe');
+    };
+    const local = join(root, 'local');
+    const winget = place('local', 'Microsoft', 'WinGet', 'Links');
+    const pip = place('roaming', 'Python', 'Python312', 'Scripts');
+    const scoop = place('home', 'scoop', 'shims');
+    const choco = place('all', 'chocolatey', 'bin');
+
+    expect(await findProgram('yt-dlp', { LOCALAPPDATA: local }, 'win32')).toBe(winget);
+    expect(await findProgram('yt-dlp', { AppData: join(root, 'roaming') }, 'win32')).toBe(pip);
+    expect(await findProgram('yt-dlp', { USERPROFILE: join(root, 'home') }, 'win32')).toBe(scoop);
+    expect(await findProgram('yt-dlp', { ALLUSERSPROFILE: join(root, 'all') }, 'win32')).toBe(
+      choco,
+    );
+    expect(await findProgram('yt-dlp', { LOCALAPPDATA: local }, 'linux')).toBeNull();
+    expect(await findProgram('ffmpeg', { LOCALAPPDATA: local }, 'win32')).toBeNull();
   });
 
   test('never searches a folder that is not a full path, such as the current one', async () => {
@@ -690,8 +738,7 @@ describe('the built-in route', () => {
     expect(result).toEqual({
       ok: false,
       kind: 'refused',
-      message:
-        'YouTube refused to send the video file to this computer. Installing yt-dlp is the usual fix; you can also give Jgtube the file yourself.',
+      message: 'YouTube refused to send the video file to the download built into Jgtube.',
       via: 'built-in',
     });
     expect(readdirSync(join(root, 'video-temp'))).toEqual([]);
@@ -706,8 +753,7 @@ describe('the built-in route', () => {
 
     expect(await fetchWith(failing)).toMatchObject({
       kind: 'unreadable',
-      message:
-        'The file could not be fetched: The connection was reset. YouTube often refuses this way of fetching; installing yt-dlp is the fix.',
+      message: 'The file could not be fetched: The connection was reset.',
     });
   });
 });
@@ -776,5 +822,52 @@ describe('downloadVideo', () => {
     await expect(downloadVideo('not a video', { root, env: {} })).rejects.toThrow(
       /Not a valid YouTube video id or link/,
     );
+  });
+});
+
+describe('what a failed download tells the owner', () => {
+  const refusing = {
+    fetchPlayer: async () =>
+      player({
+        download: async () => {
+          throw new Error('The server responded with a non 2xx status code');
+        },
+      }),
+  };
+
+  test('says yt-dlp was not found, and how to point Jgtube at it, when only the built-in way ran', async () => {
+    const result = await downloadVideo(VIDEO, {
+      root,
+      now: () => NOW,
+      env: { PATH: '' },
+      platform: 'linux',
+      source: refusing,
+    });
+
+    expect(result).toMatchObject({ ok: false, kind: 'refused' });
+    expect(result.ok ? '' : result.message).toMatch(/did not find yt-dlp on this computer/);
+    expect(result.ok ? '' : result.message).toMatch(/JGTUBE_YT_DLP_PATH=/);
+    expect(result.ok ? '' : result.message).toMatch(/give Jgtube the video file yourself/);
+  });
+
+  test('says what yt-dlp itself answered when it was found and failed', async () => {
+    const bin = mkdtempSync(join(root, 'bin-'));
+    writeFileSync(join(bin, 'yt-dlp'), '');
+    chmodSync(join(bin, 'yt-dlp'), 0o755);
+
+    const result = await downloadVideo(VIDEO, {
+      root,
+      now: () => NOW,
+      env: { PATH: bin },
+      platform: 'linux',
+      run: async () => ({ code: 1, stdout: '', stderr: 'ERROR: unable to open the cookie jar' }),
+      source: refusing,
+    });
+
+    const message = result.ok ? '' : result.message;
+    expect(message).toContain(`yt-dlp (${join(bin, 'yt-dlp')}) was tried first.`);
+    expect(message).toMatch(/unable to open the cookie jar/);
+    expect(message).toMatch(/Then Jgtube's own download was tried/);
+    expect(message).not.toMatch(/did not find yt-dlp/);
   });
 });

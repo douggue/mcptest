@@ -103,6 +103,46 @@ export function jsonReply(stdout: string): unknown {
   return reply === undefined ? null : parsed(reply);
 }
 
+/** Where a comma is followed, past any space or comments, by the bracket that closes its list. */
+const TRAILING = /^(?:\s|\/\/[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)*[}\]]/;
+
+/**
+ * A settings file as plain JSON text: without the byte-order mark some
+ * Windows editors put first, without `//` and block comments, and without a
+ * comma after the last entry of a list. Programs that keep their settings as
+ * "JSON with comments" accept all three, and JSON.parse accepts none. What
+ * is inside quotes is left exactly as it is.
+ */
+export function plainJson(text: string): string {
+  const source = text.replace(/^\uFEFF/, '');
+  let out = '';
+  let at = 0;
+  let quoted = false;
+  while (at < source.length) {
+    const here = source[at] ?? '';
+    const next = source[at + 1] ?? '';
+    if (quoted) {
+      // An escaped character, such as \" or \\, is copied with its backslash.
+      out += here === '\\' ? here + next : here;
+      at += here === '\\' ? 2 : 1;
+      quoted = here !== '"';
+    } else if (here === '/' && next === '/') {
+      const end = source.indexOf('\n', at);
+      at = end === -1 ? source.length : end;
+    } else if (here === '/' && next === '*') {
+      const end = source.indexOf('*/', at + 2);
+      at = end === -1 ? source.length : end + 2;
+    } else if (here === ',' && TRAILING.test(source.slice(at + 1))) {
+      at += 1;
+    } else {
+      quoted = here === '"';
+      out += here;
+      at += 1;
+    }
+  }
+  return out;
+}
+
 /** The first server and tool of a full tool name such as `mcp__jgtube__get_map`. */
 const TOOL_NAME = /^mcp__([A-Za-z0-9_-]+?)__([A-Za-z0-9_-]+)$/;
 

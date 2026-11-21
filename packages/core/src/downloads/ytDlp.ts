@@ -21,7 +21,7 @@ import {
  * begins with a dash is never read as an option.
  */
 
-export { findProgram, type ProgramResult, type RunProgram } from './program';
+export { findProgram, programSetting, type ProgramResult, type RunProgram } from './program';
 
 /** The program's name; on Windows its file is this with ".exe". */
 export const YT_DLP_PROGRAM = 'yt-dlp';

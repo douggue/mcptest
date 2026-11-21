@@ -63,12 +63,20 @@ export interface VideoFailure {
   readonly message: string;
   /** The route that gave this answer; null when no route could be tried. */
   readonly via: VideoRoute | null;
+  /** Each way that was tried and failed, in order, when more than the answer's own was. */
+  readonly attempts?: readonly VideoAttempt[];
   /**
    * For 'too-large': about how many seconds of the video would fit under the
    * limit, when that can be told. The file is never cut to fit: a cut file
    * may not play, so a whole video is handed over or none.
    */
   readonly fitsSeconds?: number | null;
+}
+
+/** One way that was tried and failed, with what it said. */
+export interface VideoAttempt {
+  readonly route: VideoRoute;
+  readonly message: string;
 }
 
 export type VideoDownload = VideoFile | VideoFailure;
@@ -155,10 +163,12 @@ export async function downloadVideoFile(
   await mkdir(folder, { recursive: true });
   await cleanVideoTemp(root, deps.now());
   let last: VideoFailure = NO_ROUTE;
+  let attempts: readonly VideoAttempt[] = [];
   for (const fetcher of deps.fetchers) {
     const result = await fetcher.fetch(videoId, folder, MAX_VIDEO_BYTES);
     if (result.ok || !WORTH_ANOTHER_ROUTE.includes(result.kind)) return result;
+    attempts = [...attempts, { route: fetcher.route, message: result.message }];
     last = last.kind === 'refused' ? last : result;
   }
-  return last;
+  return { ...last, attempts };
 }

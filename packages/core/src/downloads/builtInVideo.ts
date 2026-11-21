@@ -24,23 +24,16 @@ const PLAYABLE = 'OK';
 const BITS_PER_BYTE = 8;
 const BYTES_PER_MB = 1_000_000;
 const MAX_REASON_LENGTH = 200;
-/**
- * Said when this route is refused. YouTube's video servers answered 403 to it
- * in the live check (November 2026) although the player listed the file;
- * yt-dlp keeps up with such changes, which the library inside Jgtube does not.
- */
-const INSTALL_YT_DLP = 'YouTube often refuses this way of fetching; installing yt-dlp is the fix.';
 /** How the library words an answer from YouTube's video servers that is not the file. */
 const TURNED_AWAY = /non 2xx|status code|\b40[13]\b|\b429\b/i;
-const REFUSED_MESSAGE =
-  'YouTube refused to send the video file to this computer. Installing yt-dlp is the usual fix; you can also give Jgtube the file yourself.';
+const REFUSED_MESSAGE = 'YouTube refused to send the video file to the download built into Jgtube.';
 
 /** A failed fetch as a failure: a refusal by YouTube in plain words, anything else with its reason. */
 function fetchFailure(error: unknown): VideoFailure {
   const reason = firstLine(error);
   return TURNED_AWAY.test(reason)
     ? failure('refused', REFUSED_MESSAGE)
-    : failure('unreadable', `The file could not be fetched: ${reason}. ${INSTALL_YT_DLP}`);
+    : failure('unreadable', `The file could not be fetched: ${reason}.`);
 }
 /** What the player says about a video it will not give to anyone signed out. */
 const NOT_AVAILABLE =

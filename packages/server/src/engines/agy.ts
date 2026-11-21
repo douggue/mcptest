@@ -46,7 +46,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { permissionHelp, readAgyReply } from './agyReply';
-import { EngineRunError, promptWithInstructions, toolsOf } from './failure';
+import { EngineRunError, plainJson, promptWithInstructions, toolsOf } from './failure';
 import { installedVersion, statusOf } from './probe';
 import { runProcess } from './process';
 import type {
@@ -152,7 +152,7 @@ export function allowsServer(
 ): boolean {
   let settings: z.infer<typeof settingsSchema>;
   try {
-    settings = settingsSchema.parse(JSON.parse(settingsText ?? ''));
+    settings = settingsSchema.parse(JSON.parse(plainJson(settingsText ?? '')));
   } catch {
     return false;
   }
@@ -188,15 +188,21 @@ export function allowServerInSettings(settingsText: string | null, server: strin
     return { ok: true, changed: true, text: asSettingsText({ permissions: { allow: [rule] } }) };
   }
   let settings: unknown;
+  let trouble = 'it does not hold a list of settings in braces';
   try {
-    settings = JSON.parse(settingsText) as unknown;
-  } catch {
+    settings = JSON.parse(plainJson(settingsText)) as unknown;
+  } catch (error) {
     settings = null;
+    // Where in the file, never what is there: a settings file can hold keys.
+    const position = /position (\d+)/.exec(error instanceof Error ? error.message : '')?.[1];
+    trouble = position
+      ? `something is out of place near character ${position}`
+      : 'it is not valid JSON';
   }
   if (!isObject(settings)) {
     return {
       ok: false,
-      problem: 'The settings file cannot be read as settings, so it was left alone.',
+      problem: `The settings file cannot be read as settings (${trouble}), so it was left alone.`,
     };
   }
   const permissions = isObject(settings['permissions']) ? settings['permissions'] : {};

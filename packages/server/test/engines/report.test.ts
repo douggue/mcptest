@@ -148,16 +148,18 @@ describe('helperLines', () => {
   test('says both helper programs are found when they are, and nothing more', () => {
     expect(helperLines({ ytDlp: '/usr/bin/yt-dlp', ffmpeg: '/usr/bin/ffmpeg' })).toEqual([
       'Helper programs for a deep channel breakdown',
-      'yt-dlp: found. Downloads a video so that it can be watched and its frames cut.',
-      'ffmpeg: found. Cuts one frame a second from a video file.',
+      'yt-dlp: found at /usr/bin/yt-dlp. Downloads a video so that it can be watched and its frames cut.',
+      'ffmpeg: found at /usr/bin/ffmpeg. Cuts one frame a second from a video file.',
     ]);
   });
 
   test('says which is missing, and that a breakdown still runs without it', () => {
     const lines = helperLines({ ytDlp: null, ffmpeg: '/usr/bin/ffmpeg' });
 
-    expect(lines[1]).toMatch(/^yt-dlp: not installed\./);
-    expect(lines[2]).toMatch(/^ffmpeg: found\./);
+    expect(lines[1]).toMatch(/^yt-dlp: not found\./);
+    expect(lines[2]).toMatch(/^ffmpeg: found at /);
+    expect(lines.join(' ')).toMatch(/JGTUBE_YT_DLP_PATH=/);
+    expect(lines.join(' ')).not.toMatch(/JGTUBE_FFMPEG_PATH/);
     expect(lines.at(-1)).toBe(
       'Without them a breakdown still runs, on YouTube’s own preview frames.',
     );

@@ -416,19 +416,21 @@ pages this way is. The copies stay on your computer and are not shared.
 
 All optional, in `.env`:
 
-| Setting                    | What it does                                                            | Default                          |
-| -------------------------- | ----------------------------------------------------------------------- | -------------------------------- |
-| `JGTUBE_DB_PATH`           | Where the store file lives                                              | `jgtube.db` in the Jgtube folder |
-| `JGTUBE_REGION`            | Two-letter country that recommendations are read from                   | `US`                             |
-| `JGTUBE_PORT`              | The port in the address you open                                        | `4317`                           |
-| `YOUTUBE_API_KEY`          | Your YouTube Data API key, for keyword search and exact channel dates   | none                             |
-| `JGTUBE_REFRESH_HOURS`     | Read stored channels again every this many hours while Jgtube runs      | off                              |
-| `JGTUBE_ENGINES`           | Which AI engines Ask AI may use, most preferred first                   | `claude,agy,codex`               |
-| `JGTUBE_AGY_MODEL`         | A model for Antigravity to use (`agy models` lists them)                | Antigravity's own choice         |
-| `GEMINI_API_KEY`           | Your Gemini API key, for watching public YouTube videos                 | none                             |
-| `JGTUBE_GEMINI_MODEL`      | The Gemini model that watches                                           | `gemini-4-hydrogen`              |
-| `JGTUBE_AGY_YOUTUBE_LINKS` | `on` lets Antigravity try a YouTube link when it has no file (unproven) | `off`                            |
-| `JGTUBE_DOWNLOADS_PATH`    | The folder for downloaded thumbnails, transcripts, your own video files | `downloads` beside the store     |
+| Setting                    | What it does                                                                | Default                          |
+| -------------------------- | --------------------------------------------------------------------------- | -------------------------------- |
+| `JGTUBE_DB_PATH`           | Where the store file lives                                                  | `jgtube.db` in the Jgtube folder |
+| `JGTUBE_REGION`            | Two-letter country that recommendations are read from                       | `US`                             |
+| `JGTUBE_PORT`              | The port in the address you open                                            | `4317`                           |
+| `YOUTUBE_API_KEY`          | Your YouTube Data API key, for keyword search and exact channel dates       | none                             |
+| `JGTUBE_REFRESH_HOURS`     | Read stored channels again every this many hours while Jgtube runs          | off                              |
+| `JGTUBE_ENGINES`           | Which AI engines Ask AI may use, most preferred first                       | `claude,agy,codex`               |
+| `JGTUBE_AGY_MODEL`         | A model for Antigravity to use (`agy models` lists them)                    | Antigravity's own choice         |
+| `GEMINI_API_KEY`           | Your Gemini API key, for watching public YouTube videos                     | none                             |
+| `JGTUBE_GEMINI_MODEL`      | The Gemini model that watches                                               | `gemini-4-hydrogen`              |
+| `JGTUBE_AGY_YOUTUBE_LINKS` | `on` lets Antigravity try a YouTube link when it has no file (unproven)     | `off`                            |
+| `JGTUBE_DOWNLOADS_PATH`    | The folder for downloaded thumbnails, transcripts, your own video files     | `downloads` beside the store     |
+| `JGTUBE_YT_DLP_PATH`       | The full path of the yt-dlp program, when Jgtube does not find it by itself | found on the PATH                |
+| `JGTUBE_FFMPEG_PATH`       | The full path of the ffmpeg program, when Jgtube does not find it by itself | found on the PATH                |
 
 ## Command line
 

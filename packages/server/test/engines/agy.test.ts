@@ -390,3 +390,42 @@ describe('letting Antigravity use Jgtube’s tools, done for the owner', () => {
     expect(denied).toMatchObject({ ok: false, problem: expect.stringMatching(/deny/) });
   });
 });
+
+describe('settings files as programs on Windows really write them', () => {
+  const RULE = 'mcp(jgtube/*)';
+  const WITH_COMMENTS = [
+    '\uFEFF{',
+    '  // my settings',
+    '  "theme": "dark", /* a note */',
+    '  "note": "a // inside words, and a , } too",',
+    '  "permissions": {',
+    '    "allow": ["mcp(other/*)",],',
+    '  },',
+    '}',
+  ].join('\r\n');
+
+  test('are read with a byte-order mark, comments and trailing commas', () => {
+    const outcome = allowServerInSettings(WITH_COMMENTS, 'jgtube');
+
+    expect(outcome.ok && JSON.parse(outcome.text)).toEqual({
+      theme: 'dark',
+      note: 'a // inside words, and a , } too',
+      permissions: { allow: ['mcp(other/*)', RULE] },
+    });
+  });
+
+  test('count as allowing the tools when the rule is in such a file', () => {
+    const allowed = WITH_COMMENTS.replace('"mcp(other/*)",', `"mcp(other/*)", "${RULE}",`);
+
+    expect(allowsServer(allowed, 'jgtube', ['get_map'])).toBe(true);
+    expect(allowServerInSettings(allowed, 'jgtube')).toMatchObject({ ok: true, changed: false });
+  });
+
+  test('say what is wrong with a file that still cannot be read, without showing what is in it', () => {
+    const outcome = allowServerInSettings('{ "token": "secret-value" "x": 1 }', 'jgtube');
+
+    expect(outcome).toMatchObject({ ok: false });
+    expect(outcome.ok ? '' : outcome.problem).toMatch(/cannot be read/);
+    expect(outcome.ok ? '' : outcome.problem).not.toContain('secret-value');
+  });
+});

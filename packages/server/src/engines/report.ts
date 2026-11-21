@@ -128,13 +128,21 @@ export interface HelperPrograms {
 
 /** Whether the two helper programs a deep breakdown uses are installed, as lines of plain text. */
 export function helperLines({ ytDlp, ffmpeg }: HelperPrograms): readonly string[] {
-  const found = (path: string | null): string => (path === null ? 'not installed' : 'found');
+  const found = (path: string | null): string => (path === null ? 'not found' : `found at ${path}`);
+  const missing = [
+    ...(ytDlp === null ? ['JGTUBE_YT_DLP_PATH'] : []),
+    ...(ffmpeg === null ? ['JGTUBE_FFMPEG_PATH'] : []),
+  ];
   return [
     'Helper programs for a deep channel breakdown',
     `yt-dlp: ${found(ytDlp)}. Downloads a video so that it can be watched and its frames cut.`,
     `ffmpeg: ${found(ffmpeg)}. Cuts one frame a second from a video file.`,
-    ...(ytDlp === null || ffmpeg === null
-      ? ['Without them a breakdown still runs, on YouTube’s own preview frames.']
+    ...(missing.length > 0
+      ? [
+          'Jgtube looks in the folders on your PATH and, on Windows, where winget, scoop, Chocolatey and Python put programs.',
+          `If you have the program somewhere else, add a line to the .env file with its full path, for example ${missing[0]}=C:\\Tools\\${missing[0] === 'JGTUBE_YT_DLP_PATH' ? 'yt-dlp' : 'ffmpeg'}.exe${missing.length > 1 ? ` (and ${missing[1]} for the other)` : ''}, then start Jgtube again.`,
+          'Without them a breakdown still runs, on YouTube’s own preview frames.',
+        ]
       : []),
   ];
 }

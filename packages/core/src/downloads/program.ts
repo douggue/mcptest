@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { constants } from 'node:fs';
-import { access, stat } from 'node:fs/promises';
+import { access, readdir, stat } from 'node:fs/promises';
 import { delimiter, isAbsolute, join } from 'node:path';
 
 /**
@@ -37,16 +37,70 @@ async function isProgram(path: string, platform: NodeJS.Platform): Promise<boole
   }
 }
 
+/** A setting's value whatever capitalisation its name has: Windows ignores it. */
+function envValue(
+  env: Readonly<Record<string, string | undefined>>,
+  name: string,
+): string | undefined {
+  const key = Object.keys(env).find((candidate) => candidate.toUpperCase() === name.toUpperCase());
+  return key === undefined ? undefined : env[key]?.trim() || undefined;
+}
+
 /**
- * Where a program is on the PATH, as an absolute path, or null when it is not
- * installed. Nothing is run to find out.
+ * The setting that names a program's full path, for a program that is not on
+ * the PATH: `JGTUBE_YT_DLP_PATH` for yt-dlp, `JGTUBE_FFMPEG_PATH` for ffmpeg.
+ */
+export const programSetting = (name: string): string =>
+  `JGTUBE_${name.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_PATH`;
+
+/** The folders inside `parent`, as full paths; none when it cannot be read. */
+async function foldersIn(parent: string): Promise<readonly string[]> {
+  const entries = await readdir(parent, { withFileTypes: true }).catch(() => []);
+  return entries.filter((entry) => entry.isDirectory()).map((entry) => join(parent, entry.name));
+}
+
+/**
+ * Where the usual Windows installers put a program without always adding it
+ * to the PATH of a terminal that was already open: winget's links, scoop's
+ * shims, Chocolatey, and the Scripts folders of Python (where `pip install`
+ * puts yt-dlp). Only folders named by the owner's own environment are used.
+ */
+async function windowsInstallFolders(
+  env: Readonly<Record<string, string | undefined>>,
+): Promise<readonly string[]> {
+  const under = (base: string, ...parts: readonly string[]): readonly string[] => {
+    const root = envValue(env, base);
+    return root !== undefined && isAbsolute(root) ? [join(root, ...parts)] : [];
+  };
+  const pythons = [...under('LOCALAPPDATA', 'Programs', 'Python'), ...under('APPDATA', 'Python')];
+  const scripts = (await Promise.all(pythons.map(foldersIn)))
+    .flat()
+    .map((folder) => join(folder, 'Scripts'));
+  return [
+    ...under('LOCALAPPDATA', 'Microsoft', 'WinGet', 'Links'),
+    ...under('USERPROFILE', 'scoop', 'shims'),
+    ...under('ALLUSERSPROFILE', 'chocolatey', 'bin'),
+    ...scripts,
+  ];
+}
+
+/**
+ * Where a program is, as an absolute path, or null when it cannot be found:
+ * the path the owner named in its setting, else a folder on the PATH, else,
+ * on Windows, a folder the usual installers use. Nothing is run to find out.
  */
 export async function findProgram(
   name: string,
   env: Readonly<Record<string, string | undefined>> = process.env,
   platform: NodeJS.Platform = process.platform,
 ): Promise<string | null> {
-  for (const folder of pathFolders(env)) {
+  const named = envValue(env, programSetting(name));
+  if (named !== undefined && isAbsolute(named) && (await isProgram(named, platform))) return named;
+  const folders = [
+    ...pathFolders(env),
+    ...(platform === 'win32' ? await windowsInstallFolders(env) : []),
+  ];
+  for (const folder of folders) {
     for (const file of programNames(name, platform)) {
       const candidate = join(folder, file);
       if (await isProgram(candidate, platform)) return candidate;
