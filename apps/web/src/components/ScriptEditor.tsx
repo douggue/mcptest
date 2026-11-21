@@ -37,6 +37,8 @@ interface ExportProps {
   readonly wordsPerMinute: number | null;
   /** False when the owner has turned the marking of facts off. */
   readonly markFacts: boolean;
+  /** The concept's thumbnail prompt, carried at the end of the Markdown file; null when none. */
+  readonly thumbnailPrompt: string | null;
 }
 
 /**
@@ -45,7 +47,7 @@ interface ExportProps {
  * leaves the check markers out, so it is never copied silently while facts
  * are still unchecked: the first press says how many, the second copies.
  */
-function Exports({ title, text, wordsPerMinute, markFacts }: ExportProps) {
+function Exports({ title, text, wordsPerMinute, markFacts, thumbnailPrompt }: ExportProps) {
   const [copy, setCopy] = useState<'idle' | 'warned' | 'copied' | 'refused'>('idle');
   const voiceover = voiceoverCopy(text, markFacts);
   const empty = text.trim() === '';
@@ -99,7 +101,7 @@ function Exports({ title, text, wordsPerMinute, markFacts }: ExportProps) {
           onClick={() =>
             download(
               exportName(title, 'md'),
-              exportMarkdown(title, text, markFacts),
+              exportMarkdown(title, text, markFacts, { thumbnailPrompt }),
               'text/markdown',
             )
           }
@@ -237,6 +239,8 @@ interface Props {
   /** Which text is in the editor. */
   readonly which: 'draft' | 'tightened';
   readonly onChange: (text: string) => void;
+  /** The concept's thumbnail prompt; null when it has none. */
+  readonly thumbnailPrompt: string | null;
 }
 
 /**
@@ -244,7 +248,7 @@ interface Props {
  * about the text beside it: words, spoken time, reading grade, the facts
  * still to check, the checklist, and the exports.
  */
-export function ScriptEditor({ view, which, onChange }: Props) {
+export function ScriptEditor({ view, which, onChange, thumbnailPrompt }: Props) {
   const text = view.script?.[which] ?? '';
   const rate = view.script?.wordsPerMinute ?? null;
   const markFacts = view.markFacts ?? true;
@@ -276,6 +280,7 @@ export function ScriptEditor({ view, which, onChange }: Props) {
           text={text}
           wordsPerMinute={rate}
           markFacts={markFacts}
+          thumbnailPrompt={thumbnailPrompt}
         />
       </div>
       <div className="flex min-w-0 flex-col gap-space-md">

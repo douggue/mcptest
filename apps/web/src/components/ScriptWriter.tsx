@@ -16,6 +16,8 @@ import {
   type VoiceChoice,
 } from '../lib/scriptWriter';
 import { FIELD, LabStatus, NOTE, PILL, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
+import { thumbnailFor } from '../lib/ideaLab';
+import { ConceptThumbnail } from './ConceptThumbnail';
 import { ScriptEditor } from './ScriptEditor';
 import type { Lab } from './useLab';
 import type { Script } from './useScript';
@@ -336,6 +338,7 @@ export function ScriptWriter({ script, lab, busy, voices }: Props) {
   const states = stageStates(view?.script ?? null);
   const stateOf = (stage: ScriptStage) => states.find((state) => state.stage === stage);
   const shown = which === 'tightened' && view?.script?.tightened ? 'tightened' : 'draft';
+  const thumbnail = view ? thumbnailFor(lab.thumbnails, view.concept.id) : null;
   return (
     <section
       id="script-writer"
@@ -389,7 +392,7 @@ export function ScriptWriter({ script, lab, busy, voices }: Props) {
             <Setup script={script} view={view} busy={busy} voices={voices} />
             <LabStatus
               state={lab.jobs.state}
-              kinds={['script-hooks', 'script-draft', 'script-tighten', 'voice-read']}
+              kinds={['script-hooks', 'script-draft', 'script-tighten', 'voice-read', 'thumbnail']}
               working="Working on the script"
               takes="A step takes one to six minutes and uses some of the AI’s plan allowance. Keep this page open."
             />
@@ -459,6 +462,13 @@ export function ScriptWriter({ script, lab, busy, voices }: Props) {
                 onChange={(text) =>
                   script.change(shown === 'draft' ? { draft: text } : { tightened: text })
                 }
+                thumbnailPrompt={thumbnail?.prompt ?? null}
+              />
+              <ConceptThumbnail
+                title={view.concept.title}
+                thumbnail={thumbnail}
+                busy={busy}
+                onWrite={() => lab.writeThumbnail(view.concept.id)}
               />
             </div>
           </>

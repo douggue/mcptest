@@ -3,7 +3,14 @@ import { AUTOMATIC, type EngineChoice } from './analyses';
 import { apiCaller, type Fetch } from './api';
 import type { HookBuildOutcome, HookLabelOutcome, HookLibrary } from './hookLibrary';
 import type { ScriptFields } from '@jgtube/core';
-import type { Answered, AnswerOutcome, ConceptOutcome, ConceptView } from './ideaLab';
+import type {
+  Answered,
+  AnswerOutcome,
+  ConceptOutcome,
+  ConceptThumbnailOutcome,
+  ConceptThumbnailView,
+  ConceptView,
+} from './ideaLab';
 import type {
   ScriptOutcome,
   ScriptStage,
@@ -41,7 +48,8 @@ export type LabOutcome =
   | HookBuildOutcome
   | HookLabelOutcome
   | ScriptOutcome
-  | VoiceOutcome;
+  | VoiceOutcome
+  | ConceptThumbnailOutcome;
 
 export interface LabJob {
   readonly id: string;
@@ -90,6 +98,18 @@ export function createLabApi(fetcher?: Fetch) {
       return unwrap<{ removed: number }>(await send('/api/lab/concepts/clear', { channel }))
         .removed;
     },
+
+    /** The thumbnail prompts of a channel's concepts; null when it has no map. */
+    async conceptThumbnails(channel: string): Promise<readonly ConceptThumbnailView[] | null> {
+      const list = await read<{ thumbnails: readonly ConceptThumbnailView[] }>(
+        `/api/lab/concepts/thumbnails?${of(channel)}`,
+      );
+      return list?.thumbnails ?? null;
+    },
+
+    /** Starts the run that writes one concept's thumbnail prompt. */
+    startThumbnail: (channel: string, concept: number, choice: EngineChoice) =>
+      started('/api/lab/concepts/thumbnail', { channel, concept, ...withEngine(choice) }),
 
     startWhereElse: (channel: string, choice: EngineChoice) =>
       started('/api/lab/where-else', { channel, ...withEngine(choice) }),

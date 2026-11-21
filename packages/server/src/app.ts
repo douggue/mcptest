@@ -27,6 +27,9 @@ import { z } from 'zod';
 import { fail, isTrustedHost, ok, readJson } from './http';
 import { JobStore, cleanMessage } from './jobs';
 import type { AnalysisId } from './analyses';
+import type { AnswerEngine } from './answerEngine';
+import type { ConceptThumbEngine } from './conceptThumbEngine';
+import { NAMED_VIDEOS_PATH, readAnswer, readNamedVideos } from './answerRoutes';
 import { readEngines, runAnalysis, type AnalysisTracker } from './analysisRoutes';
 import type { EngineReport } from './engines/catalog';
 import type { EngineAnswer } from './engines/fallback';
@@ -122,7 +125,14 @@ export interface TransferChoices {
 
 /** What the API needs from the engine, so tests can stand in for it. */
 export interface Engine
-  extends DownloadsEngine, LabEngine, ScriptEngine, LogoEngine, TransferPlaceEngine {
+  extends
+    DownloadsEngine,
+    LabEngine,
+    ScriptEngine,
+    LogoEngine,
+    TransferPlaceEngine,
+    AnswerEngine,
+    ConceptThumbEngine {
   /** The later features, kept together: what changed since the owner last looked. */
   readonly extras: ExtrasEngine;
   /** The latest stored map around a channel; reads the store only. */
@@ -555,7 +565,13 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
         : fail(405, 'Use GET or POST');
     }
     if (pathname === '/api/analyses') {
-      return method === 'POST' ? runAnalysis(options, request, analysing) : fail(405, 'Use POST');
+      if (method === 'GET') return readAnswer(options, url);
+      return method === 'POST'
+        ? runAnalysis(options, request, analysing)
+        : fail(405, 'Use GET or POST');
+    }
+    if (pathname === NAMED_VIDEOS_PATH) {
+      return method === 'GET' ? readNamedVideos(options, url) : fail(405, 'Use GET');
     }
     if (pathname === '/api/engines') {
       return method === 'GET' ? readEngines(options) : fail(405, 'Use GET');

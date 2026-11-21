@@ -7,7 +7,10 @@ import {
   batchRequest,
   togglePick,
   withKept,
+  thumbnailEngineNote,
+  withThumbnail,
   type AnswerOutcome,
+  type ConceptThumbnailView,
   type ConceptView,
   type LabChoices,
   type Pick,
@@ -35,6 +38,8 @@ export interface Lab {
   readonly formulaNotes: FormulaNotes | null;
   readonly formulaWindow: number;
   readonly library: HookLibrary | null;
+  /** The thumbnail prompts of the channel's concepts; null until they are read. */
+  readonly thumbnails: readonly ConceptThumbnailView[] | null;
   /** Something the owner did that could not be stored. */
   readonly problem: string | null;
   readonly pick: (pick: Pick) => void;
@@ -43,6 +48,8 @@ export interface Lab {
   readonly generate: () => void;
   readonly grow: (kind: 'twist' | 'more', conceptId: number) => void;
   readonly keep: (conceptId: number, kept: boolean) => void;
+  /** Asks for a concept's thumbnail prompt, replacing the one stored. */
+  readonly writeThumbnail: (conceptId: number) => void;
   readonly clear: () => void;
   readonly askWhereElse: () => void;
   readonly findFormulas: () => void;
@@ -78,6 +85,7 @@ export function useLab(
   const [formulaNotes, setFormulaNotes] = useState<FormulaNotes | null>(null);
   const [formulaWindow, setFormulaWindow] = useState<number>(FORMULA_DEFAULT_WINDOW_DAYS);
   const [library, setLibrary] = useState<HookLibrary | null>(null);
+  const [thumbnails, setThumbnails] = useState<readonly ConceptThumbnailView[] | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
 
   // Another channel on screen: nothing picked or answered for the last one carries over.
@@ -101,8 +109,13 @@ export function useLab(
   useEffect(() => {
     setConcepts(null);
     setLibrary(null);
+    setThumbnails(null);
     if (centerId === null) return;
     readConcepts();
+    api
+      .conceptThumbnails(centerId)
+      .then(setThumbnails)
+      .catch(() => undefined);
     api
       .hooks(centerId)
       .then(setLibrary)
@@ -135,6 +148,8 @@ export function useLab(
       } else if (outcome.kind === 'formulas') {
         setFormulas(outcome.list);
         setFormulaNotes(outcome);
+      } else if (outcome.kind === 'concept-thumbnail') {
+        setThumbnails((current) => withThumbnail(current, outcome.thumbnail));
       } else if (outcome.kind === 'hooks-built' || outcome.kind === 'hooks-labelled') {
         setLibrary(outcome.library);
       }
@@ -160,6 +175,7 @@ export function useLab(
     formulaNotes,
     formulaWindow,
     library,
+    thumbnails,
     problem,
     pick: (pick) => setPicks((current) => togglePick(current, pick)),
     choose: (changes) => setChoices((current) => ({ ...current, ...changes })),
@@ -168,6 +184,14 @@ export function useLab(
       started({ kind: 'batch' }, (id) => api.startBatch(batchRequest(id, picks, choices, engine))),
     grow: (kind, conceptId) =>
       started({ kind, conceptId }, (id) => api.grow(kind, id, conceptId, engine)),
+    writeThumbnail: (conceptId) => {
+      const note = thumbnailEngineNote(engine);
+      if (note !== null) {
+        setProblem(note);
+        return;
+      }
+      started({ kind: 'thumbnail', conceptId }, (id) => api.startThumbnail(id, conceptId, engine));
+    },
     keep: (conceptId, kept) => {
       if (centerId === null) return;
       api

@@ -285,3 +285,22 @@ describe('with marking facts turned off', () => {
     expect(exportText('The Machine', SCRIPT)).toContain('[CHECK: who paid the bill]');
   });
 });
+
+describe('the Markdown export with the concept’s thumbnail prompt', () => {
+  test('ends with the prompt under its own heading, in both modes of marking facts', () => {
+    const marked = exportMarkdown('The Machine', SCRIPT, true, {
+      thumbnailPrompt: 'A dark close-up.',
+    });
+    const plain = exportMarkdown('The Machine', SCRIPT, false, {
+      thumbnailPrompt: 'A dark close-up.',
+    });
+
+    for (const file of [marked, plain]) {
+      expect(file.trimEnd().endsWith('## Thumbnail prompt\n\nA dark close-up.')).toBe(true);
+    }
+  });
+
+  test('has no such heading when the concept has no prompt', () => {
+    expect(exportMarkdown('The Machine', SCRIPT, true, {})).not.toContain('Thumbnail prompt');
+  });
+});

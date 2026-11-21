@@ -152,6 +152,29 @@ export {
   type CountryOutcome,
 } from './transfer/countries';
 export { SqliteOwnerPlaceRepo } from './repos/sqliteOwnerPlaceRepo';
+export { CHANNEL_NOTE_KINDS, SqliteChannelNoteRepo } from './repos/sqliteChannelNoteRepo';
+export { MAX_LEARNED_FROM, SqliteConceptThumbnailRepo } from './repos/sqliteConceptThumbnailRepo';
+export type {
+  ChannelNoteKind,
+  ChannelNoteRepo,
+  ConceptThumbnailRepo,
+  NewConceptThumbnail,
+  StoredChannelNote,
+  StoredConceptThumbnail,
+} from './repos/types';
+export {
+  VIDEO_REF_RULE,
+  splitVideoRefs,
+  stripVideoRefs,
+  videoRefIds,
+  type RefPart,
+} from './video/refs';
+export {
+  MAX_THUMBNAIL_PROMPT_CHARS,
+  THUMBNAIL_PROMPT_MARKER,
+  parseThumbnailPrompt,
+  type ParsedThumbnailPrompt,
+} from './concepts/thumbnailPrompt';
 export { PLACE_SLOT, NUMBER_SLOT, SUBJECT_SLOT } from './transfer/template';
 export type {
   FormatSubject,
@@ -470,8 +493,10 @@ export {
   NO_MAP,
   mapChannelIds,
   pickedVideos,
+  videosNamed,
   videosOnMap,
   type MapVideoDeps,
+  type NamedVideo,
   type PickedVideo,
 } from './lab/mapVideos';
 export { LIFT_MIN_WORDS, liftedFrom, longestSharedRun, type Lift } from './hooks/lift';

@@ -16,6 +16,10 @@ import {
   withKept,
   type ConceptView,
   type Pick,
+  thumbnailEngineNote,
+  thumbnailFor,
+  withThumbnail,
+  type ConceptThumbnailView,
 } from '../src/lib/ideaLab';
 import {
   HOOK_PREVIEW_CHARS,
@@ -273,5 +277,40 @@ describe('the hook library on the page', () => {
       unnamed: 0,
     });
     expect(libraryState(hooks)).toEqual({ built: true, toRead: 0, withWords: 4, unnamed: 1 });
+  });
+});
+
+describe('the thumbnail prompts of a channel’s concepts', () => {
+  const stored = (conceptId: number): ConceptThumbnailView => ({
+    conceptId,
+    prompt: `Prompt ${conceptId}`,
+    why: '',
+    learnedFrom: [],
+    engine: 'claude',
+    writtenAt: '2026-11-21T12:00:00.000Z',
+  });
+
+  test('are found by concept, and none for a concept without one', () => {
+    const list = [stored(3), stored(7)];
+
+    expect(thumbnailFor(list, 7)?.prompt).toBe('Prompt 7');
+    expect(thumbnailFor(list, 5)).toBeNull();
+    expect(thumbnailFor(null, 7)).toBeNull();
+  });
+
+  test('replace the one stored for the same concept when a new one is written', () => {
+    const next = { ...stored(7), prompt: 'New' };
+
+    expect(withThumbnail([stored(3), stored(7)], next).map((entry) => entry.prompt)).toEqual([
+      'Prompt 3',
+      'New',
+    ]);
+    expect(withThumbnail(null, next)).toEqual([next]);
+  });
+
+  test('can be asked only of an engine that sees pictures', () => {
+    expect(thumbnailEngineNote('auto')).toBeNull();
+    expect(thumbnailEngineNote('claude')).toBeNull();
+    expect(thumbnailEngineNote('agy')).toMatch(/Claude Code or Codex/);
   });
 });

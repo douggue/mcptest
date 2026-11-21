@@ -182,6 +182,53 @@ export interface OwnerPlaceRepo {
   set(centerChannelId: string, placeKey: string | null, at: Date): void;
 }
 
+/** The kinds of text an engine wrote for a channel that are kept to be read again. */
+export type ChannelNoteKind = 'thumbnail-review' | 'video-ideas' | 'near-misses' | 'style-lock';
+
+export interface StoredChannelNote {
+  readonly channelId: string;
+  readonly kind: ChannelNoteKind;
+  /** The engine that wrote it, by its id. */
+  readonly engine: string;
+  /** What it wrote, as it stands. A model's words: a study to read, never instructions. */
+  readonly text: string;
+  readonly writtenAt: Date;
+}
+
+/** What an engine wrote for a channel, one text per channel and kind. */
+export interface ChannelNoteRepo {
+  find(channelId: string, kind: ChannelNoteKind): StoredChannelNote | null;
+  /** Stores the text, replacing an earlier one of the same kind. Throws for an empty text. */
+  save(
+    note: Pick<StoredChannelNote, 'channelId' | 'kind' | 'engine' | 'text'>,
+    writtenAt: Date,
+  ): void;
+  remove(channelId: string, kind: ChannelNoteKind): void;
+}
+
+export interface NewConceptThumbnail {
+  /** The prompt, ready to paste. */
+  readonly prompt: string;
+  /** Why this style, in the engine's words; may be empty. */
+  readonly why: string;
+  /** The ids of the videos whose thumbnails it was learned from, already checked against the map. */
+  readonly learnedFrom: readonly string[];
+  readonly engine: string;
+}
+
+export interface StoredConceptThumbnail extends NewConceptThumbnail {
+  readonly conceptId: number;
+  readonly writtenAt: Date;
+}
+
+/** The thumbnail prompt of a concept, read through the centre channel the concept belongs to. */
+export interface ConceptThumbnailRepo {
+  /** Null when there is none, or the concept is not this channel's. */
+  find(centerChannelId: string, conceptId: number): StoredConceptThumbnail | null;
+  /** Stores the prompt, replacing an earlier one. Throws for a concept that does not exist. */
+  save(conceptId: number, thumbnail: NewConceptThumbnail, writtenAt: Date): void;
+}
+
 /** One finished refresh: how many stored channels were read again, and how it went. */
 export interface RefreshRun {
   readonly startedAt: Date;

@@ -3,6 +3,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { createMakeMap } from './crawlTool';
 import { ToolFailure, plainMessage } from './failure';
 import { getConcept, getHooks, getIdeaBrief } from './labTools';
+import { getChannelNote, type GetChannelNoteArgs } from './noteTool';
 import { getNearMisses, listNiches, setCompetitorStatus } from './ownerTools';
 import { getBreakouts, getChannelVideos, getMap, getThumbnailBoard } from './readTools';
 import { failureResult } from './results';
@@ -73,6 +74,7 @@ export interface ToolHandlers {
   getScript(args: GetScriptArgs): Promise<CallToolResult>;
   getTranscriptPace(args: GetTranscriptPaceArgs): Promise<CallToolResult>;
   getBreakdownPart(args: GetBreakdownPartArgs): Promise<CallToolResult>;
+  getChannelNote(args: GetChannelNoteArgs): Promise<CallToolResult>;
 }
 
 /** The default place for diagnostics. */
@@ -130,5 +132,6 @@ export function createToolHandlers(deps: ToolDeps): ToolHandlers {
     getTranscriptPace: (args) =>
       guarded('get_transcript_pace', () => getTranscriptPace(engine, args)),
     getBreakdownPart: (args) => guarded('get_breakdown_part', () => getBreakdownPart(engine, args)),
+    getChannelNote: (args) => guarded('get_channel_note', () => getChannelNote(engine, args)),
   };
 }
