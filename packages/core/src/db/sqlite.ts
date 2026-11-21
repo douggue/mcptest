@@ -198,7 +198,26 @@ CREATE TABLE IF NOT EXISTS video_studies (
   PRIMARY KEY (video_id, kind)
 );
 `,
+  // 13: the parts of a channel's breakdown, one row per channel and part: the text an engine
+  //     wrote (notes) with who wrote it, or why the part could not be written (problem). A
+  //     new run replaces a row. Kept so that a finished breakdown opens again without being
+  //     run again. Like the tables of steps 11 and 12 it refers to no other table, and it
+  //     needs nothing a later step adds.
+  `
+CREATE TABLE IF NOT EXISTS breakdown_parts (
+  channel_id  TEXT NOT NULL,
+  part        TEXT NOT NULL,
+  engine      TEXT,
+  notes       TEXT,
+  problem     TEXT,
+  written_at  TEXT NOT NULL,
+  PRIMARY KEY (channel_id, part)
+);
+`,
 ];
+
+/** The number of the newest step: what `user_version` reads in a store that is up to date. */
+export const LATEST_SCHEMA_VERSION = MIGRATIONS.length;
 
 /**
  * Brings a store up to date, one numbered step at a time. Each step and its

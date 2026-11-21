@@ -1,3 +1,4 @@
+import type { BreakdownPartId } from '../breakdown/parts';
 import type {
   ChannelBrand,
   ChannelInfo,
@@ -318,6 +319,49 @@ export interface VideoStudyRepo {
   find(videoId: string, kind: StudyKind): StoredVideoStudy | null;
   /** Replaces any earlier study of that kind. Throws for an id that is not a video id, or an empty study. */
   save(study: NewVideoStudy, studiedAt: Date): void;
+}
+
+/** One part of a channel's breakdown as it is stored: the text an engine wrote, or why there is none. */
+export type StoredBreakdownPart = {
+  readonly channelId: string;
+  readonly part: BreakdownPartId;
+  /** When it was written, or when writing it failed. */
+  readonly writtenAt: Date;
+} & (
+  | {
+      readonly written: true;
+      /** Who wrote it: an engine by its id, or "jgtube" for the part worked out in code. */
+      readonly engine: string;
+      /** The part as it was written: a model's words, to be read as a study only. */
+      readonly text: string;
+    }
+  | { readonly written: false; readonly reason: string }
+);
+
+export interface WrittenBreakdownPart {
+  readonly channelId: string;
+  readonly part: BreakdownPartId;
+  readonly engine: string;
+  readonly text: string;
+}
+
+export interface FailedBreakdownPart {
+  readonly channelId: string;
+  readonly part: BreakdownPartId;
+  /** Why it could not be written, in plain words. */
+  readonly reason: string;
+}
+
+/** The parts of each channel's breakdown, one per channel and part; a new run replaces them. */
+export interface BreakdownRepo {
+  /** The channel's stored parts, in the order a breakdown is read. */
+  list(channelId: string): readonly StoredBreakdownPart[];
+  /** Null when that part was never written for the channel. */
+  find(channelId: string, part: BreakdownPartId): StoredBreakdownPart | null;
+  /** Replaces whatever was stored for that part. Throws for a bad channel id, part, engine or an empty text. */
+  saveWritten(part: WrittenBreakdownPart, writtenAt: Date): void;
+  /** Records that the part could not be written, in place of whatever was stored for it. */
+  saveFailed(part: FailedBreakdownPart, failedAt: Date): void;
 }
 
 export interface StoredBrand extends ChannelBrand {

@@ -42,7 +42,8 @@ export function channelFolderName(title: string, channelId: string): string {
   const cleaned = title
     .replace(UNSAFE_IN_NAME, ' ')
     .replace(/\s+/g, ' ')
-    .trim()
+    // A name that opens with dots would read as a step out of the folder, or as a hidden one.
+    .replace(/^[. ]+/, '')
     .slice(0, MAX_FOLDER_NAME)
     .replace(/[. ]+$/, '');
   return cleaned === '' || RESERVED_NAME.test(cleaned) ? channelId : cleaned;
