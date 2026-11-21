@@ -108,6 +108,7 @@ export {
 export { loadPacing, type PacingDeps, type PacingView } from './pacing/load';
 export { spreadOf, type Spread } from './pacing/spread';
 export { commentCandidates, type CommentCandidate } from './comments/candidates';
+export { COMMENTS_IN_QUESTION, commentsForQuestion } from './comments/question';
 export {
   FINDING_KINDS,
   FINDING_MAX_QUOTES,

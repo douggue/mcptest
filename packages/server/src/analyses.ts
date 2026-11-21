@@ -35,6 +35,7 @@ import {
   frameStudyQuestion,
 } from './breakdownQuestions';
 import { toolsOf } from './engines/failure';
+import { EXTRA_ANALYSIS_IDS, extraAnalyses, type ExtrasAnalysisId } from './extrasAnalyses';
 import type { EngineId, EngineRunRequest, McpServerSpec } from './engines/types';
 import { LAB_ANALYSIS_IDS, LAB_SPECS, type LabAnalysisId } from './labAnalyses';
 import { breakdownFocusOf, type QuestionFocus } from './questionFocus';
@@ -42,7 +43,7 @@ import { breakdownFocusOf, type QuestionFocus } from './questionFocus';
 /** The analyses answered in one press, while the page waits. */
 export const QUICK_ANALYSIS_IDS = ['thumbnails', 'topics', 'near-misses'] as const;
 export type QuickAnalysisId = (typeof QUICK_ANALYSIS_IDS)[number];
-export type AnalysisId = QuickAnalysisId | BreakdownAnalysisId | LabAnalysisId;
+export type AnalysisId = QuickAnalysisId | BreakdownAnalysisId | LabAnalysisId | ExtrasAnalysisId;
 /**
  * Every analysis. The seven parts of a channel breakdown are each one of
  * them, written in turn by a longer job and started only through it; the
@@ -52,6 +53,7 @@ export const ANALYSIS_IDS: readonly AnalysisId[] = [
   ...QUICK_ANALYSIS_IDS,
   ...BREAKDOWN_ANALYSIS_IDS,
   ...LAB_ANALYSIS_IDS,
+  ...EXTRA_ANALYSIS_IDS,
 ];
 
 export interface AnalysisSpec {
@@ -242,6 +244,7 @@ export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
   'script-draft': lab('script-draft'),
   'script-tighten': lab('script-tighten'),
   'concept-thumbnail': lab('concept-thumbnail'),
+  ...extraAnalyses(tool),
 };
 
 /** The channel as the question names it: a handle or an id, never free text. */

@@ -471,7 +471,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       // Read at each use: the owner can change it from the settings screen while Jgtube runs.
       markFacts: () => config.markFacts !== false,
     }),
-    extras: extras(wiring),
+    extras: extras({ ...wiring, analyse: asking.analyse }),
     ...conceptThumbEngine({ now: wiring.now, repos: wiring.repos, analyse: asking.analyse }),
     analyse: asking.analyse,
     watchVideo: asking.watchVideo,

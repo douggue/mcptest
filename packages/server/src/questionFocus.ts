@@ -7,10 +7,11 @@ import { NO_FOCUS, type BreakdownFocus } from './breakdownParts';
 import type { WindowFocus } from './formulaQuestions';
 import type { ConceptFocus, ConceptsFocus } from './ideaQuestions';
 import type { ScriptFocus } from './scriptQuestions';
+import type { ExtrasFocus } from './extrasAnalyses';
 
 /** The focus of an idea-lab question, told apart by its kind. */
 export type LabFocus = ConceptsFocus | ConceptFocus | WindowFocus | ScriptFocus;
-export type QuestionFocus = BreakdownFocus | LabFocus;
+export type QuestionFocus = BreakdownFocus | LabFocus | ExtrasFocus;
 
 /** The videos a breakdown rests on; none when the focus is absent or is another question's. */
 export function breakdownFocusOf(focus: QuestionFocus | undefined): BreakdownFocus {
