@@ -92,6 +92,15 @@ export interface TranscriptsSaved {
 export const SLOW_NOTE =
   'This is slow. It studies the channel’s top five videos, three of them in depth, and can take half an hour or more. Keep this page open.';
 
+/** Where a channel offered for a breakdown comes from; the list is set out under these. */
+export const CHOICE_GROUPS = [
+  { id: 'map', label: 'This map' },
+  { id: 'saved', label: 'Your other channels' },
+  { id: 'watched', label: 'Niches you are watching' },
+  { id: 'niches', label: 'New niches' },
+] as const;
+export type ChoiceGroup = (typeof CHOICE_GROUPS)[number]['id'];
+
 /** One channel the owner can pick to break down. */
 export interface ChannelChoice {
   readonly id: string;
@@ -99,6 +108,15 @@ export interface ChannelChoice {
   readonly title: string;
   /** The name as the list shows it, saying which channel is the owner's or their model. */
   readonly label: string;
+  readonly group: ChoiceGroup;
+}
+
+/** The channels from outside the map on screen that can be broken down too. */
+export interface OtherChannels {
+  /** Every channel a map was made for. */
+  readonly saved: readonly Named[];
+  /** The niche list: new or small channels with a video that took off. */
+  readonly niches: ReadonlyArray<Named & { readonly watched: boolean }>;
 }
 
 interface Named {
@@ -113,23 +131,58 @@ export interface MapChannels {
   readonly channels: ReadonlyArray<Named & { readonly peer: boolean; readonly removed: boolean }>;
 }
 
-/**
- * The channels offered for a breakdown: the model channel when the owner
- * named one, the owner's own channel, then the look-alikes on the map by
- * name. A channel is listed once, under the first of those it is.
- */
-export function breakdownChoices(map: MapChannels): readonly ChannelChoice[] {
-  const lookalikes = map.channels
-    .filter((channel) => channel.peer && !channel.removed)
-    .map(({ id, title }) => ({ id, title, label: title }))
+const NO_OTHERS: OtherChannels = { saved: [], niches: [] };
+
+/** Channels as choices of one group, by name. */
+const choicesOf = (channels: readonly Named[], group: ChoiceGroup): readonly ChannelChoice[] =>
+  channels
+    .map(({ id, title }) => ({ id, title, label: title, group }))
     .sort((a, b) => a.label.localeCompare(b.label));
+
+/**
+ * The channels offered for a breakdown. From the map on screen: the model
+ * channel when the owner named one, the owner's own channel, then the
+ * look-alikes by name. Then the owner's other saved channels, the niches
+ * they are watching, and the rest of the niche list. A channel is listed
+ * once, under the first of those it is.
+ */
+export function breakdownChoices(
+  map: MapChannels,
+  others: OtherChannels = NO_OTHERS,
+): readonly ChannelChoice[] {
   const { center, model } = map;
-  const all = [
-    ...(model ? [{ id: model.id, title: model.title, label: `Your model: ${model.title}` }] : []),
-    { id: center.id, title: center.title, label: `Your channel: ${center.title}` },
-    ...lookalikes,
+  const lookalikes = map.channels.filter((channel) => channel.peer && !channel.removed);
+  const own = (channel: Named, label: string): ChannelChoice => ({
+    id: channel.id,
+    title: channel.title,
+    label,
+    group: 'map',
+  });
+  const all: readonly ChannelChoice[] = [
+    ...(model ? [own(model, `Your model: ${model.title}`)] : []),
+    own(center, `Your channel: ${center.title}`),
+    ...choicesOf(lookalikes, 'map'),
+    ...choicesOf(others.saved, 'saved'),
+    ...choicesOf(
+      others.niches.filter((channel) => channel.watched),
+      'watched',
+    ),
+    ...choicesOf(
+      others.niches.filter((channel) => !channel.watched),
+      'niches',
+    ),
   ];
   return all.filter((choice, index) => all.findIndex((other) => other.id === choice.id) === index);
+}
+
+/** The choices set out under the groups that have any, in the groups' order. */
+export function groupChoices(
+  choices: readonly ChannelChoice[],
+): ReadonlyArray<{ readonly label: string; readonly choices: readonly ChannelChoice[] }> {
+  return CHOICE_GROUPS.map((group) => ({
+    label: group.label,
+    choices: choices.filter((choice) => choice.group === group.id),
+  })).filter((group) => group.choices.length > 0);
 }
 
 /** The names a creator knows the engines by. */

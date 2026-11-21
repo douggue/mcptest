@@ -51,10 +51,14 @@ interface CardsProps {
   readonly list: NicheList;
   readonly filter: NicheFilter;
   readonly onSetWatched: (channelId: string, watched: boolean) => void;
+  readonly onBreakDown: BreakDown | undefined;
 }
 
+/** Starts a channel breakdown of a listed channel. */
+type BreakDown = (channel: { readonly id: string; readonly title: string }) => void;
+
 /** The matching channels, a few at a time. */
-function Cards({ list, filter, onSetWatched }: CardsProps) {
+function Cards({ list, filter, onSetWatched, onBreakDown }: CardsProps) {
   const [shown, setShown] = useState(PAGE_SIZE);
   const matching = filterNiches(list.channels, filter);
   if (matching.length === 0) return <p className={NOTE}>{emptyNiches(list, filter)}</p>;
@@ -66,6 +70,9 @@ function Cards({ list, filter, onSetWatched }: CardsProps) {
             key={channel.id}
             channel={channel}
             onSetWatched={(watched) => onSetWatched(channel.id, watched)}
+            onBreakDown={
+              onBreakDown && (() => onBreakDown({ id: channel.id, title: channel.title }))
+            }
           />
         ))}
       </div>
@@ -86,10 +93,12 @@ interface Props {
   readonly niches: NichesData;
   /** A map is on screen. Without one, an empty list is not worth a section. */
   readonly hasMap: boolean;
+  /** Starts a channel breakdown of a listed channel; absent when none can be started now. */
+  readonly onBreakDown?: BreakDown | undefined;
 }
 
 /** New or small channels anywhere in the store with a video that took off, and the watched ones. */
-export function Niches({ niches, hasMap }: Props) {
+export function Niches({ niches, hasMap, onBreakDown }: Props) {
   const [filter, setFilter] = useState<NicheFilter>('all');
   const { state, setWatched, search, discover } = niches;
   const list = state.status === 'ready' ? state.list : null;
@@ -142,7 +151,15 @@ export function Niches({ niches, hasMap }: Props) {
             Your choice was not saved: {state.problem}
           </p>
         )}
-        {list && <Cards key={filter} list={list} filter={filter} onSetWatched={setWatched} />}
+        {list && (
+          <Cards
+            key={filter}
+            list={list}
+            filter={filter}
+            onSetWatched={setWatched}
+            onBreakDown={onBreakDown}
+          />
+        )}
       </div>
     </section>
   );

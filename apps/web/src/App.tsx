@@ -1,4 +1,4 @@
-import type { CompetitorStatus, MapSnapshot, SavedChannel } from '@jgtube/core';
+import type { CompetitorStatus, MapSnapshot, NicheChannel, SavedChannel } from '@jgtube/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Benchmarks } from './components/Benchmarks';
 import { BreakoutFeed } from './components/BreakoutFeed';
@@ -34,6 +34,8 @@ const MODEL_STORAGE_KEY = 'jgtube.model';
 const POLL_INTERVAL_MS = 1500;
 /** The Ask AI section, which a breakdown started elsewhere on the page brings into view. */
 const ASK_AI_ID = 'ask-claude';
+/** The niche list before it has loaded: one empty list, so nothing is recomputed for it. */
+const NO_NICHES: readonly NicheChannel[] = [];
 const DEFAULT_DEPTH = CRAWL_DEFAULT_DEPTH;
 const DEFAULT_SIZE = CRAWL_DEFAULT_MAX_CHANNELS;
 
@@ -204,7 +206,11 @@ export function App() {
   const transfers = useTransfers(api, snapshot?.center.id ?? null, snapshot?.mapId ?? null);
   const analysis = useAnalysis(api);
   const breakdown = useBreakdown(api);
-  const breakdownChannels = useMemo(() => (snapshot ? breakdownChoices(snapshot) : []), [snapshot]);
+  const nicheChannels = niches.state.status === 'ready' ? niches.state.list.channels : NO_NICHES;
+  const breakdownChannels = useMemo(
+    () => (snapshot ? breakdownChoices(snapshot, { saved, niches: nicheChannels }) : []),
+    [snapshot, saved, nicheChannels],
+  );
   const asking = analysis.state.status === 'running' || breakdown.state.status === 'running';
   const reloadNiches = niches.reload;
   const reloadTransfers = transfers.reload;
@@ -216,6 +222,11 @@ export function App() {
   }, [reloadNiches, reloadTransfers]);
   const refresh = useRefresh(api, afterRefresh);
   const selected = snapshot?.channels.find((channel) => channel.id === selectedId) ?? null;
+  /** Starts a breakdown of any stored channel and brings the Ask AI section, where it reports, into view. */
+  const breakDown = (channel: { readonly id: string; readonly title: string }): void => {
+    breakdown.start({ id: channel.id, title: channel.title }, analysis.choice, false);
+    document.getElementById(ASK_AI_ID)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   /** Records the owner's say on a channel of the map on screen, then reads the map again. */
   const setStatus = async (channelId: string, status: CompetitorStatus): Promise<void> => {
     if (!snapshot) return;
@@ -303,12 +314,7 @@ export function App() {
               );
             }}
             busy={asking}
-            onBreakDown={() => {
-              breakdown.start({ id: selected.id, title: selected.title }, analysis.choice, false);
-              document
-                .getElementById(ASK_AI_ID)
-                ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
+            onBreakDown={() => breakDown(selected)}
           />
         )}
       </Radar>
@@ -343,7 +349,11 @@ export function App() {
         />
       )}
       <Transfers transfers={transfers} hasMap={snapshot !== null} />
-      <Niches niches={niches} hasMap={snapshot !== null} />
+      <Niches
+        niches={niches}
+        hasMap={snapshot !== null}
+        onBreakDown={snapshot && !asking ? breakDown : undefined}
+      />
       <RefreshBar refresh={refresh} />
       <p className="mx-auto w-full max-w-[1440px] px-gutter-desktop pb-space-xl text-label-caps text-outline">
         Jgtube reads YouTube&rsquo;s public pages without an account. That is outside

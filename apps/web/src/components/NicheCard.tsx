@@ -65,6 +65,8 @@ export function Outbound({
 interface Props {
   readonly channel: NicheChannel;
   readonly onSetWatched: (watched: boolean) => void;
+  /** Starts a channel breakdown of this channel; absent where none can be started. */
+  readonly onBreakDown?: (() => void) | undefined;
 }
 
 function WatchToggle({ channel, onSetWatched }: Props) {
@@ -214,7 +216,7 @@ function Logo({ channel }: { readonly channel: NicheChannel }) {
 }
 
 /** One channel worth a look: why it is here, its numbers, and the videos that took off. */
-export function NicheCard({ channel, onSetWatched }: Props) {
+export function NicheCard({ channel, onSetWatched, onBreakDown }: Props) {
   return (
     <article
       className={`flex min-w-0 flex-col gap-space-md rounded bg-surface-card p-space-md shadow-md ${
@@ -246,6 +248,15 @@ export function NicheCard({ channel, onSetWatched }: Props) {
         </p>
       )}
       <Videos channel={channel} />
+      {onBreakDown && (
+        <button
+          type="button"
+          onClick={onBreakDown}
+          className="self-start rounded-full bg-surface-container-high px-4 py-2 text-body-sm font-semibold text-primary ring-1 ring-primary-container transition-colors hover:bg-primary-container hover:text-on-primary"
+        >
+          Break down this channel
+        </button>
+      )}
     </article>
   );
 }

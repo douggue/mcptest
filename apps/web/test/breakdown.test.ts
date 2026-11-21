@@ -3,6 +3,7 @@ import { ApiError, createApi } from '../src/lib/api';
 import {
   SLOW_NOTE,
   breakdownChoices,
+  groupChoices,
   describeTranscripts,
   folderNote,
   formatBytes,
@@ -60,10 +61,10 @@ const outcome = (overrides: Partial<BreakdownOutcome> = {}): BreakdownOutcome =>
 describe('breakdownChoices', () => {
   test('lists the model, the owner’s channel, then the look-alikes by name, each once', () => {
     expect(breakdownChoices(map)).toEqual([
-      { id: cid(2), title: 'The Model', label: 'Your model: The Model' },
-      { id: cid(1), title: 'My Channel', label: 'Your channel: My Channel' },
-      { id: cid(3), title: 'alpha history', label: 'alpha history' },
-      { id: cid(5), title: 'Zebra Films', label: 'Zebra Films' },
+      { id: cid(2), title: 'The Model', label: 'Your model: The Model', group: 'map' },
+      { id: cid(1), title: 'My Channel', label: 'Your channel: My Channel', group: 'map' },
+      { id: cid(3), title: 'alpha history', label: 'alpha history', group: 'map' },
+      { id: cid(5), title: 'Zebra Films', label: 'Zebra Films', group: 'map' },
     ]);
   });
 
@@ -72,6 +73,34 @@ describe('breakdownChoices', () => {
 
     expect(choices[0]).toMatchObject({ id: cid(1), label: 'Your channel: My Channel' });
     expect(choices.map((choice) => choice.id)).toEqual([cid(1), cid(3), cid(2), cid(5)]);
+  });
+
+  test('adds the owner’s other saved channels and the niche lists, each channel once', () => {
+    const choices = breakdownChoices(map, {
+      saved: [
+        { id: cid(1), title: 'My Channel' },
+        { id: cid(7), title: 'Sea Monsters' },
+      ],
+      niches: [
+        { id: cid(8), title: 'Tiny Riser', watched: false },
+        { id: cid(9), title: 'Watched One', watched: true },
+        { id: cid(3), title: 'alpha history', watched: true },
+        { id: cid(7), title: 'Sea Monsters', watched: false },
+      ],
+    });
+
+    expect(choices.slice(4)).toEqual([
+      { id: cid(7), title: 'Sea Monsters', label: 'Sea Monsters', group: 'saved' },
+      { id: cid(9), title: 'Watched One', label: 'Watched One', group: 'watched' },
+      { id: cid(8), title: 'Tiny Riser', label: 'Tiny Riser', group: 'niches' },
+    ]);
+    expect(groupChoices(choices).map((group) => [group.label, group.choices.length])).toEqual([
+      ['This map', 4],
+      ['Your other channels', 1],
+      ['Niches you are watching', 1],
+      ['New niches', 1],
+    ]);
+    expect(groupChoices(breakdownChoices(map)).map((group) => group.label)).toEqual(['This map']);
   });
 
   test('offers the owner’s channel alone on a map with no look-alikes', () => {

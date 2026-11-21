@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import {
-  SLOW_NOTE,
-  restsOn,
-  studiedLines,
   type ChannelChoice,
+  groupChoices,
+  restsOn,
+  SLOW_NOTE,
+  studiedLines,
   type VideoToSupply,
 } from '../lib/breakdown';
 import { Answer, Credit } from './Answer';
@@ -15,7 +16,7 @@ const BUTTON =
   'self-start rounded-full bg-on-surface px-4 py-1.5 text-body-sm font-semibold text-space-deep transition-all hover:bg-white disabled:cursor-not-allowed disabled:opacity-60';
 
 interface CardProps {
-  /** The channels the owner can pick: the model, their own, and the look-alikes on the map. */
+  /** The channels the owner can pick: from the map on screen, their other saved channels, and the niche lists. */
   readonly choices: readonly ChannelChoice[];
   /** Something is running (a breakdown or an analysis), so nothing new can start. */
   readonly busy: boolean;
@@ -36,8 +37,9 @@ export function BreakdownCard({ choices, busy, active, onRun }: CardProps) {
       <div>
         <h3 className="text-title-md text-on-surface">Channel breakdown</h3>
         <p className="mt-1 text-body-sm text-on-surface-variant">
-          Takes one channel apart: its identity, title formula, thumbnails, descriptions, scripts,
-          pictures frame by frame, sound and editing, and how to make a video like its best ones.
+          Takes one channel apart, from this map, your other saved channels or the niche lists: its
+          identity, title formula, thumbnails, descriptions, scripts, pictures frame by frame, sound
+          and editing, and how to make a video like its best ones.
         </p>
         <p className="mt-1 text-body-sm text-outline">{SLOW_NOTE}</p>
       </div>
@@ -52,10 +54,14 @@ export function BreakdownCard({ choices, busy, active, onRun }: CardProps) {
           disabled={busy}
           className="w-full min-w-0 rounded-full bg-space-deep px-4 py-2 text-body-sm text-on-surface shadow-[inset_0_2px_6px_rgba(0,0,0,0.6)] focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container disabled:opacity-60"
         >
-          {choices.map((choice) => (
-            <option key={choice.id} value={choice.id}>
-              {choice.label}
-            </option>
+          {groupChoices(choices).map((group) => (
+            <optgroup key={group.label} label={group.label}>
+              {group.choices.map((choice) => (
+                <option key={choice.id} value={choice.id}>
+                  {choice.label}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <label className="flex items-center gap-2 text-body-sm text-on-surface-variant">
