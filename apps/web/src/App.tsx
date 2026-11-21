@@ -14,6 +14,7 @@ import { ThumbnailBoard } from './components/ThumbnailBoard';
 import { Transfers } from './components/Transfers';
 import { AskClaude } from './components/AskClaude';
 import { useAnalysis } from './components/useAnalysis';
+import { useBreakdown } from './components/useBreakdown';
 import { useNiches } from './components/useNiches';
 import { useRefresh } from './components/useRefresh';
 import { useSameTopic } from './components/useSameTopic';
@@ -21,13 +22,17 @@ import { useThumbnailBoard } from './components/useThumbnailBoard';
 import { useTransfers } from './components/useTransfers';
 import { CRAWL_DEFAULT_DEPTH, CRAWL_DEFAULT_MAX_CHANNELS } from '@jgtube/core/src/limits';
 import { createApi, type JobState } from './lib/api';
+import { breakdownChoices } from './lib/breakdown';
 import { inScope, type Scope } from './lib/feed';
 import { describeMix } from './lib/mix';
 import { layoutRadar } from './lib/radarLayout';
+import { uploadVideoFile } from './lib/upload';
 
 const STORAGE_KEY = 'jgtube.channel';
 const MODEL_STORAGE_KEY = 'jgtube.model';
 const POLL_INTERVAL_MS = 1500;
+/** The Ask AI section, which a breakdown started elsewhere on the page brings into view. */
+const ASK_AI_ID = 'ask-claude';
 const DEFAULT_DEPTH = CRAWL_DEFAULT_DEPTH;
 const DEFAULT_SIZE = CRAWL_DEFAULT_MAX_CHANNELS;
 
@@ -150,6 +155,9 @@ export function App() {
   const niches = useNiches(api, snapshot?.mapId ?? null);
   const transfers = useTransfers(api, snapshot?.center.id ?? null, snapshot?.mapId ?? null);
   const analysis = useAnalysis(api);
+  const breakdown = useBreakdown(api);
+  const breakdownChannels = useMemo(() => (snapshot ? breakdownChoices(snapshot) : []), [snapshot]);
+  const asking = analysis.state.status === 'running' || breakdown.state.status === 'running';
   const reloadNiches = niches.reload;
   const reloadTransfers = transfers.reload;
   // A refresh stores new view counts and videos: the niche list turns them into
@@ -239,6 +247,13 @@ export function App() {
                 setMessage(messageOf(error)),
               );
             }}
+            busy={asking}
+            onBreakDown={() => {
+              breakdown.start({ id: selected.id, title: selected.title }, analysis.choice, false);
+              document
+                .getElementById(ASK_AI_ID)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
           />
         )}
       </Radar>
@@ -259,11 +274,15 @@ export function App() {
           centerTitle={snapshot.center.title}
           modelId={snapshot.model?.id ?? null}
           onDownload={(channelId) => api.downloadThumbnails(channelId)}
+          onDownloadTranscripts={(channelId) => api.downloadTranscripts(channelId)}
         />
       )}
       {snapshot && (
         <AskClaude
           analysis={analysis}
+          breakdown={breakdown}
+          channels={breakdownChannels}
+          onSendVideo={uploadVideoFile}
           centerId={snapshot.center.id}
           centerTitle={snapshot.center.title}
         />

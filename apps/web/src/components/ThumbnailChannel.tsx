@@ -1,7 +1,8 @@
 import type { BoardCenter, BoardChannel, BoardVideo, ThumbnailBoard } from '@jgtube/core';
-import { Download } from 'lucide-react';
-import { useState } from 'react';
+import { Download, FileText } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import type { ThumbnailsSaved } from '../lib/api';
+import { describeTranscripts, type TranscriptsSaved } from '../lib/breakdown';
 import {
   describeHitRate,
   describeOwn,
@@ -83,6 +84,8 @@ function ChannelName({ channel }: { readonly channel: BoardChannel }) {
 
 /** Saves one channel's thumbnails as files; resolves with where they went. */
 export type DownloadThumbnails = (channelId: string) => Promise<ThumbnailsSaved>;
+/** Saves the transcripts of one channel's videos that took off; resolves with where they went. */
+export type DownloadTranscripts = (channelId: string) => Promise<TranscriptsSaved>;
 
 type SaveState =
   | { readonly status: 'idle' }
@@ -90,27 +93,34 @@ type SaveState =
   | { readonly status: 'done'; readonly text: string }
   | { readonly status: 'failed'; readonly text: string };
 
-interface SaveProps {
-  readonly channelId: string;
-  readonly channelTitle: string;
-  readonly onDownload: DownloadThumbnails;
+interface SaveButtonProps {
+  /** The button's words, while idle and while saving. */
+  readonly label: string;
+  readonly savingLabel: string;
+  readonly ariaLabel: string;
+  readonly icon: ReactNode;
+  /** Saves the files and resolves with the sentence that says where they are. */
+  readonly onSave: () => Promise<string>;
+  /** What to say when the save fails without a reason of its own. */
+  readonly failedText: string;
 }
 
 /**
- * Saves a channel's winning and ordinary thumbnails to the owner's computer
- * and says where they are. The folder's path is long, so it is allowed to
- * break anywhere and never pushes the card wider than the screen.
+ * Saves files of one channel to the owner's computer and says where they
+ * are. The folder's path is long, so it is allowed to break anywhere and
+ * never pushes the card wider than the screen.
  */
-function SaveThumbnails({ channelId, channelTitle, onDownload }: SaveProps) {
+function SaveButton(props: SaveButtonProps) {
   const [state, setState] = useState<SaveState>({ status: 'idle' });
   const save = () => {
     setState({ status: 'saving' });
-    onDownload(channelId)
-      .then((saved) => setState({ status: 'done', text: describeSaved(saved) }))
+    props
+      .onSave()
+      .then((text) => setState({ status: 'done', text }))
       .catch((error: unknown) =>
         setState({
           status: 'failed',
-          text: error instanceof Error ? error.message : 'The thumbnails could not be saved',
+          text: error instanceof Error ? error.message : props.failedText,
         }),
       );
   };
@@ -120,11 +130,11 @@ function SaveThumbnails({ channelId, channelTitle, onDownload }: SaveProps) {
         type="button"
         onClick={save}
         disabled={state.status === 'saving'}
-        aria-label={`Download the thumbnails of ${channelTitle}`}
+        aria-label={props.ariaLabel}
         className="flex flex-none items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-2 text-label-caps text-on-surface transition-colors hover:bg-surface-variant disabled:cursor-wait disabled:opacity-60"
       >
-        <Download aria-hidden="true" className="h-4 w-4" />
-        {state.status === 'saving' ? 'Saving thumbnails' : 'Download thumbnails'}
+        {props.icon}
+        {state.status === 'saving' ? props.savingLabel : props.label}
       </button>
       {state.status === 'done' && (
         <p role="status" className="min-w-0 break-all text-label-caps text-on-surface-variant">
@@ -140,6 +150,46 @@ function SaveThumbnails({ channelId, channelTitle, onDownload }: SaveProps) {
   );
 }
 
+interface SaveProps {
+  readonly channelId: string;
+  readonly channelTitle: string;
+  readonly onDownload: DownloadThumbnails;
+}
+
+/** Saves a channel's winning and ordinary thumbnails and says where they are. */
+function SaveThumbnails({ channelId, channelTitle, onDownload }: SaveProps) {
+  return (
+    <SaveButton
+      label="Download thumbnails"
+      savingLabel="Saving thumbnails"
+      ariaLabel={`Download the thumbnails of ${channelTitle}`}
+      icon={<Download aria-hidden="true" className="h-4 w-4" />}
+      onSave={async () => describeSaved(await onDownload(channelId))}
+      failedText="The thumbnails could not be saved"
+    />
+  );
+}
+
+interface SaveTranscriptsProps {
+  readonly channelId: string;
+  readonly channelTitle: string;
+  readonly onDownload: DownloadTranscripts;
+}
+
+/** Saves the transcripts of a channel's videos that took off, as text files, and says where they are. */
+function SaveTranscripts({ channelId, channelTitle, onDownload }: SaveTranscriptsProps) {
+  return (
+    <SaveButton
+      label="Download transcripts"
+      savingLabel="Saving transcripts"
+      ariaLabel={`Download the transcripts of ${channelTitle}`}
+      icon={<FileText aria-hidden="true" className="h-4 w-4" />}
+      onSave={async () => describeTranscripts(await onDownload(channelId))}
+      failedText="The transcripts could not be saved"
+    />
+  );
+}
+
 interface ChannelProps {
   readonly channel: BoardChannel;
   readonly board: ThumbnailBoard;
@@ -147,10 +197,12 @@ interface ChannelProps {
   /** This is the channel the owner said they want to be like. */
   readonly isModel: boolean;
   readonly onDownload: DownloadThumbnails;
+  readonly onDownloadTranscripts: DownloadTranscripts;
 }
 
 /** One channel like yours: what worked for it, and beside that what did not. */
-export function ChannelCard({ channel, board, mode, isModel, onDownload }: ChannelProps) {
+export function ChannelCard(props: ChannelProps) {
+  const { channel, board, mode, isModel, onDownload, onDownloadTranscripts } = props;
   const comparing = mode === 'compare';
   return (
     <article className={CARD}>
@@ -191,11 +243,20 @@ export function ChannelCard({ channel, board, mode, isModel, onDownload }: Chann
         )}
       </div>
       {channel.winners.length + channel.ordinary.length > 0 && (
-        <SaveThumbnails
-          channelId={channel.id}
-          channelTitle={channel.title}
-          onDownload={onDownload}
-        />
+        <div className="flex min-w-0 flex-col gap-space-sm">
+          <SaveThumbnails
+            channelId={channel.id}
+            channelTitle={channel.title}
+            onDownload={onDownload}
+          />
+          {channel.winners.length > 0 && (
+            <SaveTranscripts
+              channelId={channel.id}
+              channelTitle={channel.title}
+              onDownload={onDownloadTranscripts}
+            />
+          )}
+        </div>
       )}
     </article>
   );

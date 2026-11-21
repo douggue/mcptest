@@ -2,6 +2,7 @@ import { MAX_VIDEO_BYTES } from '../downloads/videoFile';
 import { buildVideoReport } from '../report';
 import type { StoredVideo } from '../repos/types';
 import { VIDEO_ID_PATTERN } from '../sources/parse';
+import { clock } from '../video/transcriptText';
 
 /**
  * Which of a channel's videos a breakdown studies. The choice is made here,
@@ -29,7 +30,7 @@ export const WATCH_BYTES_PER_SECOND = 80_000;
  */
 export const WATCH_MAX_SECONDS = Math.floor(MAX_VIDEO_BYTES / WATCH_BYTES_PER_SECOND);
 
-const MINUTE_SECONDS = 60;
+const SECOND_MS = 1000;
 
 /** One video picked for a breakdown, with what the store knows of it. */
 export interface BreakdownVideo {
@@ -81,7 +82,7 @@ export function pickBreakdownVideos(videos: readonly StoredVideo[], now: Date): 
 export function tooLongToWatch(video: Pick<BreakdownVideo, 'durationSeconds'>): string | null {
   const { durationSeconds } = video;
   if (durationSeconds === null || durationSeconds <= WATCH_MAX_SECONDS) return null;
-  const minutes = Math.floor(durationSeconds / MINUTE_SECONDS);
-  const most = Math.floor(WATCH_MAX_SECONDS / MINUTE_SECONDS);
-  return `It is ${minutes} minutes long, and a copy small enough to hand to an engine holds about ${most} minutes at most.`;
+  const length = clock(durationSeconds * SECOND_MS);
+  const most = clock(WATCH_MAX_SECONDS * SECOND_MS);
+  return `It is ${length} long, and a copy small enough for Jgtube to download holds about ${most} at most.`;
 }

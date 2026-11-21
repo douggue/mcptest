@@ -678,7 +678,7 @@ describe('the built-in route', () => {
     });
   });
 
-  test('turns a failed request into a plain sentence and leaves nothing behind', async () => {
+  test('says in plain words that YouTube refused the file, and leaves nothing behind', async () => {
     const failing = player({
       download: async () => {
         throw new Error('The server responded with a non 2xx status code\n  at fetch');
@@ -687,13 +687,28 @@ describe('the built-in route', () => {
 
     const result = await fetchWith(failing);
 
-    expect(result).toMatchObject({
+    expect(result).toEqual({
       ok: false,
-      kind: 'unreadable',
+      kind: 'refused',
       message:
-        'The file could not be fetched: The server responded with a non 2xx status code. YouTube often refuses this way of fetching; installing yt-dlp is the fix.',
+        'YouTube refused to send the video file to this computer. Installing yt-dlp is the usual fix; you can also give Jgtube the file yourself.',
+      via: 'built-in',
     });
     expect(readdirSync(join(root, 'video-temp'))).toEqual([]);
+  });
+
+  test('gives the reason for any other failed request, without its stack', async () => {
+    const failing = player({
+      download: async () => {
+        throw new Error('The connection was reset\n  at fetch');
+      },
+    });
+
+    expect(await fetchWith(failing)).toMatchObject({
+      kind: 'unreadable',
+      message:
+        'The file could not be fetched: The connection was reset. YouTube often refuses this way of fetching; installing yt-dlp is the fix.',
+    });
   });
 });
 

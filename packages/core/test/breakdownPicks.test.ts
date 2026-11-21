@@ -103,7 +103,7 @@ describe('tooLongToWatch', () => {
 
   test('says in plain words why a longer video is not downloaded', () => {
     expect(tooLongToWatch({ durationSeconds: 1554 })).toBe(
-      'It is 25 minutes long, and a copy small enough to hand to an engine holds about 19 minutes at most.',
+      'It is 25:54 long, and a copy small enough for Jgtube to download holds about 19:47 at most.',
     );
   });
 });

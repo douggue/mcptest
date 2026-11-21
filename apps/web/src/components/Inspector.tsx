@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import type { CompetitorStatus, SnapshotChannel } from '@jgtube/core';
-import { ExternalLink, X } from 'lucide-react';
+import { ExternalLink, Sparkles, X } from 'lucide-react';
 import { competitorActions, unsettledNote } from '../lib/feed';
 import { channelUrl, formatCount, formatScore, initials, percent, watchUrl } from '../lib/format';
 import { GROUP_LABEL, describeGroup } from '../lib/mix';
@@ -11,6 +11,10 @@ interface Props {
   readonly onClose: () => void;
   /** Keeps the channel as a competitor, removes it, or leaves it to the filter again. */
   readonly onSetStatus: (status: CompetitorStatus) => void;
+  /** Starts a breakdown of this channel and shows the Ask AI section. */
+  readonly onBreakDown: () => void;
+  /** A breakdown or an analysis is running, so another cannot start. */
+  readonly busy: boolean;
 }
 
 function Tile({ label, children }: { readonly label: string; readonly children: React.ReactNode }) {
@@ -23,7 +27,7 @@ function Tile({ label, children }: { readonly label: string; readonly children: 
 }
 
 /** The panel for one selected channel: how it relates to you and how it is doing. */
-export function Inspector({ channel, onClose, onSetStatus }: Props) {
+export function Inspector({ channel, onClose, onSetStatus, onBreakDown, busy }: Props) {
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
@@ -163,6 +167,15 @@ export function Inspector({ channel, onClose, onSetStatus }: Props) {
           <ExternalLink aria-hidden="true" className="h-4 w-4" />
         </a>
       )}
+      <button
+        type="button"
+        onClick={onBreakDown}
+        disabled={busy}
+        className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-surface-container-high py-2.5 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-variant disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <Sparkles aria-hidden="true" className="h-4 w-4 text-metric-amber" />
+        Break down this channel
+      </button>
       {competitorActions(channel).map((action) => (
         <button
           key={action.status}

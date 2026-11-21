@@ -312,7 +312,7 @@ describe('a breakdown with ffmpeg and an engine that watches files', () => {
     expect(outcome.deep[0]?.file).toEqual({
       used: 'none',
       reason:
-        'It is 25 minutes long, and a copy small enough to hand to an engine holds about 19 minutes at most.',
+        'It is 25:54 long, and a copy small enough for Jgtube to download holds about 19:47 at most.',
     });
     expect(outcome.supply[0]?.videoId).toBe(vid(1));
     expect(log).toContain(`fetch ${vid(2)}`);
