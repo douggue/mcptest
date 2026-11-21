@@ -5,6 +5,7 @@
  * reaches a channel from another map.
  */
 import type { ConceptThumbnailOutcome } from './conceptThumbEngine';
+import type { ClaimsOutcome, ResearchOutcome } from './researchEngine';
 import type {
   ConceptLength,
   DroppedFormula,
@@ -147,7 +148,9 @@ export type LabOutcome =
   | HookLabelOutcome
   | ScriptOutcome
   | VoiceOutcome
-  | ConceptThumbnailOutcome;
+  | ConceptThumbnailOutcome
+  | ResearchOutcome
+  | ClaimsOutcome;
 
 /** What a batch rested on, as a tool hands it to an engine. */
 export interface IdeaBrief {

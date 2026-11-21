@@ -74,6 +74,9 @@ class FakeEngine implements Engine {
   listConceptThumbnails = this.missingLogos;
   findStyleLock = this.missingLogos;
   flowCounts = this.missingLogos;
+  findResearch = this.missingLogos;
+  researchConcept = this.missingLogos;
+  checkClaims = this.missingLogos;
   useStyleLock = this.missingLogos;
   stopStyleLock = this.missingLogos;
   writeConceptThumbnail = this.missingLogos;
