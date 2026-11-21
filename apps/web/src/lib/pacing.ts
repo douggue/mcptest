@@ -1,5 +1,6 @@
 import type { PacingView, Spread } from '@jgtube/core';
 import { formatDuration } from './format';
+import type { Tile } from './tiles';
 
 export type Measure = 'length' | 'pace';
 
@@ -21,6 +22,28 @@ export function restsOn(spread: Spread, measure: Measure): string {
   return spread.count === 0
     ? 'no video with captions stored'
     : `from ${spread.count} ${noun} with captions stored`;
+}
+
+/** A median alone, as a tile shows it; a dash when there is nothing to measure. */
+function medianText(spread: Spread, measure: Measure): string {
+  return spread.median === null ? '–' : valueText(spread.median, measure);
+}
+
+/** The four medians, yours beside the winners', each with what it rests on. */
+export function pacingTiles(
+  pacing: Pick<PacingView, 'lengths' | 'wordsPerMinute'>,
+): readonly Tile[] {
+  const tile = (label: string, spread: Spread, measure: Measure): Tile => ({
+    label,
+    value: medianText(spread, measure),
+    note: `Median, ${restsOn(spread, measure)}`,
+  });
+  return [
+    tile('Your length', pacing.lengths.own, 'length'),
+    tile('Winners’ length', pacing.lengths.winners, 'length'),
+    tile('Your words a minute', pacing.wordsPerMinute.own, 'pace'),
+    tile('Winners’ words a minute', pacing.wordsPerMinute.winners, 'pace'),
+  ];
 }
 
 export function winnersRule(rule: PacingView['rule'], lookalikes: number): string {
