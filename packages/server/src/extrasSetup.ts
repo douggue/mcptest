@@ -5,6 +5,7 @@
 import {
   SqliteAlertRepo,
   SqliteLookRepo,
+  SqliteScheduleRepo,
   SqliteVideoLinkRepo,
   SqliteVideoRepo,
   ingestChannel,
@@ -17,6 +18,7 @@ import {
   type YouTubeSource,
 } from '@jgtube/core';
 import { alertsEngine } from './alertsEngine';
+import { calendarEngine } from './calendarEngine';
 import { changesEngine } from './changesEngine';
 import type { ExtrasEngine } from './extrasTypes';
 import { planEngine } from './planEngine';
@@ -44,6 +46,7 @@ export function extras({ db, now, repos, lazySource, reading }: ExtrasDeps): Ext
     links: new SqliteVideoLinkRepo(db),
     // The stored video's own reader, which can find one video by its id.
     videos: new SqliteVideoRepo(db),
+    schedule: new SqliteScheduleRepo(db),
   };
   const readChannel = (channelId: string): Promise<void> =>
     reading(async () => {
@@ -54,5 +57,6 @@ export function extras({ db, now, repos, lazySource, reading }: ExtrasDeps): Ext
     ...changesEngine({ now, repos: all }),
     ...alertsEngine({ now, repos: all }),
     ...planEngine({ now, repos: all, readChannel }),
+    ...calendarEngine({ now, repos: all }),
   };
 }
