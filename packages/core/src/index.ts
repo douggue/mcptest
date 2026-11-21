@@ -327,3 +327,72 @@ export {
 export { shrinkForWatching, type ShrinkOptions, type ShrunkVideo } from './downloads/shrinkVideo';
 export { programRunner, type ProgramResult } from './downloads/program';
 export { pathInsideAny } from './downloads/folder';
+export {
+  CONCEPT_LENGTHS,
+  type ConceptFields,
+  type ConceptFormat,
+  type ConceptLength,
+  type ConceptOrigin,
+  type ConceptRepo,
+  type NewBatch,
+  type NewConcept,
+  type StoredBatch,
+  type StoredConcept,
+} from './concepts/types';
+export {
+  CONCEPTS_PER_BATCH,
+  MAX_TITLE_CHARS,
+  MORE_CONCEPTS,
+  TWIST_CONCEPTS,
+  batchNote,
+  namedVideoIds,
+  needsSomething,
+  parseConcepts,
+  type ParsedConcepts,
+} from './concepts/parse';
+export { SqliteConceptRepo } from './repos/sqliteConceptRepo';
+export {
+  FORMULA_DEFAULT_WINDOW_DAYS,
+  FORMULA_MAX_KEPT,
+  FORMULA_MIN_FIXED_WORDS,
+  FORMULA_MIN_VIDEOS,
+  FORMULA_WINDOWS,
+  formulaParts,
+  parseFormulas,
+  verifyFormulas,
+  type DroppedFormula,
+  type FormulaPart,
+  type FormulaVideo,
+  type FormulaWindow,
+  type ParsedFormula,
+  type VerifiedFormula,
+} from './formulas/formulas';
+export { SqliteFormulaRepo, type FormulaRepo, type StoredFormula } from './repos/sqliteFormulaRepo';
+export {
+  HOOK_LIBRARY_VIDEOS,
+  HOOK_SECONDS,
+  firstMinute,
+  parseHookLabels,
+  pickHookVideos,
+  type FirstMinute,
+  type HookLabel,
+} from './hooks/hooks';
+export {
+  buildHookLibrary,
+  type HookCaptions,
+  type HookSource,
+  type LibraryHook,
+} from './hooks/library';
+export {
+  SqliteHookLabelRepo,
+  type HookLabelRepo,
+  type StoredHookLabel,
+} from './repos/sqliteHookLabelRepo';
+export {
+  NO_MAP,
+  mapChannelIds,
+  pickedVideos,
+  videosOnMap,
+  type MapVideoDeps,
+  type PickedVideo,
+} from './lab/mapVideos';

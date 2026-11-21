@@ -198,6 +198,77 @@ CREATE TABLE IF NOT EXISTS video_studies (
   PRIMARY KEY (video_id, kind)
 );
 `,
+  // 13: the idea lab. A batch is what one run of concepts rests on: the centre channel it
+  //     is for, the videos the owner picked, the title format (from the transfer list or a
+  //     stored formula, with its text as it read then), the owner's angle and the length.
+  //     A concept is one title with its alternates, thumbnail brief, overlay and hook; a
+  //     twist or a more-like-this names the concept it came from. A title formula is a
+  //     pattern an engine saw across several breakout titles of one channel's map, kept
+  //     per centre channel and window of days. A hook label is the name an engine gave to
+  //     the way one breakout video opens (the opening words themselves are cut from the
+  //     stored captions each time, never stored twice). All four are read through their
+  //     centre channel only: a store holds several niches, and one's ideas are not another's.
+  `
+CREATE TABLE IF NOT EXISTS concept_batches (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  center_channel_id  TEXT NOT NULL,
+  inspiration_json   TEXT NOT NULL,
+  hook_models_json   TEXT NOT NULL DEFAULT '[]',
+  format_source      TEXT,
+  format_ref         TEXT,
+  format_template    TEXT,
+  angle              TEXT,
+  length             TEXT NOT NULL,
+  created_at         TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS concept_batches_by_center ON concept_batches (center_channel_id);
+
+CREATE TABLE IF NOT EXISTS concepts (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  batch_id         INTEGER NOT NULL REFERENCES concept_batches (id) ON DELETE CASCADE,
+  title            TEXT NOT NULL,
+  alt_title_1      TEXT NOT NULL,
+  alt_title_2      TEXT NOT NULL,
+  thumbnail        TEXT NOT NULL,
+  overlay          TEXT NOT NULL,
+  hook             TEXT NOT NULL,
+  hook_style       TEXT,
+  rests_on         TEXT NOT NULL,
+  needs            TEXT NOT NULL,
+  origin           TEXT NOT NULL,
+  parent_id        INTEGER,
+  engine           TEXT NOT NULL,
+  kept             INTEGER NOT NULL DEFAULT 0,
+  created_at       TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS concepts_by_batch ON concepts (batch_id);
+
+CREATE TABLE IF NOT EXISTS title_formulas (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  center_channel_id  TEXT NOT NULL,
+  window_days        INTEGER NOT NULL,
+  formula            TEXT NOT NULL,
+  why                TEXT NOT NULL,
+  video_ids_json     TEXT NOT NULL,
+  engine             TEXT NOT NULL,
+  run_at             TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS title_formulas_by_center
+  ON title_formulas (center_channel_id, window_days);
+
+CREATE TABLE IF NOT EXISTS hook_labels (
+  center_channel_id  TEXT NOT NULL,
+  video_id           TEXT NOT NULL,
+  style              TEXT NOT NULL,
+  how                TEXT NOT NULL,
+  engine             TEXT NOT NULL,
+  labelled_at        TEXT NOT NULL,
+  PRIMARY KEY (center_channel_id, video_id)
+);
+`,
 ];
 
 /**
