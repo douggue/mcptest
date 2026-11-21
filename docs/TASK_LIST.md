@@ -273,3 +273,7 @@ or computed in code and labelled; no view forecasts; nothing published to YouTub
 - [x] Alerts: a rule per saved channel (the owner's number for a look-alike video's outlier score, default 5×, range 2 to 100; a look-alike newly taking off, optional); checked in code after each refresh and before alerts are read; kept in store step 20 (`alert_rules`, `alerts`)
 - [x] Alerts listed inside What changed with thumbnails and links, "Mark alerts read", a count of unread alerts on each of Your channels, and that an alert is only as fresh as the last refresh
 - [x] Checked on a copy of a real store: a real refresh of 20 channels found one real alert (a new upload at 4.5×)
+- [x] Your videos against the plan: link a kept concept (or its script) to the published video it became, checked to be a video of the centre channel, read once when not stored (store step 24 at merge, `concept_videos`)
+- [x] Views and outlier score against the channel's usual; the concept's inspiration videos at the same age where stored readings allow, else said not comparable with the reason; a table of formats, hook styles and lengths with counts, median scores and a caution
+- [x] Checked on a copy of a real store: two kept concepts linked to real videos, one inspiration comparable at the same age, one with a rough date, one never read near that age; the one-time channel read run for real
+- [ ] Comparing at the same age rests on readings the store happens to hold; most inspiration videos have been read once, so most comparisons say "not comparable" until refreshes build history
