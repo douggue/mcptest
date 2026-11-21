@@ -98,7 +98,7 @@ function Weeks({
       )}
       <Group title="No date yet">
         {undated.length === 0 ? (
-          <p className="text-body-sm text-outline">Every kept concept has a date.</p>
+          <p className="text-body-sm text-outline">Every kept idea has a date.</p>
         ) : (
           <Items items={undated} save={save} />
         )}
@@ -138,7 +138,7 @@ export function UploadCalendar({ channelId, reloadKey }: Props) {
       <div className="mx-auto flex w-full max-w-4xl min-w-0 flex-col gap-space-lg">
         <ViewHeader
           titleId="upload-calendar-title"
-          title="Upload calendar"
+          title="Calendar"
           icon={CalendarDays}
           lead="Your kept concepts and scripts by the week you plan to publish them."
         />
@@ -157,9 +157,9 @@ export function UploadCalendar({ channelId, reloadKey }: Props) {
         {calendar && <TileRow tiles={calendarTiles(calendar)} />}
         {empty && (
           <Card>
-            <p className="text-body-md text-on-surface">No kept concepts yet.</p>
+            <p className="text-body-md text-on-surface">No kept ideas yet.</p>
             <p className="text-body-sm text-on-surface-variant">
-              Keep a concept in the idea lab to plan it here.
+              Keep an idea in Ideas to plan it here.
             </p>
           </Card>
         )}

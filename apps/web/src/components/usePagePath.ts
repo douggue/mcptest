@@ -30,7 +30,7 @@ export function usePagePath(snapshot: MapSnapshot | null, work: Workspace, go: G
     },
     voiceProblem: (channelId) =>
       script.view === null
-        ? 'Open a script first: press “Write the script” on a concept in the idea lab.'
+        ? 'Open a script first: press Write on an idea in Ideas.'
         : voices.some((voice) => voice.id === channelId)
           ? null
           : 'This channel is not on the map on screen, so its voice cannot be measured for this script.',

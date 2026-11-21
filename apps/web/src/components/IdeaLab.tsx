@@ -31,7 +31,7 @@ function NoConcepts() {
       <Lightbulb aria-hidden="true" className="h-6 w-6 text-metric-amber" />
       <p className="text-body-md text-on-surface">No ideas yet.</p>
       <p className="text-body-sm text-on-surface-variant">
-        Pick a video or two in Make new ideas, then press Write 10 concepts.
+        Pick a video or two in Make new ideas, then press Write 10 ideas.
       </p>
     </Card>
   );

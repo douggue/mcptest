@@ -99,7 +99,7 @@ export function ThumbnailBoard(props: Props) {
     <ViewPage id="thumbnail-board" labelledBy="thumbnail-board-title">
       <ViewHeader
         titleId="thumbnail-board-title"
-        title="Thumbnails that worked"
+        title="Thumbnails"
         lead={
           hasChannels
             ? `${totals.winners} that took off on the ${totals.channels} channels like ${centerTitle}, beside ones that did not, and yours.`

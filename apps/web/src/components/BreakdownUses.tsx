@@ -33,7 +33,7 @@ export function BreakdownUses({ view }: { readonly view: BreakdownView }) {
           className={BUTTON}
         >
           <Type aria-hidden="true" className="h-4 w-4" />
-          Use its title formulas in the idea lab
+          Add its title formats to ideas
         </button>
         <button
           type="button"

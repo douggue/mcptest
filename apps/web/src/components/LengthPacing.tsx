@@ -66,7 +66,7 @@ export function LengthPacing({ channelId, reloadKey }: Props) {
     <ViewPage id="length-pacing" labelledBy="length-pacing-title">
       <ViewHeader
         titleId="length-pacing-title"
-        title="Length and pacing against the winners"
+        title="Pacing"
         icon={Ruler}
         lead="Your videos beside the breakouts of channels like yours on this map. A comparison only."
       />

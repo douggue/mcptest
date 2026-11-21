@@ -125,7 +125,7 @@ export function SameTopic({ state, centerTitle, onSetStatus }: Props) {
     <>
       <ViewHeader
         titleId="same-topic-title"
-        title="Same topic, other words"
+        title="Same topic"
         count={list?.channels.length}
         lead={`Channels like ${centerTitle} in size and pace whose titles use other words. Keep the ones on your subject.`}
       />

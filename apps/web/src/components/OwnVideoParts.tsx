@@ -30,7 +30,7 @@ function VideoTitle({ video }: { readonly video: LinkedVideo }) {
 function Inspirations({ video }: { readonly video: LinkedVideo }) {
   const count = video.inspirations.length;
   if (count === 0) {
-    return <p className="text-body-sm text-outline">The concept names no inspiration videos.</p>;
+    return <p className="text-body-sm text-outline">The idea names no inspiration videos.</p>;
   }
   return (
     <Details summary={`Its inspiration videos at the same age (${count})`}>

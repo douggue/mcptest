@@ -126,7 +126,7 @@ export function FormulaCard({ formula, windowDays, onRemix }: Props) {
           className={`flex flex-none items-center gap-1.5 ${QUIET_BUTTON}`}
         >
           <Shuffle aria-hidden="true" className="h-4 w-4" />
-          Remix in idea lab
+          Add to ideas
         </button>
       </div>
       <p className="text-body-md text-on-surface-variant">{formula.why}</p>

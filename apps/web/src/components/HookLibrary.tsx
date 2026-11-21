@@ -162,7 +162,7 @@ export function HookLibrary({ lab, busy, centerTitle, models }: Props) {
     <ViewPage id="hook-library" labelledBy="hook-library-title">
       <ViewHeader
         titleId="hook-library-title"
-        title="Hook library"
+        title="Hooks"
         icon={Quote}
         count={state.withWords > 0 ? state.withWords : undefined}
         lead={<>How the top breakout videos around {centerTitle} open, word for word.</>}

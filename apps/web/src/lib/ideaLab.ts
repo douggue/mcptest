@@ -62,7 +62,7 @@ interface OutlierLike {
 
 /**
  * The picks "Ideas for it" adds: the channel's strongest outliers not picked
- * yet, as many as fit under the limit, so Write 10 concepts is ready at once.
+ * yet, as many as fit under the limit, so Write 10 ideas is ready at once.
  */
 export function outlierPicks(
   top: readonly OutlierLike[],
@@ -83,7 +83,7 @@ export function outlierPicks(
     }));
 }
 
-/** Why "Write 10 concepts" cannot run now, in one line; null when it can. */
+/** Why "Write 10 ideas" cannot run now, in one line; null when it can. */
 export function generateBlocked(picks: readonly Pick[], busy: boolean): string | null {
   if (busy) return 'Waits for the AI run under way to finish.';
   if (picks.length === 0) return 'Pick at least one video first, with Pick videos above.';

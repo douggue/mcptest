@@ -124,7 +124,7 @@ export function HookCard({ hook, seconds, picked, onUse, onModel, modelled }: Pr
         {hook.text !== null && (
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" aria-pressed={picked} onClick={onUse} className={QUIET_BUTTON}>
-              {picked ? 'In the idea lab' : 'Use in idea lab'}
+              {picked ? 'In ideas' : 'Add to ideas'}
             </button>
             {onModel && (
               <button

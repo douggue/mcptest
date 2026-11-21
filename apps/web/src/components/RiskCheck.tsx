@@ -73,7 +73,7 @@ function RiskPanel({ risk }: { readonly risk: Risk }) {
   const check = risk.view?.check ?? null;
   return (
     <>
-      <PanelTitle id="risk-check-title" title="Check before publishing" lead={NOT_A_VERDICT} />
+      <PanelTitle id="risk-check-title" title="Before you publish" lead={NOT_A_VERDICT} />
       <ScriptChoice risk={risk} />
       <PanelAction
         icon={ShieldAlert}
@@ -106,7 +106,7 @@ export function RiskCheck({ channelId, openConceptId, reloadKey }: Props) {
     <ViewPage id="risk-check" labelledBy="risk-check-title">
       <SplitView sideLabel="Which script to check" side={<RiskPanel risk={risk} />}>
         <ViewHeader
-          title="What to look at"
+          title="Check"
           lead={check ? <span className="text-on-surface">{check.title}</span> : undefined}
         />
         {check ? (
@@ -123,8 +123,7 @@ export function RiskCheck({ channelId, openConceptId, reloadKey }: Props) {
             <ShieldAlert aria-hidden="true" className="h-6 w-6 text-metric-amber" />
             <p className="text-body-md text-on-surface">No script to check yet.</p>
             <p className="text-body-sm text-on-surface-variant">
-              Keep a concept in the idea lab and write its script; the check follows the script that
-              is open.
+              Keep an idea in Ideas and write its script; the check follows the script that is open.
             </p>
           </Card>
         )}

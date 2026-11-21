@@ -13,9 +13,9 @@ export function ScriptOrigins({ conceptId }: { readonly conceptId: number }) {
   return (
     <div className="flex min-w-0 flex-col gap-1 text-body-sm text-outline">
       <span>
-        Concept from the{' '}
+        From an{' '}
         <a href={`#concept-${conceptId}`} className="text-primary hover:underline">
-          idea lab
+          idea in Ideas
         </a>
         .
       </span>

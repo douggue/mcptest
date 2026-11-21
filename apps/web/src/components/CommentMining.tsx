@@ -168,7 +168,7 @@ export function CommentMining({ channelId, reloadKey }: Props) {
       <SplitView sideLabel="Comments to read" side={<Panel view={view} comments={comments} />}>
         <ViewHeader
           titleId="comment-mining-title"
-          title="What viewers ask for"
+          title="Viewers ask"
           count={count}
           lead="Requests, questions and objections that recur in the comments of winning videos."
         />

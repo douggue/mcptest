@@ -129,7 +129,7 @@ export function Transfers({ transfers, hasMap, onMakeConcepts }: Props) {
     <>
       <ViewHeader
         titleId="transfers-title"
-        title="Transfer opportunities"
+        title="Transfers"
         lead="Ideas that took off for another country and are untried or weak for yours."
       />
       {state.status === 'loading' && (

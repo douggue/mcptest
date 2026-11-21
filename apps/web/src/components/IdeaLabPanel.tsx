@@ -255,7 +255,7 @@ export function IdeaLabPanel({ lab, busy, transfers, centerTitle, ai }: Props) {
           className={GENERATE}
         >
           <Sparkles aria-hidden="true" className="h-4 w-4" />
-          Write 10 concepts
+          Write 10 ideas
         </button>
         <span
           className={`text-center text-body-sm ${blocked ? 'text-metric-amber' : 'text-outline'}`}

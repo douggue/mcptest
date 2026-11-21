@@ -15,7 +15,7 @@ interface Props {
 
 /**
  * A side panel's one primary action, at its foot: the full width, in the
- * accent colour, as the idea lab's "Write 10 concepts". When it cannot be
+ * accent colour, as Ideas' "Write 10 ideas". When it cannot be
  * pressed, a line under it says why.
  */
 export function PanelButton({ children, onClick, disabled, icon: Icon, submit, blocked }: Props) {

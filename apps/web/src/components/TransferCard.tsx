@@ -65,7 +65,7 @@ function SaveToggle({ idea, onSetSaved }: SaveProps) {
       }`}
     >
       <Icon aria-hidden="true" className="h-4 w-4" />
-      {idea.saved ? 'Saved' : 'Save idea'}
+      {idea.saved ? 'Kept' : 'Keep'}
     </button>
   );
 }
@@ -180,7 +180,7 @@ function Verdict({ idea, ownerPlace, onMakeConcepts }: Omit<Props, 'onSetSaved'>
             className="mt-1 flex min-h-9 items-center gap-1.5 rounded-full bg-surface-container-high px-4 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-highest focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
           >
             <Lightbulb aria-hidden="true" className="h-4 w-4" />
-            Make concepts from this idea
+            Add to ideas
           </button>
         )}
       </div>

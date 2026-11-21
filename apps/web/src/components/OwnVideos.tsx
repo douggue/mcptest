@@ -23,8 +23,8 @@ function LinkForm({ plan, actions }: { readonly plan: PlanView; readonly actions
   if (plan.linkable.length === 0) {
     return (
       <p className="text-body-sm text-on-surface-variant">
-        Every kept concept is linked, or none is kept yet. Keep a concept in the idea lab to link it
-        to the video it became.
+        Every kept idea is linked, or none is kept yet. Keep an idea in Ideas to link it to the
+        video it became.
       </p>
     );
   }
@@ -36,7 +36,7 @@ function LinkForm({ plan, actions }: { readonly plan: PlanView; readonly actions
         if (chosen !== null && link.trim() !== '') actions.link(chosen, link.trim());
       }}
     >
-      <Field label={<label htmlFor="plan-concept">Kept concept</label>}>
+      <Field label={<label htmlFor="plan-concept">Kept idea</label>}>
         <select
           id="plan-concept"
           value={chosen ?? ''}
@@ -106,9 +106,9 @@ function Counts({ plan }: { readonly plan: PlanView }) {
   const counts = planCounts(plan);
   return (
     <StatRow columns={3}>
-      <StatTile label="Linked videos" value={counts.linked} note="Kept concepts you published" />
+      <StatTile label="Linked videos" value={counts.linked} note="Kept ideas you published" />
       <StatTile label="Scored" value={counts.scored} note="Against your usual at the same age" />
-      <StatTile label="Not linked yet" value={counts.notLinked} note="Kept concepts" />
+      <StatTile label="Not linked yet" value={counts.notLinked} note="Kept ideas" />
     </StatRow>
   );
 }
@@ -159,7 +159,7 @@ export function OwnVideos({ channelId, reloadKey }: Props) {
     <ViewPage id="own-videos" labelledBy="own-videos-title">
       <SplitView sideLabel="Link a published video" side={<Panel plan={plan} actions={actions} />}>
         <ViewHeader
-          title="Your videos against the plan"
+          title="Your videos"
           lead="Each video against your channel's usual at the same age."
           count={plan ? plan.linked.length : undefined}
         />

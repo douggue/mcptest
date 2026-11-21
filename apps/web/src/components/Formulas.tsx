@@ -45,7 +45,7 @@ function FormulaPanel({ lab, busy, centerTitle }: PanelProps) {
     <>
       <PanelTitle
         id="formulas-title"
-        title="Trending formats"
+        title="Look for formats"
         lead={<>Title wordings that several breakout videos around {centerTitle} share.</>}
       />
       <Field label="Videos from the last">
@@ -73,8 +73,8 @@ function FormulaPanel({ lab, busy, centerTitle }: PanelProps) {
         <p className="text-body-sm text-on-surface-variant">
           An AI groups the titles, with a named slot for what changes. Jgtube keeps a formula only
           when at least two stored videos of this map stand behind it, and works out the numbers
-          itself. One video is an example, not a format. &ldquo;Remix in idea lab&rdquo; takes a
-          format into the idea lab. The next run for a window replaces its formats.
+          itself. One video is an example, not a format. &ldquo;Add to ideas&rdquo; takes a format
+          into Ideas. The next run for a window replaces its formats.
         </p>
       </Details>
     </>
