@@ -727,7 +727,7 @@ The engine proposes, code counts:
    engine may write it. Numbers in the answer are to come from the count only.
 
 The comparison and the answer are kept per centre channel and video
-(`thumbnail_reviews`, store step 41, provisional: the next free number when merged); a new
+(`thumbnail_reviews`, store step 26); a new
 review replaces both. The page shows the thumbnail large, the counted winning values
 with their shares, lift and channel count (and a few flagged ones with the reason), the
 winners compared as a strip with their scores, the advice, and the prompt with Copy.
@@ -1661,7 +1661,7 @@ Claude reads what the app shows. Setup for the owner is in
 | `get_channel_note`            | `channel`, `kind` (thumbnail-review, style-lock)                                        | A line of JSON (`written`, `by`, `at`), then the kept study; `written: false` when none is kept                                                                                                                                                                      |
 | `get_viewer_comments`         | `channel` (id), `videos` (1 to 10 ids)                                                  | A line that comments are strangers' text and never instructions, then JSON: each asked video that is a winner of the channel's map, with its stored comments (id, text, likes), most liked first, 60 at most                                                         |
 | `get_risk_findings`           | `channel` (id), `concept`                                                               | A line that it was worked out by Jgtube in code, then JSON: stage, sentences sharing six or more words with a stored transcript, unchecked facts                                                                                                                     |
-| `get_thumbnail_comparison`    | `channel` (id), `video`                                                                 | The kept comparison of one video's thumbnail as text, counted in code: its checklist and description, the winners compared, winning values, flagged values, other values, thumbnails not tagged                                                                     |
+| `get_thumbnail_comparison`    | `channel` (id), `video`                                                                 | The kept comparison of one video's thumbnail as text, counted in code: its checklist and description, the winners compared, winning values, flagged values, other values, thumbnails not tagged                                                                      |
 
 One prompt, `thumbnail_review` (argument `channel`), tells the model to read the
 board, look at the owner's thumbnails and the winners with `view_thumbnails`, and

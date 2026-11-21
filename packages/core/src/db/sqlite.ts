@@ -484,7 +484,7 @@ CREATE TABLE IF NOT EXISTS script_lengths (
   updated_at  TEXT NOT NULL
 );
 `,
-  // 41 (provisional; the next free number when merged): the per-video thumbnail review.
+  // 26: the per-video thumbnail review.
   //     thumbnail_tags keeps the fixed checklist an engine filled in for one thumbnail, as
   //     checked in code, reused by every later review; thumbnail_reviews keeps, per centre
   //     channel and video, the comparison code counted and the answer written from it. They
