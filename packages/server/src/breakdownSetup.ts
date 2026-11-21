@@ -6,6 +6,9 @@
 import {
   downloadsRoot,
   ownVideosFolder,
+  parseChannelRef,
+  type BreakdownRepo,
+  type ChannelRepo,
   type Config,
   type VideoRepo,
   type VideoStudyRepo,
@@ -13,6 +16,8 @@ import {
 import type { AnalysisParts } from './analysisEngine';
 import type { Engine } from './app';
 import { breakDown, type BreakdownFiles } from './breakdownEngine';
+import { breakdownAnalysisId } from './breakdownParts';
+import { breakdownStore } from './breakdownStore';
 import type { DownloadsEngine } from './downloadTypes';
 import type { WorkTracker } from './running';
 
@@ -21,6 +26,9 @@ export interface BreakdownSetup {
   readonly now: () => Date;
   readonly videos: Pick<VideoRepo, 'listByChannel'>;
   readonly studies: VideoStudyRepo;
+  readonly channels: Pick<ChannelRepo, 'findById' | 'findByHandle'>;
+  /** The stored parts of each channel's breakdown. */
+  readonly breakdowns: BreakdownRepo;
   /** Tracks the breakdown as work under way, so shutting down can wait for it. */
   readonly run: WorkTracker['run'];
   readonly asking: AnalysisParts;
@@ -30,10 +38,37 @@ export interface BreakdownSetup {
   readonly stop: AbortSignal;
 }
 
-/** A channel breakdown: the steps in `breakdownEngine`, on this engine's store and engines. */
-export function breaking(setup: BreakdownSetup): Pick<Engine, 'breakDown' | 'ownVideosFolder'> {
+type Breaking = Pick<Engine, 'breakDown' | 'ownVideosFolder' | 'findBreakdown' | 'breakdownText'>;
+
+/**
+ * A channel breakdown: the steps in `breakdownEngine`, on this engine's store
+ * and engines, and the stored breakdown read back.
+ */
+export function breaking(setup: BreakdownSetup): Breaking {
   const { config, now, videos, studies, asking, reading, files, stop } = setup;
+  const stored = breakdownStore({
+    parts: setup.breakdowns,
+    now,
+    root: () => downloadsRoot(config),
+  });
+  /** The stored channel a handle, link or id refers to; null when it is not stored. */
+  const channelOf = (channel: string) => {
+    const ref = parseChannelRef(channel);
+    return ref.kind === 'id'
+      ? setup.channels.findById(ref.id)
+      : setup.channels.findByHandle(ref.handle);
+  };
   return {
+    async findBreakdown(channel) {
+      const found = channelOf(channel);
+      return found === null ? null : stored.view(found);
+    },
+
+    breakdownText(channel, file) {
+      const found = channelOf(channel);
+      return found === null ? null : { channel: found, file: stored.text(found, file) };
+    },
+
     breakDown: (channel, onProgress, choices) =>
       setup.run(() =>
         breakDown(
@@ -41,6 +76,8 @@ export function breaking(setup: BreakdownSetup): Pick<Engine, 'breakDown' | 'own
             now,
             stop,
             studies,
+            parts: setup.breakdowns,
+            stored,
             files,
             readChannel: async (ref) => (await reading.readChannelBrand(ref)).channel,
             listVideos: (channelId) => videos.listByChannel(channelId),
@@ -54,7 +91,8 @@ export function breaking(setup: BreakdownSetup): Pick<Engine, 'breakDown' | 'own
             watchesFiles: asking.watchesFiles,
             watchVideo: asking.watchVideo,
             studyFrames: asking.studyFrames,
-            write: (stored, only, focus) => asking.analyse('breakdown', stored, only, focus),
+            write: (part, channelId, only, focus) =>
+              asking.analyse(breakdownAnalysisId(part), channelId, only, focus),
           },
           channel,
           onProgress,

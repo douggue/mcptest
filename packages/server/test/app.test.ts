@@ -181,6 +181,14 @@ class FakeEngine implements Engine {
     throw new Error('findVideoStudy is not used in this test');
   }
 
+  findBreakdown(): never {
+    throw new Error('findBreakdown is not used in this test');
+  }
+
+  breakdownText(): never {
+    throw new Error('breakdownText is not used in this test');
+  }
+
   findVideoSeconds(): never {
     throw new Error('findVideoSeconds is not used in this test');
   }

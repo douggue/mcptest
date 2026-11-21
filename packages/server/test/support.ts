@@ -31,6 +31,8 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     watchVideo: unused('watchVideo'),
     engineStatus: unused('engineStatus'),
     breakDown: unused('breakDown'),
+    findBreakdown: unused('findBreakdown'),
+    breakdownText: unused('breakdownText'),
     ownVideosFolder: unused('ownVideosFolder'),
     saveThumbnails: unused('saveThumbnails'),
     saveTranscripts: unused('saveTranscripts'),

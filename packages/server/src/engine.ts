@@ -415,6 +415,8 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       now: wiring.now,
       videos: wiring.repos.videos,
       studies: wiring.repos.studies,
+      channels: wiring.repos.channels,
+      breakdowns: wiring.repos.breakdowns,
       run: wiring.work.run,
       asking,
       reading,

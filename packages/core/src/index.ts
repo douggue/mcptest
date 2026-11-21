@@ -247,7 +247,7 @@ export {
   type BrandDeps,
   type BrandResult,
 } from './channel/brand';
-export { DOWNLOADS_FOLDER, downloadsRoot, pathInside } from './downloads/folder';
+export { DOWNLOADS_FOLDER, channelFolderName, downloadsRoot, pathInside } from './downloads/folder';
 export {
   THUMBNAILS_FOLDER,
   THUMBNAIL_INDEX_FILE,

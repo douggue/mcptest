@@ -1,3 +1,4 @@
+import { markerLines } from '@jgtube/core';
 import type {
   ChannelSnapshot,
   VideoDownload as FetchedVideo,
@@ -222,19 +223,37 @@ describe('watching a video through the engine', () => {
 });
 
 describe('a breakdown through the engine', () => {
-  /** Stand-in engines: a frame study or the breakdown, told apart by the tools they are given. */
+  const FRAME_TOOLS = ['mcp__jgtube__view_video_frames'];
+  const thumb = markerLines('THUMBNAIL PROMPT');
+  const master = markerLines('MASTER PROMPT');
+  /** What a stand-in engine writes for a part, told from the number in its question. */
+  const partText = (prompt: string): string => {
+    const number = /This is part (\d) of 7/.exec(prompt)?.[1] ?? '?';
+    if (number === '2') {
+      return `SECRET PART 2\n${thumb.start}\nSECRET PICTURE OF [SUBJECT]\n${thumb.end}`;
+    }
+    if (number === '7') {
+      return `SECRET PART 7\n${master.start}\nSECRET SCRIPT RULES [CHECK: ...]\n${master.end}`;
+    }
+    return `SECRET PART ${number}`;
+  };
+
+  /** Stand-in engines: a frame study or a part of the breakdown, told apart by the tools they are given. */
   function standInEngines() {
     const requests: Array<[EngineId, EngineRunRequest]> = [];
     const runEngine: EngineOptions['runEngine'] = async (id, request) => {
       requests.push([id, request]);
-      const studies = request.allowedTools.length === 1;
-      return { text: studies ? 'SECRET FRAME NOTES' : 'THE BREAKDOWN', turns: 5 };
+      const studies = request.allowedTools.join() === FRAME_TOOLS.join();
+      return { text: studies ? 'SECRET FRAME NOTES' : partText(request.prompt), turns: 5 };
     };
-    return { requests, runEngine };
+    const partRuns = (): readonly string[] =>
+      requests.flatMap(([, request]) => /This is part \d of 7/.exec(request.prompt) ?? []);
+    return { requests, runEngine, partRuns };
   }
+  const ALL_PARTS = [1, 2, 3, 4, 5, 6, 7].map((n) => `This is part ${n} of 7`);
 
-  test('reads the channel, studies the best three by preview frames and writes, with no watcher', async () => {
-    const { requests, runEngine } = standInEngines();
+  test('reads the channel, studies the best three by preview frames and writes the seven parts, with no watcher', async () => {
+    const { requests, runEngine, partRuns } = standInEngines();
     const steps: BreakdownProgress[] = [];
     start({ runEngine }, false);
 
@@ -243,8 +262,8 @@ describe('a breakdown through the engine', () => {
     expect(outcome).toMatchObject({
       channel: { id: CHANNEL, title: 'Channel W' },
       storedVideos: 6,
-      text: 'THE BREAKDOWN',
-      engine: 'claude',
+      titles: 6,
+      notSaved: null,
       ownVideosFolder: join(downloads, 'my-videos'),
       supply: [],
     });
@@ -256,34 +275,185 @@ describe('a breakdown through the engine', () => {
         { done: true, by: 'claude', kept: false, source: 'preview', available: 60 },
       ]),
     );
-    expect(requests.map(([, request]) => request.allowedTools.length)).toEqual([1, 1, 1, 7]);
-    expect(steps.at(-1)?.text).toBe('Writing the breakdown');
+    expect(requests.slice(0, 3).map(([, request]) => request.allowedTools)).toEqual([
+      FRAME_TOOLS,
+      FRAME_TOOLS,
+      FRAME_TOOLS,
+    ]);
+    expect(partRuns()).toEqual(ALL_PARTS);
+    expect(outcome.parts.map((part) => [part.part, part.outcome])).toEqual(
+      ['titles', 'thumbnails', 'scripts', 'picture', 'strategy', 'plan', 'master'].map((part) => [
+        part,
+        'written',
+      ]),
+    );
+    expect(steps.at(-1)?.text).toBe('Saving the breakdown as text files');
   });
 
-  test('never puts what an engine wrote about a video into a later question', async () => {
+  test('offers each part only its own tools, through a connector started for that run', async () => {
     const { requests, runEngine } = standInEngines();
     start({ runEngine }, false);
-    await engine.breakDown(CHANNEL, () => {});
 
     await engine.breakDown(CHANNEL, () => {});
 
+    const tools = requests
+      .slice(3)
+      .map(([, request]) => request.mcpServers['jgtube']?.env?.['JGTUBE_TOOLS']);
+    expect(tools).toEqual([
+      'get_channel_videos,get_video_details',
+      'get_channel_brand,get_channel_videos,view_thumbnails',
+      'get_transcript,get_transcript_pace,get_channel_videos',
+      'get_frame_study,get_video_watch,get_channel_videos',
+      'get_breakdown_part,get_channel_videos',
+      'get_breakdown_part,get_transcript_pace,get_frame_study,get_video_watch',
+      'get_breakdown_part',
+    ]);
+  });
+
+  test('saves the breakdown as four text files in a folder named after the channel, and opens it again', async () => {
+    const { runEngine } = standInEngines();
+    start({ runEngine }, false);
+
+    const outcome = await engine.breakDown(CHANNEL, () => {});
+
+    const folder = join(downloads, 'breakdowns', 'Channel W');
+    expect(outcome.breakdown.folder).toBe(folder);
+    expect(readdirSync(folder).sort()).toEqual([
+      'breakdown.txt',
+      'index.json',
+      'master-prompt.txt',
+      'production-plan.txt',
+      'thumbnail-prompt.txt',
+    ]);
+    expect(readFileSync(join(folder, 'master-prompt.txt'), 'utf8')).toBe(
+      'SECRET SCRIPT RULES [CHECK: ...]\n',
+    );
+    expect(readFileSync(join(folder, 'thumbnail-prompt.txt'), 'utf8')).toBe(
+      'SECRET PICTURE OF [SUBJECT]\n',
+    );
+    expect(readFileSync(join(folder, 'production-plan.txt'), 'utf8')).toBe('SECRET PART 6\n');
+    expect(JSON.parse(readFileSync(join(folder, 'index.json'), 'utf8'))).toMatchObject({
+      channelId: CHANNEL,
+    });
+    // The stored breakdown is read back without an engine, by handle or by id.
+    const again = await engine.findBreakdown('@channelw');
+    expect(again).toEqual(outcome.breakdown);
+    expect(again?.parts.find((part) => part.id === 'master')).toMatchObject({
+      state: 'written',
+      body: 'SECRET PART 7',
+      prompt: 'SECRET SCRIPT RULES [CHECK: ...]',
+      engine: 'claude',
+    });
+    expect(again?.files.map((file) => [file.name, file.available])).toEqual([
+      ['breakdown.txt', true],
+      ['production-plan.txt', true],
+      ['thumbnail-prompt.txt', true],
+      ['master-prompt.txt', true],
+    ]);
+    expect(engine.breakdownText(CHANNEL, 'thumbnail')).toMatchObject({
+      channel: { id: CHANNEL, title: 'Channel W' },
+      file: { name: 'thumbnail-prompt.txt', text: 'SECRET PICTURE OF [SUBJECT]\n' },
+    });
+  });
+
+  test('has no stored breakdown for a channel that was never broken down, or never read', async () => {
+    start({ runEngine: standInEngines().runEngine }, false);
+    await engine.readChannelBrand(CHANNEL);
+
+    expect(await engine.findBreakdown(CHANNEL)).toBeNull();
+    expect(await engine.findBreakdown(`UC${'x'.repeat(22)}`)).toBeNull();
+    expect(engine.breakdownText(`UC${'x'.repeat(22)}`, 'whole')).toBeNull();
+    expect(engine.breakdownText(CHANNEL, 'whole')?.file).toMatchObject({
+      text: null,
+      reason: 'No part of the breakdown has been written.',
+    });
+  });
+
+  test('never puts what an engine wrote, about a video or as a part, into any question', async () => {
+    const { requests, runEngine, partRuns } = standInEngines();
+    start({ runEngine }, false);
+    await engine.breakDown(CHANNEL, () => {});
+    // A second press with nothing changed starts no engine at all.
+    await engine.breakDown(CHANNEL, () => {});
+    expect(requests).toHaveLength(10);
+    // Starting from nothing studies and writes everything again, with every part already stored.
+    await engine.breakDown(CHANNEL, () => {}, { fresh: true });
+
+    expect(partRuns()).toEqual([...ALL_PARTS, ...ALL_PARTS]);
     expect(engine.findVideoStudy(vid(1), 'frames')?.text).toBe('SECRET FRAME NOTES');
-    expect(requests.every(([, request]) => !request.prompt.includes('SECRET'))).toBe(true);
-    expect(requests.every(([, request]) => !request.systemPrompt.includes('SECRET'))).toBe(true);
-    // The second press reused the three stored studies: only the writing ran again.
-    expect(requests.map(([, request]) => request.allowedTools.length)).toEqual([1, 1, 1, 7, 7]);
+    const stored = [
+      'basis',
+      'titles',
+      'thumbnails',
+      'scripts',
+      'picture',
+      'strategy',
+      'plan',
+      'master',
+    ].map((part) => engine.findBreakdownPart(CHANNEL, part as never));
+    expect(stored.every((part) => part?.written === true)).toBe(true);
+    const said = requests.flatMap(([, request]) => [request.prompt, request.systemPrompt]);
+    for (const text of said) {
+      expect(text).not.toContain('SECRET');
+      for (const part of stored) {
+        expect(text).not.toContain(part?.written ? part.text : 'never');
+      }
+      // Titles are what a stranger wrote; they reach an engine as tool results only.
+      expect(text).not.toContain('Video 1');
+      expect(text).not.toContain('Channel W');
+    }
   });
 
-  test('names the chosen videos to the writing engine by id only, never by title', async () => {
+  test('names the chosen videos to each part by id only, never by title', async () => {
     const { requests, runEngine } = standInEngines();
     start({ runEngine }, false);
 
     await engine.breakDown(CHANNEL, () => {});
 
-    const writing = requests.at(-1)?.[1].prompt ?? '';
-    expect(writing).toContain([1, 2, 3, 4, 5].map(vid).join(', '));
-    expect(writing).not.toContain('Video 1');
+    const titles = requests[3]?.[1].prompt ?? '';
+    expect(titles).toContain('This is part 1 of 7');
+    // Six stored videos, most viewed first; the last three share their views and go by id.
+    expect(titles).toContain([1, 2, 3, 4, 5, 6].map(vid).join(', '));
+    expect(titles).toContain('6 titles to study, most viewed first, out of 6 stored');
+    expect(requests[5]?.[1].prompt).toContain([1, 2, 3].map(vid).join(', '));
     expect(requests[0]?.[1].prompt).toContain(`For the video ${vid(1)}:`);
+  });
+
+  test('lets the one engine the owner chose write every part it can, and says which it cannot', async () => {
+    const { requests, runEngine } = standInEngines();
+    start({ runEngine }, true);
+
+    const outcome = await engine.breakDown(CHANNEL, () => {}, { only: 'agy' });
+
+    expect(requests.every(([id]) => id === 'agy')).toBe(true);
+    expect(outcome.parts.map((part) => part.outcome)).toEqual([
+      'written',
+      'failed',
+      'written',
+      'written',
+      'written',
+      'written',
+      'written',
+    ]);
+    expect(outcome.parts[1]).toMatchObject({
+      reason:
+        'The breakdown’s part on thumbnails cannot be done by Antigravity CLI: it needs Claude Code or Codex CLI. Choose one of those, or Automatic.',
+    });
+    expect(outcome.breakdown.files.find((file) => file.id === 'thumbnail')).toEqual({
+      id: 'thumbnail',
+      name: 'thumbnail-prompt.txt',
+      available: false,
+      reason:
+        'The thumbnails part was not written: The breakdown’s part on thumbnails cannot be done by Antigravity CLI: it needs Claude Code or Codex CLI. Choose one of those, or Automatic.',
+    });
+  });
+
+  test('reads a video’s stored length, for the numbers worked out from a frame study', async () => {
+    start({ runEngine: standInEngines().runEngine }, false);
+    await engine.readChannelBrand(CHANNEL);
+
+    expect(engine.findVideoSeconds(vid(1))).toBe(600);
+    expect(engine.findVideoSeconds('nostoredvid')).toBeNull();
   });
 
   test('is refused once Jgtube has begun closing', async () => {

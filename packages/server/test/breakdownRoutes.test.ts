@@ -4,7 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { createApp, type Engine } from '../src/app';
-import type { BreakdownChoices, BreakdownOutcome, BreakdownProgress } from '../src/breakdownTypes';
+import type {
+  BreakdownChoices,
+  BreakdownOutcome,
+  BreakdownProgress,
+  BreakdownView,
+} from '../src/breakdownTypes';
 import { JobStore } from '../src/jobs';
 import { tinyMp4 } from './engines/standIn';
 import { CHANNEL_ID, HOST, get, post, read, stubEngine } from './support';
@@ -12,16 +17,36 @@ import { CHANNEL_ID, HOST, get, post, read, stubEngine } from './support';
 const VIDEO = 'dQw4w9WgXcQ';
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+const view: BreakdownView = {
+  channel: { id: CHANNEL_ID, title: 'Channel' },
+  writtenAt: '2026-11-21T09:30:00.000Z',
+  parts: [
+    {
+      id: 'titles',
+      title: 'Titles',
+      state: 'written',
+      body: 'THE TITLES STUDIED',
+      prompt: null,
+      engine: 'claude',
+      writtenAt: '2026-11-21T09:30:00.000Z',
+      reason: null,
+    },
+  ],
+  files: [{ id: 'whole', name: 'breakdown.txt', available: true, reason: null }],
+  folder: '/downloads/breakdowns/Channel',
+};
+
 const outcome: BreakdownOutcome = {
   channel: { id: CHANNEL_ID, title: 'Channel' },
   storedVideos: 40,
-  top: [{ videoId: VIDEO, title: 'A video', captions: 'read' }],
+  top: [{ videoId: VIDEO, title: 'A video', captions: 'read', words: 900, wordsPerMinute: 150 }],
   deep: [],
   supply: [],
   ownVideosFolder: '/downloads/my-videos',
-  text: 'THE BREAKDOWN',
-  engine: 'claude',
-  skipped: [],
+  titles: 40,
+  parts: [{ part: 'titles', outcome: 'written', engine: 'claude', skipped: [], seconds: 61 }],
+  breakdown: view,
+  notSaved: null,
 };
 
 let folder: string;
@@ -183,7 +208,10 @@ describe('POST /api/breakdowns', () => {
   test('accepts only POST from this site, and the plain analysis route does not start one', async () => {
     const app = appWith({ breakDown: async () => outcome });
 
-    expect((await get(app, '/api/breakdowns')).status).toBe(405);
+    const put = await app(
+      new Request(`http://${HOST}/api/breakdowns`, { method: 'PUT', headers: { host: HOST } }),
+    );
+    expect(put.status).toBe(405);
     const crossSite = await post(
       app,
       '/api/breakdowns',
@@ -191,8 +219,161 @@ describe('POST /api/breakdowns', () => {
       { origin: 'https://evil.example' },
     );
     expect(crossSite.status).toBe(403);
-    const direct = await post(app, '/api/analyses', { analysis: 'breakdown', channel: CHANNEL_ID });
-    expect(direct.status).toBe(400);
+    for (const analysis of ['breakdown', 'breakdown-titles', 'breakdown-master']) {
+      const direct = await post(app, '/api/analyses', { analysis, channel: CHANNEL_ID });
+      expect(direct.status).toBe(400);
+    }
+  });
+});
+
+describe('GET /api/breakdowns', () => {
+  test('returns a channel’s stored breakdown without running anything', async () => {
+    const asked: string[] = [];
+    const app = appWith({
+      findBreakdown: async (channel) => {
+        asked.push(channel);
+        return view;
+      },
+    });
+
+    const response = await get(app, `/api/breakdowns?channel=${CHANNEL_ID}`);
+
+    expect(response.status).toBe(200);
+    expect((await read<BreakdownView>(response)).data).toEqual(view);
+    expect(asked).toEqual([CHANNEL_ID]);
+  });
+
+  test('says so when no breakdown has been written for the channel', async () => {
+    const app = appWith({ findBreakdown: async () => null });
+
+    const response = await get(app, '/api/breakdowns?channel=@channel');
+
+    expect(response.status).toBe(404);
+    expect((await read<null>(response)).error).toBe(
+      'No breakdown has been written for this channel yet',
+    );
+  });
+
+  test.each(['', 'not a channel!', `UC${'x'.repeat(300)}`])(
+    'refuses %j as a channel, before the store is read',
+    async (channel) => {
+      const app = appWith({});
+
+      const response = await get(app, `/api/breakdowns?channel=${encodeURIComponent(channel)}`);
+
+      expect(response.status).toBe(400);
+    },
+  );
+
+  test('answers only to its own address, and says so without file paths when the read fails', async () => {
+    const app = appWith({
+      findBreakdown: async () => {
+        throw new Error('cannot open /home/owner/jgtube/store.db');
+      },
+    });
+
+    const rebound = await get(app, `/api/breakdowns?channel=${CHANNEL_ID}`, 'evil.example');
+    const failed = await get(app, `/api/breakdowns?channel=${CHANNEL_ID}`);
+
+    expect(rebound.status).toBe(403);
+    expect(failed.status).toBe(500);
+    expect((await read<null>(failed)).error).not.toContain('/home/owner');
+  });
+});
+
+describe('GET /api/breakdowns/texts/:name', () => {
+  const channel = { id: CHANNEL_ID, title: 'Café “Été”' };
+  const text = (name: string, body: string | null) => ({
+    channel,
+    file:
+      body === null
+        ? {
+            id: 'master' as const,
+            name,
+            text: null,
+            reason: 'The master prompt part has not been written.',
+          }
+        : { id: 'master' as const, name, text: body, reason: null },
+  });
+
+  test('hands over one of the four texts as a plain text file to save, named after the channel', async () => {
+    const asked: Array<[string, string]> = [];
+    const app = appWith({
+      breakdownText: (ref, file) => {
+        asked.push([ref, file]);
+        return text('master-prompt.txt', 'Write a script. Mark [CHECK: ...].\n');
+      },
+    });
+
+    const response = await get(
+      app,
+      `/api/breakdowns/texts/master-prompt.txt?channel=${CHANNEL_ID}`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('Write a script. Mark [CHECK: ...].\n');
+    expect(response.headers.get('content-type')).toBe('text/plain; charset=utf-8');
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(response.headers.get('content-disposition')).toBe(
+      `attachment; filename="Caf_ __t__ - master-prompt.txt"; filename*=UTF-8''Caf%C3%A9%20%E2%80%9C%C3%89t%C3%A9%E2%80%9D%20-%20master-prompt.txt`,
+    );
+    expect(asked).toEqual([[CHANNEL_ID, 'master']]);
+  });
+
+  test.each([
+    ['breakdown.txt', 'whole'],
+    ['production-plan.txt', 'plan'],
+    ['thumbnail-prompt.txt', 'thumbnail'],
+    ['master-prompt.txt', 'master'],
+  ])('takes %s, and asks the store for the %s text', async (name, id) => {
+    const asked: string[] = [];
+    const app = appWith({
+      breakdownText: (_ref, file) => {
+        asked.push(file);
+        return text(name, 'T');
+      },
+    });
+
+    expect((await get(app, `/api/breakdowns/texts/${name}?channel=${CHANNEL_ID}`)).status).toBe(
+      200,
+    );
+    expect(asked).toEqual([id]);
+  });
+
+  test.each(['index.json', '../store.db', 'master-prompt.txt.bak', ''])(
+    'refuses %j: only the four fixed names are taken',
+    async (name) => {
+      const app = appWith({});
+
+      const response = await get(
+        app,
+        `/api/breakdowns/texts/${encodeURIComponent(name)}?channel=${CHANNEL_ID}`,
+      );
+
+      expect(response.status).toBe(404);
+    },
+  );
+
+  test('says why there is no such text, instead of an empty file', async () => {
+    const app = appWith({ breakdownText: () => text('master-prompt.txt', null) });
+
+    const response = await get(
+      app,
+      `/api/breakdowns/texts/master-prompt.txt?channel=${CHANNEL_ID}`,
+    );
+
+    expect(response.status).toBe(404);
+    expect((await read<null>(response)).error).toBe('The master prompt part has not been written.');
+  });
+
+  test('refuses a channel that is not one, a channel not read yet, another address and anything but GET', async () => {
+    const app = appWith({ breakdownText: () => null });
+    const path = `/api/breakdowns/texts/breakdown.txt?channel=${CHANNEL_ID}`;
+
+    expect((await get(app, '/api/breakdowns/texts/breakdown.txt?channel=nope!')).status).toBe(400);
+    expect((await get(app, path)).status).toBe(404);
+    expect((await get(app, path, 'evil.example')).status).toBe(403);
+    expect((await post(app, path, {})).status).toBe(405);
   });
 });
 

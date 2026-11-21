@@ -9,6 +9,8 @@ import {
   parseChannelRef,
   type CompetitorStatus,
   type CrawlProgress,
+  type BreakdownFileId,
+  type BreakdownTextFile,
   type DiscoveryResult,
   type FactsOutcome,
   type MapSnapshot,
@@ -30,10 +32,18 @@ import type { EngineReport } from './engines/catalog';
 import type { EngineAnswer } from './engines/fallback';
 import type { EngineId } from './engines/types';
 import type { VideoAnswer, WatchOptions } from './engines/videoWatch';
-import type { BreakdownFocus } from './breakdownQuestions';
-import type { BreakdownChoices, BreakdownOutcome, BreakdownProgress } from './breakdownTypes';
+import type { BreakdownFocus } from './breakdownParts';
+import type {
+  BreakdownChoices,
+  BreakdownOutcome,
+  BreakdownProgress,
+  BreakdownView,
+} from './breakdownTypes';
 import { refreshState, startRefresh, type RefreshTracker } from './refreshRoutes';
 import {
+  BREAKDOWN_TEXT_PATH,
+  downloadBreakdownText,
+  readBreakdown,
   startBreakdown,
   uploadVideo,
   type BreakdownJobs,
@@ -199,6 +209,23 @@ export interface Engine extends DownloadsEngine {
     onProgress: (progress: BreakdownProgress) => void,
     choices?: BreakdownChoices,
   ): Promise<BreakdownOutcome>;
+  /**
+   * A channel's stored breakdown as the page shows it; reads the store and
+   * looks for its saved files. Null when the channel is not stored or has none.
+   */
+  findBreakdown(channel: string): Promise<BreakdownView | null>;
+  /**
+   * One of a stored breakdown's four texts, put together from its stored
+   * parts, with the channel it is of; reads the store only. Null when the
+   * channel is not stored.
+   */
+  breakdownText(
+    channel: string,
+    file: BreakdownFileId,
+  ): {
+    readonly channel: { readonly id: string; readonly title: string };
+    readonly file: BreakdownTextFile;
+  } | null;
   /**
    * The folder the owner's own video files are kept in, as a full path.
    * Throws when the store is only in memory and no downloads folder is named.
@@ -451,9 +478,14 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
       return method === 'POST' ? downloadTranscripts(options, request) : fail(405, 'Use POST');
     }
     if (pathname === '/api/breakdowns') {
+      if (method === 'GET') return readBreakdown(options, url);
       return method === 'POST'
         ? startBreakdown(options, request, breakdowns, analysing)
-        : fail(405, 'Use POST');
+        : fail(405, 'Use GET or POST');
+    }
+    if (pathname.startsWith(BREAKDOWN_TEXT_PATH)) {
+      const name = pathname.slice(BREAKDOWN_TEXT_PATH.length);
+      return method === 'GET' ? downloadBreakdownText(options, url, name) : fail(405, 'Use GET');
     }
     if (pathname.startsWith(UPLOAD_PATH)) {
       const videoId = pathname.slice(UPLOAD_PATH.length);
