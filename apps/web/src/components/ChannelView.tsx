@@ -114,27 +114,35 @@ function Profile(props: ActionsProps) {
       <ChannelSummary profile={profile} withBack={page.snapshot?.center.id !== profile.id} />
       <Actions {...props} />
       <div
-        className={`grid min-w-0 grid-cols-1 items-start gap-space-lg ${beside ? 'xl:grid-cols-[minmax(0,1fr)_380px]' : ''}`}
+        className={`grid min-w-0 grid-cols-1 items-start gap-space-xl ${beside ? 'xl:grid-cols-[minmax(0,1fr)_380px]' : ''}`}
       >
-        <div className="flex min-w-0 flex-col gap-space-xl">
-          <ChannelVideos
-            title="Its outliers"
-            lead={`All stored videos at ${outliers.minScore}× or more of its usual views at the same age.`}
-            videos={profile.top}
-            empty="None of its stored videos stands out from its usual views yet."
-          />
-          <ChannelVideos
-            title="Its newest videos"
-            lead="Newest first, leaving out the outliers above."
-            videos={newest}
-            empty={
-              profile.recent.length === 0
-                ? 'No videos of this channel are stored.'
-                : 'Its newest stored videos are all among its outliers above.'
-            }
-          />
+        <div className="contents xl:flex xl:min-w-0 xl:flex-col xl:gap-space-xl">
+          <div className="order-1 min-w-0 xl:order-none">
+            <ChannelVideos
+              title="Its outliers"
+              lead={`All stored videos at ${outliers.minScore}× or more of its usual views at the same age.`}
+              videos={profile.top}
+              empty="None of its stored videos stands out from its usual views yet."
+            />
+          </div>
+          <div className="order-3 min-w-0 xl:order-none">
+            <ChannelVideos
+              title="Its newest videos"
+              lead="Newest first, leaving out the outliers above."
+              videos={newest}
+              empty={
+                profile.recent.length === 0
+                  ? 'No videos of this channel are stored.'
+                  : 'Its newest stored videos are all among its outliers above.'
+              }
+            />
+          </div>
         </div>
-        {beside && <Beside {...props} />}
+        {beside && (
+          <div className="order-2 min-w-0 xl:order-none">
+            <Beside {...props} />
+          </div>
+        )}
       </div>
     </div>
   );
