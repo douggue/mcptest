@@ -1,4 +1,5 @@
 import type { CalendarView, CalendarWeek, ConceptStatus } from '@jgtube/core';
+import type { Tile } from './tiles';
 
 /** The statuses in order. Kept here: the page takes only types from core, which runs in Node. */
 export const STATUSES: readonly ConceptStatus[] = ['idea', 'drafting', 'ready', 'published'];
@@ -51,4 +52,26 @@ export function weekNote(week: CalendarWeek, pace: CalendarView['pace']): string
   return week.gap && pace.medianPerWeek !== null
     ? `${planned} · fewer than the winners’ ${rate(pace.medianPerWeek)} a week`
     : planned;
+}
+
+/** The calendar's numbers: planned in the weeks shown, without a date, and the winners' pace. */
+export function calendarTiles(calendar: CalendarView): readonly Tile[] {
+  const planned = calendar.weeks.reduce((sum, week) => sum + week.planned, 0);
+  const { channels, medianPerWeek, windowDays } = calendar.pace;
+  const pace =
+    medianPerWeek !== null && channels > 0
+      ? {
+          value: `${rate(medianPerWeek)} a week`,
+          note: `Median of ${channels} channel${channels === 1 ? '' : 's'} like yours, last ${windowDays} days`,
+        }
+      : { value: 'None', note: 'No channel like yours took off on this map' };
+  return [
+    {
+      label: 'Planned',
+      value: String(planned),
+      note: `In the ${calendar.weeks.length} weeks shown`,
+    },
+    { label: 'No date yet', value: String(calendar.undated.length), note: 'Kept concepts' },
+    { label: 'Winners’ pace', ...pace },
+  ];
 }

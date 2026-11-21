@@ -1,6 +1,13 @@
 import type { CalendarView, CalendarWeek } from '@jgtube/core';
 import { describe, expect, test } from 'vitest';
-import { STATUSES, STATUS_LABELS, paceLine, weekLabel, weekNote } from '../src/lib/calendar';
+import {
+  STATUSES,
+  STATUS_LABELS,
+  calendarTiles,
+  paceLine,
+  weekLabel,
+  weekNote,
+} from '../src/lib/calendar';
 import { createExtrasApi } from '../src/lib/extrasApi';
 
 const CHANNEL = 'UCHnyfMqiRRG1u-2MsSQLbXA';
@@ -47,6 +54,41 @@ describe('the calendar wording', () => {
       'Nothing planned · fewer than the winners’ 2.5 a week',
     );
     expect(weekNote(week(0, false), { ...pace, medianPerWeek: null })).toBe('Nothing planned');
+  });
+});
+
+describe('calendarTiles', () => {
+  const calendar: CalendarView = {
+    centerChannelId: CHANNEL,
+    today: '2026-11-21',
+    pace,
+    weeks: [week(2, false), week(0, true)],
+    undated: [],
+    earlier: [],
+    later: [],
+  };
+
+  test('counts what is planned in the weeks shown, what has no date, and the winners’ pace', () => {
+    expect(calendarTiles(calendar)).toEqual([
+      { label: 'Planned', value: '2', note: 'In the 2 weeks shown' },
+      { label: 'No date yet', value: '0', note: 'Kept concepts' },
+      {
+        label: 'Winners’ pace',
+        value: '2.5 a week',
+        note: 'Median of 3 channels like yours, last 14 days',
+      },
+    ]);
+  });
+
+  test('says there is no pace when no channel like yours took off', () => {
+    const none = { ...calendar, pace: { channels: 0, medianPerWeek: null, windowDays: 14 } };
+    expect(calendarTiles(none)[2]).toEqual({
+      label: 'Winners’ pace',
+      value: 'None',
+      note: 'No channel like yours took off on this map',
+    });
+    const one = { ...calendar, pace: { channels: 1, medianPerWeek: 1, windowDays: 14 } };
+    expect(calendarTiles(one)[2]?.note).toBe('Median of 1 channel like yours, last 14 days');
   });
 });
 

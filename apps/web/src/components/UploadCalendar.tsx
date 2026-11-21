@@ -1,12 +1,17 @@
-import type { CalendarItem, CalendarView } from '@jgtube/core';
+import type { CalendarItem, CalendarView, CalendarWeek } from '@jgtube/core';
 import { CalendarDays } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { paceLine, weekLabel, weekNote } from '../lib/calendar';
+import { calendarTiles, paceLine, weekLabel, weekNote } from '../lib/calendar';
 import { CalendarItemRow } from './CalendarItemRow';
+import { Card, Label } from './layout/Card';
+import { Details } from './layout/Details';
+import { ViewPage } from './layout/SplitView';
+import { TileRow } from './layout/StatRow';
+import { ViewHeader } from './layout/ViewHeader';
 import { NOTE } from './LabStatus';
 import { useCalendar, type Calendar } from './useCalendar';
 
-const LABEL = 'text-label-caps uppercase text-outline';
+const ALERT = 'rounded-lg bg-surface-card p-space-md text-body-md text-error';
 
 function Items({
   items,
@@ -16,7 +21,7 @@ function Items({
   readonly save: Calendar['save'];
 }) {
   return (
-    <ul className="flex flex-col gap-space-sm">
+    <ul className="flex min-w-0 flex-col">
       {items.map((item) => (
         <CalendarItemRow
           key={item.conceptId}
@@ -28,23 +33,38 @@ function Items({
   );
 }
 
-function Group({
-  title,
-  note,
-  children,
+/** A list of concepts outside the weeks shown, on a card of its own. */
+function Group({ title, children }: { readonly title: string; readonly children: ReactNode }) {
+  return (
+    <Card as="section" label={title}>
+      <Label>{title}</Label>
+      {children}
+    </Card>
+  );
+}
+
+/** One week: its label and what it holds, then its concepts; a slim line when it holds none. */
+function Week({
+  week,
+  calendar,
+  save,
 }: {
-  readonly title: string;
-  readonly note?: string;
-  readonly children: ReactNode;
+  readonly week: CalendarWeek;
+  readonly calendar: CalendarView;
+  readonly save: Calendar['save'];
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-space-sm">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className={LABEL}>{title}</h3>
-        {note && <p className="text-body-sm text-outline">{note}</p>}
+    <li className="flex min-w-0 flex-col gap-1 border-t border-border-subtle py-space-sm first:border-t-0">
+      <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-space-md gap-y-0.5">
+        <span className="text-body-md font-semibold text-on-surface">
+          {weekLabel(week.start, calendar.today)}
+        </span>
+        <span className={`text-body-sm ${week.gap ? 'text-outline' : 'text-on-surface-variant'}`}>
+          {weekNote(week, calendar.pace)}
+        </span>
       </div>
-      {children}
-    </div>
+      {week.items.length > 0 && <Items items={week.items} save={save} />}
+    </li>
   );
 }
 
@@ -55,19 +75,22 @@ function Weeks({
   readonly calendar: CalendarView;
   readonly save: Calendar['save'];
 }) {
-  const { weeks, undated, earlier, later, pace, today } = calendar;
+  const { weeks, undated, earlier, later } = calendar;
   return (
-    <div className="flex flex-col gap-space-lg">
+    <div className="flex min-w-0 flex-col gap-space-md">
       {earlier.length > 0 && (
         <Group title="Planned before this week">
           <Items items={earlier} save={save} />
         </Group>
       )}
-      {weeks.map((week) => (
-        <Group key={week.start} title={weekLabel(week.start, today)} note={weekNote(week, pace)}>
-          {week.items.length > 0 && <Items items={week.items} save={save} />}
-        </Group>
-      ))}
+      <Card as="section" label="The weeks ahead">
+        <Label>The weeks ahead</Label>
+        <ol className="flex min-w-0 flex-col">
+          {weeks.map((week) => (
+            <Week key={week.start} week={week} calendar={calendar} save={save} />
+          ))}
+        </ol>
+      </Card>
       {later.length > 0 && (
         <Group title="Planned later">
           <Items items={later} save={save} />
@@ -81,6 +104,18 @@ function Weeks({
         )}
       </Group>
     </div>
+  );
+}
+
+function HowItWorks({ calendar }: { readonly calendar: CalendarView | null }) {
+  return (
+    <Details summary="How this works">
+      <p className="text-body-sm text-on-surface-variant">
+        Give each kept concept a status and, if you like, a date. A concept with a script shares its
+        status with the script writer; one linked to its published video counts as published.
+      </p>
+      {calendar && <p className="text-body-sm text-outline">{paceLine(calendar.pace)}</p>}
+    </Details>
   );
 }
 
@@ -99,52 +134,37 @@ export function UploadCalendar({ channelId, reloadKey }: Props) {
     calendar.weeks.every((week) => week.planned === 0) &&
     calendar.undated.length + calendar.earlier.length + calendar.later.length === 0;
   return (
-    <section
-      id="upload-calendar"
-      aria-labelledby="upload-calendar-title"
-      className="w-full scroll-mt-16 bg-space-deep px-gutter-desktop pb-space-xl"
-    >
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-space-lg">
-        <div>
-          <div className="flex items-center gap-2">
-            <CalendarDays
-              aria-hidden="true"
-              className="h-[22px] w-[22px] flex-none text-metric-amber"
-            />
-            <h2
-              id="upload-calendar-title"
-              className="text-headline-lg font-bold tracking-tight text-on-surface"
-            >
-              Upload calendar
-            </h2>
-          </div>
-          <p className="mt-1 max-w-4xl text-body-md text-on-surface-variant">
-            Your kept concepts and scripts by the week you plan to publish them. Give each a status
-            and, if you like, a date. A concept with a script shares its status with the script
-            writer; one linked to its published video counts as published.
-          </p>
-          {calendar && (
-            <p className="mt-1 max-w-4xl text-body-sm text-outline">{paceLine(calendar.pace)}</p>
-          )}
-        </div>
+    <ViewPage id="upload-calendar" labelledBy="upload-calendar-title">
+      <div className="mx-auto flex w-full max-w-4xl min-w-0 flex-col gap-space-lg">
+        <ViewHeader
+          titleId="upload-calendar-title"
+          title="Upload calendar"
+          icon={CalendarDays}
+          lead="Your kept concepts and scripts by the week you plan to publish them."
+        />
+        <HowItWorks calendar={calendar} />
         {state.status === 'loading' && <p className={NOTE}>Reading the calendar</p>}
         {state.status === 'failed' && (
-          <p role="alert" className="text-body-md text-error">
+          <p role="alert" className={ALERT}>
             It could not be loaded: {state.message}
           </p>
         )}
         {problem && (
-          <p role="alert" className="text-body-md text-error">
+          <p role="alert" className={ALERT}>
             {problem}
           </p>
         )}
+        {calendar && <TileRow tiles={calendarTiles(calendar)} />}
         {empty && (
-          <p className={NOTE}>
-            No kept concepts yet. Keep a concept in the idea lab to plan it here.
-          </p>
+          <Card>
+            <p className="text-body-md text-on-surface">No kept concepts yet.</p>
+            <p className="text-body-sm text-on-surface-variant">
+              Keep a concept in the idea lab to plan it here.
+            </p>
+          </Card>
         )}
         {calendar && !empty && <Weeks calendar={calendar} save={save} />}
       </div>
-    </section>
+    </ViewPage>
   );
 }

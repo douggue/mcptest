@@ -18,7 +18,7 @@ interface Props {
 export function CalendarItemRow({ item, onSave }: Props) {
   const href = item.linkedVideoId ? watchUrl(item.linkedVideoId) : null;
   return (
-    <li className="flex min-w-0 flex-col gap-space-sm rounded bg-surface-card p-space-sm sm:flex-row sm:items-center">
+    <li className="flex min-w-0 flex-col gap-space-sm border-t border-border-subtle py-space-sm first:border-t-0 sm:flex-row sm:items-center">
       <div className="min-w-0 flex-1">
         <p className="line-clamp-2 text-body-md font-semibold text-on-surface">{item.title}</p>
         <p className="text-body-sm text-outline">
