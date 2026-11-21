@@ -226,6 +226,43 @@ backup` makes one on demand.
   refresh waits 20 hours before trying it again, doubling up to 14 days, and puts
   failed channels last, so a deleted channel cannot starve the rest.
 
+### Background work
+
+Every long run (a map, a refresh, a breakdown, an analysis, the idea lab's and
+the script writer's AI runs, comment reading, the risk check, a thumbnail review,
+a picture check) runs in the local server, not in the page. The page only
+starts it and watches it.
+
+- **Switching views.** The run goes on. The map, refresh, breakdown, analysis
+  and idea-lab/script runs are watched from the app itself, so their progress
+  stays on screen in every view. The views that watch their own runs (Viewers
+  ask, Check, the thumbnail review, the picture check) stop polling when left;
+  when reopened they ask `GET /api/jobs` for a run of theirs still under way and
+  follow it again. A run that ended meanwhile left its result in the store, and
+  the view reads it as it opens.
+- **The Working indicator.** The top bar counts the runs under way and lists
+  them with their step, how long they have run and a link to their view. It
+  reads `GET /api/jobs` every 4 s while something runs and every 30 s
+  otherwise (and on focus, and shortly after a press). A run that ends while
+  the owner is on another view leaves a "Done: <title>" line there.
+- **`GET /api/jobs`.** Read-only, behind the same Host check as every route. It
+  gathers every job store (maps and refreshes, breakdowns, the idea lab, logos,
+  the later features) and the analyses and picture checks a request is waiting
+  on: id, kind, a plain title, the channel, concept, video or engine it belongs
+  to, status, the step in words, and when it started and ended. Running runs
+  come first; finished ones stay listed for half an hour (each store keeps its
+  last 20). Each store runs one job at a time, so a second start of the same
+  kind while one runs is answered 409 with a plain message.
+- **Closing the tab.** The run goes on to the end and its result is stored.
+  Reopening the page shows it in the Working list; the views above pick their
+  runs up again. The app-level progress lines (a breakdown's steps, the idea
+  lab's) start again from the stored result rather than re-attaching.
+- **Stopping the server.** Runs end with it: any AI engine running is stopped
+  and work under way winds down before the store is closed, so nothing is cut
+  off mid-write. Jobs live in memory only, so after a restart the list is
+  empty; what finished before the stop is in the store, and an interrupted run
+  must be started again.
+
 ## Algorithms
 
 ### Outlier score
