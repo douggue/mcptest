@@ -5,7 +5,7 @@ export const PRIMARY_BUTTON =
   'rounded-full bg-on-surface px-4 py-1.5 text-body-sm font-semibold text-space-deep transition-all hover:bg-white disabled:cursor-not-allowed disabled:opacity-60';
 export const QUIET_BUTTON =
   'rounded-full bg-surface-container-high px-3 py-1.5 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-highest disabled:cursor-not-allowed disabled:opacity-60';
-export const PILL = 'rounded-full bg-surface-container-high px-2 py-0.5 text-label-caps';
+export const PILL = 'rounded-full bg-surface-container-high px-2 py-0.5 text-label';
 export const FIELD =
   'w-full min-w-0 rounded-full bg-space-deep px-4 py-2 text-body-sm text-on-surface shadow-[inset_0_2px_6px_rgba(0,0,0,0.6)] focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container disabled:opacity-60';
 

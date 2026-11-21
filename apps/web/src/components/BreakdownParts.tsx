@@ -24,7 +24,7 @@ import { useNamedVideos } from './useAnswers';
 import type { BreakdownChannel } from './useBreakdown';
 
 const SMALL_BUTTON =
-  'flex flex-none items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-2 text-label-caps text-on-surface transition-colors hover:bg-surface-variant disabled:cursor-not-allowed disabled:opacity-60';
+  'flex flex-none items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-2 text-label text-on-surface transition-colors hover:bg-surface-variant disabled:cursor-not-allowed disabled:opacity-60';
 
 interface ActionsProps {
   readonly channelId: string;

@@ -1,6 +1,6 @@
 import { scriptStats, type ScriptView } from '../lib/scriptWriter';
 
-const LABEL = 'text-label-caps uppercase text-outline';
+const LABEL = 'text-label text-outline';
 const AREA =
   'min-h-[32rem] w-full min-w-0 rounded-lg border border-border-subtle bg-space-deep p-space-md font-mono text-body-sm leading-relaxed text-on-surface focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container';
 

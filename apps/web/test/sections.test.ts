@@ -1,35 +1,59 @@
 import { describe, expect, test } from 'vitest';
-import { OVERVIEW_ITEM, RAIL_GROUPS } from '../src/lib/sections';
+import { DESTINATIONS, destinationHref, destinationOf, tabHref } from '../src/lib/sections';
 import { VIEWS, type ViewId } from '../src/lib/routes';
 
-const railViews = (): readonly ViewId[] =>
-  RAIL_GROUPS.flatMap((group) => group.items.map((item) => item.view));
+const CENTER = 'UC0UJp3kmO7wf33XFf56gbTw';
+const tabViews = (): readonly ViewId[] =>
+  DESTINATIONS.flatMap((destination) => destination.tabs.map((tab) => tab.view));
 
-describe('the left rail', () => {
-  test('groups the views under Research, Create and Study, each once', () => {
-    expect(RAIL_GROUPS.map((group) => group.label)).toEqual(['Research', 'Create', 'Study']);
-    expect(new Set(railViews()).size).toBe(railViews().length);
-    expect(RAIL_GROUPS[1]?.items.map((item) => item.label)).toEqual([
-      'Trending formats',
-      'Hook library',
-      'Idea lab',
-      'Script writer',
-      'Check before publishing',
-    ]);
-    expect(RAIL_GROUPS[2]?.items.map((item) => item.label)).toEqual([
-      'Ask AI and breakdowns',
-      'Your videos against the plan',
-      'Upload calendar',
-      'Length and pacing',
-      'What viewers ask for',
+describe('the rail and its destinations', () => {
+  test('has five destinations, Home first and Ask AI last', () => {
+    expect(DESTINATIONS.map((d) => d.label)).toEqual([
+      'Home',
+      'Channel',
+      'Research',
+      'Create',
+      'Ask AI',
     ]);
   });
 
-  test('opens every view but the overview, settings and a channel, which open elsewhere', () => {
-    const elsewhere: readonly ViewId[] = ['home', 'settings', 'channel'];
+  test('puts every view but Home, Ask AI and Settings in exactly one tab', () => {
+    const elsewhere: readonly ViewId[] = ['home', 'ask', 'settings'];
     const all = (Object.keys(VIEWS) as ViewId[]).filter((view) => !elsewhere.includes(view));
 
-    expect([...railViews()].sort()).toEqual([...all].sort());
-    expect(OVERVIEW_ITEM.view).toBe('home');
+    expect(new Set(tabViews()).size).toBe(tabViews().length);
+    expect([...tabViews()].sort()).toEqual([...all].sort());
+  });
+
+  test('keeps ideas and the script together under Create', () => {
+    expect(destinationOf('ideas')?.id).toBe('create');
+    expect(destinationOf('script')?.id).toBe('create');
+    expect(destinationOf('risk')?.id).toBe('create');
+  });
+
+  test('finds the destination of every view, and none for Settings', () => {
+    expect(destinationOf('home')?.id).toBe('home');
+    expect(destinationOf('ask')?.id).toBe('ask');
+    expect(destinationOf('channel')?.id).toBe('channel');
+    expect(destinationOf('radar')?.id).toBe('channel');
+    expect(destinationOf('hooks')?.id).toBe('research');
+    expect(destinationOf('settings')).toBeNull();
+  });
+});
+
+describe('where a tab and a destination lead', () => {
+  test('the channel tab opens the map’s own channel, or Home with no map', () => {
+    expect(tabHref('channel', CENTER)).toBe(`#/channel/${CENTER}`);
+    expect(tabHref('channel', null)).toBe('#/');
+    expect(tabHref('ideas', null)).toBe('#/ideas');
+  });
+
+  test('a destination opens its first tab or its one view', () => {
+    const [home, channel, research, create, ask] = DESTINATIONS;
+    expect(home && destinationHref(home, CENTER)).toBe('#/');
+    expect(channel && destinationHref(channel, CENTER)).toBe(`#/channel/${CENTER}`);
+    expect(research && destinationHref(research, CENTER)).toBe('#/breakouts');
+    expect(create && destinationHref(create, null)).toBe('#/ideas');
+    expect(ask && destinationHref(ask, null)).toBe('#/ask');
   });
 });

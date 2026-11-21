@@ -51,8 +51,8 @@ describe('what the page counts about a script', () => {
     expect(stats.cues).toBe(2);
   });
 
-  test('gives no time and no cue times without a rate', () => {
-    expect(scriptStats(SCRIPT, null)).toMatchObject({ words: 24, seconds: null, cues: 0 });
+  test('gives no time without a rate, and still counts the picture cues', () => {
+    expect(scriptStats(SCRIPT, null)).toMatchObject({ words: 24, seconds: null, cues: 2 });
   });
 
   test('shows a time as minutes and seconds', () => {

@@ -23,10 +23,10 @@ function Chip({ video }: { readonly video: NamedVideo }) {
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
       </span>
-      <span className="line-clamp-2 text-label-caps normal-case text-on-surface-variant group-hover:text-primary">
+      <span className="line-clamp-2 text-label normal-case text-on-surface-variant group-hover:text-primary">
         {video.title}
       </span>
-      <span className="truncate text-label-caps normal-case text-outline">
+      <span className="truncate text-label normal-case text-outline">
         {video.channelTitle} · {formatCount(video.views)}
       </span>
     </a>

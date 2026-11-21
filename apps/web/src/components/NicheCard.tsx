@@ -20,7 +20,7 @@ import { ThumbnailTile } from './ThumbnailTile';
 
 /** The multiple from which a score is drawn in amber, as on the thumbnail board. */
 const AMBER = { winnerMinScore: 2 };
-const PILL = 'rounded-full bg-surface-container-high px-2 py-0.5 text-label-caps';
+const PILL = 'rounded-full bg-surface-container-high px-2 py-0.5 text-label';
 
 const REASON_LABEL: Readonly<Record<NicheReason, string>> = {
   new: 'New channel',
@@ -36,7 +36,7 @@ export function Stat({
 }) {
   return (
     <div className="flex min-w-0 flex-col">
-      <dt className="truncate text-label-caps text-outline">{label}</dt>
+      <dt className="truncate text-label text-outline">{label}</dt>
       <dd className="text-title-md text-on-surface">{children}</dd>
     </div>
   );
@@ -79,7 +79,7 @@ function WatchToggle({ channel, onSetWatched }: Props) {
       aria-pressed={channel.watched}
       aria-label={channel.watched ? `Stop watching ${channel.title}` : `Watch ${channel.title}`}
       onClick={() => onSetWatched(!channel.watched)}
-      className={`ml-auto flex flex-none items-center gap-1.5 rounded-full px-3 py-2 text-label-caps transition-colors ${
+      className={`ml-auto flex flex-none items-center gap-1.5 rounded-full px-3 py-2 text-label transition-colors ${
         channel.watched
           ? 'bg-primary-container font-semibold text-on-primary'
           : 'bg-surface-container-high text-on-surface hover:bg-surface-variant'
@@ -113,11 +113,11 @@ function Evidence({ channel }: { readonly channel: NicheChannel }) {
         {!channel.qualifies && (
           <span className={`${PILL} text-on-surface-variant`}>No longer outperforming</span>
         )}
-        <span className="text-label-caps text-outline">{describeHits(channel)}</span>
+        <span className="text-label text-outline">{describeHits(channel)}</span>
       </div>
       {origin && (
         <p
-          className="text-label-caps text-outline"
+          className="text-label text-outline"
           title="The first upload is the oldest video Jgtube has read. The account's year and the country come from YouTube's official records, once a refresh or a search has asked for them."
         >
           {origin}
@@ -199,7 +199,7 @@ function Videos({ channel }: { readonly channel: NicheChannel }) {
                 <span className="line-clamp-2 min-w-0 text-body-sm text-on-surface">
                   <Outbound href={watchUrl(sample.videoId)}>{sample.title}</Outbound>
                 </span>
-                <span className="flex-none text-label-caps text-outline">
+                <span className="flex-none text-label text-outline">
                   {formatCount(sample.views)} views
                 </span>
               </li>
@@ -241,7 +241,7 @@ export function NicheCard({ channel, onSetWatched, onBreakDown }: Props) {
       <Earnings channel={channel} />
       {channel.growth && (
         <p
-          className="text-label-caps text-outline"
+          className="text-label text-outline"
           title="Counted from the view numbers Jgtube stored each time it read this channel: the first reading of the last 30 days against the latest."
         >
           <span className="text-primary-fixed-dim">{describeGrowth(channel.growth)}</span> ·

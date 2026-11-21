@@ -26,7 +26,7 @@ export function Block({ block, known }: BlockProps) {
     const lines = block.label === TITLE_LABEL ? text.split(' / ') : [text];
     return (
       <div className="grid grid-cols-1 gap-x-space-md gap-y-0.5 sm:grid-cols-[10rem_minmax(0,1fr)]">
-        <span className="pt-0.5 text-label-caps uppercase text-outline">{block.label}</span>
+        <span className="pt-0.5 text-label text-outline">{block.label}</span>
         <span className="flex min-w-0 flex-col gap-1 text-body-md text-on-surface">
           {lines.map((line) => (
             <span key={line} className={block.label === TITLE_LABEL ? 'font-semibold' : ''}>
@@ -85,7 +85,7 @@ export function Answer({ text, videos = [] }: AnswerProps) {
               className={
                 section.numbered
                   ? 'text-title-md font-semibold text-on-surface'
-                  : 'text-label-caps uppercase text-primary'
+                  : 'text-label text-primary'
               }
             >
               {section.title}

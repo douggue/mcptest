@@ -52,7 +52,7 @@ export function AiEngines({ ai }: { readonly ai: AiChoice }) {
   const badge = aiBadge(ai.choice, ai.engines);
   return (
     <section aria-labelledby="settings-ai" className="flex min-w-0 flex-col gap-space-sm">
-      <h3 id="settings-ai" className="text-label-caps uppercase text-outline">
+      <h3 id="settings-ai" className="text-label text-outline">
         Which AI answers
       </h3>
       <EngineSwitch choice={ai.choice} engines={ai.engines} busy={ai.busy} onChoose={ai.choose} />

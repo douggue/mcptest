@@ -6,6 +6,7 @@ import {
   YOUTUBE_TITLE_CHARS,
   batchRequest,
   canGenerate,
+  generateBlocked,
   formatChoiceOf,
   formatOptions,
   hookModelOf,
@@ -81,6 +82,14 @@ describe('picking inspiration', () => {
     expect(canGenerate([], false)).toBe(false);
     expect(canGenerate([pick('a')], true)).toBe(false);
     expect(canGenerate([pick('a')], false)).toBe(true);
+  });
+
+  test('says why the batch cannot be written, or nothing when it can', () => {
+    expect(generateBlocked([], false)).toBe(
+      'Pick at least one video first, with Pick videos above.',
+    );
+    expect(generateBlocked([pick('a')], true)).toBe('Waits for the AI run under way to finish.');
+    expect(generateBlocked([pick('a')], false)).toBeNull();
   });
 });
 

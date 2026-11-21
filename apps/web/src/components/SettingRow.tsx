@@ -33,7 +33,7 @@ function Switch({ setting, draft, disabled, onDraft }: Props) {
           onClick={() =>
             onDraft(position === inForce ? undefined : { kind: 'set', value: position })
           }
-          className={`min-h-9 rounded-full px-4 text-label-caps uppercase transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container disabled:opacity-60 ${
+          className={`min-h-9 rounded-full px-4 text-label transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container disabled:opacity-60 ${
             chosen === position
               ? 'bg-primary-container font-semibold text-on-primary'
               : 'text-on-surface-variant hover:text-on-surface'

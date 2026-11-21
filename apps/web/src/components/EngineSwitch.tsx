@@ -16,7 +16,7 @@ export function EngineSwitch({ choice, engines, busy, onChoose }: SwitchProps) {
         aria-label="Which AI answers"
         className="flex flex-wrap items-center gap-2"
       >
-        <span className="text-label-caps uppercase text-outline">AI</span>
+        <span className="text-label text-outline">AI</span>
         {ENGINE_CHOICES.map((option) => {
           const chosen = option.choice === choice;
           return (

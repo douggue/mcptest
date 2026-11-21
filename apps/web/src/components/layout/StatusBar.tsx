@@ -12,7 +12,7 @@ export function StatusBar({ items, label }: Props) {
     <div
       role="status"
       aria-label={label}
-      className="sticky bottom-0 z-30 -mx-gutter-desktop flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-t border-border-subtle bg-space-canvas/95 px-gutter-desktop py-2 text-body-sm text-on-surface-variant backdrop-blur-md"
+      className="sticky bottom-0 z-30 -mx-gutter flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-t border-border-subtle bg-space-canvas/95 px-gutter py-2 sm:-mx-gutter-desktop sm:px-gutter-desktop text-body-sm text-on-surface-variant backdrop-blur-md"
     >
       {items.map((item, index) => (
         <Fragment key={index}>

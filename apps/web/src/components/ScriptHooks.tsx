@@ -5,7 +5,7 @@ import { MAX_MODELS, toggleModel, type ScriptView } from '../lib/scriptWriter';
 import { PILL, QUIET_BUTTON } from './LabStatus';
 import type { Script } from './useScript';
 
-const LABEL = 'text-label-caps uppercase text-outline';
+const LABEL = 'text-label text-outline';
 const AREA =
   'w-full min-w-0 rounded bg-space-deep p-space-sm text-body-sm text-on-surface shadow-[inset_0_2px_6px_rgba(0,0,0,0.6)] focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container';
 
@@ -78,9 +78,7 @@ export function HooksAndBeats({
               key={`${index}-${hook.way}`}
               className="flex min-w-0 flex-col gap-2 rounded bg-space-deep p-space-md"
             >
-              <span className={`${PILL} self-start uppercase text-primary-fixed-dim`}>
-                {hook.way}
-              </span>
+              <span className={`${PILL} self-start text-primary-fixed-dim`}>{hook.way}</span>
               <p className="whitespace-pre-line break-words text-body-sm text-on-surface">
                 {hook.text}
               </p>

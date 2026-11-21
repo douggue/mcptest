@@ -1,8 +1,6 @@
-import { PenLine } from 'lucide-react';
 import { useState } from 'react';
 import { thumbnailFor } from '../lib/ideaLab';
 import { sourcesMarkdown } from '../lib/research';
-import { viewHref } from '../lib/routes';
 import {
   openingStep,
   stageStates,
@@ -18,6 +16,7 @@ import { ScriptFooter, ScriptTopBar } from './ScriptBars';
 import { ScriptEditor } from './ScriptEditor';
 import { HooksAndBeats, Models } from './ScriptHooks';
 import { ScriptPanel } from './ScriptPanel';
+import { ScriptPicker } from './ScriptPicker';
 import { StepRun } from './ScriptSteps';
 import type { Lab } from './useLab';
 import type { Research } from './useResearch';
@@ -54,7 +53,7 @@ function ConceptHeader({ view }: { readonly view: ScriptView }) {
         {concept.title}
       </h3>
       <p className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-body-sm">
-        <span className="text-label-caps uppercase text-outline">Thumbnail</span>
+        <span className="text-label text-outline">Thumbnail</span>
         <span className="min-w-0 flex-1 basis-60 break-words text-on-surface">
           {concept.thumbnail}
         </span>
@@ -90,6 +89,7 @@ function Workbench(props: Props & { readonly view: ScriptView }) {
   return (
     <SplitView
       width="narrow"
+      mainFirst
       sideLabel="The script's voice, length and checks"
       side={<ScriptPanel {...panel} stage={step} onChange={edit} />}
     >
@@ -129,7 +129,8 @@ function Workbench(props: Props & { readonly view: ScriptView }) {
 
 /**
  * The script writer: one kept concept taken to a script in three steps.
- * Opened by a concept's "Write the script" button in the idea lab.
+ * Opened by a concept's "Write the script" button in Ideas, or from the list
+ * of kept ideas shown here when no script is open.
  */
 export function ScriptWriter(props: Props) {
   const { script } = props;
@@ -147,23 +148,10 @@ export function ScriptWriter(props: Props) {
         <>
           <ViewHeader
             titleId="script-writer-title"
-            icon={PenLine}
-            title="Script writer"
-            lead="One kept concept taken to a script in three steps: hooks and beats, the draft, and a tighten pass."
+            title="Script"
+            lead="Hooks and beats, then the draft, then a tighten pass."
           />
-          <Card>
-            <p className="text-body-md text-on-surface">No script is open.</p>
-            <p className="text-body-sm text-on-surface-variant">
-              Press &ldquo;Write the script&rdquo; on a concept in the idea lab to start its script,
-              or to come back to it.
-            </p>
-            <a
-              href={viewHref('ideas')}
-              className="w-fit rounded-lg bg-primary-container px-4 py-2 text-body-sm font-semibold text-on-primary hover:opacity-90"
-            >
-              Open the idea lab
-            </a>
-          </Card>
+          <ScriptPicker concepts={props.lab.concepts} onOpen={script.open} />
         </>
       )}
     </ViewPage>

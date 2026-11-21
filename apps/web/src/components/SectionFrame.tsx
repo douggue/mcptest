@@ -48,7 +48,7 @@ export function SectionFrame(props: Props) {
                 {title}
               </span>
               {summary && (
-                <span className="rounded-full bg-surface-container-high px-2 py-0.5 text-label-caps text-on-surface-variant">
+                <span className="rounded-full bg-surface-container-high px-2 py-0.5 text-label text-on-surface-variant">
                   {summary}
                 </span>
               )}

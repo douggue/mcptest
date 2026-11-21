@@ -30,7 +30,7 @@ function ClaimRow({ row, onChange }: RowProps) {
   return (
     <li className="flex min-w-0 flex-col gap-1 rounded bg-space-deep p-space-sm">
       <span className="flex flex-wrap items-center gap-2">
-        <span className={`${PILL} uppercase ${verdict ? TONE[verdict.verdict] : 'text-outline'}`}>
+        <span className={`${PILL} ${verdict ? TONE[verdict.verdict] : 'text-outline'}`}>
           {verdict ? verdict.verdict : 'not checked'}
         </span>
         <span className="text-body-sm text-outline">{claim.what}</span>

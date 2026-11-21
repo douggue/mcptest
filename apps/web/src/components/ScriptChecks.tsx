@@ -7,7 +7,7 @@ import {
   type ScriptView,
 } from '../lib/scriptWriter';
 
-const LABEL = 'text-label-caps uppercase text-outline';
+const LABEL = 'text-label text-outline';
 
 /** What is counted about the text, with the facts still to check listed beside it. */
 export function Counts({
@@ -40,7 +40,7 @@ export function Counts({
           className={`flex flex-col gap-1 rounded p-space-sm ${stats.markers.length > 0 ? 'bg-metric-amber-bg' : 'bg-space-deep'}`}
         >
           <span
-            className={`text-label-caps uppercase ${stats.markers.length > 0 ? 'text-metric-amber' : 'text-outline'}`}
+            className={`text-label ${stats.markers.length > 0 ? 'text-metric-amber' : 'text-outline'}`}
           >
             Facts to check · {stats.markers.length}
           </span>

@@ -15,7 +15,7 @@ import { Notice } from './layout/Notice';
 import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
 import type { Alerts } from './useAlerts';
 
-const LABEL = 'text-label-caps uppercase text-outline';
+const LABEL = 'text-label text-outline';
 
 function AlertItem({ alert }: { readonly alert: AlertView }) {
   const video = alert.kind === 'breakout';

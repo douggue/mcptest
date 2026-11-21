@@ -69,7 +69,7 @@ function SupplyRow({ video, onSend }: RowProps) {
       </div>
       <div className="flex min-w-0 flex-col items-start gap-space-sm sm:flex-row sm:items-center">
         <label
-          className={`flex flex-none items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-2 text-label-caps text-on-surface transition-colors focus-within:ring-1 focus-within:ring-primary-container hover:bg-surface-variant ${
+          className={`flex flex-none items-center gap-1.5 rounded-full bg-surface-container-high px-3 py-2 text-label text-on-surface transition-colors focus-within:ring-1 focus-within:ring-primary-container hover:bg-surface-variant ${
             sending ? 'cursor-wait opacity-60' : 'cursor-pointer'
           }`}
         >
@@ -85,17 +85,17 @@ function SupplyRow({ video, onSend }: RowProps) {
           />
         </label>
         {state.status === 'sending' && (
-          <p role="status" className="text-label-caps text-on-surface-variant">
+          <p role="status" className="text-label text-on-surface-variant">
             {sendingText(state.fraction)}
           </p>
         )}
         {state.status === 'saved' && (
-          <p role="status" className="min-w-0 break-words text-label-caps text-on-surface-variant">
+          <p role="status" className="min-w-0 break-words text-label text-on-surface-variant">
             {state.text}
           </p>
         )}
         {state.status === 'failed' && (
-          <p role="alert" className="min-w-0 break-words text-label-caps text-error">
+          <p role="alert" className="min-w-0 break-words text-label text-error">
             {state.text}
           </p>
         )}
@@ -121,7 +121,7 @@ export function SupplyVideos({ videos, folder, onSend }: Props) {
   const note = folderNote(folder);
   return (
     <div className="flex min-w-0 flex-col gap-space-sm rounded bg-surface-card p-space-lg">
-      <h4 className="text-label-caps uppercase text-primary">Videos you can give Jgtube</h4>
+      <h4 className="text-label text-primary">Videos you can give Jgtube</h4>
       <p className="text-body-sm text-on-surface-variant">
         Jgtube could not download {videos.length === 1 ? 'this video' : 'these videos'}. If you have
         the file as an MP4, choose it here and run the breakdown again: Jgtube then studies the

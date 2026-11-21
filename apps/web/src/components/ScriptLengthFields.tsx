@@ -5,7 +5,7 @@ import type { ScriptView } from '../lib/scriptWriter';
 import { FIELD } from './LabStatus';
 import type { Script } from './useScript';
 
-const LABEL = 'text-label-caps uppercase text-outline';
+const LABEL = 'text-label text-outline';
 
 /**
  * The script's length in two fields kept in step: minutes (12:30 allowed) or

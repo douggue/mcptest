@@ -10,14 +10,14 @@ import {
   type ConceptThumbnailView,
   type ConceptView,
 } from '../lib/ideaLab';
-import { ConceptActions, ConceptTopRow } from './ConceptParts';
+import { ConceptActions, ConceptHead } from './ConceptParts';
 import { ConceptThumbnail } from './ConceptThumbnail';
 import { FeedPreview } from './FeedPreview';
 import { Card } from './layout/Card';
 import { Details } from './layout/Details';
 import { VideoLine } from './VideoChips';
 
-const LABEL = 'text-label-caps uppercase text-outline';
+const LABEL = 'text-label text-outline';
 
 /** One title with its length, flagged when a phone would cut it. */
 function TitleLine({ concept, title }: { readonly concept: ConceptView; readonly title: string }) {
@@ -26,7 +26,7 @@ function TitleLine({ concept, title }: { readonly concept: ConceptView; readonly
     <li className="flex items-baseline justify-between gap-3">
       <span className="min-w-0 break-words text-body-md text-on-surface">{title}</span>
       <span
-        className={`flex-none text-label-caps ${check.warning ? 'text-metric-amber' : 'text-outline'}`}
+        className={`flex-none text-label ${check.warning ? 'text-metric-amber' : 'text-outline'}`}
         title={check.warning ?? undefined}
       >
         {check.count}
@@ -88,8 +88,8 @@ function Opening({ concept, hooks }: HookProps) {
   const liftedTitle = hooks.find((hook) => hook.videoId === lift?.videoId)?.title;
   return (
     <div className="flex flex-col gap-1.5">
-      <span className={LABEL}>1-sentence opening hook</span>
-      <p className="text-body-lg text-on-surface">{concept.hook}</p>
+      <span className={LABEL}>Opening line</span>
+      <p className="text-body-md text-on-surface">{concept.hook}</p>
       {lift && (
         <p role="note" className="break-words text-body-sm text-metric-amber">
           Shares {lift.words} words in a row with the opening of &ldquo;{liftedTitle}&rdquo;:
@@ -104,14 +104,14 @@ function Opening({ concept, hooks }: HookProps) {
 function ThumbnailBrief({ concept }: { readonly concept: ConceptView }) {
   const tooManyWords = overlayNote(concept.overlay);
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-space-md rounded-lg border border-border-subtle bg-space-deep p-space-md sm:grid-cols-[minmax(0,1fr)_auto]">
+    <div className="grid min-w-0 grid-cols-1 gap-space-md sm:grid-cols-[minmax(0,1fr)_auto]">
       <div className="flex min-w-0 flex-col gap-1">
         <span className={LABEL}>Thumbnail brief</span>
         <p className="break-words text-body-md text-on-surface">{concept.thumbnail}</p>
       </div>
       <div className="flex min-w-0 flex-col gap-1 sm:items-end">
-        <span className={LABEL}>Overlay text</span>
-        <span className="max-w-[16rem] break-words rounded bg-metric-amber-bg px-3 py-1.5 text-title-md font-bold uppercase text-metric-amber">
+        <span className={LABEL}>Words on it</span>
+        <span className="max-w-[16rem] break-words rounded bg-metric-amber-bg px-3 py-1.5 text-body-md font-bold uppercase text-metric-amber">
           {concept.overlay}
         </span>
         {tooManyWords && <p className="text-body-sm text-metric-amber">{tooManyWords}</p>}
@@ -131,9 +131,7 @@ function ConceptDetails(props: Props) {
       <div
         className={`flex flex-col gap-1 rounded p-space-sm ${toLookUp ? 'bg-metric-amber-bg' : ''}`}
       >
-        <span
-          className={`text-label-caps uppercase ${toLookUp ? 'text-metric-amber' : 'text-outline'}`}
-        >
+        <span className={`text-label ${toLookUp ? 'text-metric-amber' : 'text-outline'}`}>
           {toLookUp ? 'Look up before making it' : 'Needs'}
         </span>
         <p className="break-words text-body-sm text-on-surface">{concept.needs}</p>
@@ -166,34 +164,24 @@ interface Props {
   readonly onThumbnail: () => void;
 }
 
-/**
- * One packaging concept, roomy: its number, Keep and "Write the script" on
- * top; the title large; the thumbnail brief with its words; the opening
- * sentence; then small buttons. What it rests on, what to look up, the
- * thumbnail prompt and the hook it follows sit behind one Details.
- */
-export function ConceptCard(props: Props) {
-  const { number, concept, hooks, breakouts, busy } = props;
-  const [previewing, setPreviewing] = useState(false);
-  const check = titleCheck(concept.title, concept.length);
+/** The opening, when it lifts words from a breakout: said on the row too, as it changes what to do. */
+function LiftNote({ concept, hooks }: HookProps) {
+  if (!liftedFrom(concept.hook, hooks)) return null;
   return (
-    <Card as="article" id={`concept-${concept.id}`} highlighted={concept.kept}>
-      <ConceptTopRow
-        number={number}
-        concept={concept}
-        onKeep={props.onKeep}
-        onDraft={props.onDraft}
-      />
-      <div className="flex flex-col gap-1">
-        <h3 className="break-words text-headline-lg font-bold leading-tight text-on-surface">
-          {concept.title}
-        </h3>
-        <p className={`text-body-sm ${check.warning ? 'text-metric-amber' : 'text-outline'}`}>
-          {check.count} characters{check.warning ? `. ${check.warning}` : ''}
-        </p>
-      </div>
+    <p role="note" className="pl-7 text-body-sm text-metric-amber">
+      Reword the opening: it shares words with a breakout&rsquo;s.
+    </p>
+  );
+}
+
+/** The rest of a concept, shown when its row is opened. */
+function ConceptBody(props: Props) {
+  const { concept, hooks, breakouts, busy } = props;
+  const [previewing, setPreviewing] = useState(false);
+  return (
+    <div className="flex min-w-0 flex-col gap-space-md border-t border-border-subtle pt-space-md">
       {concept.altTitles.length > 0 && (
-        <Details summary={`Alternate titles (${concept.altTitles.length})`}>
+        <Details summary={`Other titles (${concept.altTitles.length})`}>
           <ul className="flex flex-col gap-1">
             {concept.altTitles.map((title) => (
               <TitleLine key={title} concept={concept} title={title} />
@@ -211,6 +199,30 @@ export function ConceptCard(props: Props) {
       />
       {previewing && <FeedPreview concept={concept} title={concept.title} breakouts={breakouts} />}
       <ConceptDetails {...props} />
+    </div>
+  );
+}
+
+/**
+ * One packaging concept as a compact row: number, title, length, Keep and
+ * "Write the script". The thumbnail brief, the opening sentence, the remix
+ * buttons and the details open under it.
+ */
+export function ConceptCard(props: Props) {
+  const { number, concept, hooks } = props;
+  const [open, setOpen] = useState(false);
+  return (
+    <Card as="article" id={`concept-${concept.id}`} highlighted={concept.kept}>
+      <ConceptHead
+        number={number}
+        concept={concept}
+        onKeep={props.onKeep}
+        onDraft={props.onDraft}
+        open={open}
+        onToggle={() => setOpen((shown) => !shown)}
+      />
+      <LiftNote concept={concept} hooks={hooks} />
+      {open && <ConceptBody {...props} />}
     </Card>
   );
 }

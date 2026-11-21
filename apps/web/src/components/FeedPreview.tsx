@@ -21,7 +21,7 @@ function Draft({ title, overlay, shorts }: DraftProps) {
         <span className="break-words text-center text-headline-md font-bold uppercase tracking-tight text-on-surface">
           {overlay}
         </span>
-        <span className="absolute bottom-2 right-2 rounded bg-space-deep/90 px-1.5 py-0.5 text-label-caps font-semibold text-on-surface">
+        <span className="absolute bottom-2 right-2 rounded bg-space-deep/90 px-1.5 py-0.5 text-label font-semibold text-on-surface">
           {shorts ? 'Short' : 'Long-form'}
         </span>
       </div>
@@ -87,21 +87,26 @@ export function FeedPreview({ concept, title, breakouts }: Props) {
   );
   return (
     <div className="flex flex-col gap-space-sm rounded bg-surface-container-low p-space-md">
-      <span className="text-label-caps uppercase text-outline">
+      <span className="text-label text-outline">
         In a feed, beside videos that took off on this map
       </span>
-      <div className="grid grid-cols-1 gap-space-sm sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-space-sm sm:grid-cols-3">
         <Draft title={title} overlay={concept.overlay} shorts={concept.length === 'shorts'} />
-        {neighbours.map((video) => (
-          <Real key={video.videoId} video={video} />
+        {neighbours.map((video, index) => (
+          // On a phone, two side by side, as a phone's feed has room for.
+          <div key={video.videoId} className={index > 0 ? 'hidden min-w-0 sm:block' : 'min-w-0'}>
+            <Real video={video} />
+          </div>
         ))}
       </div>
-      <p className="text-body-sm text-on-surface-variant">
-        Title: {check.count} characters. A phone&rsquo;s feed shows about {check.limit}.
-      </p>
-      {check.warning && (
+      {check.warning ? (
         <p role="note" className="text-body-sm text-metric-amber">
           {check.warning}
+        </p>
+      ) : (
+        <p className="text-body-sm text-on-surface-variant">
+          Title: {check.count} characters, inside the about {check.limit} a phone&rsquo;s feed
+          shows.
         </p>
       )}
       {neighbours.length === 0 && (

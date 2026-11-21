@@ -42,11 +42,11 @@ export function FormatCard({ format }: { readonly format: TransferFormat }) {
         <h3 className="min-w-0 text-title-md text-on-surface">
           <Template template={format.template} />
         </h3>
-        <span className="text-label-caps text-outline">{describeFormat(format)}</span>
+        <span className="text-label text-outline">{describeFormat(format)}</span>
       </div>
       <Numbers format={format} />
       <div className="flex flex-col gap-space-sm">
-        <span className="text-label-caps uppercase text-outline">Subjects it was used for</span>
+        <span className="text-label text-outline">Subjects it was used for</span>
         <ul className="flex flex-col gap-space-sm">
           {format.subjects.map((subject) => (
             <li key={subject.subject} className="flex items-baseline justify-between gap-3">
@@ -56,14 +56,14 @@ export function FormatCard({ format }: { readonly format: TransferFormat }) {
                 </Outbound>
                 <span className="text-outline"> · {subject.channelTitle}</span>
               </span>
-              <span className="flex-none text-label-caps text-outline">
+              <span className="flex-none text-label text-outline">
                 {formatCount(subject.bestViews)} views
               </span>
             </li>
           ))}
         </ul>
       </div>
-      {places && <p className="text-label-caps text-outline">{places}</p>}
+      {places && <p className="text-label text-outline">{places}</p>}
     </Card>
   );
 }

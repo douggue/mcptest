@@ -64,7 +64,7 @@ function Row({ channel, current, busy, onOpen, onAskDelete, unread }: RowProps) 
             {badge && (
               <span
                 aria-label={`${unread} new alert${unread === 1 ? '' : 's'}`}
-                className="flex-none rounded-full bg-metric-amber-bg px-1.5 text-label-caps font-semibold text-metric-amber"
+                className="flex-none rounded-full bg-metric-amber-bg px-1.5 text-label font-semibold text-metric-amber"
               >
                 {badge}
               </span>

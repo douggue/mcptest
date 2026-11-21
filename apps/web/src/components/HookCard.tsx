@@ -48,7 +48,7 @@ function Top({ hook }: { readonly hook: LibraryHook }) {
   return (
     <div className="flex min-w-0 items-center justify-between gap-2">
       <span
-        className={`truncate rounded px-2 py-0.5 text-label-caps uppercase ${
+        className={`truncate rounded px-2 py-0.5 text-label ${
           hook.style
             ? 'bg-metric-amber-bg text-metric-amber'
             : 'bg-surface-container-high text-outline'

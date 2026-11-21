@@ -51,6 +51,13 @@ export function togglePick(picks: readonly Pick[], pick: Pick): readonly Pick[] 
 export const canGenerate = (picks: readonly Pick[], busy: boolean): boolean =>
   picks.length > 0 && !busy;
 
+/** Why "Write 10 concepts" cannot run now, in one line; null when it can. */
+export function generateBlocked(picks: readonly Pick[], busy: boolean): string | null {
+  if (busy) return 'Waits for the AI run under way to finish.';
+  if (picks.length === 0) return 'Pick at least one video first, with Pick videos above.';
+  return null;
+}
+
 /** What the owner set in the lab besides the picks. */
 export interface LabChoices {
   /** A value from `formatOptions`, or '' for no format. */

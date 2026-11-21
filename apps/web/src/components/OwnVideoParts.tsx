@@ -106,7 +106,7 @@ export function PlanTable({
             key={`${row.kind}:${row.label}`}
             className="grid min-w-0 grid-cols-1 gap-x-space-md gap-y-0.5 border-t border-border-subtle py-2.5 first:border-t-0 sm:grid-cols-[9rem_minmax(0,1fr)_5rem_minmax(0,12rem)]"
           >
-            <span className="text-label-caps uppercase text-outline">{KIND_LABELS[row.kind]}</span>
+            <span className="text-label text-outline">{KIND_LABELS[row.kind]}</span>
             <span className="break-words text-body-md text-on-surface">{row.label}</span>
             <span className="text-body-sm text-on-surface-variant">
               {row.videos} {row.videos === 1 ? 'video' : 'videos'}

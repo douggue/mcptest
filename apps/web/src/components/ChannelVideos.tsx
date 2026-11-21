@@ -23,7 +23,7 @@ function VideoTile({ video }: { readonly video: ProfileVideo }) {
           </span>
         )}
         {duration && (
-          <span className="absolute bottom-1.5 right-1.5 rounded bg-space-deep/90 px-1 text-label-caps text-on-surface">
+          <span className="absolute bottom-1.5 right-1.5 rounded bg-space-deep/90 px-1 text-label text-on-surface">
             {duration}
           </span>
         )}
@@ -31,7 +31,7 @@ function VideoTile({ video }: { readonly video: ProfileVideo }) {
       <span className="line-clamp-2 break-words text-body-sm font-semibold text-on-surface">
         {video.title}
       </span>
-      <span className="text-label-caps text-outline">
+      <span className="text-label text-outline">
         {formatCount(video.views)} views · {video.publishedRaw}
       </span>
     </li>

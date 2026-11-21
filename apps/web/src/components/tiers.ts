@@ -1,11 +1,11 @@
 import type { ScoreCaution, SnapshotChannel } from '@jgtube/core';
 import { PEER_DORMANT_AFTER_DAYS } from '@jgtube/core/src/limits';
 
-/** The design's names for the three closeness tiers. */
+/** How close a competitor is, in plain words: how often YouTube recommends it beside the channel. */
 export const TIER_LABEL: Readonly<Record<SnapshotChannel['tier'], string>> = {
-  close: 'Close orbit',
-  medium: 'Mid orbit',
-  far: 'Distant orbit',
+  close: 'Close',
+  medium: 'Medium',
+  far: 'Far',
 };
 
 /** Why a channel on the map is not counted as one like the centre. */

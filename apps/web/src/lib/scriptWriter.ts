@@ -84,6 +84,9 @@ export interface ScriptStats {
   readonly cues: number;
 }
 
+/** Any rate will do to count the picture cues: the rate only times them. */
+const COUNTING_RATE = 150;
+
 /** Everything counted about a script's text at a speaking rate. Cue lines, headings and markers are not words. */
 export function scriptStats(
   text: string,
@@ -98,7 +101,7 @@ export function scriptStats(
     grade: readingGrade(text),
     markers: markFacts ? checkMarkers(text) : [],
     unmarkedFigures: markFacts ? figuresWithoutCheck(text) : [],
-    cues: wordsPerMinute === null ? 0 : parseCues(text, wordsPerMinute).length,
+    cues: parseCues(text, wordsPerMinute ?? COUNTING_RATE).length,
   };
 }
 

@@ -1,53 +1,86 @@
 /**
- * The views as the left rail groups them. Each item opens its own view; the
- * overview sits above the groups, and Settings opens from the top bar.
+ * The app's five destinations, as the rail shows them, and the tabs inside
+ * each. Every view belongs to one destination and shows as one of its tabs;
+ * Settings opens from the top bar. A new view adds a line in `routes.ts` and
+ * one tab here.
  */
-import type { ViewId } from './routes';
+import { channelHref, viewHref, type ViewId } from './routes';
 
-export interface RailItem {
+export type DestinationId = 'home' | 'channel' | 'research' | 'create' | 'ask';
+
+export interface Tab {
   readonly label: string;
-  /** The view the item opens. */
-  readonly view: Exclude<ViewId, 'channel'>;
+  /** The view the tab opens; `channel` is the map's own channel page. */
+  readonly view: Exclude<ViewId, 'home' | 'settings'>;
 }
 
-export interface RailGroup {
-  readonly label: 'Research' | 'Create' | 'Study';
-  readonly items: readonly RailItem[];
+export interface Destination {
+  readonly id: DestinationId;
+  readonly label: string;
+  /** The tabs inside it, the first opened from the rail; empty for a single view. */
+  readonly tabs: readonly Tab[];
 }
 
-export const OVERVIEW_ITEM: RailItem = { label: 'Overview', view: 'home' };
-
-export const RAIL_GROUPS: readonly RailGroup[] = [
+export const DESTINATIONS: readonly Destination[] = [
+  { id: 'home', label: 'Home', tabs: [] },
   {
-    label: 'Research',
-    items: [
+    id: 'channel',
+    label: 'Channel',
+    tabs: [
+      { label: 'Overview', view: 'channel' },
       { label: 'Radar', view: 'radar' },
       { label: 'What changed', view: 'what-changed' },
+      { label: 'Your videos', view: 'own-videos' },
+      { label: 'Calendar', view: 'calendar' },
+      { label: 'Pacing', view: 'pacing' },
+      { label: 'Viewers ask', view: 'comments' },
+    ],
+  },
+  {
+    id: 'research',
+    label: 'Research',
+    tabs: [
       { label: 'Breaking out', view: 'breakouts' },
-      { label: 'Same topic, other words', view: 'same-topic' },
-      { label: 'Thumbnails that worked', view: 'thumbnails' },
-      { label: 'Transfer opportunities', view: 'transfers' },
+      { label: 'Formats', view: 'formats' },
+      { label: 'Hooks', view: 'hooks' },
+      { label: 'Same topic', view: 'same-topic' },
+      { label: 'Thumbnails', view: 'thumbnails' },
+      { label: 'Transfers', view: 'transfers' },
       { label: 'New niches', view: 'niches' },
     ],
   },
   {
+    id: 'create',
     label: 'Create',
-    items: [
-      { label: 'Trending formats', view: 'formats' },
-      { label: 'Hook library', view: 'hooks' },
-      { label: 'Idea lab', view: 'ideas' },
-      { label: 'Script writer', view: 'script' },
-      { label: 'Check before publishing', view: 'risk' },
+    tabs: [
+      { label: 'Ideas', view: 'ideas' },
+      { label: 'Script', view: 'script' },
+      { label: 'Check', view: 'risk' },
     ],
   },
-  {
-    label: 'Study',
-    items: [
-      { label: 'Ask AI and breakdowns', view: 'ask' },
-      { label: 'Your videos against the plan', view: 'own-videos' },
-      { label: 'Upload calendar', view: 'calendar' },
-      { label: 'Length and pacing', view: 'pacing' },
-      { label: 'What viewers ask for', view: 'comments' },
-    ],
-  },
+  { id: 'ask', label: 'Ask AI', tabs: [] },
 ];
+
+/** The destination a view belongs to; null for Settings, which sits apart. */
+export function destinationOf(view: ViewId): Destination | null {
+  if (view === 'settings') return null;
+  if (view === 'home') return DESTINATIONS[0] ?? null;
+  if (view === 'ask') return DESTINATIONS.find((d) => d.id === 'ask') ?? null;
+  return DESTINATIONS.find((d) => d.tabs.some((tab) => tab.view === view)) ?? null;
+}
+
+/**
+ * Where a tab leads. The channel page is the map's own channel; with no map
+ * yet it is Home, where a channel is chosen.
+ */
+export function tabHref(view: Tab['view'], centerId: string | null): string {
+  if (view === 'channel') return centerId ? channelHref(centerId) : viewHref('home');
+  return viewHref(view);
+}
+
+/** Where the rail's entry for a destination leads: its first tab, or its one view. */
+export function destinationHref(destination: Destination, centerId: string | null): string {
+  const first = destination.tabs[0];
+  if (first) return tabHref(first.view, centerId);
+  return viewHref(destination.id === 'ask' ? 'ask' : 'home');
+}

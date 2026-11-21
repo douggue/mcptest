@@ -10,6 +10,10 @@ import { useChannelProfile } from './useChannelProfile';
 import { messageOf } from './useMapPage';
 import type { ViewParts } from './viewParts';
 
+/** The channel's one primary action: the next step in the app, not a re-run or an exit. */
+const PRIMARY_ACTION =
+  'flex min-h-11 items-center rounded bg-primary-container px-4 text-body-sm font-semibold text-on-primary transition-opacity hover:opacity-90';
+
 interface ActionsProps extends ViewParts {
   readonly profile: ChannelProfile;
 }
@@ -27,19 +31,29 @@ function Actions({ profile, page, work, path, go }: ActionsProps) {
     if (action.needsMap && saved && page.snapshot?.center.id !== profile.id) page.open(saved);
     go(action.route);
   };
+  // On the map's own channel the tabs above open its other views, so only the ways forward stay.
+  const isCenter = page.snapshot?.center.id === profile.id;
+  const actions = channelActions(profile.hasMap).filter(
+    (action) => !isCenter || action.id === 'ideas' || action.id === 'breakdown',
+  );
   return (
-    <div className="flex flex-wrap gap-2">
-      {channelActions(profile.hasMap).map((action) => (
+    <div className="flex flex-wrap items-center gap-2">
+      {actions.map((action) => (
         <button
           key={action.id}
           type="button"
           disabled={action.id === 'breakdown' && work.asking}
           onClick={() => run(action)}
-          className={QUIET_BUTTON}
+          className={action.id === 'ideas' ? PRIMARY_ACTION : QUIET_BUTTON}
         >
           {action.label}
         </button>
       ))}
+      {work.asking && (
+        <span className="text-body-sm text-outline">
+          Break it down waits for the AI run under way.
+        </span>
+      )}
     </div>
   );
 }
@@ -50,9 +64,7 @@ function OnTheMap({ profile, page, work }: ActionsProps) {
   if (!onMap || !page.snapshot) return null;
   return (
     <section className="flex min-w-0 flex-col gap-space-sm">
-      <h3 className="text-label-caps uppercase text-outline">
-        On the map of {page.snapshot.center.title}
-      </h3>
+      <h3 className="text-label text-outline">On the map of {page.snapshot.center.title}</h3>
       <div>
         <Inspector
           inline
@@ -82,6 +94,9 @@ function Beside(props: ActionsProps) {
 function Profile(props: ActionsProps) {
   const { profile, page } = props;
   const { outliers } = profile;
+  // The newest videos that are already among its outliers are shown once, there.
+  const inTop = new Set(profile.top.map((video) => video.videoId));
+  const newest = profile.recent.filter((video) => !inTop.has(video.videoId));
   const beside =
     page.snapshot?.center.id === profile.id ||
     page.snapshot?.channels.some((channel) => channel.id === profile.id);
@@ -95,15 +110,19 @@ function Profile(props: ActionsProps) {
         <div className="flex min-w-0 flex-col gap-space-xl">
           <ChannelVideos
             title="Its outliers"
-            lead={`Stored videos at ${outliers.minScore}× or more of the channel's usual views at the same age, strongest first.`}
+            lead={`${outliers.minScore}× or more of its usual views at the same age.`}
             videos={profile.top}
             empty="None of its stored videos stands out from its usual views yet."
           />
           <ChannelVideos
             title="Its newest videos"
-            lead="The latest uploads Jgtube has stored, newest first, with their scores where they can be judged."
-            videos={profile.recent}
-            empty="No videos of this channel are stored."
+            lead="Newest first, leaving out the outliers above."
+            videos={newest}
+            empty={
+              profile.recent.length === 0
+                ? 'No videos of this channel are stored.'
+                : 'Its newest stored videos are all among its outliers above.'
+            }
           />
         </div>
         {beside && <Beside {...props} />}

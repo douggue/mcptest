@@ -29,10 +29,9 @@ function NoConcepts() {
   return (
     <Card>
       <Lightbulb aria-hidden="true" className="h-6 w-6 text-metric-amber" />
-      <p className="text-body-md text-on-surface">No concepts yet.</p>
+      <p className="text-body-md text-on-surface">No ideas yet.</p>
       <p className="text-body-sm text-on-surface-variant">
-        Pick up to four videos on the left, add your angle if you have one, and press Write 10
-        concepts. Each concept is a title, a thumbnail, its words and an opening sentence.
+        Pick a video or two in Make new ideas, then press Write 10 concepts.
       </p>
     </Card>
   );
@@ -53,6 +52,7 @@ export function IdeaLab(props: Props) {
   return (
     <ViewPage id="idea-lab" labelledBy="idea-lab-title">
       <SplitView
+        mainFirst={concepts.length > 0}
         sideLabel="What the concepts rest on"
         side={
           <IdeaLabPanel
@@ -65,11 +65,10 @@ export function IdeaLab(props: Props) {
         }
       >
         <ViewHeader
-          title="Concepts"
-          count={concepts.length}
+          title="Ideas"
           lead={
             concepts.length > 0
-              ? `${concepts.length - unkept} kept, ${unkept} not kept. A new batch replaces the ones not kept.`
+              ? `${concepts.length - unkept} kept · ${unkept} not kept`
               : undefined
           }
           actions={
@@ -103,7 +102,7 @@ export function IdeaLab(props: Props) {
           <NoConcepts />
         )}
         {concepts.length > 0 && (
-          <ol className="flex flex-col gap-space-lg">
+          <ol className="flex flex-col gap-space-md">
             {concepts.map((concept, index) => (
               <li key={concept.id}>
                 <ConceptCard

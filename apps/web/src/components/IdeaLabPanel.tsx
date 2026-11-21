@@ -1,7 +1,7 @@
 import type { TransferList } from '@jgtube/core';
 import { Plus, Sparkles, X } from 'lucide-react';
 import { libraryState } from '../lib/hookLibrary';
-import { MAX_PICKS, canGenerate, formatOptions } from '../lib/ideaLab';
+import { MAX_PICKS, formatOptions, generateBlocked } from '../lib/ideaLab';
 import { thumbnailUrl } from '../lib/format';
 import { viewHref } from '../lib/routes';
 import { Answer, Credit } from './Answer';
@@ -62,7 +62,7 @@ function Picks({ lab }: { readonly lab: Lab }) {
                 <span className="truncate text-body-sm text-on-surface" title={pick.title}>
                   {pick.title}
                 </span>
-                <span className="truncate text-label-caps text-outline">
+                <span className="truncate text-label text-outline">
                   {pick.channelTitle}
                   {pick.modelOpening ? ' · opening to model' : ''}
                 </span>
@@ -206,15 +206,15 @@ interface Props extends InputsProps {
  */
 export function IdeaLabPanel({ lab, busy, transfers, centerTitle, ai }: Props) {
   const { choices } = lab;
+  const blocked = generateBlocked(lab.picks, busy);
   return (
     <>
       <div className="flex flex-col gap-1">
         <h2 id="idea-lab-title" className="text-headline-md font-bold text-on-surface">
-          Idea lab
+          Make new ideas
         </h2>
         <p className="text-body-sm text-on-surface-variant">
-          Videos from the map around {centerTitle}, a format and your angle make ten packaging
-          concepts.
+          From videos on {centerTitle}&rsquo;s map, a format and your angle.
         </p>
       </div>
       <Picks lab={lab} />
@@ -247,18 +247,20 @@ export function IdeaLabPanel({ lab, busy, transfers, centerTitle, ai }: Props) {
         </Field>
       )}
       <LibraryHint lab={lab} busy={busy} />
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1.5" aria-live="polite">
         <button
           type="button"
-          disabled={!canGenerate(lab.picks, busy)}
+          disabled={blocked !== null}
           onClick={lab.generate}
           className={GENERATE}
         >
           <Sparkles aria-hidden="true" className="h-4 w-4" />
           Write 10 concepts
         </button>
-        <span className="text-center text-body-sm text-outline">
-          An AI run of two to four minutes. A new batch replaces the concepts not kept.
+        <span
+          className={`text-center text-body-sm ${blocked ? 'text-metric-amber' : 'text-outline'}`}
+        >
+          {blocked ?? 'About two to four minutes. Replaces the ideas not kept.'}
         </span>
       </div>
       <WhereElse lab={lab} busy={busy} />

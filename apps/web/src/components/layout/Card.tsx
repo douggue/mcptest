@@ -35,7 +35,7 @@ export function Label({
 }) {
   return (
     <div className="flex min-w-0 items-center justify-between gap-2">
-      <span className="text-label-caps uppercase text-outline">{children}</span>
+      <span className="text-label text-outline">{children}</span>
       {action}
     </div>
   );

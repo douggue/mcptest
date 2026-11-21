@@ -20,7 +20,7 @@ function Wording({ formula }: { readonly formula: string }) {
         'slot' in part ? (
           <span
             key={index}
-            className="mx-0.5 inline-block rounded bg-metric-amber-bg px-1.5 py-0.5 align-middle text-label-caps uppercase text-metric-amber"
+            className="mx-0.5 inline-block rounded bg-metric-amber-bg px-1.5 py-0.5 align-middle text-label text-metric-amber"
           >
             {part.slot}
           </span>

@@ -9,6 +9,8 @@ interface Props {
   readonly sideLabel: string;
   /** The side panel's width on a wide screen. */
   readonly width?: 'narrow' | 'wide';
+  /** On a phone, the main area first and the side panel under it, where the result is the next step. */
+  readonly mainFirst?: boolean;
 }
 
 const WIDTH = {
@@ -21,12 +23,12 @@ const WIDTH = {
  * scrolls, and the main area. On a phone or a narrow window the side panel
  * comes first, above the main area.
  */
-export function SplitView({ side, children, sideLabel, width = 'wide' }: Props) {
+export function SplitView({ side, children, sideLabel, width = 'wide', mainFirst }: Props) {
   return (
     <div className={`grid min-w-0 grid-cols-1 items-start gap-space-lg ${WIDTH[width]}`}>
       <aside
         aria-label={sideLabel}
-        className="flex min-w-0 flex-col gap-space-lg rounded-lg border border-border-subtle bg-space-canvas p-space-md lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto"
+        className={`flex min-w-0 flex-col gap-space-lg rounded-lg border border-border-subtle bg-space-canvas p-space-md lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto ${mainFirst ? 'order-2 lg:order-none' : ''}`}
       >
         {side}
       </aside>
@@ -49,7 +51,7 @@ export function ViewPage({
     <section
       id={id}
       aria-labelledby={labelledBy}
-      className="w-full scroll-mt-16 bg-space-deep px-gutter-desktop py-space-lg"
+      className="w-full scroll-mt-16 bg-space-deep px-gutter py-space-lg sm:px-gutter-desktop"
     >
       <div className="mx-auto flex max-w-[1440px] min-w-0 flex-col gap-space-lg">{children}</div>
     </section>
