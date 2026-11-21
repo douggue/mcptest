@@ -381,7 +381,8 @@ CREATE TABLE IF NOT EXISTS alerts (
   UNIQUE (center_channel_id, kind, subject_id)
 );
 `,
-  // 21: the published video a kept concept became, one per concept, pasted by the owner and
+  // 24 (numbered at merge; 21 to 23 are left for the other engineer): the published video a
+  //     kept concept became, one per concept, pasted by the owner and
   //     checked to be a video of the concept's centre channel. A video is linked to one concept
   //     of a channel at most. It refers only to concepts (step 13) and goes with its concept.
   `
