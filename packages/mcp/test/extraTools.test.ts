@@ -3,6 +3,7 @@ import {
   FOUND_IN_CODE,
   STRANGERS_TEXT,
   getRiskFindings,
+  getThumbnailComparison,
   getViewerComments,
 } from '../src/extraTools';
 import { CENTER_ID, FakeEngine, VIDEO_ID, textOf } from './fakes';
@@ -66,5 +67,27 @@ describe('get_risk_findings', () => {
     expect((await getRiskFindings(engine, { channel: CENTER_ID, concept: 3 })).isError).toBe(true);
     expect((await getRiskFindings(engine, { channel: '@x', concept: 3 })).isError).toBe(true);
     expect((await getRiskFindings(engine, { channel: CENTER_ID, concept: 0 })).isError).toBe(true);
+  });
+});
+
+describe('get_thumbnail_comparison', () => {
+  test('hands over the comparison counted in code for one video of the map', async () => {
+    const engine = new FakeEngine();
+
+    const result = await getThumbnailComparison(engine, { channel: CENTER_ID, video: VIDEO_ID });
+
+    expect(textOf(result)).toBe('WINNING VALUES: Face or person = large');
+    expect(engine.reads).toContainEqual(['thumbnail-comparison', CENTER_ID, VIDEO_ID]);
+  });
+
+  test('says so when none is kept, and refuses what is not a video id', async () => {
+    const engine = new FakeEngine();
+    engine.comparison = null;
+    expect(
+      textOf(await getThumbnailComparison(engine, { channel: CENTER_ID, video: VIDEO_ID })),
+    ).toMatch(/No thumbnail comparison is kept/);
+    const bad = await getThumbnailComparison(engine, { channel: CENTER_ID, video: 'nope' });
+    expect(bad.isError).toBe(true);
+    expect(textOf(bad)).toMatch(/11 characters/);
   });
 });

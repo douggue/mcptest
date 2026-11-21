@@ -337,7 +337,9 @@ export function analysisRequest(
   return {
     prompt: route && files ? route.question(fixed, files, focus) : spec.question(fixed, focus),
     systemPrompt: spec.systemPrompt ?? SYSTEM_PROMPT,
-    mcpServers: { [SERVER_NAME]: connectorServer(settings, allowedTools) },
+    // A run with no tools starts no connector: it would have nothing to offer.
+    mcpServers:
+      allowedTools.length === 0 ? {} : { [SERVER_NAME]: connectorServer(settings, allowedTools) },
     allowedTools,
     maxTurns: spec.maxTurns,
     timeoutMs: spec.timeoutMs ?? TIMEOUT_MS,

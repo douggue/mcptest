@@ -609,7 +609,13 @@ export class FakeEngine implements ConnectorEngine {
     unchecked: [{ what: 'the year', near: 'In 1959 the army began.' }],
   };
 
+  comparison: string | null = 'WINNING VALUES: Face or person = large';
+
   readonly extras = {
+    thumbnailComparison: (channelId: string, videoId: string): string | null => {
+      this.reads.push(['thumbnail-comparison', channelId, videoId]);
+      return this.comparison;
+    },
     riskFindings: (channelId: string, conceptId: number): RiskToolFindings | null => {
       this.reads.push(['risk', channelId, conceptId]);
       return this.risk;

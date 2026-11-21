@@ -60,6 +60,10 @@ export const UNUSED_EXTRAS: ExtrasEngine = {
   askRisk: unused('askRisk'),
   riskFindings: unused('riskFindings'),
   findChannelProfile: unused('findChannelProfile'),
+  thumbnailVideos: unused('thumbnailVideos'),
+  findThumbnailReview: unused('findThumbnailReview'),
+  askThumbnailReview: unused('askThumbnailReview'),
+  thumbnailComparison: unused('thumbnailComparison'),
 };
 
 /** An engine whose later features are these, failing loudly on any other. */

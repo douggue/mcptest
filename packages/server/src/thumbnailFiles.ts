@@ -33,6 +33,11 @@ export interface PictureFileSet {
 /** A picture question as asked of an engine shown the pictures as files, with the tools it may use then. */
 export interface FilesRoute {
   readonly tools: readonly string[];
+  /**
+   * The thumbnails to hand over, by video id, when the question names them;
+   * without it, code chooses them from the channel's board.
+   */
+  readonly pictureIds?: (focus?: QuestionFocus) => readonly string[];
   readonly question: (channel: string, files: PictureFileSet, focus?: QuestionFocus) => string;
 }
 
@@ -73,12 +78,24 @@ export function chooseThumbnails(board: ThumbnailBoard): readonly ThumbnailGroup
 
 export const thumbnailFileName = (videoId: string): string => `thumb-${videoId}.jpg`;
 
-/** The chosen thumbnails fetched as files. Rejects when none could be fetched. */
-export async function thumbnailFiles(
-  board: ThumbnailBoard,
+/** Named thumbnails fetched as files, listed together. Rejects when none could be fetched. */
+export function idFiles(
+  videoIds: readonly string[],
   fetch: FetchThumbnailFile,
 ): Promise<PictureFileSet> {
-  const groups = chooseThumbnails(board);
+  return groupFiles([{ label: 'the thumbnails', videoIds: videoIds.filter(isVideoId) }], fetch);
+}
+
+/** The chosen thumbnails fetched as files. Rejects when none could be fetched. */
+export const thumbnailFiles = (
+  board: ThumbnailBoard,
+  fetch: FetchThumbnailFile,
+): Promise<PictureFileSet> => groupFiles(chooseThumbnails(board), fetch);
+
+async function groupFiles(
+  groups: readonly ThumbnailGroup[],
+  fetch: FetchThumbnailFile,
+): Promise<PictureFileSet> {
   const fetched = await Promise.all(
     groups.map(async (group) => {
       const images = await Promise.all(group.videoIds.map((videoId) => fetch(videoId)));
