@@ -62,7 +62,7 @@ export function CalendarItemRow({ item, onSave }: Props) {
             type="date"
             value={item.plannedDate ?? ''}
             onChange={(event) =>
-              onSave(item.status, event.target.value === '' ? null : event.target.value)
+              onSave(item.setStatus, event.target.value === '' ? null : event.target.value)
             }
             className={`${FIELD} w-40`}
           />

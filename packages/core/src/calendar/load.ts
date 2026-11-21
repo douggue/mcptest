@@ -65,6 +65,7 @@ export function loadCalendar(
       conceptId: concept.id,
       title: concept.title,
       status: statusOf(links.has(concept.id), schedule.get(concept.id), scripts.get(concept.id)),
+      setStatus: schedule.get(concept.id)?.status ?? null,
       plannedDate: schedule.get(concept.id)?.plannedDate ?? null,
       hasScript: scripts.has(concept.id),
       linkedVideoId: links.get(concept.id) ?? null,
