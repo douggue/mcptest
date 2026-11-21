@@ -32,8 +32,12 @@ describe('the parts of a breakdown', () => {
 });
 
 describe('the lines that mark a ready prompt inside a part', () => {
-  test('are fixed, one pair for the thumbnail prompt and one for the master prompt', () => {
-    expect(PROMPT_MARKERS).toEqual({ thumbnails: 'THUMBNAIL PROMPT', master: 'MASTER PROMPT' });
+  test('are fixed, one pair each for the thumbnail prompt, the master prompt and the style lock', () => {
+    expect(PROMPT_MARKERS).toEqual({
+      thumbnails: 'THUMBNAIL PROMPT',
+      master: 'MASTER PROMPT',
+      picture: 'STYLE LOCK',
+    });
     expect(markerLines('MASTER PROMPT')).toEqual({
       start: '=== MASTER PROMPT START ===',
       end: '=== MASTER PROMPT END ===',

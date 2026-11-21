@@ -30,6 +30,8 @@ export interface Pick {
   readonly channelTitle: string;
   /** It came from the hook library: the owner wants its way of opening modelled. */
   readonly modelOpening: boolean;
+  /** Where it was picked from, for a link back; absent for an older pick. */
+  readonly from?: 'breakout' | 'hook' | 'transfer';
 }
 
 /**
@@ -55,6 +57,16 @@ export interface LabChoices {
   readonly format: string;
   readonly angle: string;
   readonly length: ConceptLength;
+  /** A channel whose breakdown's title formulas are to be used; null or absent for none. */
+  readonly formulasFrom?: { readonly id: string; readonly title: string } | null;
+  /** A transfer idea brought in by "Make concepts from this idea"; null or absent for none. */
+  readonly fromIdea?: TransferIdeaRef | null;
+}
+
+/** An idea of the transfer list, as far as a batch needs it. */
+export interface TransferIdeaRef {
+  readonly key: string;
+  readonly template: string;
 }
 
 export type FormatChoice =
@@ -88,8 +100,12 @@ export function formatOptions(
     readonly formula: string;
     readonly videoCount: number;
   }[],
+  idea: TransferIdeaRef | null = null,
 ): readonly FormatOption[] {
   return [
+    ...(idea
+      ? [{ value: `${TRANSFER}${idea.key}`, label: idea.template, group: 'From the transfer list' }]
+      : []),
     ...formulas.map((one) => ({
       value: `${FORMULA}${one.id}`,
       label: `${one.formula} (${plural(one.videoCount, 'video')})`,
@@ -128,6 +144,7 @@ export function batchRequest(
     length: choices.length,
     ...(format ? { format } : {}),
     ...(angle === '' ? {} : { angle }),
+    ...(choices.formulasFrom ? { formulasFrom: choices.formulasFrom.id } : {}),
     ...(engine === AUTOMATIC ? {} : { engine }),
   };
 }

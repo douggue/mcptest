@@ -53,6 +53,8 @@ import { randomUUID } from 'node:crypto';
 import { analysisEngines, type AnalysisOptions } from './analysisEngine';
 import { answerEngine } from './answerEngine';
 import { conceptThumbEngine } from './conceptThumbEngine';
+import { styleLockEngine } from './styleLockEngine';
+import { flowEngine } from './flowEngine';
 import type { Engine } from './app';
 import { breakdownFiles } from './breakdownFiles';
 import { breaking } from './breakdownSetup';
@@ -426,6 +428,18 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
   const files = breakdownFiles({ root, fetch: copies.fetch, stop, ...env });
   const maps = mapReads(wiring);
   const transferring = transfers({ ...wiring, factsFetcher: () => factsFetcher(wiring) });
+  const labbing = lab({
+    now: wiring.now,
+    repos: wiring.repos,
+    analyse: asking.analyse,
+    listTransfers: transferring.listTransfers,
+    findSnapshot: maps.findSnapshot,
+    readTranscript: reading.readTranscript,
+    isClosing: wiring.work.isClosing,
+    // Read at each use: the owner can change it from the settings screen while Jgtube runs.
+    markFacts: () => config.markFacts !== false,
+  });
+
   let closed = false;
   let shuttingDown: Promise<void> | null = null;
   const close = (): void => {
@@ -460,19 +474,16 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       files,
       stop,
     }),
-    ...lab({
-      now: wiring.now,
-      repos: wiring.repos,
-      analyse: asking.analyse,
-      listTransfers: transferring.listTransfers,
-      findSnapshot: maps.findSnapshot,
-      readTranscript: reading.readTranscript,
-      isClosing: wiring.work.isClosing,
-      // Read at each use: the owner can change it from the settings screen while Jgtube runs.
-      markFacts: () => config.markFacts !== false,
-    }),
+    ...labbing,
     extras: extras(wiring),
     ...conceptThumbEngine({ now: wiring.now, repos: wiring.repos, analyse: asking.analyse }),
+    ...styleLockEngine(wiring),
+    ...flowEngine({
+      repos: wiring.repos,
+      findSnapshot: maps.findSnapshot,
+      hookCount: (center) =>
+        labbing.hookLibrary(center)?.hooks.filter((hook) => hook.text !== null).length ?? 0,
+    }),
     analyse: asking.analyse,
     watchVideo: asking.watchVideo,
     engineStatus: asking.engineStatus,

@@ -8,7 +8,9 @@ import {
   thumbnailFor,
   type ConceptView,
 } from '../lib/ideaLab';
+import { thumbnailUrl } from '../lib/format';
 import { Answer, Credit } from './Answer';
+import { OriginLine } from './Origin';
 import { ConceptCard } from './ConceptCard';
 import { FIELD, LabStatus, NOTE, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
 import type { Lab } from './useLab';
@@ -36,12 +38,22 @@ function Picks({ lab }: { readonly lab: Lab }) {
         <ul className="flex flex-col gap-1">
           {lab.picks.map((pick) => (
             <li key={pick.videoId} className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate text-body-sm text-on-surface">
-                {pick.title}
-                <span className="text-outline"> · {pick.channelTitle}</span>
-                {pick.modelOpening && (
-                  <span className="text-primary-fixed-dim"> · opening to model</span>
-                )}
+              <img
+                src={thumbnailUrl(pick.videoId) ?? undefined}
+                alt=""
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                className="aspect-video w-20 flex-none rounded bg-surface-container-high object-cover"
+              />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-body-sm text-on-surface">
+                  {pick.title}
+                  <span className="text-outline"> · {pick.channelTitle}</span>
+                  {pick.modelOpening && (
+                    <span className="text-primary-fixed-dim"> · opening to model</span>
+                  )}
+                </span>
+                {pick.from && <OriginLine origin={pick.from} what="Picked" />}
               </span>
               <button
                 type="button"
@@ -67,7 +79,16 @@ interface InputsProps {
 
 /** What a batch is asked for: the format, the angle and the length. */
 function Inputs({ lab, busy, transfers }: InputsProps) {
-  const options = formatOptions(transfers?.formats ?? [], lab.formulas?.formulas ?? []);
+  const options = formatOptions(
+    transfers?.formats ?? [],
+    lab.formulas?.formulas ?? [],
+    lab.choices.fromIdea ?? null,
+  );
+  const formatOrigin = lab.choices.format.startsWith('formula:')
+    ? 'formula'
+    : lab.choices.fromIdea && lab.choices.format === `transfer:${lab.choices.fromIdea.key}`
+      ? 'transfer'
+      : null;
   const groups = [...new Set(options.map((option) => option.group))];
   const { choices } = lab;
   return (
@@ -93,7 +114,20 @@ function Inputs({ lab, busy, transfers }: InputsProps) {
             </optgroup>
           ))}
         </select>
+        {formatOrigin && <OriginLine origin={formatOrigin} what="Format" />}
       </label>
+      {choices.formulasFrom && (
+        <div className="flex min-w-0 flex-wrap items-center gap-2 rounded bg-space-deep px-3 py-2 lg:col-span-2">
+          <OriginLine origin="breakdown" what="Title formulas" name={choices.formulasFrom.title} />
+          <button
+            type="button"
+            onClick={() => lab.choose({ formulasFrom: null })}
+            className={QUIET_BUTTON}
+          >
+            Stop using them
+          </button>
+        </div>
+      )}
       <label className="flex min-w-0 flex-col gap-1">
         <span className={LABEL}>
           Your topic or angle (optional) · {choices.angle.length} of {MAX_ANGLE_CHARS}

@@ -45,6 +45,8 @@ export interface ConceptRequest {
   readonly length: ConceptLength;
   /** The one engine to ask; absent, the usual order with its backups. */
   readonly only?: EngineId | undefined;
+  /** A channel whose breakdown's title formulas are to be used, by id; absent or null for none. */
+  readonly formulasFrom?: string | null | undefined;
 }
 
 /** A concept as the page shows it: its own parts and what its batch rested on. */

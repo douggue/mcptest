@@ -79,9 +79,11 @@ function formatOf(
       ? { source: 'formula', ref: String(formula.id), template: formula.formula }
       : { problem: NOT_A_FORMAT };
   }
-  const format = deps
-    .listTransfers({ channel: centerChannelId })
-    .formats.find((one) => one.key === choice.key);
+  // A title format of the transfer list, or one of its ideas brought in to make concepts from.
+  const list = deps.listTransfers({ channel: centerChannelId });
+  const format =
+    list.formats.find((one) => one.key === choice.key) ??
+    list.ideas.find((one) => one.key === choice.key);
   return format
     ? { source: 'transfer', ref: format.key, template: format.template }
     : { problem: NOT_A_FORMAT };
@@ -99,6 +101,12 @@ function batchOf(deps: LabDeps, request: ConceptRequest): NewBatch | { readonly 
   if (wording) return { problem: wording };
   const format = formatOf(deps, centerChannelId, request.format);
   if (format !== null && 'problem' in format) return format;
+  const from = request.formulasFrom ?? null;
+  if (from !== null && deps.repos.breakdowns?.find(from, 'titles')?.written !== true) {
+    return {
+      problem: 'That channel’s breakdown has no written titles part to take formulas from.',
+    };
+  }
   return { centerChannelId, inspiration, hookModels, format, angle, length };
 }
 
@@ -233,6 +241,7 @@ async function makeBatch(
     hasFormat: checked.format !== null,
     angle: checked.angle,
     length: checked.length,
+    formulasFrom: request.formulasFrom ?? null,
   };
   const asked: Asked = {
     analysis: 'concepts',

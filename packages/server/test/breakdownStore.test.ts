@@ -124,6 +124,12 @@ describe('a stored breakdown as the page shows it', () => {
         available: false,
         reason: 'The master prompt part has not been written.',
       },
+      {
+        id: 'style',
+        name: 'style-lock.txt',
+        available: false,
+        reason: 'The picture and sound part has not been written.',
+      },
     ]);
   });
 });

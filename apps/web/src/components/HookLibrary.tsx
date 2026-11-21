@@ -279,6 +279,7 @@ export function HookLibrary({ lab, busy, centerTitle, models }: Props) {
                     title: hook.title,
                     channelTitle: hook.channelTitle,
                     modelOpening: true,
+                    from: 'hook',
                   })
                 }
                 onModel={models ? () => models.toggle(hook.videoId) : undefined}

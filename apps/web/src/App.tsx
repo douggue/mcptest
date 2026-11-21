@@ -1,5 +1,6 @@
 import type {
   CompetitorStatus,
+  TransferIdea,
   LogoFound,
   MapSnapshot,
   NicheChannel,
@@ -7,6 +8,10 @@ import type {
 } from '@jgtube/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Benchmarks } from './components/Benchmarks';
+import { ConnectionsContext, type Connections } from './components/Connections';
+import { FlowStrip } from './components/FlowStrip';
+import { useFlow } from './components/useFlow';
+import { ideaFromTransfer } from './lib/flow';
 import { ChangesSection } from './components/ChangesSection';
 import { useAlertCounts } from './components/useAlerts';
 import { OwnVideos } from './components/OwnVideos';
@@ -273,6 +278,49 @@ export function App() {
     lab.choose({ format: `formula:${formulaId}` });
     document.getElementById(IDEA_LAB_ID)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+  const scrollTo = (id: string): void =>
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Read again whenever a run ends or a script changes, so the strip's counts stay true.
+  const flow = useFlow(
+    snapshot?.center.id ?? null,
+    [
+      labJobs.state.status,
+      analysis.state.status,
+      breakdown.state.status,
+      script.view?.concept.id,
+    ].join('|'),
+  );
+  const connections: Connections = {
+    useVoice: (channel) => {
+      script.change({ voiceChannelId: channel.id });
+      scrollTo(SCRIPT_WRITER_ID);
+    },
+    voiceProblem: (channelId) =>
+      script.view === null
+        ? 'Open a script first: press “Write the script” on a concept in the idea lab.'
+        : voices.some((voice) => voice.id === channelId)
+          ? null
+          : 'This channel is not on the map on screen, so its voice cannot be measured for this script.',
+    useFormulas: (channel) => {
+      lab.choose({ formulasFrom: channel });
+      scrollTo(IDEA_LAB_ID);
+    },
+    useStyleLock: (channel) => flow.useStyleLock(channel.id),
+    styleLock: flow.styleLock,
+    stopStyleLock: flow.stopStyleLock,
+    useReviewStyle: () => scrollTo(IDEA_LAB_ID),
+  };
+  /** Takes an idea of the transfer list into the idea lab: its best version on this map, and its template. */
+  const conceptsFrom = (idea: TransferIdea): void => {
+    if (!snapshot) return;
+    const onMap = new Set([snapshot.center.id, ...snapshot.channels.map((channel) => channel.id)]);
+    const taken = ideaFromTransfer(idea, onMap);
+    if (taken.pick && !lab.picks.some((pick) => pick.videoId === taken.pick?.videoId)) {
+      lab.pick(taken.pick);
+    }
+    lab.choose({ format: taken.format, fromIdea: taken.idea });
+    scrollTo(IDEA_LAB_ID);
+  };
   const reloadNiches = niches.reload;
   const reloadTransfers = transfers.reload;
   // A refresh stores new view counts and videos: the niche list turns them into
@@ -301,183 +349,203 @@ export function App() {
   };
 
   return (
-    <Shell>
-      <MapToolbar
-        center={snapshot?.center ?? null}
-        query={query}
-        onQueryChange={setQuery}
-        model={model}
-        onModelChange={setModel}
-        measuredAgainst={snapshot?.model?.title ?? null}
-        onSubmit={() => void submit()}
-        job={job}
-        message={message}
-        depth={depth}
-        onDepthChange={setDepth}
-        size={size}
-        onSizeChange={setSize}
-        onExport={snapshot ? () => download(snapshot) : null}
-      />
-      <SavedChannels
-        channels={saved}
-        currentId={snapshot?.center.id ?? null}
-        busy={job?.status === 'running'}
-        onOpen={open}
-        onDelete={(channel) => void remove(channel)}
-        badges={alertCounts.counts}
-      />
-      <ChangesSection
-        snapshot={snapshot}
-        reloadKey={refresh.run.status}
-        onAlertsChanged={alertCounts.reload}
-      />
-      <Radar
-        snapshot={visible}
-        layout={layout}
-        selectedId={selectedId}
-        onSelect={select}
-        emptyState={
-          <div className="max-w-md rounded bg-space-canvas/80 p-space-lg backdrop-blur-md">
-            {job?.status === 'running' ? (
-              <div role="status">
-                <h1 className="text-headline-lg text-on-surface">Making your map</h1>
-                <p className="mt-2 text-body-lg text-on-surface-variant">
-                  Jgtube is following YouTube&rsquo;s recommendations out from the channel and
-                  reading the channels it finds. This takes a few minutes; the map appears here when
-                  it is done. Keep this page open.
-                </p>
-              </div>
-            ) : (
-              <>
-                <h1 className="text-headline-lg text-on-surface">Map who you compete with</h1>
-                <p className="mt-2 text-body-lg text-on-surface-variant">
-                  Paste your channel above and press Find competitors. Jgtube follows
-                  YouTube&rsquo;s recommendations out from your videos; a full map takes a few
-                  minutes.
-                </p>
-              </>
-            )}
-          </div>
-        }
-      >
-        {snapshot && (
-          <ScopeToggle
-            scope={activeScope}
-            onChange={(next) => {
-              setScope(next);
-              setSelectedId(null);
-            }}
-            peerCount={peerCount}
-            totalCount={snapshot.channels.length}
-            mix={describeMix(snapshot.channels)}
-          />
-        )}
-        {logoRun !== null && (
+    <ConnectionsContext.Provider value={snapshot ? connections : null}>
+      <Shell>
+        <MapToolbar
+          center={snapshot?.center ?? null}
+          query={query}
+          onQueryChange={setQuery}
+          model={model}
+          onModelChange={setModel}
+          measuredAgainst={snapshot?.model?.title ?? null}
+          onSubmit={() => void submit()}
+          job={job}
+          message={message}
+          depth={depth}
+          onDepthChange={setDepth}
+          size={size}
+          onSizeChange={setSize}
+          onExport={snapshot ? () => download(snapshot) : null}
+        />
+        {snapshot && <FlowStrip counts={flow.counts} />}
+        {flow.problem && (
           <p
-            role="status"
-            className="absolute bottom-5 right-6 z-40 rounded-full bg-surface-card/90 px-3 py-1.5 text-label-caps text-on-surface-variant shadow-lg backdrop-blur-md"
+            role="alert"
+            className="mx-auto w-full max-w-[1440px] px-gutter-desktop text-body-md text-error"
           >
-            {describeLogoRun(logoRun === 'starting' ? null : logoRun)}
+            {flow.problem}
           </p>
         )}
-        {selected && snapshot && (
-          <Inspector
-            channel={selected}
-            onClose={() => setSelectedId(null)}
-            onSetStatus={(status) => {
-              setStatus(selected.id, status).catch((error: unknown) =>
-                setMessage(messageOf(error)),
-              );
-            }}
-            busy={asking}
-            onBreakDown={() => breakDown(selected)}
+        <SavedChannels
+          channels={saved}
+          currentId={snapshot?.center.id ?? null}
+          busy={job?.status === 'running'}
+          onOpen={open}
+          onDelete={(channel) => void remove(channel)}
+          badges={alertCounts.counts}
+        />
+        <ChangesSection
+          snapshot={snapshot}
+          reloadKey={refresh.run.status}
+          onAlertsChanged={alertCounts.reload}
+        />
+        <Radar
+          snapshot={visible}
+          layout={layout}
+          selectedId={selectedId}
+          onSelect={select}
+          emptyState={
+            <div className="max-w-md rounded bg-space-canvas/80 p-space-lg backdrop-blur-md">
+              {job?.status === 'running' ? (
+                <div role="status">
+                  <h1 className="text-headline-lg text-on-surface">Making your map</h1>
+                  <p className="mt-2 text-body-lg text-on-surface-variant">
+                    Jgtube is following YouTube&rsquo;s recommendations out from the channel and
+                    reading the channels it finds. This takes a few minutes; the map appears here
+                    when it is done. Keep this page open.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <h1 className="text-headline-lg text-on-surface">Map who you compete with</h1>
+                  <p className="mt-2 text-body-lg text-on-surface-variant">
+                    Paste your channel above and press Find competitors. Jgtube follows
+                    YouTube&rsquo;s recommendations out from your videos; a full map takes a few
+                    minutes.
+                  </p>
+                </>
+              )}
+            </div>
+          }
+        >
+          {snapshot && (
+            <ScopeToggle
+              scope={activeScope}
+              onChange={(next) => {
+                setScope(next);
+                setSelectedId(null);
+              }}
+              peerCount={peerCount}
+              totalCount={snapshot.channels.length}
+              mix={describeMix(snapshot.channels)}
+            />
+          )}
+          {logoRun !== null && (
+            <p
+              role="status"
+              className="absolute bottom-5 right-6 z-40 rounded-full bg-surface-card/90 px-3 py-1.5 text-label-caps text-on-surface-variant shadow-lg backdrop-blur-md"
+            >
+              {describeLogoRun(logoRun === 'starting' ? null : logoRun)}
+            </p>
+          )}
+          {selected && snapshot && (
+            <Inspector
+              channel={selected}
+              onClose={() => setSelectedId(null)}
+              onSetStatus={(status) => {
+                setStatus(selected.id, status).catch((error: unknown) =>
+                  setMessage(messageOf(error)),
+                );
+              }}
+              busy={asking}
+              onBreakDown={() => breakDown(selected)}
+            />
+          )}
+        </Radar>
+        {visible && (
+          <section className="w-full bg-space-deep px-gutter-desktop py-space-xl">
+            <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-space-xl xl:grid-cols-12">
+              <BreakoutFeed
+                items={visible.breakouts}
+                centerTitle={visible.center.title}
+                pickedIds={lab.picks.map((pick) => pick.videoId)}
+                onPick={(item) =>
+                  lab.pick({
+                    videoId: item.videoId,
+                    title: item.title,
+                    channelTitle: item.channelTitle,
+                    modelOpening: false,
+                    from: 'breakout',
+                  })
+                }
+              />
+              <Benchmarks snapshot={visible} selectedId={selectedId} onSelect={select} />
+            </div>
+          </section>
+        )}
+        {snapshot && (
+          <SameTopic
+            state={sameTopic}
+            centerTitle={snapshot.center.title}
+            onSetStatus={setStatus}
           />
         )}
-      </Radar>
-      {visible && (
-        <section className="w-full bg-space-deep px-gutter-desktop py-space-xl">
-          <div className="mx-auto grid max-w-[1440px] grid-cols-1 gap-space-xl xl:grid-cols-12">
-            <BreakoutFeed
-              items={visible.breakouts}
-              centerTitle={visible.center.title}
-              pickedIds={lab.picks.map((pick) => pick.videoId)}
-              onPick={(item) =>
-                lab.pick({
-                  videoId: item.videoId,
-                  title: item.title,
-                  channelTitle: item.channelTitle,
-                  modelOpening: false,
-                })
+        {snapshot && (
+          <ThumbnailBoard
+            state={board}
+            centerTitle={snapshot.center.title}
+            modelId={snapshot.model?.id ?? null}
+            onDownload={(channelId) => api.downloadThumbnails(channelId)}
+            onDownloadTranscripts={(channelId) => api.downloadTranscripts(channelId)}
+          />
+        )}
+        {snapshot && (
+          <AskClaude
+            analysis={analysis}
+            breakdown={breakdown}
+            channels={breakdownChannels}
+            onSendVideo={uploadVideoFile}
+            centerId={snapshot.center.id}
+            centerTitle={snapshot.center.title}
+          />
+        )}
+        {snapshot && (
+          <Formulas lab={lab} busy={asking} centerTitle={snapshot.center.title} onRemix={remix} />
+        )}
+        {snapshot && (
+          <HookLibrary
+            lab={lab}
+            busy={asking}
+            centerTitle={snapshot.center.title}
+            models={
+              scriptModels && {
+                chosen: scriptModels,
+                toggle: (videoId) =>
+                  script.change({ hookModels: toggleModel(scriptModels, videoId) }),
               }
-            />
-            <Benchmarks snapshot={visible} selectedId={selectedId} onSelect={select} />
-          </div>
-        </section>
-      )}
-      {snapshot && (
-        <SameTopic state={sameTopic} centerTitle={snapshot.center.title} onSetStatus={setStatus} />
-      )}
-      {snapshot && (
-        <ThumbnailBoard
-          state={board}
-          centerTitle={snapshot.center.title}
-          modelId={snapshot.model?.id ?? null}
-          onDownload={(channelId) => api.downloadThumbnails(channelId)}
-          onDownloadTranscripts={(channelId) => api.downloadTranscripts(channelId)}
-        />
-      )}
-      {snapshot && (
-        <AskClaude
-          analysis={analysis}
-          breakdown={breakdown}
-          channels={breakdownChannels}
-          onSendVideo={uploadVideoFile}
-          centerId={snapshot.center.id}
-          centerTitle={snapshot.center.title}
-        />
-      )}
-      {snapshot && (
-        <Formulas lab={lab} busy={asking} centerTitle={snapshot.center.title} onRemix={remix} />
-      )}
-      {snapshot && (
-        <HookLibrary
-          lab={lab}
-          busy={asking}
-          centerTitle={snapshot.center.title}
-          models={
-            scriptModels && {
-              chosen: scriptModels,
-              toggle: (videoId) =>
-                script.change({ hookModels: toggleModel(scriptModels, videoId) }),
             }
-          }
+          />
+        )}
+        {snapshot && (
+          <IdeaLab
+            lab={lab}
+            busy={asking}
+            transfers={transfers.state.status === 'ready' ? transfers.state.list : null}
+            centerTitle={snapshot.center.title}
+            breakouts={snapshot.breakouts}
+            onDraft={(concept) => draft(concept.id)}
+          />
+        )}
+        {snapshot && <ScriptWriter script={script} lab={lab} busy={asking} voices={voices} />}
+        <OwnVideos channelId={snapshot?.center.id ?? null} reloadKey={refresh.run.status} />
+        <UploadCalendar channelId={snapshot?.center.id ?? null} reloadKey={refresh.run.status} />
+        <Transfers
+          transfers={transfers}
+          hasMap={snapshot !== null}
+          onMakeConcepts={snapshot ? conceptsFrom : undefined}
         />
-      )}
-      {snapshot && (
-        <IdeaLab
-          lab={lab}
-          busy={asking}
-          transfers={transfers.state.status === 'ready' ? transfers.state.list : null}
-          centerTitle={snapshot.center.title}
-          breakouts={snapshot.breakouts}
-          onDraft={(concept) => draft(concept.id)}
+        <Niches
+          niches={niches}
+          hasMap={snapshot !== null}
+          onBreakDown={snapshot && !asking ? breakDown : undefined}
         />
-      )}
-      {snapshot && <ScriptWriter script={script} lab={lab} busy={asking} voices={voices} />}
-      <OwnVideos channelId={snapshot?.center.id ?? null} reloadKey={refresh.run.status} />
-      <UploadCalendar channelId={snapshot?.center.id ?? null} reloadKey={refresh.run.status} />
-      <Transfers transfers={transfers} hasMap={snapshot !== null} />
-      <Niches
-        niches={niches}
-        hasMap={snapshot !== null}
-        onBreakDown={snapshot && !asking ? breakDown : undefined}
-      />
-      <RefreshBar refresh={refresh} />
-      <p className="mx-auto w-full max-w-[1440px] px-gutter-desktop pb-space-xl text-label-caps text-outline">
-        Jgtube reads YouTube&rsquo;s public pages without an account. That is outside
-        YouTube&rsquo;s terms of service and can stop working without notice. Scores and earnings
-        are estimates.
-      </p>
-    </Shell>
+        <RefreshBar refresh={refresh} />
+        <p className="mx-auto w-full max-w-[1440px] px-gutter-desktop pb-space-xl text-label-caps text-outline">
+          Jgtube reads YouTube&rsquo;s public pages without an account. That is outside
+          YouTube&rsquo;s terms of service and can stop working without notice. Scores and earnings
+          are estimates.
+        </p>
+      </Shell>
+    </ConnectionsContext.Provider>
   );
 }

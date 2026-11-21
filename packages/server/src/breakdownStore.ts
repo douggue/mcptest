@@ -36,7 +36,8 @@ function partView(id: BreakdownPartId, stored: StoredBreakdownPart | undefined):
   if (!stored.written) {
     return { ...head, ...none, state: 'failed', writtenAt, reason: stored.reason };
   }
-  const marker = id === 'thumbnails' || id === 'master' ? PROMPT_MARKERS[id] : undefined;
+  const marker =
+    id === 'thumbnails' || id === 'master' || id === 'picture' ? PROMPT_MARKERS[id] : undefined;
   const { marked, rest } =
     marker === undefined ? { marked: null, rest: stored.text } : splitMarked(stored.text, marker);
   return {

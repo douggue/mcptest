@@ -1,5 +1,5 @@
 import type { OwnerPlace, TransferIdea, TransferVersion } from '@jgtube/core';
-import { Bookmark, BookmarkCheck } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Lightbulb } from 'lucide-react';
 import { scoreTone } from '../lib/board';
 import { formatAge, formatCount, formatScore, watchUrl } from '../lib/format';
 import {
@@ -152,10 +152,12 @@ function Variants({ idea, place }: { readonly idea: TransferIdea; readonly place
 
 interface Props extends SaveProps {
   readonly ownerPlace: OwnerPlace | null;
+  /** Takes the idea into the idea lab; absent where there is no idea lab. */
+  readonly onMakeConcepts?: (() => void) | undefined;
 }
 
 /** One idea several channels made: the verdict for the owner's place, then its versions. */
-export function TransferCard({ idea, ownerPlace, onSetSaved }: Props) {
+export function TransferCard({ idea, ownerPlace, onSetSaved, onMakeConcepts }: Props) {
   return (
     <article
       className={`flex min-w-0 flex-col gap-space-md rounded bg-surface-card p-space-md shadow-md ${
@@ -183,6 +185,16 @@ export function TransferCard({ idea, ownerPlace, onSetSaved }: Props) {
       </div>
       <Versions idea={idea} />
       {ownerPlace && <Variants idea={idea} place={ownerPlace.name} />}
+      {onMakeConcepts && (
+        <button
+          type="button"
+          onClick={onMakeConcepts}
+          className="flex items-center gap-1.5 self-start rounded-full bg-surface-container-high px-3 py-1.5 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-highest focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
+        >
+          <Lightbulb aria-hidden="true" className="h-4 w-4" />
+          Make concepts from this idea
+        </button>
+      )}
     </article>
   );
 }
