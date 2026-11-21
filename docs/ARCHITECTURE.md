@@ -90,6 +90,8 @@ packages/
     alerts/       alert rules and the alerts they find after a refresh, from stored readings
     plan/         the owner's published videos against the concepts they came from: links,
                   views at the same age, the table of formats, hook styles and lengths
+    calendar/     the upload calendar: kept concepts by week, their status and planned date,
+                  and the look-alike winners' uploads a week
     extras.ts     the later features' exports, named once by index.ts
     db/           SQLite connection and migrations
     repos/        channels, videos, edges, maps, watchlist, refresh runs
@@ -139,7 +141,7 @@ packages/
                   `<feature>Engine.ts` and `<feature>Routes.ts`:
                   changes (what changed since the last look), alerts (plus
                   `alertsTypes.ts`), plan (your videos against the plan, plus
-                  `planTypes.ts`)
+                  `planTypes.ts`), calendar (the upload calendar, plus `calendarTypes.ts`)
     engines/      the engine interface; Claude Code, Codex CLI and Antigravity CLI
                   behind it; trying them in order; watching a video (Antigravity on a
                   file, the Gemini API on a link); starting programs safely on Windows
