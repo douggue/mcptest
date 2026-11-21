@@ -42,7 +42,7 @@ const FORMAT_FROM: Readonly<Record<ConceptFormat['source'], string>> = {
   formula: 'proposed by an earlier AI run from titles on this map',
 };
 
-const pickedEntry = (video: PickedVideo): Record<string, unknown> => ({
+export const pickedEntry = (video: PickedVideo): Record<string, unknown> => ({
   video: video.videoId,
   title: video.title,
   channel: video.channelTitle,
@@ -70,7 +70,7 @@ export function getIdeaBrief(engine: ConnectorEngine, input: GetIdeaBriefArgs): 
 }
 
 /** A concept's parts as the labelled lines it was written in. */
-function conceptText(concept: StoredConcept): string {
+export function conceptText(concept: StoredConcept): string {
   return [
     `TITLE: ${concept.title}`,
     ...concept.altTitles.map((title) => `ALT: ${title}`),

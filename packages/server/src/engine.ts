@@ -8,6 +8,7 @@ import {
   SqliteLeaseRepo,
   SqliteMapRepo,
   SqliteRefreshRepo,
+  SqliteScriptRepo,
   SqliteBrandRepo,
   SqliteTransferRepo,
   SqliteVideoPageRepo,
@@ -122,6 +123,7 @@ function openRepos(db: Db) {
     concepts: new SqliteConceptRepo(db),
     formulas: new SqliteFormulaRepo(db),
     hookLabels: new SqliteHookLabelRepo(db),
+    scripts: new SqliteScriptRepo(db),
   };
 }
 

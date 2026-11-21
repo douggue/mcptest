@@ -311,7 +311,24 @@ export const getHooksShape = {
     .describe('Only the hooks of these videos. Left out, every hook of the library.'),
 };
 
+const PART_RULE = 'part is "plan", "draft" or "tightened".';
+
+export const getScriptShape = {
+  channel: labChannel,
+  concept: wholeNumber('concept', 1, MAX_ITEM_NUMBER).describe(
+    'The number of the concept the script is for, as the question gives it.',
+  ),
+  part: z
+    .enum(['plan', 'draft', 'tightened'], { error: PART_RULE })
+    .optional()
+    .describe(
+      'plan (the default): the concept, the chosen hook and the beat sheet. draft: the draft as well. ' +
+        'tightened: the tightened draft as well.',
+    ),
+};
+
 export const getMapArgs = z.object(getMapShape);
+export const getScriptArgs = z.object(getScriptShape);
 export const getIdeaBriefArgs = z.object(getIdeaBriefShape);
 export const getConceptArgs = z.object(getConceptShape);
 export const getHooksArgs = z.object(getHooksShape);
@@ -331,6 +348,7 @@ export const getChannelVideosArgs = z.object(getChannelVideosShape);
 export const makeMapArgs = z.object(makeMapShape);
 
 export type GetMapArgs = z.input<typeof getMapArgs>;
+export type GetScriptArgs = z.input<typeof getScriptArgs>;
 export type GetIdeaBriefArgs = z.input<typeof getIdeaBriefArgs>;
 export type GetConceptArgs = z.input<typeof getConceptArgs>;
 export type GetHooksArgs = z.input<typeof getHooksArgs>;

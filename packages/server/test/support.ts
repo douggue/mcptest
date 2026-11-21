@@ -1,5 +1,6 @@
 import type { Engine } from '../src/app';
 import type { LabEngine } from '../src/labTypes';
+import type { ScriptEngine } from '../src/scriptTypes';
 
 export const HOST = '127.0.0.1:4317';
 export const CHANNEL_ID = 'UCHnyfMqiRRG1u-2MsSQLbXA';
@@ -9,7 +10,7 @@ const unused = (name: string) => (): never => {
 };
 
 /** The idea lab's part of an engine, failing loudly when a test reaches it. */
-export const UNUSED_LAB: LabEngine = {
+export const UNUSED_LAB: LabEngine & ScriptEngine = {
   listConcepts: unused('listConcepts'),
   setConceptKept: unused('setConceptKept'),
   clearConcepts: unused('clearConcepts'),
@@ -24,6 +25,15 @@ export const UNUSED_LAB: LabEngine = {
   labelHooks: unused('labelHooks'),
   findIdeaBrief: unused('findIdeaBrief'),
   findConcept: unused('findConcept'),
+  findScriptView: unused('findScriptView'),
+  openScript: unused('openScript'),
+  scriptChangeProblem: unused('scriptChangeProblem'),
+  saveScript: unused('saveScript'),
+  stageProblem: unused('stageProblem'),
+  runScriptStage: unused('runScriptStage'),
+  voiceOf: unused('voiceOf'),
+  readVoice: unused('readVoice'),
+  findScript: unused('findScript'),
 };
 
 /** An engine where every part a test does not replace fails loudly when reached. */

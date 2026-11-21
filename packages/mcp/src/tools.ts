@@ -15,6 +15,7 @@ import type {
   GetIdeaBriefArgs,
   GetMapArgs,
   GetNearMissesArgs,
+  GetScriptArgs,
   GetThumbnailBoardArgs,
   GetTranscriptArgs,
   GetVideoDetailsArgs,
@@ -26,6 +27,7 @@ import type {
   ViewThumbnailsArgs,
   ViewVideoFramesArgs,
 } from './schemas';
+import { getScript } from './scriptTool';
 import { getFrameStudy, getVideoWatch } from './studyTools';
 import { viewThumbnails } from './thumbnailTool';
 import { listTransferOpportunities } from './transferTool';
@@ -60,6 +62,7 @@ export interface ToolHandlers {
   getIdeaBrief(args: GetIdeaBriefArgs): Promise<CallToolResult>;
   getConcept(args: GetConceptArgs): Promise<CallToolResult>;
   getHooks(args: GetHooksArgs): Promise<CallToolResult>;
+  getScript(args: GetScriptArgs): Promise<CallToolResult>;
 }
 
 /** The default place for diagnostics. */
@@ -113,5 +116,6 @@ export function createToolHandlers(deps: ToolDeps): ToolHandlers {
     getIdeaBrief: (args) => guarded('get_idea_brief', () => getIdeaBrief(engine, args)),
     getConcept: (args) => guarded('get_concept', () => getConcept(engine, args)),
     getHooks: (args) => guarded('get_hooks', () => getHooks(engine, args)),
+    getScript: (args) => guarded('get_script', () => getScript(engine, args)),
   };
 }

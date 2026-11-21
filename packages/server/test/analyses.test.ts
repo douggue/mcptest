@@ -34,12 +34,15 @@ const FOCUS: Partial<Record<AnalysisId, QuestionFocus>> = {
   'concept-twist': { kind: 'concept', conceptId: 1 },
   'concept-more': { kind: 'concept', conceptId: 1 },
   'title-formulas': { kind: 'window', windowDays: 90 },
+  'script-hooks': { kind: 'script', conceptId: 1 },
+  'script-draft': { kind: 'script', conceptId: 1 },
+  'script-tighten': { kind: 'script', conceptId: 1 },
 };
 /** Tools that change stored choices or reach the network for minutes; an analysis only reads. */
 const NOT_FOR_ANALYSIS = ['set_competitor_status', 'make_map'];
 
 describe('the analyses on offer', () => {
-  test('are thumbnails, video ideas, same-topic channels, the channel breakdown and the idea lab’s six', () => {
+  test('are thumbnails, video ideas, same-topic channels, the channel breakdown, the idea lab’s six and the script writer’s three', () => {
     expect(ANALYSIS_IDS).toEqual([
       'thumbnails',
       'topics',
@@ -51,6 +54,9 @@ describe('the analyses on offer', () => {
       'where-else',
       'title-formulas',
       'hook-styles',
+      'script-hooks',
+      'script-draft',
+      'script-tighten',
     ]);
     // The breakdown is the last step of a longer job, so it is not one of the one-press ones.
     expect(QUICK_ANALYSIS_IDS).toEqual(['thumbnails', 'topics', 'near-misses']);

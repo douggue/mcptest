@@ -11,21 +11,26 @@ import { z } from 'zod';
 import type { AnalysisTracker } from './analysisRoutes';
 import type { AppOptions } from './app';
 import { ENGINE_IDS } from './engines/settings';
-import { fail, ok, readJson } from './http';
+import { fail, ok } from './http';
 import { MAX_ANGLE_CHARS, angleProblem } from './ideaQuestions';
 import { JobStore, type Job } from './jobs';
-import type { ConceptRequest, LabOutcome, LabProgress, Report } from './labTypes';
+import {
+  CHANNEL_ID,
+  NO_MAP,
+  VIDEO_ID,
+  bodyOf,
+  channelOf,
+  startAiJob,
+  startLabJob,
+  type Context,
+  type Routes,
+} from './labHttp';
+import type { ConceptRequest, LabOutcome, LabProgress } from './labTypes';
+import { SCRIPT_ROUTES } from './scriptRoutes';
 
-export type LabJobs = JobStore<LabOutcome, LabProgress>;
-
-const CHANNEL_ID = /^UC[\w-]{22}$/;
-const VIDEO_ID = /^[\w-]{11}$/;
 /** A transfer template's key is the words of a title; no title is this long. */
 const MAX_KEY_LENGTH = 300;
 export const MAX_INSPIRATION = 5;
-const BUSY = 'An AI run is already under way. Wait for it to finish.';
-const LAB_BUSY = 'The idea lab is already working on something. Wait for it to finish.';
-const NO_MAP = 'No map has been made for this channel yet';
 
 const channel = z.string().regex(CHANNEL_ID);
 const engine = z.enum(ENGINE_IDS).optional();
@@ -64,51 +69,6 @@ const formulaRequest = z.object({
   window: z.union([z.literal(FORMULA_WINDOWS[0]), z.literal(FORMULA_WINDOWS[1])]).optional(),
   engine,
 });
-
-interface Context {
-  readonly options: AppOptions;
-  readonly jobs: LabJobs;
-  readonly tracker: AnalysisTracker;
-}
-
-type Work = (report: Report) => Promise<LabOutcome>;
-
-/** Starts a run of an AI engine as a job, in the slot every such run shares. */
-function startAiJob(context: Context, work: Work): Response {
-  const { jobs, tracker } = context;
-  if (tracker.running) return fail(409, BUSY);
-  if (jobs.isBusy()) return fail(409, LAB_BUSY);
-  tracker.running = true;
-  const job = jobs.start((report) =>
-    work(report).finally(() => {
-      tracker.running = false;
-    }),
-  );
-  if (!job) {
-    tracker.running = false;
-    return fail(409, LAB_BUSY);
-  }
-  return ok({ jobId: job.id }, 202);
-}
-
-/** Reads and checks a JSON body, or answers with the refusal. */
-async function bodyOf<T>(
-  context: Context,
-  request: Request,
-  schema: z.ZodType<T>,
-  rule: string,
-): Promise<T | Response> {
-  const body = await readJson(context.options.allowedHosts, request);
-  if (body instanceof Response) return body;
-  const parsed = schema.safeParse(body);
-  return parsed.success ? parsed.data : fail(400, rule);
-}
-
-/** The channel a read names, or the refusal. */
-function channelOf(url: URL): string | Response {
-  const asked = url.searchParams.get('channel') ?? '';
-  return CHANNEL_ID.test(asked) ? asked : fail(400, 'Give the channel as a channel id');
-}
 
 const BATCH_RULE = `Give the channel, 1 to ${MAX_INSPIRATION} picked videos, a length (long or shorts) and, optionally, a format, an angle of one line of at most ${MAX_ANGLE_CHARS} characters and an engine`;
 
@@ -215,8 +175,7 @@ async function startHookBuild(context: Context, request: Request): Promise<Respo
   if (body instanceof Response) return body;
   const { engine: lab } = context.options;
   if (lab.hookLibrary(body.channel) === null) return fail(404, NO_MAP);
-  const job = context.jobs.start((report) => lab.buildHookLibrary(body.channel, report));
-  return job ? ok({ jobId: job.id }, 202) : fail(409, LAB_BUSY);
+  return startLabJob(context, (report) => lab.buildHookLibrary(body.channel, report));
 }
 
 async function startHookLabels(context: Context, request: Request): Promise<Response> {
@@ -227,10 +186,9 @@ async function startHookLabels(context: Context, request: Request): Promise<Resp
   return startAiJob(context, (report) => lab.labelHooks(body.channel, body.engine, report));
 }
 
-type Handler = (context: Context, request: Request, url: URL) => Response | Promise<Response>;
-
 /** Each path of the lab with what answers a read of it and what answers a write to it. */
-const ROUTES: Readonly<Record<string, { readonly GET?: Handler; readonly POST?: Handler }>> = {
+const ROUTES: Routes = {
+  ...SCRIPT_ROUTES,
   '/api/lab/concepts': {
     GET: (context, _request, url) => readConcepts(context, url),
     POST: startBatch,

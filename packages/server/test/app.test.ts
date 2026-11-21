@@ -57,6 +57,15 @@ class FakeEngine implements Engine {
   labelHooks = UNUSED_LAB.labelHooks;
   findIdeaBrief = UNUSED_LAB.findIdeaBrief;
   findConcept = UNUSED_LAB.findConcept;
+  findScriptView = UNUSED_LAB.findScriptView;
+  openScript = UNUSED_LAB.openScript;
+  scriptChangeProblem = UNUSED_LAB.scriptChangeProblem;
+  saveScript = UNUSED_LAB.saveScript;
+  stageProblem = UNUSED_LAB.stageProblem;
+  runScriptStage = UNUSED_LAB.runScriptStage;
+  voiceOf = UNUSED_LAB.voiceOf;
+  readVoice = UNUSED_LAB.readVoice;
+  findScript = UNUSED_LAB.findScript;
   nicheReads = 0;
   /** The channels the fake store holds, for the watchlist. */
   known: readonly string[] = [CHANNEL_ID];

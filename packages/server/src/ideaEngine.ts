@@ -113,6 +113,32 @@ function viewOf(deps: LabDeps, concept: StoredConcept, batch: StoredBatch): Conc
   };
 }
 
+/** One concept with its batch, as the page shows it and as a tool hands it over. */
+export interface FoundConcept {
+  readonly concept: StoredConcept;
+  readonly batch: StoredBatch;
+  readonly view: ConceptView;
+  /** The videos picked for its batch that are still stored. */
+  readonly picked: readonly PickedVideo[];
+}
+
+/** A concept through the channel it belongs to; null when it is not that channel's. */
+export function findConceptOf(
+  deps: LabDeps,
+  centerChannelId: string,
+  conceptId: number,
+): FoundConcept | null {
+  const concept = deps.repos.concepts.find(centerChannelId, conceptId);
+  const batch = concept ? deps.repos.concepts.findBatch(centerChannelId, concept.batchId) : null;
+  if (!concept || !batch) return null;
+  return {
+    concept,
+    batch,
+    view: viewOf(deps, concept, batch),
+    picked: stillStored(deps, batch.inspiration),
+  };
+}
+
 /** A channel's concepts as the page shows them, each with what its batch rested on. */
 function viewsOf(deps: LabDeps, concepts: readonly StoredConcept[]): readonly ConceptView[] {
   const [first] = concepts;

@@ -9,8 +9,10 @@ import {
   type FormulaRepo,
   type HookLabelRepo,
   type MapVideoDeps,
+  type ScriptRepo,
   type StoredChannel,
   type StoredTranscript,
+  type VideoStudyRepo,
 } from '@jgtube/core';
 import type { Engine } from './app';
 
@@ -21,6 +23,9 @@ export interface LabDeps {
     readonly concepts: ConceptRepo;
     readonly formulas: FormulaRepo;
     readonly hookLabels: HookLabelRepo;
+    readonly scripts: ScriptRepo;
+    /** Stored studies of videos; a frame study says how often a video's picture changes. */
+    readonly studies: Pick<VideoStudyRepo, 'find'>;
     /** Stored captions; null for a video whose captions were never asked for. */
     readonly pages: { find(videoId: string): StoredTranscript | null };
   };

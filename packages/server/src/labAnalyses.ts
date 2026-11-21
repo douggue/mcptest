@@ -29,6 +29,17 @@ import {
   whereElseQuestion,
 } from './ideaQuestions';
 import { labFocusOf, type QuestionFocus } from './questionFocus';
+import {
+  SCRIPT_DRAFT_TOOLS,
+  SCRIPT_HOOK_TOOLS,
+  SCRIPT_MAX_TURNS,
+  SCRIPT_SYSTEM_PROMPT,
+  SCRIPT_TIGHTEN_TOOLS,
+  SCRIPT_TIMEOUT_MS,
+  scriptDraftQuestion,
+  scriptHooksQuestion,
+  scriptTightenQuestion,
+} from './scriptQuestions';
 
 export const LAB_ANALYSIS_IDS = [
   'concepts',
@@ -37,6 +48,9 @@ export const LAB_ANALYSIS_IDS = [
   'where-else',
   'title-formulas',
   'hook-styles',
+  'script-hooks',
+  'script-draft',
+  'script-tighten',
 ] as const;
 export type LabAnalysisId = (typeof LAB_ANALYSIS_IDS)[number];
 
@@ -47,6 +61,8 @@ export interface LabSpec {
   readonly tools: readonly string[];
   readonly maxTurns: number;
   readonly timeoutMs: number;
+  /** Who the engine is for this question, when it is not the usual analyst. */
+  readonly systemPrompt?: string;
   readonly question: (channel: string, focus?: QuestionFocus) => string;
 }
 
@@ -101,5 +117,32 @@ export const LAB_SPECS: Readonly<Record<LabAnalysisId, LabSpec>> = {
     maxTurns: HOOK_STYLE_MAX_TURNS,
     timeoutMs: HOOK_STYLE_TIMEOUT_MS,
     question: (channel) => hookStylesQuestion(channel),
+  },
+  'script-hooks': {
+    title: 'Hooks and beat sheet',
+    description: 'Writes three hooks that open in different ways, and a beat sheet for the rest.',
+    tools: SCRIPT_HOOK_TOOLS,
+    maxTurns: SCRIPT_MAX_TURNS,
+    timeoutMs: SCRIPT_TIMEOUT_MS,
+    systemPrompt: SCRIPT_SYSTEM_PROMPT,
+    question: (channel, focus) => scriptHooksQuestion(channel, labFocusOf(focus, 'script')),
+  },
+  'script-draft': {
+    title: 'Script draft',
+    description: 'Writes the full script for the chosen hook and beats, with picture cues.',
+    tools: SCRIPT_DRAFT_TOOLS,
+    maxTurns: SCRIPT_MAX_TURNS,
+    timeoutMs: SCRIPT_TIMEOUT_MS,
+    systemPrompt: SCRIPT_SYSTEM_PROMPT,
+    question: (channel, focus) => scriptDraftQuestion(channel, labFocusOf(focus, 'script')),
+  },
+  'script-tighten': {
+    title: 'Tighten pass',
+    description: 'Makes the draft easier to say and to follow, without adding facts.',
+    tools: SCRIPT_TIGHTEN_TOOLS,
+    maxTurns: SCRIPT_MAX_TURNS,
+    timeoutMs: SCRIPT_TIMEOUT_MS,
+    systemPrompt: SCRIPT_SYSTEM_PROMPT,
+    question: (channel, focus) => scriptTightenQuestion(channel, labFocusOf(focus, 'script')),
   },
 };

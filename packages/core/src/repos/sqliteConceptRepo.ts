@@ -295,14 +295,16 @@ export class SqliteConceptRepo implements ConceptRepo {
 
   /**
    * Removes a channel's concepts that were not kept, sparing one batch when
-   * named, then the channel's batches left with nothing. Returns how many
+   * named and every concept a script was started for (a script is the owner's
+   * work and is never cleared away), then the channel's batches left with nothing. Returns how many
    * concepts went. Runs inside the caller's transaction.
    */
   private removeUnkept(centerChannelId: string, spareBatchId: number | null): number {
     const { changes } = this.db
       .prepare(
         `DELETE FROM concepts WHERE kept = 0 AND batch_id IS NOT @spare AND batch_id IN
-           (SELECT id FROM concept_batches WHERE center_channel_id = @center)`,
+           (SELECT id FROM concept_batches WHERE center_channel_id = @center)
+           AND id NOT IN (SELECT concept_id FROM scripts)`,
       )
       .run({ center: centerChannelId, spare: spareBatchId });
     this.db
