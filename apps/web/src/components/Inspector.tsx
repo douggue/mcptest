@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import type { CompetitorStatus, SnapshotChannel } from '@jgtube/core';
 import { ExternalLink, X } from 'lucide-react';
 import { competitorActions, unsettledNote } from '../lib/feed';
-import { channelUrl, formatCount, formatScore, initials, percent, watchUrl } from '../lib/format';
+import { channelUrl, formatCount, formatScore, percent, watchUrl } from '../lib/format';
+import { ChannelLogo } from './ChannelLogo';
 import { GROUP_LABEL, describeGroup } from '../lib/mix';
 import { OUTSIDE_LABEL, TIER_LABEL } from './tiers';
 
@@ -45,7 +46,7 @@ export function Inspector({ channel, onClose, onSetStatus }: Props) {
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-space-sm">
           <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-surface-container-high text-body-sm font-bold text-secondary shadow-md">
-            {initials(channel.title)}
+            <ChannelLogo title={channel.title} logoUrl={channel.logoUrl} />
           </div>
           <div className="min-w-0">
             <span className="block truncate text-headline-md leading-tight text-on-surface">

@@ -99,6 +99,9 @@ compiler:
   list; **Everything** is every channel that was read. Click a channel for
   details. You can remove one that is not a competitor, or keep one the filter
   left out.
+  Each channel shows its own logo once Jgtube has read it since logos were
+  added; a map made before that shows initials until you press **Refresh now**
+  or make the map again.
 - **Taken off and rising.** Each channel like yours is labelled **Taken off** (its
   uploads of the last three months are widely seen again and again), **Rising**
   (under three months old and already far above its size) or **Neither**. They

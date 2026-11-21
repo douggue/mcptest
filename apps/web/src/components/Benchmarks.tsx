@@ -1,7 +1,8 @@
 import type { MapSnapshot } from '@jgtube/core';
 import { Eye, Network } from 'lucide-react';
 import { useState } from 'react';
-import { formatCount, formatScore, initials } from '../lib/format';
+import { formatCount, formatScore } from '../lib/format';
+import { ChannelLogo } from './ChannelLogo';
 import { GROUP_LABEL } from '../lib/mix';
 import { TIER_LABEL } from './tiers';
 
@@ -50,7 +51,7 @@ export function Benchmarks({ snapshot, selectedId, onSelect }: Props) {
             >
               <div className="flex min-w-0 items-center gap-space-sm">
                 <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-space-deep text-xs font-bold text-secondary">
-                  {initials(channel.title).charAt(0)}
+                  <ChannelLogo title={channel.title} logoUrl={channel.logoUrl} letters={1} />
                 </div>
                 <div className="flex min-w-0 flex-col">
                   <span className="truncate text-body-sm font-semibold text-on-surface">

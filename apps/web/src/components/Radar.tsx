@@ -1,7 +1,8 @@
 import type { MapSnapshot } from '@jgtube/core';
 import { Maximize, Minus, Plus } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { formatScore, initials } from '../lib/format';
+import { formatScore } from '../lib/format';
+import { ChannelLogo } from './ChannelLogo';
 import type { RadarLayout, RadarNode } from '../lib/radarLayout';
 
 const STAGE_WIDTH = 1200;
@@ -56,7 +57,7 @@ function Node({
       style={{ left: STAGE_WIDTH / 2 + node.x, top: STAGE_HEIGHT / 2 + node.y }}
       className={`group absolute z-20 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-surface-card font-bold text-secondary transition-transform hover:z-30 hover:scale-110 ${NODE_SIZE[node.tier]} ${glow}`}
     >
-      {initials(node.title)}
+      <ChannelLogo title={node.title} logoUrl={node.logoUrl} />
       {node.badge !== null && (
         <span className="absolute -right-3 -top-1.5 rounded-full bg-[#2a1f08] px-1.5 py-0.5 text-metric-badge text-metric-amber shadow-[0_0_8px_rgba(251,191,36,0.3)]">
           {formatScore(node.badge)}
@@ -145,7 +146,7 @@ export function Radar({ snapshot, layout, selectedId, onSelect, emptyState, chil
             >
               <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-surface-card shadow-[0_0_32px_rgba(0,210,255,0.6)]">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-space-deep text-title-md font-bold text-primary-container">
-                  {initials(snapshot.center.title)}
+                  <ChannelLogo title={snapshot.center.title} logoUrl={snapshot.center.logoUrl} />
                 </div>
                 <span className="pointer-events-none absolute -inset-2 animate-ping rounded-full border border-primary-container/40" />
                 <span className="pointer-events-none absolute -inset-3 rounded-full border border-primary-container/20" />

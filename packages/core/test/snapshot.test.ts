@@ -241,6 +241,46 @@ describe('loadMapSnapshot', () => {
     expect(JSON.parse(JSON.stringify(snapshot))).toEqual(snapshot);
   });
 
+  test('adds each channel’s logo from the store as it is now, and null where none was read', () => {
+    saveMap();
+    const logo = (letter: string) => ({
+      url: `https://yt3.googleusercontent.com/${letter}=s176`,
+      width: 176,
+      height: 176,
+    });
+    const brands = {
+      find: (id: string) =>
+        id === cid('B')
+          ? null
+          : {
+              channelId: id,
+              description: null,
+              avatar: [logo(id === cid('C') ? 'c' : 'a')],
+              banner: [],
+              keywords: [],
+              links: [],
+              fetchedAt: NOW,
+            },
+    };
+
+    const snapshot = loadMapSnapshot({ ...deps, brands }, cid('C'), NOW);
+
+    expect(snapshot?.center.logoUrl).toBe('https://yt3.googleusercontent.com/c=s176');
+    expect(snapshot?.channels.map((c) => [c.title, c.logoUrl])).toEqual([
+      ['Channel A', 'https://yt3.googleusercontent.com/a=s176'],
+      ['Channel B', null],
+    ]);
+  });
+
+  test('leaves logos out when no brand store is given', () => {
+    saveMap();
+
+    const snapshot = loadMapSnapshot(deps, cid('C'), NOW);
+
+    expect(snapshot?.center.logoUrl).toBeUndefined();
+    expect(snapshot?.channels[0]?.logoUrl).toBeUndefined();
+  });
+
   test('lists each channel with its tier, link to the centre and best breakout', () => {
     saveMap();
 

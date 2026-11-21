@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import type { MapRepo, StoredMap } from '../repos/types';
+import { LOGO_SHOWN_MIN_WIDTH, pickImage } from '../channel/brand';
+import type { BrandRepo, MapRepo, StoredMap } from '../repos/types';
 import { listBreakouts, type BreakoutVideo } from './breakouts';
 import { applyOwnerChoices } from './choices';
 import type { ChannelGroup } from './mix';
@@ -40,11 +41,18 @@ export interface SnapshotCenter {
   readonly handle: string | null;
   readonly subscribers: number | null;
   readonly storedVideos: number;
+  /**
+   * The address of the channel's logo, or null when none has been read.
+   * Added on every read from the store as it is now; a frozen copy never holds it.
+   */
+  readonly logoUrl?: string | null;
 }
 
 export interface SnapshotChannel {
   readonly id: string;
   readonly title: string;
+  /** The address of the channel's logo, or null when none has been read. Added on every read. */
+  readonly logoUrl?: string | null;
   readonly handle: string | null;
   readonly subscribers: number | null;
   readonly steps: number;
@@ -90,6 +98,25 @@ export interface SnapshotEdge {
 
 export interface SnapshotDeps extends MapViewDeps {
   readonly maps: MapRepo;
+  /** Where channel logos are kept. Without it a snapshot carries no logos. */
+  readonly brands?: Pick<BrandRepo, 'find'>;
+}
+
+/**
+ * The snapshot with each channel's logo as the store has it now. Logos are
+ * read when a channel is, so a map frozen earlier gains them as its channels
+ * are read again.
+ */
+function withLogos(deps: SnapshotDeps, snapshot: MapSnapshot): MapSnapshot {
+  const { brands } = deps;
+  if (!brands) return snapshot;
+  const logoOf = (channelId: string): string | null =>
+    pickImage(brands.find(channelId)?.avatar ?? [], LOGO_SHOWN_MIN_WIDTH)?.url ?? null;
+  return {
+    ...snapshot,
+    center: { ...snapshot.center, logoUrl: logoOf(snapshot.center.id) },
+    channels: snapshot.channels.map((channel) => ({ ...channel, logoUrl: logoOf(channel.id) })),
+  };
 }
 
 /** Builds a map's snapshot from what the store holds right now. */
@@ -238,10 +265,11 @@ export function loadMapSnapshot(
     parseStored(deps.maps.findSnapshot(map.id), map.id) ?? buildSnapshot(deps, map, now);
   if (!snapshot) return null;
   // Copies frozen before model channels existed do not carry the field.
-  return applyOwnerChoices(
+  const chosen = applyOwnerChoices(
     deps,
     { ...snapshot, model: snapshot.model ?? null },
     centerChannelId,
     now,
   );
+  return withLogos(deps, chosen);
 }

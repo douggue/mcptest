@@ -315,6 +315,7 @@ function discovery(wiring: Wiring, fillFacts: FillFacts): Discovery {
           {
             channels: repos.channels,
             videos: repos.videos,
+            brands: repos.brands,
             source: await connected(),
             transact: transactionRunner(db),
             now,

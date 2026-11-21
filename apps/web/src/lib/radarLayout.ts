@@ -35,6 +35,8 @@ const BADGE_MIN_SCORE = 5;
 export interface RadarNode {
   readonly id: string;
   readonly title: string;
+  /** The address of the channel's logo; null when none has been read. */
+  readonly logoUrl: string | null;
   readonly x: number;
   readonly y: number;
   readonly tier: Tier;
@@ -103,6 +105,7 @@ function placeRing(channels: readonly SnapshotChannel[], tier: Tier): readonly R
     return {
       id: channel.id,
       title: channel.title,
+      logoUrl: channel.logoUrl ?? null,
       x: radius * Math.cos(angle),
       y: radius * Math.sin(angle),
       tier,

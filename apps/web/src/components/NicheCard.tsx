@@ -2,7 +2,8 @@ import type { NicheChannel, NicheReason } from '@jgtube/core';
 import { Bookmark, BookmarkCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { scoreTone } from '../lib/board';
-import { channelUrl, formatCount, initials, logoUrl, watchUrl } from '../lib/format';
+import { channelUrl, formatCount, watchUrl } from '../lib/format';
+import { ChannelLogo } from './ChannelLogo';
 import {
   describeEarnings,
   describeGrowth,
@@ -205,20 +206,9 @@ function Videos({ channel }: { readonly channel: NicheChannel }) {
 
 /** The channel's own logo once it has been read, and its initial until then. */
 function Logo({ channel }: { readonly channel: NicheChannel }) {
-  const logo = logoUrl(channel.logoUrl);
   return (
     <div className="flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full bg-space-deep text-xs font-bold text-secondary">
-      {logo ? (
-        <img
-          src={logo}
-          alt=""
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          className="h-full w-full object-cover"
-        />
-      ) : (
-        initials(channel.title).charAt(0)
-      )}
+      <ChannelLogo title={channel.title} logoUrl={channel.logoUrl} letters={1} />
     </div>
   );
 }

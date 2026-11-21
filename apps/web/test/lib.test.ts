@@ -254,6 +254,20 @@ describe('layoutRadar', () => {
   });
   const distance = (node: { x: number; y: number }) => Math.hypot(node.x, node.y);
 
+  test('carries each channel’s logo to its node, and null when it has none', () => {
+    const { nodes } = layoutRadar(
+      snapshotOf([
+        channel(1, { tier: 'close', logoUrl: 'https://yt3.googleusercontent.com/one=s176' }),
+        channel(2, { tier: 'close' }),
+      ]),
+    );
+
+    expect(nodes.map((node) => node.logoUrl)).toEqual([
+      'https://yt3.googleusercontent.com/one=s176',
+      null,
+    ]);
+  });
+
   test('puts each channel on the ring for its tier', () => {
     const layout = layoutRadar(
       snapshotOf([
