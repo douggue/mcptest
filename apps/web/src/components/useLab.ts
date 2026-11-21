@@ -135,7 +135,7 @@ export function useLab(
       } else if (outcome.kind === 'formulas') {
         setFormulas(outcome.list);
         setFormulaNotes(outcome);
-      } else {
+      } else if (outcome.kind === 'hooks-built' || outcome.kind === 'hooks-labelled') {
         setLibrary(outcome.library);
       }
     },

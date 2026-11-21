@@ -1156,27 +1156,28 @@ engine as the local API (`createEngine`) and opens the same store, so the owner'
 Claude reads what the app shows. Setup for the owner is in
 [CONNECTOR.md](CONNECTOR.md).
 
-| Tool                          | Input                                                                             | Returns                                                                                                                                                         |
-| ----------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `get_map`                     | `channel`, `include_others?`, `limit?` (30)                                       | Latest map: centre, model channel, counts, look-alikes (id, title, subs, match, tier, rising, best breakout)                                                    |
-| `get_breakouts`               | `channel`, `lookalikes_only?` (true), `limit?` (15)                               | Recent videos far above usual, with score, views, usual, sample, hit rate, channel age, caution                                                                 |
-| `get_thumbnail_board`         | `channel`, `channels?` (8), `per_channel?` (4)                                    | Per look-alike with a winner: winners and ordinary videos (id, title, views, score); the centre's own videos                                                    |
-| `view_thumbnails`             | `video_ids` (1 to 8)                                                              | The thumbnails as image content, each under a line naming its video; a failed one is a line of text                                                             |
-| `get_channel_videos`          | `channel`, `order?`, `limit?` (20)                                                | One stored channel's videos with scores (`buildVideoReport`)                                                                                                    |
-| `get_near_misses`             | `channel`, `limit?` (25)                                                          | Channels left out on titles alone (`outsideReason: 'titles'`, not kept or removed) with five recent titles                                                      |
-| `set_competitor_status`       | `center`, `channel`, `status` (kept, removed, auto)                               | Records the owner's choice (`setCompetitorStatus`) and says whether the channel now counts as a look-alike                                                      |
-| `list_niches`                 | `limit?` (15), `watched_only?`                                                    | New or small channels with a video that took off (`listNiches`)                                                                                                 |
-| `list_transfer_opportunities` | `channel?`, `place?`, `show?` (opportunities, formats, saved, all), `limit?` (10) | Ideas open or weak for the owner's place with up to five versions each, or the title formats (`listTransfers`)                                                  |
-| `make_map`                    | `channel`, `model?`, `depth?` (1..3), `max_channels?` (10..600)                   | Crawls a new map, then the same summary as `get_map` plus warnings                                                                                              |
-| `get_transcript`              | `video` (id or link), `start_seconds?`, `max_chars?` (12,000; 1,000..40,000)      | A line of JSON (`lang`, `auto`, `lines`, `lastLineAt`, `cut`), then the captions as text with the time every half minute; `captions: false` when there are none |
-| `view_video_frames`           | `video`, `sheets?` (4; 1..6), `start_sheet?` (from 1)                             | A line of JSON (`source`, `ofSheets`, `frames`; with `start_sheet` also `from`, `to` and `next.start_sheet` or `last`), then each sheet as image content        |
-| `get_channel_brand`           | `channel`, `images?` (true)                                                       | A line of JSON (`bio`, `keywords`, `links`, `logo`, `cover`), then the logo and the cover as image content                                                      |
-| `get_video_details`           | `video_ids` (1 to 10), `description_chars?` (1,500; 200..5,000)                   | Per video: title, description, tags, `secs`, views, score; `problems` for a video that could not be read                                                        |
-| `get_video_watch`             | `video`                                                                           | A line of JSON (`watched`, `by`, `at`), then the stored notes of an engine that watched the video; `watched: false` when nobody has                             |
-| `get_frame_study`             | `video`                                                                           | A line of JSON (`studied`, `by`, `at`, `source`, `framesAvailable`), then the stored study of the video's frames; `studied: false` when there is none           |
-| `get_idea_brief`              | `channel`, `batch`                                                                | What the owner chose for one batch of concepts: `picked`, `length`, `modelOpenings`, `format` (`wording`, `from`); never the angle                              |
-| `get_concept`                 | `channel`, `concept`                                                              | A line of JSON (`concept`, `batch`, `length`, `restedOn`), then the stored concept in its labelled lines                                                        |
-| `get_hooks`                   | `channel`, `video_ids?` (1 to 12)                                                 | A line of JSON (`built`, `seconds`, `hooks`, `noWords`), then per hook a line of JSON (`video`, `title`, `score`, `style`, `how`) and its first-minute words    |
+| Tool                          | Input                                                                             | Returns                                                                                                                                                                  |
+| ----------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `get_map`                     | `channel`, `include_others?`, `limit?` (30)                                       | Latest map: centre, model channel, counts, look-alikes (id, title, subs, match, tier, rising, best breakout)                                                             |
+| `get_breakouts`               | `channel`, `lookalikes_only?` (true), `limit?` (15)                               | Recent videos far above usual, with score, views, usual, sample, hit rate, channel age, caution                                                                          |
+| `get_thumbnail_board`         | `channel`, `channels?` (8), `per_channel?` (4)                                    | Per look-alike with a winner: winners and ordinary videos (id, title, views, score); the centre's own videos                                                             |
+| `view_thumbnails`             | `video_ids` (1 to 8)                                                              | The thumbnails as image content, each under a line naming its video; a failed one is a line of text                                                                      |
+| `get_channel_videos`          | `channel`, `order?`, `limit?` (20)                                                | One stored channel's videos with scores (`buildVideoReport`)                                                                                                             |
+| `get_near_misses`             | `channel`, `limit?` (25)                                                          | Channels left out on titles alone (`outsideReason: 'titles'`, not kept or removed) with five recent titles                                                               |
+| `set_competitor_status`       | `center`, `channel`, `status` (kept, removed, auto)                               | Records the owner's choice (`setCompetitorStatus`) and says whether the channel now counts as a look-alike                                                               |
+| `list_niches`                 | `limit?` (15), `watched_only?`                                                    | New or small channels with a video that took off (`listNiches`)                                                                                                          |
+| `list_transfer_opportunities` | `channel?`, `place?`, `show?` (opportunities, formats, saved, all), `limit?` (10) | Ideas open or weak for the owner's place with up to five versions each, or the title formats (`listTransfers`)                                                           |
+| `make_map`                    | `channel`, `model?`, `depth?` (1..3), `max_channels?` (10..600)                   | Crawls a new map, then the same summary as `get_map` plus warnings                                                                                                       |
+| `get_transcript`              | `video` (id or link), `start_seconds?`, `max_chars?` (12,000; 1,000..40,000)      | A line of JSON (`lang`, `auto`, `lines`, `lastLineAt`, `cut`), then the captions as text with the time every half minute; `captions: false` when there are none          |
+| `view_video_frames`           | `video`, `sheets?` (4; 1..6), `start_sheet?` (from 1)                             | A line of JSON (`source`, `ofSheets`, `frames`; with `start_sheet` also `from`, `to` and `next.start_sheet` or `last`), then each sheet as image content                 |
+| `get_channel_brand`           | `channel`, `images?` (true)                                                       | A line of JSON (`bio`, `keywords`, `links`, `logo`, `cover`), then the logo and the cover as image content                                                               |
+| `get_video_details`           | `video_ids` (1 to 10), `description_chars?` (1,500; 200..5,000)                   | Per video: title, description, tags, `secs`, views, score; `problems` for a video that could not be read                                                                 |
+| `get_video_watch`             | `video`                                                                           | A line of JSON (`watched`, `by`, `at`), then the stored notes of an engine that watched the video; `watched: false` when nobody has                                      |
+| `get_frame_study`             | `video`                                                                           | A line of JSON (`studied`, `by`, `at`, `source`, `framesAvailable`), then the stored study of the video's frames; `studied: false` when there is none                    |
+| `get_idea_brief`              | `channel`, `batch`                                                                | What the owner chose for one batch of concepts: `picked`, `length`, `modelOpenings`, `format` (`wording`, `from`); never the angle                                       |
+| `get_concept`                 | `channel`, `concept`                                                              | A line of JSON (`concept`, `batch`, `length`, `restedOn`), then the stored concept in its labelled lines                                                                 |
+| `get_script`                  | `channel`, `concept`, `part?` (plan, draft, tightened)                            | A line of JSON (`voice`, `targetSeconds`, `targetWords`, `hookWords`, `modelHooks`, `frameStudies`), then the concept, the chosen hook, the beats and the asked-for text |
+| `get_hooks`                   | `channel`, `video_ids?` (1 to 12)                                                 | A line of JSON (`built`, `seconds`, `hooks`, `noWords`), then per hook a line of JSON (`video`, `title`, `score`, `style`, `how`) and its first-minute words             |
 
 One prompt, `thumbnail_review` (argument `channel`), tells the model to read the
 board, look at the owner's thumbnails and the winners with `view_thumbnails`, and
@@ -1246,8 +1247,8 @@ Built (`packages/server/src/engines/`, `analyses.ts`, `analysisEngine.ts`,
 `analysisRoutes.ts`, `POST /api/analyses`, `GET /api/engines`). Three fixed
 analyses can be put to an AI engine from the page with one press: `thumbnails`,
 `topics` and `near-misses`. A fourth, `breakdown`, is the last step of a longer
-job (see "Channel breakdown"). Six more belong to the idea lab and are started
-through its own routes (see "Idea lab, trending formats and the hook library"). An analysis is one entry in `ANALYSES`: a title,
+job (see "Channel breakdown"). Six more belong to the idea lab and three to the script writer, and are started
+through their own routes (see "Idea lab, trending formats and the hook library"). An analysis is one entry in `ANALYSES`: a title,
 a fixed question, the read-only tools it may use, a step limit, a time limit
 when the usual five minutes are not enough and, when it cannot be left to the
 owner's usual order, the engines that may answer it.
@@ -1728,6 +1729,98 @@ letters. It is a rule of thumb, stated as one on the page.
 batch of ten concepts 92 seconds; a twist 42; a more-like-this 57; where-else
 57; title formulas for 90 days about two minutes; building a hook library of
 twelve 20 to 25 seconds; naming its styles 37 to 90 seconds.
+
+### Script writer (`scriptEngine.ts`, `scriptQuestions.ts`, `scriptRoutes.ts`, `core/src/script/`)
+
+Built. One script per concept (migration 14, `scripts`, `ON DELETE CASCADE`
+from its concept), read and changed only through the concept's centre channel.
+Starting a script keeps its concept, and a concept with a script is never
+cleared away, kept or not. Three more analyses, `script-hooks`, `script-draft`
+and `script-tighten`, each a fixed question that names a channel in its fixed
+form and a concept by its number and nothing else; the concept, the voice's
+numbers, the chosen hook, the beat sheet and the draft are read through the
+read-only tool `get_script`, the hooks through `get_hooks`. They are put to a
+script writer (`SCRIPT_SYSTEM_PROMPT`), not to the usual analyst.
+
+**The honesty rule** (`HONESTY_RULE`, carried by all three questions). The
+engines have no web access. Every factual claim the engine cannot vouch for
+(names, dates, numbers, places, quotes, what a product or a company does or
+did) must be followed at once by `[CHECK: what to verify]`; a fact read in
+another channel's transcript is that channel's claim and is marked too; a fact
+is never invented to make the script flow. The code does not and cannot check
+facts. What it does: counts the markers (`checkMarkers`), lists each with the
+sentence it stands in, lists sentences that hold a digit and no marker
+(`figuresWithoutCheck`: a help for the eye, not a judgement), keeps the
+markers in the text and Markdown exports, and refuses to copy the clean
+voiceover silently while markers remain. In the real run the engine wrote
+real-world facts from its own memory and marked them, several as "written
+from memory": such facts can be wrong or out of date, which is what the
+markers are for.
+
+**Text measures** (`core/src/script/measure.ts`, pure). A script is plain
+text with three marks: a line starting `## ` is a heading, a line of the form
+`[B-ROLL: ...]` is a picture cue, `[CHECK: ...]` is a marker. None is spoken,
+so none counts. `countWords` counts what stands between spaces and holds a
+letter or a digit; `spokenSeconds` is words over a rate; `readingGrade` is
+Flesch-Kincaid, 0.39 x words per sentence + 11.8 x syllables per word - 15.59.
+The syllable rule (`countSyllables`): each run of vowels (a, e, i, o, u, y) is
+one syllable; a final "e" is not counted unless the word ends in a consonant
+and "le" or has no other vowel; at least one. The grade is an estimate for
+English only and is null for text under 30 words, text where under four fifths
+of the letters are Latin (`LATIN_MIN_SHARE` 0.8), and text with no sentence
+ends (over 60 words to a sentence on average), which is what captions made by
+listening often are.
+
+**Voice** (`core/src/script/voice.ts`). The voice channel is the model channel
+when the map has one, else the centre, or any channel on this map the owner
+picks; a channel off the map is refused. `VOICE_VIDEOS = 5`: its best videos by
+the breakdown's rule. From their stored captions: the median pace
+(`transcriptPace`), the median of each video's median sentence length, and the
+median reading grade; sentence length and grade only from captions that have
+sentence ends. Nothing is a preset: with no captions read there is no rate,
+the stages are refused, and the owner reads the captions (`POST
+/api/lab/voice/read`, a job, not an AI run) or types a rate.
+
+**Length.** Long-form: the owner chooses within `lengthRange` of the
+look-alikes' breakouts on this map: their stored lengths, Shorts (60 seconds
+or under) left out, the shortest and longest tenth trimmed, at least three
+needed; the default is the median. Shorts: `SHORTS_TARGET_SECONDS = 50`,
+at most 59. The hook is `LONG_HOOK_SECONDS = 60` at the voice's rate (the
+owner asked for one-minute hooks) and `SHORTS_HOOK_SECONDS = 10` for a Short.
+
+**Stages.** `POST /api/lab/scripts/stage {channel, concept, stage, engine?}`
+is an AI job in the shared slot. Hooks: three hooks in the form `HOOK n`,
+`WAY:`, `MODEL:`, `TEXT:`, then `BEATS` and `BEAT: time | name | what
+happens`; one hook per library hook the owner chose as a model (up to
+`MAX_HOOK_MODELS = 3`, stored with the script; the concept's HOOK STYLE is
+the first by default), else three the engine chooses from the library; a
+model is for the way of opening only. Draft: the chosen hook, then every beat,
+to `targetWords`, with cue lines and markers, headings `## `; cues at the rate
+the picture really changes when `get_script` lists frame studies of the voice
+channel, else where the subject changes, with no cut rate invented. Tighten:
+the same script toward `targetGrade` (the voice's own), nothing added, every
+marker and cue kept. `parseHooksAndBeats` and `scriptBody` read the answers;
+an answer with no hook or no words changes nothing.
+
+**Cues and exports** (`core/src/script/cues.ts`, `apps/web/src/lib/scriptWriter.ts`).
+`parseCues` reads each `[B-ROLL: what | search | sound]` line and gives it a
+start and an end computed from the words spoken before and under it at the
+script's rate; a time written inside a cue is just words. `shotListCsv` has a
+first row of column names and one row per cue; `toCsv` quotes cells that hold a
+comma, a quote or a line break, doubles quotes, ends rows with CR LF, and puts
+an apostrophe before a cell that starts with `=`, `+`, `-` or `@` so a
+spreadsheet does not run it. `cleanVoiceover` is the spoken text only. The
+page saves a change 600 ms after typing stops (`POST /api/lab/scripts`, body
+up to four texts of 120,000 characters).
+
+**Lifted phrases** (`core/src/hooks/lift.ts`). `LIFT_MIN_WORDS = 6`: a written
+hook (a concept's, or one of a script's three) that shares six or more words in
+a row with any hook of the library is flagged on the page with the phrase.
+
+**Measured** with Claude Code on a copy of a real store (November 2026), for
+one sixteen-minute script: reading five captions for the voice 6 seconds;
+hooks and beats 69 seconds; draft 162 seconds (2,271 words spoken, 76 markers,
+55 cues); tighten 72 seconds.
 
 ### Starting a program on Windows (`engines/executable.ts`)
 

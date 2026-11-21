@@ -2,7 +2,15 @@ import type { DroppedFormula, VerifiedFormula } from '@jgtube/core';
 import { AUTOMATIC, type EngineChoice } from './analyses';
 import { apiCaller, type Fetch } from './api';
 import type { HookBuildOutcome, HookLabelOutcome, HookLibrary } from './hookLibrary';
+import type { ScriptFields } from '@jgtube/core';
 import type { Answered, AnswerOutcome, ConceptOutcome, ConceptView } from './ideaLab';
+import type {
+  ScriptOutcome,
+  ScriptStage,
+  ScriptView,
+  VoiceOutcome,
+  VoiceView,
+} from './scriptWriter';
 
 /** The idea lab's part of the local server's API: concepts, title formulas and the hook library. */
 
@@ -27,7 +35,13 @@ export interface FormulaOutcome extends Answered {
 }
 
 export type LabOutcome =
-  ConceptOutcome | AnswerOutcome | FormulaOutcome | HookBuildOutcome | HookLabelOutcome;
+  | ConceptOutcome
+  | AnswerOutcome
+  | FormulaOutcome
+  | HookBuildOutcome
+  | HookLabelOutcome
+  | ScriptOutcome
+  | VoiceOutcome;
 
 export interface LabJob {
   readonly id: string;
@@ -93,6 +107,32 @@ export function createLabApi(fetcher?: Fetch) {
 
     startHookLabels: (channel: string, choice: EngineChoice) =>
       started('/api/lab/hooks/label', { channel, ...withEngine(choice) }),
+
+    /** Starts a concept's script when there is none, and returns it. */
+    async openScript(channel: string, concept: number): Promise<ScriptView> {
+      return unwrap<ScriptView>(await send('/api/lab/scripts/open', { channel, concept }));
+    },
+
+    /** Stores the owner's changes to a script and returns it as it now stands. */
+    async saveScript(
+      channel: string,
+      concept: number,
+      changes: Partial<ScriptFields>,
+    ): Promise<ScriptView> {
+      return unwrap<ScriptView>(await send('/api/lab/scripts', { channel, concept, changes }));
+    },
+
+    /** Starts one stage of a script: hooks and beats, the draft, or the tighten pass. */
+    startStage: (channel: string, concept: number, stage: ScriptStage, choice: EngineChoice) =>
+      started('/api/lab/scripts/stage', { channel, concept, stage, ...withEngine(choice) }),
+
+    /** A channel of this map as a voice, measured from its stored captions; null when it is not on the map. */
+    voice: (channel: string, voice: string) =>
+      read<VoiceView>(`/api/lab/voice?${of(channel)}&voice=${encodeURIComponent(voice)}`),
+
+    /** Reads from YouTube the captions of the voice channel's best videos. Not an AI run. */
+    startVoiceRead: (channel: string, voice: string) =>
+      started('/api/lab/voice/read', { channel, voice }),
 
     async job(id: string): Promise<LabJob> {
       return unwrap<LabJob>(await call(`/api/jobs/${encodeURIComponent(id)}`));

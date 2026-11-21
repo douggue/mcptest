@@ -203,6 +203,20 @@ Phase 7 needs 5.
 - [ ] A check, in code, that a concept's title is not a competitor's title with a word changed (it is a rule of the question only)
 - [ ] The phone cut-off measured, not taken from a rule of thumb: YouTube publishes no number
 
+## Script writer
+
+- [x] Store: one script per concept (migration 14), scoped by centre channel through its concept; a concept with a script is never cleared
+- [x] Text measures in core, pure and tested: words, spoken time, Flesch-Kincaid grade with a stated syllable rule (English only, null otherwise), check markers, sentences with a figure and no marker
+- [x] Voice from the channel's own captions (pace, sentence length, grade); length range from this map's winners; no presets
+- [x] Three stages as jobs: one-minute hooks (one per chosen library model) and a beat sheet, the draft with picture cues, the tighten pass
+- [x] The honesty rule in every stage; markers counted, listed and carried by the exports
+- [x] Exports: clean voiceover to the clipboard (two presses while markers remain), .txt, .md, B-roll shot list .csv with times computed from the words
+- [x] Hook library connected: models chosen from hook cards or the script writer; a concept's HOOK STYLE is the default model; lifted phrases flagged in code
+- [x] One real run of all three stages on a copy of a real store
+- [ ] Facts checked by anything but the owner: the engines have no web access, and Jgtube has no fact check
+- [ ] Picture cues paced from a frame study: written and tested with stand-ins, but no frame study was stored for the voice channel in the real run
+- [ ] A reading grade for languages other than English
+
 ## Downloaders
 
 - [x] Transcripts: a video's captions read through the YouTube source and stored (`video_transcripts`); a video without captions is a normal answer; `npm run jgtube -- transcript`

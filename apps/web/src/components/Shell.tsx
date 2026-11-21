@@ -6,6 +6,7 @@ import {
   Image,
   Layers,
   Lightbulb,
+  PenLine,
   Quote,
   Radar,
   Shapes,
@@ -28,6 +29,7 @@ const RAIL = [
   { label: 'Trending formats', icon: Shapes, target: 'formulas-title' },
   { label: 'Hook library', icon: Quote, target: 'hook-library-title' },
   { label: 'Idea lab', icon: Lightbulb, target: 'idea-lab-title' },
+  { label: 'Script writer', icon: PenLine, target: 'script-writer-title' },
   { label: 'Transfer opportunities', icon: Globe, target: 'transfers-title' },
   { label: 'New niches', icon: Sprout, target: 'niches-title' },
 ] as const;

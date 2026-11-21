@@ -133,6 +133,7 @@ written down and kept.
 | `get_idea_brief` | What you chose in the app's idea lab for one batch of concepts: the picked videos, the length and the title format. Used by the app's own AI runs. |
 | `get_concept` | One concept the idea lab stored for a channel, in its labelled lines. Used by the app's own AI runs. |
 | `get_hooks` | The hook library of a channel's map: the first minute of what its top breakout videos say, word for word, with the style name when one was given. |
+| `get_script` | The script the app's script writer holds for one concept, with the numbers it is written to. Used by the app's own AI runs. |
 
 ## Good to know
 
