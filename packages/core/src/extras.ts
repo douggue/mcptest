@@ -45,7 +45,12 @@ export {
   type AlertFinding,
   type AlertKind,
 } from './alerts/alerts';
-export { checkDueAlerts, type AlertCheck, type AlertCheckDeps } from './alerts/check';
+export {
+  checkDueAlerts,
+  checkStoredAlerts,
+  type AlertCheck,
+  type AlertCheckDeps,
+} from './alerts/check';
 export type { AlertRepo, AlertRule, AlertSettings, StoredAlert } from './alerts/store';
 export { lookalikeHistories, type HistoryDeps, type MapHistories } from './changes/load';
 export { SqliteAlertRepo } from './repos/sqliteAlertRepo';

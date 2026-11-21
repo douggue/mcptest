@@ -1,3 +1,6 @@
+import type { Db } from '../db/sqlite';
+import { SqliteAlertRepo } from '../repos/sqliteAlertRepo';
+import { SqliteRefreshRepo } from '../repos/sqliteRefreshRepo';
 import { lookalikeHistories, type HistoryDeps } from '../changes/load';
 import type { RefreshRunRepo } from '../repos/types';
 import { findAlerts } from './alerts';
@@ -39,4 +42,12 @@ export function checkDueAlerts(deps: AlertCheckDeps, now: Date): AlertCheck {
     .filter((rule) => rule.enabled && rule.checkedAt.getTime() < lastRefresh);
   const added = due.reduce((total, rule) => total + checkRule(deps, rule, now), 0);
   return { checked: due.length, added };
+}
+
+/** `checkDueAlerts` on an open store, for a refresh to call in one line. */
+export function checkStoredAlerts(db: Db, repos: HistoryDeps, now: Date): AlertCheck {
+  return checkDueAlerts(
+    { ...repos, alerts: new SqliteAlertRepo(db), runs: new SqliteRefreshRepo(db) },
+    now,
+  );
 }

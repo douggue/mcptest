@@ -21,6 +21,7 @@ import { ingestChannel } from './ingest';
 import { withYouTubeLease } from './lease';
 import { fillNicheFacts } from './niches/facts';
 import { loadMapView } from './map/view';
+import { checkStoredAlerts } from './alerts/check';
 import { refreshStalest, type RefreshProgress } from './refresh/refresh';
 import { buildVideoReport } from './report';
 import { SqliteBrandRepo } from './repos/sqliteBrandRepo';
@@ -215,12 +216,14 @@ async function refreshCommand(deps: CrawlDeps, db: Db, flags: readonly string[])
     { onProgress: showRefreshProgress, ...(maxChannels === undefined ? {} : { maxChannels }) },
   );
   const facts = await factsLines(deps, db, result.nicheIds);
+  const alerts = checkStoredAlerts(db, deps, new Date());
   print([
     `Read ${result.refreshed.length} of ${result.picked} channels again; ${result.failed.length} could not be read.`,
     ...(result.stoppedEarly
       ? [`Stopped early: YouTube refused several in a row. ${result.notAttempted} were not tried.`]
       : []),
     `${result.stillDue} channels are still due; a later run takes them.`,
+    `Alerts: ${alerts.added} new, from ${alerts.checked} channels' rules.`,
     ...facts,
     ...result.failed
       .slice(0, FAILURES_SHOWN)

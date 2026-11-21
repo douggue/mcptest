@@ -32,6 +32,7 @@ import {
   openDatabase,
   parseChannelRef,
   refreshStalest,
+  checkStoredAlerts,
   searchRecentVideos,
   transactionRunner,
   withYouTubeLease,
@@ -331,6 +332,7 @@ function refreshing(wiring: Wiring, fillFacts: FillFacts): Refreshing {
           { ...repos, source: lazySource, transact: transactionRunner(db), now },
           { onProgress, ...(maxChannels ? { maxChannels } : {}) },
         );
+        checkStoredAlerts(db, repos, now()); // Alerts: checked on the readings just stored.
         // The refresh has already worked out the niche list; it is not worked out again.
         const facts = await fillFacts(result.nicheIds);
         return {

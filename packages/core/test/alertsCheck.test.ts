@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { DEFAULT_ALERT_MIN_SCORE } from '../src/alerts/alerts';
-import { checkDueAlerts, type AlertCheckDeps } from '../src/alerts/check';
+import { checkDueAlerts, checkStoredAlerts, type AlertCheckDeps } from '../src/alerts/check';
 import { openDatabase, type Db } from '../src/db/sqlite';
 import { freezeMapSnapshot } from '../src/map/snapshot';
 import { SqliteAlertRepo } from '../src/repos/sqliteAlertRepo';
@@ -192,5 +192,15 @@ describe('checkDueAlerts', () => {
 
     expect(checkDueAlerts(deps, NOW)).toEqual({ checked: 1, added: 0 });
     expect(alerts.rule(OTHER)?.checkedAt).toEqual(NOW);
+  });
+});
+
+describe('checkStoredAlerts', () => {
+  test('checks the rules of a store from its open connection', () => {
+    alerts.saveRule(CENTER, criteria, daysAgo(4));
+    readChannel('a', daysAgo(1), 50_000);
+    refreshed(daysAgo(1));
+
+    expect(checkStoredAlerts(db, deps, NOW)).toEqual({ checked: 1, added: 1 });
   });
 });
