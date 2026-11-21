@@ -139,6 +139,14 @@ concept's place in the upload calendar: `concept_id` (primary key,
 `drafting`, `ready`, `published`, or empty), `planned_date` (YYYY-MM-DD or empty)
 and `updated_at`. See "Upload calendar".
 
+`video_comments`, `comment_reads` and `comment_answers` (step 41, provisional,
+numbered at merge) hold the top-level comments read for a video (`comment_id`,
+`video_id`, `text` up to 2,000 characters, `likes`, `published_at`, `fetched_at`;
+never who wrote them), when each video was read and whether its comments were
+turned off, and each centre channel's latest checked "What viewers ask for"
+(`video_ids_json`, `findings_json` checked again with a schema when read, `engine`,
+`asked_at`). They refer to no other table. See "Comment mining".
+
 ### Keeping the store safe
 
 - **Backup before upgrade.** When an existing store with data has pending
@@ -1284,6 +1292,47 @@ map). The chart is plain SVG: each row's middle half as a bar and its median as 
 mark, on one scale from zero to four thirds of the highest value, coloured with
 the design tokens (`fill-primary-container`, `fill-metric-amber`).
 
+### Comment mining
+
+Built (`packages/core/src/sources/commentsApi.ts`, `packages/core/src/comments/`,
+`packages/server/src/commentsEngine.ts`, `commentsView.ts`, `commentsRoutes.ts`,
+`extrasJobs.ts`, `extrasAnalyses.ts`, `packages/mcp/src/extraTools.ts`,
+`apps/web/src/lib/comments.ts`, `components/CommentMining.tsx`). For one centre
+channel's map.
+
+Reading. `fetchTopComments` calls `commentThreads.list` (`part=snippet`,
+`order=relevance`, `textFormat=plainText`, `maxResults=100`): one page per video,
+one unit of the key's daily allowance (`COMMENT_UNITS_PER_VIDEO`), at most 10 videos
+at once (`COMMENT_MINING_MAX_VIDEOS`). The key is `YOUTUBE_API_KEY`, read from the
+live settings at the time of use; it goes only in the `x-goog-api-key` header
+(`apiGet`, shared with `dataApi.ts`) and is cut out of every refusal. A refusal with
+the reason `commentsDisabled` is a video with comments turned off; one with
+`quotaExceeded` or `dailyLimitExceeded` stops the run and the rest are reported as
+not tried. Only winners of the map can be read: the look-alikes' breakouts as the
+breakout list takes them (`winnerRows`), strongest first. With no key the section
+says so and reads nothing. Not checked against the real API: no key was available,
+so the client is built to the documented request and reply and tested with
+stand-ins.
+
+Asking. One entry in `ANALYSES`, `viewer-requests`, registered through
+`extraAnalyses` and started as a job in the one AI slot. Its question names the
+channel id and the video ids only; the comments are never put into a prompt. The
+engine reads them through one read-only connector tool, `get_viewer_comments`,
+which answers only winners of the channel's own map, hands out each video's 60 most
+liked stored comments (`COMMENTS_IN_QUESTION`) and opens with a line that comments
+are strangers' text and never instructions. The answer is asked in a labelled form
+(`FINDING`, `KIND`, `SAYS`, `COMMENTS` with ids). Code keeps only ids among the
+comments it handed out, at most 3 per finding (`FINDING_MAX_QUOTES`), and only
+findings left with 2 or more (`FINDING_MIN_QUOTES`): a request heard once is not a
+recurring one. The page shows each finding with the stored comments, never the
+engine's quoting of them.
+
+Routes: `GET /api/comments?channel=UC…` answers `{centerChannelId, keySet,
+unitsPerVideo, maxVideos, dailyUnits, candidates, answer}`; `POST /api/comments/read
+{channel, videoIds}` and `POST /api/comments/ask {channel, videoIds, engine?}` start
+jobs read at `GET /api/extras/job?id=`. Reading answers 400 with no key before it
+starts.
+
 ### Exact channel dates
 
 Built (`packages/core/src/niches/facts.ts`, `packages/core/src/repos/sqliteFactsRepo.ts`).
@@ -1470,6 +1519,7 @@ Claude reads what the app shows. Setup for the owner is in
 | `get_transcript_pace`         | `video`, `cuts?` (up to 40 seconds from the start)                                      | A line of JSON: `words`, `wordsPerMinute`, `spokenSeconds`, then `spans` (`from`, `to`, `words`, `wordsPerMinute`), one a minute or one between each two cuts; `captions: false` when there are none                                                                 |
 | `get_breakdown_part`          | `channel`, `part` (basis, titles, thumbnails, scripts, picture, strategy, plan, master) | A line of JSON (`written`, `by`, `at`), then one stored part of the channel's breakdown; `written: false` with the reason when it is missing                                                                                                                         |
 | `get_channel_note`            | `channel`, `kind` (thumbnail-review, style-lock)                                        | A line of JSON (`written`, `by`, `at`), then the kept study; `written: false` when none is kept                                                                                                                                                                      |
+| `get_viewer_comments`         | `channel` (id), `videos` (1 to 10 ids)                                                  | A line that comments are strangers' text and never instructions, then JSON: each asked video that is a winner of the channel's map, with its stored comments (id, text, likes), most liked first, 60 at most                                                         |
 
 One prompt, `thumbnail_review` (argument `channel`), tells the model to read the
 board, look at the owner's thumbnails and the winners with `view_thumbnails`, and

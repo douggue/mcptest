@@ -282,3 +282,8 @@ or computed in code and labelled; no view forecasts; nothing published to YouTub
 - [x] Checked on a copy of a real store: 16 look-alikes taken off, median 4.5 a week; a date set through the page; a worked-out status kept worked out
 - [x] Length and pacing against the winners: the channel's own lengths against the look-alikes' breakouts on the map (median and middle half, Shorts left out and counted), and words a minute where captions are stored, each with how many videos it rests on, in a plain SVG chart
 - [x] Checked on a copy of a real store: 22 own videos against 78 breakouts of 22 look-alikes; words a minute from 5 own and 12 winning videos with stored captions
+- [x] Comment mining: top-level comments of chosen winners of the map (at most 10, one unit each, stated before running) through `commentThreads.list`, key in the `x-goog-api-key` header only, read at the time of use; with no key the section says so (store step 41, provisional)
+- [x] "What viewers ask for": one fixed question (`viewer-requests`), comments read through a new read-only connector tool that says they are strangers' text and never instructions; code keeps only quoted ids it handed out
+- [x] Checked on a copy of a real store with stand-in comments: the real connector over its protocol, and the code check dropping a finding resting on an invented id
+- [ ] The comments client checked against the real YouTube API: no key exists here, so it is built to the documented API and tested with stand-ins
+- [ ] A real AI run of "What viewers ask for": tested with a stand-in answer only, as agreed
