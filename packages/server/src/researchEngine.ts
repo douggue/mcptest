@@ -74,6 +74,8 @@ export interface ResearchEngine {
   checkClaims(
     centerChannelId: string,
     conceptId: number,
+    /** The text the owner is looking at: the draft or the tightened draft. */
+    which: ScriptText,
     only: EngineId | undefined,
     onProgress: Report,
   ): Promise<ClaimsOutcome>;
@@ -104,9 +106,7 @@ function onlyClaude(only: EngineId | undefined): void {
   if (only !== undefined && only !== 'claude') throw new Error(ONLY_CLAUDE);
 }
 
-/** The text a claims check works on: the tightened draft when there is one, else the draft. */
-const scriptText = (script: { readonly draft: string; readonly tightened: string }): string =>
-  script.tightened.trim() !== '' ? script.tightened : script.draft;
+export type ScriptText = 'draft' | 'tightened';
 
 export function researchEngine(deps: ResearchDeps): ResearchEngine {
   const { repos } = deps;
@@ -152,12 +152,12 @@ export function researchEngine(deps: ResearchDeps): ResearchEngine {
       return { kind: 'research', conceptId, sheet: sheetView(stored), engine: 'claude' };
     },
 
-    async checkClaims(center, conceptId, only, onProgress) {
+    async checkClaims(center, conceptId, which, only, onProgress) {
       onlyClaude(only);
       const script = repos.scripts.find(center, conceptId);
       if (!script) throw new Error(NO_SUCH_CONCEPT);
       const checked = new Set(repos.research.listClaims(center, conceptId).map(keyOf));
-      const open = claimsToCheck(scriptText(script)).filter((claim) => !checked.has(keyOf(claim)));
+      const open = claimsToCheck(script[which]).filter((claim) => !checked.has(keyOf(claim)));
       const unique = [...new Map(open.map((claim) => [keyOf(claim), claim])).values()];
       if (unique.length === 0) throw new Error('No claim is left marked to check in this script.');
       const batch = unique.slice(0, MAX_CLAIMS_PER_RUN);

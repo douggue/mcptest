@@ -121,13 +121,13 @@ describe('the script writer’s research through the API', () => {
 
     await expect(api.research(CHANNEL, 7)).resolves.toMatchObject({ sheet: null });
     await expect(api.startResearch(CHANNEL, 7, 'auto')).resolves.toBe('job-3');
-    await expect(api.startClaims(CHANNEL, 7, 'claude')).resolves.toBe('job-3');
+    await expect(api.startClaims(CHANNEL, 7, 'draft', 'claude')).resolves.toBe('job-3');
     await api.setLength(CHANNEL, 7, { typed: 'words', words: 1800 });
 
     expect(sent).toEqual([
       `GET /api/lab/research?channel=${CHANNEL}&concept=7`,
       `POST /api/lab/research {"channel":"${CHANNEL}","concept":7}`,
-      `POST /api/lab/claims {"channel":"${CHANNEL}","concept":7,"engine":"claude"}`,
+      `POST /api/lab/claims {"channel":"${CHANNEL}","concept":7,"which":"draft","engine":"claude"}`,
       `POST /api/lab/scripts/length {"channel":"${CHANNEL}","concept":7,"length":{"typed":"words","words":1800}}`,
     ]);
   });

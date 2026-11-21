@@ -27,8 +27,8 @@ describe('the research routes', () => {
         runs.push(['research', channel, concept, only]);
         return {} as ResearchOutcome;
       },
-      checkClaims: async (channel, concept) => {
-        runs.push(['claims', channel, concept]);
+      checkClaims: async (channel, concept, which) => {
+        runs.push(['claims', channel, concept, which]);
         return {} as ClaimsOutcome;
       },
     });
@@ -39,14 +39,18 @@ describe('the research routes', () => {
       engine: 'claude',
     });
     await settle();
-    const claims = await post(app, '/api/lab/claims', { channel: CHANNEL_ID, concept: 7 });
+    const claims = await post(app, '/api/lab/claims', {
+      channel: CHANNEL_ID,
+      concept: 7,
+      which: 'tightened',
+    });
     await settle();
     const missing = await post(app, '/api/lab/claims', { channel: CHANNEL_ID, concept: 8 });
 
     expect([research.status, claims.status, missing.status]).toEqual([202, 202, 404]);
     expect(runs).toEqual([
       ['research', CHANNEL_ID, 7, 'claude'],
-      ['claims', CHANNEL_ID, 7],
+      ['claims', CHANNEL_ID, 7, 'tightened'],
     ]);
   });
 });

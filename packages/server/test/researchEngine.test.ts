@@ -110,23 +110,28 @@ describe('checking a script’s claims', () => {
     scripts.save(MINE, conceptId, { ...EMPTY_SCRIPT, draft }, NOW);
     answer = 'CLAIM 1: CONFIRMED\nWHY: Yes.\nSOURCE: https://a.example/1';
 
-    const first = await engine.checkClaims(MINE, conceptId, undefined, quiet);
+    const first = await engine.checkClaims(MINE, conceptId, 'draft', undefined, quiet);
     expect(first).toMatchObject({ kind: 'claims', checked: 10, remaining: 2 });
     expect(asked[0]?.prompt).toContain('1. Statement: "Claim 0 is true."');
-    const second = await engine.checkClaims(MINE, conceptId, undefined, quiet);
+    const second = await engine.checkClaims(MINE, conceptId, 'draft', undefined, quiet);
     expect(second).toMatchObject({ checked: 2, remaining: 0 });
+    // The tightened draft is its own text: its markers are checked only when it is the one asked for.
+    scripts.save(MINE, conceptId, { tightened: 'Short [CHECK: short].' }, NOW);
+    await engine.checkClaims(MINE, conceptId, 'tightened', undefined, quiet);
+    expect(asked.at(-1)?.prompt).toContain('"Short."');
     expect(engine.findResearch(MINE, conceptId).claims.map((claim) => claim.verdict)).toEqual([
       'confirmed',
       ...Array.from({ length: 9 }, () => 'unsure'),
       'confirmed',
       'unsure',
+      'confirmed',
     ]);
   });
 
   test('says so when no claim is marked, without spending anything', async () => {
     scripts.save(MINE, conceptId, { ...EMPTY_SCRIPT, draft: 'No markers here.' }, NOW);
 
-    await expect(engine.checkClaims(MINE, conceptId, undefined, quiet)).rejects.toThrow(
+    await expect(engine.checkClaims(MINE, conceptId, 'draft', undefined, quiet)).rejects.toThrow(
       /no claim/i,
     );
     expect(asked).toEqual([]);

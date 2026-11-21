@@ -10,7 +10,8 @@ export interface Research {
   /** What the last claims check did, in one line; null before one. */
   readonly note: string | null;
   readonly research: () => void;
-  readonly checkClaims: () => void;
+  /** Checks the next claims of the text the owner is looking at. */
+  readonly checkClaims: (which: 'draft' | 'tightened') => void;
 }
 
 const plural = (count: number, word: string): string => `${count} ${word}${count === 1 ? '' : 's'}`;
@@ -57,24 +58,27 @@ export function useResearch(
     );
   }, [api, run, centerId, conceptId, engine]);
 
-  const checkClaims = useCallback(() => {
-    if (centerId === null || conceptId === null) return;
-    run(
-      { kind: 'claims' },
-      () => api.startClaims(centerId, conceptId, engine),
-      (outcome) => {
-        if (outcome.kind !== 'claims') return;
-        setView((now) => ({ sheet: now?.sheet ?? null, claims: outcome.claims }));
-        setNote(
-          `Checked ${plural(outcome.checked, 'claim')}. ${
-            outcome.remaining === 0
-              ? 'Every marked claim has been checked.'
-              : `${plural(outcome.remaining, 'marked claim')} left to check.`
-          }`,
-        );
-      },
-    );
-  }, [api, run, centerId, conceptId, engine]);
+  const checkClaims = useCallback(
+    (which: 'draft' | 'tightened') => {
+      if (centerId === null || conceptId === null) return;
+      run(
+        { kind: 'claims' },
+        () => api.startClaims(centerId, conceptId, which, engine),
+        (outcome) => {
+          if (outcome.kind !== 'claims') return;
+          setView((now) => ({ sheet: now?.sheet ?? null, claims: outcome.claims }));
+          setNote(
+            `Checked ${plural(outcome.checked, 'claim')}. ${
+              outcome.remaining === 0
+                ? 'Every marked claim has been checked.'
+                : `${plural(outcome.remaining, 'marked claim')} left to check.`
+            }`,
+          );
+        },
+      );
+    },
+    [api, run, centerId, conceptId, engine],
+  );
 
   return { view, note, research, checkClaims };
 }

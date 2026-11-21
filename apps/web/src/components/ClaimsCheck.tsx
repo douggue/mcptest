@@ -79,6 +79,8 @@ function ClaimRow({ row, onChange }: RowProps) {
 interface Props {
   readonly research: Research;
   readonly text: string;
+  /** Which text is in the editor, so the check reads the same one. */
+  readonly which: 'draft' | 'tightened';
   readonly busy: boolean;
   /** Changes the text in the editor; called only when the owner presses a button. */
   readonly onChange: (text: string) => void;
@@ -89,7 +91,7 @@ interface Props {
  * the web ten at a time, each verdict beside its marker. Nothing in the
  * script changes until the owner presses Accept or Apply the correction.
  */
-export function ClaimsCheck({ research, text, busy, onChange }: Props) {
+export function ClaimsCheck({ research, text, which, busy, onChange }: Props) {
   const [filter, setFilter] = useState<ClaimFilter>('all');
   const rows = markerClaims(text, research.view?.claims ?? []);
   if (rows.length === 0) return null;
@@ -109,7 +111,7 @@ export function ClaimsCheck({ research, text, busy, onChange }: Props) {
           <button
             type="button"
             disabled={busy || unchecked === 0}
-            onClick={research.checkClaims}
+            onClick={() => research.checkClaims(which)}
             className={QUIET_BUTTON}
           >
             {unchecked === 0

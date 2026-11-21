@@ -162,8 +162,12 @@ export function createLabApi(fetcher?: Fetch) {
       started('/api/lab/research', { channel, concept, ...withEngine(choice) }),
 
     /** Starts a claims check of the next marked claims of a concept's script. */
-    startClaims: (channel: string, concept: number, choice: EngineChoice) =>
-      started('/api/lab/claims', { channel, concept, ...withEngine(choice) }),
+    startClaims: (
+      channel: string,
+      concept: number,
+      which: 'draft' | 'tightened',
+      choice: EngineChoice,
+    ) => started('/api/lab/claims', { channel, concept, which, ...withEngine(choice) }),
 
     /** Stores a length typed in minutes or words and returns the script as it now stands. */
     async setLength(channel: string, concept: number, length: LengthInput): Promise<ScriptView> {

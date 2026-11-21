@@ -10,7 +10,12 @@ import { CHANNEL_ID, bodyOf, startAiJob, type Context, type Routes } from './lab
 
 const channel = z.string().regex(CHANNEL_ID);
 const concept = z.number().int().positive();
-const runRequest = z.object({ channel, concept, engine: z.enum(ENGINE_IDS).optional() });
+const runRequest = z.object({
+  channel,
+  concept,
+  engine: z.enum(ENGINE_IDS).optional(),
+  which: z.enum(['draft', 'tightened']).optional(),
+});
 const readQuery = z.object({ channel, concept: z.coerce.number().int().positive() });
 const NOT_THIS_CHANNELS = 'That concept is not one of this channel’s concepts';
 
@@ -35,7 +40,7 @@ async function start(
   return startAiJob(context, (report) =>
     kind === 'research'
       ? engine.researchConcept(body.channel, body.concept, body.engine, report)
-      : engine.checkClaims(body.channel, body.concept, body.engine, report),
+      : engine.checkClaims(body.channel, body.concept, body.which ?? 'draft', body.engine, report),
   );
 }
 

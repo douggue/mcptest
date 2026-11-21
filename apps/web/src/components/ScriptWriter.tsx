@@ -105,7 +105,7 @@ function Workbench(props: Props & { readonly view: ScriptView }) {
         {step === 'hooks' && <ScriptResearch research={research} text={text} busy={busy} />}
       </div>
       {step !== 'hooks' && (
-        <ClaimsCheck research={research} text={text} busy={busy} onChange={edit} />
+        <ClaimsCheck research={research} text={text} which={field} busy={busy} onChange={edit} />
       )}
       <ConceptThumbnail
         title={view.concept.title}
