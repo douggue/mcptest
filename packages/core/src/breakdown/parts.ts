@@ -42,13 +42,14 @@ export const BREAKDOWN_PART_TITLES: Readonly<Record<BreakdownPartId, string>> = 
 };
 
 /**
- * The two parts that hold a prompt for the owner to paste somewhere else, and
- * the name each prompt is marked by. A part is asked to put its prompt
+ * The parts that hold a text for the owner to paste somewhere else (a ready
+ * prompt, or the picture part's style lock), and the name each is marked by. A part is asked to put its prompt
  * between two fixed lines so that code can lift it out as it stands.
  */
 export const PROMPT_MARKERS = {
   thumbnails: 'THUMBNAIL PROMPT',
   master: 'MASTER PROMPT',
+  picture: 'STYLE LOCK',
 } as const satisfies Partial<Record<BreakdownWrittenPart, string>>;
 export type PromptMarker = (typeof PROMPT_MARKERS)[keyof typeof PROMPT_MARKERS];
 

@@ -13,6 +13,7 @@ import {
   type BreakdownPartView,
   type BreakdownView,
   type PartRun,
+  breakdownUses,
 } from '../src/lib/breakdownParts';
 
 const CHANNEL = `UC${'a'.repeat(22)}`;
@@ -285,5 +286,16 @@ describe('the stored breakdown, through the API', () => {
 
     expect(await none.storedBreakdown(CHANNEL)).toBeNull();
     await expect(broken.storedBreakdown(CHANNEL)).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe('what a stored breakdown can be used for elsewhere', () => {
+  test('its title formulas once the titles part is written, its style lock once one is saved', () => {
+    expect(breakdownUses(view())).toEqual({ formulas: true, styleLock: false });
+    const locked = view({
+      files: [{ id: 'style', name: 'style-lock.txt', available: true, reason: null }],
+      parts: [part({ id: 'titles', title: 'Titles', state: 'failed', body: '' })],
+    });
+    expect(breakdownUses(locked)).toEqual({ formulas: false, styleLock: true });
   });
 });

@@ -11,6 +11,7 @@ import {
 import type { ChannelChoice } from '../lib/breakdown';
 import { AnalysisAnswerView } from './AnalysisAnswerView';
 import { BreakdownCard, BreakdownStatus } from './Breakdown';
+import { SectionFrame } from './SectionFrame';
 import type { SendVideo } from './SupplyVideos';
 import type { Analysis, AnalysisState } from './useAnalysis';
 import { useKeptAnswer } from './useAnswers';
@@ -33,7 +34,7 @@ interface OptionProps {
 /** One analysis: what it gives, and the button that asks for it. */
 function Option({ option, busy, active, onRun }: OptionProps) {
   return (
-    <div className="flex flex-col justify-between gap-space-md rounded bg-surface-card p-space-md shadow-md">
+    <div className="flex flex-col gap-space-sm rounded bg-surface-card p-space-md shadow-md">
       <div>
         <h3 className="text-title-md text-on-surface">{option.title}</h3>
         <p className="mt-1 text-body-sm text-on-surface-variant">{option.description}</p>
@@ -127,77 +128,74 @@ export function AskClaude(props: Props) {
   const keptTitle = ANALYSIS_OPTIONS.find((option) => option.id === kept?.analysis)?.title ?? '';
 
   return (
-    <section
+    <SectionFrame
       id="ask-claude"
-      aria-labelledby="ask-claude-title"
-      className="w-full scroll-mt-16 bg-space-deep px-gutter-desktop pb-space-xl"
-    >
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-space-lg">
-        <div>
-          <div className="flex items-center gap-2">
-            <Sparkles aria-hidden="true" className="h-[22px] w-[22px] text-metric-amber" />
-            <h2
-              id="ask-claude-title"
-              className="text-headline-lg font-bold tracking-tight text-on-surface"
-            >
-              Ask AI
-            </h2>
-          </div>
-          <p className="mt-1 text-body-md text-on-surface-variant">
-            An AI on this computer reads what Jgtube has stored around {centerTitle} and answers in
-            a minute or two. Each press uses some of that AI&rsquo;s plan allowance, as a chat
-            would.
+      titleId="ask-claude-title"
+      title="Ask AI"
+      icon={Sparkles}
+      lead={
+        <>
+          Ask an AI on this computer about the map around {centerTitle}, or break one channel down.
+        </>
+      }
+      howItWorks={
+        <>
+          <p>
+            The AI reads only what Jgtube has stored, through read-only tools, and answers in a
+            minute or two. Each press uses some of that AI&rsquo;s plan allowance, as a chat would.
+            Each video an answer rests on is shown as its real thumbnail; answers are kept for the
+            channel.
           </p>
-          {available !== '' && <p className="mt-1 text-body-sm text-outline">{available}</p>}
-        </div>
+          {available !== '' && <p className="text-outline">{available}</p>}
+        </>
+      }
+    >
+      <EngineSwitch choice={choice} engines={engines} busy={busy} onChoose={choose} />
 
-        <EngineSwitch choice={choice} engines={engines} busy={busy} onChoose={choose} />
-
-        <div className="grid grid-cols-1 gap-space-md md:grid-cols-2 xl:grid-cols-4">
-          {ANALYSIS_OPTIONS.map((option) => (
-            <Option
-              key={option.id}
-              option={option}
-              busy={busy}
-              active={state.status === 'running' && state.analysis === option.id}
-              onRun={() => run(option.id, centerId)}
-            />
-          ))}
-          <BreakdownCard
-            choices={channels}
-            picked={breakdown.picked}
-            onPick={breakdown.pick}
+      <div className="grid grid-cols-1 gap-space-md md:grid-cols-2 xl:grid-cols-4 items-start">
+        {ANALYSIS_OPTIONS.map((option) => (
+          <Option
+            key={option.id}
+            option={option}
             busy={busy}
-            active={breakingDown}
-            onRun={(channel, fresh) => breakdown.start(channel, choice, fresh)}
+            active={state.status === 'running' && state.analysis === option.id}
+            onRun={() => run(option.id, centerId)}
           />
-        </div>
-
-        <BreakdownStatus
-          breakdown={breakdown}
+        ))}
+        <BreakdownCard
+          choices={channels}
+          picked={breakdown.picked}
+          onPick={breakdown.pick}
           busy={busy}
-          onSend={onSendVideo}
+          active={breakingDown}
           onRun={(channel, fresh) => breakdown.start(channel, choice, fresh)}
         />
-
-        {state.status === 'running' && (
-          <p role="status" className={`flex items-center gap-2 ${NOTE}`}>
-            <span className="h-2 w-2 animate-pulse rounded-full bg-primary-container shadow-[0_0_8px_#00d2ff]" />
-            Working on: {titleOf(state)}. This usually takes under two minutes.
-          </p>
-        )}
-        {state.status === 'failed' && (
-          <p role="alert" className="rounded bg-surface-card p-space-lg text-body-md text-error">
-            {titleOf(state)} did not finish: {state.message}
-          </p>
-        )}
-        {state.status === 'done' && (
-          <AnalysisAnswerView title={titleOf(state)} answer={state.answer} kept={false} />
-        )}
-        {state.status === 'idle' && kept !== null && (
-          <AnalysisAnswerView title={keptTitle} answer={kept.answer} kept />
-        )}
       </div>
-    </section>
+
+      <BreakdownStatus
+        breakdown={breakdown}
+        busy={busy}
+        onSend={onSendVideo}
+        onRun={(channel, fresh) => breakdown.start(channel, choice, fresh)}
+      />
+
+      {state.status === 'running' && (
+        <p role="status" className={`flex items-center gap-2 ${NOTE}`}>
+          <span className="h-2 w-2 animate-pulse rounded-full bg-primary-container shadow-[0_0_8px_#00d2ff]" />
+          Working on: {titleOf(state)}. This usually takes under two minutes.
+        </p>
+      )}
+      {state.status === 'failed' && (
+        <p role="alert" className="rounded bg-surface-card p-space-lg text-body-md text-error">
+          {titleOf(state)} did not finish: {state.message}
+        </p>
+      )}
+      {state.status === 'done' && (
+        <AnalysisAnswerView title={titleOf(state)} answer={state.answer} kept={false} />
+      )}
+      {state.status === 'idle' && kept !== null && (
+        <AnalysisAnswerView title={keptTitle} answer={kept.answer} kept />
+      )}
+    </SectionFrame>
   );
 }

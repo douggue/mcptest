@@ -29,6 +29,9 @@ import { JobStore, cleanMessage } from './jobs';
 import type { AnalysisId } from './analyses';
 import type { AnswerEngine } from './answerEngine';
 import type { ConceptThumbEngine } from './conceptThumbEngine';
+import type { FlowEngine } from './flowEngine';
+import type { StyleLockEngine } from './styleLockEngine';
+import { readFlow, styleLockRoute } from './styleLockRoutes';
 import { NAMED_VIDEOS_PATH, readAnswer, readNamedVideos } from './answerRoutes';
 import { readEngines, runAnalysis, type AnalysisTracker } from './analysisRoutes';
 import type { EngineReport } from './engines/catalog';
@@ -132,7 +135,9 @@ export interface Engine
     LogoEngine,
     TransferPlaceEngine,
     AnswerEngine,
-    ConceptThumbEngine {
+    ConceptThumbEngine,
+    StyleLockEngine,
+    FlowEngine {
   /** The later features, kept together: what changed since the owner last looked. */
   readonly extras: ExtrasEngine;
   /** The latest stored map around a channel; reads the store only. */
@@ -570,6 +575,11 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
         ? runAnalysis(options, request, analysing)
         : fail(405, 'Use GET or POST');
     }
+    if (pathname === '/api/flow') {
+      return method === 'GET' ? readFlow(options, url) : fail(405, 'Use GET');
+    }
+    const styleLock = styleLockRoute(options, request, url);
+    if (styleLock !== null) return styleLock;
     if (pathname === NAMED_VIDEOS_PATH) {
       return method === 'GET' ? readNamedVideos(options, url) : fail(405, 'Use GET');
     }

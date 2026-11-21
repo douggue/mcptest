@@ -59,6 +59,7 @@ const batchRequest = z.object({
     .refine((text) => angleProblem(text) === null)
     .optional(),
   length: z.enum(CONCEPT_LENGTHS),
+  formulasFrom: channel.optional(),
   engine,
 });
 const growRequest = z.object({ channel, concept: itemId, engine });
@@ -85,6 +86,7 @@ async function startBatch(context: Context, request: Request): Promise<Response>
     angle: angle === '' ? null : angle,
     length: body.length,
     only: body.engine,
+    ...(body.formulasFrom === undefined ? {} : { formulasFrom: body.formulasFrom }),
   };
   const { engine: lab } = context.options;
   const problem = lab.conceptProblem(asked);

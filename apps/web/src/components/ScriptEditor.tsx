@@ -283,7 +283,7 @@ export function ScriptEditor({ view, which, onChange, thumbnailPrompt }: Props) 
           thumbnailPrompt={thumbnailPrompt}
         />
       </div>
-      <div className="flex min-w-0 flex-col gap-space-md">
+      <div className="flex min-w-0 flex-col gap-space-md xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:self-start xl:overflow-y-auto">
         <Counts stats={stats} view={view} />
         <Checklist beats={view.script?.beats ?? ''} text={text} />
       </div>

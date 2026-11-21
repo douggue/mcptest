@@ -381,7 +381,7 @@ CREATE TABLE IF NOT EXISTS alerts (
   UNIQUE (center_channel_id, kind, subject_id)
 );
 `,
-  // 24 (numbered at merge; 21 to 23 are left for the other engineer): the published video a
+  // 21: the published video a
   //     kept concept became, one per concept, pasted by the owner and
   //     checked to be a video of the concept's centre channel. A video is linked to one concept
   //     of a channel at most. It refers only to concepts (step 13) and goes with its concept.
@@ -394,7 +394,7 @@ CREATE TABLE IF NOT EXISTS concept_videos (
   UNIQUE (center_channel_id, video_id)
 );
 `,
-  // 40 (provisional, numbered at merge): the upload calendar. A kept concept's planned
+  // 22: the upload calendar. A kept concept's planned
   //     date and the status the owner set for it when the concept has no script (a script
   //     keeps its own), or "published". Both may be empty. It refers only to concepts (13).
   `
@@ -406,7 +406,7 @@ CREATE TABLE IF NOT EXISTS concept_schedule (
   updated_at         TEXT NOT NULL
 );
 `,
-  // 41 (provisional, numbered at merge): comment mining. The top-level comments read for a
+  // 23: comment mining. The top-level comments read for a
   //     video from the official API (text, likes, when written; never who wrote them), when
   //     each video was read and whether its comments were turned off, and each centre
   //     channel's latest "What viewers ask for" answer as checked in code. They refer to no

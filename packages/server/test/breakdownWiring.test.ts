@@ -349,6 +349,8 @@ describe('a breakdown through the engine', () => {
       ['production-plan.txt', true],
       ['thumbnail-prompt.txt', true],
       ['master-prompt.txt', true],
+      // The stand-in picture part sets out no style lock.
+      ['style-lock.txt', false],
     ]);
     expect(engine.breakdownText(CHANNEL, 'thumbnail')).toMatchObject({
       channel: { id: CHANNEL, title: 'Channel W' },

@@ -3,7 +3,6 @@ import { needsSomething } from '@jgtube/core/src/concepts/parse';
 import { liftedFrom } from '@jgtube/core/src/hooks/lift';
 import { Bookmark, BookmarkCheck, PenLine, Shuffle, Sparkles, Smartphone } from 'lucide-react';
 import { useState } from 'react';
-import { watchUrl } from '../lib/format';
 import type { LibraryHook } from '../lib/hookLibrary';
 import {
   hookModelOf,
@@ -13,9 +12,9 @@ import {
   type ConceptView,
 } from '../lib/ideaLab';
 import { ConceptThumbnail } from './ConceptThumbnail';
+import { VideoLine } from './VideoChips';
 import { FeedPreview } from './FeedPreview';
-import { PILL, QUIET_BUTTON } from './LabStatus';
-import { Outbound } from './NicheCard';
+import { PILL, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
 
 const LABEL = 'text-label-caps uppercase text-outline';
 const ORIGIN: Readonly<Record<ConceptView['origin'], string | null>> = {
@@ -53,9 +52,8 @@ function RestsOn({ concept }: { readonly concept: ConceptView }) {
       ) : (
         <ul className="flex flex-col gap-0.5">
           {concept.restsOnVideos.map((video) => (
-            <li key={video.videoId} className="truncate text-body-sm text-on-surface">
-              <Outbound href={watchUrl(video.videoId)}>{video.title}</Outbound>
-              <span className="text-outline"> · {video.channelTitle}</span>
+            <li key={video.videoId} className="min-w-0">
+              <VideoLine video={video} />
             </li>
           ))}
         </ul>
@@ -134,10 +132,10 @@ function Actions({ concept, busy, previewing, onPreview, onKeep, onGrow, onDraft
         <button
           type="button"
           onClick={onDraft}
-          className={`flex items-center gap-1.5 ${QUIET_BUTTON}`}
+          className={`flex items-center gap-1.5 ${PRIMARY_BUTTON}`}
         >
           <PenLine aria-hidden="true" className={ICON} />
-          Draft
+          Write the script
         </button>
       )}
       <button
@@ -191,7 +189,8 @@ export function ConceptCard(props: Props) {
   const origin = ORIGIN[concept.origin];
   return (
     <article
-      className={`flex min-w-0 flex-col gap-space-md rounded bg-surface-card p-space-md shadow-md ${
+      id={`concept-${concept.id}`}
+      className={`flex min-w-0 scroll-mt-16 flex-col gap-space-md rounded bg-surface-card p-space-md shadow-md ${
         concept.kept ? 'ring-1 ring-border-highlight' : ''
       }`}
     >

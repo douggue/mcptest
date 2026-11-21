@@ -314,3 +314,31 @@ describe('the thumbnail prompts of a channel’s concepts', () => {
     expect(thumbnailEngineNote('agy')).toMatch(/Claude Code or Codex/);
   });
 });
+
+describe('a batch that takes things from elsewhere on the page', () => {
+  const picks = [{ videoId: 'a', title: 'A', channelTitle: 'X', modelOpening: false }];
+
+  test('sends the channel whose breakdown’s title formulas are to be used', () => {
+    const body = batchRequest(
+      'UCx',
+      picks,
+      {
+        format: '',
+        angle: '',
+        length: 'long',
+        formulasFrom: { id: 'UCstudied', title: 'Studied' },
+      },
+      'auto',
+    );
+
+    expect(body['formulasFrom']).toBe('UCstudied');
+  });
+
+  test('offers a transfer idea’s template as a format when it was brought in', () => {
+    const options = formatOptions([], [], { key: 'why x left', template: 'why {place} left' });
+
+    expect(options).toEqual([
+      { value: 'transfer:why x left', label: 'why {place} left', group: 'From the transfer list' },
+    ]);
+  });
+});

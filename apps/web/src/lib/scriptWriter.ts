@@ -181,6 +181,10 @@ export function stageStates(script: StoredScript | null): readonly StageState[] 
   ];
 }
 
+/** The step to show first: the first one not written, or the last when every one is. */
+export const openingStep = (states: readonly StageState[]): ScriptStage =>
+  states.find((state) => !state.done)?.stage ?? 'tighten';
+
 /** A file name from a title: its letters and digits, with dashes between. */
 export function exportName(title: string, extension: string): string {
   const base = title

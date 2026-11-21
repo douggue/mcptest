@@ -15,6 +15,7 @@ import {
   BREAKDOWN_TOP_VIDEOS,
   ORDINARY_MAX_SCORE,
   VIDEO_REF_RULE,
+  PROMPT_MARKERS,
   markerLines,
 } from '@jgtube/core';
 import { isVideoId } from './engines/videoId';
@@ -201,7 +202,20 @@ const PICTURE_SECTIONS = [
   'WHAT REPEATS: the visual devices used again and again, with times, and how the videos open and end on screen.',
   'HOW THE PICTURES SEEM TO BE MADE: generated, stock, filmed, a screen recording, drawn, or a mix. Label every line INFERENCE, give the signs in the frame study it rests on, and say what frames cannot prove.',
   'SOUND AND EDITING: from get_video_watch alone: the voice, the music, the sound effects, the cuts and transitions, with times. For a deep video with no watch notes write NOT WATCHED and say that its sound, music and transitions are unknown. Never guess them from the transcript or the frames.',
+  'PICTURE STYLE: decide from the frame studies whether the deep videos share one consistent picture style, the same look from video to video. If they do, describe it in detail, each point with the video and time it rests on: the medium (photograph, 3D render, flat illustration, painting, line drawing, collage or a mix); the line (none, thin, thick, outlined, sketchy); the palette, with each colour named; the lighting; the composition and the camera; how characters and objects are drawn; the on-screen text; and what never appears. If they do not, or the studies are too thin to tell, write NO CONSISTENT STYLE, say what differs, and make none up.',
 ];
+
+/** The style lock: what a picture part sets out, between its marker lines, when there is a style. */
+function styleLockRule(): string {
+  const { start, end } = markerLines(PROMPT_MARKERS.picture);
+  return [
+    `STYLE LOCK: only when PICTURE STYLE found a consistent style. Put it between these two lines, each on a line of its own, written exactly so and used nowhere else: ${start} and ${end}. Inside, three labelled parts.`,
+    'STYLE BLOCK: one paragraph of 60 to 120 words that describes the style alone (medium, line, palette with each colour named, lighting, composition, how characters and objects are drawn), for the owner to paste before every scene prompt so that every picture comes out in one style. It describes no scene.',
+    'NEGATIVE: a list, separated by commas, of what must never appear, for the negative prompt or the end of every prompt.',
+    'KEEP IT CONSISTENT: plain steps: choose one finished picture as a fixed style reference image and attach it to every prompt where the tool takes one; keep the same seed where the tool lets you; for a character that comes back, make a character sheet (front, side, three-quarter, a few expressions) once and attach it; keep the style block word for word and change only the scene. Name a product only as an example of a kind of tool, marked so, that the owner can swap for any other.',
+    'The style lock names no channel, no video, no real person and no logo. With no consistent style, write no marker lines at all.',
+  ].join(' ');
+}
 
 /** Part 4: what the videos show and, when one was watched, how they sound. */
 export function pictureQuestion(channel: string, given: BreakdownFocus = NO_FOCUS): string {
@@ -215,9 +229,10 @@ export function pictureQuestion(channel: string, given: BreakdownFocus = NO_FOCU
     'Gather first. For each deep video call get_frame_study and get_video_watch. Call get_channel_videos with limit 100 for their titles.',
     STUDIES,
     `Then write these sections in this order. ${PICTURE_SECTIONS.join(' ')}`,
+    styleLockRule(),
     'For a deep video with no frame study write NO FRAME STUDY and say what is unknown; do not fill it in from a thumbnail or a transcript.',
     RULES,
-    'At most 1100 words.',
+    'At most 1500 words, the style lock not counted.',
   ].join(' ');
 }
 
@@ -263,6 +278,7 @@ export function planQuestion(channel: string, given: BreakdownFocus = NO_FOCUS):
     'THE NUMBERS TO HIT: the length (secs of the deep videos), the words, the pace (wordsPerMinute), how often the picture changes (secondsPerChange from the deep video whose frames are closest together, when a tool gives it, said as the most seconds there can be between changes; else the study’s own estimate, labelled so), how many pictures one video then needs at least (length over the seconds between changes, marked (worked out)), the length of a title in words and the most words on a thumbnail. Give each with the video and the tool or part it comes from.',
     `THE PLAN, STEP BY STEP, for one video: ${PLAN_STEPS} For every step write WHAT TO DO, concrete and with the numbers above; WITH AI, where AI fits, naming the KIND of tool (a chat assistant, a voice generator, an image generator, an image-to-video tool, a stock library, a video editor), with a product name only as an example the owner can swap for any other of its kind, and marked as an example; and BY HAND OR ANOTHER WAY, where that is better or cheaper, saying why.`,
     'Give a READY PROMPT wherever a prompt is what the step needs, each on lines of its own with [SLOTS] for what changes: a prompt for the script’s outline; three scene picture prompts in the channel’s look, built from the kinds of shot in the picture part; a voice direction (the pace from the numbers; the tone only from watch notes, else say the tone is unknown and give the direction the sentence style supports); and a music brief (from watch notes only; with none, say the channel’s music is unknown and offer a plain brief marked as the owner’s own choice).',
+    'STEP 6 and the scene picture prompts: when the picture part holds a STYLE LOCK, start each scene prompt with its style block word for word, end it with its negative list, and set out its KEEP IT CONSISTENT steps in STEP 6. When the picture part says NO CONSISTENT STYLE, say so in STEP 6 and make up no style.',
     'WHAT AI CANNOT DO FOR YOU: say plainly that every name, number, date and claim in a script must be checked against a source by the owner before publishing, because an AI makes facts up and auto-made captions mishear; and that YouTube has rules on reused content, on misleading titles and thumbnails, and on labelling realistic AI-made content, which the owner must read on YouTube’s own help pages, since they change and nothing in this plan has checked them.',
     RULES,
     'At most 2000 words.',

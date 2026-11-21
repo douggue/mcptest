@@ -120,6 +120,25 @@ Named videos. A fixed question that rests points on videos asks for each as
 thumbnail beside the point; an id that is not a stored video of the map is
 dropped and never shown.
 
+Style lock. When the frame studies of a breakdown show one consistent picture
+style, the picture part describes it (medium, line, palette with named
+colours, lighting, composition, characters and objects, on-screen text, what
+never appears) and sets out a STYLE LOCK between `=== STYLE LOCK START/END ===`
+lines: a style block to paste before every scene prompt, a negative list and
+steps for consistency. It is lifted into `style-lock.txt`. The production plan
+builds its scene prompts on it. "Use its style lock" keeps a copy for the
+owner's channel in `channel_notes` (kind `style-lock`, first line `FROM
+CHANNEL: <id>`); the script draft and a concept's thumbnail prompt read it
+through `get_channel_note`. Routes: `GET/POST /api/style-lock`,
+`POST /api/style-lock/stop`.
+
+The path through the page. `GET /api/flow?channel=` counts, from the store,
+the breakouts, title formulas, read hook openings, concepts, scripts and
+breakdowns of channels on the map, for the flow strip. A batch of concepts may
+take `formulasFrom` (a channel whose breakdown has a written titles part; the
+question reads that part through `get_breakdown_part`), and an idea of the
+transfer list may be its format.
+
 `alert_rules` and `alerts` (step 20) hold one alert rule per centre channel
 (`min_score`, `taken_off`, `enabled`, `created_at`, `checked_at`) and the alerts
 found (`kind` `breakout` or `taken-off`, `subject_id` the video or channel id, the
@@ -128,18 +147,18 @@ each kept once per centre channel, kind and subject. They refer to no other tabl
 so a deleted map leaves its rule and alerts; the page shows counts only for
 saved channels. See "Alerts".
 
-`concept_videos` (step 24, numbered at merge) links a kept concept to the
+`concept_videos` (step 21) links a kept concept to the
 published video it became: `concept_id` (primary key, `ON DELETE CASCADE` from
 `concepts`), `center_channel_id`, `video_id` (unique per centre channel) and
 `linked_at`. See "Your videos against the plan".
 
-`concept_schedule` (step 40, provisional, numbered at merge) holds a kept
+`concept_schedule` (step 22) holds a kept
 concept's place in the upload calendar: `concept_id` (primary key,
 `ON DELETE CASCADE` from `concepts`), `center_channel_id`, `status` (`idea`,
 `drafting`, `ready`, `published`, or empty), `planned_date` (YYYY-MM-DD or empty)
 and `updated_at`. See "Upload calendar".
 
-`video_comments`, `comment_reads` and `comment_answers` (step 41, provisional,
+`video_comments`, `comment_reads` and `comment_answers` (step 23, provisional,
 numbered at merge) hold the top-level comments read for a video (`comment_id`,
 `video_id`, `text` up to 2,000 characters, `likes`, `published_at`, `fetched_at`;
 never who wrote them), when each video was read and whether its comments were

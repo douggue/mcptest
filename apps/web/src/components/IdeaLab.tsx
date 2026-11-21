@@ -8,7 +8,10 @@ import {
   thumbnailFor,
   type ConceptView,
 } from '../lib/ideaLab';
+import { thumbnailUrl } from '../lib/format';
 import { Answer, Credit } from './Answer';
+import { OriginLine } from './Origin';
+import { SectionFrame } from './SectionFrame';
 import { ConceptCard } from './ConceptCard';
 import { FIELD, LabStatus, NOTE, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
 import type { Lab } from './useLab';
@@ -36,12 +39,22 @@ function Picks({ lab }: { readonly lab: Lab }) {
         <ul className="flex flex-col gap-1">
           {lab.picks.map((pick) => (
             <li key={pick.videoId} className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate text-body-sm text-on-surface">
-                {pick.title}
-                <span className="text-outline"> · {pick.channelTitle}</span>
-                {pick.modelOpening && (
-                  <span className="text-primary-fixed-dim"> · opening to model</span>
-                )}
+              <img
+                src={thumbnailUrl(pick.videoId) ?? undefined}
+                alt=""
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                className="aspect-video w-20 flex-none rounded bg-surface-container-high object-cover"
+              />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-body-sm text-on-surface">
+                  {pick.title}
+                  <span className="text-outline"> · {pick.channelTitle}</span>
+                  {pick.modelOpening && (
+                    <span className="text-primary-fixed-dim"> · opening to model</span>
+                  )}
+                </span>
+                {pick.from && <OriginLine origin={pick.from} what="Picked" />}
               </span>
               <button
                 type="button"
@@ -67,7 +80,16 @@ interface InputsProps {
 
 /** What a batch is asked for: the format, the angle and the length. */
 function Inputs({ lab, busy, transfers }: InputsProps) {
-  const options = formatOptions(transfers?.formats ?? [], lab.formulas?.formulas ?? []);
+  const options = formatOptions(
+    transfers?.formats ?? [],
+    lab.formulas?.formulas ?? [],
+    lab.choices.fromIdea ?? null,
+  );
+  const formatOrigin = lab.choices.format.startsWith('formula:')
+    ? 'formula'
+    : lab.choices.fromIdea && lab.choices.format === `transfer:${lab.choices.fromIdea.key}`
+      ? 'transfer'
+      : null;
   const groups = [...new Set(options.map((option) => option.group))];
   const { choices } = lab;
   return (
@@ -93,7 +115,20 @@ function Inputs({ lab, busy, transfers }: InputsProps) {
             </optgroup>
           ))}
         </select>
+        {formatOrigin && <OriginLine origin={formatOrigin} what="Format" />}
       </label>
+      {choices.formulasFrom && (
+        <div className="flex min-w-0 flex-wrap items-center gap-2 rounded bg-space-deep px-3 py-2 lg:col-span-2">
+          <OriginLine origin="breakdown" what="Title formulas" name={choices.formulasFrom.title} />
+          <button
+            type="button"
+            onClick={() => lab.choose({ formulasFrom: null })}
+            className={QUIET_BUTTON}
+          >
+            Stop using them
+          </button>
+        </div>
+      )}
       <label className="flex min-w-0 flex-col gap-1">
         <span className={LABEL}>
           Your topic or angle (optional) · {choices.angle.length} of {MAX_ANGLE_CHARS}
@@ -205,100 +240,97 @@ export function IdeaLab({ lab, busy, transfers, centerTitle, breakouts, onDraft 
   const unkept = concepts.filter((concept) => !concept.kept).length;
   const hooks = lab.library?.hooks ?? [];
   return (
-    <section
+    <SectionFrame
       id="idea-lab"
-      aria-labelledby="idea-lab-title"
-      className="w-full scroll-mt-16 bg-space-deep px-gutter-desktop pb-space-xl"
+      titleId="idea-lab-title"
+      title="Idea lab"
+      icon={Lightbulb}
+      summary={concepts.length > 0 ? `${concepts.length} concepts` : undefined}
+      lead={
+        <>
+          Pick up to {MAX_PICKS} videos from the map around {centerTitle}; an AI writes ten
+          packaging concepts that rest on them.
+        </>
+      }
+      howItWorks={
+        <>
+          <p>
+            Each concept is a title, two alternates, a thumbnail, its words and an opening sentence.
+            The AI cannot look anything up, so each concept says what you must check before making
+            it.
+          </p>
+          <p>
+            Writing a batch is an AI run of two to four minutes, using the AI chosen under Ask AI,
+            and uses some of its plan allowance. A new batch replaces the concepts not kept.
+            &ldquo;Thumbnail prompt&rdquo; looks at the winning thumbnails and writes a prompt for
+            one concept; it reads your thumbnail review when there is one.
+          </p>
+        </>
+      }
     >
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-space-lg">
-        <div>
-          <div className="flex items-center gap-2">
-            <Lightbulb
-              aria-hidden="true"
-              className="h-[22px] w-[22px] flex-none text-metric-amber"
-            />
-            <h2
-              id="idea-lab-title"
-              className="text-headline-lg font-bold tracking-tight text-on-surface"
-            >
-              Idea lab
-            </h2>
-          </div>
-          <p className="mt-1 max-w-4xl text-body-md text-on-surface-variant">
-            Pick up to {MAX_PICKS} videos from the map around {centerTitle}, and an AI on this
-            computer writes ten packaging concepts that rest on them: a title, two alternates, a
-            thumbnail, its words and an opening sentence. It cannot look anything up, so each
-            concept says what you must check before making it.
-          </p>
+      <div className="flex flex-col gap-space-md rounded bg-surface-card p-space-md shadow-md">
+        <Picks lab={lab} />
+        <Inputs lab={lab} busy={busy} transfers={transfers} />
+        <LibraryHint lab={lab} busy={busy} />
+        <div className="flex flex-wrap items-center gap-space-sm">
+          <button
+            type="button"
+            disabled={!canGenerate(lab.picks, busy)}
+            onClick={lab.generate}
+            className={PRIMARY_BUTTON}
+          >
+            Write 10 concepts
+          </button>
+          <span className="text-body-sm text-outline">An AI run of two to four minutes.</span>
         </div>
-
-        <div className="flex flex-col gap-space-md rounded bg-surface-card p-space-md shadow-md">
-          <Picks lab={lab} />
-          <Inputs lab={lab} busy={busy} transfers={transfers} />
-          <LibraryHint lab={lab} busy={busy} />
-          <div className="flex flex-wrap items-center gap-space-sm">
-            <button
-              type="button"
-              disabled={!canGenerate(lab.picks, busy)}
-              onClick={lab.generate}
-              className={PRIMARY_BUTTON}
-            >
-              Write 10 concepts
-            </button>
-            <span className="text-body-sm text-outline">
-              An AI run of two to four minutes, using the AI chosen under Ask AI. It uses some of
-              that AI&rsquo;s plan allowance.
-            </span>
-          </div>
-        </div>
-
-        <LabStatus
-          state={lab.jobs.state}
-          kinds={['batch', 'twist', 'more', 'thumbnail']}
-          working="Asking the AI"
-          takes="This usually takes two to four minutes."
-        />
-        {lab.problem && (
-          <p role="alert" className="rounded bg-surface-card p-space-lg text-body-md text-error">
-            {lab.problem}
-          </p>
-        )}
-        {lab.conceptNote && <p className={NOTE}>{lab.conceptNote}</p>}
-
-        {concepts.length > 0 && (
-          <div className="flex flex-col gap-space-md">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className={LABEL}>
-                {concepts.length - unkept} kept · {unkept} not kept. A new batch replaces the ones
-                not kept.
-              </span>
-              {unkept > 0 && (
-                <button type="button" onClick={lab.clear} className={QUIET_BUTTON}>
-                  Clear the ones not kept ({unkept})
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-1 gap-space-md xl:grid-cols-2">
-              {concepts.map((concept) => (
-                <ConceptCard
-                  key={concept.id}
-                  concept={concept}
-                  hooks={hooks}
-                  breakouts={breakouts}
-                  busy={busy}
-                  onKeep={(kept) => lab.keep(concept.id, kept)}
-                  onGrow={(kind) => lab.grow(kind, concept.id)}
-                  thumbnail={thumbnailFor(lab.thumbnails, concept.id)}
-                  onThumbnail={() => lab.writeThumbnail(concept.id)}
-                  onDraft={onDraft ? () => onDraft(concept) : undefined}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        <WhereElse lab={lab} busy={busy} />
       </div>
-    </section>
+
+      <LabStatus
+        state={lab.jobs.state}
+        kinds={['batch', 'twist', 'more', 'thumbnail']}
+        working="Asking the AI"
+        takes="This usually takes two to four minutes."
+      />
+      {lab.problem && (
+        <p role="alert" className="rounded bg-surface-card p-space-lg text-body-md text-error">
+          {lab.problem}
+        </p>
+      )}
+      {lab.conceptNote && <p className={NOTE}>{lab.conceptNote}</p>}
+
+      {concepts.length > 0 && (
+        <div className="flex flex-col gap-space-md">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className={LABEL}>
+              {concepts.length - unkept} kept · {unkept} not kept. A new batch replaces the ones not
+              kept.
+            </span>
+            {unkept > 0 && (
+              <button type="button" onClick={lab.clear} className={QUIET_BUTTON}>
+                Clear the ones not kept ({unkept})
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-space-md xl:grid-cols-2">
+            {concepts.map((concept) => (
+              <ConceptCard
+                key={concept.id}
+                concept={concept}
+                hooks={hooks}
+                breakouts={breakouts}
+                busy={busy}
+                onKeep={(kept) => lab.keep(concept.id, kept)}
+                onGrow={(kind) => lab.grow(kind, concept.id)}
+                thumbnail={thumbnailFor(lab.thumbnails, concept.id)}
+                onThumbnail={() => lab.writeThumbnail(concept.id)}
+                onDraft={onDraft ? () => onDraft(concept) : undefined}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <WhereElse lab={lab} busy={busy} />
+    </SectionFrame>
   );
 }

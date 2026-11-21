@@ -47,3 +47,45 @@ export function VideoChips({ videos }: { readonly videos: readonly NamedVideo[] 
     </div>
   );
 }
+
+/** One video on a line: its real thumbnail, its title linking to it, and its channel. */
+export function VideoLine({
+  video,
+}: {
+  readonly video: {
+    readonly videoId: string;
+    readonly title: string;
+    readonly channelTitle: string;
+  };
+}) {
+  const href = watchUrl(video.videoId);
+  const src = thumbnailUrl(video.videoId);
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      {src && (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          className="aspect-video w-16 flex-none rounded bg-surface-container-high object-cover"
+        />
+      )}
+      <span className="min-w-0 truncate text-body-sm text-on-surface">
+        {href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-primary hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
+          >
+            {video.title}
+          </a>
+        ) : (
+          video.title
+        )}
+        <span className="text-outline"> · {video.channelTitle}</span>
+      </span>
+    </span>
+  );
+}

@@ -5,9 +5,10 @@ import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { UPLOAD_PATH, createApp } from './app';
 import { createEngine } from './engine';
-import { JobStore } from './jobs';
+import { JobStore, cleanMessage } from './jobs';
 import { liveSettings } from './liveSettings';
 import { startRefreshTimer, startThroughApi } from './schedule';
+import { startProblem } from './startProblem';
 import { settingsEngine } from './settingsEngine';
 import { namesSetOutside, settingsStore } from './settingsStore';
 
@@ -185,7 +186,11 @@ function start(): void {
   const server = createServer((request, response) => {
     // A malformed address must fail this one request, never the process.
     try {
-      handle(request, response).catch(() => refuse(response, 500, 'Something went wrong'));
+      handle(request, response).catch((error: unknown) => {
+        // The page gets a plain answer; the reason goes to this window, where it can be found.
+        process.stderr.write(`Request failed: ${cleanMessage(error)}\n`);
+        refuse(response, 500, 'Something went wrong');
+      });
     } catch {
       refuse(response, 400, 'Bad request');
     }
@@ -194,6 +199,10 @@ function start(): void {
     process.stderr.write(`Unhandled rejection: ${String(reason)}\n`);
   });
 
+  server.on('error', (error: NodeJS.ErrnoException) => {
+    process.stderr.write(`${startProblem(error, HOST, port)}\n`);
+    engine.shutdown().finally(() => process.exit(1));
+  });
   server.listen(port, HOST, () => {
     process.stdout.write(`Jgtube is running at http://${HOST}:${port}\n`);
   });

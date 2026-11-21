@@ -12,8 +12,8 @@ import { channelFolder, pathInside } from './folder';
 
 /**
  * A finished breakdown as plain text files the owner can open, copy from and
- * hand to another program: the whole breakdown, the production plan, and the
- * two ready prompts lifted out as they stand. The texts are put together
+ * hand to another program: the whole breakdown, the production plan, the two
+ * ready prompts and the picture part's style lock, lifted out as they stand. The texts are put together
  * here, in code, from the stored parts; the files are written under the
  * downloads folder, in a folder named after the channel.
  */
@@ -21,12 +21,13 @@ import { channelFolder, pathInside } from './folder';
 /** The folder under the downloads folder that holds one folder per channel. */
 export const BREAKDOWNS_FOLDER = 'breakdowns';
 export const BREAKDOWN_INDEX_FILE = 'index.json';
-/** The four files, the same names for every channel. */
+/** The five files, the same names for every channel. */
 export const BREAKDOWN_FILES = {
   whole: 'breakdown.txt',
   plan: 'production-plan.txt',
   thumbnail: 'thumbnail-prompt.txt',
   master: 'master-prompt.txt',
+  style: 'style-lock.txt',
 } as const;
 export type BreakdownFileId = keyof typeof BREAKDOWN_FILES;
 export const BREAKDOWN_FILE_IDS = Object.keys(BREAKDOWN_FILES) as readonly BreakdownFileId[];
@@ -75,11 +76,13 @@ function promptOf(parts: readonly StoredBreakdownPart[], id: keyof typeof PROMPT
   const part = textOf(parts, id);
   if ('reason' in part) return part;
   const { marked } = splitMarked(part.text, PROMPT_MARKERS[id]);
-  return marked === null
-    ? {
-        reason: `${named(id)} does not hold a prompt between the two marker lines it was asked for, so nothing was saved.`,
-      }
-    : { text: marked };
+  if (marked !== null) return { text: marked };
+  return {
+    reason:
+      id === 'picture'
+        ? `${named(id)} found no consistent picture style to lock, or did not set one out between its marker lines, so nothing was saved.`
+        : `${named(id)} does not hold a prompt between the two marker lines it was asked for, so nothing was saved.`,
+  };
 }
 
 const headed = (heading: string, body: string): string =>
@@ -124,6 +127,7 @@ export function breakdownTexts(
     plan: textOf(parts, 'plan'),
     thumbnail: promptOf(parts, 'thumbnails'),
     master: promptOf(parts, 'master'),
+    style: promptOf(parts, 'picture'),
   };
   const nothing = !parts.some((part) => part.written);
   return BREAKDOWN_FILE_IDS.map((id): BreakdownTextFile => {

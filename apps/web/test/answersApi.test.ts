@@ -70,3 +70,39 @@ describe('the videos an answer names', () => {
     expect(asked).toEqual([]);
   });
 });
+
+describe('the flow counts and the style lock', () => {
+  test('read the counts of the channel, and none for one with no map', async () => {
+    const asked: string[] = [];
+    const counts = { breakouts: 1 };
+
+    expect(await replying(counts, asked).flow(CHANNEL)).toEqual(counts);
+    expect(asked).toEqual([`/api/flow?channel=${CHANNEL}`]);
+    const none = createAnswersApi(
+      async () =>
+        new Response(JSON.stringify({ success: false, data: null, error: 'No map' }), {
+          status: 404,
+        }),
+    );
+    expect(await none.flow(CHANNEL)).toBeNull();
+  });
+
+  test('read, take and stop the style lock of the channel', async () => {
+    const sent: string[] = [];
+    const lock = { channelId: CHANNEL, from: null, text: 'STYLE', writtenAt: 'x' };
+    const api = createAnswersApi(async (url, init) => {
+      sent.push(`${init?.method ?? 'GET'} ${String(url)} ${String(init?.body ?? '')}`.trim());
+      return new Response(JSON.stringify({ success: true, data: { lock }, error: null }));
+    });
+
+    expect(await api.styleLock(CHANNEL)).toEqual(lock);
+    expect(await api.useStyleLock(CHANNEL, OTHER)).toEqual(lock);
+    await api.stopStyleLock(CHANNEL);
+
+    expect(sent).toEqual([
+      `GET /api/style-lock?channel=${CHANNEL}`,
+      `POST /api/style-lock {"channel":"${CHANNEL}","from":"${OTHER}"}`,
+      `POST /api/style-lock/stop {"channel":"${CHANNEL}"}`,
+    ]);
+  });
+});
