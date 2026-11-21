@@ -124,6 +124,10 @@ describe('the question for a batch of concepts', () => {
     );
   });
 
+  test('does not let a format be filled with the subject a video on the map already used it for', () => {
+    expect(question).toMatch(/same subject in the same title format as that video/);
+  });
+
   test('says the engine cannot look anything up, and that what it does not know goes under NEEDS', () => {
     expect(question).toMatch(/no access to the web/);
     expect(question).toMatch(/NEEDS: nothing only when/);

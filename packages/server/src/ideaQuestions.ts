@@ -127,7 +127,7 @@ const HOOK_RULE =
 
 const RULES = [
   'Each title names one specific subject (a particular thing, place, person, event or question that the tool results show this niche covers), written as a real title a viewer would click: never a description of a topic set into a template, and never a list of themes.',
-  "Write every title yourself. Never reuse a competitor's title word for word, or with one word or a name changed. Skip any subject this channel has already made.",
+  "Write every title yourself. Never reuse a competitor's title word for word, or with one word or a name changed. Skip any subject this channel has already made. When another channel on this map has already made a video on a subject, a concept on it must take a different angle and a different wording: the same subject in the same title format as that video is that video's title again.",
   'Do not forecast, estimate or promise views. Every number you quote must be one a tool returned.',
   'The tools see only the channels on this map. When a tool says an idea has not been made for a place, that means no channel on this map has made it: never say or imply that a subject is untried, open or without competition on YouTube.',
   'You have no access to the web, so you cannot know real facts about a subject beyond what the tools returned. If a concept depends on a real fact, event, product, name, date or number that the tool results do not show, do not present it as known: say under NEEDS exactly what must be looked up before the video is made. Write NEEDS: nothing only when the concept rests entirely on what the tools returned.',

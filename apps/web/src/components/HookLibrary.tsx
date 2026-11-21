@@ -38,7 +38,7 @@ function CopyButton({ text }: { readonly text: string }) {
   return (
     <button type="button" onClick={press} className={`flex items-center gap-1.5 ${QUIET_BUTTON}`}>
       <Icon aria-hidden="true" className="h-4 w-4" />
-      <span role="status">
+      <span aria-live="polite">
         {state === 'copied' ? 'Copied' : state === 'refused' ? 'Could not copy' : 'Copy hook'}
       </span>
     </button>

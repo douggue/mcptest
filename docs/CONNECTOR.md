@@ -130,6 +130,9 @@ through all of them. Watching a whole video with its sound needs the video as a
 file; the connector does not send video files. `get_video_watch` and
 `get_frame_study` only return what a channel breakdown in the app has already
 written down and kept.
+| `get_idea_brief` | What you chose in the app's idea lab for one batch of concepts: the picked videos, the length and the title format. Used by the app's own AI runs. |
+| `get_concept` | One concept the idea lab stored for a channel, in its labelled lines. Used by the app's own AI runs. |
+| `get_hooks` | The hook library of a channel's map: the first minute of what its top breakout videos say, word for word, with the style name when one was given. |
 
 ## Good to know
 
