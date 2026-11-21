@@ -1,19 +1,28 @@
 import type { PlanView } from '@jgtube/core';
 import { Target } from 'lucide-react';
 import { useState } from 'react';
-import { FIELD, NOTE, PRIMARY_BUTTON } from './LabStatus';
+import { planCounts } from '../lib/plan';
+import { Card, Field } from './layout/Card';
+import { Details } from './layout/Details';
+import { PanelButton } from './layout/PanelButton';
+import { SplitView, ViewPage } from './layout/SplitView';
+import { StatRow } from './layout/StatRow';
+import { StatTile } from './layout/StatTile';
+import { ViewHeader } from './layout/ViewHeader';
+import { FIELD, NOTE } from './LabStatus';
 import { LinkedCard, PlanTable } from './OwnVideoParts';
 import { usePlan, type Plan } from './usePlan';
 
-const LABEL = 'text-label-caps uppercase text-outline';
+const ALERT = 'rounded-lg bg-surface-card p-space-md text-body-md text-error';
 
+/** The side panel: which kept concept became which published video, and the one button. */
 function LinkForm({ plan, actions }: { readonly plan: PlanView; readonly actions: Plan }) {
   const [conceptId, setConceptId] = useState<number | null>(null);
   const [link, setLink] = useState('');
   const chosen = conceptId ?? plan.linkable[0]?.conceptId ?? null;
   if (plan.linkable.length === 0) {
     return (
-      <p className={NOTE}>
+      <p className="text-body-sm text-on-surface-variant">
         Every kept concept is linked, or none is kept yet. Keep a concept in the idea lab to link it
         to the video it became.
       </p>
@@ -21,15 +30,15 @@ function LinkForm({ plan, actions }: { readonly plan: PlanView; readonly actions
   }
   return (
     <form
-      className="flex flex-wrap items-end gap-space-sm"
+      className="flex min-w-0 flex-col gap-space-lg"
       onSubmit={(event) => {
         event.preventDefault();
         if (chosen !== null && link.trim() !== '') actions.link(chosen, link.trim());
       }}
     >
-      <label className="flex min-w-0 flex-1 basis-56 flex-col gap-1">
-        <span className={LABEL}>Kept concept</span>
+      <Field label={<label htmlFor="plan-concept">Kept concept</label>}>
         <select
+          id="plan-concept"
           value={chosen ?? ''}
           onChange={(event) => setConceptId(Number(event.target.value))}
           className={FIELD}
@@ -41,25 +50,92 @@ function LinkForm({ plan, actions }: { readonly plan: PlanView; readonly actions
             </option>
           ))}
         </select>
-      </label>
-      <label className="flex min-w-0 flex-1 basis-56 flex-col gap-1">
-        <span className={LABEL}>Your published video (link or id)</span>
+      </Field>
+      <Field label={<label htmlFor="plan-video">Your published video (link or id)</label>}>
         <input
+          id="plan-video"
           type="text"
           value={link}
           onChange={(event) => setLink(event.target.value)}
           placeholder="https://www.youtube.com/watch?v=…"
           className={FIELD}
         />
-      </label>
-      <button
-        type="submit"
-        disabled={actions.linking || link.trim() === ''}
-        className={PRIMARY_BUTTON}
-      >
+      </Field>
+      <PanelButton submit disabled={actions.linking || link.trim() === ''}>
         {actions.linking ? 'Checking' : 'Link'}
-      </button>
+      </PanelButton>
     </form>
+  );
+}
+
+function Panel({ plan, actions }: { readonly plan: PlanView | null; readonly actions: Plan }) {
+  return (
+    <>
+      <div className="flex min-w-0 flex-col gap-1">
+        <h2 id="own-videos-title" className="flex items-center gap-2 text-headline-md font-bold">
+          <Target aria-hidden="true" className="h-5 w-5 flex-none text-metric-amber" />
+          <span className="text-on-surface">Link a video</span>
+        </h2>
+        <p className="text-body-sm text-on-surface-variant">
+          Link a kept concept to the video you published from it.
+        </p>
+      </div>
+      <Details summary="How this works">
+        <p className="text-body-sm text-on-surface-variant">
+          Its numbers come from what Jgtube has stored for this channel, read again by each refresh:
+          no forecast and no advice. A video not stored yet is looked for by reading this channel
+          once.
+        </p>
+      </Details>
+      {plan && <LinkForm plan={plan} actions={actions} />}
+      {actions.problem && (
+        <p role="alert" className={ALERT}>
+          {actions.problem}
+        </p>
+      )}
+    </>
+  );
+}
+
+/** The plan's counts, each with what it rests on. */
+function Counts({ plan }: { readonly plan: PlanView }) {
+  const counts = planCounts(plan);
+  return (
+    <StatRow columns={3}>
+      <StatTile label="Linked videos" value={counts.linked} note="Kept concepts you published" />
+      <StatTile label="Scored" value={counts.scored} note="Against your usual at the same age" />
+      <StatTile label="Not linked yet" value={counts.notLinked} note="Kept concepts" />
+    </StatRow>
+  );
+}
+
+/** The linked videos in one column, then what they used and how they did. */
+function Linked({ plan, actions }: { readonly plan: PlanView; readonly actions: Plan }) {
+  if (plan.linked.length === 0) {
+    return (
+      <Card>
+        <Target aria-hidden="true" className="h-6 w-6 text-metric-amber" />
+        <p className="text-body-md text-on-surface">No video is linked yet.</p>
+        <p className="text-body-sm text-on-surface-variant">
+          When you publish a kept concept, link it on the left to see how it did against your usual.
+        </p>
+      </Card>
+    );
+  }
+  return (
+    <>
+      <ol className="flex min-w-0 flex-col gap-space-md">
+        {plan.linked.map((video) => (
+          <LinkedCard
+            key={video.conceptId}
+            video={video}
+            busy={actions.linking}
+            onUnlink={() => actions.unlink(video.conceptId)}
+          />
+        ))}
+      </ol>
+      <PlanTable rows={plan.table} videos={plan.linked.length} />
+    </>
   );
 }
 
@@ -76,56 +152,22 @@ export function OwnVideos({ channelId, reloadKey }: Props) {
   if (state.status === 'idle') return null;
   const plan = state.status === 'ready' ? state.plan : null;
   return (
-    <section
-      id="own-videos"
-      aria-labelledby="own-videos-title"
-      className="w-full scroll-mt-16 bg-space-deep px-gutter-desktop pb-space-xl"
-    >
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-space-lg">
-        <div>
-          <div className="flex items-center gap-2">
-            <Target aria-hidden="true" className="h-[22px] w-[22px] flex-none text-metric-amber" />
-            <h2
-              id="own-videos-title"
-              className="text-headline-lg font-bold tracking-tight text-on-surface"
-            >
-              Your videos against the plan
-            </h2>
-          </div>
-          <p className="mt-1 max-w-4xl text-body-md text-on-surface-variant">
-            Link a kept concept to the video you published from it. Its numbers come from what
-            Jgtube has stored for this channel, read again by each refresh: no forecast and no
-            advice. A video not stored yet is looked for by reading this channel once.
-          </p>
-        </div>
+    <ViewPage id="own-videos" labelledBy="own-videos-title">
+      <SplitView sideLabel="Link a published video" side={<Panel plan={plan} actions={actions} />}>
+        <ViewHeader
+          title="Your videos against the plan"
+          lead="Each video against your channel's usual at the same age."
+          count={plan ? plan.linked.length : undefined}
+        />
         {state.status === 'loading' && <p className={NOTE}>Reading the plan</p>}
         {state.status === 'failed' && (
-          <p role="alert" className="text-body-md text-error">
+          <p role="alert" className={ALERT}>
             It could not be loaded: {state.message}
           </p>
         )}
-        {plan && <LinkForm plan={plan} actions={actions} />}
-        {actions.problem && (
-          <p role="alert" className="text-body-md text-error">
-            {actions.problem}
-          </p>
-        )}
-        {plan && plan.linked.length > 0 && (
-          <>
-            <div className="grid grid-cols-1 gap-space-md lg:grid-cols-2">
-              {plan.linked.map((video) => (
-                <LinkedCard
-                  key={video.conceptId}
-                  video={video}
-                  busy={actions.linking}
-                  onUnlink={() => actions.unlink(video.conceptId)}
-                />
-              ))}
-            </div>
-            <PlanTable rows={plan.table} videos={plan.linked.length} />
-          </>
-        )}
-      </div>
-    </section>
+        {plan && <Counts plan={plan} />}
+        {plan && <Linked plan={plan} actions={actions} />}
+      </SplitView>
+    </ViewPage>
   );
 }

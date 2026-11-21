@@ -1,4 +1,10 @@
-import type { InspirationAtAge, LinkedVideo, PlanTableKind, PlanTableRow } from '@jgtube/core';
+import type {
+  InspirationAtAge,
+  LinkedVideo,
+  PlanTableKind,
+  PlanTableRow,
+  PlanView,
+} from '@jgtube/core';
 import { formatCount, formatScore } from './format';
 
 /** An age in whole days. */
@@ -48,4 +54,17 @@ export function medianText(row: PlanTableRow): string {
 /** The plain caution under the table, with how many videos it rests on. */
 export function tableCaution(videos: number): string {
   return `This rests on ${videos} linked video${videos === 1 ? '' : 's'}. A handful of videos proves little: one topic, one week or one thumbnail can explain a difference, so read this as a record, not a rule.`;
+}
+
+/** The plan's counts for its tiles: videos linked, how many of them are scored, kept concepts not linked. */
+export function planCounts(plan: Pick<PlanView, 'linked' | 'linkable'>): {
+  readonly linked: number;
+  readonly scored: number;
+  readonly notLinked: number;
+} {
+  return {
+    linked: plan.linked.length,
+    scored: plan.linked.filter((video) => video.score !== null).length,
+    notLinked: plan.linkable.length,
+  };
 }

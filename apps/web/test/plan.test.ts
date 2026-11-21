@@ -6,6 +6,7 @@ import {
   daysText,
   inspirationLine,
   medianText,
+  planCounts,
   scoreLine,
   tableCaution,
 } from '../src/lib/plan';
@@ -33,6 +34,16 @@ describe('daysText', () => {
     expect(daysText(0.3)).toBe('under a day');
     expect(daysText(1.2)).toBe('1 day');
     expect(daysText(9.4)).toBe('9 days');
+  });
+});
+
+describe('planCounts', () => {
+  test('counts the linked videos, the scored ones and the kept concepts not linked', () => {
+    const plan = {
+      linked: [linked, { ...linked, conceptId: 4, score: null, usualViews: null }],
+      linkable: [{ conceptId: 5, title: 'Next', hasScript: false }],
+    };
+    expect(planCounts(plan)).toEqual({ linked: 2, scored: 1, notLinked: 1 });
   });
 });
 
