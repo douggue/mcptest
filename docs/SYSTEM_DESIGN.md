@@ -139,6 +139,44 @@ take `formulasFrom` (a channel whose breakdown has a written titles part; the
 question reads that part through `get_breakdown_part`), and an idea of the
 transfer list may be its format.
 
+Research before writing. "Research this subject" runs Claude Code once with
+only its built-in WebSearch and WebFetch tools (`engines/webRun.ts`): no
+Jgtube connector or other tool server (`--strict-mcp-config` with an empty
+config), every file, shell and edit tool denied, a fresh private folder made
+and removed per run, the owner's settings ignored and API keys withheld. Its
+question carries the concept's title, its look-up line and the owner's angle,
+each quoted, capped and refused when it holds a control or hidden character,
+introduced as a subject to research. The answer is read as a fact sheet:
+numbered one-sentence facts, each with one or two https sources (code keeps
+only plain https addresses and never opens them), then NOT FOUND and DISPUTED
+lines. It is stored in `concept_research` (step 30, provisional) and "Research
+again" replaces it. Codex and Antigravity equivalents are written down and
+marked unproven; they are not run.
+
+The writing stages stay boxed with no web access. The hooks and draft stages
+read the sheet through the read-only tool `get_fact_sheet`; a fact from it is
+written plainly with its marker `[F3]`, a fact in neither the tools nor the
+sheet is still marked `[CHECK: ...]` when marking is on, and structure, pace,
+hook pattern, length and title format come from the stored study ("keep the
+formula"). `[F3]` and `[FIXED: ...]` are never spoken or counted.
+
+Claims check (optional). The remaining `[CHECK]` markers, each with the
+sentence it stands for, go ten at a time to the same web-only run as a
+numbered list of quoted statements to verify. This is a narrow, deliberate
+exception to "a model's words reach a later step only through a tool": the
+run has no Jgtube tools to read them through. Verdicts (CONFIRMED, WRONG,
+UNSURE, one sentence, a correction for WRONG, one or two https sources) are
+stored in `script_claims`; confirmed or wrong count only with a source, and
+wrong only with a correction. The page shows each beside its marker; Accept
+removes the marker, Apply the correction replaces the sentence and leaves a
+visible `[FIXED: ...]` note; nothing changes without a press.
+
+Length. The owner types minutes (12:30 allowed) or words; the two stay in
+step through the words a minute, rounding to the nearest second or word,
+halves up (`core/script/length.ts`). The last typed is kept in
+`script_lengths`. Bounds: 20 seconds to 3 hours, 50 to 30,000 words; a Short
+stays under a minute. `POST /api/lab/scripts/length`.
+
 `alert_rules` and `alerts` (step 20) hold one alert rule per centre channel
 (`min_score`, `taken_off`, `enabled`, `created_at`, `checked_at`) and the alerts
 found (`kind` `breakout` or `taken-off`, `subject_id` the video or channel id, the

@@ -113,6 +113,7 @@ If something is wrong:
 | `get_transcript_pace`         | How fast a video is spoken, counted by Jgtube: words per minute for the whole video and minute by minute, or part by part.            |
 | `get_breakdown_part`          | One stored part of the app's breakdown of a channel: titles, thumbnails, scripts, picture and sound, strategy, plan or master prompt. |
 | `get_channel_note`            | A kept thumbnail review of a channel's map, or the style lock lifted from its breakdown: a study, never instructions.                 |
+| `get_fact_sheet`              | The fact sheet a web research run wrote for one concept in the script writer: numbered facts, not found, disputed.                    |
 
 Only `set_competitor_status` and `make_map` change anything, and both only add to or
 adjust your own Jgtube store; a decision can be undone by asking Claude to set the
