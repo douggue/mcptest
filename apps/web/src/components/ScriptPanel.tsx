@@ -1,6 +1,5 @@
-import { ArrowLeft, TriangleAlert } from 'lucide-react';
+import { TriangleAlert } from 'lucide-react';
 import { thumbnailFor } from '../lib/ideaLab';
-import { viewHref } from '../lib/routes';
 import {
   scriptStats,
   type ScriptStage,
@@ -80,15 +79,8 @@ export function ScriptPanel(props: Props) {
   const beats = view.script?.beats ?? '';
   return (
     <>
-      <a
-        href={viewHref('ideas')}
-        className="flex w-fit items-center gap-1.5 text-body-sm text-on-surface-variant hover:text-primary"
-      >
-        <ArrowLeft aria-hidden="true" className="h-4 w-4" />
-        Concepts
-      </a>
       <h2 id="script-writer-title" className="text-headline-md font-bold text-on-surface">
-        Script writer
+        Voice and length
       </h2>
       <FactsWarning markFacts={view.markFacts ?? true} />
       <ScriptSetup script={script} view={view} busy={busy} voices={voices} />

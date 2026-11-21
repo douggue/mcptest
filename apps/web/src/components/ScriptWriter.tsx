@@ -1,3 +1,4 @@
+import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import { thumbnailFor } from '../lib/ideaLab';
 import { sourcesMarkdown } from '../lib/research';
@@ -31,6 +32,8 @@ interface Props {
   readonly busy: boolean;
   /** The channels of this map a script can be written in the voice of. */
   readonly voices: readonly VoiceChoice[];
+  /** The kept concepts that have a script started; null while that is read. */
+  readonly scripted: ReadonlySet<number> | null;
 }
 
 /** What each step is about, in one line, with its numbers. */
@@ -93,6 +96,14 @@ function Workbench(props: Props & { readonly view: ScriptView }) {
       sideLabel="The script's voice, length and checks"
       side={<ScriptPanel {...panel} stage={step} onChange={edit} />}
     >
+      <button
+        type="button"
+        onClick={script.close}
+        className="flex min-h-11 w-fit items-center gap-1.5 rounded text-body-sm font-semibold text-on-surface-variant hover:text-on-surface"
+      >
+        <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+        All scripts
+      </button>
       <ScriptTopBar
         script={script}
         view={view}
@@ -151,7 +162,11 @@ export function ScriptWriter(props: Props) {
             title="Script"
             lead="Hooks and beats, then the draft, then a tighten pass."
           />
-          <ScriptPicker concepts={props.lab.concepts} onOpen={script.open} />
+          <ScriptPicker
+            concepts={props.lab.concepts}
+            scripted={props.scripted}
+            onOpen={script.open}
+          />
         </>
       )}
     </ViewPage>

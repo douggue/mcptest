@@ -1,3 +1,4 @@
+import { usePlan } from './usePlan';
 import type { ViewId } from '../lib/routes';
 import { toggleModel } from '../lib/scriptWriter';
 import { Formulas } from './Formulas';
@@ -26,6 +27,27 @@ function Hooks({ work, centerTitle }: ViewParts & { readonly centerTitle: string
   );
 }
 
+/** The script writer, told which kept concepts already have a script. */
+function Script({ work, centerId }: ViewParts & { readonly centerId: string }) {
+  const plan = usePlan(centerId, work.refresh.run.status);
+  const view = plan.state.status === 'ready' ? plan.state.plan : null;
+  const scripted = view
+    ? new Set(
+        [...view.linkable, ...view.linked].flatMap((row) => (row.hasScript ? [row.conceptId] : [])),
+      )
+    : null;
+  return (
+    <ScriptWriter
+      script={work.script}
+      research={work.research}
+      lab={work.lab}
+      busy={work.asking}
+      voices={work.voices}
+      scripted={scripted}
+    />
+  );
+}
+
 /** The views of the rail's Create group, each drawn on its own. */
 export const CREATE_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
   formats: withMap('formats', (snapshot, { work, path }) => (
@@ -50,14 +72,8 @@ export const CREATE_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
       ai={aiOf(work)}
     />
   )),
-  script: withMap('script', (_snapshot, { work }) => (
-    <ScriptWriter
-      script={work.script}
-      research={work.research}
-      lab={work.lab}
-      busy={work.asking}
-      voices={work.voices}
-    />
+  script: withMap('script', (snapshot, parts) => (
+    <Script {...parts} centerId={snapshot.center.id} />
   )),
   risk: ({ page, work }) => (
     <RiskCheck

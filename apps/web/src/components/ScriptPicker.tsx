@@ -7,6 +7,8 @@ import { Notice } from './layout/Notice';
 interface Props {
   /** The channel's concepts; null while they are read. */
   readonly concepts: readonly ConceptView[] | null;
+  /** The concepts with a script started; null while that is read. */
+  readonly scripted: ReadonlySet<number> | null;
   /** Opens a concept's script, starting it when there is none. */
   readonly onOpen: (conceptId: number) => void;
 }
@@ -18,9 +20,13 @@ const OPEN_BUTTON =
  * With no script open: the kept ideas, each opening its script, so a script
  * is one press away on every return. Without a kept idea, the way to keep one.
  */
-export function ScriptPicker({ concepts, onOpen }: Props) {
+export function ScriptPicker({ concepts, scripted, onOpen }: Props) {
   if (concepts === null) return <Notice tone="working">Reading your ideas.</Notice>;
-  const kept = concepts.filter((concept) => concept.kept);
+  // Scripts already started come first, as the one to carry on with.
+  const started = (id: number): boolean => scripted?.has(id) ?? false;
+  const kept = concepts
+    .filter((concept) => concept.kept)
+    .sort((a, b) => Number(started(b.id)) - Number(started(a.id)));
   if (kept.length === 0) {
     return (
       <Card>
@@ -40,15 +46,18 @@ export function ScriptPicker({ concepts, onOpen }: Props) {
   }
   return (
     <Card label="Your kept ideas">
-      <h3 className="text-headline-md font-bold text-on-surface">Pick an idea to write</h3>
+      <h3 className="text-headline-md font-bold text-on-surface">Your scripts</h3>
       <ul className="flex flex-col divide-y divide-border-subtle">
         {kept.map((concept) => (
           <li key={concept.id} className="flex min-w-0 flex-wrap items-center gap-space-md py-3">
-            <span className="min-w-0 flex-1 basis-64 break-words text-title-md text-on-surface">
-              {concept.title}
+            <span className="flex min-w-0 flex-1 basis-64 flex-col">
+              <span className="break-words text-title-md text-on-surface">{concept.title}</span>
+              <span className="text-body-sm text-outline">
+                {started(concept.id) ? 'Script started' : 'No script yet'}
+              </span>
             </span>
             <button type="button" className={OPEN_BUTTON} onClick={() => onOpen(concept.id)}>
-              Open script
+              {started(concept.id) ? 'Continue' : 'Start the script'}
               <ArrowRight aria-hidden="true" className="h-4 w-4" />
             </button>
           </li>
