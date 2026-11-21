@@ -258,6 +258,7 @@ describe('buildNicheList', () => {
       growth: null,
       createdAt: null,
       country: null,
+      logoUrl: null,
     });
     expect(entry?.outperformers[0]?.score).toBeGreaterThan(40);
   });

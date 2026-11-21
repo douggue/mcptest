@@ -30,6 +30,8 @@ import type { EngineAnswer } from './engines/fallback';
 import type { EngineId } from './engines/types';
 import type { VideoAnswer } from './engines/videoWatch';
 import { refreshState, startRefresh, type RefreshTracker } from './refreshRoutes';
+import { downloadThumbnails } from './downloadRoutes';
+import type { DownloadsEngine } from './downloadTypes';
 import { readTransfers, saveTransfer } from './transferRoutes';
 
 const CHANNEL_ID = /^UC[\w-]{22}$/;
@@ -91,7 +93,7 @@ export interface TransferChoices {
 }
 
 /** What the API needs from the engine, so tests can stand in for it. */
-export interface Engine {
+export interface Engine extends DownloadsEngine {
   /** The latest stored map around a channel; reads the store only. */
   findSnapshot(channel: string): MapSnapshot | null;
   /** The thumbnails that worked around a channel, from its latest map; reads the store only. */
@@ -377,6 +379,9 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     }
     if (pathname === '/api/transfers/save') {
       return method === 'POST' ? saveTransfer(options, request) : fail(405, 'Use POST');
+    }
+    if (pathname === '/api/thumbnails/download') {
+      return method === 'POST' ? downloadThumbnails(options, request) : fail(405, 'Use POST');
     }
     if (pathname === '/api/refresh') {
       if (method === 'GET') return refreshState(options, refreshing);

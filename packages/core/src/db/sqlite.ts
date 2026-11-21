@@ -144,6 +144,43 @@ CREATE TABLE IF NOT EXISTS transfer_saves (
 );
 CREATE INDEX IF NOT EXISTS videos_published ON videos (published_at);
 `,
+  // 11: what is read from a video's own page, kept so that each is read once: its captions
+  //     (a row with no lines means it had none when asked), its description and tags, and
+  //     its storyboard. None of them refers to the videos table: a video can be read by its
+  //     id before any crawl has stored it. And how a channel presents itself (logo, cover,
+  //     bio, keywords, links), in columns the facts from the official API do not share.
+  `
+CREATE TABLE IF NOT EXISTS video_transcripts (
+  video_id        TEXT PRIMARY KEY,
+  language        TEXT,
+  auto_generated  INTEGER NOT NULL DEFAULT 0,
+  segments_json   TEXT,
+  fetched_at      TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS video_details (
+  video_id     TEXT PRIMARY KEY,
+  title        TEXT,
+  description  TEXT NOT NULL,
+  tags_json    TEXT NOT NULL,
+  duration_s   INTEGER,
+  source       TEXT NOT NULL,
+  fetched_at   TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS video_storyboards (
+  video_id     TEXT PRIMARY KEY,
+  levels_json  TEXT NOT NULL,
+  fetched_at   TEXT NOT NULL
+);
+
+ALTER TABLE channels ADD COLUMN description TEXT;
+ALTER TABLE channels ADD COLUMN avatar_json TEXT;
+ALTER TABLE channels ADD COLUMN banner_json TEXT;
+ALTER TABLE channels ADD COLUMN keywords_json TEXT;
+ALTER TABLE channels ADD COLUMN links_json TEXT;
+ALTER TABLE channels ADD COLUMN brand_fetched_at TEXT;
+`,
 ];
 
 /**

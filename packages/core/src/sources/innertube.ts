@@ -1,8 +1,26 @@
 import { Innertube, Log, Parser } from 'youtubei.js';
+import { mapChannelBrand } from './brandMapper';
+import { readCapped } from './images';
 import type { RateLimiter } from './limiter';
-import { mapChannel, mapChannelVideo, mapSidebarItem } from './mappers';
+import { at, mapChannel, mapChannelVideo, mapSidebarItem } from './mappers';
 import { CHANNEL_ID_PATTERN, HANDLE_PATTERN, VIDEO_ID_PATTERN } from './parse';
-import type { ChannelSnapshot, SidebarItem, VideoItem, YouTubeSource } from './types';
+import type {
+  ChannelSnapshot,
+  SidebarItem,
+  VideoItem,
+  VideoPage,
+  VideoPageOptions,
+  VideoTranscript,
+  YouTubeSource,
+} from './types';
+import {
+  mapStoryboard,
+  mapTranscriptPanel,
+  mapVideoDetails,
+  parseTimedText,
+  pickCaptionTrack,
+  type CaptionTrack,
+} from './videoPage';
 
 /** The slice of the YouTube client this source uses, so tests can fake it. */
 export interface VideosTab {
@@ -17,11 +35,27 @@ export interface ChannelPage {
   getVideos(): Promise<VideosTab>;
 }
 
+/** A watch page as the library returns it: the sidebar, the video's facts, and its transcript call. */
+export interface WatchPage {
+  readonly watch_next_feed?: readonly unknown[] | null;
+  readonly basic_info?: unknown;
+  /** The library's documented way to read a video's transcript; one more request. */
+  getTranscript?(): Promise<unknown>;
+}
+
 export interface InnertubeClient {
   resolveURL(url: string): Promise<unknown>;
   getChannel(channelId: string): Promise<ChannelPage>;
-  getInfo(videoId: string): Promise<{ readonly watch_next_feed?: readonly unknown[] | null }>;
+  getInfo(videoId: string): Promise<WatchPage>;
+  /** The player's answer for one video, asked as the named client; one request. */
+  getBasicInfo(videoId: string, options: { readonly client: string }): Promise<unknown>;
 }
+
+/** The part of `fetch` used to read a caption track, so tests can stand in for the network. */
+export type FetchText = (
+  url: string,
+  init: { readonly signal: AbortSignal; readonly redirect: 'error' },
+) => Promise<Response>;
 
 export interface InnertubeSourceOptions {
   readonly limiter: RateLimiter;
@@ -38,6 +72,24 @@ const MAX_VIDEO_PAGES = 10;
  * shorter one can honestly hold only playlists or mixes.
  */
 const MIN_ITEMS_FOR_ALARM = 5;
+/**
+ * The client the player is asked as for a video's own page. Asked as the web
+ * client, signed out, the player answers "The page needs to be reloaded" and
+ * carries neither a storyboard nor caption tracks, and the library's
+ * transcript call is refused with status 400 (both seen live, November 2026).
+ * Asked as this client it answers in full, in one request.
+ */
+const PLAYER_CLIENT = 'ANDROID_VR';
+const PLAYABLE = 'OK';
+const CAPTION_TIMEOUT_MS = 20_000;
+/**
+ * The captions of a half-hour video, with a time for every word, come to
+ * about 350 KB (seen live). This allows a video of several hours and no more.
+ */
+const MAX_CAPTION_BYTES = 5_000_000;
+/** What the library's transcript call says when a video simply has none. */
+const NO_TRANSCRIPT = /no transcript|transcript panel not found|engagement panels not found/i;
+const MAX_REASON_LENGTH = 160;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -52,6 +104,7 @@ export class InnertubeSource implements YouTubeSource {
     private readonly client: InnertubeClient,
     private readonly limiter: RateLimiter,
     private readonly now: () => Date,
+    private readonly fetchText: FetchText = fetch,
   ) {}
 
   static async create(options: InnertubeSourceOptions): Promise<InnertubeSource> {
@@ -93,7 +146,101 @@ export class InnertubeSource implements YouTubeSource {
     const channel = mapChannel(page.header, page.metadata);
     if (!channel) throw new Error(`Could not read the channel page for ${channelId}`);
     const videos = await this.collectVideos(page, channel.id, maxVideos);
-    return { channel, videos };
+    return { channel, videos, brand: mapChannelBrand(page.header, page.metadata) };
+  }
+
+  async fetchVideoPage(videoId: string, options: VideoPageOptions = {}): Promise<VideoPage> {
+    if (!VIDEO_ID_PATTERN.test(videoId)) {
+      throw new Error(`Not a valid YouTube video id: "${videoId.slice(0, 40)}"`);
+    }
+    const player = await this.limiter.run(() =>
+      this.client.getBasicInfo(videoId, { client: PLAYER_CLIENT }),
+    );
+    const page = {
+      videoId,
+      details: mapVideoDetails(at(player, 'basic_info')),
+      storyboard: mapStoryboard(at(player, 'storyboards')),
+    };
+    if (at(player, 'playability_status', 'status') !== PLAYABLE) {
+      return this.fromWatchPage(page, options);
+    }
+    if (!options.transcript) return page;
+    // The player answered in full, so a page without caption tracks has none.
+    const track = pickCaptionTrack(at(player, 'captions'));
+    return { ...page, transcript: track ? await this.readCaptions(videoId, track) : null };
+  }
+
+  /**
+   * The player's answer for one video as the library returns it, files and
+   * download call included: what the built-in video download works from. One
+   * request, through the limiter like every other.
+   */
+  async fetchPlayer(videoId: string): Promise<unknown> {
+    if (!VIDEO_ID_PATTERN.test(videoId)) {
+      throw new Error(`Not a valid YouTube video id: "${videoId.slice(0, 40)}"`);
+    }
+    return this.limiter.run(() => this.client.getBasicInfo(videoId, { client: PLAYER_CLIENT }));
+  }
+
+  /**
+   * The other route, for when the player will not answer: the watch page the
+   * crawl already reads, and the library's own transcript call on it.
+   */
+  private async fromWatchPage(page: VideoPage, options: VideoPageOptions): Promise<VideoPage> {
+    const watch = await this.limiter.run(() => this.client.getInfo(page.videoId));
+    const filled = { ...page, details: page.details ?? mapVideoDetails(watch.basic_info) };
+    if (!options.transcript) return filled;
+    return { ...filled, transcript: await this.readTranscriptPanel(page.videoId, watch) };
+  }
+
+  private async readTranscriptPanel(
+    videoId: string,
+    watch: WatchPage,
+  ): Promise<VideoTranscript | null> {
+    const read = watch.getTranscript;
+    if (typeof read !== 'function') return null;
+    try {
+      return mapTranscriptPanel(await this.limiter.run(() => read.call(watch)));
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      if (NO_TRANSCRIPT.test(reason)) return null;
+      throw new Error(
+        `The captions of video ${videoId} could not be read: ${reason.slice(0, MAX_REASON_LENGTH)}`,
+        { cause: error },
+      );
+    }
+  }
+
+  /** Reads one caption track. Its address was checked when the track was picked. */
+  private async readCaptions(
+    videoId: string,
+    track: CaptionTrack,
+  ): Promise<VideoTranscript | null> {
+    const response = await this.limiter.run(async () => {
+      const answer = await this.fetchText(track.url, {
+        signal: AbortSignal.timeout(CAPTION_TIMEOUT_MS),
+        redirect: 'error',
+      });
+      if (answer.ok) return answer;
+      // Carries the status so that the limiter retries a refusal that may pass.
+      throw Object.assign(
+        new Error(
+          `YouTube would not give the captions of video ${videoId} (status ${answer.status})`,
+        ),
+        { status: answer.status },
+      );
+    });
+    const bytes = await readCapped(response, MAX_CAPTION_BYTES);
+    if (bytes === null) throw new Error(`The captions of video ${videoId} are too large to read`);
+    let body: unknown;
+    try {
+      body = JSON.parse(Buffer.from(bytes).toString('utf8'));
+    } catch {
+      throw new Error(`The captions of video ${videoId} could not be read`);
+    }
+    const segments = parseTimedText(body);
+    if (segments.length === 0) return null;
+    return { language: track.language, autoGenerated: track.autoGenerated, segments };
   }
 
   async getSidebar(videoId: string): Promise<readonly SidebarItem[]> {

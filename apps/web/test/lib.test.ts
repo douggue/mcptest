@@ -37,6 +37,9 @@ const channel = (n: number, overrides: Partial<SnapshotChannel> = {}): SnapshotC
   recentViews: 1000,
   recentUploads: 2,
   rising: false,
+  group: 'neither',
+  ninetyDayViews: 0,
+  widelySeenUploads: 0,
   breakout: null,
   recommendedBy: [],
   peer: true,
@@ -291,6 +294,32 @@ describe('layoutRadar', () => {
     expect(layout.hidden).toBe(40 - layout.nodes.length);
   });
 
+  test('fills each ring with look-alikes in the taken-off-and-rising mix', () => {
+    // Ten that have taken off are listed before the two that are rising, as a
+    // list cut down to one ring is: the ring's eight places must still hold both.
+    const channels = [
+      ...Array.from({ length: 10 }, (_, n) => channel(n + 1, { group: 'taken-off' })),
+      channel(11, { group: 'rising' }),
+      channel(12, { group: 'rising' }),
+    ];
+
+    const shown = layoutRadar(snapshotOf(channels)).nodes.map((node) => node.id);
+
+    expect(shown).toEqual([1, 11, 2, 3, 4, 12, 5, 6].map(cid));
+  });
+
+  test('places look-alikes on a ring before the channels that are not', () => {
+    const channels = [
+      channel(1, { peer: false, group: 'rising' }),
+      channel(2, { group: 'neither' }),
+      channel(3, { group: 'taken-off' }),
+    ];
+
+    const shown = layoutRadar(snapshotOf(channels)).nodes.map((node) => node.id);
+
+    expect(shown).toEqual([3, 2, 1].map(cid));
+  });
+
   test('gives the same positions every time', () => {
     const channels = [channel(1), channel(2, { tier: 'medium' }), channel(3, { tier: 'far' })];
 
@@ -301,13 +330,16 @@ describe('layoutRadar', () => {
     const breakout = { videoId: 'abcdefghijk', title: 'Hit', views: 9, score: 83 };
     const { nodes } = layoutRadar(
       snapshotOf([
-        channel(1, { breakout, rising: true }),
+        channel(1, { breakout, rising: true, group: 'rising' }),
+        // Young and above its size, but already past the bar: taken off, so not drawn as rising.
+        channel(3, { rising: true, group: 'taken-off' }),
         channel(2, { breakout: { ...breakout, score: 2 } }),
       ]),
     );
 
-    expect(nodes[0]).toMatchObject({ badge: 83, rising: true });
-    expect(nodes[1]).toMatchObject({ badge: null, rising: false });
+    expect(nodes.find((node) => node.id === cid(1))).toMatchObject({ badge: 83, rising: true });
+    expect(nodes.find((node) => node.id === cid(2))).toMatchObject({ badge: null, rising: false });
+    expect(nodes.find((node) => node.id === cid(3))).toMatchObject({ rising: false });
   });
 
   test('draws a link from the centre to each direct neighbour, weighted by share', () => {

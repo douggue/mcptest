@@ -47,6 +47,7 @@ function makeClient(
     },
     getChannel: async () => page,
     getInfo: async () => ({ watch_next_feed: [...sidebar, { type: 'Unknown' }] }),
+    getBasicInfo: async () => ({}),
     ...overrides,
   };
 }

@@ -6,6 +6,7 @@ import {
   TRANSFER_PAGE_SIZE,
   describeTransfers,
   emptyTransfers,
+  formatsFor,
   ideasFor,
   type TransferFilter,
 } from '../lib/transfers';
@@ -57,15 +58,14 @@ interface CardsProps {
 function Cards({ list, filter, onSetSaved }: CardsProps) {
   const [shown, setShown] = useState(TRANSFER_PAGE_SIZE);
   const ideas = ideasFor(list, filter);
-  const total = filter === 'formats' ? list.formats.length : ideas.length;
+  const formats = filter === 'formats' ? formatsFor(list) : [];
+  const total = filter === 'formats' ? formats.length : ideas.length;
   if (total === 0) return <p className={NOTE}>{emptyTransfers(list, filter)}</p>;
   return (
     <div className="flex flex-col gap-space-md">
       <div className="grid grid-cols-1 gap-space-md xl:grid-cols-2">
         {filter === 'formats'
-          ? list.formats
-              .slice(0, shown)
-              .map((format) => <FormatCard key={format.key} format={format} />)
+          ? formats.slice(0, shown).map((format) => <FormatCard key={format.key} format={format} />)
           : ideas
               .slice(0, shown)
               .map((idea) => (

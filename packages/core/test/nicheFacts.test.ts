@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from 'vitest';
 import { openDatabase } from '../src/db/sqlite';
 import { MAX_FACTS_PER_RUN, fillNicheFacts, type FactsDeps } from '../src/niches/facts';
 import { loadNicheList } from '../src/niches/niches';
+import { SqliteBrandRepo } from '../src/repos/sqliteBrandRepo';
 import { SqliteChannelRepo } from '../src/repos/sqliteChannelRepo';
 import { SqliteFactsRepo } from '../src/repos/sqliteFactsRepo';
 import { SqliteMapRepo } from '../src/repos/sqliteMapRepo';
@@ -25,6 +26,7 @@ const factsFor = (letter: string, country: string | null = 'US'): ChannelFacts =
 });
 
 let deps: FactsDeps;
+let brands: SqliteBrandRepo;
 let asked: string[][];
 let answer: (ids: readonly string[]) => Promise<readonly ChannelFacts[]>;
 
@@ -60,6 +62,7 @@ function store(letter: string, hit = true): void {
 
 beforeEach(() => {
   const db = openDatabase(':memory:');
+  brands = new SqliteBrandRepo(db);
   asked = [];
   answer = async (ids) => ids.map((id) => factsFor(id.charAt(2)));
   deps = {
@@ -197,6 +200,36 @@ describe('fillNicheFacts', () => {
 
   test('asks for a bounded number of channels in one go', () => {
     expect(MAX_FACTS_PER_RUN).toBe(200);
+  });
+});
+
+describe('logos on the niche list', () => {
+  const image = (width: number) => ({
+    url: `https://yt3.googleusercontent.com/logo=s${width}`,
+    width,
+    height: width,
+  });
+
+  test('carries the logo at a size for showing, once the channel’s branding has been read', () => {
+    store('A');
+    expect(loadNicheList({ ...deps, brands }, NOW).channels[0]?.logoUrl).toBeNull();
+
+    brands.save(
+      cid('A'),
+      {
+        description: '',
+        avatar: [image(900), image(160), image(72)],
+        banner: [],
+        keywords: [],
+        links: [],
+      },
+      NOW,
+    );
+
+    expect(loadNicheList({ ...deps, brands }, NOW).channels[0]?.logoUrl).toBe(
+      'https://yt3.googleusercontent.com/logo=s72',
+    );
+    expect(loadNicheList(deps, NOW).channels[0]?.logoUrl).toBeNull();
   });
 });
 

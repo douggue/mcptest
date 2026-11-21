@@ -1,4 +1,11 @@
-import type { ChannelRepo, StoredChannel, StoredVideo, Transact, VideoRepo } from './repos/types';
+import type {
+  BrandRepo,
+  ChannelRepo,
+  StoredChannel,
+  StoredVideo,
+  Transact,
+  VideoRepo,
+} from './repos/types';
 import { parseChannelRef } from './sources/parse';
 import type { ChannelRef, StorableVideo, VideoItem, YouTubeSource } from './sources/types';
 
@@ -12,6 +19,11 @@ export interface IngestDeps {
   /** Wraps the channel and video writes so a failure stores neither. */
   readonly transact: Transact;
   readonly now: () => Date;
+  /**
+   * Where a channel's logo, cover and bio are kept. They come with the same
+   * page, so with this every read of a channel stores them too, at no request.
+   */
+  readonly brands?: BrandRepo;
 }
 
 export interface IngestOptions {
@@ -87,6 +99,7 @@ export async function ingestChannel(
   deps.transact(() => {
     deps.channels.upsert(channel, now);
     deps.videos.upsertMany(storable, now);
+    if (snapshot.brand) deps.brands?.save(channel.id, snapshot.brand, now);
   });
 
   return {

@@ -68,6 +68,7 @@ If something is wrong:
 | "node" cannot be found                      | Install Node 22 or newer, or replace `"node"` with the full path a terminal prints for `which node` (Mac) or `where node` (Windows).                      |
 | "No map has been made for this channel yet" | Make the map in the app first, or ask Claude to "make a new Jgtube map for @yourchannel" and wait a few minutes.                                          |
 | Thumbnails "could not be shown"             | The pictures are fetched from YouTube when asked for; check your internet connection.                                                                     |
+| A video "has no captions"                   | YouTube lists none for it. A new upload often gets automatic captions within a day; Jgtube asks again after a day.                                        |
 
 ## Things to ask
 
@@ -83,6 +84,11 @@ If something is wrong:
   in their own words." Then, for one you agree with: "Yes, keep that one as a
   competitor."
 - "Show me the new niches Jgtube has found. Which would suit a channel like mine?"
+- "Break down the channel @somechannel for me: its logo, cover and bio, the title
+  formula and description template of its videos that took off, and how one of
+  those videos is scripted and what it shows on screen." Claude reads the
+  channel's branding, the descriptions and tags, a transcript, and frames taken
+  across the video.
 
 ## What Claude can do through it
 
@@ -98,10 +104,24 @@ If something is wrong:
 | `list_niches`                 | New or small channels with a video far above their size.                                                                         |
 | `list_transfer_opportunities` | Ideas that took off for another country and are untried or weak for yours, with each version's numbers.                          |
 | `make_map`                    | Makes a new map by reading YouTube. Takes minutes; only one at a time.                                                           |
+| `get_transcript`              | What one video says: its captions as text with the time every half minute. Long ones come in parts.                              |
+| `view_video_frames`           | What one video shows: sheets of small frames taken every few seconds from start to end. Pictures only, no sound.                 |
+| `get_channel_brand`           | A channel's bio, keywords and links, and its logo and cover as pictures Claude can look at.                                      |
+| `get_video_details`           | The description, tags, length, views and score of up to 10 videos, for title formulas and description templates.                 |
 
 Only `set_competitor_status` and `make_map` change anything, and both only add to or
 adjust your own Jgtube store; a decision can be undone by asking Claude to set the
-channel back to automatic, or in the app.
+channel back to automatic, or in the app. The last four tools read one video or
+one channel from YouTube the first time they are asked about it (a request or
+two) and keep what they read in your store, so asking again is instant.
+
+`get_map` also says, for each channel like yours, whether it has already taken
+off or is rising, and lists them about seven to three.
+
+What these tools cannot do: `view_video_frames` shows still frames several
+seconds apart and no sound, so Claude cannot judge sound design or exact cuts
+from it. Watching a whole video with its sound needs the video as a file; the
+connector does not send video files.
 
 ## Good to know
 

@@ -10,6 +10,8 @@ import {
   describeSearch,
   describeHits,
   describeList,
+  describeView,
+  emptyNiches,
   filterNiches,
   formatPerSubscriber,
   otherTitles,
@@ -59,6 +61,7 @@ const niche = (n: number, overrides: Partial<NicheChannel> = {}): NicheChannel =
   growth: null,
   createdAt: null,
   country: null,
+  logoUrl: null,
   ...overrides,
 });
 
@@ -89,26 +92,86 @@ describe('filterNiches', () => {
     ]);
   });
 
-  test('keeps the channels that write in another alphabet', () => {
-    const mixed = [niche(1), niche(2, { otherLanguage: { script: 'Cyrillic' } })];
+  test('keeps the channels that write in another alphabet, less the watched ones', () => {
+    const mixed = [
+      niche(1),
+      niche(2, { otherLanguage: { script: 'Cyrillic' } }),
+      niche(3, { otherLanguage: { script: 'Arabic' }, watched: true }),
+    ];
 
     expect(filterNiches(mixed, 'language').map((channel) => channel.id)).toEqual([cid(2)]);
   });
 
-  test('keeps everything by default, in the order given', () => {
-    expect(filterNiches(channels, 'all')).toEqual(channels);
+  test('leaves a watched channel out of the default view, in the order given', () => {
+    expect(kept('all')).toEqual([cid(1), cid(3)]);
   });
 
   test('keeps the new channels, whether or not they are also small', () => {
     expect(kept('new')).toEqual([cid(1), cid(3)]);
   });
 
-  test('keeps the small channels, whether or not they are also new', () => {
-    expect(kept('small')).toEqual([cid(1), cid(2)]);
+  test('keeps the small channels that are not watched', () => {
+    expect(kept('small')).toEqual([cid(1)]);
   });
 
-  test('keeps only the channels the owner is watching', () => {
+  test('shows the watched channels under Watched and nowhere else', () => {
     expect(kept('watched')).toEqual([cid(2), cid(4)]);
+    expect(NICHE_FILTERS.find((option) => option.id === 'watched')?.label).toBe('Watched');
+  });
+
+  test('brings a channel back to the default view once it is no longer watched', () => {
+    const list = withWatched(listOf(channels), cid(2), false);
+
+    expect(filterNiches(list.channels, 'all').map((channel) => channel.id)).toEqual([
+      cid(1),
+      cid(2),
+      cid(3),
+    ]);
+    expect(filterNiches(list.channels, 'watched').map((channel) => channel.id)).toEqual([cid(4)]);
+  });
+});
+
+describe('describeView', () => {
+  const channels = [
+    niche(1),
+    niche(2, { reasons: ['small'] }),
+    niche(3, { reasons: ['new'], watched: true }),
+    niche(4, { reasons: [], qualifies: false, watched: true }),
+  ];
+
+  test('counts what the default view shows and says where the watched ones went', () => {
+    expect(describeView(listOf(channels), 'all')).toBe(
+      '2 channels that are new (first upload in the last 90 days) or small (10K subscribers or fewer) with a recent video far above their size or their usual views, found among the 286 channels Jgtube has read. Most views on the last 90 days of uploads first. The 2 you are watching are under Watched.',
+    );
+  });
+
+  test('says how many a narrower view shows', () => {
+    expect(describeView(listOf(channels), 'new')).toMatch(/Showing the 1 that is new\.$/);
+    expect(describeView(listOf(channels), 'small')).toMatch(/Showing the 2 that are small\.$/);
+    expect(describeView(listOf(channels), 'watched')).toMatch(/Showing the 2 you are watching\.$/);
+    expect(describeView(listOf(channels), 'language')).not.toContain('Showing');
+  });
+
+  test('says so when every channel found is already watched', () => {
+    const watchedOnly = listOf([niche(1, { watched: true })]);
+
+    expect(describeView(watchedOnly, 'all')).toBe(
+      'No new or small channel with a recent video that took off is left that you are not already watching, among the 286 channels Jgtube has read. The 1 you are watching is under Watched.',
+    );
+    expect(emptyNiches(watchedOnly, 'all')).toBe(
+      'Every channel found so far is one you are watching. They are under Watched; stop watching one to bring it back here.',
+    );
+  });
+
+  test('explains an empty view in the owner’s terms', () => {
+    expect(emptyNiches(listOf([niche(1)]), 'watched')).toBe(
+      'You are not watching any channel yet. Press Watch on one to keep it here.',
+    );
+    expect(emptyNiches(listOf([niche(1, { reasons: ['small'] })]), 'new')).toBe(
+      'None of the channels listed is new.',
+    );
+    expect(emptyNiches(listOf([], 0), 'all')).toContain('Nothing has been read yet');
+    expect(emptyNiches(listOf([], 40), 'all')).toContain('None of the 40 channels read so far');
   });
 });
 

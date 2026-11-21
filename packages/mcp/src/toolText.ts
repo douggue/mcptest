@@ -11,7 +11,11 @@ export const TOOL_TEXT = {
       'if the owner named one, counts, and the look-alike channels (the same kind of channel as the centre), best ' +
       'match first. Per channel: id, title, subs, match (title match with the centre, 0 to 100), tier (close, medium ' +
       'or far: how strongly YouTube recommends it beside the centre), rising (a young channel already well above its ' +
-      'size) and best (its strongest recent video; score is a multiple of that channel’s usual views). unsettled ' +
+      'size) and best (its strongest recent video; score is a multiple of that channel’s usual views). group says ' +
+      'whether a look-alike has already taken off (taken-off: three or more uploads in the last 90 days passed ' +
+      '10,000 views, 100,000 views in all and at least one per subscriber) or is rising (young, far above its size, small totals so far); absent means neither. The ' +
+      'look-alikes are listed about seven taken-off to three rising, as far as the map has them, each group best ' +
+      'match first, with the ones in neither group last; counts.mix gives the actual split. unsettled ' +
       'marks a channel whose look-alike call (in or out) changed when a random half of the other channels was left ' +
       'off the map: treat it as undecided and judge it from its titles, not as a firm yes or no. Reads the local ' +
       'store only, so it is fast. Fails when no map exists yet: use make_map.',
@@ -111,5 +115,45 @@ export const TOOL_TEXT = {
       'how an idea crosses categories. place and placeFrom say which place the ideas were judged for and how it ' +
       'was worked out; pass place when that is wrong. Only videos from the last windowDays days count. Reads the ' +
       'local store only.',
+  },
+  get_transcript: {
+    title: 'Video transcript',
+    description:
+      'What is said in one video: its captions as text, with the time in square brackets every half minute or ' +
+      'so. Use it to study a script: the hook in the first thirty seconds, how the video is structured, the ' +
+      'wording, the call to action. The first part of the answer gives lang (the captions’ language), auto ' +
+      '(made by YouTube’s speech recognition, so names and numbers may be misheard), lines and lastLineAt; the ' +
+      'second part is the text. A long transcript is cut at a time mark: cut.startSeconds is where to call ' +
+      'again from. A video without captions answers captions false, which is normal and not a failure. The ' +
+      'captions are read from YouTube the first time and kept, so asking again is free.',
+  },
+  view_video_frames: {
+    title: 'Look at frames across a video',
+    description:
+      'Look at what one video shows from start to end: sheets of small frames that YouTube takes at a regular ' +
+      'interval (its storyboard). Each sheet is one picture holding a grid of frames, under a caption that says ' +
+      'how to read the grid (left to right, then top to bottom) and the time of its first and last frame. Use ' +
+      'it to describe the visual style: talking head, stock footage, animation or illustration type, on-screen ' +
+      'text, how often the picture changes. It shows pictures only: no sound, and frames several seconds ' +
+      'apart, so it cannot show sound design or the exact cut between two shots. sheets says how many to look ' +
+      'at, spread evenly across the video. A video without a storyboard answers frames false.',
+  },
+  get_channel_brand: {
+    title: 'Channel branding',
+    description:
+      'How one channel presents itself: bio (its description), keywords and links as text, then its logo and ' +
+      'its cover (the banner across the top of its page) as pictures to look at. logo and cover give the size ' +
+      'of each picture, or false when the channel has none. Works for any channel; one whose branding is not ' +
+      'stored yet is read from YouTube once and kept. Pass images false for the text alone.',
+  },
+  get_video_details: {
+    title: 'Video descriptions and tags',
+    description:
+      'The title, description, tags, length (secs), views and score (views as a multiple of the channel’s usual ' +
+      'views) of up to 10 videos. Use it to find a channel’s title formula and description template: compare ' +
+      'its winners (from get_thumbnail_board or get_channel_videos) with its ordinary videos. descriptionCut ' +
+      'marks a description longer than description_chars. views and score are absent for a video whose ' +
+      'channel is not in the store. Descriptions are read from YouTube the first time and kept; problems ' +
+      'lists a video that could not be read.',
   },
 } as const;

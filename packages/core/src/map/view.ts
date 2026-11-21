@@ -9,6 +9,13 @@ import type {
   StoredVideo,
   VideoRepo,
 } from '../repos/types';
+import {
+  TAKEN_OFF_MIN_VIDEO_VIEWS,
+  TAKEN_OFF_WINDOW_DAYS,
+  channelGroup,
+  mixOrder,
+  type ChannelGroup,
+} from './mix';
 import { shapeMismatch, type OutsideReason } from './peers';
 import { readPeers, type PeerCandidate, type PeerVerdict } from './settled';
 
@@ -41,6 +48,12 @@ export interface ChannelMetrics {
   readonly breakout: Breakout | null;
   /** A channel under 90 days old that is already pulling well above its size. */
   readonly rising: boolean;
+  /** Views on videos uploaded in the last 90 days: what "taken off" is judged on. */
+  readonly ninetyDayViews: number;
+  /** How many of those uploads were widely seen (`TAKEN_OFF_MIN_VIDEO_VIEWS` or more). */
+  readonly widelySeenUploads: number;
+  /** Already taken off, rising, or neither; see `map/mix.ts`. */
+  readonly group: ChannelGroup;
 }
 
 /** What one channel's stored videos say about how it is doing right now. */
@@ -65,6 +78,11 @@ export function channelMetrics(
     scored.filter((row) => (row.score ?? 0) >= RISING_BREAKOUT_SCORE).length >=
     RISING_MIN_BREAKOUTS;
 
+  const rising = isYoung && (outgrowsSize || repeatBreakouts);
+  const inWindow = report.filter((row) => row.ageDays <= TAKEN_OFF_WINDOW_DAYS);
+  const ninetyDayViews = inWindow.reduce((sum, row) => sum + row.views, 0);
+  const widelySeenUploads = inWindow.filter((row) => row.views >= TAKEN_OFF_MIN_VIDEO_VIEWS).length;
+
   return {
     recentViews,
     recentUploads: recent.length,
@@ -72,7 +90,10 @@ export function channelMetrics(
       best && best.score !== null
         ? { videoId: best.id, title: best.title, views: best.views, score: best.score }
         : null,
-    rising: isYoung && (outgrowsSize || repeatBreakouts),
+    rising,
+    ninetyDayViews,
+    widelySeenUploads,
+    group: channelGroup({ rising, windowViews: ninetyDayViews, widelySeenUploads, subscribers }),
   };
 }
 
@@ -167,18 +188,27 @@ function peerCandidates(
   }));
 }
 
-/** Peers first, then by title match, then by distance. */
+/** By title match, then by distance, then by recent views. */
+const byMatch = (a: MapRow, b: MapRow): number =>
+  matchRank(b.relevance) - matchRank(a.relevance) ||
+  a.steps - b.steps ||
+  b.metrics.recentViews - a.metrics.recentViews;
+
+/**
+ * Peers first, then the rest, each by title match. The peers are then mixed:
+ * about seven that have taken off to three that are rising in any number
+ * shown from the top, each group still by title match (`mixOrder`).
+ */
 function inViewOrder(rows: readonly MapRow[]): readonly MapRow[] {
-  return [...rows].sort(
-    (a, b) =>
-      Number(b.peer) - Number(a.peer) ||
-      matchRank(b.relevance) - matchRank(a.relevance) ||
-      a.steps - b.steps ||
-      b.metrics.recentViews - a.metrics.recentViews,
-  );
+  const peers = rows.filter((row) => row.peer).sort(byMatch);
+  const others = rows.filter((row) => !row.peer).sort(byMatch);
+  return [...mixOrder(peers, (row) => row.metrics.group), ...others];
 }
 
-/** The channels around the centre: peers first, then by title match, then by distance. */
+/**
+ * The channels around the centre: peers first in their taken-off-and-rising
+ * mix, then the rest by title match, then by distance.
+ */
 export function buildMapView(input: MapViewInput): readonly MapRow[] {
   const { center, members, edges, now } = input;
   const model = members.find((member) => member.channel.id === input.modelId) ?? null;

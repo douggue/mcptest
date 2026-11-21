@@ -2,6 +2,7 @@ import type { VideoReportRow } from '@jgtube/core';
 import type { Engine } from '@jgtube/server/src/app';
 
 export type { CrawlChoices, CrawlOutcome, Engine, TransferChoices } from '@jgtube/server/src/app';
+export type { VideoDetailsAnswer } from '@jgtube/server/src/downloadTypes';
 
 export interface ChannelVideoRow extends VideoReportRow {
   readonly durationSeconds: number | null;
@@ -27,6 +28,10 @@ type EngineParts = Pick<
   | 'setCompetitorStatus'
   | 'listNiches'
   | 'listTransfers'
+  | 'readTranscript'
+  | 'readVideoFrames'
+  | 'readChannelBrand'
+  | 'readVideoDetails'
 >;
 
 /** What the connector needs from the engine, so tests can stand in for it. */

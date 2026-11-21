@@ -1,4 +1,10 @@
-import type { TransferFormat, TransferIdea, TransferList, TransferVersion } from '@jgtube/core';
+import type {
+  FormatSubject,
+  TransferFormat,
+  TransferIdea,
+  TransferList,
+  TransferVersion,
+} from '@jgtube/core';
 import { describe, expect, test } from 'vitest';
 import { createApi } from '../src/lib/api';
 import {
@@ -8,6 +14,7 @@ import {
   describeTransfers,
   describeVerdict,
   emptyTransfers,
+  formatsFor,
   ideasFor,
   statusLabel,
   templateParts,
@@ -100,15 +107,68 @@ describe('the filter', () => {
     ]);
   });
 
-  test('keeps the opportunities, or the saved ideas whatever their verdict', () => {
+  test('keeps the opportunities not yet saved, or the saved ideas whatever their verdict', () => {
     const list = listOf({ ideas });
+
+    expect(ideasFor(list, 'opportunities').map((entry) => entry.key)).toEqual([
+      '{place} just found fuel shouldn exist',
+    ]);
+    expect(ideasFor(list, 'saved').map((entry) => entry.key)).toEqual(['done', 'weak']);
+    expect(ideasFor(list, 'formats')).toEqual([]);
+  });
+
+  test('brings an idea back to the opportunities once it is no longer saved', () => {
+    const list = withSaved(listOf({ ideas }), 'weak', false);
 
     expect(ideasFor(list, 'opportunities').map((entry) => entry.key)).toEqual([
       '{place} just found fuel shouldn exist',
       'weak',
     ]);
-    expect(ideasFor(list, 'saved').map((entry) => entry.key)).toEqual(['done', 'weak']);
-    expect(ideasFor(list, 'formats')).toEqual([]);
+    expect(ideasFor(list, 'saved').map((entry) => entry.key)).toEqual(['done']);
+  });
+});
+
+describe('formatsFor', () => {
+  const subject = (name: string, ideaKeys: readonly string[], videos = 2): FormatSubject => ({
+    subject: name,
+    videos,
+    channels: 2,
+    bestViews: 50_000,
+    videoId: 'vvvvvvvvvvv',
+    title: `Could make ${name} obsolete`,
+    channelTitle: 'Ronnie',
+    ideaKeys,
+  });
+  const subjects = [subject('solar panels', ['weak']), subject('subwoofers', ['other'], 3)];
+  const ideas = [idea({ key: 'weak', saved: true }), idea({ key: 'other' })];
+
+  test('leaves a saved idea’s subject out of its format and counts what is left', () => {
+    const list = listOf({ ideas, formats: [format({ subjects })] });
+
+    const [shown] = formatsFor(list);
+
+    expect(shown?.subjects.map((entry) => entry.subject)).toEqual(['subwoofers']);
+    expect(shown?.subjectCount).toBe(3);
+    expect(shown?.videoCount).toBe(3);
+  });
+
+  test('drops a format once every subject it lists is saved, and keeps the rest as given', () => {
+    const untouched = format({ key: 'other format', subjects: [subject('engines', ['x'])] });
+    const list = listOf({
+      ideas,
+      formats: [format({ subjects: [subject('solar panels', ['weak'])] }), untouched],
+    });
+
+    expect(formatsFor(list)).toEqual([untouched]);
+  });
+
+  test('keeps a subject while one of the ideas behind it is not saved', () => {
+    const list = listOf({
+      ideas,
+      formats: [format({ subjects: [subject('solar panels', ['weak', 'other'])] })],
+    });
+
+    expect(formatsFor(list)[0]?.subjects).toHaveLength(1);
   });
 });
 
@@ -234,6 +294,20 @@ describe('describeTransfers', () => {
     expect(describeTransfers(given)).not.toContain('Jgtube took');
   });
 
+  test('leaves the saved ideas out of the count and says where they are', () => {
+    const saved = listOf({
+      ideas: [
+        idea(),
+        idea({ key: 'kept', saved: true }),
+        idea({ key: 'done', opportunity: false, saved: true }),
+      ],
+    });
+
+    expect(describeTransfers(saved)).toBe(
+      '36 ideas took off for another country and are untried or weak for America, out of 137 that two or more channels made in the last 90 days. The 2 you saved are under Saved. Jgtube took America from your channel’s titles.',
+    );
+  });
+
   test('says when the owner’s place is not known', () => {
     expect(describeTransfers(listOf({ ownerPlace: null, opportunityCount: 0 }))).toBe(
       'Jgtube cannot tell which country your channel is for, so it cannot say which of the 137 ideas that two or more channels made in the last 90 days are open to you.',
@@ -262,6 +336,14 @@ describe('emptyTransfers', () => {
     );
     expect(emptyTransfers({ ...none, ownerPlace: null }, 'opportunities')).toBe(
       'Nothing can be called open until Jgtube knows which country your channel is for.',
+    );
+    expect(
+      emptyTransfers(
+        { ...none, opportunityCount: 1, ideas: [idea({ saved: true })] },
+        'opportunities',
+      ),
+    ).toBe(
+      'Every idea open for America is one you saved. They are under Saved; stop saving one to bring it back here.',
     );
   });
 });

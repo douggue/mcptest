@@ -127,6 +127,10 @@ class GraphSource implements YouTubeSource {
     };
   }
 
+  async fetchVideoPage(): Promise<never> {
+    throw new Error('fetchVideoPage is not used in this test');
+  }
+
   async getSidebar(videoId: string): Promise<readonly SidebarItem[]> {
     this.sidebarCalls.push(videoId);
     return (this.links[videoId.charAt(0)] ?? []).map((letter) => rec(letter));
@@ -286,6 +290,9 @@ describe('crawlMap when the channel limit cannot fit every candidate', () => {
           },
         })),
       };
+    },
+    fetchVideoPage: async () => {
+      throw new Error('fetchVideoPage is not used in this test');
     },
     getSidebar: async (videoId) => (sidebars[videoId] ?? []).map((letter) => rec(letter)),
   };

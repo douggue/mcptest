@@ -28,6 +28,11 @@ Three things to know first.
   says its consumer plans do not support using Antigravity this way, and OpenAI
   recommends a paid key for Codex instead; see "Ask AI" below before you rely
   on either.
+- **Watching a whole video means downloading it.** When a full video is to be
+  analysed, picture and sound, Jgtube first downloads a small low-quality copy of
+  it to your computer, hands that file over, and deletes it afterwards. Downloading
+  YouTube videos is outside YouTube's terms of service, like the way Jgtube reads
+  its pages. See "Downloads" below.
 
 ## First run
 
@@ -94,6 +99,12 @@ compiler:
   list; **Everything** is every channel that was read. Click a channel for
   details. You can remove one that is not a competitor, or keep one the filter
   left out.
+- **Taken off and rising.** Each channel like yours is labelled **Taken off** (its
+  uploads of the last three months are widely seen again and again), **Rising**
+  (under three months old and already far above its size) or **Neither**. They
+  are listed about seven taken off to three rising, and the line under the
+  **Like yours** button says the actual split, such as "21 like yours: 15 taken
+  off, 6 rising". Who counts as like yours is not changed by this; only the order.
 - **Channel you want to be like** (optional): name a channel you are modelling
   yourself on and the map is measured against it instead of your own videos.
   Useful while your channel is new.
@@ -103,13 +114,19 @@ compiler:
 - **Same topic, different wording?**: channels that fit on size and pace but word
   their titles differently. Keep the ones that really make your kind of video.
 - **Thumbnails that worked**: winners next to ordinary ones from the same
-  channels, and your own.
+  channels, and your own. **Download thumbnails** under a channel saves its
+  pictures as files on your computer and tells you the folder.
 - **Ask AI**: three one-press questions (thumbnail review, video ideas, and
   judging the same-topic channels). Under each answer it says which AI gave it.
   See below for what it needs.
+- **Niche transfer opportunities**: ideas that took off for another country and
+  are untried or weak for yours. Press **Save** on one and it moves to **Saved**
+  and leaves the other views; unsave it to bring it back.
 - **New niches to watch**: new or small channels, from everything Jgtube has
   read, with a recent video that took off. With an API key you can also search
-  YouTube by keyword here. Press **Watch** to keep a channel on the list.
+  YouTube by keyword here. Press **Watch** on a channel and it moves to
+  **Watched** and leaves the other views, so those show only what you have not
+  looked at yet; stop watching it to bring it back.
 - **View history / Refresh now**: reads stored channels again so that growth
   over time builds up.
 
@@ -244,6 +261,32 @@ Deleting or replacing the folder deletes it.
   in the app, in Claude or on the command line. If one is running, the next is
   refused with a message saying so; wait and try again.
 
+## Downloads
+
+Jgtube saves two kinds of file besides its store, both into one folder: a
+`downloads` folder beside the store file, or the folder you name in
+`JGTUBE_DOWNLOADS_PATH`.
+
+- **Thumbnails** you ask it to download: `downloads/thumbnails/<channel id>/`, one
+  picture per video named by its video id, and an `index.json` listing each
+  picture's video id, title, views and score. They stay until you delete them.
+- **A temporary copy of a video**, when a whole video is to be watched:
+  `downloads/video-temp/`. It is the smallest copy that is still watchable (360p,
+  the one file YouTube offers with picture and sound together), never larger
+  than 95 MB (about twenty minutes at that quality; a longer video is refused
+  with a message, never cut short), deleted after use, and anything left behind
+  is removed after a day.
+
+For video files Jgtube uses the free program **yt-dlp** when it is installed on
+your computer, and otherwise the YouTube library it already contains. The
+built-in way is the one most likely to stop working when YouTube changes
+something; where this was tried, YouTube refused it. If a video cannot be
+fetched, install yt-dlp (<https://github.com/yt-dlp/yt-dlp>; on Windows,
+`winget install yt-dlp.yt-dlp`) and try again.
+
+Downloading YouTube videos is outside YouTube's terms of service, as reading its
+pages this way is. The copies stay on your computer and are not shared.
+
 ## Settings
 
 All optional, in `.env`:
@@ -260,6 +303,7 @@ All optional, in `.env`:
 | `GEMINI_API_KEY`           | Your Gemini API key, for watching public YouTube videos                 | none                             |
 | `JGTUBE_GEMINI_MODEL`      | The Gemini model that watches                                           | `gemini-4-hydrogen`              |
 | `JGTUBE_AGY_YOUTUBE_LINKS` | `on` lets Antigravity try a YouTube link when it has no file (unproven) | `off`                            |
+| `JGTUBE_DOWNLOADS_PATH`    | The folder downloaded thumbnails and temporary video copies go into     | `downloads` beside the store     |
 
 ## Command line
 
@@ -268,6 +312,10 @@ The same engine without the page:
 ```
 npm run jgtube -- ingest @somechannel   # read one channel and rank its videos
 npm run jgtube -- map @somechannel      # map the channels around it
+npm run jgtube -- transcript <video>    # print a video's captions and store them
+npm run jgtube -- thumbnails @somechannel   # save its winning and ordinary thumbnails
+npm run jgtube -- brand @somechannel    # its logo, cover, bio, keywords and links
+npm run jgtube -- video <video>         # download one video as a small temporary file
 npm run refresh                         # read the stalest stored channels again
 npm run backup                          # write a dated copy of the store
 npm run mcp                             # start the Claude connector by hand
@@ -276,7 +324,12 @@ npm run engines                         # which AI engines are installed and sig
 
 `map` accepts `--depth 1`, `--sample N` and `--max-channels N`. `refresh` accepts
 `-- --max N`. `engines` accepts `-- --try`, and with it `--video FILE` and
-`--youtube LINK`.
+`--youtube LINK`. `-- --max N`. `<video>` is a video id or a link to one video. `transcript` reads
+a video once: the next time it prints the stored copy without asking YouTube,
+and a video without captions is reported as such. `thumbnails` needs a channel
+already in the store (run `ingest` or make a map first), accepts
+`--per-group N`, and prints the folder. `video` prints where the file is and how
+big; delete it when you are done.
 
 ## For developers
 

@@ -221,6 +221,9 @@ describe('a refresh with the real engine and store', () => {
     let reads = 0;
     return {
       resolveChannelId: async () => cid('N'),
+      fetchVideoPage: async () => {
+        throw new Error('fetchVideoPage is not used in this test');
+      },
       getSidebar: async () => [],
       fetchChannel: async (channelId) => {
         reads += 1;

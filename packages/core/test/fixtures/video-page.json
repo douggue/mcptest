@@ -1,0 +1,96 @@
+{
+  "basic_info": {
+    "id": "bArCA8xnLqU",
+    "channel_id": "UC0UJp3kmO7wf33XFf56gbTw",
+    "title": "America's New Material Could END POTHOLES Forever!",
+    "duration": 1554,
+    "short_description": "America's roads are falling apart, and the reason comes down to a recipe that has barely changed since 1870. Almost 95% of the 2.8 million miles of paved road in the United States are covered in asphalt, a mix of rock, sand, and gravel held together by about 5% bitumen, a sticky leftover from oil refining. In 2021 alone, 1 in 10 American drivers paid an average of $600 to fix pothole damage, adding up to $26.5 billion in a single year. Nearly 40% of major American roads are rated poor or mediocre, and the nation faces a $684 billion funding gap just to patch them over the next decade. The asph",
+    "view_count": 151737,
+    "author": "Williamson",
+    "is_private": false,
+    "is_live": false
+  },
+  "storyboards": {
+    "type": "PlayerStoryboardSpec",
+    "boards": [
+      {
+        "type": "vod",
+        "template_url": "https://i.ytimg.com/sb/bArCA8xnLqU/storyboard3_L0/default.jpg?sqp=-oaymwGhAUg48quKqQOYAYgBAZUBAAAEQpgBMqABPKgBBLIBQBANDBAVHyYtDg4PEhcrLCkPDhAVHyoyKQ8RFBgmPTgtERQeKjFLRzYVHCkuOUdNPyUuNz1HUlFFM0BCQ0xERkO6AUARERUjRENDQxETFi9DQ0NDFRYpQ0NDQ0MjL0NDQ0NDQ0RDQ0NDQ0JCQ0NDQ0NCQkJDQ0NDQkJCQkNDQ0JCQkJCovOX_wMGCOGMuNcG&sigh=rs%24AOn4CLC3Kh6zRLGx-tMtb3kFPGxkmYVgxw",
+        "thumbnail_width": 48,
+        "thumbnail_height": 27,
+        "thumbnail_count": 100,
+        "interval": 0,
+        "columns": 10,
+        "rows": 10,
+        "storyboard_count": 1
+      },
+      {
+        "type": "vod",
+        "template_url": "https://i.ytimg.com/sb/bArCA8xnLqU/storyboard3_L1/M$M.jpg?sqp=-oaymwGhAUg48quKqQOYAYgBAZUBAAAEQpgBMqABPKgBBLIBQBANDBAVHyYtDg4PEhcrLCkPDhAVHyoyKQ8RFBgmPTgtERQeKjFLRzYVHCkuOUdNPyUuNz1HUlFFM0BCQ0xERkO6AUARERUjRENDQxETFi9DQ0NDFRYpQ0NDQ0MjL0NDQ0NDQ0RDQ0NDQ0JCQ0NDQ0NCQkJDQ0NDQkJCQkNDQ0JCQkJCovOX_wMGCOGMuNcG&sigh=rs%24AOn4CLBqeKyVTSOvrRLFfI1Lcicn1nzVdw",
+        "thumbnail_width": 80,
+        "thumbnail_height": 45,
+        "thumbnail_count": 157,
+        "interval": 10000,
+        "columns": 10,
+        "rows": 10,
+        "storyboard_count": 2
+      },
+      {
+        "type": "vod",
+        "template_url": "https://i.ytimg.com/sb/bArCA8xnLqU/storyboard3_L2/M$M.jpg?sqp=-oaymwGhAUg48quKqQOYAYgBAZUBAAAEQpgBMqABPKgBBLIBQBANDBAVHyYtDg4PEhcrLCkPDhAVHyoyKQ8RFBgmPTgtERQeKjFLRzYVHCkuOUdNPyUuNz1HUlFFM0BCQ0xERkO6AUARERUjRENDQxETFi9DQ0NDFRYpQ0NDQ0MjL0NDQ0NDQ0RDQ0NDQ0JCQ0NDQ0NCQkJDQ0NDQkJCQkNDQ0JCQkJCovOX_wMGCOGMuNcG&sigh=rs%24AOn4CLD8Gg6zawFkTm1Yw6uphpirAPGAuA",
+        "thumbnail_width": 160,
+        "thumbnail_height": 90,
+        "thumbnail_count": 157,
+        "interval": 10000,
+        "columns": 5,
+        "rows": 5,
+        "storyboard_count": 7
+      }
+    ]
+  },
+  "captions": {
+    "type": "PlayerCaptionsTracklist",
+    "caption_tracks": [
+      {
+        "base_url": "https://www.youtube.com/api/timedtext?v=bArCA8xnLqU&ei=vtMAa5WCIYCazN0P3e6yoAU&caps=asr&opi=112496729&xoaf=5&xowf=1&xospf=1&hl=en&ip=0.0.0.0&ipbits=0&expire=1795241518&sparams=ip,ipbits,expire,v,ei,caps,opi,xoaf&signature=5FFD4215410A141D5DB460C33469F10CE282DE6D.53E0F0A8E771734A3363B65C9C9E7362DB53DB4C&key=yt8&kind=asr&lang=ar&variant=timing-optimized&fmt=srv3",
+        "name": {
+          "text": "Arabic (auto-generated)"
+        },
+        "vss_id": "a.ar",
+        "language_code": "ar",
+        "kind": "asr",
+        "is_translatable": true
+      },
+      {
+        "base_url": "https://www.youtube.com/api/timedtext?v=bArCA8xnLqU&ei=vtMAa5WCIYCazN0P3e6yoAU&caps=asr&opi=112496729&xoaf=5&xowf=1&xospf=1&hl=en&ip=0.0.0.0&ipbits=0&expire=1795241518&sparams=ip,ipbits,expire,v,ei,caps,opi,xoaf&signature=5FFD4215410A141D5DB460C33469F10CE282DE6D.53E0F0A8E771734A3363B65C9C9E7362DB53DB4C&key=yt8&kind=asr&lang=en&variant=gemini&fmt=srv3",
+        "name": {
+          "text": "English (auto-generated)"
+        },
+        "vss_id": "a.en",
+        "language_code": "en",
+        "kind": "asr",
+        "is_translatable": true
+      },
+      {
+        "base_url": "https://www.youtube.com/api/timedtext?v=bArCA8xnLqU&ei=vtMAa5WCIYCazN0P3e6yoAU&caps=asr&opi=112496729&xoaf=5&xowf=1&xospf=1&hl=en&ip=0.0.0.0&ipbits=0&expire=1795241518&sparams=ip,ipbits,expire,v,ei,caps,opi,xoaf&signature=5FFD4215410A141D5DB460C33469F10CE282DE6D.53E0F0A8E771734A3363B65C9C9E7362DB53DB4C&key=yt8&kind=asr&lang=fr&variant=timing-optimized&fmt=srv3",
+        "name": {
+          "text": "French (auto-generated)"
+        },
+        "vss_id": "a.fr",
+        "language_code": "fr",
+        "kind": "asr",
+        "is_translatable": true
+      }
+    ],
+    "audio_tracks": [
+      {
+        "audio_track_id": "en-US.4",
+        "caption_track_indices": [1, 0, 2]
+      }
+    ],
+    "default_audio_track_index": 0
+  },
+  "playability_status": {
+    "status": "OK"
+  }
+}

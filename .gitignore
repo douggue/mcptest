@@ -10,3 +10,6 @@ dist/
 
 # Working copies made for background agents
 .claude/worktrees/
+
+# Files Jgtube downloads (thumbnails, temporary video copies)
+downloads/

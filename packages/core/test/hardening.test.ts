@@ -172,6 +172,7 @@ describe('InnertubeSource with bad input or endless pages', () => {
       getVideos: async () => firstTab,
     }),
     getInfo: async () => ({ watch_next_feed: [] }),
+    getBasicInfo: async () => ({}),
   });
   const makeSource = (client: InnertubeClient) =>
     new InnertubeSource(client, quickLimiter(), () => NOW);
@@ -220,6 +221,7 @@ describe('InnertubeSource with bad input or endless pages', () => {
         getContinuation: async () => ({}) as VideosTab,
       }),
       getInfo: async () => ({ watch_next_feed: new Array(5).fill({ type: 'SomeNewShape' }) }),
+      getBasicInfo: async () => ({}),
     };
 
     await expect(makeSource(client).getSidebar('uXuQF_PPg5U')).rejects.toThrow(
@@ -235,6 +237,7 @@ describe('InnertubeSource with bad input or endless pages', () => {
         getContinuation: async () => ({}) as VideosTab,
       }),
       getInfo: async () => ({ watch_next_feed: [{ type: 'Playlist' }, { type: 'Mix' }] }),
+      getBasicInfo: async () => ({}),
     };
 
     await expect(makeSource(client).getSidebar('uXuQF_PPg5U')).resolves.toEqual([]);
@@ -311,6 +314,10 @@ describe('ingestChannel when the fetch is unusable or the write fails', () => {
     async fetchChannel(): Promise<ChannelSnapshot> {
       this.fetchCalls += 1;
       return { channel, videos: this.videos };
+    }
+
+    async fetchVideoPage(): Promise<never> {
+      throw new Error('fetchVideoPage is not used in this test');
     }
 
     async getSidebar(): Promise<readonly never[]> {

@@ -5,7 +5,9 @@ import {
   SqliteLeaseRepo,
   SqliteMapRepo,
   SqliteRefreshRepo,
+  SqliteBrandRepo,
   SqliteTransferRepo,
+  SqliteVideoPageRepo,
   SqliteVideoRepo,
   SqliteWatchlistRepo,
   crawlMap,
@@ -23,10 +25,12 @@ import {
   searchRecentVideos,
   transactionRunner,
   withYouTubeLease,
+  type ApiVideoDetails,
   type ChannelFacts,
   type Config,
   type Db,
   type FactsOutcome,
+  type FetchImage,
   type SearchHit,
   type StoredChannel,
   type YouTubeSource,
@@ -35,6 +39,7 @@ import { randomUUID } from 'node:crypto';
 import { analysisEngines, type AnalysisOptions } from './analysisEngine';
 import type { Engine } from './app';
 import { connectOnUse, onceUntilItWorks, stopWhen, youtubeSource } from './connection';
+import { downloads } from './downloadEngine';
 import { cleanMessage } from './jobs';
 import { trackWork, type WorkTracker } from './running';
 import { transfers } from './transferEngine';
@@ -72,6 +77,10 @@ export interface EngineOptions extends AnalysisOptions {
   readonly closeGraceMs?: number;
   /** Replaces the official API's channel facts; used by tests. It is only called when a key is set. */
   readonly fetchFacts?: (channelIds: readonly string[]) => Promise<readonly ChannelFacts[]>;
+  /** Replaces the official API's video details; used by tests. It is only called when a key is set. */
+  readonly fetchVideoDetails?: (videoIds: readonly string[]) => Promise<readonly ApiVideoDetails[]>;
+  /** Replaces the network for thumbnails, frame sheets and channel pictures; used by tests. */
+  readonly fetchImage?: FetchImage;
 }
 
 function openRepos(db: Db) {
@@ -84,6 +93,9 @@ function openRepos(db: Db) {
     runs: new SqliteRefreshRepo(db),
     facts: new SqliteFactsRepo(db),
     transfers: new SqliteTransferRepo(db),
+    // With this among them, every read of a channel also stores its logo, cover and bio.
+    brands: new SqliteBrandRepo(db),
+    pages: new SqliteVideoPageRepo(db),
   };
 }
 
@@ -336,6 +348,13 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     ...mapReads(wiring),
     ...ownerChoices(wiring),
     ...transfers(wiring),
+    ...downloads({
+      ...wiring,
+      transact: transactionRunner(wiring.db),
+      run: wiring.work.run,
+      fetchImage: options.fetchImage,
+      fetchVideoDetails: options.fetchVideoDetails,
+    }),
     ...crawling(wiring),
     ...refreshing(wiring, fillFacts),
     ...discovery(wiring, fillFacts),

@@ -152,6 +152,26 @@ class FakeEngine implements Engine {
     this.statuses.push([center, channel, status]);
     return true;
   }
+
+  saveThumbnails(): never {
+    throw new Error('not used in these tests');
+  }
+
+  readTranscript(): never {
+    throw new Error('not used in these tests');
+  }
+
+  readVideoFrames(): never {
+    throw new Error('not used in these tests');
+  }
+
+  readChannelBrand(): never {
+    throw new Error('not used in these tests');
+  }
+
+  readVideoDetails(): never {
+    throw new Error('not used in these tests');
+  }
 }
 
 let engine: FakeEngine;
@@ -675,6 +695,9 @@ describe('the server, the store and the engine together', () => {
         })),
       };
     },
+    fetchVideoPage: async () => {
+      throw new Error('fetchVideoPage is not used in this test');
+    },
     getSidebar: async (videoId): Promise<readonly SidebarItem[]> =>
       (links[videoId.charAt(0)] ?? []).map((letter) => ({
         videoId: vid(letter, 0),
@@ -1127,6 +1150,9 @@ describe('POST /api/niches/discover', () => {
         ],
         createSource: async () => ({
           resolveChannelId: async () => `UC${'Q'.repeat(22)}`,
+          fetchVideoPage: async () => {
+            throw new Error('fetchVideoPage is not used in this test');
+          },
           getSidebar: async () => [],
           fetchChannel: async (channelId) => ({
             channel: {

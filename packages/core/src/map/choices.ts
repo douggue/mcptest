@@ -1,4 +1,5 @@
 import { DEFAULT_BREAKOUT_LIMIT, capPerChannel, listBreakouts } from './breakouts';
+import { mixOrder } from './mix';
 import type { MapSnapshot, SnapshotBreakout, SnapshotChannel, SnapshotDeps } from './snapshot';
 import type { MapMemberData } from './view';
 
@@ -83,11 +84,19 @@ export function applyOwnerChoices(
     kept: kept.has(channel.id),
   }));
   const pulledIn = unmarked.filter((channel) => kept.has(channel.id) && !channel.peer);
+  const peers = channels.filter((channel) => channel.peer);
   return {
     ...snapshot,
-    // Peers lead the list, as they do on a map as built.
+    // Peers lead the list, as they do on a map as built, in the same mix of
+    // taken off and rising. The mix is made again over the peers the owner
+    // sees: a kept channel joins its group, and a removed one is listed after
+    // them so that it does not hold a place in the mix.
     channels: [
-      ...channels.filter((channel) => channel.peer),
+      ...mixOrder(
+        peers.filter((channel) => !channel.removed),
+        (channel) => channel.group,
+      ),
+      ...peers.filter((channel) => channel.removed),
       ...channels.filter((channel) => !channel.peer),
     ],
     breakouts: feedWith(deps, snapshot, pulledIn, removed, now),

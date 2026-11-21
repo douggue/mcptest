@@ -93,6 +93,9 @@ describe('channelMetrics', () => {
       recentUploads: 0,
       breakout: null,
       rising: false,
+      ninetyDayViews: 0,
+      widelySeenUploads: 0,
+      group: 'neither',
     });
   });
 });

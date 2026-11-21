@@ -1,10 +1,5 @@
+import type { FetchImage } from '@jgtube/core';
 import { describe, expect, test } from 'vitest';
-import {
-  MAX_THUMBNAIL_BYTES,
-  fetchThumbnail,
-  thumbnailUrl,
-  type FetchImage,
-} from '../src/thumbnailImages';
 import { createToolHandlers } from '../src/tools';
 import { FakeEngine, textOf } from './fakes';
 
@@ -15,90 +10,6 @@ const jpegResponse = (
   body: Uint8Array<ArrayBuffer> = JPEG,
   headers: Record<string, string> = {},
 ): Response => new Response(body, { headers: { 'content-type': 'image/jpeg', ...headers } });
-
-describe('thumbnailUrl', () => {
-  test('points at the one image host and nothing else', () => {
-    expect(thumbnailUrl('dQw4w9WgXcQ')).toBe('https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
-  });
-});
-
-describe('fetchThumbnail', () => {
-  test('returns the image as base64 with its type', async () => {
-    const calls: Array<{ url: string; redirect: unknown; hasSignal: boolean }> = [];
-    const fetchImage: FetchImage = async (url, init) => {
-      calls.push({ url, redirect: init.redirect, hasSignal: init.signal instanceof AbortSignal });
-      return jpegResponse();
-    };
-
-    const image = await fetchThumbnail('dQw4w9WgXcQ', fetchImage);
-
-    expect(image).toEqual({ ok: true, data: JPEG_BASE64, mimeType: 'image/jpeg' });
-    expect(calls).toEqual([
-      {
-        url: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
-        // A redirect could lead to another host, so it is refused.
-        redirect: 'error',
-        hasSignal: true,
-      },
-    ]);
-  });
-
-  test('reports a missing thumbnail', async () => {
-    const image = await fetchThumbnail(
-      'dQw4w9WgXcQ',
-      async () => new Response('gone', { status: 404 }),
-    );
-
-    expect(image).toEqual({ ok: false, reason: 'YouTube has no thumbnail for it (status 404)' });
-  });
-
-  test('refuses an answer that is not a JPEG image', async () => {
-    const image = await fetchThumbnail(
-      'dQw4w9WgXcQ',
-      async () => new Response('<html>', { headers: { 'content-type': 'text/html' } }),
-    );
-
-    expect(image).toEqual({ ok: false, reason: 'the answer was not a JPEG image' });
-  });
-
-  test('refuses an image that announces a size over the cap', async () => {
-    const image = await fetchThumbnail('dQw4w9WgXcQ', async () =>
-      jpegResponse(JPEG, { 'content-length': String(MAX_THUMBNAIL_BYTES + 1) }),
-    );
-
-    expect(image).toEqual({ ok: false, reason: 'the image is too large' });
-  });
-
-  test('stops reading an image that turns out to be over the cap', async () => {
-    const image = await fetchThumbnail('dQw4w9WgXcQ', async () =>
-      jpegResponse(new Uint8Array(MAX_THUMBNAIL_BYTES + 1)),
-    );
-
-    expect(image).toEqual({ ok: false, reason: 'the image is too large' });
-  });
-
-  test('refuses an empty image', async () => {
-    const image = await fetchThumbnail('dQw4w9WgXcQ', async () => jpegResponse(new Uint8Array()));
-
-    expect(image).toEqual({ ok: false, reason: 'the image was empty' });
-  });
-
-  test('reports a timeout in plain words', async () => {
-    const image = await fetchThumbnail('dQw4w9WgXcQ', async () => {
-      throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
-    });
-
-    expect(image).toEqual({ ok: false, reason: 'it took too long to load' });
-  });
-
-  test('reports a network failure without its details', async () => {
-    const image = await fetchThumbnail('dQw4w9WgXcQ', async () => {
-      throw new TypeError('fetch failed: connect ECONNREFUSED 10.0.0.1:443 /etc/ssl/cert.pem');
-    });
-
-    expect(image).toEqual({ ok: false, reason: 'the image could not be reached' });
-  });
-});
 
 describe('view_thumbnails', () => {
   const tools = (fetchImage: FetchImage) =>

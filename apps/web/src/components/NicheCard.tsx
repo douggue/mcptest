@@ -2,7 +2,7 @@ import type { NicheChannel, NicheReason } from '@jgtube/core';
 import { Bookmark, BookmarkCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { scoreTone } from '../lib/board';
-import { channelUrl, formatCount, initials, watchUrl } from '../lib/format';
+import { channelUrl, formatCount, initials, logoUrl, watchUrl } from '../lib/format';
 import {
   describeEarnings,
   describeGrowth,
@@ -203,6 +203,26 @@ function Videos({ channel }: { readonly channel: NicheChannel }) {
   );
 }
 
+/** The channel's own logo once it has been read, and its initial until then. */
+function Logo({ channel }: { readonly channel: NicheChannel }) {
+  const logo = logoUrl(channel.logoUrl);
+  return (
+    <div className="flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full bg-space-deep text-xs font-bold text-secondary">
+      {logo ? (
+        <img
+          src={logo}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        initials(channel.title).charAt(0)
+      )}
+    </div>
+  );
+}
+
 /** One channel worth a look: why it is here, its numbers, and the videos that took off. */
 export function NicheCard({ channel, onSetWatched }: Props) {
   return (
@@ -212,9 +232,7 @@ export function NicheCard({ channel, onSetWatched }: Props) {
       }`}
     >
       <div className="flex min-w-0 items-center gap-space-sm">
-        <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-space-deep text-xs font-bold text-secondary">
-          {initials(channel.title).charAt(0)}
-        </div>
+        <Logo channel={channel} />
         <div className="flex min-w-0 flex-col">
           <h3 className="truncate text-title-md text-on-surface">
             <Outbound href={channelUrl(channel.id)}>{channel.title}</Outbound>

@@ -24,10 +24,43 @@ export const TRANSFER_FILTERS: readonly {
 /** Ideas and formats shown before "show more". */
 export const TRANSFER_PAGE_SIZE = 6;
 
-/** The ideas a view shows; the formats view shows none. */
+/**
+ * The ideas a view shows; the formats view shows none. An idea the owner saved
+ * is shown under "Saved" and nowhere else: they have already taken it up, so
+ * the opportunities are what they have not decided on yet. Unsaving brings it back.
+ */
 export function ideasFor(list: TransferList, filter: TransferFilter): readonly TransferIdea[] {
   if (filter === 'formats') return [];
-  return list.ideas.filter((idea) => (filter === 'saved' ? idea.saved : idea.opportunity));
+  return list.ideas.filter((idea) =>
+    filter === 'saved' ? idea.saved : idea.opportunity && !idea.saved,
+  );
+}
+
+/**
+ * The formats the formats view shows: each without the subjects whose ideas
+ * the owner has all saved, and with its counts lowered to match. A format with
+ * no subject left is not shown. Every saved idea is in `list.ideas`, so none
+ * is missed. The channel count is left as it is: which channels made the
+ * subjects taken out cannot be told from here.
+ */
+export function formatsFor(list: TransferList): readonly TransferFormat[] {
+  const savedKeys = new Set(list.ideas.filter((idea) => idea.saved).map((idea) => idea.key));
+  if (savedKeys.size === 0) return list.formats;
+  return list.formats.flatMap((format): TransferFormat[] => {
+    const isSaved = (subject: TransferFormat['subjects'][number]): boolean =>
+      subject.ideaKeys.length > 0 && subject.ideaKeys.every((key) => savedKeys.has(key));
+    const hidden = format.subjects.filter(isSaved);
+    if (hidden.length === 0) return [format];
+    if (hidden.length === format.subjects.length) return [];
+    return [
+      {
+        ...format,
+        subjects: format.subjects.filter((subject) => !isSaved(subject)),
+        subjectCount: format.subjectCount - hidden.length,
+        videoCount: format.videoCount - hidden.reduce((sum, subject) => sum + subject.videos, 0),
+      },
+    ];
+  });
 }
 
 /** The same list with one idea marked as saved or not. */
@@ -122,13 +155,28 @@ export function describeTransfers(list: TransferList): string {
     return `Jgtube cannot tell which country your channel is for, so it cannot say which of the ${list.ideaCount} ideas ${shared} are open to you.`;
   }
   const { name, source } = list.ownerPlace;
-  const one = list.opportunityCount === 1;
+  // Saved ideas are shown under "Saved" only, so the count is of the rest.
+  const saved = list.ideas.filter((idea) => idea.saved);
+  const open = openCount(list);
+  const one = open === 1;
   const from = PLACE_FROM[source];
   return [
-    `${list.opportunityCount} ${one ? 'idea' : 'ideas'} took off for another country and ${one ? 'is' : 'are'} untried or weak for ${name},`,
+    `${open} ${one ? 'idea' : 'ideas'} took off for another country and ${one ? 'is' : 'are'} untried or weak for ${name},`,
     `out of ${list.ideaCount} ${shared}.`,
+    ...(saved.length > 0
+      ? [`The ${saved.length} you saved ${saved.length === 1 ? 'is' : 'are'} under Saved.`]
+      : []),
     ...(from ? [`Jgtube took ${name} from ${from}.`] : []),
   ].join(' ');
+}
+
+/**
+ * How many opportunities the owner has not saved. Every saved idea is in
+ * `list.ideas`, so the saved ones can be taken off the count of them all.
+ */
+function openCount(list: TransferList): number {
+  const savedOpen = list.ideas.filter((idea) => idea.saved && idea.opportunity).length;
+  return Math.max(0, list.opportunityCount - savedOpen);
 }
 
 /** Why a view has nothing in it, in the owner's terms. */
@@ -136,10 +184,15 @@ export function emptyTransfers(list: TransferList, filter: TransferFilter): stri
   if (filter === 'saved')
     return 'You have not saved an idea yet. Press Save on one to keep it here.';
   if (filter === 'formats') {
-    return 'No title format is used for three or more subjects by two or more channels yet.';
+    return list.formats.length > 0
+      ? 'Every format found is made of ideas you saved. They are under Saved; stop saving one to bring its format back here.'
+      : 'No title format is used for three or more subjects by two or more channels yet.';
   }
   if (list.ownerPlace === null) {
     return 'Nothing can be called open until Jgtube knows which country your channel is for.';
+  }
+  if (list.opportunityCount > 0 && openCount(list) === 0) {
+    return `Every idea open for ${list.ownerPlace.name} is one you saved. They are under Saved; stop saving one to bring it back here.`;
   }
   return `None of the ${list.ideaCount} ideas is open for ${list.ownerPlace.name} right now: each was already done there or has not taken off anywhere.`;
 }

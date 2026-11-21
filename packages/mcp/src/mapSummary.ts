@@ -1,5 +1,5 @@
 import type { MapSnapshot, SnapshotBreakout, SnapshotChannel } from '@jgtube/core';
-import { NICHE_MIN_LATIN_SHARE, latinShare } from '@jgtube/core';
+import { NICHE_MIN_LATIN_SHARE, latinShare, mixSplit } from '@jgtube/core';
 import { capped, oneDecimal, withoutAbsent } from './results';
 
 const PERCENT = 100;
@@ -26,6 +26,8 @@ function channelEntry(channel: SnapshotChannel): Record<string, unknown> {
     match: Math.round(channel.relevance * PERCENT),
     tier: channel.tier,
     rising: channel.rising ? true : null,
+    // Said for look-alikes only, which is where the mix applies; absent means neither.
+    group: channel.peer && channel.group !== 'neither' ? channel.group : null,
     best: best
       ? { video: best.videoId, title: best.title, views: best.views, score: oneDecimal(best.score) }
       : null,
@@ -88,6 +90,7 @@ export function summarizeMap(
       removed: channels.length - kept.length,
       breakouts: lookalikeBreakouts,
       otherBreakouts: breakouts.length - lookalikeBreakouts,
+      mix: mixSplit(lookalikes, (channel) => channel.group),
     },
     ...channelList('lookalikes', 'moreLookalikes', lookalikes, options.limit),
     ...(options.includeOthers ? channelList('others', 'moreOthers', others, options.limit) : {}),

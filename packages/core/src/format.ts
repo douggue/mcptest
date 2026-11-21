@@ -44,7 +44,12 @@ export function formatVideoTable(
   return [header, ...lines];
 }
 
-/** The channels around the centre: tier, title match, size, recent views and best breakout. */
+const GROUP_WIDTH = 9;
+/** A channel's group as the table shows it; a channel in neither group gets no word. */
+const groupWord = (row: MapRow): string =>
+  row.metrics.group === 'neither' ? '' : row.metrics.group.replace('-', ' ');
+
+/** The channels around the centre: tier, title match, size, recent views, best breakout and group. */
 export function formatMapTable(rows: readonly MapRow[], limit: number): readonly string[] {
   const header = [
     'tier'.padEnd(6),
@@ -52,7 +57,7 @@ export function formatMapTable(rows: readonly MapRow[], limit: number): readonly
     'subs'.padStart(7),
     'recent'.padStart(7),
     'best'.padStart(8),
-    ''.padEnd(6),
+    ''.padEnd(GROUP_WIDTH),
     'channel',
   ].join('  ');
   const lines = rows
@@ -64,7 +69,7 @@ export function formatMapTable(rows: readonly MapRow[], limit: number): readonly
         formatCount(row.channel.subscribers).padStart(7),
         formatCount(row.metrics.recentViews).padStart(7),
         (row.metrics.breakout ? formatScore(row.metrics.breakout.score) : '-').padStart(8),
-        (row.metrics.rising ? 'rising' : '').padEnd(6),
+        groupWord(row).padEnd(GROUP_WIDTH),
         clip(row.channel.title),
       ].join('  '),
     );

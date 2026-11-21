@@ -1,8 +1,14 @@
-import { loadConfig } from './config';
 import { resolve } from 'node:path';
+import { readChannelBrand } from './channel/brand';
+import { loadConfig } from './config';
 import { crawlMap, type CrawlDeps, type CrawlProgress } from './crawl/crawl';
 import { backupStore } from './db/backup';
 import { openDatabase, transactionRunner, type Db } from './db/sqlite';
+import type { VideoPlayerSource } from './downloads/builtInVideo';
+import { downloadsRoot } from './downloads/folder';
+import { brandLines, thumbnailLines, transcriptLines, videoLines } from './downloads/text';
+import { saveChannelThumbnails } from './downloads/thumbnails';
+import { downloadVideo } from './downloads/video';
 import { formatCount, formatMapTable, formatVideoTable, sanitize } from './format';
 import { ingestChannel } from './ingest';
 import { withYouTubeLease } from './lease';
@@ -10,26 +16,41 @@ import { fillNicheFacts } from './niches/facts';
 import { loadMapView } from './map/view';
 import { refreshStalest, type RefreshProgress } from './refresh/refresh';
 import { buildVideoReport } from './report';
+import { SqliteBrandRepo } from './repos/sqliteBrandRepo';
 import { SqliteChannelRepo } from './repos/sqliteChannelRepo';
 import { SqliteEdgeRepo } from './repos/sqliteEdgeRepo';
 import { SqliteFactsRepo } from './repos/sqliteFactsRepo';
 import { SqliteLeaseRepo } from './repos/sqliteLeaseRepo';
 import { SqliteMapRepo } from './repos/sqliteMapRepo';
 import { SqliteRefreshRepo } from './repos/sqliteRefreshRepo';
+import { SqliteVideoPageRepo } from './repos/sqliteVideoPageRepo';
 import { SqliteVideoRepo } from './repos/sqliteVideoRepo';
 import { SqliteWatchlistRepo } from './repos/sqliteWatchlistRepo';
 import { fetchChannelFacts } from './sources/dataApi';
 import { InnertubeSource } from './sources/innertube';
 import { RateLimiter } from './sources/limiter';
+import { parseChannelRef } from './sources/parse';
+import type { YouTubeSource } from './sources/types';
+import { readTranscript } from './video/pages';
+import { parseVideoRef } from './video/ref';
 
 const USAGE = [
   'Usage:',
   '  npm run jgtube -- ingest <channel> [--refresh]',
   '  npm run jgtube -- map <channel> [--depth 1|2] [--sample N] [--max-channels N]',
+  '  npm run jgtube -- transcript <video>',
+  '  npm run jgtube -- thumbnails <channel> [--per-group N]',
+  '  npm run jgtube -- brand <channel>',
+  '  npm run jgtube -- video <video>',
   '  npm run refresh [-- --max N]',
   '  npm run backup',
   '',
   '<channel> is an @handle, a channel id or a youtube.com URL.',
+  '<video> is a video id or a link to one video.',
+  'transcript prints a video’s captions and stores them; a stored copy is not read again.',
+  'thumbnails saves a stored channel’s winning and ordinary thumbnails and prints the folder.',
+  'brand prints a channel’s logo, cover, bio, keywords and links.',
+  'video downloads one video as a small temporary file and prints where it is.',
   'refresh reads the stored channels read longest ago again (50 unless --max says otherwise).',
   'backup writes a dated copy of the store beside it and prints where.',
 ].join('\n');
@@ -51,19 +72,41 @@ function numberFlag(flags: readonly string[], name: string): number | undefined 
   return value;
 }
 
-async function openEngine(db: Db): Promise<CrawlDeps> {
+/**
+ * The connection to YouTube, made on first use. A command that finds what it
+ * needs in the store then makes no request at all.
+ */
+function lazySource(): YouTubeSource & VideoPlayerSource {
+  let made: Promise<InnertubeSource> | null = null;
+  const connect = (): Promise<InnertubeSource> => {
+    made ??= InnertubeSource.create({
+      region: loadConfig().region,
+      limiter: new RateLimiter({
+        concurrency: 2,
+        minDelayMs: 300,
+        maxDelayMs: 600,
+        maxRetries: 3,
+        baseBackoffMs: 2000,
+        taskTimeoutMs: REQUEST_TIMEOUT_MS,
+      }),
+    });
+    return made;
+  };
+  return {
+    resolveChannelId: async (handle) => (await connect()).resolveChannelId(handle),
+    fetchChannel: async (id, maxVideos) => (await connect()).fetchChannel(id, maxVideos),
+    getSidebar: async (videoId) => (await connect()).getSidebar(videoId),
+    fetchVideoPage: async (videoId, options) => (await connect()).fetchVideoPage(videoId, options),
+    fetchPlayer: async (videoId) => (await connect()).fetchPlayer(videoId),
+  };
+}
+
+function openEngine(db: Db): CrawlDeps & { readonly brands: SqliteBrandRepo } {
   const config = loadConfig();
-  const limiter = new RateLimiter({
-    concurrency: 2,
-    minDelayMs: 300,
-    maxDelayMs: 600,
-    maxRetries: 3,
-    baseBackoffMs: 2000,
-    taskTimeoutMs: REQUEST_TIMEOUT_MS,
-  });
   const now = new Date();
   return {
-    source: await InnertubeSource.create({ limiter, region: config.region }),
+    source: lazySource(),
+    brands: new SqliteBrandRepo(db),
     channels: new SqliteChannelRepo(db),
     videos: new SqliteVideoRepo(db),
     edges: new SqliteEdgeRepo(db),
@@ -176,22 +219,87 @@ async function refreshCommand(deps: CrawlDeps, db: Db, flags: readonly string[])
   ]);
 }
 
-type Request =
-  | { readonly command: 'backup' }
-  | { readonly command: 'refresh'; readonly flags: readonly string[] }
-  | {
-      readonly command: 'ingest' | 'map';
-      readonly target: string;
-      readonly flags: readonly string[];
-    };
+/** Prints a video's captions, reading and storing them when they are not stored yet. */
+async function transcriptCommand(db: Db, target: string): Promise<void> {
+  const pages = new SqliteVideoPageRepo(db);
+  const result = await readTranscript(
+    { source: lazySource(), transcripts: pages, details: pages, now: () => new Date() },
+    parseVideoRef(target),
+  );
+  print(transcriptLines(result));
+}
+
+/** Saves a stored channel's winning and ordinary thumbnails and prints the folder. */
+async function thumbnailsCommand(db: Db, target: string, flags: readonly string[]): Promise<void> {
+  const channels = new SqliteChannelRepo(db);
+  const ref = parseChannelRef(target);
+  const stored = ref.kind === 'id' ? channels.findById(ref.id) : channels.findByHandle(ref.handle);
+  if (!stored) {
+    throw new Error(
+      'That channel is not in the store yet. Read it first: npm run jgtube -- ingest <channel>',
+    );
+  }
+  const perGroup = numberFlag(flags, 'per-group');
+  const result = await saveChannelThumbnails(
+    { channels, videos: new SqliteVideoRepo(db), now: () => new Date() },
+    stored.id,
+    downloadsRoot(loadConfig()),
+    perGroup === undefined ? {} : { perGroup },
+  );
+  if (result) print(thumbnailLines(result));
+}
+
+/** Downloads one video as a small temporary file and prints where it is. */
+async function videoCommand(target: string): Promise<void> {
+  const result = await downloadVideo(target, {
+    root: downloadsRoot(loadConfig()),
+    source: lazySource(),
+  });
+  print(videoLines(result));
+  if (!result.ok) process.exitCode = 1;
+}
+
+const SMALL_READS = ['transcript', 'thumbnails', 'brand', 'video'] as const;
+type SmallRead = (typeof SMALL_READS)[number];
+
+interface Targeted<Command extends string> {
+  readonly command: Command;
+  readonly target: string;
+  readonly flags: readonly string[];
+}
+
+type SmallRequest = Targeted<SmallRead>;
+/** A map, an ingest or a refresh: work that reads YouTube at length. */
+type LongRequest =
+  { readonly command: 'refresh'; readonly flags: readonly string[] } | Targeted<'ingest' | 'map'>;
+type Request = { readonly command: 'backup' } | LongRequest | SmallRequest;
+
+const isSmallRead = (command: string): command is SmallRead =>
+  (SMALL_READS as readonly string[]).includes(command);
+
+const isSmallRequest = (request: Request): request is SmallRequest => isSmallRead(request.command);
 
 /** What the arguments ask for, or null when they do not make a command. */
 function parseArguments(argv: readonly string[]): Request | null {
   const [command, target, ...flags] = argv;
   if (command === 'backup') return { command };
   if (command === 'refresh') return { command, flags: argv.slice(1) };
-  if ((command !== 'ingest' && command !== 'map') || !target) return null;
-  return { command, target, flags };
+  if (command === undefined || !target) return null;
+  if (isSmallRead(command)) return { command, target, flags };
+  return command === 'ingest' || command === 'map' ? { command, target, flags } : null;
+}
+
+/**
+ * The commands that read one video or one channel. They make a request or
+ * two through the rate limiter, or none when the store has the answer, so
+ * they do not wait for the lease that a crawl or a refresh holds.
+ */
+async function readOne(db: Db, request: SmallRequest): Promise<void> {
+  const { command, target, flags } = request;
+  if (command === 'transcript') return transcriptCommand(db, target);
+  if (command === 'thumbnails') return thumbnailsCommand(db, target, flags);
+  if (command === 'video') return videoCommand(target);
+  print(brandLines(await readChannelBrand(openEngine(db), target)));
 }
 
 /** Reads settings from a `.env` file where the command is run, as the app does, if there is one. */
@@ -203,8 +311,8 @@ function loadEnvFile(): void {
   }
 }
 
-async function readYouTube(db: Db, request: Exclude<Request, { command: 'backup' }>) {
-  const deps = await openEngine(db);
+async function readYouTube(db: Db, request: LongRequest) {
+  const deps = openEngine(db);
   if (request.command === 'refresh') {
     await refreshCommand(deps, db, request.flags);
   } else if (request.command === 'ingest') {
@@ -230,8 +338,13 @@ async function main(argv: readonly string[]): Promise<void> {
       print([`Backup written to ${resolve(backupStore(db, dbPath, new Date()))}`]);
       return;
     }
-    // Every other command reads YouTube, so it waits its turn behind the web
-    // app and the connector, and is refused before it connects to anything.
+    if (isSmallRequest(request)) {
+      await readOne(db, request);
+      return;
+    }
+    // A map, an ingest and a refresh read YouTube at length, so each waits its
+    // turn behind the web app and the connector, and is refused before it
+    // connects to anything.
     await withYouTubeLease({ leases: new SqliteLeaseRepo(db), now: () => new Date() }, () =>
       readYouTube(db, request),
     );

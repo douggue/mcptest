@@ -1,4 +1,7 @@
 import type { MapSnapshot, SnapshotChannel } from '@jgtube/core';
+// Only this file of the engine is loaded, never its index: the index would
+// pull the store and the YouTube client into the browser bundle.
+import { mixOrder } from '@jgtube/core/src/map/mix';
 
 type Tier = SnapshotChannel['tier'];
 
@@ -37,6 +40,7 @@ export interface RadarNode {
   readonly tier: Tier;
   /** Best recent breakout multiple, when it is large enough to be worth a badge. */
   readonly badge: number | null;
+  /** In the rising group: young, far above its size, with small totals so far. */
   readonly rising: boolean;
 }
 
@@ -71,8 +75,25 @@ function anglesFor(count: number, arcs: readonly (readonly [number, number])[]):
   });
 }
 
+/**
+ * The channels of one ring in the order they take its places: look-alikes
+ * first, in the mix of taken off and rising, then the rest. The whole list is
+ * already in that mix, but one ring's share of it need not be, and a ring
+ * shows only its first few.
+ */
+function ringOrder(channels: readonly SnapshotChannel[], tier: Tier): readonly SnapshotChannel[] {
+  const onRing = channels.filter((channel) => channel.tier === tier);
+  return [
+    ...mixOrder(
+      onRing.filter((channel) => channel.peer),
+      (channel) => channel.group,
+    ),
+    ...onRing.filter((channel) => !channel.peer),
+  ];
+}
+
 function placeRing(channels: readonly SnapshotChannel[], tier: Tier): readonly RadarNode[] {
-  const shown = channels.filter((channel) => channel.tier === tier).slice(0, RING_CAPACITY[tier]);
+  const shown = ringOrder(channels, tier).slice(0, RING_CAPACITY[tier]);
   const angles = anglesFor(shown.length, RING_ARCS[tier]);
   return shown.map((channel, index) => {
     const stagger = tier === 'medium' ? (index % 2 === 0 ? MEDIUM_STAGGER : -MEDIUM_STAGGER) : 0;
@@ -86,7 +107,7 @@ function placeRing(channels: readonly SnapshotChannel[], tier: Tier): readonly R
       y: radius * Math.sin(angle),
       tier,
       badge: score >= BADGE_MIN_SCORE ? score : null,
-      rising: channel.rising,
+      rising: channel.group === 'rising',
     };
   });
 }

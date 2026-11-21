@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from 'vitest';
 import { openDatabase, transactionRunner } from '../src/db/sqlite';
 import { ingestChannel, type IngestDeps } from '../src/ingest';
 import { buildVideoReport } from '../src/report';
+import { SqliteBrandRepo } from '../src/repos/sqliteBrandRepo';
 import { SqliteChannelRepo } from '../src/repos/sqliteChannelRepo';
 import { SqliteVideoRepo } from '../src/repos/sqliteVideoRepo';
 import type { StoredVideo } from '../src/repos/types';
@@ -53,6 +54,10 @@ class FakeSource implements YouTubeSource {
     return this.snapshot;
   }
 
+  async fetchVideoPage(): Promise<never> {
+    throw new Error('fetchVideoPage is not used in this test');
+  }
+
   async getSidebar(): Promise<readonly never[]> {
     return [];
   }
@@ -86,6 +91,33 @@ beforeEach(() => {
 });
 
 describe('ingestChannel', () => {
+  test('stores the logo, cover and bio that came with the channel page, when given somewhere to', async () => {
+    const db = openDatabase(':memory:');
+    const brands = new SqliteBrandRepo(db);
+    const brand = {
+      description: 'An element of truth',
+      avatar: [{ url: 'https://yt3.googleusercontent.com/logo', width: 160, height: 160 }],
+      banner: [],
+      keywords: ['science'],
+      links: [],
+    };
+    const withBrand = new FakeSource({ channel, videos: [makeVideo('a', 1000, 40)], brand });
+
+    await ingestChannel(
+      {
+        source: withBrand,
+        channels: new SqliteChannelRepo(db),
+        videos: new SqliteVideoRepo(db),
+        transact: transactionRunner(db),
+        now: () => START,
+        brands,
+      },
+      CHANNEL_ID,
+    );
+
+    expect(brands.find(CHANNEL_ID)).toEqual({ channelId: CHANNEL_ID, ...brand, fetchedAt: START });
+  });
+
   test('stores the channel and its usable videos on the first run', async () => {
     const result = await ingestChannel(deps, '@veritasium');
 

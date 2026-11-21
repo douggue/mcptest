@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { MapRepo, StoredMap } from '../repos/types';
 import { listBreakouts, type BreakoutVideo } from './breakouts';
 import { applyOwnerChoices } from './choices';
+import type { ChannelGroup } from './mix';
 import type { OutsideReason } from './peers';
 import { loadMapView, type Breakout, type MapViewDeps, type Recommender, type Tier } from './view';
 
@@ -55,6 +56,15 @@ export interface SnapshotChannel {
   readonly recentViews: number;
   readonly recentUploads: number;
   readonly rising: boolean;
+  /**
+   * Whether the channel has already taken off, is rising, or is neither (see
+   * `map/mix.ts`). The look-alikes are listed in a mix of the first two.
+   */
+  readonly group: ChannelGroup;
+  /** Views on its uploads of the last 90 days, which the group rests on. */
+  readonly ninetyDayViews: number;
+  /** How many of those uploads were widely seen, which the group rests on too. */
+  readonly widelySeenUploads: number;
   readonly breakout: Breakout | null;
   readonly recommendedBy: readonly Recommender[];
   /** The same kind of channel as the centre, or one the owner kept as a competitor. */
@@ -116,6 +126,9 @@ function buildSnapshot(deps: SnapshotDeps, map: StoredMap, now: Date): MapSnapsh
       recentViews: row.metrics.recentViews,
       recentUploads: row.metrics.recentUploads,
       rising: row.metrics.rising,
+      group: row.metrics.group,
+      ninetyDayViews: row.metrics.ninetyDayViews,
+      widelySeenUploads: row.metrics.widelySeenUploads,
       breakout: row.metrics.breakout,
       recommendedBy: row.recommendedBy,
       peer: row.peer,
@@ -149,7 +162,16 @@ function buildSnapshot(deps: SnapshotDeps, map: StoredMap, now: Date): MapSnapsh
 //    few videos per channel; older copies name the wrong peers and a flooded feed.
 // 5: each channel says whether its look-alike call is settled; older copies do not,
 //    and would show every call as a confident yes or no. The calls themselves are the same.
-export const SNAPSHOT_FORMAT = 5;
+// 6: each channel says whether it has taken off, is rising or is neither, and the
+//    look-alikes are listed in a mix of the first two; older copies carry no group and
+//    list them by title match alone. Who is a look-alike is the same.
+export const SNAPSHOT_FORMAT = 6;
+
+const CHANNEL_GROUPS = [
+  'taken-off',
+  'rising',
+  'neither',
+] as const satisfies readonly ChannelGroup[];
 
 /** Checks the parts every reader relies on; the rest is carried through as stored. */
 const storedSnapshot = z.object({
@@ -157,7 +179,14 @@ const storedSnapshot = z.object({
   snapshot: z.looseObject({
     mapId: z.number(),
     center: z.looseObject({ id: z.string() }),
-    channels: z.array(z.looseObject({ id: z.string(), peer: z.boolean(), settled: z.boolean() })),
+    channels: z.array(
+      z.looseObject({
+        id: z.string(),
+        peer: z.boolean(),
+        settled: z.boolean(),
+        group: z.enum(CHANNEL_GROUPS),
+      }),
+    ),
     breakouts: z.array(z.looseObject({ channelId: z.string(), peer: z.boolean() })),
     edges: z.array(z.looseObject({ from: z.string(), to: z.string() })),
   }),

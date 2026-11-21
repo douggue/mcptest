@@ -22,9 +22,12 @@ const say = (line: string): void => {
  * somewhere else; anchoring the path here makes both open the same store.
  */
 function anchoredConfig(config: Config): Config {
-  return isAbsolute(config.dbPath)
-    ? config
-    : { ...config, dbPath: resolve(PROJECT_ROOT, config.dbPath) };
+  const anchor = (path: string): string => (isAbsolute(path) ? path : resolve(PROJECT_ROOT, path));
+  return {
+    ...config,
+    dbPath: anchor(config.dbPath),
+    ...(config.downloadsPath === undefined ? {} : { downloadsPath: anchor(config.downloadsPath) }),
+  };
 }
 
 /**
@@ -42,13 +45,17 @@ function loadEnvFile(): void {
 
 async function start(): Promise<void> {
   loadEnvFile();
-  // The connector is driven by a model and none of its tools uses a key, so it
-  // keeps none: a key it never holds cannot leak through it.
+  const only = onlyTools(process.env['JGTUBE_TOOLS']);
+  const config = anchoredConfig(loadConfig());
+  // The connector is driven by a model. One tool, get_video_details, reads
+  // descriptions through the official API when the owner has set a key, so the
+  // engine keeps the key it was just given: it is sent as a request header and
+  // nowhere else, and is stripped from every error. That key and every other
+  // one are taken out of the environment, so nothing else in this process, and
+  // nothing it starts, sees them.
   for (const name of Object.keys(process.env)) {
     if (KEYS_NOT_KEPT.test(name)) delete process.env[name];
   }
-  const only = onlyTools(process.env['JGTUBE_TOOLS']);
-  const config = anchoredConfig(loadConfig());
   const engine = createConnectorEngine(config);
   const server = createConnectorServer({ engine, log: say }, only);
 

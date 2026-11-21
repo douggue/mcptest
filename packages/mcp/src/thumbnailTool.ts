@@ -1,19 +1,17 @@
+import { fetchThumbnail, type FetchImage, type FetchedImage } from '@jgtube/core';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { imageBlock } from './results';
 import { checkedArgs, viewThumbnailsArgs, type ViewThumbnailsArgs } from './schemas';
-import { fetchThumbnail, type FetchImage, type ThumbnailImage } from './thumbnailImages';
 
 type Content = CallToolResult['content'];
 
-function imageContent(videoId: string, image: ThumbnailImage): Content {
+function imageContent(videoId: string, image: FetchedImage): Content {
   if (!image.ok) {
     return [
       { type: 'text', text: `Thumbnail of video ${videoId} could not be shown: ${image.reason}` },
     ];
   }
-  return [
-    { type: 'text', text: `Thumbnail of video ${videoId}:` },
-    { type: 'image', data: image.data, mimeType: image.mimeType },
-  ];
+  return [{ type: 'text', text: `Thumbnail of video ${videoId}:` }, imageBlock(image)];
 }
 
 /**

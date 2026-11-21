@@ -13,6 +13,20 @@ export { parseChannelRef, VIDEO_ID_PATTERN } from './sources/parse';
 export type { ChannelInfo, SidebarItem, VideoItem, YouTubeSource } from './sources/types';
 export { crawlMap, type CrawlDeps, type CrawlOptions, type CrawlResult } from './crawl/crawl';
 export { buildMapView, loadMapView, type MapRow, type Tier } from './map/view';
+export {
+  MIX_TAKEN_OFF_PERCENT,
+  TAKEN_OFF_MIN_VIDEOS,
+  TAKEN_OFF_MIN_VIDEO_VIEWS,
+  TAKEN_OFF_MIN_VIEWS_PER_SUBSCRIBER,
+  TAKEN_OFF_MIN_WINDOW_VIEWS,
+  TAKEN_OFF_WINDOW_DAYS,
+  channelGroup,
+  mixOrder,
+  mixSplit,
+  type ChannelGroup,
+  type GroupEvidence,
+  type MixSplit,
+} from './map/mix';
 export { SqliteEdgeRepo } from './repos/sqliteEdgeRepo';
 export { SqliteMapRepo } from './repos/sqliteMapRepo';
 export { listBreakouts, type BreakoutVideo } from './map/breakouts';
@@ -138,3 +152,116 @@ export type {
 } from './transfer/types';
 export { SqliteTransferRepo } from './repos/sqliteTransferRepo';
 export type { SavedIdea, TransferRepo } from './repos/types';
+export {
+  CHANNEL_IMAGE_HOSTS,
+  CHANNEL_IMAGE_RULE,
+  MAX_THUMBNAIL_BYTES,
+  STORYBOARD_RULE,
+  THUMBNAIL_RULE,
+  VIDEO_IMAGE_HOST,
+  fetchPinnedImage,
+  fetchThumbnail,
+  isPinnedImageUrl,
+  thumbnailUrl,
+  type FetchImage,
+  type FetchedImage,
+  type ImageRule,
+} from './sources/images';
+export { fetchVideoDetails, type ApiVideoDetails } from './sources/dataApi';
+export { SqliteVideoPageRepo } from './repos/sqliteVideoPageRepo';
+export { SqliteBrandRepo } from './repos/sqliteBrandRepo';
+export type {
+  BrandRepo,
+  DetailsSource,
+  StoredBrand,
+  StoredStoryboard,
+  StoredTranscript,
+  StoredVideoDetails,
+  TranscriptRepo,
+  VideoDetailsRepo,
+} from './repos/types';
+export type {
+  BrandImage,
+  ChannelBrand,
+  StoryboardLevel,
+  TranscriptSegment,
+  VideoDetails,
+  VideoPage,
+  VideoPageOptions,
+  VideoTranscript,
+} from './sources/types';
+export { parseVideoRef } from './video/ref';
+export {
+  STORYBOARD_FRESH_HOURS,
+  TRANSCRIPT_NONE_RETRY_HOURS,
+  readStoryboard,
+  readTranscript,
+  readVideoDetails,
+  type DetailsProblem,
+  type DetailsResult,
+  type StoryboardResult,
+  type TranscriptResult,
+  type VideoPageDeps,
+} from './video/pages';
+export {
+  STORYBOARD_FRAME_WIDTH,
+  chooseLevel,
+  describeSheet,
+  planSheets,
+  type FrameSheet,
+} from './video/storyboard';
+export {
+  readVideoFrames,
+  type FrameDeps,
+  type FrameSheetImage,
+  type VideoFrames,
+} from './video/frames';
+export {
+  TRANSCRIPT_STAMP_SECONDS,
+  clock,
+  formatTranscript,
+  type TranscriptText,
+  type TranscriptTextOptions,
+} from './video/transcriptText';
+export {
+  COVER_VIEWED_MIN_WIDTH,
+  LOGO_SHOWN_MIN_WIDTH,
+  LOGO_VIEWED_MIN_WIDTH,
+  pickImage,
+  readChannelBrand,
+  type BrandDeps,
+  type BrandResult,
+} from './channel/brand';
+export { DOWNLOADS_FOLDER, downloadsRoot, pathInside } from './downloads/folder';
+export {
+  THUMBNAILS_FOLDER,
+  THUMBNAIL_INDEX_FILE,
+  saveChannelThumbnails,
+  type SavedThumbnail,
+  type ThumbnailDownload,
+  type ThumbnailDownloadDeps,
+  type ThumbnailDownloadOptions,
+} from './downloads/thumbnails';
+export { boardChannel } from './map/thumbnails';
+export {
+  MAX_VIDEO_BYTES,
+  VIDEO_MIN_HEIGHT,
+  VIDEO_TEMP_FOLDER,
+  VIDEO_TEMP_MAX_AGE_HOURS,
+  cleanVideoTemp,
+  downloadVideoFile,
+  removeVideoFile,
+  videoTempFolder,
+  type VideoDownload,
+  type VideoDownloadDeps,
+  type VideoFailure,
+  type VideoFailureKind,
+  type VideoFetcher,
+  type VideoFile,
+  type VideoRoute,
+} from './downloads/videoFile';
+export { downloadVideo, type DownloadVideoOptions } from './downloads/video';
+export { builtInVideoFetcher, type VideoPlayerSource } from './downloads/builtInVideo';
+export { YT_DLP_PROGRAM, findProgram, ytDlpFetcher, type RunProgram } from './downloads/ytDlp';
+export { describeVideos, type StoredVideoLookup, type VideoFacts } from './video/facts';
+export { brandLines, thumbnailLines, transcriptLines, videoLines } from './downloads/text';

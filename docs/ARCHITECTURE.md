@@ -67,12 +67,15 @@ packages/
     map/          title-format matching, peers, tiers, breakouts, frozen snapshots,
                   owner choices (keep / remove), same-topic list, thumbnail board
     niches/       new-or-small channels with a video that took off; growth; facts
+    video/        one video's own page: transcript, description and tags, storyboard frames
+    channel/      a channel's branding: logo, cover, bio, keywords, links
+    downloads/    files saved to disk: thumbnails with an index, a temporary video copy
     discovery/    keyword search into the store
     refresh/      re-reading the stalest channels
     db/           SQLite connection and migrations
     repos/        channels, videos, edges, maps, watchlist, refresh runs
     ingest.ts     reads one channel into the store
-    cli.ts        ingest, map, refresh from the command line
+    cli.ts        ingest, map, refresh, transcript, thumbnails, brand, video from the command line
   server/src/
     main.ts       HTTP server on 127.0.0.1, static files, security headers, refresh timer
     app.ts        the JSON API as a function from request to response
@@ -85,7 +88,7 @@ packages/
                   behind it; trying them in order; watching a video (Antigravity on a
                   file, the Gemini API on a link); starting programs safely on Windows
     cli.ts        `npm run engines`: what is installed and signed in, and `--try`
-  mcp/src/        the connector: ten tools and one prompt over the same store
+  mcp/src/        the connector: fourteen tools and one prompt over the same store
 apps/web/src/     one page: radar, breakouts, same-topic list, thumbnail board,
                   Ask AI, niches, refresh bar
 docs/  design/
@@ -135,10 +138,20 @@ key. No downloader is connected yet.
   plain sentence on failure. File paths are stripped from messages.
 - **Secrets.** The optional `YOUTUBE_API_KEY` comes from `.env`, is validated for
   shape, sent only as a request header, stripped from errors, and withheld from
-  every AI engine and from the connector. The optional `GEMINI_API_KEY` is read
-  from the environment by the server, checked for shape, sent only as a request
-  header to Google, stripped from errors and withheld from the engines. There
-  is no Anthropic or OpenAI API key anywhere.
+  every AI engine. The connector's engine keeps it for one purpose, reading video
+  descriptions through the official API; it is taken out of the connector's
+  process environment, with every other key, and never appears in a tool's
+  answer. The optional `GEMINI_API_KEY` is read from the environment by the
+  server, checked for shape, sent only as a request header to Google, stripped
+  from errors and withheld from the engines. There is no Anthropic or OpenAI
+  API key anywhere.
+- **Files on disk.** Besides the store, Jgtube writes only under one downloads
+  folder (beside the store, or `JGTUBE_DOWNLOADS_PATH`): thumbnails the owner
+  asks for, and a temporary copy of a video to be watched. Paths are built with
+  `node:path` from validated ids and checked to stay inside that folder.
+- **Pictures.** Every picture is fetched from a pinned host with redirects
+  refused, a time limit and a size cap: `i.ytimg.com` for thumbnails and
+  storyboard sheets, `yt3.googleusercontent.com` for channel logos and covers.
 - **Untrusted text.** Video titles and channel names are attacker-controlled.
   The page renders them, and Claude's answers, as text only; links and images are
   built from validated ids. A hostile title could at most steer an engine among

@@ -83,6 +83,9 @@ describe('formatMapTable', () => {
       recentUploads: 20,
       breakout: { videoId: 'abcdefghijk', title: 'Hit', views: 84_000, score: 1541.7 },
       rising: true,
+      ninetyDayViews: 302_000,
+      widelySeenUploads: 6,
+      group: 'rising',
     },
     peer: true,
     outsideReason: null,
@@ -96,10 +99,26 @@ describe('formatMapTable', () => {
     expect(line).toMatch(/^medium\s+62%\s+2\.1K\s+302K\s+1542x\s+rising\s+Modern Frontier$/);
   });
 
+  test('says which channels have already taken off', () => {
+    const established = mapRow({
+      metrics: { ...mapRow().metrics, rising: false, group: 'taken-off' },
+    });
+
+    expect(formatMapTable([established], 10)[1]).toMatch(/1542x\s+taken off\s+Modern Frontier$/);
+  });
+
   test('uses dashes where a channel has no subscriber count or breakout', () => {
     const quiet = mapRow({
       channel: { ...mapRow().channel, subscribers: null, subscribersHidden: true },
-      metrics: { recentViews: 0, recentUploads: 0, breakout: null, rising: false },
+      metrics: {
+        recentViews: 0,
+        recentUploads: 0,
+        breakout: null,
+        rising: false,
+        ninetyDayViews: 0,
+        widelySeenUploads: 0,
+        group: 'neither',
+      },
     });
 
     expect(formatMapTable([quiet], 10)[1]).toMatch(/^medium\s+62%\s+-\s+0\s+-\s+Modern Frontier$/);

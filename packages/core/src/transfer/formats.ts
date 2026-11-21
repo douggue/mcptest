@@ -156,9 +156,8 @@ function subjectsOf(entries: readonly SubjectEntry[]): readonly FormatSubject[] 
   const subjects = [...new Set(entries.map((entry) => entry.subject))];
   return subjects
     .map((subject): FormatSubject => {
-      const videos = [...videosOf(entries.filter((entry) => entry.subject === subject))].sort(
-        byViews,
-      );
+      const about = entries.filter((entry) => entry.subject === subject);
+      const videos = [...videosOf(about)].sort(byViews);
       const top = videos[0]?.video;
       return {
         subject,
@@ -168,6 +167,7 @@ function subjectsOf(entries: readonly SubjectEntry[]): readonly FormatSubject[] 
         videoId: top?.id ?? '',
         title: top?.title ?? '',
         channelTitle: top?.channelTitle ?? '',
+        ideaKeys: [...new Set(about.map((entry) => entry.idea.key))].sort(),
       };
     })
     .sort((a, b) => b.bestViews - a.bestViews || (a.subject < b.subject ? -1 : 1));
