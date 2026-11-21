@@ -41,7 +41,7 @@ export function TransferPlace({ list, countryNote, onChoose }: Props) {
         <select
           value={check.chosen?.key ?? ''}
           onChange={(event) => onChoose(event.target.value === '' ? null : event.target.value)}
-          className="min-h-11 w-full rounded-full bg-space-deep px-4 text-body-sm text-on-surface shadow-[inset_0_2px_6px_rgba(0,0,0,0.6)] focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
+          className="min-h-11 w-full rounded border border-border-subtle bg-space-deep px-3 text-body-md text-on-surface focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
         >
           {placeChoices().map((place) => (
             <option key={place.key} value={place.key}>
