@@ -61,6 +61,7 @@ export function IdeaLab(props: Props) {
             transfers={transfers}
             centerTitle={centerTitle}
             ai={ai}
+            breakouts={breakouts}
           />
         }
       >

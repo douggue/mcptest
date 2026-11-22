@@ -1,3 +1,5 @@
+import { PANEL_BUTTON } from './layout/PanelAction';
+import type { BreakoutVideo } from '@jgtube/core';
 import type { TransferList } from '@jgtube/core';
 import { Plus, Sparkles, X } from 'lucide-react';
 import { libraryState } from '../lib/hookLibrary';
@@ -22,15 +24,78 @@ const LENGTHS = [
 /** A text box: the field's look with square-ish corners, as it holds lines. */
 const BOX = FIELD.replace('rounded-full', 'rounded-lg');
 /** The panel's one primary action: full width, in the accent colour. */
-const GENERATE =
-  'flex w-full items-center justify-center gap-2 rounded-lg bg-primary-container py-2.5 text-body-md font-semibold text-on-primary shadow-[0_0_12px_rgba(0,210,255,0.35)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none';
 const CHIP =
   'flex min-w-0 items-center gap-2 rounded-lg border border-border-subtle bg-space-deep py-1.5 pl-1.5 pr-1';
 const REMOVE =
   'flex h-8 w-8 flex-none items-center justify-center rounded-full text-outline transition-colors hover:bg-surface-card hover:text-on-surface';
 
+/** How many of the strongest breakouts are offered to pick from in place. */
+const QUICK_PICKS = 5;
+
+/** With nothing picked: the strongest breakouts of the map, each added with one press, here. */
+function QuickPicks({
+  lab,
+  breakouts,
+}: {
+  readonly lab: Lab;
+  readonly breakouts: readonly BreakoutVideo[];
+}) {
+  const top = [...breakouts].sort((a, b) => b.score - a.score).slice(0, QUICK_PICKS);
+  if (top.length === 0) {
+    return (
+      <p className="text-body-sm text-on-surface-variant">
+        Nothing is breaking out on this map yet. Add a hook from Hooks instead.
+      </p>
+    );
+  }
+  return (
+    <ul className="flex flex-col gap-1">
+      <li className="text-body-sm text-on-surface-variant">Pick one or more to start:</li>
+      {top.map((video) => (
+        <li key={video.videoId} className="flex min-w-0 items-center gap-2">
+          <img
+            src={thumbnailUrl(video.videoId) ?? undefined}
+            alt=""
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            className="aspect-video w-14 flex-none rounded bg-surface-container-high object-cover"
+          />
+          <span
+            className="min-w-0 flex-1 truncate text-body-sm text-on-surface"
+            title={video.title}
+          >
+            {video.title}
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              lab.pick({
+                videoId: video.videoId,
+                title: video.title,
+                channelTitle: video.channelTitle,
+                modelOpening: false,
+                from: 'breakout',
+              })
+            }
+            className="flex min-h-9 flex-none items-center gap-1 rounded-full px-2 text-body-sm font-semibold text-primary hover:bg-surface-card"
+          >
+            <Plus aria-hidden="true" className="h-4 w-4" />
+            Add
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** The videos picked as inspiration, as removable chips, with the way to pick more. */
-function Picks({ lab }: { readonly lab: Lab }) {
+function Picks({
+  lab,
+  breakouts,
+}: {
+  readonly lab: Lab;
+  readonly breakouts: readonly BreakoutVideo[];
+}) {
   return (
     <Field
       label={`Inspiration (${lab.picks.length} of ${MAX_PICKS})`}
@@ -45,9 +110,7 @@ function Picks({ lab }: { readonly lab: Lab }) {
       }
     >
       {lab.picks.length === 0 ? (
-        <p className="text-body-sm text-on-surface-variant">
-          Nothing picked yet. Use a video under Breaking out or a hook in the hook library.
-        </p>
+        <QuickPicks lab={lab} breakouts={breakouts} />
       ) : (
         <ul className="flex flex-col gap-1.5">
           {lab.picks.map((pick) => (
@@ -199,13 +262,15 @@ interface Props extends InputsProps {
   readonly centerTitle: string;
   /** Which AI answers; absent where the choice is made elsewhere. */
   readonly ai?: AiChoice;
+  /** The breakouts of the map, to pick from in place when nothing is picked. */
+  readonly breakouts: readonly BreakoutVideo[];
 }
 
 /**
  * The idea lab's controls: what the concepts rest on (the picks, a format,
  * an angle and the length), which AI writes them, and the one button.
  */
-export function IdeaLabPanel({ lab, busy, transfers, centerTitle, ai }: Props) {
+export function IdeaLabPanel({ lab, busy, transfers, centerTitle, ai, breakouts }: Props) {
   const { choices } = lab;
   const blocked = generateBlocked(lab.picks, busy);
   return (
@@ -218,7 +283,7 @@ export function IdeaLabPanel({ lab, busy, transfers, centerTitle, ai }: Props) {
           From videos on {centerTitle}&rsquo;s map, a format and your angle.
         </p>
       </div>
-      <Picks lab={lab} />
+      <Picks lab={lab} breakouts={breakouts} />
       <Field label={`Your topic or angle · ${choices.angle.length} of ${MAX_ANGLE_CHARS}`}>
         <textarea
           aria-label="Your topic or angle"
@@ -249,7 +314,7 @@ export function IdeaLabPanel({ lab, busy, transfers, centerTitle, ai }: Props) {
           type="button"
           disabled={blocked !== null}
           onClick={lab.generate}
-          className={GENERATE}
+          className={PANEL_BUTTON}
         >
           <Sparkles aria-hidden="true" className="h-4 w-4" />
           Write 10 ideas

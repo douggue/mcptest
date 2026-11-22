@@ -86,7 +86,7 @@ export function outlierPicks(
 /** Why "Write 10 ideas" cannot run now, in one line; null when it can. */
 export function generateBlocked(picks: readonly Pick[], busy: boolean): string | null {
   if (busy) return 'Waits for the AI run under way to finish.';
-  if (picks.length === 0) return 'Pick at least one video first, with Pick videos above.';
+  if (picks.length === 0) return 'Add at least one video above first.';
   return null;
 }
 

@@ -37,7 +37,7 @@ function LengthBadge({ concept }: { readonly concept: ConceptView }) {
       aria-label={check.warning}
       className="flex-none rounded-full bg-surface-container-high px-2 py-0.5 text-body-sm tabular-nums text-on-surface-variant"
     >
-      {check.count}/{check.limit}
+      {check.count - check.limit} chars too long
     </span>
   );
 }

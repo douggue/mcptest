@@ -86,9 +86,7 @@ describe('picking inspiration', () => {
   });
 
   test('says why the batch cannot be written, or nothing when it can', () => {
-    expect(generateBlocked([], false)).toBe(
-      'Pick at least one video first, with Pick videos above.',
-    );
+    expect(generateBlocked([], false)).toBe('Add at least one video above first.');
     expect(generateBlocked([pick('a')], true)).toBe('Waits for the AI run under way to finish.');
     expect(generateBlocked([pick('a')], false)).toBeNull();
   });
