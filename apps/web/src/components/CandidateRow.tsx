@@ -13,8 +13,8 @@ import { ChannelLogo } from './ChannelLogo';
 const TONE = { close: 'text-primary', medium: 'text-secondary', far: 'text-outline' } as const;
 
 /**
- * Where another part of the app may put a small badge on a channel's row
- * (a monetization badge is being built). Nothing is shown until it is set.
+ * The small badge beside a channel's name on its row: Breakdown puts the
+ * monetization badge there. Nothing is shown when none is given.
  */
 export type CandidateBadge = (channelId: string) => ReactNode;
 export const NO_BADGE: CandidateBadge = () => null;

@@ -7,7 +7,8 @@ import { SLOW_NOTE } from '../lib/breakdown';
 import { uploadVideoFile } from '../lib/upload';
 import { BreakdownStatus } from './Breakdown';
 import { AllCandidates, PasteChannel, SuggestedCandidates } from './BreakdownChooser';
-import { CandidateLogo, CandidateMeta, NO_BADGE, TopStrip } from './CandidateRow';
+import { CandidateLogo, CandidateMeta, TopStrip, type CandidateBadge } from './CandidateRow';
+import { MoneyBadge } from './MoneyBadge';
 import { Details } from './layout/Details';
 import { Notice } from './layout/Notice';
 import { ViewPage } from './layout/SplitView';
@@ -15,6 +16,11 @@ import { ViewHeader } from './layout/ViewHeader';
 import { PRIMARY_BUTTON } from './LabStatus';
 import { useCandidates } from './useCandidates';
 import type { ViewParts } from './viewParts';
+
+/** The monetization badge on each row; left out for a channel never checked. */
+const MONEY_BADGE: CandidateBadge = (channelId) => (
+  <MoneyBadge channelId={channelId} hideUnchecked />
+);
 
 /** The kept breakdowns among the channels on offer, newest first. */
 function KeptBreakdowns({ candidates }: { readonly candidates: readonly Candidate[] }) {
@@ -167,9 +173,9 @@ export function BreakdownChannelTab({
           {state.status === 'failed' && <Notice tone="problem">{state.message}</Notice>}
           {state.status === 'ready' && (
             <>
-              <SuggestedCandidates candidates={state.candidates} now={now} badge={NO_BADGE} />
+              <SuggestedCandidates candidates={state.candidates} now={now} badge={MONEY_BADGE} />
               <KeptBreakdowns candidates={state.candidates} />
-              <AllCandidates candidates={state.candidates} badge={NO_BADGE} />
+              <AllCandidates candidates={state.candidates} badge={MONEY_BADGE} />
             </>
           )}
         </>
