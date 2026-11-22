@@ -1,7 +1,7 @@
 import { ReadingElsewhereError, type LogoOutcome, type LogoProgress } from '@jgtube/core';
 import { z } from 'zod';
 import { fail, ok, readJson } from './http';
-import { JobStore, type Job } from './jobs';
+import { JobStore, type Job, type JobRecord } from './jobs';
 import type { LogoEngine } from './logoTypes';
 
 /**
@@ -31,6 +31,8 @@ export interface LogoRoutes {
   /** Starts a logo job for the channel's latest map, or says why there is none to start. */
   start(request: Request): Promise<Response>;
   job(id: string): Job<LogoOutcome, LogoProgress> | null;
+  /** The logo jobs, for `/api/jobs`. */
+  listJobs(): readonly JobRecord[];
   /**
    * Ends the job under way after the channel it is on, and waits for it. Work
    * that reads YouTube calls this before it checks whether it may start.
@@ -48,24 +50,26 @@ export function logoRoutes(options: LogoRouteOptions): LogoRoutes {
   let running: Running | null = null;
   let stopping = false;
 
-  const begin = (channelIds: readonly string[]): string | null => {
+  const begin = (channel: string, channelIds: readonly string[]): string | null => {
     let finish: () => void = () => {};
     const ended = new Promise<void>((resolve) => {
       finish = resolve;
     });
     stopping = false;
-    const job = jobs.start((report) =>
-      options.engine
-        .fetchLogos(channelIds, report, () => stopping)
-        .catch((error: unknown) => {
-          // Another program began reading YouTube first: nothing was read, and the page asks again.
-          if (error instanceof ReadingElsewhereError) return NOTHING_READ;
-          throw error;
-        })
-        .finally(() => {
-          running = null;
-          finish();
-        }),
+    const job = jobs.start(
+      (report) =>
+        options.engine
+          .fetchLogos(channelIds, report, () => stopping)
+          .catch((error: unknown) => {
+            // Another program began reading YouTube first: nothing was read, and the page asks again.
+            if (error instanceof ReadingElsewhereError) return NOTHING_READ;
+            throw error;
+          })
+          .finally(() => {
+            running = null;
+            finish();
+          }),
+      { kind: 'logos', title: `Fetching ${channelIds.length} channel logos`, channelId: channel },
     );
     if (!job) return null;
     running = { jobId: job.id, ended };
@@ -85,11 +89,12 @@ export function logoRoutes(options: LogoRouteOptions): LogoRoutes {
       if (missing.length === 0) return ok({ jobId: null, missing: 0 });
       if (running) return ok({ jobId: running.jobId, missing: missing.length });
       if (options.isReading()) return fail(409, LOGOS_WAIT);
-      const jobId = begin(missing);
+      const jobId = begin(parsed.data.channel, missing);
       return jobId === null ? fail(409, LOGOS_WAIT) : ok({ jobId, missing: missing.length }, 202);
     },
 
     job: (id) => jobs.get(id),
+    listJobs: () => jobs.list(),
 
     async standDown() {
       if (!running) return;

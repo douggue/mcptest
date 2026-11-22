@@ -6,7 +6,7 @@ import type { z } from 'zod';
 import type { AnalysisTracker } from './analysisRoutes';
 import type { AppOptions } from './app';
 import { fail, ok, readJson } from './http';
-import type { JobStore } from './jobs';
+import type { JobLabel, JobStore } from './jobs';
 import type { LabOutcome, LabProgress, Report } from './labTypes';
 
 export type LabJobs = JobStore<LabOutcome, LabProgress>;
@@ -35,15 +35,17 @@ export type Routes = Readonly<Record<string, { readonly GET?: Handler; readonly 
 type Work = (report: Report) => Promise<LabOutcome>;
 
 /** Starts a run of an AI engine as a job, in the slot every such run shares. */
-export function startAiJob(context: Context, work: Work): Response {
+export function startAiJob(context: Context, work: Work, label: JobLabel): Response {
   const { jobs, tracker } = context;
   if (tracker.running) return fail(409, BUSY);
   if (jobs.isBusy()) return fail(409, LAB_BUSY);
   tracker.running = true;
-  const job = jobs.start((report) =>
-    work(report).finally(() => {
-      tracker.running = false;
-    }),
+  const job = jobs.start(
+    (report) =>
+      work(report).finally(() => {
+        tracker.running = false;
+      }),
+    label,
   );
   if (!job) {
     tracker.running = false;
@@ -53,8 +55,8 @@ export function startAiJob(context: Context, work: Work): Response {
 }
 
 /** Starts work that is not an AI run as a job: it takes the lab's slot and not the AI's. */
-export function startLabJob(context: Context, work: Work): Response {
-  const job = context.jobs.start(work);
+export function startLabJob(context: Context, work: Work, label: JobLabel): Response {
+  const job = context.jobs.start(work, label);
   return job ? ok({ jobId: job.id }, 202) : fail(409, LAB_BUSY);
 }
 

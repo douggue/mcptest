@@ -8,7 +8,7 @@ import type { ViewerAskOutcome } from './commentsTypes';
 import type { RiskAskOutcome } from './riskTypes';
 import type { ThumbReviewOutcome } from './thumbReviewTypes';
 import { fail, ok } from './http';
-import type { JobStore } from './jobs';
+import type { JobLabel, JobStore } from './jobs';
 import type { Context } from './labHttp';
 
 export type ExtrasOutcome =
@@ -43,21 +43,23 @@ const AI_BUSY = 'An AI run is already under way. Wait for it to finish.';
 const EXTRAS_BUSY = 'Jgtube is already reading or asking about comments. Wait for it to finish.';
 
 /** Starts work that is not an AI run, such as reading from the official API. */
-export function startExtrasJob(context: ExtrasContext, work: Work): Response {
-  const job = context.extraJobs.start(work);
+export function startExtrasJob(context: ExtrasContext, work: Work, label: JobLabel): Response {
+  const job = context.extraJobs.start(work, label);
   return job ? ok({ jobId: job.id }, 202) : fail(409, EXTRAS_BUSY);
 }
 
 /** Starts an AI run as a job, in the slot every AI run shares. */
-export function startExtrasAiJob(context: ExtrasContext, work: Work): Response {
+export function startExtrasAiJob(context: ExtrasContext, work: Work, label: JobLabel): Response {
   const { extraJobs, tracker } = context;
   if (tracker.running) return fail(409, AI_BUSY);
   if (extraJobs.isBusy()) return fail(409, EXTRAS_BUSY);
   tracker.running = true;
-  const job = extraJobs.start((report) =>
-    work(report).finally(() => {
-      tracker.running = false;
-    }),
+  const job = extraJobs.start(
+    (report) =>
+      work(report).finally(() => {
+        tracker.running = false;
+      }),
+    label,
   );
   if (!job) {
     tracker.running = false;

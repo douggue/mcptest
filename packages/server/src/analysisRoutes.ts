@@ -1,11 +1,13 @@
 import { parseChannelRef } from '@jgtube/core';
 import { z } from 'zod';
-import { QUICK_ANALYSIS_IDS } from './analyses';
+import { ANALYSES, QUICK_ANALYSIS_IDS } from './analyses';
 import type { AppOptions } from './app';
 import { EngineRunError } from './engines/failure';
 import { ENGINE_IDS } from './engines/settings';
 import type { EngineFailure } from './engines/types';
 import { fail, ok, readJson } from './http';
+import { channelLabel } from './jobLabels';
+import { holdRun, type HeldRuns } from './jobList';
 import { cleanMessage } from './jobs';
 
 const MAX_CHANNEL_LENGTH = 200;
@@ -13,6 +15,8 @@ const MAX_CHANNEL_LENGTH = 200;
 /** Whether an AI engine is working on an analysis; one runs at a time. */
 export interface AnalysisTracker {
   running: boolean;
+  /** Runs a request waits for, kept so the list of work can show them. */
+  readonly held?: HeldRuns;
 }
 
 const analysisRequest = z.object({
@@ -65,7 +69,17 @@ export async function runAnalysis(
   tracker.running = true;
   try {
     const { analysis, channel, engine: only } = parsed.data;
-    const { text, engine, skipped } = await options.engine.analyse(analysis, channel, only);
+    const label = channelLabel(
+      options.engine,
+      'analysis',
+      `${ANALYSES[analysis].title} for`,
+      channel,
+    );
+    const { text, engine, skipped } = await holdRun(
+      tracker.held,
+      label,
+      options.engine.analyse(analysis, channel, only),
+    );
     // Kept for the channel, so it can be read again and a later question can read it
     // through a tool. A channel that is not stored has nowhere to keep it.
     const kept = options.engine.keepAnswer(analysis, channel, { text, engine });
