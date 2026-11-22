@@ -102,7 +102,7 @@ function Weeks({
       )}
       <Group title="No date yet">
         {undated.length === 0 ? (
-          <p className="text-body-sm text-outline">Every kept idea has a date.</p>
+          <p className="text-body-sm text-outline">Every saved idea has a date.</p>
         ) : (
           <Items items={undated} save={save} />
         )}
@@ -161,9 +161,9 @@ export function UploadCalendar({ channelId, reloadKey }: Props) {
         {calendar && <TileRow tiles={calendarTiles(calendar)} />}
         {empty && (
           <Card>
-            <p className="text-body-md text-on-surface">No kept ideas yet.</p>
+            <p className="text-body-md text-on-surface">No saved ideas yet.</p>
             <p className="text-body-sm text-on-surface-variant">
-              Keep an idea in Ideas to plan it here.
+              Save an idea in Ideas to plan it here.
             </p>
           </Card>
         )}

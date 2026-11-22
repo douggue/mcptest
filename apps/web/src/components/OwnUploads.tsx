@@ -30,8 +30,8 @@ export function OwnUploads({ channelId, reloadKey, canLink, onLink }: Props) {
         <h3 className="text-headline-md font-bold text-on-surface">Your uploads</h3>
         <p className="text-body-sm text-on-surface-variant">
           {canLink
-            ? 'Link one to the kept idea it came from to see how it did.'
-            : 'Keep an idea in Ideas, then link the video it became.'}
+            ? 'Link one to the saved idea it came from to see how it did.'
+            : 'Save an idea in Ideas, then link the video it became.'}
         </p>
       </div>
       <ul className="flex flex-col divide-y divide-border-subtle">

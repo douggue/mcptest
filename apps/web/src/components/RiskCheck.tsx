@@ -123,7 +123,7 @@ export function RiskCheck({ channelId, openConceptId, reloadKey }: Props) {
             <ShieldAlert aria-hidden="true" className="h-6 w-6 text-metric-amber" />
             <p className="text-body-md text-on-surface">No script to check yet.</p>
             <p className="text-body-sm text-on-surface-variant">
-              Keep an idea in Ideas and write its script; the check follows the script that is open.
+              Save an idea in Ideas and write its script; the check follows the script that is open.
             </p>
           </Card>
         )}

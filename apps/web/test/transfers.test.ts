@@ -116,7 +116,7 @@ describe('the filter', () => {
     expect(TRANSFER_FILTERS.map((option) => [option.id, option.label])).toEqual([
       ['opportunities', 'Opportunities'],
       ['formats', 'Formats'],
-      ['saved', 'Kept'],
+      ['saved', 'Saved'],
     ]);
   });
 
@@ -443,9 +443,9 @@ describe('the label of each view of the ideas', () => {
 
     expect(
       filterLabel('saved', { ideas: [saved('a', true), saved('b', false), saved('c', true)] }),
-    ).toBe('Kept · 2');
-    expect(filterLabel('saved', { ideas: [saved('a', false)] })).toBe('Kept');
-    expect(filterLabel('saved', null)).toBe('Kept');
+    ).toBe('Saved · 2');
+    expect(filterLabel('saved', { ideas: [saved('a', false)] })).toBe('Saved');
+    expect(filterLabel('saved', null)).toBe('Saved');
     expect(filterLabel('opportunities', { ideas: [saved('a', true)] })).toBe('Opportunities');
   });
 });

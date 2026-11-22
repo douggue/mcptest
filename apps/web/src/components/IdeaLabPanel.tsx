@@ -322,7 +322,7 @@ export function IdeaLabPanel({ lab, busy, transfers, centerTitle, ai, breakouts 
         <span
           className={`text-center text-body-sm ${blocked ? 'text-metric-amber' : 'text-outline'}`}
         >
-          {blocked ?? 'About two to four minutes. Replaces the ideas not kept.'}
+          {blocked ?? 'About two to four minutes. Replaces the ideas not saved.'}
         </span>
       </div>
       <WhereElse lab={lab} busy={busy} />

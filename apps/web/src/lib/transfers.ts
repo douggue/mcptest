@@ -18,7 +18,7 @@ export const TRANSFER_FILTERS: readonly {
 }[] = [
   { id: 'opportunities', label: 'Opportunities' },
   { id: 'formats', label: 'Formats' },
-  { id: 'saved', label: 'Kept' },
+  { id: 'saved', label: 'Saved' },
 ];
 
 /**

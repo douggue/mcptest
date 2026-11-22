@@ -76,6 +76,7 @@ export function SameTopicCard({ number, channel, busy, onKeep }: Props) {
           </span>
         </div>
         <button
+          title="Adds it to the look-alikes on your map, so its videos count in your research"
           type="button"
           disabled={busy}
           aria-label={`Keep ${channel.title} as a competitor`}
@@ -83,7 +84,7 @@ export function SameTopicCard({ number, channel, busy, onKeep }: Props) {
           className="flex min-h-10 w-full flex-none items-center justify-center gap-1.5 rounded-full bg-surface-container-high px-4 text-body-sm font-semibold text-primary transition-colors hover:bg-surface-container-highest disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           <Plus aria-hidden="true" className="h-4 w-4" />
-          Keep as competitor
+          Add to my competitors
         </button>
       </div>
       <Numbers channel={channel} />

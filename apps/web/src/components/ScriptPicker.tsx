@@ -30,9 +30,9 @@ export function ScriptPicker({ concepts, scripted, onOpen }: Props) {
   if (kept.length === 0) {
     return (
       <Card>
-        <h3 className="text-headline-md font-bold text-on-surface">Keep an idea first</h3>
+        <h3 className="text-headline-md font-bold text-on-surface">Save an idea first</h3>
         <p className="text-body-md text-on-surface-variant">
-          A script is written for a kept idea. Keep one in Ideas, then come back.
+          A script is written for a saved idea. Save one in Ideas, then come back.
         </p>
         <a
           href={viewHref('ideas')}
@@ -45,7 +45,7 @@ export function ScriptPicker({ concepts, scripted, onOpen }: Props) {
     );
   }
   return (
-    <Card label="Your kept ideas">
+    <Card label="Your saved ideas">
       <h3 className="text-headline-md font-bold text-on-surface">Your scripts</h3>
       <ul className="flex flex-col divide-y divide-border-subtle">
         {kept.map((concept) => (

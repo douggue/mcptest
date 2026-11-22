@@ -116,7 +116,7 @@ describe('filterNiches', () => {
 
   test('shows the watched channels under Watched and nowhere else', () => {
     expect(kept('watched')).toEqual([cid(2), cid(4)]);
-    expect(NICHE_FILTERS.find((option) => option.id === 'watched')?.label).toBe('Watched');
+    expect(NICHE_FILTERS.find((option) => option.id === 'watched')?.label).toBe('Saved');
   });
 
   test('brings a channel back to the default view once it is no longer watched', () => {

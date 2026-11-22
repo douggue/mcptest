@@ -65,7 +65,7 @@ function SaveToggle({ idea, onSetSaved }: SaveProps) {
       }`}
     >
       <Icon aria-hidden="true" className="h-4 w-4" />
-      {idea.saved ? 'Kept' : 'Keep'}
+      {idea.saved ? 'Saved' : 'Save'}
     </button>
   );
 }

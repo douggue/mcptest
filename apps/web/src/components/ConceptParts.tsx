@@ -71,8 +71,8 @@ export function ConceptHead({ number, concept, onKeep, onDraft, open, onToggle }
         <button
           type="button"
           aria-pressed={concept.kept}
-          aria-label={concept.kept ? 'Kept' : 'Keep'}
-          title={concept.kept ? 'Kept' : 'Keep'}
+          aria-label={concept.kept ? 'Saved' : 'Save'}
+          title={concept.kept ? 'Saved' : 'Save'}
           onClick={() => onKeep(!concept.kept)}
           className={`${ICON_BUTTON} ${concept.kept ? 'text-primary' : 'text-on-surface-variant hover:text-on-surface'}`}
         >

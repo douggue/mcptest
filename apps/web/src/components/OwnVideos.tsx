@@ -31,7 +31,7 @@ function LinkForm({ plan, actions, link, setLink }: FormProps) {
   if (plan.linkable.length === 0) {
     return (
       <p className="text-body-sm text-on-surface-variant">
-        Every kept idea is linked, or none is kept yet. Keep an idea in Ideas to link it to the
+        Every saved idea is linked, or none is saved yet. Save an idea in Ideas to link it to the
         video it became.
       </p>
     );
@@ -44,7 +44,7 @@ function LinkForm({ plan, actions, link, setLink }: FormProps) {
         if (chosen !== null && link.trim() !== '') actions.link(chosen, link.trim());
       }}
     >
-      <Field label={<label htmlFor="plan-concept">Kept idea</label>}>
+      <Field label={<label htmlFor="plan-concept">Saved idea</label>}>
         <select
           id="plan-concept"
           value={chosen ?? ''}
@@ -89,7 +89,7 @@ function Panel({ plan, ...form }: Omit<FormProps, 'plan'> & { readonly plan: Pla
           <span className="text-on-surface">Link a video</span>
         </h2>
         <p className="text-body-sm text-on-surface-variant">
-          Link a kept idea to the video you published from it.
+          Link a saved idea to the video you published from it.
         </p>
       </div>
       <Details summary="How this works">
@@ -114,9 +114,9 @@ function Counts({ plan }: { readonly plan: PlanView }) {
   const counts = planCounts(plan);
   return (
     <StatRow columns={3}>
-      <StatTile label="Linked videos" value={counts.linked} note="Kept ideas you published" />
+      <StatTile label="Linked videos" value={counts.linked} note="Saved ideas you published" />
       <StatTile label="Scored" value={counts.scored} note="Against your usual at the same age" />
-      <StatTile label="Not linked yet" value={counts.notLinked} note="Kept ideas" />
+      <StatTile label="Not linked yet" value={counts.notLinked} note="Saved ideas" />
     </StatRow>
   );
 }

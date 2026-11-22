@@ -21,7 +21,7 @@ export const NICHE_FILTERS: readonly { readonly id: NicheFilter; readonly label:
   { id: 'new', label: 'New' },
   { id: 'small', label: 'Small' },
   { id: 'language', label: 'Other language' },
-  { id: 'watched', label: 'Watched' },
+  { id: 'watched', label: 'Saved' },
 ];
 
 /**

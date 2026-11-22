@@ -54,7 +54,9 @@ export function IdeaLab(props: Props) {
       <ViewHeader
         title="Ideas"
         lead={
-          concepts.length > 0 ? `${concepts.length - unkept} kept · ${unkept} not kept` : undefined
+          concepts.length > 0
+            ? `${concepts.length - unkept} saved · ${unkept} not saved`
+            : undefined
         }
         actions={
           concepts.length > 0 && (
@@ -126,7 +128,7 @@ export function IdeaLab(props: Props) {
             className={`flex items-center gap-1.5 self-start ${QUIET_BUTTON}`}
           >
             <Trash2 aria-hidden="true" className="h-4 w-4" />
-            Clear the {unkept} not kept
+            Clear the {unkept} not saved
           </button>
         )}
       </SplitView>

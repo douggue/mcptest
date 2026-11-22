@@ -87,7 +87,7 @@ function WatchToggle({ channel, onSetWatched }: Props) {
       }`}
     >
       <Icon aria-hidden="true" className="h-4 w-4" />
-      {channel.watched ? 'Watching' : 'Watch'}
+      {channel.watched ? 'Saved' : 'Save'}
     </button>
   );
 }
