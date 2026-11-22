@@ -21,7 +21,7 @@ function RunningRow({ job, now }: { readonly job: JobEntry; readonly now: number
         )}
       </span>
       <span className="text-label text-outline">
-        {job.progress ?? 'Starting'} · {elapsedText(job, now)}
+        {job.progress ?? 'Working'} · {elapsedText(job, now)}
       </span>
     </li>
   );
