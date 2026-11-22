@@ -1,6 +1,6 @@
 import { CircleCheck, LoaderCircle, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { doneLine, elapsedText, jobHref, runningJobs, type JobEntry } from '../lib/jobs';
+import { askedFor, doneLine, elapsedText, jobHref, runningJobs, type JobEntry } from '../lib/jobs';
 import type { ViewId } from '../lib/routes';
 import { useJobWatch } from './useJobWatch';
 
@@ -88,8 +88,8 @@ export function WorkingIndicator({ active }: { readonly active: ViewId }) {
   const close = useCallback(() => setOpen(false), []);
   const box = useCloseOutside(open, close);
   useEffect(() => setOpen(false), [active]);
-  const running = runningJobs(jobs);
-  const { notices } = watch;
+  const running = runningJobs(askedFor(jobs));
+  const notices = askedFor(watch.notices);
   if (running.length === 0 && notices.length === 0) return null;
 
   const now = Date.now();

@@ -129,6 +129,13 @@ export function elapsedText(job: JobEntry, now: number): string {
   return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
 }
 
+/** Background work nobody pressed a button for, which the Working indicator leaves out. */
+const QUIET_KINDS: ReadonlySet<string> = new Set(['logos']);
+
+/** The jobs the owner asked for: quiet background work, such as reading logos, is left out. */
+export const askedFor = (jobs: readonly JobEntry[]): readonly JobEntry[] =>
+  jobs.filter((job) => !QUIET_KINDS.has(job.kind));
+
 export const runningJobs = (jobs: readonly JobEntry[]): readonly JobEntry[] =>
   jobs.filter((job) => job.status === 'running');
 

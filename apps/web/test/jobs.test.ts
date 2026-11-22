@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import {
+  askedFor,
   BUSY_POLL_MS,
   IDLE_POLL_MS,
   createJobsApi,
@@ -102,6 +103,14 @@ describe('elapsedText', () => {
     expect(elapsedText(job({}), START - 5_000)).toBe('0 s');
     const finished = job({ finishedAt: new Date(START + 90_000).toISOString() });
     expect(elapsedText(finished, START + 10 * 60_000)).toBe('1 min');
+  });
+});
+
+describe('work the owner asked for', () => {
+  test('leaves out quiet background work, such as reading logos', () => {
+    const jobs = [job({ id: 'a', kind: 'logos' }), job({ id: 'b', kind: 'claims' })];
+
+    expect(askedFor(jobs).map(({ id }) => id)).toEqual(['b']);
   });
 });
 
