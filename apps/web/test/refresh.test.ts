@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { createApi, type RefreshReply } from '../src/lib/api';
 import { describeGrowth } from '../src/lib/niches';
 import {
+  refreshLine,
   describeOutcome,
   describeProgress,
   describeRefresh,
@@ -67,6 +68,15 @@ describe('describeRefresh', () => {
     expect(describeRefresh(reply({ last, due: 1, channels: 1 }), NOW)).toBe(
       'Last refresh 30 minutes ago: 1 channel read again. 1 of 1 channel can be read again.',
     );
+  });
+});
+
+describe('refreshLine', () => {
+  test('says in one sentence when the store was last refreshed, and what to do', () => {
+    expect(refreshLine(reply({ last: run(60 * 39) }), NOW)).toBe(
+      'Last refreshed 39 hours ago. Refresh to compare.',
+    );
+    expect(refreshLine(reply(), NOW)).toBe('Not refreshed yet. Refresh to compare.');
   });
 });
 

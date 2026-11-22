@@ -4,6 +4,7 @@ import {
   describeProgress,
   describeRefresh,
   describeSchedule,
+  refreshLine,
 } from '../lib/refresh';
 import { Details } from './layout/Details';
 import { PRIMARY_BUTTON } from './LabStatus';
@@ -60,7 +61,7 @@ export function RefreshBar({ refresh }: { readonly refresh: Refresh }) {
         </h3>
         <History aria-hidden="true" className="h-4 w-4 flex-none text-outline" />
         <p className="min-w-0 flex-1 basis-56 text-body-sm text-on-surface-variant">
-          {view.status === 'ready' ? describeRefresh(view.reply, new Date()) : ''}
+          {view.status === 'ready' ? refreshLine(view.reply, new Date()) : ''}
         </p>
         <button
           type="button"
@@ -77,7 +78,8 @@ export function RefreshBar({ refresh }: { readonly refresh: Refresh }) {
           The refresh status could not be loaded: {view.message}
         </p>
       ) : (
-        <Details summary="Refresh by itself">
+        <Details summary="More about refreshing">
+          <p className={NOTE}>{describeRefresh(view.reply, new Date())}</p>
           <p className={NOTE}>{describeSchedule(view.reply.everyHours)}</p>
         </Details>
       )}

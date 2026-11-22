@@ -21,12 +21,8 @@ interface Props {
 
 /** How old the readings are, in one line; what to do when some are over a day old. */
 function Freshness({ text, stale }: { readonly text: string; readonly stale: boolean }) {
-  if (!stale) return <p className="text-body-sm text-outline">{text}</p>;
-  return (
-    <p className="text-body-sm text-metric-amber">
-      Some readings are more than a day old. Press Refresh now above to compare the latest.
-    </p>
-  );
+  // When readings are stale, the refresh line above already says what to do.
+  return stale ? null : <p className="text-body-sm text-outline">{text}</p>;
 }
 
 /**

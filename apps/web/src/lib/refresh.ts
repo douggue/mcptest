@@ -24,6 +24,14 @@ function describeDue(state: RefreshReply): string {
   return `${state.due} of ${state.channels} ${channels} can be read again.`;
 }
 
+/** When the store was last refreshed and what to do, in one sentence beside the button. */
+export function refreshLine(state: RefreshReply, now: Date): string {
+  const { last } = state;
+  if (last === null) return 'Not refreshed yet. Refresh to compare.';
+  const when = ago(Math.max(0, now.getTime() - new Date(last.finishedAt).getTime()));
+  return `Last refreshed ${when}. Refresh to compare.`;
+}
+
 /** In words, when the stored channels were last read again and how much is due. */
 export function describeRefresh(state: RefreshReply, now: Date): string {
   const { last } = state;
