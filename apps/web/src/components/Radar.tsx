@@ -7,9 +7,9 @@ import type { RadarLayout, RadarNode } from '../lib/radarLayout';
 
 const STAGE_WIDTH = 1200;
 const STAGE_HEIGHT = 620;
-const ZOOM_STEPS = [0.7, 0.85, 1, 1.2, 1.45] as const;
-const DEFAULT_ZOOM_INDEX = 2;
-/** On a phone the stage starts zoomed out, so more of the rings fit. */
+const ZOOM_STEPS = [0.45, 0.7, 0.85, 1, 1.2, 1.45] as const;
+const DEFAULT_ZOOM_INDEX = 3;
+/** On a phone the stage starts zoomed out until its rings fit the width. */
 const PHONE_ZOOM_INDEX = 0;
 const PHONE_WIDTH = 640;
 
