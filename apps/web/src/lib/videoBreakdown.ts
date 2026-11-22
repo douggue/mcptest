@@ -3,6 +3,7 @@ import type { EngineChoice } from './analyses';
 import { engineName, formatBytes } from './breakdown';
 import type { CandidateFacts } from './breakdownPicks';
 import { AUTOMATIC } from './analyses';
+import type { TeardownView } from './teardown';
 
 /**
  * The deep breakdown of one video as the page reads it, from a YouTube link
@@ -10,8 +11,6 @@ import { AUTOMATIC } from './analyses';
  * the video was seen, and the Markdown file to download. The shapes are the
  * server's.
  */
-
-export type PromptId = 'script' | 'visual' | 'thumbnail';
 
 export interface VideoSeen {
   readonly file: 'own' | 'downloaded' | 'uploaded' | 'none';
@@ -32,9 +31,9 @@ export interface VideoBreakdownView {
   readonly writtenAt: string;
   readonly seen: VideoSeen;
   readonly engine: string | null;
-  readonly body: string | null;
-  readonly prompts: Readonly<Record<PromptId, string | null>>;
   readonly problem: string | null;
+  /** The production teardown; null for a breakdown made before teardowns. */
+  readonly teardown: TeardownView | null;
 }
 
 export interface VideoBreakdownSummary {
@@ -44,13 +43,6 @@ export interface VideoBreakdownSummary {
   readonly writtenAt: string;
   readonly written: boolean;
 }
-
-export const PROMPT_LABELS: Readonly<Record<PromptId, string>> = {
-  script: 'script prompt',
-  visual: 'visual style prompt',
-  thumbnail: 'thumbnail prompt',
-};
-export const PROMPT_IDS: readonly PromptId[] = ['script', 'visual', 'thumbnail'];
 
 const VIDEO_ID = /^[\w-]{11}$/;
 const YOUTUBE_HOSTS = new Set([
@@ -128,45 +120,39 @@ const name = (engine: string | null): string => (engine === null ? '' : engineNa
 
 /** Which route was used to see the video, in one line. */
 export function routeLine(seen: VideoSeen): string {
+  const measured = seen.frames === null ? null : `${seen.frames} frames measured in code`;
   if (seen.watchedBy !== null) {
-    const from =
-      seen.watchedBy === 'gemini-api'
-        ? 'from its YouTube link'
-        : seen.file === 'uploaded'
-          ? 'from the file you gave'
-          : 'from a copy on this computer';
-    return `Watched, picture and sound, by ${name(seen.watchedBy)} ${from}.`;
+    const from = seen.file === 'uploaded' ? 'the file you gave' : 'a copy on this computer';
+    return `Watched, picture and sound, by ${name(seen.watchedBy)} from ${from}${measured ? `; ${measured}` : ''}.`;
   }
-  if (seen.framesBy !== null) {
-    const frames = seen.frames === null ? 'its frames' : `${seen.frames} frames`;
-    const source =
-      seen.frameSource === 'file'
-        ? 'cut from the video, one a second'
-        : 'from YouTube’s small preview pictures';
-    const captions = seen.captions === 'read' ? ' and its captions' : '';
-    return `Not watched: ${name(seen.framesBy)} went through ${frames} ${source}${captions}.`;
+  if (measured !== null) {
+    const looked = seen.framesBy === null ? '' : `; its pictures studied by ${name(seen.framesBy)}`;
+    return `Not watched with sound: ${measured}${looked}.`;
   }
-  return 'Not watched and no frames seen: written from its captions alone.';
+  return 'Not watched and nothing measured: judged from its captions alone.';
 }
 
-/** What the engines could and could not see, one plain line each. */
+/** What the teardown could and could not rest on, one plain line each. */
 export function seenLines(seen: VideoSeen): {
   readonly could: readonly string[];
   readonly couldNot: readonly string[];
 } {
   const watched = seen.watchedBy !== null;
-  const pictures = watched || seen.framesBy !== null;
+  const measured = seen.frames !== null;
   const could = [
-    ...(pictures ? ['The pictures: footage, text on screen, how often it changes.'] : []),
-    ...(watched ? ['The sound: voice, music and sound effects, and the cuts.'] : []),
+    ...(measured ? ['Every frame, measured in code: cuts, colours, transitions, motion.'] : []),
+    ...(measured ? ['Its loudness, measured in code.'] : []),
+    ...(watched ? ['The sound itself: voice, music and sound effects.'] : []),
     ...(seen.captions === 'read' ? ['What is said, from its captions.'] : []),
   ];
   const couldNot = [
-    ...(watched ? [] : ['The sound: voice, music, sound effects. Nothing that heard it said so.']),
-    ...(pictures ? [] : ['The pictures.']),
+    ...(watched
+      ? []
+      : ['The sound itself: nothing heard it, so sound rests on the measured loudness.']),
+    ...(measured ? [] : ['The pictures: there was no file to measure.']),
     ...(seen.captions === 'none' ? ['Captions: YouTube has none for it.'] : []),
     ...(seen.captions === 'failed' ? ['Captions: they could not be read this time.'] : []),
-    ...(seen.fileNote === null ? [] : [`No video file: ${seen.fileNote}`]),
+    ...(seen.fileNote === null ? [] : [`File: ${seen.fileNote}`]),
     ...seen.notes,
   ];
   return { could, couldNot };
@@ -174,60 +160,6 @@ export function seenLines(seen: VideoSeen): {
 
 const DATE = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 export const writtenText = (iso: string): string => DATE.format(new Date(iso));
-
-/** A section title in capitals on its own line becomes a Markdown heading; list items stay. */
-function bodyMarkdown(body: string): string {
-  return body
-    .split(/\r?\n/)
-    .map((line) => {
-      const text = line.trim();
-      const heading = /^[A-Z0-9][A-Z0-9 ,'’&/()-]{2,}:?$/.test(text) && /[A-Z]{3}/.test(text);
-      return heading ? `\n## ${text.replace(/:$/, '')}\n` : line;
-    })
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
-/** The whole breakdown as a Markdown file: what it is of, how it was seen, the answer and the prompts. */
-export function videoMarkdown(view: VideoBreakdownView): string {
-  const { could, couldNot } = seenLines(view.seen);
-  const link = view.source === 'youtube' ? `https://www.youtube.com/watch?v=${view.videoId}` : null;
-  const prompts = PROMPT_IDS.flatMap((id) => {
-    const text = view.prompts[id];
-    return text === null ? [] : [`### The ${PROMPT_LABELS[id]}`, '', '```text', text, '```', ''];
-  });
-  return [
-    `# ${view.title}`,
-    '',
-    link === null ? 'A video file you gave Jgtube.' : link,
-    `Broken down ${writtenText(view.writtenAt)}${view.engine ? `, written by ${name(view.engine)}` : ''}.`,
-    '',
-    '## How it was seen',
-    '',
-    routeLine(view.seen),
-    ...could.map((line) => `- Could see: ${line}`),
-    ...couldNot.map((line) => `- Could not: ${line}`),
-    '',
-    view.body === null
-      ? `It could not be written: ${view.problem ?? 'no reason was given'}`
-      : bodyMarkdown(view.body),
-    '',
-    ...(prompts.length > 0 ? ['## Ready prompts', '', ...prompts] : []),
-  ]
-    .join('\n')
-    .trimEnd()
-    .concat('\n');
-}
-
-/** A file name for the Markdown download. */
-export const markdownName = (view: VideoBreakdownView): string =>
-  `${
-    view.title
-      .replace(/[^\w .()-]/g, '_')
-      .slice(0, 80)
-      .trim() || 'video'
-  } - breakdown.md`;
 
 /** The Breakdown view's own requests. */
 export function createBreakdownViewApi(fetcher?: Fetch) {
