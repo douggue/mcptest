@@ -58,8 +58,14 @@ export const moreLabel = (count: number): string =>
  * its first paragraph or point, without video markers, cut at a word.
  * Null when the text holds no words to show.
  */
+/** The line an answer from pictures handed over as files opens with. */
+const OPENED = /^PICTURES OPENED$/i;
+
 export function leadOf(text: string): string | null {
-  const block = readAnswer(text).find((entry) => entry.kind !== 'heading');
+  // The line naming the picture files an engine opened is evidence, not a lead.
+  const block = readAnswer(text).find(
+    (entry) => entry.kind !== 'heading' && !(entry.kind === 'field' && OPENED.test(entry.label)),
+  );
   if (!block) return null;
   const words = withoutRefs(block.text);
   if (words === '') return null;

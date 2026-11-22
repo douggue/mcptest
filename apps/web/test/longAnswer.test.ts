@@ -57,6 +57,12 @@ describe('moreLabel', () => {
 });
 
 describe('leadOf', () => {
+  test('passes over the line naming the picture files that were opened', () => {
+    expect(leadOf('PICTURES OPENED: 2, thumb-a.jpg, thumb-b.jpg\nBold red words win.')).toBe(
+      'Bold red words win.',
+    );
+  });
+
   test('is the first paragraph, without headings or video markers', () => {
     expect(leadOf('TITLES\nIts titles lead with a number [video:abcdefghijk].')).toBe(
       'Its titles lead with a number.',
