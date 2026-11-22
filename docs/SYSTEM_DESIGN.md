@@ -211,6 +211,11 @@ a schema when read), `engine`, `checked_at` and `script_updated_at`. What code w
 out (overlaps, unchecked facts) is not kept: it is worked out at each look. See
 "Check before publishing".
 
+`channel_money_signs` (step 42, provisional; numbered at merge) holds what one
+read of a channel's watch page showed of its earning: `channel_id` (primary key),
+`video_id`, `memberships` (a Join button), `ads` (`shown`, `none` or `unknown`) and
+`checked_at`. It refers to no other table. See "Monetization signs".
+
 ### Keeping the store safe
 
 - **Backup before upgrade.** When an existing store with data has pending
@@ -1569,6 +1574,69 @@ The Shorts rate is not scaled. The estimate carries `rateTier` (`id`, `multiplie
 is run from, which is only often where its viewers are: a channel run from a lower
 tier that makes videos for a top-tier audience is under-counted.
 
+### Monetization signs
+
+Built (`packages/core/src/money/`, `repos/sqliteMoneyRepo.ts`, `sources/watchHtml.ts`,
+server `moneyEngine.ts`/`moneyRoutes.ts`, web `MoneyBadge`, `MoneyCheck`, `MoneyFilter`,
+`ChannelMoney`). YouTube does not publish who is in the Partner Program (YPP), so
+Jgtube never states a yes or no. It reads public signs, stores them with when they
+were read, and the verdict names the sign it rests on.
+
+| Sign                                       | Where it is read                                                                                                                             | Strength                                                                                                                                                      |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Join button (channel memberships)          | The watch page's `ytInitialData`: signed out, the button's tip aimed at `sponsorships-button`; signed in, a `sponsorButton` in the owner box | Strong. Memberships are a YPP feature (fan funding, from 500 subscribers) [1][2]. Absence is not proof: a member of YPP may not offer memberships.            |
+| Ads in the player answer                   | `ytInitialPlayerResponse.adPlacements` / `playerAds`, only when the page is playable                                                         | Weak. Since the November 2020 "Right to Monetize" terms, YouTube can run ads on channels outside YPP and keep the money [3][4]. Shown as "Likely, not proof". |
+| Subscribers against the 500 and 1,000 bars | The stored subscriber count                                                                                                                  | Eligibility only. YPP also asks for watch hours or Shorts views, which are not public, and a review [1][2].                                                   |
+
+Not used: Super Thanks, Super Chat and the shopping shelf are YPP features too, but a
+signed-out watch page carried no trace of them on any channel tried; members-only
+videos are listed with a badge on some channel pages, but the library the crawl uses
+drops it.
+
+**Verdicts** (`moneyVerdict`): a Join button → "Monetized (sign: memberships)"; else
+ads shown → "Likely monetized (ads shown; not proof)"; else "Not monetized yet as far
+as public signs show", saying whether ads were seen or could not be; never checked →
+"Not checked". The bar: "1,000+ subscribers", "500 to 999 subscribers", "Under the
+500 bar", or "Subscriber count hidden".
+
+**When it is read.** Only on request: "Check monetization" on a channel's page, or
+"Check N of them" (ten at most) beside a list's monetization filter. Each channel
+costs one request: the watch page of its newest stored video, through the source's
+rate limiter, redirects refused, at most 6 MB, under the same lease and job slot as a
+map, a refresh or a keyword search (refused with 409 while one runs). A page whose
+owner is another channel, or that carries no readable data (a consent page), stores
+nothing. It is not read during a crawl or refresh: the crawl reads channel pages and
+sidebars through the library, which drops the Join tip, so it would cost one more
+page per channel, a third to a half more requests on a map of hundreds of channels.
+
+**Store** (step 42, provisional; numbered at merge): `channel_money_signs`
+(`channel_id` PK, `video_id`, `memberships` 0/1, `ads` shown|none|unknown,
+`checked_at`). A new check replaces the row. It refers to no other table.
+
+**API**: `GET /api/money?channels=` (1 to 200 ids; store only) and
+`POST /api/money/check` `{ channels }` (1 to 10). **Connector**: `get_channel_brand`
+and each entry of `list_niches` carry `money` (`says`, `sign`, `at`, `bar`) from the
+store; the connector reads no page for it. **Page**: a badge on niche cards, Same
+topic cards, the radar inspector, competitor rows and the channel header ("$
+Monetized", "$? Likely", "Not yet", "Not checked") whose tooltip names the sign, the
+day and the video read; a monetization filter on New niches, Same topic and Breaking
+out ("Only monetized" keeps a sign of memberships, not ads alone; channels never
+checked are left out of both filters, and the panel says how many).
+
+**Verified here (November 2026, signed out, from a data-centre address).** The Join
+tip was on two videos each of Linus Tech Tips, Markiplier and NileRed, and on none of
+3Blue1Brown, Veritasium, Tom Scott, MKBHD or penguinz0. Every watch page answered
+`LOGIN_REQUIRED` ("confirm you're not a bot"), so the ad signal could not be seen
+here: it is read only from a playable page and is otherwise "unknown". The ad fixture
+in the tests is built by hand in the documented shape, not captured.
+
+Sources: [1] YouTube Help, "Overview of the expanded YouTube Partner Program",
+support.google.com/youtube/answer/13429240; [2] YouTube Help, "Get started with
+channel memberships", support.google.com/youtube/answer/7636690; [3] YouTube Help,
+"I'm not a YouTube partner, so why am I seeing ads on my videos?",
+support.google.com/youtube/answer/2475463; [4] Tubefilter, 18 November 2020,
+"YouTube Will Now Serve Ads On Channels That Aren't Eligible For Its Partner Program".
+
 ### Relevance filter
 
 The crawl alone is too noisy for small channels, so every candidate gets a
@@ -1663,12 +1731,12 @@ Claude reads what the app shows. Setup for the owner is in
 | `get_channel_videos`          | `channel`, `order?`, `limit?` (20)                                                      | One stored channel's videos with scores (`buildVideoReport`)                                                                                                                                                                                                         |
 | `get_near_misses`             | `channel`, `limit?` (25)                                                                | Channels left out on titles alone (`outsideReason: 'titles'`, not kept or removed) with five recent titles                                                                                                                                                           |
 | `set_competitor_status`       | `center`, `channel`, `status` (kept, removed, auto)                                     | Records the owner's choice (`setCompetitorStatus`) and says whether the channel now counts as a look-alike                                                                                                                                                           |
-| `list_niches`                 | `limit?` (15), `watched_only?`                                                          | New or small channels with a video that took off (`listNiches`)                                                                                                                                                                                                      |
+| `list_niches`                 | `limit?` (15), `watched_only?`                                                          | New or small channels with a video that took off (`listNiches`), each with its stored `money` verdict                                                                                                                                                                |
 | `list_transfer_opportunities` | `channel?`, `place?`, `show?` (opportunities, formats, saved, all), `limit?` (10)       | Ideas open or weak for the owner's place with up to five versions each, or the title formats (`listTransfers`)                                                                                                                                                       |
 | `make_map`                    | `channel`, `model?`, `depth?` (1..3), `max_channels?` (10..600)                         | Crawls a new map, then the same summary as `get_map` plus warnings                                                                                                                                                                                                   |
 | `get_transcript`              | `video` (id or link), `start_seconds?`, `max_chars?` (12,000; 1,000..40,000)            | A line of JSON (`lang`, `auto`, `lines`, `lastLineAt`, `cut`), then the captions as text with the time every half minute; `captions: false` when there are none                                                                                                      |
 | `view_video_frames`           | `video`, `sheets?` (4; 1..6), `start_sheet?` (from 1)                                   | A line of JSON (`source`, `ofSheets`, `frames`; with `start_sheet` also `from`, `to` and `next.start_sheet` or `last`), then each sheet as image content                                                                                                             |
-| `get_channel_brand`           | `channel`, `images?` (true)                                                             | A line of JSON (`bio`, `keywords`, `links`, `logo`, `cover`), then the logo and the cover as image content                                                                                                                                                           |
+| `get_channel_brand`           | `channel`, `images?` (true)                                                             | A line of JSON (`bio`, `keywords`, `links`, `logo`, `cover`, `money`), then the logo and the cover as image content                                                                                                                                                  |
 | `get_video_details`           | `video_ids` (1 to 10), `description_chars?` (1,500; 200..5,000)                         | Per video: title, description, tags, `secs`, views, score; `problems` for a video that could not be read                                                                                                                                                             |
 | `get_video_watch`             | `video`                                                                                 | A line of JSON (`watched`, `by`, `at`), then the stored notes of an engine that watched the video; `watched: false` when nobody has                                                                                                                                  |
 | `get_frame_study`             | `video`                                                                                 | A line of JSON (`studied`, `by`, `at`, `source`, `framesAvailable`), then the stored study of the video's frames; `studied: false` when there is none                                                                                                                |
@@ -1685,12 +1753,12 @@ Claude reads what the app shows. Setup for the owner is in
 | `get_channel_videos`          | `channel`, `order?` (strongest, newest, views), `limit?` (20)                           | One stored channel's videos with scores (`buildVideoReport`)                                                                                                                                                                                                         |
 | `get_near_misses`             | `channel`, `limit?` (25)                                                                | Channels left out on titles alone (`outsideReason: 'titles'`, not kept or removed) with five recent titles                                                                                                                                                           |
 | `set_competitor_status`       | `center`, `channel`, `status` (kept, removed, auto)                                     | Records the owner's choice (`setCompetitorStatus`) and says whether the channel now counts as a look-alike                                                                                                                                                           |
-| `list_niches`                 | `limit?` (15), `watched_only?`                                                          | New or small channels with a video that took off (`listNiches`)                                                                                                                                                                                                      |
+| `list_niches`                 | `limit?` (15), `watched_only?`                                                          | New or small channels with a video that took off (`listNiches`), each with its stored `money` verdict                                                                                                                                                                |
 | `list_transfer_opportunities` | `channel?`, `place?`, `show?` (opportunities, formats, saved, all), `limit?` (10)       | Ideas open or weak for the owner's place with up to five versions each, or the title formats (`listTransfers`)                                                                                                                                                       |
 | `make_map`                    | `channel`, `model?`, `depth?` (1..3), `max_channels?` (10..600)                         | Crawls a new map, then the same summary as `get_map` plus warnings                                                                                                                                                                                                   |
 | `get_transcript`              | `video` (id or link), `start_seconds?`, `max_chars?` (12,000; 1,000..40,000)            | A line of JSON (`lang`, `auto`, `lines`, `lastLineAt`, `cut`), then the captions as text with the time every half minute; `captions: false` when there are none                                                                                                      |
 | `view_video_frames`           | `video`, `sheets?` (4; 1..6), `start_sheet?` (from 1)                                   | A line of JSON (`source`, `ofSheets`, `frames`; with `start_sheet` also `from`, `to` and `next.start_sheet` or `last`), then each sheet as image content                                                                                                             |
-| `get_channel_brand`           | `channel`, `images?` (true)                                                             | A line of JSON (`bio`, `keywords`, `links`, `logo`, `cover`), then the logo and the cover as image content                                                                                                                                                           |
+| `get_channel_brand`           | `channel`, `images?` (true)                                                             | A line of JSON (`bio`, `keywords`, `links`, `logo`, `cover`, `money`), then the logo and the cover as image content                                                                                                                                                  |
 | `get_video_details`           | `video_ids` (1 to 10), `description_chars?` (1,500; 200..5,000)                         | Per video: title, description, tags, `secs`, views, score; `problems` for a video that could not be read                                                                                                                                                             |
 | `get_video_watch`             | `video`                                                                                 | A line of JSON (`watched`, `by`, `at`), then the stored notes of an engine that watched the video; `watched: false` when nobody has                                                                                                                                  |
 | `get_frame_study`             | `video`                                                                                 | A line of JSON (`studied`, `by`, `at`, `source`, `framesAvailable`, and worked out in code `secs`, `secondsPerFrame`, `framesLookedAt`, `changesSeen`, `gaps`, `secondsPerChange`), then the stored study of the video's frames; `studied: false` when there is none |

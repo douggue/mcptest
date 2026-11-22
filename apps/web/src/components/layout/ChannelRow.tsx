@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { ChannelLogo } from '../ChannelLogo';
 
 /** The colours a level label may take. */
@@ -23,11 +24,13 @@ interface Props {
   /** Takes the channel off the list; absent where it cannot be. */
   readonly onRemove?: () => void;
   readonly removeLabel?: string;
+  /** A small badge after the count, such as the monetization signs. */
+  readonly badge?: ReactNode;
 }
 
 /** One channel in a clean list: its logo, name, a coloured level and a count, and a remove cross. */
 export function ChannelRow(props: Props) {
-  const { title, logoUrl, href, level, count, onRemove, removeLabel } = props;
+  const { title, logoUrl, href, level, count, onRemove, removeLabel, badge } = props;
   return (
     <li className="flex min-w-0 items-center gap-space-sm py-2">
       <a
@@ -39,10 +42,11 @@ export function ChannelRow(props: Props) {
         </span>
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-body-md text-on-surface">{title}</span>
-          <span className="text-body-sm">
+          <span className="flex flex-wrap items-center gap-x-1 text-body-sm">
             {level && <span className={TONE[level.tone]}>{level.text}</span>}
             {level && count && <span className="text-outline"> · </span>}
             {count && <span className="text-on-surface-variant">{count}</span>}
+            {badge}
           </span>
         </span>
       </a>

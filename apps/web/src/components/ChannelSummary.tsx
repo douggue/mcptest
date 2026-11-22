@@ -7,6 +7,7 @@ import { viewHref } from '../lib/routes';
 import { ChannelLogo } from './ChannelLogo';
 import { StatGrid, StatTile } from './layout/StatTile';
 import { ViewHeader } from './layout/ViewHeader';
+import { MoneyBadge } from './MoneyBadge';
 
 interface Props {
   readonly profile: ChannelProfile;
@@ -34,6 +35,7 @@ export function ChannelSummary({ profile, action, withBack }: Props) {
             {profile.handle && (
               <span className="text-body-md text-on-surface-variant">@{profile.handle}</span>
             )}
+            <MoneyBadge channelId={profile.id} />
             <span className="text-outline">{readLine(profile, new Date())}</span>
             {link && (
               <a

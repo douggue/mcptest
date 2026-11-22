@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import { channelUrl, formatCount, formatScore, initials, percent, watchUrl } from '../lib/format';
 import { Card, Label } from './layout/Card';
 import { Outbound, Stat } from './NicheCard';
+import { MoneyBadge } from './MoneyBadge';
 
 interface Props {
   /** Its place in the list, closest wording first. */
@@ -67,9 +68,12 @@ export function SameTopicCard({ number, channel, busy, onKeep }: Props) {
           <h3 className="truncate text-title-md text-on-surface">
             <Outbound href={channelUrl(channel.id)}>{channel.title}</Outbound>
           </h3>
-          {channel.handle && (
-            <span className="truncate text-body-sm text-outline">@{channel.handle}</span>
-          )}
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2">
+            {channel.handle && (
+              <span className="truncate text-body-sm text-outline">@{channel.handle}</span>
+            )}
+            <MoneyBadge channelId={channel.id} />
+          </span>
         </div>
         <button
           type="button"

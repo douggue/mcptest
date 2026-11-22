@@ -17,6 +17,7 @@ import {
 import { Card, Label } from './layout/Card';
 import { Details } from './layout/Details';
 import { ThumbnailTile } from './ThumbnailTile';
+import { MoneyBadge } from './MoneyBadge';
 
 /** The multiple from which a score is drawn in amber, as on the thumbnail board. */
 const AMBER = { winnerMinScore: 2 };
@@ -230,9 +231,12 @@ export function NicheCard({ channel, onSetWatched, onBreakDown }: Props) {
           <h3 className="truncate text-title-md text-on-surface">
             <Outbound href={channelUrl(channel.id)}>{channel.title}</Outbound>
           </h3>
-          {channel.handle && (
-            <span className="truncate text-body-sm text-outline">@{channel.handle}</span>
-          )}
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2">
+            {channel.handle && (
+              <span className="truncate text-body-sm text-outline">@{channel.handle}</span>
+            )}
+            <MoneyBadge channelId={channel.id} />
+          </span>
         </div>
         <WatchToggle channel={channel} onSetWatched={onSetWatched} />
       </div>

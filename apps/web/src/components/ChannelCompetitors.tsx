@@ -7,6 +7,7 @@ import { ChannelRow } from './layout/ChannelRow';
 import { QUIET_BUTTON } from './LabStatus';
 import { TIER_LABEL } from './tiers';
 import { messageOf, type MapPage } from './useMapPage';
+import { MoneyBadge } from './MoneyBadge';
 
 /** How many rows show before "Show all". */
 const FIRST_ROWS = 10;
@@ -49,6 +50,7 @@ export function ChannelCompetitors({ snapshot, page }: Props) {
               count={`${formatCount(channel.subscribers)} subscribers`}
               onRemove={() => remove(channel.id)}
               removeLabel={`Remove ${channel.title} from the competitors`}
+              badge={<MoneyBadge channelId={channel.id} hideUnchecked />}
             />
           ))}
         </ul>
