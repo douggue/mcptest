@@ -110,18 +110,18 @@ export function Niches({ niches, hasMap, onBreakDown }: Props) {
 
   return (
     <ViewPage id="niches" labelledBy="niches-title">
+      <ViewHeader
+        titleId="niches-title"
+        title="New niches"
+        count={count}
+        lead="New or small channels with a recent video far above their size or their usual views."
+      />
       <SplitView
         sideLabel="The keyword search"
         width="narrow"
         mainFirst
         side={<Side niches={niches} list={list} filter={filter} />}
       >
-        <ViewHeader
-          titleId="niches-title"
-          title="New niches"
-          count={count}
-          lead="New or small channels with a recent video far above their size or their usual views."
-        />
         {list && list.channels.length > 0 && (
           <div className="flex min-w-0">
             <Segmented<NicheFilter>

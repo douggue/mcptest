@@ -51,6 +51,23 @@ export function IdeaLab(props: Props) {
   const [first] = concepts;
   return (
     <ViewPage id="idea-lab" labelledBy="idea-lab-title">
+      <ViewHeader
+        title="Ideas"
+        lead={
+          concepts.length > 0 ? `${concepts.length - unkept} kept · ${unkept} not kept` : undefined
+        }
+        actions={
+          concepts.length > 0 && (
+            <a
+              href="#idea-lab-title"
+              className={`flex items-center gap-1.5 lg:hidden ${QUIET_BUTTON}`}
+            >
+              <Plus aria-hidden="true" className="h-4 w-4" />
+              New ideas
+            </a>
+          )
+        }
+      />
       <SplitView
         mainFirst={concepts.length > 0}
         sideLabel="What the concepts rest on"
@@ -65,25 +82,6 @@ export function IdeaLab(props: Props) {
           />
         }
       >
-        <ViewHeader
-          title="Ideas"
-          lead={
-            concepts.length > 0
-              ? `${concepts.length - unkept} kept · ${unkept} not kept`
-              : undefined
-          }
-          actions={
-            concepts.length > 0 && (
-              <a
-                href="#idea-lab-title"
-                className={`flex items-center gap-1.5 lg:hidden ${QUIET_BUTTON}`}
-              >
-                <Plus aria-hidden="true" className="h-4 w-4" />
-                New ideas
-              </a>
-            )
-          }
-        />
         <LabStatus
           state={lab.jobs.state}
           kinds={['batch', 'twist', 'more', 'thumbnail']}

@@ -101,22 +101,22 @@ export function Formulas({ lab, busy, centerTitle, onRemix }: Props) {
   const formulas = list?.formulas ?? [];
   return (
     <ViewPage id="formulas" labelledBy="formulas-title">
+      <ViewHeader
+        title="Formats"
+        icon={Shapes}
+        count={formulas.length}
+        lead={
+          list?.runAt
+            ? `Found ${dayMonth(list.runAt)}, from videos of the ${list.windowDays} days before.`
+            : undefined
+        }
+      />
       <SplitView
         width="narrow"
         mainFirst
         sideLabel="Finding formats"
         side={<FormulaPanel lab={lab} busy={busy} centerTitle={centerTitle} />}
       >
-        <ViewHeader
-          title="Formats"
-          icon={Shapes}
-          count={formulas.length}
-          lead={
-            list?.runAt
-              ? `Found ${dayMonth(list.runAt)}, from videos of the ${list.windowDays} days before.`
-              : undefined
-          }
-        />
         <LabStatus
           state={lab.jobs.state}
           kinds={['formulas']}

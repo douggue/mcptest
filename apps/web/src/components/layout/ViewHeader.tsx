@@ -5,6 +5,7 @@ interface Props {
   readonly title: ReactNode;
   /** One short line under the title; never a paragraph. */
   readonly lead?: ReactNode;
+  /** Kept for callers; not drawn, as no title carries an icon. */
   readonly icon?: LucideIcon;
   /** A few words beside the title, such as a count. */
   readonly count?: ReactNode;
@@ -27,7 +28,8 @@ interface Props {
  * phone.
  */
 export function ViewHeader(props: Props) {
-  const { title, lead, icon: Icon, count, actions, back, media, titleId } = props;
+  // `icon` is taken and not drawn: titles carry no icon, so they read the same on every view.
+  const { title, lead, count, actions, back, media, titleId } = props;
   return (
     <header className="flex min-w-0 flex-wrap items-center gap-x-space-md gap-y-space-sm">
       {back && (
@@ -51,9 +53,6 @@ export function ViewHeader(props: Props) {
           id={titleId}
           className="flex min-w-0 flex-wrap items-center gap-2 text-headline-lg font-bold tracking-tight text-on-surface"
         >
-          {Icon && (
-            <Icon aria-hidden="true" className="h-[22px] w-[22px] flex-none text-metric-amber" />
-          )}
           <span className="min-w-0 break-words">{title}</span>
           {count !== undefined && (
             <span className="text-body-md font-normal text-outline">({count})</span>

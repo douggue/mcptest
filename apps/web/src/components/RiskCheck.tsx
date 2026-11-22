@@ -104,11 +104,11 @@ export function RiskCheck({ channelId, openConceptId, reloadKey }: Props) {
   const check = view.check;
   return (
     <ViewPage id="risk-check" labelledBy="risk-check-title">
+      <ViewHeader
+        title="Check"
+        lead={check ? <span className="text-on-surface">{check.title}</span> : undefined}
+      />
       <SplitView sideLabel="Which script to check" side={<RiskPanel risk={risk} />}>
-        <ViewHeader
-          title="Check"
-          lead={check ? <span className="text-on-surface">{check.title}</span> : undefined}
-        />
         {check ? (
           <>
             <p className="-mt-space-sm text-body-sm text-outline">

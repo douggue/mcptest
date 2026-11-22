@@ -92,7 +92,6 @@ function Panel({ view, comments }: { readonly view: CommentsView; readonly comme
     <>
       <div className="flex min-w-0 flex-col gap-1">
         <h2 className="flex items-center gap-2 text-headline-md font-bold text-on-surface">
-          <MessageSquareText aria-hidden="true" className="h-5 w-5 flex-none text-metric-amber" />
           Read the comments
         </h2>
         <p className="text-body-sm text-on-surface-variant">
@@ -192,17 +191,17 @@ export function CommentMining({ channelId, reloadKey }: Props) {
   if (!view.keySet && !view.answer) return <NeedsKey />;
   return (
     <ViewPage id="comment-mining" labelledBy="comment-mining-title">
+      <ViewHeader
+        titleId="comment-mining-title"
+        title="Viewers ask"
+        count={count}
+        lead="Requests, questions and objections that recur in the comments of winning videos."
+      />
       <SplitView
         sideLabel="Comments to read"
         mainFirst
         side={<Panel view={view} comments={comments} />}
       >
-        <ViewHeader
-          titleId="comment-mining-title"
-          title="Viewers ask"
-          count={count}
-          lead="Requests, questions and objections that recur in the comments of winning videos."
-        />
         {problem && (
           <p role="alert" className="rounded-lg bg-surface-card p-space-md text-body-md text-error">
             {problem}

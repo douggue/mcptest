@@ -114,14 +114,14 @@ step. These rules replace the earlier ones where they disagree.
 Six destinations in the rail (a tab bar at the foot of a phone), Settings behind the gear
 in the top bar:
 
-| Destination  | Opens                               | Tabs (each its own address)                                                 |
-| ------------ | ----------------------------------- | --------------------------------------------------------------------------- |
-| **Home**     | `#/`                                | none: your channels, Find competitors, your next step                       |
-| **Channel**  | the map's channel, `#/channel/<id>` | Overview, Radar, What changed, Your videos, Calendar, Pacing, Viewers ask   |
-| **Research** | `#/breakouts`                       | Breaking out, Formats, Hooks, Same topic, Thumbnails, Transfers, New niches |
-| **Create**   | `#/ideas`                           | Ideas, Script, Check                                                        |
-| **Breakdown** | `#/breakdown`                      | Channel (`#/breakdown/<id>` opens one channel), One video (`#/video-breakdown`) |
-| **Ask AI**   | `#/ask`                             | none                                                                        |
+| Destination   | Opens                               | Tabs (each its own address)                                                     |
+| ------------- | ----------------------------------- | ------------------------------------------------------------------------------- |
+| **Home**      | `#/`                                | none: your channels, Find competitors, your next step                           |
+| **Channel**   | the map's channel, `#/channel/<id>` | Overview, Radar, What changed, Your videos, Calendar, Pacing, Viewers ask       |
+| **Research**  | `#/breakouts`                       | Breaking out, Formats, Hooks, Same topic, Thumbnails, Transfers, New niches     |
+| **Create**    | `#/ideas`                           | Ideas, Script, Check                                                            |
+| **Breakdown** | `#/breakdown`                       | Channel (`#/breakdown/<id>` opens one channel), One video (`#/video-breakdown`) |
+| **Ask AI**    | `#/ask`                             | none                                                                            |
 
 - Every older address (`#/radar`, `#/hooks`, `#concept-12`) still opens its
   view; the view now shows as a tab of its destination. The destinations and
@@ -189,6 +189,15 @@ in the top bar:
   bullet lists, with videos and channels as small inline chips (thumbnail or
   logo, then the number) instead of links or ids. Long answers open on "In
   short" with the rest behind "Show more".
+
+### One layout rule
+
+- The title row (`ViewHeader`: title, one-line lead, one action) runs the
+  full width at the top of every view, above any side panel; titles carry no
+  icon.
+- A view with a side panel (`SplitView`) uses the full content width. A view
+  of one column (Home, Ask AI) is centred at a reading width (`max-w-4xl` or
+  `max-w-3xl`).
 
 ### Layout pieces
 

@@ -86,7 +86,6 @@ function Panel({ plan, ...form }: Omit<FormProps, 'plan'> & { readonly plan: Pla
     <>
       <div className="flex min-w-0 flex-col gap-1">
         <h2 id="own-videos-title" className="flex items-center gap-2 text-headline-md font-bold">
-          <Target aria-hidden="true" className="h-5 w-5 flex-none text-metric-amber" />
           <span className="text-on-surface">Link a video</span>
         </h2>
         <p className="text-body-sm text-on-surface-variant">
@@ -168,16 +167,16 @@ export function OwnVideos({ channelId, reloadKey }: Props) {
   const plan = state.status === 'ready' ? state.plan : null;
   return (
     <ViewPage id="own-videos" labelledBy="own-videos-title">
+      <ViewHeader
+        title="Your videos"
+        lead="Each video against your channel's usual at the same age."
+        count={plan && plan.linked.length > 0 ? plan.linked.length : undefined}
+      />
       <SplitView
         sideLabel="Link a published video"
         mainFirst
         side={<Panel plan={plan} actions={actions} link={link} setLink={setLink} />}
       >
-        <ViewHeader
-          title="Your videos"
-          lead="Each video against your channel's usual at the same age."
-          count={plan && plan.linked.length > 0 ? plan.linked.length : undefined}
-        />
         {state.status === 'loading' && <p className={NOTE}>Reading the plan</p>}
         {state.status === 'failed' && (
           <p role="alert" className={ALERT}>
