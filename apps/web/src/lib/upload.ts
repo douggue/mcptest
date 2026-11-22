@@ -11,6 +11,7 @@ import type { UploadedVideo } from './breakdown';
 const VIDEO_ID = /^[\w-]{11}$/;
 const UPLOAD_PATH = '/api/breakdowns/videos/';
 const VIDEO_TYPE = 'video/mp4';
+const FILES_PATH = '/api/video-breakdowns/files';
 
 /** The parts of the browser's request this needs. */
 export interface UploadRequest {
@@ -33,7 +34,7 @@ interface Envelope {
   readonly error?: unknown;
 }
 
-function readReply(request: UploadRequest): UploadedVideo {
+function readReply(request: UploadRequest): unknown {
   let body: Envelope;
   try {
     body = JSON.parse(request.responseText) as Envelope;
@@ -44,7 +45,7 @@ function readReply(request: UploadRequest): UploadedVideo {
     const message = typeof body.error === 'string' ? body.error : 'The file could not be saved';
     throw new ApiError(message, request.status);
   }
-  return body.data as UploadedVideo;
+  return body.data;
 }
 
 /**
@@ -67,6 +68,27 @@ export function uploadVideoFile(
   if (!VIDEO_ID.test(videoId)) {
     return Promise.reject(new ApiError('That is not a YouTube video id.', 400));
   }
+  return sendFile<UploadedVideo>(
+    `${UPLOAD_PATH}${videoId}`,
+    VIDEO_TYPE,
+    file,
+    onProgress,
+    createRequest,
+  );
+}
+
+/**
+ * Sends a file by PUT with the given type, reporting the fraction sent (0 to
+ * 1). Resolves with the server's data; rejects with its plain reason, or with
+ * one sentence when the connection was lost.
+ */
+function sendFile<T>(
+  path: string,
+  type: string,
+  file: Blob,
+  onProgress: (fraction: number) => void,
+  createRequest: () => UploadRequest,
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const request = createRequest();
     const lost = (): void =>
@@ -78,14 +100,32 @@ export function uploadVideoFile(
     request.onabort = lost;
     request.onload = () => {
       try {
-        resolve(readReply(request));
+        resolve(readReply(request) as T);
       } catch (error) {
         reject(error instanceof Error ? error : new Error(String(error)));
       }
     };
-    request.open('PUT', `${UPLOAD_PATH}${videoId}`);
+    request.open('PUT', path);
     // Set whatever the browser thinks the file is: the server checks the file itself.
-    request.setRequestHeader('content-type', VIDEO_TYPE);
+    request.setRequestHeader('content-type', type);
     request.send(file);
   });
+}
+
+/** A video file given for the One video tab, as the server saved it. */
+export interface SavedFile {
+  /** The id it was saved under, which the breakdown is started with. */
+  readonly file: string;
+  readonly bytes: number;
+  readonly kind: string;
+}
+
+/** Sends a whole video file (MP4, WebM or MOV) to be broken down; `type` from `fileType`. */
+export function uploadBreakdownFile(
+  file: Blob,
+  type: string,
+  onProgress: (fraction: number) => void,
+  createRequest: () => UploadRequest = browserRequest,
+): Promise<SavedFile> {
+  return sendFile<SavedFile>(FILES_PATH, type, file, onProgress, createRequest);
 }

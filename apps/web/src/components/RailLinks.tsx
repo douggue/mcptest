@@ -1,4 +1,4 @@
-import { House, Lightbulb, Flame, Sparkles, Tv, type LucideIcon } from 'lucide-react';
+import { House, Lightbulb, Flame, Microscope, Sparkles, Tv, type LucideIcon } from 'lucide-react';
 import {
   DESTINATIONS,
   destinationHref,
@@ -12,6 +12,7 @@ const ICONS: Readonly<Record<DestinationId, LucideIcon>> = {
   channel: Tv,
   research: Flame,
   create: Lightbulb,
+  breakdown: Microscope,
   ask: Sparkles,
 };
 

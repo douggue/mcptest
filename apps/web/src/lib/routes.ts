@@ -20,6 +20,8 @@ export const VIEWS = {
   ideas: { title: 'Ideas' },
   script: { title: 'Script' },
   risk: { title: 'Check' },
+  breakdown: { title: 'Breakdown' },
+  'video-breakdown': { title: 'One video' },
   ask: { title: 'Ask AI' },
   'own-videos': { title: 'Your videos' },
   calendar: { title: 'Calendar' },
@@ -33,7 +35,7 @@ export type ViewId = keyof typeof VIEWS;
 
 export interface Route {
   readonly view: ViewId;
-  /** The channel of a channel's view; null for every other view. */
+  /** The channel of a channel's view, or the channel open in Breakdown; null for every other view. */
   readonly channelId: string | null;
   /** An element of the view to scroll to; null for the top. */
   readonly anchor: string | null;
@@ -68,7 +70,7 @@ const ANCHOR_VIEWS: readonly (readonly [string, ViewId])[] = [
   ['script-writer', 'script'],
   ['risk-check', 'risk'],
   ['ask-claude', 'ask'],
-  ['breakdown', 'ask'],
+  ['breakdown', 'breakdown'],
   ['own-videos', 'own-videos'],
   ['upload-calendar', 'calendar'],
   ['length-pacing', 'pacing'],
@@ -89,6 +91,9 @@ function pathRoute(path: string): Route {
   if (name === 'channel') {
     return CHANNEL_ID.test(id) ? { view: 'channel', channelId: id, anchor: null } : HOME;
   }
+  if (name === 'breakdown') {
+    return { view: 'breakdown', channelId: CHANNEL_ID.test(id) ? id : null, anchor: null };
+  }
   return isView(name) ? { view: name, channelId: null, anchor: null } : HOME;
 }
 
@@ -104,9 +109,17 @@ export const viewHref = (view: Exclude<ViewId, 'channel'>): string =>
 
 export const channelHref = (channelId: string): string => `#/channel/${channelId}`;
 
+/**
+ * Breakdown, opened on one channel when given: the address for a "Break it
+ * down" button anywhere in the app. The owner presses Break it down there.
+ */
+export const breakdownHref = (channelId?: string | null): string =>
+  channelId && CHANNEL_ID.test(channelId) ? `#/breakdown/${channelId}` : '#/breakdown';
+
 /** The address of a route: a view, a channel's view, or an element of a view. */
 export function routeHash(route: Route): string {
   if (route.anchor) return `#${route.anchor}`;
   if (route.view === 'channel') return route.channelId ? channelHref(route.channelId) : '#/';
+  if (route.view === 'breakdown') return breakdownHref(route.channelId);
   return viewHref(route.view);
 }
