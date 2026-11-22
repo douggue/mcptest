@@ -125,6 +125,8 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     readCountries: unused('readCountries'),
     setOwnerPlace: unused('setOwnerPlace'),
     keepAnswer: () => null,
+    keepOwnAnswer: () => null,
+    findOwnAnswer: () => null,
     listConceptThumbnails: unused('listConceptThumbnails'),
     findStyleLock: unused('findStyleLock'),
     flowCounts: unused('flowCounts'),

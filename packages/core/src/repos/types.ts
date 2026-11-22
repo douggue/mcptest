@@ -184,7 +184,13 @@ export interface OwnerPlaceRepo {
 }
 
 /** The kinds of text an engine wrote for a channel that are kept to be read again. */
-export type ChannelNoteKind = 'thumbnail-review' | 'video-ideas' | 'near-misses' | 'style-lock';
+export type ChannelNoteKind =
+  | 'thumbnail-review'
+  | 'video-ideas'
+  | 'near-misses'
+  | 'style-lock'
+  /** The owner's own question about the map, with its answer. */
+  | 'own-question';
 
 export interface StoredChannelNote {
   readonly channelId: string;

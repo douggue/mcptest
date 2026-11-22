@@ -37,6 +37,7 @@ import type { StyleLockEngine } from './styleLockEngine';
 import { readFlow, styleLockRoute } from './styleLockRoutes';
 import { NAMED_VIDEOS_PATH, readAnswer, readNamedVideos } from './answerRoutes';
 import { readEngines, runAnalysis, type AnalysisTracker } from './analysisRoutes';
+import { OWN_QUESTION_PATH, askOwnQuestion, readOwnAnswer } from './ownQuestionRoutes';
 import { PICTURE_CHECK_PATH, runPictureCheckRoute } from './pictureCheckRoutes';
 import type { EngineReport } from './engines/catalog';
 import type { EngineAnswer } from './engines/fallback';
@@ -590,6 +591,12 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
       if (method === 'GET') return refreshState(options, refreshing);
       return method === 'POST'
         ? startRefresh(options, request, refreshing)
+        : fail(405, 'Use GET or POST');
+    }
+    if (pathname === OWN_QUESTION_PATH) {
+      if (method === 'GET') return readOwnAnswer(options, url);
+      return method === 'POST'
+        ? askOwnQuestion(options, request, analysing)
         : fail(405, 'Use GET or POST');
     }
     if (pathname === '/api/analyses') {

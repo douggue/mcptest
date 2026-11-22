@@ -16,6 +16,7 @@ export const CHANNEL_NOTE_KINDS = [
   'video-ideas',
   'near-misses',
   'style-lock',
+  'own-question',
 ] as const satisfies readonly ChannelNoteKind[];
 
 /** The most characters kept for one note: far past the longest answer asked for. */

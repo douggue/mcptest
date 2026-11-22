@@ -195,6 +195,35 @@ describe('a thumbnail review, once answered', () => {
   });
 });
 
+describe("the owner's own question", () => {
+  test('is answered with the map, kept with the question, and read back', async () => {
+    const engine = await mapped('The breakouts are all about engines.');
+    const app = createApp({ engine, jobs: new JobStore(), allowedHosts: [HOST] });
+
+    const asked = await read<{ question: string; text: string; engine: string }>(
+      await post(app, '/api/analyses/question', {
+        channel: cid('C'),
+        question: 'What is "breaking out" here?',
+      }),
+    );
+    const kept = await read<{ answer: { question: string; text: string } | null }>(
+      await get(app, `/api/analyses/question?channel=${cid('C')}`),
+    );
+
+    expect(asked.data).toMatchObject({
+      question: 'What is "breaking out" here?',
+      text: 'The breakouts are all about engines.',
+      engine: 'claude',
+    });
+    expect(kept.data.answer).toMatchObject({
+      question: 'What is "breaking out" here?',
+      text: 'The breakouts are all about engines.',
+    });
+    expect(engine.findOwnAnswer(cid('Q'))).toBeNull();
+    engine.close();
+  });
+});
+
 describe('GET /api/videos/named', () => {
   test('gives the stored videos of this map among the ids, and one more channel’s when asked', async () => {
     const engine = await mapped();

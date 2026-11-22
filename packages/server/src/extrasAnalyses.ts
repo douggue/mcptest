@@ -11,6 +11,7 @@
 import { FINDING_MAX_QUOTES, FINDING_MIN_QUOTES } from '@jgtube/core';
 import type { AnalysisSpec } from './analyses';
 import { ONE_VIDEO_ANALYSIS_IDS, oneVideoAnalyses, type OneVideoFocus } from './oneVideoQuestions';
+import { OWN_QUESTION_ID, ownQuestionAnalysis, type OwnQuestionFocus } from './ownQuestion';
 import { thumbReviewAnalyses, type ThumbReviewFocus } from './thumbReviewQuestions';
 
 export const EXTRA_ANALYSIS_IDS = [
@@ -19,6 +20,7 @@ export const EXTRA_ANALYSIS_IDS = [
   'thumbnail-tags',
   'thumbnail-advice',
   ...ONE_VIDEO_ANALYSIS_IDS,
+  OWN_QUESTION_ID,
 ] as const;
 export type ExtrasAnalysisId = (typeof EXTRA_ANALYSIS_IDS)[number];
 
@@ -32,7 +34,8 @@ export interface RiskFocus {
   readonly kind: 'risk';
   readonly conceptId: number;
 }
-export type ExtrasFocus = CommentsFocus | RiskFocus | ThumbReviewFocus | OneVideoFocus;
+export type ExtrasFocus =
+  CommentsFocus | RiskFocus | ThumbReviewFocus | OneVideoFocus | OwnQuestionFocus;
 
 export const VIEWER_TOOLS = ['get_viewer_comments'] as const;
 const VIEWER_MAX_TURNS = 6;
@@ -141,5 +144,6 @@ export function extraAnalyses(
     },
     ...thumbReviewAnalyses(tool),
     ...oneVideoAnalyses(tool),
+    [OWN_QUESTION_ID]: ownQuestionAnalysis(tool),
   };
 }

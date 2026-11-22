@@ -45,6 +45,7 @@ const FOCUS: Partial<Record<AnalysisId, QuestionFocus>> = {
   'risk-check': { kind: 'risk', conceptId: 1 },
   'thumbnail-tags': { kind: 'thumb-tags', videoIds: ['aaaaaaaaaaa'] },
   'thumbnail-advice': { kind: 'thumb-advice', videoId: 'aaaaaaaaaaa' },
+  'own-question': { kind: 'own-question', text: 'Which topic worked best?' },
   'one-video': {
     kind: 'one-video',
     videoId: 'aaaaaaaaaaa',
@@ -67,7 +68,7 @@ const NAMES_A_CHANNEL = ANALYSIS_IDS.filter((id) => !CHANNEL_FREE.includes(id));
 const NOT_FOR_ANALYSIS = ['set_competitor_status', 'make_map'];
 
 describe('the analyses on offer', () => {
-  test('are thumbnails, video ideas, same-topic channels, the seven parts of a breakdown, the idea lab’s six, the script writer’s three, a concept’s thumbnail prompt, what viewers ask for and the risk check', () => {
+  test('are thumbnails, video ideas, same-topic channels, the seven parts of a breakdown, the idea lab’s six, the script writer’s three, a concept’s thumbnail prompt, what viewers ask for and the risk check, and your own question', () => {
     expect(ANALYSIS_IDS).toEqual([
       'thumbnails',
       'topics',
@@ -95,6 +96,7 @@ describe('the analyses on offer', () => {
       'thumbnail-advice',
       'one-video',
       'one-video-file',
+      'own-question',
     ]);
     // The parts of a breakdown are steps of a longer job, so they are not among the one-press ones.
     expect(QUICK_ANALYSIS_IDS).toEqual(['thumbnails', 'topics', 'near-misses']);
