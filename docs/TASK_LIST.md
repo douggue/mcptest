@@ -167,6 +167,11 @@ Phase 7 needs 5.
 - [x] An analysis and a route that use `watchVideo`: the channel breakdown (below)
 - [x] Whether Antigravity sees pictures returned by a tool: its docs say the CLI passes on only a tool's text, so it is shown thumbnails as files (`thumbnailFiles.ts`)
 - [ ] The picture check (`POST /api/engines/picture-check`) run against a real `agy` (built and tested with a stand-in only)
+- [x] Antigravity is a picture engine by default: every picture question (thumbnail review and checklist, thumbnail prompt, a breakdown's thumbnails and picture-and-sound parts, the frame study, the one-video breakdown, the teardown's picture stages) has a files route through one shared helper (`pictureFiles.ts`, `pictureSource.ts`); the picture check is an optional diagnostic and only a failed check removes Antigravity
+- [x] No dead ends: a chosen engine that cannot do a picture question hands it on to the next engine that sees pictures, and the answer and the stored part say "Written by X because Y could not" (`pictureRoute.ts`, store step 30)
+- [x] An answer from pictures handed over as files is checked for the file names (`PICTURES OPENED:`); one that names none is marked "may not have seen the pictures", with "Write it again on another AI"
+- [x] "Write this part" on a breakdown part that was not written: writes that part alone from what is stored (`parts`, `avoid` on `POST /api/breakdowns`)
+- [ ] Antigravity opening the picture files it is handed, on the owner's computer (tested with stand-ins only)
 - [ ] Whether Antigravity can watch a YouTube link without the file (`npm run engines -- --try --youtube <link>`; off unless `JGTUBE_AGY_YOUTUBE_LINKS=on`)
 - [ ] Splitting a long video into parts for Antigravity (ffmpeg is now used when installed, but only to cut frames and to shrink a large file of the owner's)
 - [x] The navigation link on the page says "Ask AI", like the section it leads to

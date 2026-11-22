@@ -224,6 +224,11 @@ not be made, and when; every JSON is checked again with a schema when read. The
 pictures it names live in `<downloads>/teardowns/<video id>/`. It refers to no
 other table. See "Production teardown".
 
+`breakdown_parts.caveat_json` (step 30) holds, for a written part, what a reader
+should know about how it was written: another engine wrote it in place of the
+one chosen, and why; or it was written from pictures handed over as files and
+names none of them. Null for most parts. See "Channel breakdown".
+
 ### Keeping the store safe
 
 - **Backup before upgrade.** When an existing store with data has pending
@@ -759,7 +764,8 @@ The engine proposes, code counts:
    with zod (`.strict()`); anything off the checklist, missing or not asked about is
    recorded with the field it failed on, never kept or counted. Kept tags are reused by
    every later review (`thumbnail_tags`). Claude Code and Codex see the thumbnails
-   through `view_thumbnails`; Antigravity, after a passed picture check, as files.
+   through `view_thumbnails`; Antigravity as files (unless its last picture check
+   failed).
 3. **Count, in code** (`count.ts`). For every checklist value: winners showing it and
    in how many channels; its share among winners and among ordinary videos, each the
    average of the per-channel shares so every channel counts once; how many times as
@@ -1908,38 +1914,75 @@ switch. Then only that engine is asked and there is no backup; if the analysis
 cannot be done by it, or the setting leaves it out, the reply says so without
 starting anything. The page keeps the choice in the browser's local storage.
 
-The picture questions (`thumbnails`, the idea lab's `concept-thumbnail`, a
-breakdown's thumbnail part and the frame study) go to the engines that see
-pictures, tried in the owner's order: Claude Code and Codex always, since the
-pictures reach them as tool results (`view_thumbnails`). Antigravity's CLI does
-not see a tool's pictures. Its documentation says "Non-UI surfaces such as the
-Antigravity CLI run the same tools using their plain-text `content` results"
-(antigravity.google/docs/mcp), and of an `@file` mention that the agent gets the
-full path and "The agent reads it when it needs to" (antigravity.google/docs/at-mentions).
-So Antigravity is shown pictures as files: the thumbnail review and the thumbnail
-prompt have a files route (`filesRoute`), where code chooses the thumbnails from
-the board (`thumbnailFiles.ts`: the owner's latest four, two winners and two
-ordinary ones of each of the four closest channels, two winners of the next
-four), fetches them, writes them into the run's own folder as
-`thumb-<video id>.jpg` and names them in the question as `@thumb-….jpg`, by role
-only; `view_thumbnails` is then not offered. The other two picture questions have
-no files route and stay with Claude Code and Codex.
+**Picture questions** (the thumbnail review `thumbnails`, the thumbnail checklist
+`thumbnail-tags`, the idea lab's `concept-thumbnail`, a breakdown's `thumbnails`
+and `picture` parts, the one-video breakdown `one-video`, the frame study, and
+the teardown's `hook`, `design`, `archetypes` and `motion` stages) go to every
+engine that sees pictures, in the owner's order (`PICTURE_ENGINES` =
+`TOOL_PICTURE_ENGINES` + `FILE_PICTURE_ENGINES`):
 
-Antigravity joins the picture engines only after it passes the **picture check**
-(`pictureCheck.ts`, `POST /api/engines/picture-check {engine}`): two 64-pixel PNGs
-made in code (`solidPng.ts`, zlib only), each one solid colour picked at random
-from eight clearly different ones (red, orange, yellow, green, blue, purple,
-grey, black), are written into the run folder and named as `@picture-1.png` and
-`@picture-2.png`; the prompt names no colour, the run has no tools, and code
-checks the answer: both colours right and in order passes. A guess passes one
-time in 8 × 7 = 56 (under 2%). The last result per engine is kept in a small file
-beside the store (`<store>.picture-checks.json`, owner-only, checked against a
-schema when read; anything unreadable counts as never run), and `GET /api/engines`
-returns it as `pictureChecks`. A failed or never-run check changes nothing; a run
-that fails (not installed, timed out) keeps nothing and the earlier result stands.
-Claude Code and Codex are refused (400): they need no check. The check shares the
-analyses' one-at-a-time turn (409). An engine the owner's setting leaves out is
-never used.
+- **Claude Code and Codex** see the pictures a tool returns (`view_thumbnails`,
+  `view_teardown_images`, `view_video_frames`).
+- **Antigravity sees pictures as files.** Its CLI does not see a tool's
+  pictures: its documentation says "Non-UI surfaces such as the Antigravity CLI
+  run the same tools using their plain-text `content` results"
+  (antigravity.google/docs/mcp), and of an `@file` mention that the agent gets
+  the full path and "The agent reads it when it needs to"
+  (antigravity.google/docs/at-mentions). So every picture question has a
+  **files route** (`filesRoute`; a test fails for a picture question without
+  one): code makes the same pictures the tool would have shown into files
+  (`pictureSource.ts`), writes them into the run's own private folder and names
+  them in the question with `@`, by role only; the picture tool is then not
+  offered. What each question is handed (`PictureNeed`):
+
+  | Question                           | Files                                                                                                                                                                                        |
+  | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | Thumbnail review, thumbnail prompt | Thumbnails chosen from the board (`thumbnailFiles.ts`): the owner's latest four, two winners and two ordinary of the four closest channels, two winners of the next four, `thumb-<id>.jpg` |
+  | Thumbnail checklist                | The named thumbnails                                                                                                                                                                         |
+  | Breakdown, thumbnails part         | The top videos' and the ordinary videos' thumbnails, in two groups                                                                                                                           |
+  | Breakdown, picture and sound part  | Each measured video's frame strips (6) and keyframes (4), 24 in all, `<id>-s-001.jpg`, `<id>-k-001.jpg`; none measured is an empty set, not a failure                                       |
+  | Frame study                        | Every frame sheet (60 at most), `frames-01.jpg`, each listed with where its frames came from, its grid and the times of its frames, all from code                                           |
+  | One video                          | Its thumbnail                                                                                                                                                                                |
+  | Teardown picture stages            | The stage's own capped pictures (see the production teardown)                                                                                                                                |
+
+  One shared helper (`pictureFiles.ts`) builds the listing, reads pictures from
+  disk, and asks a text answer to start with a line `PICTURES OPENED:` naming
+  the files it opened. Code then counts the given file names the answer names
+  (`seen: {shown, named}`); an answer that names none **may not have seen the
+  pictures**, and the page says so, with a rerun on another engine. A JSON
+  answer (the checklist, the teardown stages) is not asked for the line.
+
+**Antigravity is a picture engine by default.** The **picture check** is an
+optional diagnostic in Settings: only an explicit failed check (its last result)
+keeps Antigravity from picture questions; a check never run, or one that passed,
+changes nothing. Settings and the AI line say so, with "Run the check again".
+
+**No dead ends** (`pictureRoute.ts`). With an engine chosen on the switch, a
+picture question goes to that engine first, then to every other engine that sees
+pictures, in the owner's order. A chosen engine that failed the picture check or
+that the setting leaves out is passed over with that reason before anything
+starts; one whose run fails (a limit, a timeout, pictures that could not be
+made into files) is passed over like any backup. The answer then carries
+`standInFor: {engine, because}`, shown as "Written by X because Y could not: ...".
+Nothing is written only when no engine that sees pictures could answer:
+"<question> needs an AI that sees pictures (Claude Code, Codex or Antigravity),
+and none is available here." A question without pictures keeps the rule below:
+a chosen engine alone, no backup.
+
+The **picture check** itself (`pictureCheck.ts`, `POST /api/engines/picture-check {engine}`):
+two 64-pixel PNGs made in code (`solidPng.ts`, zlib only), each one solid colour
+picked at random from eight clearly different ones (red, orange, yellow, green,
+blue, purple, grey, black), are written into the run folder and named as
+`@picture-1.png` and `@picture-2.png`; the prompt names no colour, the run has
+no tools, and code checks the answer: both colours right and in order passes. A
+guess passes one time in 8 x 7 = 56 (under 2%). The last result per engine is
+kept in a small file beside the store (`<store>.picture-checks.json`,
+owner-only, checked against a schema when read; anything unreadable counts as
+never run), and `GET /api/engines` returns it as `pictureChecks`. A run that
+fails (not installed, timed out) keeps nothing and the earlier result stands.
+Claude Code and Codex are refused (400): they need no check. The check shares
+the analyses' one-at-a-time turn (409). An engine the owner's setting leaves out
+is never used.
 
 The connector an analysis starts is given `JGTUBE_TOOLS`, the bare names of the
 tools that analysis may use, and registers no others. So the limit on tools
@@ -1948,8 +1991,11 @@ holds at Jgtube's own layer, whatever an engine does with its own allow-list
 written, but nothing depends on them being honoured).
 
 `POST /api/analyses {analysis, channel, engine?}` waits for the answer (up to
-five minutes) and returns `{analysis, text, engine, skipped}`, where `skipped`
-lists the engines passed over with the reason. One runs at a time (409
+five minutes) and returns `{analysis, text, engine, skipped, standInFor, seen}`,
+where `skipped` lists the engines passed over with the reason, `standInFor` the
+chosen engine another answered in place of (null otherwise) and `seen` how many
+pictures handed over as files there were and how many the answer names (null
+for a question that handed none). One runs at a time (409
 otherwise).
 The channel must parse as a handle, link or id, and goes into the question as
 `@handle` or the id, never as typed. Failures map to a status and a plain
@@ -2145,8 +2191,9 @@ counts worked out in code.
      that picture and 64 kbit sound come to nine tenths of the limit; one
      attempt), in the temporary folder, removed afterwards.
    - **A frame study** (`frameStudyRequest`): its own boxed-in run of an engine
-     that sees pictures (Claude Code or Codex, in the owner's order or the one
-     chosen on the switch), with the one tool `view_video_frames`. With a file
+     that sees pictures (in the owner's order, or the one chosen on the switch
+     first and the others after it): Claude Code and Codex with the one tool
+     `view_video_frames`, Antigravity with every sheet as a file and no tool. With a file
      and ffmpeg the frames are cut from the file, one a second
      (`cutFrameSheets`); otherwise they are YouTube's preview frames; with
      neither, the study is recorded as not done. The run walks every sheet in
@@ -2184,11 +2231,33 @@ other engine runs.
 
 **A part is one analysis.** Each part is an entry in `ANALYSES`
 (`breakdown-titles` … `breakdown-master`), built from `BREAKDOWN_PART_SPECS`:
-the fixed question, the tools, the limits, and whether it looks at pictures.
-Only `thumbnails` does, so only it is kept to Claude Code and Codex; the other
-six may be written by any engine in the owner's order. With one engine chosen
-on the switch, a part that engine cannot write is recorded as such and the
-rest are written. `POST /api/analyses` takes none of them.
+the fixed question, the tools, the limits, whether it looks at pictures, and
+for those its files route (`files`: the tools less the picture tool, the
+pictures that tool would have shown, the question naming them with `@`).
+`thumbnails` and `picture` look at pictures and go to every engine that sees
+them, Antigravity as files; the other five may be written by any engine in the
+owner's order. With one engine chosen on the switch, a picture part it cannot
+write is written by the next engine that sees pictures and stored with a
+caveat saying so; a part without pictures that engine cannot write is recorded
+as not written and the rest are written. `POST /api/analyses` takes none of them.
+
+**What a reader should know** (store step 30, `breakdown_parts.caveat_json`):
+a written part may carry `standInFor {engine, because}` (another engine wrote it
+because the chosen one could not) and `unseen {shown}` (written from that many
+pictures handed over as files, naming none of them). It is read back through a
+check that keeps only those two things; the page shows "Written by X because Y
+could not: ..." and "X may not have seen the pictures", with **Write it again on
+another AI**.
+
+**Writing one part again.** `POST /api/breakdowns` also takes `parts` (written
+parts to write again) and `avoid` (an engine to leave out). Then nothing is
+downloaded, watched, studied or measured: the deep videos are read back from
+their stored studies, the basis is left as it is, the chosen parts are written
+and every other part is kept as it stands. The page offers **Write this part**
+on every part that is not written (a part refused under the old rule that kept
+picture parts from Antigravity among them) and **Write it again on another AI**
+on one that may not have seen its pictures (with `avoid` set to its engine and
+the choice left to Jgtube).
 
 **A later part reads an earlier one through a tool, never from its question.**
 `get_breakdown_part {channel, part}` returns one stored part under a line
@@ -2379,7 +2448,9 @@ channel with 41 stored videos, no video file and nothing to watch with:
   sections, Copy read back from the clipboard for the three texts, a download
   whose content equals what was copied, no sideways scroll, no console error.
 
-Not run for real: a part written by Antigravity or Codex (stand-ins only); a
+Not run for real: a part written by Antigravity or Codex (stand-ins only; that
+includes Antigravity opening the picture files it is handed, which no test here
+can show); a
 video file downloaded, cut and studied (YouTube refused the download from that
 network), and so the seconds between picture changes from frames a second
 apart; an engine watching a video, and so any part written from watch notes;
@@ -2530,8 +2601,10 @@ zod (`stages.ts`), stored as it is made and reused unless `fresh`:
    music, effects, sound synced to motion, the opening's sound beat by beat,
    and the words when there are no captions.
 3. `hook`, `design`, `archetypes`, `motion`: picture stages, to Claude Code and
-   Codex through `view_teardown_images` (8 pictures a call at most) and to an
-   engine that passed the picture check as files named in the question. Code
+   Codex through `view_teardown_images` (8 pictures a call at most) and to
+   Antigravity as files named in the question (unless its last picture check
+   failed), read through the shared `pictureFiles.ts`; with an engine chosen,
+   the next one that sees pictures answers when it cannot. Code
    chooses and caps the pictures (hook: the sheet and the opening's keyframes,
    7; design: chapter sheets, 6; archetypes: keyframes, 24; motion: strips, 16).
 4. `techniques`, `sound`, `plan`: any engine.
@@ -2564,7 +2637,8 @@ Titles add the measured patterns, ten ready titles and what not to copy;
 thumbnails the checklist counted, layout archetypes and a prompt per archetype;
 scripts the measured numbers, a hook second by second, open loops, a template
 and a script prompt; picture and sound becomes the style bible, looking at the
-strips and keyframes (so it now needs an engine that sees pictures); strategy
+strips and keyframes (so it needs an engine that sees pictures: Claude Code and
+Codex through `view_teardown_images`, Antigravity with them as files); strategy
 ties each point to a measured difference or a quote, with gaps and risks; the
 plan adds a per-layer pipeline with the measured loudness and pacing rules and
 no made-up durations; the master prompt writes the measured rules in as
