@@ -54,6 +54,8 @@ const CLOSENESS_WORD: Readonly<Record<Closeness, string>> = {
   medium: 'Medium',
   far: 'Far',
 };
+/** How far closeness outweighs breakouts: a closer look-alike always comes first. */
+const CLOSENESS_FIRST = 1000;
 /** The highest score counted towards a suggestion, so one freak video does not decide it. */
 const SCORE_CAP = 20;
 
@@ -97,8 +99,8 @@ export const isDue = (candidate: Candidate, now: Date): boolean => {
 };
 
 function weight(candidate: Candidate): number {
-  const close = candidate.closeness === null ? 1 : CLOSENESS_WEIGHT[candidate.closeness];
-  return close * 10 + candidate.breakingOut * 2 + Math.min(candidate.recentBest ?? 0, SCORE_CAP);
+  const close = candidate.closeness === null ? 0 : CLOSENESS_WEIGHT[candidate.closeness];
+  return close * CLOSENESS_FIRST + candidate.breakingOut * 2 + Math.min(candidate.recentBest ?? 0, SCORE_CAP);
 }
 
 /** The one-line reason a channel is suggested, from its facts alone. */

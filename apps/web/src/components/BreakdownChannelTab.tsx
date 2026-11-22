@@ -96,7 +96,9 @@ function OneChannel({
       {asking && !running && (
         <Notice>Another AI run is under way. Break it down when it is done.</Notice>
       )}
-      <TopStrip facts={candidate} />
+      <div className="w-full max-w-2xl">
+        <TopStrip facts={candidate} />
+      </div>
       <Details summary="How this works">
         <div className="flex flex-col gap-2 text-body-sm text-on-surface-variant">
           <p>

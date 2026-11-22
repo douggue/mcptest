@@ -71,6 +71,7 @@ describe('the channels suggested to break down', () => {
   test('put the closest look-alikes with the most and strongest breakouts first, each with its reason', () => {
     const picks = suggestedPicks(
       [
+        candidate('n', null, { breakingOut: 30, recentBest: 60 }),
         candidate('f', 'far', { breakingOut: 5, recentBest: 9 }),
         candidate('c', 'close', { breakingOut: 2, recentBest: 4 }),
         candidate('d', 'close', { breakingOut: 3, recentBest: 12 }),
@@ -82,7 +83,7 @@ describe('the channels suggested to break down', () => {
     expect(picks.map((pick) => pick.candidate.title)).toEqual([
       'Channel D',
       'Channel C',
-      'Channel F',
+      'Channel M',
     ]);
     expect(picks[0]?.reason).toBe(
       'Close look-alike · 3 breaking out, best 12× usual · 40 videos stored · never broken down',

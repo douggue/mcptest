@@ -145,8 +145,8 @@ function NoBreakdown({ title }: { readonly title: string | null }) {
         No breakdown of {title ?? 'this channel'} is kept yet.
       </p>
       <p className="text-body-sm text-on-surface-variant">
-        Press Break down this channel. It runs for half an hour or more; the parts appear here as
-        cards when it is done.
+        Press Break it down. It runs for half an hour or more, even if you leave this page; the
+        parts appear here as cards when it is done.
       </p>
     </Card>
   );
