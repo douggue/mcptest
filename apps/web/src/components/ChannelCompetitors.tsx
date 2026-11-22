@@ -1,11 +1,13 @@
 import type { MapSnapshot } from '@jgtube/core';
 import { useState } from 'react';
+import { brokenDownText } from '../lib/breakdownPicks';
 import { formatCount } from '../lib/format';
 import { channelHref } from '../lib/routes';
 import { Card, Label } from './layout/Card';
 import { ChannelRow } from './layout/ChannelRow';
 import { QUIET_BUTTON } from './LabStatus';
 import { TIER_LABEL } from './tiers';
+import { useBrokenDown } from './useBrokenDown';
 import { messageOf, type MapPage } from './useMapPage';
 import { MoneyBadge } from './MoneyBadge';
 
@@ -26,6 +28,7 @@ export function ChannelCompetitors({ snapshot, page }: Props) {
   const [all, setAll] = useState(false);
   const competitors = snapshot.channels.filter((channel) => channel.peer && !channel.removed);
   const shown = all ? competitors : competitors.slice(0, FIRST_ROWS);
+  const brokenDown = useBrokenDown(shown.map((channel) => channel.id));
   const remove = (channelId: string): void => {
     page
       .setStatus(channelId, 'removed')
@@ -47,7 +50,12 @@ export function ChannelCompetitors({ snapshot, page }: Props) {
               logoUrl={channel.logoUrl}
               href={channelHref(channel.id)}
               level={{ text: TIER_LABEL[channel.tier], tone: channel.tier }}
-              count={`${formatCount(channel.subscribers)} subscribers`}
+              count={[
+                `${formatCount(channel.subscribers)} subscribers`,
+                brokenDownText(brokenDown.get(channel.id) ?? null),
+              ]
+                .filter((part) => part !== '')
+                .join(' · ')}
               onRemove={() => remove(channel.id)}
               removeLabel={`Remove ${channel.title} from the competitors`}
               badge={<MoneyBadge channelId={channel.id} hideUnchecked />}
