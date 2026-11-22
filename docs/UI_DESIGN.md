@@ -111,7 +111,7 @@ step. These rules replace the earlier ones where they disagree.
 
 ### Information architecture
 
-Five destinations in the rail (a tab bar at the foot of a phone), Settings behind the gear
+Six destinations in the rail (a tab bar at the foot of a phone), Settings behind the gear
 in the top bar:
 
 | Destination  | Opens                               | Tabs (each its own address)                                                 |
@@ -120,6 +120,7 @@ in the top bar:
 | **Channel**  | the map's channel, `#/channel/<id>` | Overview, Radar, What changed, Your videos, Calendar, Pacing, Viewers ask   |
 | **Research** | `#/breakouts`                       | Breaking out, Formats, Hooks, Same topic, Thumbnails, Transfers, New niches |
 | **Create**   | `#/ideas`                           | Ideas, Script, Check                                                        |
+| **Breakdown** | `#/breakdown`                      | Channel (`#/breakdown/<id>` opens one channel), One video (`#/video-breakdown`) |
 | **Ask AI**   | `#/ask`                             | none                                                                        |
 
 - Every older address (`#/radar`, `#/hooks`, `#concept-12`) still opens its
@@ -128,6 +129,9 @@ in the top bar:
   `routes.ts` and one tab in `sections.ts`.
 - A channel that is not the map's own (a competitor) opens its page with a
   back arrow and no tabs.
+- A "Break it down" button anywhere in the app links with `breakdownHref(id)`
+  (`lib/routes.ts`); it opens Breakdown on that channel, where the owner
+  presses Break it down. The old `#breakdown` links open Breakdown, not Ask AI.
 - The step strip (Research → Formats → Ideas → Script → Breakdown) is shown on
   Home only, as "Your next step". Inside a destination the tabs do the job.
 - Ideas and Script are one flow: a concept's "Write the script" opens the

@@ -100,7 +100,11 @@ export const isDue = (candidate: Candidate, now: Date): boolean => {
 
 function weight(candidate: Candidate): number {
   const close = candidate.closeness === null ? 0 : CLOSENESS_WEIGHT[candidate.closeness];
-  return close * CLOSENESS_FIRST + candidate.breakingOut * 2 + Math.min(candidate.recentBest ?? 0, SCORE_CAP);
+  return (
+    close * CLOSENESS_FIRST +
+    candidate.breakingOut * 2 +
+    Math.min(candidate.recentBest ?? 0, SCORE_CAP)
+  );
 }
 
 /** The one-line reason a channel is suggested, from its facts alone. */

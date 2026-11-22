@@ -249,7 +249,7 @@ function seenOf(
     frameSource: frames.frames?.source ?? null,
     frames: frames.frames?.available ?? null,
     captions,
-    notes: [watched.note, frames.note].flatMap((note) => note ?? []),
+    notes: [frames.note, watched.note].flatMap((note) => note ?? []),
   };
 }
 
@@ -308,7 +308,7 @@ export async function breakDownVideo(
   const { about, seen } = await study(deps, target, choices, say);
   stopIfClosing(deps);
   if (seen.watchedBy === null && seen.framesBy === null && seen.captions !== 'read') {
-    throw new Error(NOTHING_TO_GO_ON);
+    throw new Error([NOTHING_TO_GO_ON, ...seen.notes].join(' '));
   }
   const title = about.title ?? `YouTube video ${target.videoId}`;
   const kept = {
