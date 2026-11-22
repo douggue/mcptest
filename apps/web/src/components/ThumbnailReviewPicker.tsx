@@ -31,8 +31,8 @@ export function ThumbnailReviewPicker({ videos, picked, onPick }: Props) {
                 onClick={() => onPick(video.videoId)}
                 className={`flex w-full min-w-0 flex-col gap-1 rounded border p-1.5 text-left transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container ${
                   chosen
-                    ? 'border-border-highlight bg-surface-container-high'
-                    : 'border-border-subtle hover:border-border-highlight'
+                    ? 'relative border-primary-container bg-surface-container-high ring-2 ring-primary-container'
+                    : 'border-border-subtle opacity-80 hover:border-border-highlight hover:opacity-100'
                 }`}
               >
                 <span className="block aspect-video w-full overflow-hidden rounded bg-surface-container-high">
