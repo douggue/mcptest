@@ -1,5 +1,6 @@
 import type { SavedChannel } from '@jgtube/core';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, Plus } from 'lucide-react';
+import { viewHref } from '../lib/routes';
 import { useEffect, useRef } from 'react';
 import { ChannelLogo } from './ChannelLogo';
 
@@ -74,6 +75,20 @@ export function ChannelSwitcher({ channels, currentId, busy, onOpen }: Props) {
             </button>
           </li>
         ))}
+        <li className="mt-1 border-t border-border-subtle pt-1">
+          <a
+            href={`${viewHref('home')}`}
+            onClick={() => {
+              if (menu.current) menu.current.open = false;
+              // Home shows the add form; bring it into view once Home is drawn.
+              window.setTimeout(() => document.getElementById('channel-query')?.focus(), 300);
+            }}
+            className="flex min-h-11 w-full items-center gap-2 rounded px-2 text-body-md text-primary hover:bg-surface-container-high"
+          >
+            <Plus aria-hidden="true" className="h-5 w-5" />
+            Add a channel
+          </a>
+        </li>
       </ul>
     </details>
   );
