@@ -31,7 +31,7 @@ export const PALETTE_GROUPS = 8;
 /** A colour under this share of the runtime is left out of the palette. */
 export const PALETTE_MIN_SHARE = 0.02;
 /** The opening the hook sheet shows, one frame a second. */
-export const HOOK_SECONDS = 36;
+export const OPENING_SECONDS = 36;
 export const HOOK_COLUMNS = 6;
 export const HOOK_ROWS = 6;
 /** One frame on a contact sheet: six across make a sheet 1440 pixels wide. */

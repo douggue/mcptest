@@ -5,7 +5,7 @@ import { pathInside } from '../downloads/folder';
 import {
   HOOK_COLUMNS,
   HOOK_ROWS,
-  HOOK_SECONDS,
+  OPENING_SECONDS,
   MEASURE_TIMEOUT_MS,
   PEAK_DB,
   QUIET_DB,
@@ -111,7 +111,7 @@ const methods = {
     `ffmpeg astats peak level in ${window} s windows: a window above ${PEAK_DB} dBFS after one at or below it`,
   palette:
     'k-means (8 groups, fixed start) over every keyframe shrunk to 48×27 pixels, each weighted by the seconds of video its shots last; colours under 2% left out',
-  hook: `ffmpeg: the first ${HOOK_SECONDS} s, one frame a second, ${HOOK_COLUMNS}×${HOOK_ROWS} on one sheet`,
+  hook: `ffmpeg: the first ${OPENING_SECONDS} s, one frame a second, ${HOOK_COLUMNS}×${HOOK_ROWS} on one sheet`,
 };
 
 async function measureAudio(tools: Tools, path: string, video: ProbedVideo) {
@@ -180,7 +180,7 @@ async function cutHookSheet(tools: Tools, path: string, folder: string, video: P
   return {
     file: HOOK_SHEET_FILE,
     fromSeconds: 0,
-    toSeconds: Math.min(HOOK_SECONDS, Math.floor(video.durationSeconds)),
+    toSeconds: Math.min(OPENING_SECONDS, Math.floor(video.durationSeconds)),
     columns: HOOK_COLUMNS,
     rows: HOOK_ROWS,
     method: methods.hook,

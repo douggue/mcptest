@@ -16,7 +16,7 @@
  * with its reason and the rest go on.
  */
 import {
-  HOOK_SECONDS,
+  OPENING_SECONDS,
   buildTeardownReport,
   checkStage,
   chapterSpans,
@@ -114,7 +114,9 @@ export function picturesFor(
     case 'hook':
       return [
         ...(measured.hookSheet ? [measured.hookSheet.file] : []),
-        ...measured.keyframes.filter((frame) => frame.at < HOOK_SECONDS).map((frame) => frame.file),
+        ...measured.keyframes
+          .filter((frame) => frame.at < OPENING_SECONDS)
+          .map((frame) => frame.file),
       ]
         .slice(0, MAX_HOOK_PICTURES)
         .map(at);

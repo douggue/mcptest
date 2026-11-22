@@ -77,6 +77,11 @@ export const UNUSED_HUB: BreakdownHub = {
   videoBreakdowns: unused('videoBreakdowns'),
   findVideoBreakdown: unused('findVideoBreakdown'),
   hasUpload: unused('hasUpload'),
+  teardownRuns: unused('teardownRuns'),
+  teardownImage: unused('teardownImage'),
+  teardownMarkdown: unused('teardownMarkdown'),
+  teardownZip: unused('teardownZip'),
+  teardownData: unused('teardownData'),
 };
 
 /** An engine whose later features are these, failing loudly on any other. */

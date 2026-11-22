@@ -1,87 +1,91 @@
 import {
+  SqliteTeardownRepo,
   SqliteVideoBreakdownRepo,
-  SqliteVideoStudyRepo,
-  markerLines,
   openDatabase,
-  type StudiedFrames,
+  type Measured,
+  type TeardownStage,
 } from '@jgtube/core';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { BreakdownFiles } from '../src/breakdownEngine';
 import { EngineRunError } from '../src/engines/failure';
 import { breakDownVideo, type OneVideoDeps } from '../src/oneVideoEngine';
-import type { OneVideoFocus } from '../src/oneVideoQuestions';
 import type { OneVideoProgress } from '../src/oneVideoTypes';
 import { CLOSING } from '../src/running';
+import type { TeardownDeps } from '../src/teardownEngine';
+import type { TeardownAsk } from '../src/teardownRequests';
+import { MEASURED, STAGE_ANSWERS } from './teardownFixtures';
 
-const NOW = new Date('2026-11-21T12:00:00Z');
+const NOW = new Date('2026-11-22T12:00:00Z');
 const VIDEO = 'dQw4w9WgXcQ';
 const UPLOAD = 'Ab-_cdEFgh1';
 const CHANNEL = `UC${'a'.repeat(22)}`;
-const ANSWER = [
-  'WHAT IT IS',
-  '- A ten-minute explainer [0:00].',
-  markerLines('SCRIPT PROMPT').start,
-  'Write about [TOPIC].',
-  markerLines('SCRIPT PROMPT').end,
-].join('\n');
 
-let studies: SqliteVideoStudyRepo;
+let root: string;
+let teardowns: SqliteTeardownRepo;
 let store: SqliteVideoBreakdownRepo;
 let removed: string[];
 
 interface Setup {
   readonly own?: string | null;
   readonly fetch?: 'ok' | 'fails';
-  readonly canCut?: boolean;
-  readonly cut?: boolean;
-  readonly preview?: StudiedFrames | null;
-  readonly watch?: 'ok' | 'fails';
-  readonly frames?: 'ok' | 'fails';
+  readonly measure?: 'ok' | 'fails';
+  readonly watches?: boolean;
+  readonly watch?: 'ok' | 'fails' | 'prose';
+  readonly ask?: 'ok' | 'fails' | 'prose';
   readonly captions?: 'read' | 'none' | 'throws';
-  readonly write?: 'ok' | 'fails';
   readonly upload?: string | null;
   readonly details?: 'ok' | 'throws';
-  readonly stop?: AbortSignal;
+  readonly stop?: AbortController;
 }
 
 function deps(setup: Setup = {}) {
-  const files: BreakdownFiles = {
+  const files = {
     ownFolder: () => '/downloads/my-videos',
     own: async () => setup.own ?? null,
     fetch: async () =>
       setup.fetch === 'fails'
         ? { ok: false, reason: 'YouTube refused the download' }
         : { ok: true, path: '/temp/copy.mp4', remove: async () => void removed.push('copy') },
-    canCut: async () => setup.canCut ?? false,
-    cut: async () =>
-      setup.cut === false
-        ? { ok: false, reason: 'ffmpeg failed' }
-        : { ok: true, folder: '/temp/frames', sheets: 3, frames: 75 },
-    removeFrames: async () => void removed.push('frames'),
-    forWatching: async (_id, path) => ({ ok: true, path }),
-  } as BreakdownFiles;
-  const watchVideo = vi.fn<OneVideoDeps['watchVideo']>(async (_id, _q, options) => {
-    options?.onStep?.({ kind: 'watching', engine: 'agy' });
-    if (setup.watch === 'fails') throw new EngineRunError('not-installed', 'Nobody can watch.');
-    const copy = await options?.download?.(VIDEO, new AbortController().signal);
+  } as unknown as BreakdownFiles;
+  const ask = vi.fn(async (asked: TeardownAsk, _only?: string) => {
+    if (setup.ask === 'fails') throw new EngineRunError('limit', 'Claude Code reached its limit.');
+    const text =
+      setup.ask === 'prose' ? 'Here is my view.' : JSON.stringify(STAGE_ANSWERS[asked.stage]);
+    return { engine: 'claude' as const, text, skipped: [], turns: null };
+  });
+  const watch = vi.fn(async () => {
+    if (setup.watch === 'fails') throw new EngineRunError('timeout', 'It took too long.');
     return {
       engine: 'agy',
-      text: `watched ${copy?.ok === true ? copy.path : 'nothing'}`,
-      skipped: [],
-      turns: null,
+      text: setup.watch === 'prose' ? 'nice video' : JSON.stringify(STAGE_ANSWERS.watch),
     };
   });
-  const write = vi.fn<OneVideoDeps['write']>(async () => {
-    if (setup.write === 'fails')
-      throw new EngineRunError('limit', 'Claude Code reached its limit.');
-    return { engine: 'claude', text: ANSWER, skipped: [], turns: null };
-  });
+  const measure = vi.fn(async (): Promise<Measured> =>
+    setup.measure === 'fails'
+      ? { ok: false, reason: 'ffmpeg is not installed' }
+      : { ok: true, measurements: MEASURED },
+  );
+  const chapterSheets = vi.fn(async () => ({ '1': 'chapter-01.jpg', '2': 'chapter-02.jpg' }));
+  const teardown: TeardownDeps = {
+    now: () => NOW,
+    stop: setup.stop?.signal ?? new AbortController().signal,
+    repo: teardowns,
+    folder: (videoId) => join(root, videoId),
+    measure,
+    chapterSheets,
+    watchesFiles: async () => setup.watches ?? false,
+    watch,
+    ask,
+  };
   const value: OneVideoDeps = {
     now: () => NOW,
-    stop: setup.stop ?? new AbortController().signal,
-    studies,
+    stop: teardown.stop,
     store,
     files,
+    teardown,
     uploadPath: async () =>
       setup.upload === undefined ? '/downloads/my-videos/x.webm' : setup.upload,
     details: async () => {
@@ -92,212 +96,221 @@ function deps(setup: Setup = {}) {
       if (setup.captions === 'throws') throw new Error('offline');
       return {
         videoId: VIDEO,
-        transcript: setup.captions === 'none' ? null : ({ segments: [] } as never),
+        transcript:
+          setup.captions === 'none'
+            ? null
+            : {
+                language: 'en',
+                autoGenerated: false,
+                segments: [{ startMs: 1000, text: 'This is how it starts.' }],
+              },
         fetchedAt: NOW,
         fromStore: false,
       };
     },
-    framesAvailable: async () =>
-      setup.preview === undefined ? { source: 'preview', available: 40 } : setup.preview,
-    watchVideo,
-    studyFrames: async () => {
-      if (setup.frames === 'fails') throw new EngineRunError('failed', 'The frame study failed.');
-      return { engine: 'claude', text: 'Frames: a map.', skipped: [], turns: null };
-    },
-    write,
   };
-  return { value, watchVideo, write };
+  return { value, ask, watch, measure, chapterSheets };
 }
 
 const progress: OneVideoProgress[] = [];
 const report = (step: OneVideoProgress): void => void progress.push(step);
+const asked = (mock: ReturnType<typeof deps>['ask']): TeardownStage[] =>
+  mock.mock.calls.map(([call]) => call.stage);
 
 beforeEach(() => {
+  root = mkdtempSync(join(tmpdir(), 'jgtube-one-'));
   const db = openDatabase(':memory:');
-  studies = new SqliteVideoStudyRepo(db);
+  teardowns = new SqliteTeardownRepo(db);
   store = new SqliteVideoBreakdownRepo(db);
   removed = [];
   progress.length = 0;
 });
+afterEach(() => {
+  rmSync(root, { recursive: true, force: true });
+});
 
-describe('a deep breakdown of one YouTube video', () => {
-  test('downloads it, has it watched and its frames studied, writes it, and keeps how it was seen', async () => {
-    const { value, write } = deps({ canCut: true });
+describe('breakDownVideo, a YouTube video', () => {
+  test('measures a download, watches it with sound, judges every stage, keeps all of it and removes the copy', async () => {
+    const { value, ask, watch, measure } = deps({ watches: true });
 
     const view = await breakDownVideo(value, { kind: 'youtube', videoId: VIDEO }, report);
 
+    expect(measure).toHaveBeenCalledWith('/temp/copy.mp4', join(root, VIDEO), expect.any(Function));
+    expect(watch).toHaveBeenCalledTimes(1);
+    expect(asked(ask)).toEqual([
+      'structure',
+      'hook',
+      'design',
+      'archetypes',
+      'motion',
+      'techniques',
+      'sound',
+      'plan',
+    ]);
+    expect(ask.mock.calls[1]?.[0]).toMatchObject({ stage: 'hook', heard: true });
+    expect(ask.mock.calls[1]?.[0].pictures.map((picture) => picture.name)).toEqual([
+      'hook.jpg',
+      'k-001.jpg',
+    ]);
+    expect(ask.mock.calls[2]?.[0].pictures.map((picture) => picture.name)).toEqual([
+      'chapter-01.jpg',
+      'chapter-02.jpg',
+    ]);
+    expect(ask.mock.calls[4]?.[0].pictures.map((picture) => picture.name)).toEqual(['s-001.jpg']);
+    expect(removed).toEqual(['copy']);
     expect(view).toMatchObject({
-      videoId: VIDEO,
-      source: 'youtube',
       title: 'How maps lie',
       channelId: CHANNEL,
-      engine: 'claude',
+      engine: 'jgtube',
       problem: null,
-      prompts: { script: 'Write about [TOPIC].', visual: null, thumbnail: null },
-      seen: {
-        file: 'downloaded',
-        watchedBy: 'agy',
-        framesBy: 'claude',
-        frameSource: 'preview',
-        captions: 'read',
-        notes: [],
-      },
     });
-    expect(view.body).toContain('WHAT IT IS');
-    expect(view.body).not.toContain('SCRIPT PROMPT');
-    const focus: OneVideoFocus = {
-      kind: 'one-video',
-      videoId: VIDEO,
-      watched: true,
-      frames: true,
-      captions: true,
-    };
-    expect(write).toHaveBeenCalledWith('one-video', focus, undefined);
-    expect(studies.find(VIDEO, 'watch')?.text).toBe('watched /temp/copy.mp4');
-    expect(removed).toEqual(['frames', 'copy']);
-    expect(progress.map((step) => step.step)).toEqual([
-      'reading',
-      'downloading',
-      'watching',
-      'frames',
-      'frames',
-      'writing',
+    expect(view.seen).toMatchObject({
+      file: 'downloaded',
+      watchedBy: 'agy',
+      framesBy: 'claude',
+      frames: 1500,
+      captions: 'read',
+    });
+    expect(view.teardown?.chapters.items.map((chapter) => chapter.sheet)).toEqual([
+      'chapter-01.jpg',
+      'chapter-02.jpg',
     ]);
+    expect(view.teardown?.hookRows[0]).toMatchObject({
+      soundFrom: 'heard',
+      narration: 'This is how it starts.',
+    });
+    expect(view.teardown?.about?.seen[0]).toBe('Watched with sound by Antigravity.');
+    expect(store.find(VIDEO)?.written?.text).toContain(
+      '# Production teardown & style bible: How maps lie',
+    );
+    expect(progress.map((step) => step.text)).toContain('Stage 3 of 9: the hook, frame by frame');
   });
 
-  test('with nothing to watch it, says so, and still writes from frames and captions', async () => {
-    const { value } = deps({ fetch: 'fails', watch: 'fails', details: 'throws' });
+  test('a second run reuses every kept part: no file, no engine', async () => {
+    await breakDownVideo(
+      deps({ watches: true }).value,
+      { kind: 'youtube', videoId: VIDEO },
+      report,
+    );
+    const again = deps({ watches: true });
+
+    await breakDownVideo(again.value, { kind: 'youtube', videoId: VIDEO }, report);
+
+    expect(again.ask).not.toHaveBeenCalled();
+    expect(again.measure).not.toHaveBeenCalled();
+    expect(again.watch).not.toHaveBeenCalled();
+    expect(store.find(VIDEO)?.seen.fileNote).toMatch(/no file was needed/);
+  });
+
+  test('fresh makes everything again', async () => {
+    await breakDownVideo(deps().value, { kind: 'youtube', videoId: VIDEO }, report);
+    const again = deps();
+
+    await breakDownVideo(again.value, { kind: 'youtube', videoId: VIDEO }, report, {
+      fresh: true,
+      only: 'codex',
+    });
+
+    expect(again.measure).toHaveBeenCalledTimes(1);
+    expect(again.ask).toHaveBeenCalledTimes(8);
+    expect((again.ask.mock.calls[0] as unknown[] | undefined)?.[1]).toBe('codex');
+  });
+
+  test('with no file the pictures cannot be judged, the text stages still are, and it says why', async () => {
+    const { value, ask } = deps({ fetch: 'fails', details: 'throws' });
 
     const view = await breakDownVideo(value, { kind: 'youtube', videoId: VIDEO }, report);
 
+    expect(asked(ask)).toEqual(['structure', 'techniques', 'sound', 'plan']);
     expect(view.title).toBe(`YouTube video ${VIDEO}`);
     expect(view.seen).toMatchObject({
       file: 'none',
       fileNote: 'YouTube refused the download.',
-      watchedBy: null,
-      framesBy: 'claude',
+      frames: null,
     });
-    expect(view.seen.notes).toEqual(['Not watched, so its sound is not known: Nobody can watch.']);
+    expect(view.teardown?.measuredProblem).toBe('YouTube refused the download.');
+    expect(view.teardown?.stages.hook).toEqual({
+      state: 'failed',
+      reason: 'There were no pictures to look at: the video could not be measured.',
+    });
   });
 
-  test('reuses a watch and a frame study already kept, unless asked to start afresh', async () => {
-    studies.save({ videoId: VIDEO, kind: 'watch', engine: 'gemini-api', text: 'old watch' }, NOW);
-    studies.save(
-      {
-        videoId: VIDEO,
-        kind: 'frames',
-        engine: 'codex',
-        text: 'old frames',
-        frames: { source: 'file', available: 9 },
-      },
-      NOW,
+  test('a stage that answers in prose or fails is kept with its reason; a failed watch says sound was not heard', async () => {
+    const prose = deps({ ask: 'prose', watches: true, watch: 'prose', own: '/mine/video.mp4' });
+    const view = await breakDownVideo(prose.value, { kind: 'youtube', videoId: VIDEO }, report);
+    expect(view.teardown?.stages.structure).toEqual({
+      state: 'failed',
+      reason: 'claude answered, but the answer held no JSON object.',
+    });
+    expect(view.teardown?.stages.watch).toMatchObject({
+      state: 'failed',
+      reason: expect.stringMatching(/^agy watched it, but/),
+    });
+    expect(view.seen.file).toBe('own');
+
+    const failing = deps({ ask: 'fails', watches: true, watch: 'fails', measure: 'fails' });
+    await expect(
+      breakDownVideo(failing.value, { kind: 'youtube', videoId: UPLOAD }, report),
+    ).rejects.toThrow(
+      /Nothing could be measured or judged.*It could not be measured: ffmpeg is not installed\./,
     );
-    const kept = deps({ own: '/downloads/my-videos/mine.mp4' });
-
-    const view = await breakDownVideo(kept.value, { kind: 'youtube', videoId: VIDEO }, report);
-
-    expect(view.seen).toMatchObject({
-      file: 'own',
-      watchedBy: 'gemini-api',
-      framesBy: 'codex',
-      frames: 9,
-    });
-    expect(kept.watchVideo).not.toHaveBeenCalled();
-
-    const fresh = deps({ own: '/downloads/my-videos/mine.mp4' });
-    await breakDownVideo(fresh.value, { kind: 'youtube', videoId: VIDEO }, report, {
-      fresh: true,
-      only: 'codex',
-    });
-    expect(fresh.watchVideo).toHaveBeenCalled();
-    expect(fresh.write.mock.calls[0]?.[2]).toBe('codex');
+    expect(store.find(UPLOAD)?.problem).toMatch(/Nothing could be measured/);
   });
 
-  test('does not download a video too long to watch, and notes a frame study that failed', async () => {
-    const { value } = deps({ frames: 'fails', captions: 'none' });
-    const long = {
-      ...value,
-      details: async () => ({ title: 'Long', channelId: null, durationSeconds: 7200 }),
-    };
+  test('captions that cannot be read leave the words to the engine that heard them', async () => {
+    const { value } = deps({ captions: 'throws', watches: true });
 
-    const view = await breakDownVideo(long, { kind: 'youtube', videoId: VIDEO }, report);
+    const view = await breakDownVideo(value, { kind: 'youtube', videoId: VIDEO }, report);
 
-    expect(view.seen.fileNote).toMatch(/long/);
-    expect(view.seen.framesBy).toBeNull();
-    expect(view.seen.captions).toBe('none');
-    expect(view.seen.notes).toContain('Frames not studied: The frame study failed.');
-  });
-
-  test('refuses to write from nothing, and keeps why writing failed', async () => {
-    const nothing = deps({ fetch: 'fails', watch: 'fails', preview: null, captions: 'throws' });
-    await expect(
-      breakDownVideo(nothing.value, { kind: 'youtube', videoId: VIDEO }, report),
-    ).rejects.toThrow(/nothing to break it down from/);
-    expect(nothing.write).not.toHaveBeenCalled();
-
-    const failing = deps({ write: 'fails' });
-    await expect(
-      breakDownVideo(failing.value, { kind: 'youtube', videoId: VIDEO }, report),
-    ).rejects.toThrow(/limit/);
-    expect(store.find(VIDEO)).toMatchObject({
-      written: null,
-      problem: 'Claude Code reached its limit.',
-    });
+    expect(view.seen.captions).toBe('failed');
+    expect(view.teardown?.transcript.source).toBe('heard');
   });
 
   test('stops when Jgtube is closing', async () => {
     const stop = new AbortController();
-    stop.abort();
-    const { value } = deps({ stop: stop.signal, fetch: 'fails' });
+    const { value, ask } = deps({ stop });
+    ask.mockImplementation(async () => {
+      stop.abort();
+      throw new EngineRunError('failed', 'stopped');
+    });
 
     await expect(
       breakDownVideo(value, { kind: 'youtube', videoId: VIDEO }, report),
     ).rejects.toThrow(CLOSING);
+    expect(removed).toEqual(['copy']);
   });
 });
 
-describe('a deep breakdown of a file the owner gave', () => {
-  test('watches the file alone, cuts its frames, asks no captions and writes the file form', async () => {
-    const { value, watchVideo, write } = deps({ canCut: true });
+describe('breakDownVideo, a file the owner gave', () => {
+  test('uses the file, never captions, and refuses a file that is gone', async () => {
+    const { value } = deps({ captions: 'none' });
 
     const view = await breakDownVideo(
       value,
-      { kind: 'file', videoId: UPLOAD, name: 'clip.webm' },
+      { kind: 'file', videoId: UPLOAD, name: 'My cut.mov' },
       report,
     );
 
-    expect(view).toMatchObject({ source: 'file', title: 'clip.webm', channelId: null });
-    expect(view.seen).toMatchObject({
-      file: 'uploaded',
-      captions: 'not-asked',
-      frameSource: 'preview',
-    });
-    expect(watchVideo.mock.calls[0]?.[2]?.fileOnly).toBe(true);
-    expect(write.mock.calls[0]?.[0]).toBe('one-video-file');
-    // The owner's file is only read, never removed.
-    expect(removed).toEqual(['frames']);
-  });
+    expect(view).toMatchObject({ source: 'file', title: 'My cut.mov' });
+    expect(view.seen).toMatchObject({ file: 'uploaded', captions: 'not-asked' });
+    expect(progress[0]?.text).toBe('Opening the file you gave');
 
-  test('has no preview frames to fall back on when frames cannot be cut', async () => {
-    const { value } = deps({ canCut: true, cut: false });
-
-    const view = await breakDownVideo(
-      value,
-      { kind: 'file', videoId: UPLOAD, name: 'clip.mov' },
-      report,
-    );
-
-    expect(view.seen.framesBy).toBeNull();
-    expect(view.seen.notes).toContain(
-      'There were no frames to study: no file to cut them from and no preview frames.',
-    );
-  });
-
-  test('fails plainly when the file is gone', async () => {
-    const { value } = deps({ upload: null });
-
+    const gone = deps({ upload: null });
     await expect(
-      breakDownVideo(value, { kind: 'file', videoId: UPLOAD, name: 'clip.mp4' }, report),
+      breakDownVideo(gone.value, { kind: 'file', videoId: UPLOAD, name: 'x' }, report),
     ).rejects.toThrow(/no longer on this computer/);
+  });
+
+  test('an over-long YouTube video is not downloaded', async () => {
+    const { value, measure } = deps();
+    const long = {
+      ...value,
+      details: async () => ({ title: 'Long', channelId: null, durationSeconds: 99_999 }),
+    };
+
+    const view = await breakDownVideo(long, { kind: 'youtube', videoId: VIDEO }, report);
+
+    expect(measure).not.toHaveBeenCalled();
+    expect(view.seen.fileNote).toMatch(/long/i);
   });
 });

@@ -1,5 +1,5 @@
 import { isAbsolute } from 'node:path';
-import { HOOK_SECONDS, SHEET_TILE_HEIGHT, SHEET_TILE_WIDTH } from './constants';
+import { OPENING_SECONDS, SHEET_TILE_HEIGHT, SHEET_TILE_WIDTH } from './constants';
 import type { CameraKind, FrameRange, MotionFindings, TransitionKind } from './motionClassify';
 
 /**
@@ -74,7 +74,7 @@ export function planStrips(
   events: readonly MotionEvent[],
   max = MAX_STRIPS,
 ): readonly PlannedStrip[] {
-  const opening = events.filter((event) => event.start < HOOK_SECONDS).slice(0, OPENING_STRIPS);
+  const opening = events.filter((event) => event.start < OPENING_SECONDS).slice(0, OPENING_STRIPS);
   const kinds = [...new Set(events.map((event) => event.kind))];
   const examples = kinds.flatMap((kind) =>
     spreadOf(
