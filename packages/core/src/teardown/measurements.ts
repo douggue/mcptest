@@ -9,8 +9,71 @@ import { z } from 'zod';
 const seconds = z.number().finite().nonnegative();
 const decibels = z.number().finite();
 const method = z.string().min(1).max(400);
-const file = z.string().regex(/^(?:k-\d{3}|hook|chapter-\d{2})\.jpg$/);
+const file = z.string().regex(/^(?:k-\d{3}|s-\d{3}|hook|chapter-\d{2})\.jpg$/);
 const span = z.object({ start: seconds, end: seconds });
+
+const frameRange = {
+  start: seconds,
+  end: seconds,
+  startFrame: z.number().int().nonnegative(),
+  endFrame: z.number().int().nonnegative(),
+  frames: z.number().int().positive(),
+};
+const transitionKind = z.enum(['cut', 'dissolve', 'fade-black', 'fade-white', 'flash', 'whip']);
+const cameraKind = z.enum([
+  'static',
+  'push-in',
+  'pull-out',
+  'pan-left',
+  'pan-right',
+  'tilt-up',
+  'tilt-down',
+  'shake',
+]);
+const count = z.number().int().nonnegative();
+const motionSchema = z.object({
+  method,
+  fps: z.number().finite().positive(),
+  frames: count,
+  transitions: z.array(z.object({ ...frameRange, kind: transitionKind })).max(20_000),
+  transitionCounts: z.record(transitionKind, count),
+  holds: z.object({ count, totalSeconds: seconds }),
+  animations: z.array(z.object({ ...frameRange, change: z.number().finite() })).max(1000),
+  shots: z
+    .array(
+      z.object({
+        shot: count,
+        start: seconds,
+        end: seconds,
+        camera: cameraKind,
+        panPerSecond: z.number().finite(),
+        tiltPerSecond: z.number().finite(),
+        zoomPerSecond: z.number().finite(),
+        intensity: z.number().finite(),
+      }),
+    )
+    .max(20_000),
+  cameraCounts: z.record(cameraKind, count),
+  strips: z
+    .array(
+      z.object({
+        ...frameRange,
+        id: z.string().regex(/^s-\d{3}$/),
+        kind: z.union([
+          transitionKind.exclude(['cut']),
+          z.literal('animation'),
+          cameraKind.exclude(['static']),
+        ]),
+        file,
+        fromFrame: count,
+        step: z.number().int().positive(),
+        shownFrames: z.number().int().positive(),
+        durationSeconds: seconds,
+      }),
+    )
+    .max(60),
+});
+export type MotionMeasurements = z.infer<typeof motionSchema>;
 
 export const measurementsSchema = z.object({
   version: z.literal(1),
@@ -79,6 +142,7 @@ export const measurementsSchema = z.object({
       method,
     })
     .nullable(),
+  motion: motionSchema.nullable(),
   /** What could not be measured, one plain sentence each. */
   problems: z.array(z.string().max(400)).max(20),
 });

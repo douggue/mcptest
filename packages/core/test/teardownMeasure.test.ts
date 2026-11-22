@@ -99,6 +99,7 @@ describe('measureVideo with stand-in programs', () => {
     const steps: string[] = [];
     const measured = await measureVideo('/a.mp4', join(root, 'silent'), {
       env,
+      stream: async () => 1,
       now: () => NOW,
       onStep: (text) => steps.push(text),
       run: async (program, args) => {
@@ -118,6 +119,7 @@ describe('measureVideo with stand-in programs', () => {
       'It has no sound track.',
       'No keyframe could be taken.',
       'The opening could not be put on a sheet.',
+      'Its frames could not be gone through one by one.',
     ]);
     expect(steps[0]).toBe('Reading its length, size and frame rate');
   });
@@ -130,6 +132,7 @@ describe('measureVideo with stand-in programs', () => {
     });
     const measured = await measureVideo('/a.mp4', join(root, 'loud'), {
       env,
+      stream: async () => 1,
       run: async (program, args) => {
         if (program.endsWith('ffprobe')) return result(0, probe);
         return args.includes('-an') && !args.includes('-ss') && !args.includes('-t')
@@ -242,6 +245,9 @@ describe('measureVideo with the real ffmpeg', async () => {
       ]);
       expect(m.hookSheet).toMatchObject({ file: 'hook.jpg', toSeconds: 12 });
       expect(m.problems).toEqual([]);
+      expect(m.motion?.transitionCounts).toMatchObject({ cut: 3, dissolve: 0, flash: 0 });
+      expect(m.motion?.cameraCounts.static).toBe(4);
+      expect(m.motion?.frames).toBe(300);
       const files = readdirSync(folder).sort();
       expect(files).toEqual(['hook.jpg', 'k-001.jpg', 'k-002.jpg', 'k-003.jpg', 'k-004.jpg']);
       const hook = readFileSync(join(folder, 'hook.jpg'));

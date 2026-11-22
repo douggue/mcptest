@@ -51,7 +51,7 @@ export function sentencesOf(lines: readonly TimedLine[]): readonly TimedSentence
     for (const piece of pieces) {
       if (piece === '') continue;
       const text: string = open === null ? piece : `${open.text} ${piece}`;
-      const at = open?.at ?? line.at;
+      const at: number = open?.at ?? line.at;
       if (/[.!?…]["”’)]?$/.test(piece)) {
         sentences.push({ at, text, words: wordsIn(text) });
         open = null;

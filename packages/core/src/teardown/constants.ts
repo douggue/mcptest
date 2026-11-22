@@ -36,7 +36,7 @@ export const HOOK_COLUMNS = 6;
 export const HOOK_ROWS = 6;
 /** One frame on a contact sheet: six across make a sheet 1440 pixels wide. */
 export const SHEET_TILE_WIDTH = 240;
-export const SHEET_TILE_HEIGHT = 135;
+export const SHEET_TILE_HEIGHT = 136;
 /** A chapter's sheet: this many frames, evenly spread across the chapter. */
 export const CHAPTER_COLUMNS = 5;
 export const CHAPTER_ROWS = 4;

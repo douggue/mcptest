@@ -35,6 +35,8 @@ import {
   type ProbedVideo,
 } from './parse';
 import { shotSpans, shotStats } from './shots';
+import { measureMotion } from './measureMotion';
+import type { StreamProgram } from './motionStream';
 
 /**
  * Measures one video file in code with ffprobe and ffmpeg: its length, size
@@ -49,6 +51,8 @@ export interface MeasureOptions {
   readonly platform?: NodeJS.Platform;
   /** Replaces starting the programs; used by tests. */
   readonly run?: RunProgram;
+  /** Replaces starting ffmpeg for the frame-by-frame pass; used by tests. */
+  readonly stream?: StreamProgram;
   readonly signal?: AbortSignal;
   readonly now?: () => Date;
   /** Says which measurement is under way. */
@@ -63,6 +67,7 @@ interface Tools {
   readonly ffmpeg: string;
   readonly ffprobe: string;
   readonly run: RunProgram;
+  readonly stream?: StreamProgram | undefined;
   readonly signal?: AbortSignal | undefined;
 }
 
@@ -203,6 +208,8 @@ async function measureWith(
   await mkdir(folder, { recursive: true });
   const keyframes = await cutKeyframes(tools, path, folder, planKeyframes(shots));
   const hookSheet = await cutHookSheet(tools, path, folder, video);
+  say('Going through every frame for transitions, animation and camera moves');
+  const motion = await measureMotion(tools, path, folder, video.fps, cuts, shots);
   const { loudness, quietDips, peaks, problems } = audio;
   return {
     ok: true,
@@ -225,10 +232,12 @@ async function measureWith(
       },
       keyframes: keyframes.map(({ frame }) => ({ ...frame, file: KEYFRAME_FILE(frame.id) })),
       hookSheet,
+      motion,
       problems: [
         ...problems,
         ...(keyframes.length === 0 ? ['No keyframe could be taken.'] : []),
         ...(hookSheet === null ? ['The opening could not be put on a sheet.'] : []),
+        ...(motion === null ? ['Its frames could not be gone through one by one.'] : []),
       ],
     },
   };
@@ -249,6 +258,7 @@ export async function measureVideo(
     ffmpeg,
     ffprobe,
     run: options.run ?? programRunner(MEASURE_TIMEOUT_MS),
+    stream: options.stream,
     signal: options.signal,
   };
   try {
