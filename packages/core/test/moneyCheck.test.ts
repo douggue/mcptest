@@ -84,7 +84,7 @@ describe('checkMoney', () => {
     expect(outcome.problems).toEqual([]);
     expect(outcome.verdicts.map((verdict) => [verdict.channelId, verdict.status])).toEqual([
       [LTT, 'monetized'],
-      [B3, 'not-yet'],
+      [B3, 'no-sign'],
     ]);
     expect(outcome.verdicts[0]?.checkedAt).toBe(NOW.toISOString());
     expect(setup.deps.money.find(LTT)?.videoId).toBe('newestLTT01');

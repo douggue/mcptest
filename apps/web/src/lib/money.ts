@@ -24,6 +24,7 @@ export const BADGE_TONE: Readonly<Record<MoneyStatus, string>> = {
   monetized: 'bg-primary-container/20 text-primary',
   likely: 'bg-secondary-container/30 text-secondary',
   'not-yet': 'bg-surface-container-high text-on-surface-variant',
+  'no-sign': 'bg-surface-container text-on-surface-variant',
   'not-checked': 'bg-surface-container text-outline',
 };
 

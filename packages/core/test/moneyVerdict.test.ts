@@ -39,13 +39,20 @@ describe('moneyVerdict', () => {
     expect(verdict.sign).toMatch(/not proof/);
   });
 
-  test('no sign is "not yet as far as public signs show", saying what was looked at', () => {
-    const unseen = moneyVerdict(channel, signs(false, 'unknown'));
-    expect(unseen.status).toBe('not-yet');
-    expect(unseen.says).toBe('Not monetized yet as far as public signs show');
-    expect(unseen.short).toBe('Not yet');
-    expect(unseen.sign).toMatch(/ads could not be seen/);
-    expect(moneyVerdict(channel, signs(false, 'none')).sign).toMatch(/no ads were shown/);
+  test('no Join button and no ads on a playable page is "not yet as far as public signs show"', () => {
+    const verdict = moneyVerdict(channel, signs(false, 'none'));
+    expect(verdict.status).toBe('not-yet');
+    expect(verdict.says).toBe('Not monetized yet as far as public signs show');
+    expect(verdict.short).toBe('Not yet');
+    expect(verdict.sign).toMatch(/no ads were shown/);
+  });
+
+  test('no Join button while ads could not be seen is no sign, never "not yet"', () => {
+    const verdict = moneyVerdict(channel, signs(false, 'unknown'));
+    expect(verdict.status).toBe('no-sign');
+    expect(verdict.says).toBe('No public sign found (ads could not be seen)');
+    expect(verdict.short).toBe('No sign');
+    expect(verdict.sign).toMatch(/ads could not be seen/);
   });
 
   test('never checked says so and rests on nothing', () => {

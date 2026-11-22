@@ -1594,9 +1594,10 @@ videos are listed with a badge on some channel pages, but the library the crawl 
 drops it.
 
 **Verdicts** (`moneyVerdict`): a Join button → "Monetized (sign: memberships)"; else
-ads shown → "Likely monetized (ads shown; not proof)"; else "Not monetized yet as far
-as public signs show", saying whether ads were seen or could not be; never checked →
-"Not checked". The bar: "1,000+ subscribers", "500 to 999 subscribers", "Under the
+ads shown → "Likely monetized (ads shown; not proof)"; else, on a playable page with no ads, "Not monetized yet as
+far as public signs show"; else, when ads could not be seen, "No public sign found
+(ads could not be seen)" (badge "No sign"), never "not yet", since such a channel
+may well be paid for ads; never checked → "Not checked". The bar: "1,000+ subscribers", "500 to 999 subscribers", "Under the
 500 bar", or "Subscriber count hidden".
 
 **When it is read.** Only on request: "Check monetization" on a channel's page, or
@@ -1618,7 +1619,7 @@ page per channel, a third to a half more requests on a map of hundreds of channe
 and each entry of `list_niches` carry `money` (`says`, `sign`, `at`, `bar`) from the
 store; the connector reads no page for it. **Page**: a badge on niche cards, Same
 topic cards, the radar inspector, competitor rows and the channel header ("$
-Monetized", "$? Likely", "Not yet", "Not checked") whose tooltip names the sign, the
+Monetized", "$? Likely", "Not yet", "No sign", "Not checked") whose tooltip names the sign, the
 day and the video read; a monetization filter on New niches, Same topic and Breaking
 out ("Only monetized" keeps a sign of memberships, not ads alone; channels never
 checked are left out of both filters, and the panel says how many).

@@ -62,10 +62,11 @@ describe('the filter', () => {
       verdict('A', 'monetized'),
       verdict('B', 'likely'),
       verdict('C', 'not-yet'),
+      verdict('F', 'no-sign'),
       verdict('D', 'not-checked'),
     ].map((v) => [v.channelId, v] as const),
   );
-  const items = ['A', 'B', 'C', 'D', 'E'].map(id);
+  const items = ['A', 'B', 'C', 'D', 'E', 'F'].map(id);
 
   test('"Only monetized" keeps a sign of memberships, not ads alone; "Not yet" keeps checked channels with none', () => {
     expect(filterByMoney(items, (x) => x, byId, 'any')).toEqual(items);

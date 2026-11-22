@@ -7,7 +7,7 @@
  */
 import type { AdsSeen } from './watchSigns';
 
-export type MoneyStatus = 'monetized' | 'likely' | 'not-yet' | 'not-checked';
+export type MoneyStatus = 'monetized' | 'likely' | 'not-yet' | 'no-sign' | 'not-checked';
 export type MoneyBarKey = 'over-1000' | 'over-500' | 'under-500' | 'hidden';
 
 /** What one check of a channel found, as stored. */
@@ -33,7 +33,7 @@ export interface MoneyVerdict {
   readonly status: MoneyStatus;
   /** The verdict in words, such as "Monetized (sign: memberships)". */
   readonly says: string;
-  /** The badge text: "$ Monetized", "$? Likely", "Not yet", "Not checked". */
+  /** The badge text: "$ Monetized", "$? Likely", "Not yet", "No sign", "Not checked". */
   readonly short: string;
   /** The sign the verdict rests on, in a sentence; null when never checked. */
   readonly sign: string | null;
@@ -103,6 +103,15 @@ function judge(signs: StoredMoneySigns | null): Judged {
       says: 'Likely monetized (ads shown; not proof)',
       short: '$? Likely',
       sign: SIGNS.ads,
+    };
+  }
+  if (signs.ads === 'unknown') {
+    // Without the ads, a channel without memberships may well be paid for ads: say no more than that.
+    return {
+      status: 'no-sign',
+      says: 'No public sign found (ads could not be seen)',
+      short: 'No sign',
+      sign: `${SIGNS.noJoin}${ADS_NOTE.unknown}`,
     };
   }
   return {
