@@ -44,13 +44,14 @@ const call = async (name: string, args: Record<string, unknown>): Promise<CallTo
   (await client.callTool({ name, arguments: args })) as CallToolResult;
 
 describe('the connector over the protocol', () => {
-  test('lists the twenty-nine tools, each with a description and an input schema', async () => {
+  test('lists the thirty tools, each with a description and an input schema', async () => {
     const { tools } = await client.listTools();
 
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       'get_breakdown_part',
       'get_breakouts',
       'get_channel_brand',
+      'get_channel_measurements',
       'get_channel_note',
       'get_channel_videos',
       'get_concept',

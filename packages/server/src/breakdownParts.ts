@@ -47,7 +47,7 @@ export interface BreakdownPartSpec {
 
 export const BREAKDOWN_PART_SPECS: Readonly<Record<BreakdownWrittenPart, BreakdownPartSpec>> = {
   titles: {
-    tools: ['get_channel_videos', 'get_video_details'],
+    tools: ['get_channel_videos', 'get_video_details', 'get_channel_measurements'],
     // Measured: 113 seconds, about 2 tool calls.
     maxTurns: 12,
     timeoutMs: 10 * MINUTE_MS,
@@ -56,7 +56,12 @@ export const BREAKDOWN_PART_SPECS: Readonly<Record<BreakdownWrittenPart, Breakdo
     question: titlesQuestion,
   },
   thumbnails: {
-    tools: ['get_channel_brand', 'get_channel_videos', 'view_thumbnails'],
+    tools: [
+      'get_channel_brand',
+      'get_channel_videos',
+      'view_thumbnails',
+      'get_channel_measurements',
+    ],
     // Measured: 43 seconds, about 4 tool calls.
     maxTurns: 16,
     timeoutMs: 6 * MINUTE_MS,
@@ -65,7 +70,12 @@ export const BREAKDOWN_PART_SPECS: Readonly<Record<BreakdownWrittenPart, Breakdo
     question: thumbnailsQuestion,
   },
   scripts: {
-    tools: ['get_transcript', 'get_transcript_pace', 'get_channel_videos'],
+    tools: [
+      'get_transcript',
+      'get_transcript_pace',
+      'get_channel_videos',
+      'get_channel_measurements',
+    ],
     // Measured: 111 seconds, about 13 tool calls.
     maxTurns: 40,
     timeoutMs: 12 * MINUTE_MS,
@@ -74,16 +84,23 @@ export const BREAKDOWN_PART_SPECS: Readonly<Record<BreakdownWrittenPart, Breakdo
     question: scriptsQuestion,
   },
   picture: {
-    tools: ['get_frame_study', 'get_video_watch', 'get_channel_videos'],
-    // Measured: 46 seconds, about 7 tool calls.
-    maxTurns: 20,
-    timeoutMs: 6 * MINUTE_MS,
-    pictures: false,
+    tools: [
+      'get_frame_study',
+      'get_video_watch',
+      'get_channel_videos',
+      'get_channel_measurements',
+      'view_teardown_images',
+    ],
+    // Measured: 46 seconds, about 7 tool calls, before the measured layer added up to 7 more.
+    maxTurns: 30,
+    timeoutMs: 10 * MINUTE_MS,
+    // It looks at the frame strips and keyframes measured in code.
+    pictures: true,
     builtOn: [],
     question: pictureQuestion,
   },
   strategy: {
-    tools: ['get_breakdown_part', 'get_channel_videos'],
+    tools: ['get_breakdown_part', 'get_channel_videos', 'get_channel_measurements'],
     // Measured: 57 seconds, about 6 tool calls.
     maxTurns: 20,
     timeoutMs: 6 * MINUTE_MS,
@@ -92,7 +109,13 @@ export const BREAKDOWN_PART_SPECS: Readonly<Record<BreakdownWrittenPart, Breakdo
     question: strategyQuestion,
   },
   plan: {
-    tools: ['get_breakdown_part', 'get_transcript_pace', 'get_frame_study', 'get_video_watch'],
+    tools: [
+      'get_breakdown_part',
+      'get_transcript_pace',
+      'get_frame_study',
+      'get_video_watch',
+      'get_channel_measurements',
+    ],
     // Measured: 66 seconds, about 15 tool calls.
     maxTurns: 40,
     timeoutMs: 8 * MINUTE_MS,
@@ -101,7 +124,7 @@ export const BREAKDOWN_PART_SPECS: Readonly<Record<BreakdownWrittenPart, Breakdo
     question: planQuestion,
   },
   master: {
-    tools: ['get_breakdown_part'],
+    tools: ['get_breakdown_part', 'get_channel_measurements'],
     // Measured: 61 seconds, about 5 tool calls.
     maxTurns: 16,
     timeoutMs: 6 * MINUTE_MS,

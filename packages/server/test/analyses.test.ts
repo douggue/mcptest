@@ -164,7 +164,15 @@ describe('the analyses on offer', () => {
       'one-video',
     ];
     expect(ANALYSIS_IDS.filter(looks)).toEqual(seeing);
-    expect(ANALYSIS_IDS.filter((id) => ANALYSES[id].pictures === true)).toEqual(seeing);
+    // The picture part looks at pictures measured in code, through the teardown picture tool.
+    expect(ANALYSIS_IDS.filter((id) => ANALYSES[id].pictures === true)).toEqual([
+      'thumbnails',
+      'breakdown-thumbnails',
+      'breakdown-picture',
+      'concept-thumbnail',
+      'thumbnail-tags',
+      'one-video',
+    ]);
     expect(PICTURE_ENGINES).toEqual(['claude', 'codex']);
   });
 
@@ -239,18 +247,23 @@ describe('the parts of a channel breakdown, as analyses', () => {
     const quick = analysisRequest('topics', CHANNEL_ID, settings);
 
     expect(scripts.allowedTools).toEqual(
-      ['get_transcript', 'get_transcript_pace', 'get_channel_videos'].map(
-        (name) => `mcp__jgtube__${name}`,
-      ),
+      [
+        'get_transcript',
+        'get_transcript_pace',
+        'get_channel_videos',
+        'get_channel_measurements',
+      ].map((name) => `mcp__jgtube__${name}`),
     );
     expect(scripts.mcpServers['jgtube']?.env).toMatchObject({
-      JGTUBE_TOOLS: 'get_transcript,get_transcript_pace,get_channel_videos',
+      JGTUBE_TOOLS:
+        'get_transcript,get_transcript_pace,get_channel_videos,get_channel_measurements',
     });
     expect(scripts.timeoutMs).toBeGreaterThanOrEqual(10 * 60 * 1000);
     expect(scripts.timeoutMs).toBeGreaterThan(quick.timeoutMs);
     expect(scripts.maxTurns).toBeGreaterThan(quick.maxTurns);
     expect(analysisRequest('breakdown-master', CHANNEL_ID, settings, focus).allowedTools).toEqual([
       'mcp__jgtube__get_breakdown_part',
+      'mcp__jgtube__get_channel_measurements',
     ]);
   });
 

@@ -13,6 +13,7 @@ import {
   type BreakdownTextFile,
   type DiscoveryResult,
   type FactsOutcome,
+  type MeasuredChannelFacts,
   type MapSnapshot,
   type NicheList,
   type SavedChannel,
@@ -233,6 +234,12 @@ export interface Engine
    * question about it. Rejects with an EngineRunError: 'not-installed' when no
    * engine on this computer can watch video.
    */
+  /**
+   * What code measured across one stored channel's top and ordinary videos:
+   * title patterns, thumbnail checklist counts, pace, words, loudness,
+   * colours, transitions and camera moves. Null for a channel not stored.
+   */
+  channelMeasurements(channel: string): MeasuredChannelFacts | null;
   watchVideo(videoId: string, question: string, options?: WatchOptions): Promise<VideoAnswer>;
   /**
    * Which AI engines are installed and signed in. Starts nothing that spends

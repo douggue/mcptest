@@ -115,6 +115,7 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     checkPictures: unused('checkPictures'),
     breakDown: unused('breakDown'),
     findBreakdown: unused('findBreakdown'),
+    channelMeasurements: unused('channelMeasurements'),
     breakdownText: unused('breakdownText'),
     ownVideosFolder: unused('ownVideosFolder'),
     saveThumbnails: unused('saveThumbnails'),

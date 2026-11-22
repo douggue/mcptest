@@ -59,11 +59,16 @@ export async function uploadPathIn(folder: string | null, videoId: string): Prom
 }
 
 /** The teardown pipeline on this engine's tools. */
-export function teardownDeps(setup: HubSetup, root: () => string | null): TeardownDeps {
+export function teardownDeps(
+  setup: Pick<HubSetup, 'asking' | 'files' | 'stop' | 'env' | 'teardowns'> & {
+    readonly now: () => Date;
+  },
+  root: () => string | null,
+): TeardownDeps {
   const { asking, files, stop } = setup;
   const ffmpeg = { ...(setup.env ? { env: setup.env } : {}), signal: stop };
   return {
-    now: setup.candidates.now,
+    now: setup.now,
     stop,
     repo: setup.teardowns,
     folder: (videoId) => {
@@ -95,7 +100,7 @@ export function breakdownHub(setup: HubSetup): BreakdownHub {
     const base = root();
     return base === null ? null : ownVideosFolder(base);
   };
-  const teardown = teardownDeps(setup, root);
+  const teardown = teardownDeps({ ...setup, now: setup.candidates.now }, root);
   const details = async (videoId: string): Promise<VideoAbout> => {
     const [found] = (await reading.readVideoDetails([videoId])).videos;
     return {

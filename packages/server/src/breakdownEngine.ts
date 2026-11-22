@@ -24,13 +24,15 @@ import {
   type FrameSheetCut,
   type StoredVideo,
   type StudiedFrames,
+  type TimedLine,
   type TranscriptResult,
   type VideoStudyRepo,
 } from '@jgtube/core';
+import type { MeasureOutcome } from './channelMeasure';
 import type { Engine } from './app';
 import { basisText } from './breakdownBasis';
 import type { BreakdownStore } from './breakdownStore';
-import { reasonOf, stopIfClosing, studyDeep, teller } from './breakdownStudies';
+import { measureContrast, reasonOf, stopIfClosing, studyDeep, teller } from './breakdownStudies';
 import type {
   BreakdownChoices,
   BreakdownOutcome,
@@ -84,6 +86,16 @@ export interface BreakdownDeps {
   studyFrames(videoId: string, only?: EngineId): Promise<EngineAnswer<EngineId>>;
   /** Has an engine write one part of the breakdown, for the videos chosen in code. */
   readonly write: WritingDeps['write'];
+  /** Measures a video file in code into the teardown store; absent, nothing is measured. */
+  readonly measure?: (
+    videoId: string,
+    path: string,
+    fresh: boolean,
+    captions: readonly TimedLine[] | null,
+    onStep: (text: string) => void,
+  ) => Promise<MeasureOutcome>;
+  /** Whether a video's measurements are kept. */
+  readonly isMeasured?: (videoId: string) => boolean;
 }
 
 const NO_VIDEOS =
@@ -200,10 +212,11 @@ export async function breakDown(
   const tell = teller(report);
   tell.say('reading', 'Reading the channel and its top videos');
   const stored = await deps.readChannel(channel);
-  const picks = pickBreakdownVideos(deps.listVideos(stored.id), deps.now());
+  const picks = pickBreakdownVideos(deps.listVideos(stored.id), deps.now(), choices.videos);
   if (picks.top.length === 0) throw new Error(NO_VIDEOS);
   const top = await readCaptions(deps, picks.top);
   const deep = await studyDeep(deps, picks, choices, tell);
+  await measureContrast(deps, picks, choices, tell);
   stopIfClosing(deps);
   const parts = await writeAll(deps, { channel: stored, picks, top, deep }, choices, (text) =>
     tell.say('writing', text),

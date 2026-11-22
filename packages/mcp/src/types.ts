@@ -43,6 +43,7 @@ type EngineParts = Pick<
   | 'findChannelNote'
   | 'findResearch'
   | 'hub'
+  | 'channelMeasurements'
 >;
 
 /** What the connector needs from the engine, so tests can stand in for it. */

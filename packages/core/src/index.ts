@@ -407,6 +407,8 @@ export {
 } from './video/studyNumbers';
 export {
   BREAKDOWN_DEEP_VIDEOS,
+  BREAKDOWN_MAX_DEEP_VIDEOS,
+  BREAKDOWN_CONTRAST_VIDEOS,
   BREAKDOWN_ORDINARY_VIDEOS,
   BREAKDOWN_TITLES,
   BREAKDOWN_TOP_VIDEOS,
@@ -698,3 +700,16 @@ export {
   type TeardownPart,
   type TeardownRepo,
 } from './repos/sqliteTeardownRepo';
+export {
+  channelFacts,
+  type ChannelFacts as MeasuredChannelFacts,
+  type ChannelFactsInput,
+  type ChannelVideoInput,
+  type VideoRole,
+} from './teardown/channelFacts';
+export {
+  titleFacts,
+  TITLE_PATTERNS,
+  type TitleFacts,
+  type PatternCount,
+} from './teardown/titlePatterns';

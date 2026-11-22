@@ -107,10 +107,12 @@ describe('the parts of a breakdown, as questions', () => {
     }
   });
 
-  test('only the part that looks at pictures needs an engine that sees them', () => {
+  test('only the parts that look at pictures need an engine that sees them', () => {
     expect(BREAKDOWN_WRITTEN_PARTS.filter((part) => BREAKDOWN_PART_SPECS[part].pictures)).toEqual([
       'thumbnails',
+      'picture',
     ]);
+    expect(has('picture', 'view_teardown_images')).toBe(true);
     expect(has('thumbnails', 'view_thumbnails')).toBe(true);
   });
 });

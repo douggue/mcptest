@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { getVideoTeardown, viewTeardownImages } from '../src/teardownTools';
+import { getChannelMeasurements, getVideoTeardown, viewTeardownImages } from '../src/teardownTools';
 import { FakeEngine } from './fakes';
 
 const VIDEO = 'dQw4w9WgXcQ';
@@ -31,5 +31,17 @@ describe('the teardown tools', () => {
     expect(
       (await viewTeardownImages(engine, { video: VIDEO, names: ['../etc.jpg'] })).isError,
     ).toBe(true);
+  });
+
+  test('get_channel_measurements hands back what code measured across a channel, under its note', () => {
+    const engine = new FakeEngine();
+    const found = getChannelMeasurements(engine, { channel: '@maps' });
+    const text = String((found.content[0] as { text?: string } | undefined)?.text);
+    expect(JSON.parse(text)).toMatchObject({
+      basis: { winners: 3 },
+      note: expect.stringMatching(/measured and counted in code/),
+    });
+    expect(getChannelMeasurements(engine, { channel: '@nobody' }).isError).toBe(true);
+    expect(getChannelMeasurements(engine, { channel: '' }).isError).toBe(true);
   });
 });

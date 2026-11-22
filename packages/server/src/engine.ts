@@ -19,6 +19,7 @@ import {
   SqliteVideoPageRepo,
   SqliteVideoBreakdownRepo,
   SqliteTeardownRepo,
+  SqliteThumbReviewRepo,
   SqliteVideoRepo,
   SqliteVideoStudyRepo,
   SqliteWatchlistRepo,
@@ -72,7 +73,7 @@ import {
   type PlayerSource,
 } from './connection';
 import { downloads } from './downloadEngine';
-import { breakdownHub } from './breakdownHub';
+import { breakdownHub, teardownDeps } from './breakdownHub';
 import { extras } from './extrasSetup';
 import { cleanMessage } from './jobs';
 import { lab } from './labSetup';
@@ -455,6 +456,17 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     fetchVideoDetails: options.fetchVideoDetails,
   });
   const files = breakdownFiles({ root, fetch: copies.fetch, stop, ...env });
+  const teardown = teardownDeps(
+    { asking, files, stop, teardowns: wiring.repos.teardowns, now: wiring.now, ...env },
+    () => {
+      try {
+        return downloadsRoot(config);
+      } catch {
+        return null;
+      }
+    },
+  );
+  const thumbTags = new SqliteThumbReviewRepo(wiring.db);
   const transferring = transfers({ ...wiring, factsFetcher: () => factsFetcher(wiring) });
   const labbing = lab({
     now: wiring.now,
@@ -501,6 +513,18 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       reading,
       files,
       stop,
+      teardown,
+      facts: {
+        thumbnailTags: (ids) =>
+          thumbTags.tagsFor(ids) as ReadonlyMap<string, Readonly<Record<string, unknown>>>,
+        storedCaptions: (videoId) =>
+          wiring.repos.pages
+            .find(videoId)
+            ?.transcript?.segments.map((segment) => ({
+              at: segment.startMs / 1000,
+              text: segment.text,
+            })) ?? null,
+      },
     }),
     ...labbing,
     extras: extras({ ...wiring, analyse: asking.analyse }),
