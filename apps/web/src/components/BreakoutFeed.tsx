@@ -12,6 +12,8 @@ import { Notice, ShowMore } from './layout/Notice';
 import { Segmented } from './layout/Segmented';
 import { ViewHeader } from './layout/ViewHeader';
 import { CAUTION_LABEL } from './tiers';
+import { MoneyFilter } from './MoneyFilter';
+import { useMoneyFiltered } from './useMoney';
 
 const PAGE_SIZE = 12;
 
@@ -130,7 +132,11 @@ interface Props {
 export function BreakoutFeed({ items, centerTitle, pickedIds, onPick, onBreakDown }: Props) {
   const [filter, setFilter] = useState<BreakoutFilter>('all');
   const [shown, setShown] = useState(PAGE_SIZE);
-  const matching = filterBreakouts(items, filter);
+  const matching = useMoneyFiltered(
+    'breakouts',
+    filterBreakouts(items, filter),
+    (item) => item.channelId,
+  );
   const choose = (next: BreakoutFilter) => {
     setFilter(next);
     setShown(PAGE_SIZE);
@@ -152,6 +158,10 @@ export function BreakoutFeed({ items, centerTitle, pickedIds, onPick, onBreakDow
           onChange={choose}
         />
       </div>
+      <MoneyFilter
+        view="breakouts"
+        channelIds={[...new Set(items.map((item) => item.channelId))]}
+      />
       {matching.length === 0 ? (
         <Notice>
           {items.length === 0

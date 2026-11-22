@@ -6,6 +6,7 @@ import type { ChangesView, SinceKind } from '@jgtube/core';
 import type { AlertsEngine } from './alertsTypes';
 import type { CalendarEngine } from './calendarTypes';
 import type { CommentsEngine } from './commentsTypes';
+import type { MoneyEngine } from './moneyTypes';
 import type { PacingEngine } from './pacingTypes';
 import type { ProfileEngine } from './profileTypes';
 import type { RiskEngine } from './riskTypes';
@@ -37,4 +38,5 @@ export type ExtrasEngine = ChangesEngine &
   CommentsEngine &
   RiskEngine &
   ProfileEngine &
-  ThumbReviewEngine;
+  ThumbReviewEngine &
+  MoneyEngine;

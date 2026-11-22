@@ -611,3 +611,27 @@ export {
   type ProfileDeps,
   type ProfileVideo,
 } from './channel/profile';
+export {
+  MAX_CHECK_CHANNELS,
+  checkMoney,
+  loadMoneyVerdicts,
+  type MoneyCheckOptions,
+  type MoneyCheckOutcome,
+  type MoneyDeps,
+  type MoneyProblem,
+} from './money/check';
+export {
+  FULL_BAR,
+  LOWER_BAR,
+  moneyBar,
+  moneyVerdict,
+  type MoneyBar,
+  type MoneyBarKey,
+  type MoneyStatus,
+  type MoneyVerdict,
+  type StoredMoneySigns,
+} from './money/verdict';
+export { readWatchSigns, type AdsSeen, type WatchSigns } from './money/watchSigns';
+export { SqliteMoneyRepo } from './repos/sqliteMoneyRepo';
+export type { MoneyRepo } from './repos/types';
+export type { WatchPageSource } from './sources/types';

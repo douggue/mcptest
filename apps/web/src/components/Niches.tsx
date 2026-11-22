@@ -14,6 +14,8 @@ import { SplitView, ViewPage } from './layout/SplitView';
 import { ViewHeader } from './layout/ViewHeader';
 import { NicheCard } from './NicheCard';
 import { NicheSearch } from './NicheSearch';
+import { MONEY_EMPTY, MoneyFilter } from './MoneyFilter';
+import { useMoneyFiltered } from './useMoney';
 import type { Niches as NichesData } from './useNiches';
 
 const PAGE_SIZE = 6;
@@ -31,8 +33,11 @@ interface CardsProps {
 /** The matching channels, in one column, a few at a time. */
 function Cards({ list, filter, onSetWatched, onBreakDown }: CardsProps) {
   const [shown, setShown] = useState(PAGE_SIZE);
-  const matching = filterNiches(list.channels, filter);
-  if (matching.length === 0) return <Notice>{emptyNiches(list, filter)}</Notice>;
+  const shownByKind = filterNiches(list.channels, filter);
+  const matching = useMoneyFiltered('niches', shownByKind, (channel) => channel.id);
+  if (matching.length === 0) {
+    return <Notice>{shownByKind.length > 0 ? MONEY_EMPTY : emptyNiches(list, filter)}</Notice>;
+  }
   return (
     <>
       <ul className="flex flex-col gap-space-md">
@@ -70,6 +75,9 @@ function Side({ niches, list, filter }: SideProps) {
   const { state, search, discover } = niches;
   return (
     <>
+      {list && (
+        <MoneyFilter view="niches" channelIds={list.channels.map((channel) => channel.id)} />
+      )}
       {state.status === 'ready' && (
         <NicheSearch canDiscover={state.canDiscover} search={search} onSearch={discover} />
       )}

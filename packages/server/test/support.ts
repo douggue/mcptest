@@ -65,6 +65,8 @@ export const UNUSED_EXTRAS: ExtrasEngine = {
   findThumbnailReview: unused('findThumbnailReview'),
   askThumbnailReview: unused('askThumbnailReview'),
   thumbnailComparison: unused('thumbnailComparison'),
+  findMoney: unused('findMoney'),
+  checkMoney: unused('checkMoney'),
 };
 
 /** The Breakdown view's part of an engine, failing loudly when a test reaches it. */

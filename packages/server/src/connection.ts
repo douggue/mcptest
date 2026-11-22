@@ -3,6 +3,7 @@ import {
   RateLimiter,
   type Config,
   type VideoPlayerSource,
+  type WatchPageSource,
   type YouTubeSource,
 } from '@jgtube/core';
 
@@ -11,9 +12,13 @@ import {
  * files, which the built-in video download works from. The real connection
  * can; a stand-in in a test need not.
  */
-export type PlayerSource = YouTubeSource & Partial<VideoPlayerSource>;
+export type PlayerSource = YouTubeSource & Partial<VideoPlayerSource & WatchPageSource>;
+
+/** The connection on first use, with every optional part it may lack refusing when asked. */
+export type LazySource = YouTubeSource & VideoPlayerSource & WatchPageSource;
 
 const NO_PLAYER = 'This connection to YouTube cannot fetch a video file';
+const NO_WATCH_PAGE = 'This connection to YouTube cannot read a watch page';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -61,8 +66,16 @@ export function stopWhen(source: PlayerSource, isStopped: () => boolean): Player
   const check = (): void => {
     if (isStopped()) throw new Error(NOT_READING);
   };
-  const { fetchPlayer } = source;
+  const { fetchPlayer, fetchWatchHtml } = source;
   return {
+    ...(fetchWatchHtml === undefined
+      ? {}
+      : {
+          fetchWatchHtml: async (videoId: string) => {
+            check();
+            return fetchWatchHtml.call(source, videoId);
+          },
+        }),
     ...(fetchPlayer === undefined
       ? {}
       : {
@@ -94,10 +107,13 @@ export function stopWhen(source: PlayerSource, isStopped: () => boolean): Player
  * A source that connects on first use. Work that finds nothing to read then
  * makes no request at all, which matters to a timer that fires every few hours.
  */
-export function connectOnUse(
-  connect: () => Promise<PlayerSource>,
-): YouTubeSource & VideoPlayerSource {
+export function connectOnUse(connect: () => Promise<PlayerSource>): LazySource {
   return {
+    fetchWatchHtml: async (videoId) => {
+      const source = await connect();
+      if (source.fetchWatchHtml === undefined) throw new Error(NO_WATCH_PAGE);
+      return source.fetchWatchHtml(videoId);
+    },
     fetchPlayer: async (videoId) => {
       const source = await connect();
       if (source.fetchPlayer === undefined) throw new Error(NO_PLAYER);

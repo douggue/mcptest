@@ -2,6 +2,7 @@ import { outlierPicks } from '../lib/ideaLab';
 import type { ChannelProfile } from '@jgtube/core';
 import { channelActions, type ChannelAction } from '../lib/channelView';
 import { ChannelCompetitors } from './ChannelCompetitors';
+import { ChannelMoney } from './ChannelMoney';
 import { ChannelSummary } from './ChannelSummary';
 import { ChannelVideos } from './ChannelVideos';
 import { Inspector } from './Inspector';
@@ -112,6 +113,7 @@ function Profile(props: ActionsProps) {
   return (
     <div className="flex min-w-0 flex-col gap-space-lg">
       <ChannelSummary profile={profile} withBack={page.snapshot?.center.id !== profile.id} />
+      <ChannelMoney channelId={profile.id} />
       <Actions {...props} />
       <div
         className={`grid min-w-0 grid-cols-1 items-start gap-space-xl ${beside ? 'xl:grid-cols-[minmax(0,1fr)_380px]' : ''}`}

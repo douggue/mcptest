@@ -6,6 +6,7 @@ import {
   SqliteAlertRepo,
   SqliteCommentRepo,
   SqliteLookRepo,
+  SqliteMoneyRepo,
   SqliteRiskRepo,
   SqliteScheduleRepo,
   SqliteThumbReviewRepo,
@@ -19,6 +20,7 @@ import {
   type ConceptRepo,
   type Db,
   type ScriptRepo,
+  type WatchPageSource,
   type YouTubeSource,
 } from '@jgtube/core';
 import { alertsEngine } from './alertsEngine';
@@ -27,6 +29,7 @@ import { calendarEngine } from './calendarEngine';
 import { commentsEngine } from './commentsEngine';
 import { changesEngine } from './changesEngine';
 import type { ExtrasEngine } from './extrasTypes';
+import { moneyEngine } from './moneyEngine';
 import { pacingEngine } from './pacingEngine';
 import { planEngine } from './planEngine';
 import { profileEngine } from './profileEngine';
@@ -43,7 +46,7 @@ export interface ExtrasDeps {
     readonly brands?: BrandRepo;
   };
   /** YouTube, connected on first use. */
-  readonly lazySource: YouTubeSource;
+  readonly lazySource: YouTubeSource & WatchPageSource;
   /** Runs work that reads YouTube under the store's lease. */
   readonly reading: <T>(work: () => Promise<T>) => Promise<T>;
   /** The settings as they are now: the YouTube API key is read from here at each use. */
@@ -66,6 +69,7 @@ export function extras(deps: ExtrasDeps): ExtrasEngine {
     comments: new SqliteCommentRepo(db),
     risks: new SqliteRiskRepo(db),
     thumbReviews: new SqliteThumbReviewRepo(db),
+    money: new SqliteMoneyRepo(db),
   };
   const readChannel = (channelId: string): Promise<void> =>
     reading(async () => {
@@ -82,5 +86,6 @@ export function extras(deps: ExtrasDeps): ExtrasEngine {
     ...riskEngine({ now, repos: all, analyse }),
     ...profileEngine({ now, repos: all }),
     ...thumbReviewEngine({ now, repos: all, analyse }),
+    ...moneyEngine({ now, repos: all, source: lazySource, reading }),
   };
 }

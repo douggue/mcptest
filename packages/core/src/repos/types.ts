@@ -1,4 +1,5 @@
 import type { BreakdownPartId } from '../breakdown/parts';
+import type { StoredMoneySigns } from '../money/verdict';
 import type {
   ChannelBrand,
   ChannelInfo,
@@ -430,4 +431,14 @@ export interface BrandRepo {
   find(channelId: string): StoredBrand | null;
   /** Does nothing for a channel that is not in the store. */
   save(channelId: string, brand: ChannelBrand, fetchedAt: Date): void;
+}
+
+/** The public signs of each channel's earning, one row per channel; a new check replaces it. */
+export interface MoneyRepo {
+  /** Null when the channel was never checked. */
+  find(channelId: string): StoredMoneySigns | null;
+  /** The signs of those of the channels that were checked, by channel id. */
+  findMany(channelIds: readonly string[]): ReadonlyMap<string, StoredMoneySigns>;
+  /** Replaces what was stored for the channel. Throws for a bad channel or video id. */
+  save(signs: StoredMoneySigns): void;
 }

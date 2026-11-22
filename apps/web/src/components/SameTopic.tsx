@@ -7,7 +7,9 @@ import { Notice, ShowMore } from './layout/Notice';
 import { SplitView, ViewPage } from './layout/SplitView';
 import { StatTile } from './layout/StatTile';
 import { ViewHeader } from './layout/ViewHeader';
+import { MONEY_EMPTY, MoneyFilter } from './MoneyFilter';
 import { SameTopicCard } from './SameTopicCard';
+import { useMoneyFiltered } from './useMoney';
 import type { SameTopicState } from './useSameTopic';
 
 type Choose = (channelId: string, status: CompetitorStatus) => void;
@@ -54,6 +56,7 @@ function Side({ list, busy, onChoose, centerTitle }: ListProps & { readonly cent
         <StatTile label="To look at" value={list.channels.length} note="left out for wording" />
         <StatTile label="Kept" value={list.kept.length} note="as competitors" />
       </dl>
+      <MoneyFilter view="same-topic" channelIds={list.channels.map((channel) => channel.id)} />
       <Kept list={list} busy={busy} onChoose={onChoose} />
       <Details summary="How this works">
         <p className="text-body-sm text-on-surface-variant">
@@ -68,11 +71,13 @@ function Side({ list, busy, onChoose, centerTitle }: ListProps & { readonly cent
 /** The undecided channels, in one column, a few at a time. */
 function Cards({ list, busy, onChoose }: ListProps) {
   const [shown, setShown] = useState(SAME_TOPIC_PAGE_SIZE);
-  const hidden = list.channels.length - shown;
+  const channels = useMoneyFiltered('same-topic', list.channels, (channel) => channel.id);
+  const hidden = channels.length - shown;
+  if (channels.length === 0) return <Notice>{MONEY_EMPTY}</Notice>;
   return (
     <>
       <ol className="flex flex-col gap-space-md">
-        {list.channels.slice(0, shown).map((channel, index) => (
+        {channels.slice(0, shown).map((channel, index) => (
           <li key={channel.id}>
             <SameTopicCard
               number={index + 1}

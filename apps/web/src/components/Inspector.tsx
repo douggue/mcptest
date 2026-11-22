@@ -6,6 +6,7 @@ import { channelUrl, formatCount, formatScore, percent, watchUrl } from '../lib/
 import { ChannelLogo } from './ChannelLogo';
 import { GROUP_LABEL, describeGroup } from '../lib/mix';
 import { OUTSIDE_LABEL, TIER_LABEL } from './tiers';
+import { MoneyBadge } from './MoneyBadge';
 
 interface Props {
   readonly channel: SnapshotChannel;
@@ -72,6 +73,9 @@ export function Inspector(props: Props) {
                 ? ` · ${GROUP_LABEL[channel.group]}`
                 : ''}
               {channel.kept ? ' · Kept by you' : ''}
+            </span>
+            <span className="mt-1 flex">
+              <MoneyBadge channelId={channel.id} />
             </span>
           </div>
         </div>

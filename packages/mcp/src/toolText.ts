@@ -3,6 +3,8 @@
  * chooses between them. The keys used in the answers are explained here once,
  * so the answers themselves can stay short.
  */
+import { MONEY_TEXT } from './moneyFacts';
+
 export const TOOL_TEXT = {
   get_map: {
     title: 'Competitor map',
@@ -96,7 +98,8 @@ export const TOOL_TEXT = {
       'small: at or under smallMaxSubs), hits (strong videos out of scored ones), top (its videos that took off) ' +
       'and titles. watched marks channels the owner chose to follow; qualifies false marks a watched one that no ' +
       'longer meets the rule. ' +
-      'Reads the local store only.',
+      'Reads the local store only. ' +
+      MONEY_TEXT,
   },
   list_transfer_opportunities: {
     title: 'Niche transfer opportunities',
@@ -152,7 +155,8 @@ export const TOOL_TEXT = {
       'How one channel presents itself: bio (its description), keywords and links as text, then its logo and ' +
       'its cover (the banner across the top of its page) as pictures to look at. logo and cover give the size ' +
       'of each picture, or false when the channel has none. Works for any channel; one whose branding is not ' +
-      'stored yet is read from YouTube once and kept. Pass images false for the text alone.',
+      'stored yet is read from YouTube once and kept. Pass images false for the text alone. ' +
+      MONEY_TEXT,
   },
   get_video_details: {
     title: 'Video descriptions and tags',
