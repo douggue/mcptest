@@ -518,12 +518,10 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
         thumbnailTags: (ids) =>
           thumbTags.tagsFor(ids) as ReadonlyMap<string, Readonly<Record<string, unknown>>>,
         storedCaptions: (videoId) =>
-          wiring.repos.pages
-            .find(videoId)
-            ?.transcript?.segments.map((segment) => ({
-              at: segment.startMs / 1000,
-              text: segment.text,
-            })) ?? null,
+          wiring.repos.pages.find(videoId)?.transcript?.segments.map((segment) => ({
+            at: segment.startMs / 1000,
+            text: segment.text,
+          })) ?? null,
       },
     }),
     ...labbing,

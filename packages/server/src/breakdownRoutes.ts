@@ -1,4 +1,5 @@
 import {
+  BREAKDOWN_MAX_DEEP_VIDEOS,
   BREAKDOWN_FILES,
   BREAKDOWN_FILE_IDS,
   MAX_OWN_VIDEO_BYTES,
@@ -42,6 +43,8 @@ const breakdownRequest = z.object({
   engine: z.enum(ENGINE_IDS).optional(),
   // Make the watch notes and frame studies again instead of reusing stored ones.
   fresh: z.boolean().optional(),
+  // How many top videos to study in depth.
+  videos: z.number().int().min(1).max(BREAKDOWN_MAX_DEEP_VIDEOS).optional(),
 });
 
 function isChannel(text: string): boolean {
@@ -75,11 +78,11 @@ export async function startBreakdown(
   if (tracker.running) {
     return fail(409, 'A breakdown or an analysis is already running. Wait for it to finish.');
   }
-  const { channel, engine: only, fresh } = parsed.data;
+  const { channel, engine: only, fresh, videos } = parsed.data;
   tracker.running = true;
   const job = jobs.start(
     (report) =>
-      options.engine.breakDown(channel, report, { only, fresh }).finally(() => {
+      options.engine.breakDown(channel, report, { only, fresh, videos }).finally(() => {
         tracker.running = false;
       }),
     channelLabel(options.engine, 'breakdown', 'Breaking down', channel),

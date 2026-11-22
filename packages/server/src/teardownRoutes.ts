@@ -4,12 +4,42 @@
  * Every path part is checked against a fixed pattern before it is used; the
  * pictures come from the local store, so the page's `img-src 'self'` holds.
  */
+import {
+  BREAKDOWN_CONTRAST_VIDEOS,
+  BREAKDOWN_DEEP_VIDEOS,
+  BREAKDOWN_MAX_DEEP_VIDEOS,
+} from '@jgtube/core';
 import type { AppOptions } from './app';
 import { fail, ok } from './http';
 
 export const TEARDOWN_PATH =
   /^\/api\/video-teardowns\/([\w-]{11})\/(teardown\.md|export\.zip|images\/([\w.-]{1,40}))$/;
 export const TEARDOWN_RUNS_PATH = '/api/video-teardowns/runs';
+export const CHANNEL_RUNS_PATH = '/api/breakdowns/runs';
+
+/** The parts of a channel breakdown, one AI run each. */
+const CHANNEL_PARTS = 7;
+
+/** What a channel breakdown of `videos` deep videos takes, worked out in code before it starts. */
+export function channelRuns(videos: number, watch: boolean) {
+  const perVideo = 1 + (watch ? 1 : 0);
+  return {
+    videos,
+    contrast: BREAKDOWN_CONTRAST_VIDEOS,
+    measuredInCode: videos + BREAKDOWN_CONTRAST_VIDEOS,
+    aiRuns: videos * perVideo + CHANNEL_PARTS,
+    watch,
+  };
+}
+
+async function channelRunsAnswer(options: AppOptions, url: URL): Promise<Response> {
+  const videos = Number(url.searchParams.get('videos') ?? BREAKDOWN_DEEP_VIDEOS);
+  if (!Number.isInteger(videos) || videos < 1 || videos > BREAKDOWN_MAX_DEEP_VIDEOS) {
+    return fail(400, `Choose 1 to ${BREAKDOWN_MAX_DEEP_VIDEOS} videos.`);
+  }
+  const { watch } = await options.engine.hub.teardownRuns(null, true);
+  return ok(channelRuns(videos, watch));
+}
 
 const VIDEO_ID = /^[\w-]{11}$/;
 
@@ -70,6 +100,9 @@ export function teardownRoutes(
   request: Request,
   url: URL,
 ): Promise<Response> | Response | null {
+  if (url.pathname === CHANNEL_RUNS_PATH) {
+    return request.method === 'GET' ? channelRunsAnswer(options, url) : fail(405, 'Use GET');
+  }
   const isRuns = url.pathname === TEARDOWN_RUNS_PATH;
   const match = TEARDOWN_PATH.exec(url.pathname);
   if (!isRuns && match === null) return null;

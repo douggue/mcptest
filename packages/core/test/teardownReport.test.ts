@@ -14,7 +14,7 @@ import {
   teardownImages,
 } from '../src/teardown/folder';
 import { teardownMarkdown } from '../src/teardown/markdown';
-import type { TeardownMeasurements } from '../src/teardown/measurements';
+import { MEASURED } from './teardownFixture';
 import { buildTeardownReport, type TeardownInput } from '../src/teardown/report';
 import { checkStage, liftJson, secondsOf } from '../src/teardown/stages';
 import { zipFiles } from '../src/teardown/zip';
@@ -28,103 +28,6 @@ beforeAll(() => {
 afterAll(() => {
   rmSync(root, { recursive: true, force: true });
 });
-
-export const MEASURED: TeardownMeasurements = {
-  version: 1,
-  measuredAt: '2026-11-22T10:00:00.000Z',
-  video: {
-    durationSeconds: 120,
-    width: 1920,
-    height: 1080,
-    fps: 30,
-    hasAudio: true,
-    method: 'ffprobe',
-  },
-  shots: {
-    threshold: 0.3,
-    cuts: [10, 20, 30, 70, 100],
-    cutCount: 5,
-    shotCount: 6,
-    medianSeconds: 15,
-    averageSeconds: 20,
-    cutsPerMinute: 2.5,
-    method: 'scene',
-  },
-  loudness: { integratedLufs: -16, lraLu: 4, truePeakDbfs: -1, method: 'ebur128' },
-  quietDips: {
-    thresholdDb: -32,
-    minSeconds: 0.4,
-    items: [{ start: 4, end: 5 }],
-    method: 'silencedetect',
-  },
-  peaks: { thresholdDb: -12, windowSeconds: 0.5, items: [{ at: 8, peakDb: -3 }], method: 'astats' },
-  palette: {
-    items: [
-      { hex: '#0A0B0E', share: 0.7 },
-      { hex: '#E63946', share: 0.2 },
-    ],
-    method: 'k-means',
-  },
-  keyframes: [{ id: 'k-001', at: 5, shot: 0, covers: 10, file: 'k-001.jpg' }],
-  hookSheet: {
-    file: 'hook.jpg',
-    fromSeconds: 0,
-    toSeconds: 36,
-    columns: 6,
-    rows: 6,
-    method: 'hook sheet',
-  },
-  motion: {
-    method: 'every frame',
-    fps: 30,
-    frames: 3600,
-    transitions: [
-      { kind: 'dissolve', start: 70, end: 71, startFrame: 2100, endFrame: 2129, frames: 30 },
-    ],
-    transitionCounts: { cut: 5, dissolve: 1, 'fade-black': 0, 'fade-white': 0, flash: 0, whip: 0 },
-    holds: { count: 1, totalSeconds: 2 },
-    animations: [{ start: 12, end: 12.5, startFrame: 360, endFrame: 374, frames: 15, change: 3 }],
-    shots: [
-      {
-        shot: 0,
-        start: 0,
-        end: 10,
-        camera: 'push-in',
-        panPerSecond: 0,
-        tiltPerSecond: 0,
-        zoomPerSecond: 2,
-        intensity: 1.5,
-      },
-    ],
-    cameraCounts: {
-      static: 5,
-      'push-in': 1,
-      'pull-out': 0,
-      'pan-left': 0,
-      'pan-right': 0,
-      'tilt-up': 0,
-      'tilt-down': 0,
-      shake: 0,
-    },
-    strips: [
-      {
-        id: 's-001',
-        kind: 'animation',
-        file: 's-001.jpg',
-        start: 12,
-        end: 12.5,
-        startFrame: 360,
-        endFrame: 374,
-        frames: 15,
-        fromFrame: 360,
-        step: 2,
-        shownFrames: 10,
-        durationSeconds: 0.5,
-      },
-    ],
-  },
-  problems: [],
-};
 
 const stage = (data: unknown) => ({ engine: 'claude', json: JSON.stringify(data) });
 

@@ -707,3 +707,50 @@ describe('the seven parts of a breakdown', () => {
     expect(outcome.parts.every((part) => part.outcome === 'written')).toBe(true);
   });
 });
+
+describe('the measured layer of a breakdown', () => {
+  const measuring = (kept: ReadonlySet<string> = new Set()) => {
+    const measured: string[] = [];
+    const deps: BreakdownDeps = {
+      ...world({ ffmpeg: true, fetch: (videoId) => ({ ok: true, path: `/temp/${videoId}.mp4` }) }),
+      isMeasured: (videoId) => kept.has(videoId) || measured.includes(videoId),
+      measure: async (videoId, path, fresh, captions, onStep) => {
+        onStep('Finding every cut');
+        log.push(
+          `measure ${videoId} from ${path}${fresh ? ' fresh' : ''} captions ${captions?.length ?? 'none'}`,
+        );
+        if (videoId === vid(2)) return { state: 'failed', reason: 'ffmpeg ended with an error' };
+        measured.push(videoId);
+        return { state: 'made' };
+      },
+    };
+    return deps;
+  };
+
+  test('measures each deep video from the file in hand, then ordinary ones for contrast, with no AI', async () => {
+    const outcome = await run(measuring(), { videos: 2 });
+
+    expect(outcome.deep).toHaveLength(2);
+    expect(outcome.deep[0]?.measured).toEqual({ state: 'made' });
+    expect(outcome.deep[1]?.measured).toEqual({
+      state: 'failed',
+      reason: 'ffmpeg ended with an error',
+    });
+    const measuredLines = log.filter((line) => line.startsWith('measure'));
+    expect(measuredLines.slice(0, 2)).toEqual([
+      `measure ${vid(1)} from /temp/${vid(1)}.mp4 captions 2`,
+      `measure ${vid(2)} from /temp/${vid(2)}.mp4 captions 2`,
+    ]);
+    expect(
+      steps.some((step) => step.text.includes('measuring every frame and its sound in code')),
+    ).toBe(true);
+  });
+
+  test('a video already measured is kept, and needs no file for it', async () => {
+    const kept = new Set(VIDEOS.map((stored) => stored.id));
+    const outcome = await run(measuring(kept), { videos: 1 });
+
+    expect(outcome.deep[0]?.measured).toEqual({ state: 'kept' });
+    expect(log.some((line) => line.startsWith('measure'))).toBe(false);
+  });
+});
