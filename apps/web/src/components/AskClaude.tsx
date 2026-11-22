@@ -1,25 +1,21 @@
 import { Sparkles } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { latestKept, type AnalysisId } from '../lib/analyses';
-import type { ChannelChoice } from '../lib/breakdown';
+import { breakdownHref } from '../lib/routes';
 import { AnalysisAnswerView } from './AnalysisAnswerView';
 import { AskPanel, titleOfQuestion, type Question } from './AskPanel';
-import { BreakdownStatus } from './Breakdown';
 import { Card } from './layout/Card';
 import { SplitView, ViewPage } from './layout/SplitView';
 import { NOTE } from './LabStatus';
-import type { SendVideo } from './SupplyVideos';
 import type { Analysis } from './useAnalysis';
 import { useKeptAnswers } from './useAnswers';
-import type { Breakdown } from './useBreakdown';
 
 interface Props {
   readonly analysis: Analysis;
-  readonly breakdown: Breakdown;
-  /** The channels a breakdown can be asked for: the model, the owner's own and the look-alikes. */
-  readonly channels: readonly ChannelChoice[];
-  /** Sends the owner's own copy of a video that could not be downloaded. */
-  readonly onSendVideo: SendVideo;
+  /** Another AI run (a breakdown, the idea lab) is under way, so nothing new can start. */
+  readonly otherRun: boolean;
+  /** A channel breakdown is running, named by its channel; null when none is. */
+  readonly breakingDown: string | null;
   /** The channel the map on screen is centred on. */
   readonly centerId: string;
   readonly centerTitle: string;
@@ -80,39 +76,28 @@ function AnalysisArea({
 }
 
 /**
- * Ask AI: what an AI engine on this computer can be asked about the map on
- * screen, in a side panel with one button, and the answer in the main area,
- * in short first and then section by section. Three questions are answered
- * in a minute or two; the fourth, a breakdown of one channel, is a longer job
- * that reports its steps and is kept. (The component keeps its first name;
- * it is no longer one engine only.)
+ * Ask AI: the quick questions an AI engine on this computer can be asked
+ * about the map on screen, in a side panel with one button, and the answer
+ * in the main area, in short first and then section by section. Breaking a
+ * channel or a video down has its own destination, Breakdown. (The
+ * component keeps its first name; it is no longer one engine only.)
  */
 export function AskClaude(props: Props) {
-  const { analysis, breakdown, channels, onSendVideo, centerId, centerTitle } = props;
+  const { analysis, otherRun, breakingDown, centerId, centerTitle } = props;
   const { state } = analysis;
-  const running = breakdown.state.status === 'running' ? breakdown.state.channel : null;
-  const breakingDown = running !== null;
-  // One analysis or breakdown runs at a time, here as on the server.
-  const busy = state.status === 'running' || breakingDown;
+  // One AI run at a time, here as on the server.
+  const busy = state.status === 'running' || otherRun;
   // Read again after each answer, so the ones shown are the latest.
   const kept = useKeptAnswers(centerId, state.status === 'done' ? 1 : 0);
   const [chosen, setChosen] = useState<Question | null>(null);
-  // A breakdown started from another view opens here on the breakdown.
-  useEffect(() => {
-    if (breakingDown) setChosen('breakdown');
-  }, [breakingDown]);
-  const question: Question =
-    chosen ??
-    (breakdown.state.status !== 'idle' ? 'breakdown' : (latestKept(kept)?.analysis ?? 'topics'));
-  const send = (channel: { id: string; title: string }, fresh: boolean): void =>
-    breakdown.start(channel, analysis.choice, fresh);
+  const question: Question = chosen ?? latestKept(kept)?.analysis ?? 'topics';
   return (
     <ViewPage id="ask-claude" labelledBy="ask-claude-title">
       <SplitView
         sideLabel="What to ask"
         side={
           <AskPanel
-            {...{ analysis, breakdown, channels, busy, centerId, centerTitle, question }}
+            {...{ analysis, busy, centerId, centerTitle, question }}
             onQuestion={setChosen}
           />
         }
@@ -120,14 +105,16 @@ export function AskClaude(props: Props) {
         {state.status === 'running' && (
           <Working>{`Working on: ${titleOfQuestion(state.analysis)}. This usually takes under two minutes.`}</Working>
         )}
-        {running && question !== 'breakdown' && (
-          <Working>{`A breakdown of ${running.title} is running. Choose Channel breakdown to follow it.`}</Working>
+        {breakingDown !== null && (
+          <p className={NOTE}>
+            A breakdown of {breakingDown} is running.{' '}
+            <a href={breakdownHref()} className="font-semibold text-primary underline">
+              Follow it in Breakdown
+            </a>
+            .
+          </p>
         )}
-        {question === 'breakdown' ? (
-          <BreakdownStatus breakdown={breakdown} busy={busy} onSend={onSendVideo} onRun={send} />
-        ) : (
-          <AnalysisArea analysis={analysis} question={question} kept={kept} />
-        )}
+        <AnalysisArea analysis={analysis} question={question} kept={kept} />
       </SplitView>
     </ViewPage>
   );

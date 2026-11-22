@@ -1,5 +1,4 @@
 import type { ViewId } from '../lib/routes';
-import { uploadVideoFile } from '../lib/upload';
 import { AskClaude } from './AskClaude';
 import { CommentMining } from './CommentMining';
 import { LengthPacing } from './LengthPacing';
@@ -15,9 +14,10 @@ export const STUDY_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
   ask: withMap('ask', (snapshot, { work }) => (
     <AskClaude
       analysis={work.analysis}
-      breakdown={work.breakdown}
-      channels={work.breakdownChannels}
-      onSendVideo={uploadVideoFile}
+      otherRun={work.asking && work.analysis.state.status !== 'running'}
+      breakingDown={
+        work.breakdown.state.status === 'running' ? work.breakdown.state.channel.title : null
+      }
       centerId={snapshot.center.id}
       centerTitle={snapshot.center.title}
     />

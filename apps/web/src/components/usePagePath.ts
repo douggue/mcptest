@@ -64,10 +64,9 @@ export function usePagePath(snapshot: MapSnapshot | null, work: Workspace, go: G
     lab.choose({ format: taken.format, fromIdea: taken.idea });
     open('ideas');
   };
-  /** Starts a breakdown of any stored channel and opens Ask AI, where it reports. */
+  /** Opens Breakdown on a channel, where the owner presses Break it down. */
   const breakDown = (channel: NamedChannel): void => {
-    breakdown.start({ id: channel.id, title: channel.title }, analysis.choice, false);
-    open('ask');
+    go({ view: 'breakdown', channelId: channel.id, anchor: null });
   };
   return { flow, connections, draft, remix, conceptsFrom, breakDown };
 }

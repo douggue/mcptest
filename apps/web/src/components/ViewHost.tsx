@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { AiChoice } from './AiEngines';
 import type { Route, ViewId } from '../lib/routes';
 import { destinationOf } from '../lib/sections';
+import { BreakdownChannelTab } from './BreakdownChannelTab';
 import { ChannelView } from './ChannelView';
 import { CREATE_VIEWS } from './CreateViews';
 import { HomeView } from './HomeView';
@@ -9,6 +10,7 @@ import { SectionTabs } from './layout/SectionTabs';
 import { RESEARCH_VIEWS } from './ResearchViews';
 import { Settings } from './Settings';
 import { STUDY_VIEWS } from './StudyViews';
+import { VideoBreakdownTab } from './VideoBreakdownTab';
 import type { ViewDraw, ViewParts } from './viewParts';
 
 const VIEW_DRAWS: Partial<Record<ViewId, ViewDraw>> = {
@@ -30,6 +32,10 @@ function drawView(route: Route, parts: ViewParts, ai: AiChoice): ReactNode {
     return <ChannelView key={route.channelId} {...parts} channelId={route.channelId} />;
   }
   if (route.view === 'settings') return <Settings ai={ai} />;
+  if (route.view === 'breakdown') {
+    return <BreakdownChannelTab parts={parts} channelId={route.channelId} />;
+  }
+  if (route.view === 'video-breakdown') return <VideoBreakdownTab parts={parts} />;
   const draw = VIEW_DRAWS[route.view];
   return draw ? draw(parts) : <HomeView {...parts} />;
 }

@@ -3,6 +3,10 @@ import type { EngineChoice } from '../lib/analyses';
 import type { Api } from '../lib/api';
 import type { BreakdownOutcome, BreakdownProgress, VideoToSupply } from '../lib/breakdown';
 import type { BreakdownView } from '../lib/breakdownParts';
+import { createJobsApi, findRunningJob } from '../lib/jobs';
+
+/** The kind of job a channel breakdown is listed under at GET /api/jobs. */
+const BREAKDOWN_KINDS: readonly string[] = ['breakdown'];
 
 /** The channel a breakdown is for, as the page names it. */
 export interface BreakdownChannel {
@@ -100,6 +104,22 @@ export function useBreakdown(api: Api): Breakdown {
   // A ref, not state: a second press must be refused before the screen has redrawn.
   const running = useRef(false);
   const stored = useStored(api, picked, ended);
+
+  // A breakdown started before a reload runs on in the server: follow it again.
+  useEffect(() => {
+    let current = true;
+    void findRunningJob(createJobsApi(), BREAKDOWN_KINDS, {}).then((job) => {
+      if (!current || job === null || job.channelId === null || running.current) return;
+      running.current = true;
+      const channel = { id: job.channelId, title: job.title.replace(/^Breaking down /, '') };
+      setPicked(channel);
+      setState({ status: 'running', channel, progress: null });
+      setJobId(job.id);
+    });
+    return () => {
+      current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (jobId === null) return;

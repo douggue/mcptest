@@ -1,17 +1,14 @@
 import { Sparkles } from 'lucide-react';
-import { useState } from 'react';
 import { ANALYSIS_OPTIONS, choiceFor, engineSummary, type AnalysisId } from '../lib/analyses';
-import { SLOW_NOTE, type ChannelChoice } from '../lib/breakdown';
-import { BreakdownChooser, chosenOf } from './BreakdownChooser';
+import { breakdownHref } from '../lib/routes';
 import { AiLine } from './AiLine';
 import { Field } from './layout/Card';
 import { Details } from './layout/Details';
 import { PanelButton } from './layout/PanelButton';
 import type { Analysis } from './useAnalysis';
-import type { Breakdown } from './useBreakdown';
 
-/** What Ask AI can be asked: one of the quick analyses, or a breakdown of one channel. */
-export type Question = AnalysisId | 'breakdown';
+/** What Ask AI can be asked: one of the quick analyses. A breakdown has its own destination. */
+export type Question = AnalysisId;
 
 interface QuestionOption {
   readonly id: Question;
@@ -20,16 +17,7 @@ interface QuestionOption {
   readonly action: string;
 }
 
-const QUESTIONS: readonly QuestionOption[] = [
-  ...ANALYSIS_OPTIONS,
-  {
-    id: 'breakdown',
-    title: 'Channel breakdown',
-    description:
-      'Takes one channel apart in seven parts, from titles to a master prompt. Kept, and saved as text files.',
-    action: 'Break down this channel',
-  },
-];
+const QUESTIONS: readonly QuestionOption[] = ANALYSIS_OPTIONS;
 
 /** The title of what can be asked, as the panel lists it. */
 export const titleOfQuestion = (id: Question): string =>
@@ -79,11 +67,9 @@ function QuestionList({
 
 interface Props {
   readonly analysis: Analysis;
-  readonly breakdown: Breakdown;
-  readonly channels: readonly ChannelChoice[];
   readonly question: Question;
   readonly onQuestion: (question: Question) => void;
-  /** An analysis or a breakdown runs; one at a time, here as on the server. */
+  /** An AI run is under way; one at a time, here as on the server. */
   readonly busy: boolean;
   readonly centerId: string;
   readonly centerTitle: string;
@@ -91,11 +77,8 @@ interface Props {
 
 /** The label of the panel's one button: what pressing it asks, or that it is working. */
 function actionOf(props: Props): string {
-  const { question, analysis, breakdown } = props;
-  const running =
-    question === 'breakdown'
-      ? breakdown.state.status === 'running'
-      : analysis.state.status === 'running' && analysis.state.analysis === question;
+  const { question, analysis } = props;
+  const running = analysis.state.status === 'running' && analysis.state.analysis === question;
   if (running) return 'Working…';
   return QUESTIONS.find((option) => option.id === question)?.action ?? '';
 }
@@ -105,20 +88,10 @@ function actionOf(props: Props): string {
  * a breakdown, how it works behind a disclosure, and the one button.
  */
 export function AskPanel(props: Props) {
-  const { analysis, breakdown, channels, question, onQuestion, busy, centerId, centerTitle } =
-    props;
-  const [fresh, setFresh] = useState(false);
-  const chosen = chosenOf(channels, breakdown.picked);
+  const { analysis, question, onQuestion, busy, centerId, centerTitle } = props;
   const available = engineSummary(analysis.engines);
-  const plan =
-    question === 'breakdown' ? null : choiceFor(question, analysis.choice, analysis.engines);
-  const ask = (): void => {
-    if (question !== 'breakdown') {
-      analysis.run(question, centerId, plan?.choice);
-      return;
-    }
-    if (chosen) breakdown.start({ id: chosen.id, title: chosen.title }, analysis.choice, fresh);
-  };
+  const plan = choiceFor(question, analysis.choice, analysis.engines);
+  const ask = (): void => analysis.run(question, centerId, plan.choice);
   return (
     <>
       <div className="flex min-w-0 flex-col gap-1">
@@ -134,32 +107,24 @@ export function AskPanel(props: Props) {
       <Field label="What to ask">
         <QuestionList value={question} onChange={onQuestion} disabled={false} />
       </Field>
-      {question === 'breakdown' && (
-        <BreakdownChooser
-          choices={channels}
-          picked={breakdown.picked}
-          onPick={breakdown.pick}
-          busy={busy}
-          fresh={fresh}
-          onFresh={setFresh}
-        />
-      )}
-      {plan?.note && <p className="text-body-sm text-metric-amber">{plan.note}</p>}
+      {plan.note && <p className="text-body-sm text-metric-amber">{plan.note}</p>}
+      <p className="text-body-sm text-on-surface-variant">
+        To take one channel or one video apart in depth, open{' '}
+        <a href={breakdownHref()} className="font-semibold text-primary underline">
+          Breakdown
+        </a>
+        .
+      </p>
       <Details summary="How this works">
         <div className="flex flex-col gap-2 text-body-sm text-on-surface-variant">
           <p>
             The AI reads only what Jgtube has stored, through read-only tools. Each press uses some
             of that AI&rsquo;s plan allowance, as a chat would. Answers are kept for the channel.
           </p>
-          {question === 'breakdown' && <p>{SLOW_NOTE}</p>}
           {available !== '' && <p className="text-outline">{available}</p>}
         </div>
       </Details>
-      <PanelButton
-        icon={Sparkles}
-        onClick={ask}
-        disabled={busy || (question === 'breakdown' && !chosen)}
-      >
+      <PanelButton icon={Sparkles} onClick={ask} disabled={busy}>
         {actionOf(props)}
       </PanelButton>
     </>
