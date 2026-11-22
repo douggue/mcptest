@@ -6,6 +6,7 @@ import { inScope, type Scope } from '../lib/feed';
 import { createLogoApi, withLogos, withSavedLogos } from '../lib/logos';
 import { layoutRadar } from '../lib/radarLayout';
 import { useLogos } from './useLogos';
+import { useNarrow } from './useNarrow';
 
 const STORAGE_KEY = 'jgtube.channel';
 const MODEL_STORAGE_KEY = 'jgtube.model';
@@ -203,7 +204,12 @@ export function useMapPage(api: Api) {
       },
     [snapshot, activeScope],
   );
-  const layout = useMemo(() => (visible ? layoutRadar(visible) : null), [visible]);
+  // On a phone the rings are turned, so the radar is tall and about half as wide.
+  const narrow = useNarrow();
+  const layout = useMemo(
+    () => (visible ? layoutRadar(visible, narrow ? 'tall' : 'wide') : null),
+    [visible, narrow],
+  );
 
   /** Records the owner's say on a channel of the map on screen, then reads the map again. */
   const setStatus = async (channelId: string, status: CompetitorStatus): Promise<void> => {

@@ -7,9 +7,9 @@ import type { RadarLayout, RadarNode } from '../lib/radarLayout';
 
 const STAGE_WIDTH = 1200;
 const STAGE_HEIGHT = 620;
-const ZOOM_STEPS = [0.45, 0.7, 0.85, 1, 1.2, 1.45] as const;
+const ZOOM_STEPS = [0.55, 0.7, 0.85, 1, 1.2, 1.45] as const;
 const DEFAULT_ZOOM_INDEX = 3;
-/** On a phone the stage starts zoomed out until its rings fit the width. */
+/** On a phone the turned (tall) map starts zoomed out until it fits the width. */
 const PHONE_ZOOM_INDEX = 0;
 const PHONE_WIDTH = 640;
 
@@ -94,7 +94,7 @@ export function Radar({ snapshot, layout, selectedId, onSelect, emptyState, chil
   return (
     <section
       aria-label="Competitor radar"
-      className="relative h-[460px] w-full select-none overflow-hidden rounded-lg border border-border-subtle bg-space-deep sm:h-[620px]"
+      className="relative h-[600px] w-full select-none overflow-hidden rounded-lg border border-border-subtle bg-space-deep sm:h-[620px]"
     >
       <div
         className="absolute left-1/2 top-1/2 transition-transform duration-500 ease-out"
@@ -129,7 +129,7 @@ export function Radar({ snapshot, layout, selectedId, onSelect, emptyState, chil
               width={STAGE_WIDTH}
               height={STAGE_HEIGHT}
               viewBox={`${-STAGE_WIDTH / 2} ${-STAGE_HEIGHT / 2} ${STAGE_WIDTH} ${STAGE_HEIGHT}`}
-              className="pointer-events-none absolute inset-0"
+              className="pointer-events-none absolute inset-0 overflow-visible"
             >
               {layout.links.map((link) => {
                 const direct = link.fromId === centerId;

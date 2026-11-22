@@ -153,12 +153,19 @@ function buildLinks(
   });
 }
 
+/** Wide for a desktop's stage; tall for a phone, where the same rings are turned a quarter. */
+export type RadarShape = 'wide' | 'tall';
+
 export function layoutRadar(
   snapshot: Pick<MapSnapshot, 'center' | 'channels' | 'edges'>,
+  shape: RadarShape = 'wide',
 ): RadarLayout {
-  const nodes = (['close', 'medium', 'far'] as const).flatMap((tier) =>
+  const placed = (['close', 'medium', 'far'] as const).flatMap((tier) =>
     placeRing(snapshot.channels, tier),
   );
+  // Turned, the outer rings' side arcs run top and bottom, so the map is about half as wide.
+  const nodes =
+    shape === 'tall' ? placed.map((node) => ({ ...node, x: node.y, y: node.x })) : placed;
   return {
     nodes,
     links: buildLinks(snapshot, nodes),

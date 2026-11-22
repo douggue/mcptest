@@ -271,6 +271,24 @@ describe('layoutRadar', () => {
     ]);
   });
 
+  test('stands tall on a phone: the same rings turned, so the side arcs run top and bottom', () => {
+    const channels = [
+      ...Array.from({ length: 8 }, (_, index) => channel(index, { tier: 'far' })),
+      ...Array.from({ length: 6 }, (_, index) => channel(20 + index, { tier: 'medium' })),
+    ];
+    const edges = [{ from: CENTER, to: cid(21), share: 0.5 }];
+    const wide = layoutRadar(snapshotOf(channels, edges));
+    const tall = layoutRadar(snapshotOf(channels, edges), 'tall');
+
+    expect(tall.nodes.map((node) => [node.x, node.y])).toEqual(
+      wide.nodes.map((node) => [node.y, node.x]),
+    );
+    expect(wide.links).toHaveLength(1);
+    expect(tall.links[0]).toMatchObject({ x2: wide.links[0]?.y2, y2: wide.links[0]?.x2 });
+    // Turned, the far ring's side arcs are at most about 260 px either side of the centre.
+    expect(Math.max(...tall.nodes.map((node) => Math.abs(node.x)))).toBeLessThan(270);
+  });
+
   test('puts each channel on the ring for its tier', () => {
     const layout = layoutRadar(
       snapshotOf([
