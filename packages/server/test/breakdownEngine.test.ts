@@ -678,6 +678,67 @@ describe('the seven parts of a breakdown', () => {
     });
   });
 
+  test('write one chosen part again from what is stored, studying and downloading nothing', async () => {
+    const no = new EngineRunError('failed', 'The breakdown’s part on thumbnails cannot be done.');
+    await run(world({ failing: { thumbnails: no } }));
+    const basis = parts.find(CHANNEL, 'basis');
+    log = [];
+
+    const outcome = await run(world({ ffmpeg: true, watchesFiles: true }), {
+      parts: ['thumbnails'],
+    });
+
+    expect(log.filter((line) => !line.startsWith('save texts'))).toEqual([
+      `write thumbnails of ${CHANNEL} top 5 deep 3 titles 8`,
+    ]);
+    expect(outcome.parts.map((part) => part.outcome)).toEqual([
+      'kept',
+      'written',
+      'kept',
+      'kept',
+      'kept',
+      'kept',
+      'kept',
+    ]);
+    expect(parts.find(CHANNEL, 'basis')).toEqual(basis);
+    expect(outcome.deep.map((entry) => entry.frames.done)).toEqual([true, true, false]);
+  });
+
+  test('pass on an engine to leave out, and keep who wrote a part in place of the chosen one', async () => {
+    const deps = world();
+    const asked: Array<string | undefined> = [];
+    const outcome = await run(
+      {
+        ...deps,
+        write: async (part, channel, only, focus, avoid) => {
+          asked.push(avoid);
+          const answer = await deps.write(part, channel, only, focus);
+          return part === 'thumbnails'
+            ? {
+                ...answer,
+                engine: 'claude',
+                standInFor: { engine: 'agy', because: 'Antigravity CLI hit its limit.' },
+                seen: { shown: 4, named: 0 },
+              }
+            : answer;
+        },
+      },
+      { avoid: 'codex' },
+    );
+
+    expect(asked.every((avoid) => avoid === 'codex')).toBe(true);
+    expect(outcome.parts[1]).toMatchObject({
+      outcome: 'written',
+      engine: 'claude',
+      standInFor: { engine: 'agy', because: 'Antigravity CLI hit its limit.' },
+      unseen: true,
+    });
+    expect(outcome.breakdown.parts.find((part) => part.id === 'thumbnails')).toMatchObject({
+      standInFor: { engine: 'agy', because: 'Antigravity CLI hit its limit.' },
+      unseen: true,
+    });
+  });
+
   test('are all written again when what the breakdown rests on has changed', async () => {
     await run(world());
     log = [];
