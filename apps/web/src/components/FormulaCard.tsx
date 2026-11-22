@@ -1,11 +1,10 @@
+import { firstSentence, formulaLine } from '../lib/formatsView';
 import { formulaParts } from '@jgtube/core/src/formulas/formulas';
 import { Shuffle } from 'lucide-react';
 import { formatAge, formatCount, formatScore, thumbnailUrl, watchUrl } from '../lib/format';
 import type { FormulaView } from '../lib/labApi';
 import { Card } from './layout/Card';
 import { Details } from './layout/Details';
-import { StatRow } from './layout/StatRow';
-import { StatTile } from './layout/StatTile';
 import { QUIET_BUTTON } from './LabStatus';
 import { Outbound } from './NicheCard';
 
@@ -84,30 +83,28 @@ function Numbers({
   readonly formula: FormulaView;
   readonly windowDays: number;
 }) {
-  const partly = formula.scoredCount < formula.videoCount;
-  return (
-    <StatRow>
-      <StatTile
-        label="Average score"
-        value={formula.averageScore === null ? '–' : formatScore(formula.averageScore)}
-        note={
-          formula.averageScore === null
-            ? 'no video has a score'
-            : partly
-              ? `over the ${formula.scoredCount} with a score`
-              : 'over every video'
-        }
-      />
-      <StatTile label="Videos" value={formula.videoCount} note={`last ${windowDays} days`} />
-      <StatTile label="Channels" value={formula.channelCount} note="using this wording" />
-    </StatRow>
-  );
+  return <p className="text-body-sm text-on-surface-variant">{formulaLine(formula, windowDays)}</p>;
 }
 
 interface Props {
   readonly formula: FormulaView;
   readonly windowDays: number;
   readonly onRemix: () => void;
+}
+
+/** Why the wording works: its first sentence, and the rest behind a disclosure. */
+function Why({ text }: { readonly text: string }) {
+  const { lead, rest } = firstSentence(text);
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <p className="text-body-md text-on-surface">{lead}</p>
+      {rest !== '' && (
+        <Details summary="More on why">
+          <p className="text-body-sm text-on-surface-variant">{rest}</p>
+        </Details>
+      )}
+    </div>
+  );
 }
 
 /** One trending format: its wording, why it works, its numbers and the videos behind it. */
@@ -129,8 +126,8 @@ export function FormulaCard({ formula, windowDays, onRemix }: Props) {
           Add to ideas
         </button>
       </div>
-      <p className="text-body-md text-on-surface-variant">{formula.why}</p>
       <Numbers formula={formula} windowDays={windowDays} />
+      <Why text={formula.why} />
       <VideoList videos={shown} />
       {rest.length > 0 && (
         <Details summary={`${rest.length} more ${rest.length === 1 ? 'video' : 'videos'}`}>

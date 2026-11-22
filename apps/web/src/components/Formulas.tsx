@@ -1,3 +1,4 @@
+import { dayMonth } from '../lib/formatsView';
 import { FORMULA_WINDOWS } from '@jgtube/core/src/formulas/formulas';
 import { Shapes, Sparkles } from 'lucide-react';
 import { FormulaCard } from './FormulaCard';
@@ -112,7 +113,7 @@ export function Formulas({ lab, busy, centerTitle, onRemix }: Props) {
           count={formulas.length}
           lead={
             list?.runAt
-              ? `Found on ${list.runAt.slice(0, 10)}, from videos of the ${list.windowDays} days before.`
+              ? `Found ${dayMonth(list.runAt)}, from videos of the ${list.windowDays} days before.`
               : undefined
           }
         />
