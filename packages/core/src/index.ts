@@ -635,3 +635,65 @@ export { readWatchSigns, type AdsSeen, type WatchSigns } from './money/watchSign
 export { SqliteMoneyRepo } from './repos/sqliteMoneyRepo';
 export type { MoneyRepo } from './repos/types';
 export type { WatchPageSource } from './sources/types';
+export * from './teardown/constants';
+export { measureVideo, type MeasureOptions, type Measured } from './teardown/measure';
+export {
+  measurementsSchema,
+  parseMeasurements,
+  type MotionMeasurements,
+  type TeardownMeasurements,
+} from './teardown/measurements';
+export { shotSpans, shotStats, median, type ShotStats } from './teardown/shots';
+export {
+  quoteFound,
+  sentencesOf,
+  wordStats,
+  type TimedLine,
+  type TimedSentence,
+  type WordStats,
+} from './teardown/words';
+export {
+  TEARDOWN_STAGES,
+  checkStage,
+  liftJson,
+  secondsOf,
+  stageSchemas,
+  type StageCheck,
+  type StageData,
+  type TeardownStage,
+} from './teardown/stages';
+export {
+  buildTeardownReport,
+  type ChapterRow,
+  type HookRow,
+  type StoredTranscript as TeardownTranscript,
+  type TeardownAbout,
+  type TeardownInput,
+  type TeardownReport,
+  type TranscriptSource,
+} from './teardown/report';
+export { teardownMarkdown } from './teardown/markdown';
+export { zipFiles, type ZipEntry } from './teardown/zip';
+export {
+  TEARDOWNS_FOLDER,
+  TEARDOWN_IMAGE_NAME,
+  chapterSheetFile,
+  cutChapterSheets,
+  readTeardownImage,
+  teardownFolder,
+  teardownImages,
+} from './teardown/folder';
+export {
+  TRANSITION_KINDS,
+  CAMERA_KINDS,
+  type TransitionKind,
+  type CameraKind,
+} from './teardown/motionClassify';
+export {
+  SqliteTeardownRepo,
+  TEARDOWN_PARTS,
+  type NewTeardownPart,
+  type StoredTeardownPart,
+  type TeardownPart,
+  type TeardownRepo,
+} from './repos/sqliteTeardownRepo';
