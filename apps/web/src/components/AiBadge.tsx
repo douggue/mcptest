@@ -35,7 +35,7 @@ export function AiBadge({ badge }: { readonly badge: Badge }) {
         <Sparkles aria-hidden="true" className="h-4 w-4 flex-none text-metric-amber" />
         <span className="hidden text-label text-outline sm:inline">AI</span>
         <span aria-hidden="true" className={dot(badge.ready)} />
-        <span className="max-w-[7.5rem] truncate font-semibold text-on-surface sm:max-w-[12rem]">
+        <span className="hidden max-w-[12rem] truncate font-semibold text-on-surface sm:inline">
           {badge.name}
         </span>
         {badge.automatic && (
