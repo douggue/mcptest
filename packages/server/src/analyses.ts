@@ -91,6 +91,11 @@ export interface AnalysisSpec {
    * question with this may go to an engine that passed the picture check.
    */
   readonly filesRoute?: FilesRoute;
+  /**
+   * The question is about something other than a channel (one video), so
+   * no channel is put into it and none need be given.
+   */
+  readonly channelFree?: boolean;
 }
 
 export interface AnalysisSettings {
@@ -333,7 +338,7 @@ export function analysisRequest(
     throw new Error(`${spec.title} cannot be shown its pictures as files`);
   }
   const allowedTools = route?.tools ?? spec.allowedTools;
-  const fixed = fixedForm(channel);
+  const fixed = spec.channelFree ? '' : fixedForm(channel);
   return {
     prompt: route && files ? route.question(fixed, files, focus) : spec.question(fixed, focus),
     systemPrompt: spec.systemPrompt ?? SYSTEM_PROMPT,

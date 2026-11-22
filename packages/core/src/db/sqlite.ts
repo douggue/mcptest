@@ -523,6 +523,24 @@ CREATE TABLE IF NOT EXISTS channel_money_signs (
   checked_at   TEXT NOT NULL
 );
 `,
+  // 28: deep breakdowns of one video
+  //     each, one row per video. video_id is a YouTube id, or the id a file the owner gave
+  //     was saved under (same shape). seen_json is how the video was seen, recorded in code;
+  //     notes is what an engine wrote, problem why nothing could be. A new run replaces the
+  //     row. Like the tables of steps 12 and 15 it refers to no other table.
+  `
+CREATE TABLE IF NOT EXISTS video_breakdowns (
+  video_id    TEXT PRIMARY KEY,
+  source      TEXT NOT NULL,
+  title       TEXT NOT NULL,
+  channel_id  TEXT,
+  seen_json   TEXT NOT NULL,
+  engine      TEXT,
+  notes       TEXT,
+  problem     TEXT,
+  written_at  TEXT NOT NULL
+);
+`,
 ];
 
 /** The number of the newest step: what `user_version` reads in a store that is up to date. */

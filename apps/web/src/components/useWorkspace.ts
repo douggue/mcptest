@@ -7,6 +7,7 @@ import { voiceChoices } from '../lib/scriptWriter';
 import { useAlertCounts } from './useAlerts';
 import { useAnalysis } from './useAnalysis';
 import { useBreakdown } from './useBreakdown';
+import { useVideoBreakdown } from './useVideoBreakdown';
 import { useLab } from './useLab';
 import { useLabJob } from './useLabJob';
 import { useNiches } from './useNiches';
@@ -38,6 +39,7 @@ export function useWorkspace(
   const transfers = useTransfers(api, centerId, mapId);
   const analysis = useAnalysis(api);
   const breakdown = useBreakdown(api);
+  const videoBreakdown = useVideoBreakdown();
   const nicheChannels = niches.state.status === 'ready' ? niches.state.list.channels : NO_NICHES;
   const breakdownChannels = useMemo(
     () => (snapshot ? breakdownChoices(snapshot, { saved, niches: nicheChannels }) : []),
@@ -49,6 +51,7 @@ export function useWorkspace(
   const asking =
     analysis.state.status === 'running' ||
     breakdown.state.status === 'running' ||
+    videoBreakdown.run.status === 'running' ||
     labJobs.state.status === 'running';
   const script = useScript(labApi, labJobs, centerId, analysis.choice);
   const research = useResearch(
@@ -70,7 +73,16 @@ export function useWorkspace(
   const refresh = useRefresh(api, afterRefresh);
   const alertCounts = useAlertCounts(refresh.run.status);
   return {
-    ...{ board, sameTopic, niches, transfers, analysis, breakdown, breakdownChannels },
+    ...{
+      board,
+      sameTopic,
+      niches,
+      transfers,
+      analysis,
+      breakdown,
+      breakdownChannels,
+      videoBreakdown,
+    },
     ...{ labJobs, lab, asking, script, research, voices, refresh, alertCounts },
   };
 }

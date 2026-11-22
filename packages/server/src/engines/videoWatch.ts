@@ -66,6 +66,8 @@ export interface VideoWatchContext {
   readonly geminiFetch?: GeminiFetch | undefined;
   /** Told when a download starts and when an engine starts watching. */
   readonly onStep?: ((step: WatchStep) => void) | undefined;
+  /** The video is a file on this computer, not on YouTube: no engine is given a link. */
+  readonly fileOnly?: boolean | undefined;
 }
 
 /** What a caller may set for one watch. */
@@ -76,6 +78,11 @@ export interface WatchOptions {
    */
   readonly download?: DownloadVideo | undefined;
   readonly onStep?: ((step: WatchStep) => void) | undefined;
+  /**
+   * The id names a file the owner gave, not a YouTube video: it is watched
+   * from the file or not at all, and no engine is handed a link.
+   */
+  readonly fileOnly?: boolean | undefined;
 }
 
 /** Remembers a copy that must be removed when the watch is over. */
@@ -132,7 +139,7 @@ async function agyAttempt(
       },
     };
   }
-  if (settings.agyYouTubeLinks) {
+  if (settings.agyYouTubeLinks && context.fileOnly !== true) {
     const request = { ...question, videoId: video.videoId };
     return {
       engine: 'agy',
@@ -149,8 +156,13 @@ async function agyAttempt(
   };
 }
 
+const FILE_NOT_LINK = 'The Gemini API watches YouTube links, and this video is a file.';
+
 function geminiAttempt(video: VideoToWatch, context: VideoWatchContext): Candidate<VideoEngineId> {
   const { gemini } = context.settings;
+  if (context.fileOnly === true) {
+    return { engine: 'gemini-api', reason: 'not-installed', message: FILE_NOT_LINK };
+  }
   if (!gemini) {
     return {
       engine: 'gemini-api',

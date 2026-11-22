@@ -17,6 +17,7 @@ import {
   SqliteResearchRepo,
   SqliteTransferRepo,
   SqliteVideoPageRepo,
+  SqliteVideoBreakdownRepo,
   SqliteVideoRepo,
   SqliteVideoStudyRepo,
   SqliteWatchlistRepo,
@@ -70,6 +71,7 @@ import {
   type PlayerSource,
 } from './connection';
 import { downloads } from './downloadEngine';
+import { breakdownHub } from './breakdownHub';
 import { extras } from './extrasSetup';
 import { cleanMessage } from './jobs';
 import { lab } from './labSetup';
@@ -144,6 +146,7 @@ function openRepos(db: Db) {
     notes: new SqliteChannelNoteRepo(db),
     conceptThumbnails: new SqliteConceptThumbnailRepo(db),
     research: new SqliteResearchRepo(db),
+    videoBreakdowns: new SqliteVideoBreakdownRepo(db),
   };
 }
 
@@ -499,6 +502,17 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     }),
     ...labbing,
     extras: extras({ ...wiring, analyse: asking.analyse }),
+    hub: breakdownHub({
+      config,
+      candidates: { ...wiring.repos, now: wiring.now },
+      studies: wiring.repos.studies,
+      store: wiring.repos.videoBreakdowns,
+      reading,
+      asking,
+      files,
+      run: wiring.work.run,
+      stop,
+    }),
     ...conceptThumbEngine({ now: wiring.now, repos: wiring.repos, analyse: asking.analyse }),
     ...styleLockEngine(wiring),
     ...researchEngine({ now: wiring.now, repos: wiring.repos, runWeb: asking.runWeb }),

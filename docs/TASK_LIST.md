@@ -302,3 +302,12 @@ or computed in code and labelled; no view forecasts; nothing published to YouTub
 - [x] Shared layout pieces in `apps/web/src/components/layout/`; the idea lab and the script writer rebuilt on them
 - [x] Checked on a seeded test store at 1440 and 390 wide: every view, no console errors, no sideways scroll
 - [ ] The other views moved onto the layout pieces (side panel, one primary action, details closed)
+
+## Breakdown view
+
+- [x] Breakdown is a destination of its own (rail and phone tab bar, between Create and Ask AI) with Channel and One video tabs; Ask AI keeps the quick questions; old breakdown links open it; `breakdownHref(id)` for buttons elsewhere
+- [x] Channel tab: suggested picks ranked in `lib/breakdownPicks.ts` from stored data with a one-line reason; every row with logo, subscribers, breaking out, Close/Medium/Far, last breakdown and three top thumbnails, the monetization badge; search and three filters; your breakdowns; `POST /api/breakdowns/candidates` (read only)
+- [x] Paste a channel link: checked, read once like a map's centre when not stored (`POST /api/breakdowns/channel`), then Break it down
+- [x] One video tab: a YouTube link or an MP4/WebM/MOV file (`PUT /api/video-breakdowns/files`), watched / frames / captions with what could and could not be seen said on the page, sections with times, three ready prompts with Copy, Download .md; kept per video, store step 28 (43 provisional); jobs listed at `GET /api/jobs` and followed again after a reload
+- [ ] A real one-video breakdown written by an engine: the one end-to-end try here was refused by Claude Code's plan limit after the frames were cut
+- [ ] A watch by Antigravity or the Gemini API, and a WebM or MOV made into an MP4 for watching, on the owner's computer

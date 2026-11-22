@@ -7,14 +7,23 @@ const tabViews = (): readonly ViewId[] =>
   DESTINATIONS.flatMap((destination) => destination.tabs.map((tab) => tab.view));
 
 describe('the rail and its destinations', () => {
-  test('has five destinations, Home first and Ask AI last', () => {
+  test('has six destinations, Home first, Breakdown between Create and Ask AI, Ask AI last', () => {
     expect(DESTINATIONS.map((d) => d.label)).toEqual([
       'Home',
       'Channel',
       'Research',
       'Create',
+      'Breakdown',
       'Ask AI',
     ]);
+  });
+
+  test('gives Breakdown a Channel tab and a One video tab', () => {
+    expect(destinationOf('breakdown')?.tabs.map((tab) => tab.label)).toEqual([
+      'Channel',
+      'One video',
+    ]);
+    expect(destinationOf('video-breakdown')?.id).toBe('breakdown');
   });
 
   test('puts every view but Home, Ask AI and Settings in exactly one tab', () => {
@@ -49,7 +58,8 @@ describe('where a tab and a destination lead', () => {
   });
 
   test('a destination opens its first tab or its one view', () => {
-    const [home, channel, research, create, ask] = DESTINATIONS;
+    const [home, channel, research, create, breakdown, ask] = DESTINATIONS;
+    expect(breakdown && destinationHref(breakdown, null)).toBe('#/breakdown');
     expect(home && destinationHref(home, CENTER)).toBe('#/');
     expect(channel && destinationHref(channel, CENTER)).toBe(`#/channel/${CENTER}`);
     expect(research && destinationHref(research, CENTER)).toBe('#/breakouts');

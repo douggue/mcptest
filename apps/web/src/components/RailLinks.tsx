@@ -1,4 +1,4 @@
-import { House, Lightbulb, Flame, Sparkles, Tv, type LucideIcon } from 'lucide-react';
+import { House, Lightbulb, Flame, Microscope, Sparkles, Tv, type LucideIcon } from 'lucide-react';
 import {
   DESTINATIONS,
   destinationHref,
@@ -12,6 +12,7 @@ const ICONS: Readonly<Record<DestinationId, LucideIcon>> = {
   channel: Tv,
   research: Flame,
   create: Lightbulb,
+  breakdown: Microscope,
   ask: Sparkles,
 };
 
@@ -97,12 +98,12 @@ export function BottomTabs({
               <a
                 href={destinationHref(destination, centerId)}
                 aria-current={current ? 'page' : undefined}
-                className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 px-1 text-[12px] leading-4 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container ${
+                className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 text-[11px] leading-4 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container ${
                   current ? 'font-semibold text-primary' : 'text-on-surface-variant'
                 }`}
               >
                 <Icon aria-hidden="true" className="h-5 w-5 flex-none" />
-                <span className="max-w-full truncate">{destination.label}</span>
+                <span className="max-w-full truncate tracking-tight">{destination.label}</span>
               </a>
             </li>
           );

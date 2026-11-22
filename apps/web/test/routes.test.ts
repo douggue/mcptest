@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'vitest';
-import { VIEWS, channelHref, routeFromHash, routeHash, viewHref } from '../src/lib/routes';
+import {
+  VIEWS,
+  breakdownHref,
+  channelHref,
+  routeFromHash,
+  routeHash,
+  viewHref,
+} from '../src/lib/routes';
 
 const CHANNEL = 'UCHnyfMqiRRG1u-2MsSQLbXA';
 
@@ -80,5 +87,36 @@ describe('the address of a view', () => {
 
   test('every view has a title', () => {
     for (const meta of Object.values(VIEWS)) expect(meta.title.length).toBeGreaterThan(0);
+  });
+});
+
+describe('Breakdown’s addresses', () => {
+  test('open the chooser, or one channel in it', () => {
+    expect(routeFromHash('#/breakdown')).toEqual({
+      view: 'breakdown',
+      channelId: null,
+      anchor: null,
+    });
+    expect(routeFromHash(`#/breakdown/${CHANNEL}`)).toEqual({
+      view: 'breakdown',
+      channelId: CHANNEL,
+      anchor: null,
+    });
+    expect(routeFromHash('#/breakdown/not-a-channel').channelId).toBeNull();
+    expect(routeFromHash('#/video-breakdown').view).toBe('video-breakdown');
+  });
+
+  test('are made by one helper, for buttons anywhere in the app', () => {
+    expect(breakdownHref()).toBe('#/breakdown');
+    expect(breakdownHref(CHANNEL)).toBe(`#/breakdown/${CHANNEL}`);
+    expect(breakdownHref('@handle')).toBe('#/breakdown');
+    expect(routeHash({ view: 'breakdown', channelId: CHANNEL, anchor: null })).toBe(
+      `#/breakdown/${CHANNEL}`,
+    );
+  });
+
+  test('take the old in-page breakdown links to Breakdown, not Ask AI', () => {
+    expect(routeFromHash('#breakdown').view).toBe('breakdown');
+    expect(routeFromHash('#breakdown-parts').view).toBe('breakdown');
   });
 });

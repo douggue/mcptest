@@ -2338,7 +2338,7 @@ checked to be a whole MP4 (`isWholeMp4`) and only then renamed, so a half-sent
 file is never used; on any failure the part is removed. The server hands the
 route the request body as a stream for this one path.
 
-**The page.** Picking a channel in the breakdown card shows the breakdown
+**The page.** (Now Breakdown's Channel tab; see "The Breakdown view".) Picking a channel shows the breakdown
 stored for it: when it was written, "Run again" (everything again), "Write the
 missing parts" when some are failed or missing, and each part as a section that
 opens, set out by the same `Answer` component as the one-press answers. The
@@ -2376,6 +2376,114 @@ video file downloaded, cut and studied (YouTube refused the download from that
 network), and so the seconds between picture changes from frames a second
 apart; an engine watching a video, and so any part written from watch notes;
 a channel with fewer than 20 or more than 40 stored videos; Windows.
+
+### The Breakdown view (`breakdownCandidates.ts`, `breakdownHub.ts`, `breakdownHubRoutes.ts`, `oneVideoEngine.ts`, `oneVideoQuestions.ts`; web `BreakdownChannelTab.tsx`, `VideoBreakdownTab.tsx`, `lib/breakdownPicks.ts`, `lib/videoBreakdown.ts`)
+
+Built. Breakdown is its own destination in the rail, between Create and Ask
+AI, with two tabs; Ask AI keeps the quick questions only. Old breakdown
+addresses (`#breakdown…`) open it.
+
+**Channel tab** (`#/breakdown`, one channel at `#/breakdown/<id>`):
+
+- *Paste a channel link*: an @handle, a youtube.com channel link or a `UC…`
+  id, checked on the page and again on the server.
+  `POST /api/breakdowns/channel {channel}` reads a channel that is not stored
+  the way a map's centre channel is read (`readChannelBrand`: its page, its
+  logo and up to 100 recent videos; no crawl), in the slot crawls and refreshes
+  hold (409 while one runs or another program reads YouTube), and answers
+  `{candidate}`. A read that fails is a plain 502.
+- *Suggested to break down* (`suggestedPicks` in `lib/breakdownPicks.ts`):
+  up to three channels from stored data only: not the owner's own, at least
+  `MIN_STORED_VIDEOS` (10) stored videos, something breaking out now, and never
+  broken down or last broken down `STALE_DAYS` (90) or more ago; closest
+  look-alikes first (closeness outweighs everything else), then the most
+  breaking out, then the best recent score (capped at 20×). Each has a one-line
+  reason built from the same facts.
+- *Your breakdowns*: the channels with a kept breakdown, newest first, with
+  logo, date and Open.
+- *All channels*: the map's channels, the owner's channels and the niche
+  lists, with a search (name or handle) and three filters (Close only, Has
+  breakouts, Not broken down yet), twelve at a time. Every row shows the logo,
+  name, subscribers, "N breaking out", Close / Medium / Far (map channels
+  only), "Broken down <date>" and a strip of three of its best thumbnails with
+  their scores, and the monetization badge (`MoneyBadge`, left out for a
+  channel never checked) in the row's badge slot.
+- `POST /api/breakdowns/candidates {ids}` (up to 800 channel ids) answers, per
+  stored channel, `{id, title, handle, logoUrl, subscribers, storedVideos,
+  breakingOut, recentBest, top, brokenDownAt}`: breaking out is the feed's own
+  rule (2× usual or more, last 30 days), `top` the three best videos by score,
+  `brokenDownAt` the newest `breakdown_parts` row. Read from the store only.
+- One channel opened shows its logo, numbers, three best thumbnails, the one
+  primary button "Break it down" and its kept breakdown (`BreakdownStatus`, as
+  before). The run is the existing job (`POST /api/breakdowns`), listed at
+  `GET /api/jobs` as `breakdown`; a page opened while one runs (after a reload)
+  finds it there and follows it again.
+
+**One video tab** (`#/video-breakdown`): a deep breakdown of one video, from a
+YouTube link or a video file.
+
+- A file is sent with `PUT /api/video-breakdowns/files` (the same streamed,
+  capped writing as the owner's own copies, `MAX_OWN_VIDEO_BYTES` 2 GB): MP4,
+  WebM or MOV by its content type, checked to be whole (`isWholeMp4` for MP4
+  and MOV, the EBML header for WebM), saved as `my-videos/<id>.<ext>` under a
+  new random id of the same shape as a YouTube id (`newUploadKey`), answered
+  `{file, bytes, kind}`. The server hands this path the body as a stream, as
+  it does the other upload path.
+- `POST /api/video-breakdowns {video | file, name?, engine?, fresh?}` starts a
+  job (202 `{jobId, video}`), listed at `GET /api/jobs` as `video-breakdown`
+  with its `videoId`; it takes the one slot every AI run shares (409
+  otherwise). A bad link is 400 with the forms it takes; a file id no longer on
+  disk 404.
+- **The steps** (`oneVideoEngine.ts`): a YouTube video's title, channel and
+  length (`readVideoDetails`) and its captions; a file: the owner's own copy,
+  else one download (720p, yt-dlp then the built-in route; not for a video
+  longer than `WATCH_MAX_SECONDS`), or the file given; a watch with the engine
+  that watches (`DEEP_WATCH_QUESTION`: the breakdown's watch question, plus
+  the kinds of footage and whether the voice sounds human or synthetic):
+  Antigravity on the file (a WebM or MOV is made into a small MP4 first with
+  ffmpeg), else the Gemini API on the link; a file given is never handed to an
+  engine as a link (`fileOnly`). Then a frame study by Claude Code or Codex:
+  frames cut from the file one a second with ffmpeg, else YouTube's preview
+  frames (never for a file). Watch notes and frame studies are kept per video
+  in `video_studies` and reused unless `fresh`. With nothing watched, no frames
+  and no captions the job fails plainly, naming why each was missing.
+- **The writing**: one run of `one-video` (YouTube: `get_video_watch`,
+  `get_frame_study`, `get_transcript`, `get_transcript_pace`,
+  `get_video_details`, `view_thumbnails`; a picture question, so Claude Code
+  or Codex) or `one-video-file` (`get_video_watch`, `get_frame_study`; any
+  engine). The question names only the video id and, from code, which studies
+  exist; it asks for WHAT IT IS, HOW IT IS MADE (structure with times, visuals
+  by kind of footage, voice and sound, editing, thumbnail and title), HOW TO
+  REPLICATE IT WITH AI (steps naming kinds of tool, not products unless the
+  video shows one) and WHAT TO AVOID COPYING; every point with its time
+  `[m:ss]`; sound only from watch notes, else NOT HEARD; pictures only from
+  notes, frames or the thumbnail, else NOT SEEN; three ready prompts between
+  marker lines (`SCRIPT PROMPT` with `[TOPIC]`, `VISUAL PROMPT` with
+  `[SCENE]`, `THUMBNAIL PROMPT` with `[SUBJECT]` and `[OVERLAY TEXT]`), lifted
+  out in code (`liftOneVideoPrompts`) and never guessed.
+- **Kept** per video in `video_breakdowns` (store step 28, provisional number
+  43 before the merge): the title, source, channel, how it was seen
+  (`seen_json`: the file used or why none, who watched, who studied the frames
+  and from where, how many frames, the captions, what could not be done), and
+  the text and engine, or why it could not be written. A new run replaces the
+  row. `GET /api/video-breakdowns` lists them newest first;
+  `GET /api/video-breakdowns?video=<id>` gives one, its prompts lifted out.
+- **The page** says which route was used ("Watched, picture and sound, by
+  Antigravity from a copy on this computer", or "Not watched: Claude Code went
+  through 312 frames cut from the video, one a second and its captions") and
+  lists what it could and could not see; the answer as sections, each prompt
+  with Copy and Download .txt, and "Download .md" (the whole breakdown as
+  Markdown, made on the page). The run is followed through `GET /api/jobs/:id`
+  and found again in `GET /api/jobs` after a reload.
+
+**What was run for real.** On a copy of a real store (1440 and 390 wide):
+both tabs, a pasted channel refused in words, the filters, a channel opened,
+no console error, no sideways scroll. One end-to-end run on a 12-second
+generated test clip uploaded through the route: saved, frames cut with ffmpeg
+(12), the frame study refused by Claude Code's plan limit, and the job failed
+with that reason named; no breakdown was written. Not run for real: a written
+one-video breakdown, a watch by Antigravity or the Gemini API, a WebM or MOV
+converted for watching, a pasted channel read from YouTube.
 
 ### Idea lab, trending formats and the hook library (`ideaEngine.ts`, `formulaEngine.ts`, `hookEngine.ts`, `labRoutes.ts`, `labAnalyses.ts`)
 

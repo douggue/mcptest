@@ -29,7 +29,12 @@ export {
 } from './map/mix';
 export { SqliteEdgeRepo } from './repos/sqliteEdgeRepo';
 export { SqliteMapRepo } from './repos/sqliteMapRepo';
-export { listBreakouts, type BreakoutVideo } from './map/breakouts';
+export {
+  DEFAULT_BREAKOUT_WINDOW_DAYS,
+  DEFAULT_MIN_BREAKOUT_SCORE,
+  listBreakouts,
+  type BreakoutVideo,
+} from './map/breakouts';
 export {
   listSavedChannels,
   loadMapSnapshot,
@@ -355,6 +360,27 @@ export {
   type PromptMarker,
 } from './breakdown/parts';
 export { MAX_PART_CHARS, SqliteBreakdownRepo } from './repos/sqliteBreakdownRepo';
+export {
+  ONE_VIDEO_PROMPTS,
+  ONE_VIDEO_PROMPT_IDS,
+  ONE_VIDEO_SECTIONS,
+  UPLOAD_KINDS,
+  liftOneVideoPrompts,
+  newUploadKey,
+  uploadKindOf,
+  type LiftedPrompts,
+  type OneVideoPromptId,
+  type UploadKind,
+} from './breakdown/oneVideo';
+export {
+  MAX_VIDEO_BREAKDOWN_CHARS,
+  SqliteVideoBreakdownRepo,
+  type NewVideoBreakdown,
+  type StoredVideoBreakdown,
+  type VideoBreakdownRepo,
+  type VideoSeen,
+  type VideoSource,
+} from './repos/sqliteVideoBreakdownRepo';
 export {
   BREAKDOWNS_FOLDER,
   BREAKDOWN_FILES,

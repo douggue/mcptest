@@ -118,4 +118,15 @@ describe('breakdownFiles', () => {
     });
     expect(existsSync(mine)).toBe(true);
   });
+
+  test('makes a WebM or MOV into an MP4 for watching, and says so when it cannot', async () => {
+    const mine = join(own, `${VIDEO}.webm`);
+    writeFileSync(mine, 'a small webm');
+
+    expect(await files().forWatching(VIDEO, mine)).toEqual({
+      ok: false,
+      reason:
+        'the engine that watches opens MP4 files only, and a smaller copy could not be made: ffmpeg is not installed on this computer',
+    });
+  });
 });

@@ -1,6 +1,7 @@
 import type { Engine } from '../src/app';
 import type { ExtrasEngine } from '../src/extrasTypes';
 import type { LabEngine } from '../src/labTypes';
+import type { BreakdownHub } from '../src/oneVideoTypes';
 import type { ScriptEngine } from '../src/scriptTypes';
 
 export const HOST = '127.0.0.1:4317';
@@ -68,6 +69,16 @@ export const UNUSED_EXTRAS: ExtrasEngine = {
   checkMoney: unused('checkMoney'),
 };
 
+/** The Breakdown view's part of an engine, failing loudly when a test reaches it. */
+export const UNUSED_HUB: BreakdownHub = {
+  candidates: unused('candidates'),
+  readCandidate: unused('readCandidate'),
+  breakDownVideo: unused('breakDownVideo'),
+  videoBreakdowns: unused('videoBreakdowns'),
+  findVideoBreakdown: unused('findVideoBreakdown'),
+  hasUpload: unused('hasUpload'),
+};
+
 /** An engine whose later features are these, failing loudly on any other. */
 export const withExtras = (parts: Partial<ExtrasEngine>): Partial<Engine> => ({
   extras: { ...UNUSED_EXTRAS, ...parts },
@@ -130,6 +141,7 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     fetchLogos: unused('fetchLogos'),
     ...UNUSED_LAB,
     extras: UNUSED_EXTRAS,
+    hub: UNUSED_HUB,
     ...parts,
   };
 }

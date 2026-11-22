@@ -6,7 +6,7 @@
  */
 import { channelHref, viewHref, type ViewId } from './routes';
 
-export type DestinationId = 'home' | 'channel' | 'research' | 'create' | 'ask';
+export type DestinationId = 'home' | 'channel' | 'research' | 'create' | 'breakdown' | 'ask';
 
 export interface Tab {
   readonly label: string;
@@ -56,6 +56,14 @@ export const DESTINATIONS: readonly Destination[] = [
       { label: 'Ideas', view: 'ideas' },
       { label: 'Script', view: 'script' },
       { label: 'Check', view: 'risk' },
+    ],
+  },
+  {
+    id: 'breakdown',
+    label: 'Breakdown',
+    tabs: [
+      { label: 'Channel', view: 'breakdown' },
+      { label: 'One video', view: 'video-breakdown' },
     ],
   },
   { id: 'ask', label: 'Ask AI', tabs: [] },
