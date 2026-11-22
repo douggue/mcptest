@@ -541,7 +541,7 @@ CREATE TABLE IF NOT EXISTS video_breakdowns (
   written_at  TEXT NOT NULL
 );
 `,
-  // 44 (provisional; renumbered when merged): the production teardown of one video.
+  // 29: the production teardown of one video.
   //     video_teardown_parts keeps, per video and part, what code measured or an engine
   //     judged as JSON (or why it could not be made), so a later run, a channel breakdown
   //     or the page reuses it. The pictures it names live under <downloads>/teardowns/<id>/.
