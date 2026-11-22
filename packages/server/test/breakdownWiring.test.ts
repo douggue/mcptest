@@ -307,13 +307,13 @@ describe('a breakdown through the engine', () => {
       .slice(3)
       .map(([, request]) => request.mcpServers['jgtube']?.env?.['JGTUBE_TOOLS']);
     expect(tools).toEqual([
-      'get_channel_videos,get_video_details',
-      'get_channel_brand,get_channel_videos,view_thumbnails',
-      'get_transcript,get_transcript_pace,get_channel_videos',
-      'get_frame_study,get_video_watch,get_channel_videos',
-      'get_breakdown_part,get_channel_videos',
-      'get_breakdown_part,get_transcript_pace,get_frame_study,get_video_watch',
-      'get_breakdown_part',
+      'get_channel_videos,get_video_details,get_channel_measurements',
+      'get_channel_brand,get_channel_videos,view_thumbnails,get_channel_measurements',
+      'get_transcript,get_transcript_pace,get_channel_videos,get_channel_measurements',
+      'get_frame_study,get_video_watch,get_channel_videos,get_channel_measurements,view_teardown_images',
+      'get_breakdown_part,get_channel_videos,get_channel_measurements',
+      'get_breakdown_part,get_transcript_pace,get_frame_study,get_video_watch,get_channel_measurements',
+      'get_breakdown_part,get_channel_measurements',
     ]);
   });
 
@@ -435,11 +435,12 @@ describe('a breakdown through the engine', () => {
     const outcome = await engine.breakDown(CHANNEL, () => {}, { only: 'agy' });
 
     expect(requests.every(([id]) => id === 'agy')).toBe(true);
+    // Thumbnails and the picture part look at pictures, which Antigravity is shown only as files.
     expect(outcome.parts.map((part) => part.outcome)).toEqual([
       'written',
       'failed',
       'written',
-      'written',
+      'failed',
       'written',
       'written',
       'written',

@@ -9,6 +9,7 @@
  * reason.
  */
 import {
+  BREAKDOWN_CONTRAST_VIDEOS,
   tooLongToWatch,
   type BreakdownPicks,
   type BreakdownVideo,
@@ -28,6 +29,7 @@ import type {
   VideoFileUsed,
   VideoToSupply,
 } from './breakdownTypes';
+import type { MeasureOutcome } from './channelMeasure';
 import type { DownloadVideo } from './engines/videoWatch';
 import { cleanMessage } from './jobs';
 import { CLOSING } from './running';
@@ -204,10 +206,14 @@ async function studyVideo(
     run.choices.fresh ? null : deps.studies.find(videoId, kind);
   const kept = { watch: find('watch'), frames: find('frames') };
   const [canCut, canWatch] = await Promise.all([deps.files.canCut(), deps.watchesFiles()]);
+  const toMeasure = needsMeasuring(deps, videoId, run.choices, canCut);
   // A file is looked for only when something here would use it: a watch by an
-  // engine that opens files, or frames cut by ffmpeg that are not stored yet.
+  // engine that opens files, frames cut by ffmpeg that are not stored yet, or
+  // measurements not kept yet.
   const needsFile =
-    (kept.watch === null && canWatch) || (canCut && kept.frames?.frames?.source !== 'file');
+    (kept.watch === null && canWatch) ||
+    (canCut && kept.frames?.frames?.source !== 'file') ||
+    toMeasure;
   const file: HeldFile = needsFile
     ? await fileFor(deps, video, run)
     : { ok: false, reason: canCut || canWatch ? NOTHING_NEEDED : NO_TOOLS_FOR_A_FILE };
@@ -215,14 +221,101 @@ async function studyVideo(
     const watch =
       kept.watch === null ? await watchOne(deps, video, file, run) : keptStudy(kept.watch);
     const frames = await studyFramesOf(deps, video, file, kept.frames, run);
+    const measured = await measureOne(deps, videoId, file, run, toMeasure);
     const used: VideoFileUsed = file.ok
       ? { used: file.used }
       : { used: 'none', reason: file.reason };
-    return { videoId, title, file: used, watch, frames };
+    return { videoId, title, file: used, watch, frames, ...(measured ? { measured } : {}) };
   } finally {
     // Only what Jgtube made is removed: the cut frames and a copy it downloaded.
     await deps.files.removeFrames(videoId).catch(() => undefined);
     if (file.ok) await file.remove?.().catch(() => undefined);
+  }
+}
+
+/** Whether a video still needs measuring in code: the measuring is wired, ffmpeg is here, and nothing is kept. */
+function needsMeasuring(
+  deps: BreakdownDeps,
+  videoId: string,
+  choices: BreakdownChoices,
+  canCut: boolean,
+): boolean {
+  if (deps.measure === undefined || !canCut) return false;
+  return choices.fresh === true || !(deps.isMeasured?.(videoId) ?? false);
+}
+
+/** The captions of a video as timed lines, when they are stored or can be read. */
+async function captionLines(deps: BreakdownDeps, videoId: string) {
+  try {
+    const { transcript } = await deps.readTranscript(videoId);
+    return transcript === null
+      ? null
+      : transcript.segments.map((segment) => ({ at: segment.startMs / 1000, text: segment.text }));
+  } catch {
+    stopIfClosing(deps);
+    return null;
+  }
+}
+
+/** Measures one video in code from the file in hand; kept when nothing needs doing; undefined when not wired. */
+async function measureOne(
+  deps: BreakdownDeps,
+  videoId: string,
+  file: HeldFile,
+  run: VideoRun,
+  toMeasure: boolean,
+): Promise<MeasureOutcome | undefined> {
+  if (deps.measure === undefined) return undefined;
+  if (!toMeasure) return deps.isMeasured?.(videoId) ? { state: 'kept' } : undefined;
+  if (!file.ok) return { state: 'failed', reason: file.reason };
+  run.tell.say('measuring', `${run.label}: measuring every frame and its sound in code`);
+  try {
+    const outcome = await deps.measure(
+      videoId,
+      file.path,
+      run.choices.fresh === true,
+      await captionLines(deps, videoId),
+      (text) => run.tell.say('measuring', `${run.label}: ${text.toLowerCase()}`),
+    );
+    stopIfClosing(deps);
+    return outcome;
+  } catch (error) {
+    stopIfClosing(deps);
+    return { state: 'failed', reason: reasonOf(error) };
+  }
+}
+
+/**
+ * Measures a few ordinary videos in code too (no AI), so the parts can set
+ * the winners' numbers beside them. A video that cannot be had is skipped.
+ */
+export async function measureContrast(
+  deps: BreakdownDeps,
+  picks: BreakdownPicks,
+  choices: BreakdownChoices,
+  tell: Teller,
+): Promise<void> {
+  if (deps.measure === undefined || !(await deps.files.canCut())) return;
+  const chosen = picks.ordinary.slice(0, BREAKDOWN_CONTRAST_VIDEOS);
+  for (const [index, video] of chosen.entries()) {
+    stopIfClosing(deps);
+    if (!needsMeasuring(deps, video.videoId, choices, true) || tooLongToWatch(video) !== null)
+      continue;
+    const label = `Ordinary video ${index + 1} of ${chosen.length}, “${shown(video.title)}”`;
+    const own = await deps.files.own(video.videoId);
+    if (own === null) tell.say('downloading', `${label}: downloading the video to measure it`);
+    const copy = own === null ? await deps.files.fetch(video.videoId, deps.stop) : null;
+    const file: HeldFile =
+      own !== null
+        ? { ok: true, path: own, used: 'own' }
+        : copy?.ok
+          ? { ok: true, path: copy.path, used: 'downloaded', remove: copy.remove }
+          : { ok: false, reason: 'not downloaded' };
+    try {
+      await measureOne(deps, video.videoId, file, { label, choices, tell }, true);
+    } finally {
+      if (file.ok) await file.remove?.().catch(() => undefined);
+    }
   }
 }
 

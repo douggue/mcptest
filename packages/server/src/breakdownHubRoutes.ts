@@ -27,6 +27,7 @@ import { ENGINE_IDS } from './engines/settings';
 import { fail, isCrossSite, ok, readJson } from './http';
 import { JobStore, cleanMessage, type JobRecord } from './jobs';
 import type { OneVideoProgress, VideoBreakdownView, VideoTarget } from './oneVideoTypes';
+import { teardownRoutes } from './teardownRoutes';
 
 export const CANDIDATES_PATH = '/api/breakdowns/candidates';
 export const READ_CHANNEL_PATH = '/api/breakdowns/channel';
@@ -265,7 +266,7 @@ export function hubRoutes(
           if (request.method === 'GET') return readVideos(options, url);
           return only('POST', request, () => startVideo(context, request));
         default:
-          return null;
+          return teardownRoutes(options, request, url);
       }
     },
     listJobs: () => context.jobs.list(),

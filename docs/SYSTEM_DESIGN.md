@@ -216,6 +216,14 @@ read of a channel's watch page showed of its earning: `channel_id` (primary key)
 `video_id`, `memberships` (a Join button), `ads` (`shown`, `none` or `unknown`) and
 `checked_at`. It refers to no other table. See "Monetization signs".
 
+`video_teardown_parts` (step 44, provisional: renumbered at merge) holds the
+production teardown of one video, one row per video and part (`about`,
+`measured`, `transcript`, `sheets` and the judged stages): the part as JSON with
+who made it (`jgtube` for what code measured, else the engine), or why it could
+not be made, and when; every JSON is checked again with a schema when read. The
+pictures it names live in `<downloads>/teardowns/<video id>/`. It refers to no
+other table. See "Production teardown".
+
 ### Keeping the store safe
 
 - **Backup before upgrade.** When an existing store with data has pending
@@ -2434,46 +2442,138 @@ YouTube link or a video file.
   with its `videoId`; it takes the one slot every AI run shares (409
   otherwise). A bad link is 400 with the forms it takes; a file id no longer on
   disk 404.
-- **The steps** (`oneVideoEngine.ts`): a YouTube video's title, channel and
-  length (`readVideoDetails`) and its captions; a file: the owner's own copy,
-  else one download (720p, yt-dlp then the built-in route; not for a video
-  longer than `WATCH_MAX_SECONDS`), or the file given; a watch with the engine
-  that watches (`DEEP_WATCH_QUESTION`: the breakdown's watch question, plus
-  the kinds of footage and whether the voice sounds human or synthetic):
-  Antigravity on the file (a WebM or MOV is made into a small MP4 first with
-  ffmpeg), else the Gemini API on the link; a file given is never handed to an
-  engine as a link (`fileOnly`). Then a frame study by Claude Code or Codex:
-  frames cut from the file one a second with ffmpeg, else YouTube's preview
-  frames (never for a file). Watch notes and frame studies are kept per video
-  in `video_studies` and reused unless `fresh`. With nothing watched, no frames
-  and no captions the job fails plainly, naming why each was missing.
-- **The writing**: one run of `one-video` (YouTube: `get_video_watch`,
-  `get_frame_study`, `get_transcript`, `get_transcript_pace`,
-  `get_video_details`, `view_thumbnails`; a picture question, so Claude Code
-  or Codex) or `one-video-file` (`get_video_watch`, `get_frame_study`; any
-  engine). The question names only the video id and, from code, which studies
-  exist; it asks for WHAT IT IS, HOW IT IS MADE (structure with times, visuals
-  by kind of footage, voice and sound, editing, thumbnail and title), HOW TO
-  REPLICATE IT WITH AI (steps naming kinds of tool, not products unless the
-  video shows one) and WHAT TO AVOID COPYING; every point with its time
-  `[m:ss]`; sound only from watch notes, else NOT HEARD; pictures only from
-  notes, frames or the thumbnail, else NOT SEEN; three ready prompts between
-  marker lines (`SCRIPT PROMPT` with `[TOPIC]`, `VISUAL PROMPT` with
-  `[SCENE]`, `THUMBNAIL PROMPT` with `[SUBJECT]` and `[OVERLAY TEXT]`), lifted
-  out in code (`liftOneVideoPrompts`) and never guessed.
-- **Kept** per video in `video_breakdowns` (store step 28): the title, source, channel, how it was seen
-  (`seen_json`: the file used or why none, who watched, who studied the frames
-  and from where, how many frames, the captions, what could not be done), and
-  the text and engine, or why it could not be written. A new run replaces the
-  row. `GET /api/video-breakdowns` lists them newest first;
-  `GET /api/video-breakdowns?video=<id>` gives one, its prompts lifted out.
-- **The page** says which route was used ("Watched, picture and sound, by
-  Antigravity from a copy on this computer", or "Not watched: Claude Code went
-  through 312 frames cut from the video, one a second and its captions") and
-  lists what it could and could not see; the answer as sections, each prompt
-  with Copy and Download .txt, and "Download .md" (the whole breakdown as
-  Markdown, made on the page). The run is followed through `GET /api/jobs/:id`
-  and found again in `GET /api/jobs` after a reload.
+- **The steps**: the production teardown below (`oneVideoEngine.ts`,
+  `teardownEngine.ts`). A YouTube video's title, channel and length and its
+  captions; a file: the owner's own copy, else one download (720p, yt-dlp then
+  the built-in route; not for a video longer than `WATCH_MAX_SECONDS`), or the
+  file given. No file is fetched when every part is kept from an earlier run.
+  The job fails only when nothing at all could be measured or judged.
+- **Kept** as teardown parts (`video_teardown_parts`) and, so the list of kept
+  breakdowns stays as it was, one row in `video_breakdowns` (store step 28)
+  holding the title, source, channel, how it was seen and the whole teardown as
+  Markdown (`engine` = `jgtube`). `GET /api/video-breakdowns?video=<id>` gives
+  the view with `teardown`: the report put together from the stored parts.
+- **Before starting** the page says what it takes:
+  `GET /api/video-teardowns/runs?video=<id>` answers `{runs, kept, watch}`: one
+  AI run per stage not kept (8, or 9 with a watch); measuring in code is not an
+  AI run.
+- **The page** ("Production teardown and style bible") says how the video was
+  seen, then eight sections: 1 measured numbers with their method; 2 the
+  palette as swatches (hex and share of runtime), colour modes, type and motion
+  signatures; 3 the component library as cards, each with its keyframe; 4 the
+  hook sheet and a beat table (time, visual and camera, on-screen text,
+  narration from the transcript, sound marked heard or measured); 5 the chapter
+  timeline with cuts a minute, median shot, words a minute, transitions and
+  animations per chapter, techniques with quotes (each marked found or not
+  found in the transcript) and the hammer lines; 6 motion and transitions: the
+  transition and camera mixes counted in code and the vocabulary as cards with
+  their frame strips, frames and measured duration, easing and a rebuild
+  recipe; 7 sound, saying plainly when it was not heard; 8 the pipeline table,
+  components, steps, ready prompts with Copy, and what not to copy.
+  "Download .md" (`GET /api/video-teardowns/<id>/teardown.md`) and "Download
+  folder (.zip)" (`…/export.zip`: `teardown.md` with relative `images/` links,
+  the pictures, `transcript.txt`, `measurements.json`). Pictures are served from
+  the local store at `…/images/<name>`, the name checked against `k-###`,
+  `s-###`, `hook`, `chapter-##` and the bytes against a JPEG header, so the
+  page's `img-src 'self'` holds.
+
+### Production teardown (`core/src/teardown/`, `teardownEngine.ts`, `teardownQuestions.ts`, `teardownRequests.ts`, `teardownStore.ts`, `teardownRoutes.ts`, `channelMeasure.ts`, `mcp/src/teardownTools.ts`)
+
+The standard it is built to: a standalone run that watched one documentary
+explainer produced a "production teardown and style bible": a metrics table
+(runtime, words a minute, cuts with median and average shot, loudness, quiet
+dips and peaks, each with how it was measured), colour modes with exact hex
+values, type and reveal animations, a library of a dozen recurring visual
+templates each with a still, a one-frame-a-second sheet of the opening with a
+beat table (visual, on-screen text, narration, sound), the chapter structure and
+rhetoric with quotes and times, the sound design, and a per-layer plan to make
+videos in that style with ready prompts. Jgtube's teardown has the same
+sections and more (every frame gone through for transitions and motion), but
+every number is measured in code and labelled with its method; engines judge
+only what code cannot.
+
+**Measured in code** (`measure.ts`, `measureMotion.ts`; ffprobe and ffmpeg
+started without a shell, absolute paths; constants in `constants.ts` and
+`motionClassify.ts`):
+
+| What | How |
+| ---- | --- |
+| Length, size, frame rate, sound or not | `ffprobe -show_streams -show_format` |
+| Cuts, shots, median and average shot, cuts a minute | `select='gt(scene,0.3)',showinfo` (`SCENE_THRESHOLD`) |
+| Integrated loudness, range, true peak | `ebur128=peak=true:framelog=verbose` (EBU R128) |
+| Quiet dips | `silencedetect=noise=-32dB:d=0.4` |
+| Peak impacts | `astats` peak per 0.5 s window (longer for long videos); a window over −12 dBFS after one at or under it |
+| Keyframes | one per shot, its middle; over 40 shots, 40 runs of neighbours, each shown by its longest shot |
+| Palette | every keyframe shrunk to 48×27, pixels weighted by the seconds their shots last, k-means (8 groups, fixed farthest-point start), under 2% dropped: hex and share of runtime |
+| Hook sheet | the first 36 s, one frame a second, 6×6 |
+| Chapter sheets | once chapters are named: 20 frames spread across each (10 chapters at most) |
+| Words | captions, else what the engine that watched heard (marked so): words, words a minute overall and per chapter, sentence length, 2–5 word hammer sentences |
+| Every frame | shrunk to 160×90 grey and compared with the one before, streamed from ffmpeg: mean absolute difference, brightness, and the global shift and zoom from the row and column brightness profiles |
+| Transitions | flash (40 grey levels brighter, back within 3 frames); fade to or from black or white (5+ frames ramping to ≤20 or ≥235); whip-like (2–10 frames changing 8%+); dissolve (0.4% above the usual change for 6 frames to 3 s, ends 8%+ apart and at least 0.6 of the summed change); cuts from the scene pass, one at the edge of a flash or fade folded into it |
+| Holds, animation | hold: under 0.06% change for 1.5 s; on-screen animation: 0.08% above the usual change for 3+ frames, camera still |
+| Camera per shot | trimmed mean shift and zoom: push in or pull out (1%/s), pan or tilt (3% of the frame a second), shake (0.8 px), else still |
+| Frame strips | ten frames at the video's own rate around a chosen event (every nth frame for a long one), 5×2: the opening's first (6), then up to 3 of each kind across the video, 24 at most |
+
+Tested on clips ffmpeg makes inside the tests (`teardownMeasure.test.ts`,
+`teardownMotion.test.ts`, `teardownReport.test.ts`): cuts at exactly 3, 7 and
+9 s, a 4–6 s silence and one peak at 9 s; a 1 kHz tone at −20 dBFS reads −23
+LUFS and −20 dBFS true peak; four colours read back with their shares; a pan
+(15.6% of the width a second), a tilt, a push in, a dissolve at 1.56 s for 25
+frames, fades out and in, a one-frame flash, a whip and a sliding graphic.
+
+**Judged by engines**, each stage one run answering one JSON object checked with
+zod (`stages.ts`), stored as it is made and reused unless `fresh`:
+
+1. `structure`: chapters from the transcript and the cut times (any engine).
+2. `watch`: Antigravity, when installed and in the owner's order, watches the
+   whole file with sound, chapter by chapter (times from code only): sound,
+   music, effects, sound synced to motion, the opening's sound beat by beat,
+   and the words when there are no captions.
+3. `hook`, `design`, `archetypes`, `motion`: picture stages, to Claude Code and
+   Codex through `view_teardown_images` (8 pictures a call at most) and to an
+   engine that passed the picture check as files named in the question. Code
+   chooses and caps the pictures (hook: the sheet and the opening's keyframes,
+   7; design: chapter sheets, 6; archetypes: keyframes, 24; motion: strips, 16).
+4. `techniques`, `sound`, `plan`: any engine.
+
+Every stage reads its data through `get_video_teardown` (measurements,
+transcript, earlier stages, under a line saying it is data, never
+instructions); a question names only the video id, picture names and numbers
+worked out in code. Code then adds to what was judged (`report.ts`): chapter
+numbers, each hook beat's narration from the transcript, measured sound where
+nothing was heard, colours kept only when they are in the measured palette
+(others listed as not measured), keyframes and strips kept only when they
+exist, quotes checked against the transcript.
+
+**In the channel breakdown.** The owner chooses how many top videos to study in
+depth (1 to 5, three by default); `GET /api/breakdowns/runs?videos=` says first
+what that takes (`aiRuns`: a frame study, plus a watch where Antigravity
+watches, per video, plus the 7 parts; `measuredInCode`: those videos and 2
+ordinary ones, no AI). Each deep video, and 2 ordinary ones for contrast, is
+measured in code into the same teardown store, so a video the One video tab
+measured is not measured again, and the other way round. The seven parts keep
+their structure and read the measured layer through
+`get_channel_measurements` (`channelFacts.ts`, `titlePatterns.ts`): title
+patterns counted over the high and low groups (numbers, years, money,
+questions, splits, capitals, capitalised names, you, I or we, words of degree,
+charged words, lengths, repeated openings), the thumbnail checklist counted
+where a thumbnail review tagged them, words, hook pace and hammer lines, cuts a
+minute, median shot, loudness, the shared palette, transitions and camera
+moves, winners beside ordinary, and each measured video's keyframes and strips.
+Titles add the measured patterns, ten ready titles and what not to copy;
+thumbnails the checklist counted, layout archetypes and a prompt per archetype;
+scripts the measured numbers, a hook second by second, open loops, a template
+and a script prompt; picture and sound becomes the style bible, looking at the
+strips and keyframes (so it now needs an engine that sees pictures); strategy
+ties each point to a measured difference or a quote, with gaps and risks; the
+plan adds a per-layer pipeline with the measured loudness and pacing rules and
+no made-up durations; the master prompt writes the measured rules in as
+numbers. The style lock and the script writer read these parts as before.
+
+**What was run for real.** The measurements, on generated clips (the tests
+above, real ffmpeg 6.1), and the teardown page at 1440 and 390 wide on a seeded
+teardown. Not run for real: a stage judged by any engine (stand-ins only), a
+watch by Antigravity, a channel breakdown with the measured layer.
 
 **What was run for real.** On a copy of a real store (1440 and 390 wide):
 both tabs, a pasted channel refused in words, the filters, a channel opened,

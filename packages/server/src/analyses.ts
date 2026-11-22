@@ -114,7 +114,7 @@ export interface AnalysisSettings {
 
 /** The connector's name as every engine knows it. */
 export const SERVER_NAME = 'jgtube';
-const tool = (name: string): string => `mcp__${SERVER_NAME}__${name}`;
+export const tool = (name: string): string => `mcp__${SERVER_NAME}__${name}`;
 /** Long enough for several tool calls and a considered answer; short enough to notice a hang. */
 const TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -297,7 +297,7 @@ function fixedForm(channel: string): string {
  * told which tools the run may use and offers no others, so the limit holds
  * whatever the engine itself does with its own settings.
  */
-function connectorServer(
+export function connectorServer(
   settings: AnalysisSettings,
   allowedTools: readonly string[],
 ): McpServerSpec {

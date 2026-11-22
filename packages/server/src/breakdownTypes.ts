@@ -1,3 +1,4 @@
+import type { MeasureOutcome } from './channelMeasure';
 import type {
   BreakdownFileId,
   BreakdownPartId,
@@ -9,7 +10,15 @@ import type { EngineId } from './engines/types';
 
 /** What a breakdown is doing now. */
 export type BreakdownStep =
-  'reading' | 'file' | 'downloading' | 'cutting' | 'watching' | 'frames' | 'writing' | 'saving';
+  | 'reading'
+  | 'file'
+  | 'downloading'
+  | 'cutting'
+  | 'watching'
+  | 'frames'
+  | 'measuring'
+  | 'writing'
+  | 'saving';
 
 /** A video whose file could not be had, which the owner can supply themselves. */
 export interface VideoToSupply {
@@ -62,6 +71,8 @@ export interface StudiedVideo {
   readonly file: VideoFileUsed;
   readonly watch: StudyResult;
   readonly frames: FrameStudyResult;
+  /** Whether it was measured in code (cuts, loudness, colours, every frame): kept, made, or why not. */
+  readonly measured?: MeasureOutcome | undefined;
 }
 
 /** One of the top videos, and whether its captions could be read. */
@@ -158,4 +169,6 @@ export interface BreakdownChoices {
   readonly only?: EngineId | undefined;
   /** Make the watch notes and frame studies again, and write every part again, reusing nothing stored. */
   readonly fresh?: boolean | undefined;
+  /** How many top videos to study in depth, 1 to 5; absent, three. */
+  readonly videos?: number | undefined;
 }

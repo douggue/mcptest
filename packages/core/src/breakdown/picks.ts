@@ -18,6 +18,10 @@ import { clock } from '../video/transcriptText';
 export const BREAKDOWN_TOP_VIDEOS = 5;
 /** The best of those, studied in depth: watched in full and gone through frame by frame. */
 export const BREAKDOWN_DEEP_VIDEOS = 3;
+/** The most videos the owner may have studied in depth: all the top ones. */
+export const BREAKDOWN_MAX_DEEP_VIDEOS = 5;
+/** Ordinary videos measured in code (no AI) beside the deep ones, for contrast. */
+export const BREAKDOWN_CONTRAST_VIDEOS = 2;
 /**
  * The titles a title study rests on at least, when the channel has that many:
  * the most viewed. A channel with more also has as many again of its least
@@ -110,7 +114,12 @@ function pickOrdinary(
  * beside the top ones. A video whose id is not a YouTube video id is left
  * out: the ids are put into questions and file names.
  */
-export function pickBreakdownVideos(videos: readonly StoredVideo[], now: Date): BreakdownPicks {
+export function pickBreakdownVideos(
+  videos: readonly StoredVideo[],
+  now: Date,
+  deepCount: number = BREAKDOWN_DEEP_VIDEOS,
+): BreakdownPicks {
+  const deepTaken = Math.max(1, Math.min(BREAKDOWN_MAX_DEEP_VIDEOS, Math.floor(deepCount)));
   const durations = new Map(videos.map((video) => [video.id, video.durationSeconds]));
   const picked = (row: VideoReportRow): BreakdownVideo => ({
     videoId: row.id,
@@ -124,7 +133,7 @@ export function pickBreakdownVideos(videos: readonly StoredVideo[], now: Date): 
   return {
     storedVideos: videos.length,
     top,
-    deep: top.slice(0, BREAKDOWN_DEEP_VIDEOS),
+    deep: top.slice(0, deepTaken),
     titles: pickTitles(rows).map(picked),
     ordinary: pickOrdinary(rows, top).map(picked),
   };

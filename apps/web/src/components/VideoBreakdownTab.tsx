@@ -1,28 +1,48 @@
-import { Download, Film, Upload } from 'lucide-react';
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { Download, Film, FolderDown, Upload } from 'lucide-react';
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { sendingText } from '../lib/breakdown';
 import { thumbnailUrl } from '../lib/format';
+import { createTeardownApi, markdownUrl, runsLine, zipUrl } from '../lib/teardown';
 import {
-  PROMPT_IDS,
-  PROMPT_LABELS,
   fileProblem,
   linkProblem,
-  markdownName,
   routeLine,
   seenLines,
-  videoMarkdown,
+  videoIdFrom,
   writtenText,
   type VideoBreakdownView,
 } from '../lib/videoBreakdown';
-import { Answer } from './Answer';
 import { Card } from './layout/Card';
 import { Notice } from './layout/Notice';
 import { ViewPage } from './layout/SplitView';
 import { ViewHeader } from './layout/ViewHeader';
 import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
-import { ReadyPrompt, saveText } from './ReadyPrompt';
+import {
+  ComponentsSection,
+  DesignSection,
+  HookSection,
+  MetricsSection,
+} from './teardown/TeardownLook';
+import { MotionSection, PlanSection, SoundSection, StorySection } from './teardown/TeardownMake';
 import type { VideoBreakdown } from './useVideoBreakdown';
 import type { ViewParts } from './viewParts';
+
+/** What a teardown of the typed video (or of any file) would take, in one line; null while unknown. */
+function useRunsLine(videoId: string | null): string | null {
+  const api = useMemo(() => createTeardownApi(), []);
+  const [line, setLine] = useState<string | null>(null);
+  useEffect(() => {
+    let current = true;
+    api
+      .runs(videoId, false)
+      .then((runs) => current && setLine(runsLine(runs)))
+      .catch(() => current && setLine(null));
+    return () => {
+      current = false;
+    };
+  }, [api, videoId]);
+  return line;
+}
 
 /** The link or the file to break down, and the one button. */
 function VideoInput({
@@ -34,6 +54,7 @@ function VideoInput({
 }) {
   const [link, setLink] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
+  const runs = useRunsLine(videoIdFrom(link));
   const { asking, analysis } = parts.work;
   const submit = (event: FormEvent): void => {
     event.preventDefault();
@@ -93,6 +114,7 @@ function VideoInput({
           />
         </label>
       </div>
+      {runs && <p className="text-body-sm text-on-surface-variant">{runs}</p>}
       {problem && (
         <p role="alert" className="text-body-sm text-error">
           {problem}
@@ -141,7 +163,36 @@ function HowSeen({ view }: { readonly view: VideoBreakdownView }) {
   );
 }
 
-/** One kept breakdown: what it is of, how it was seen, the sections, the prompts and the download. */
+const DOWNLOAD_LINK = `flex min-h-11 items-center gap-1.5 ${QUIET_BUTTON}`;
+
+/** The production teardown, section by section, like a style bible. */
+function Teardown({ view }: { readonly view: VideoBreakdownView }) {
+  const teardown = view.teardown;
+  if (teardown === null) {
+    return (
+      <Notice tone="note">
+        {view.problem
+          ? `It could not be made: ${view.problem}`
+          : 'This breakdown was made before teardowns. Break the video down again for the full teardown.'}
+      </Notice>
+    );
+  }
+  const parts = { view: teardown, videoId: view.videoId, title: view.title };
+  return (
+    <div className="flex min-w-0 flex-col gap-space-xl">
+      <MetricsSection view={teardown} />
+      <DesignSection view={teardown} />
+      <ComponentsSection {...parts} />
+      <HookSection {...parts} />
+      <StorySection view={teardown} />
+      <MotionSection {...parts} />
+      <SoundSection view={teardown} />
+      <PlanSection {...parts} />
+    </div>
+  );
+}
+
+/** One kept breakdown: what it is of, how it was seen, the teardown and its downloads. */
 function Result({ view }: { readonly view: VideoBreakdownView }) {
   const thumb = view.source === 'youtube' ? thumbnailUrl(view.videoId) : null;
   return (
@@ -151,42 +202,30 @@ function Result({ view }: { readonly view: VideoBreakdownView }) {
           <img src={thumb} alt="" referrerPolicy="no-referrer" className="w-40 flex-none rounded" />
         )}
         <div className="flex min-w-0 flex-1 basis-56 flex-col">
+          <p className="text-body-sm text-outline">Production teardown and style bible</p>
           <h3 id="video-result" className="break-words text-headline-md font-bold text-on-surface">
             {view.title}
           </h3>
           <p className="text-body-sm text-outline">
-            {view.source === 'file' ? 'A file you gave' : 'YouTube video'} · broken down{' '}
+            {view.source === 'file' ? 'A file you gave' : 'YouTube video'} · taken apart{' '}
             {writtenText(view.writtenAt)}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => saveText(markdownName(view), videoMarkdown(view))}
-          className={`flex min-h-11 items-center gap-1.5 ${QUIET_BUTTON}`}
-        >
-          <Download aria-hidden="true" className="h-4 w-4" />
-          Download .md
-        </button>
+        {view.teardown && (
+          <div className="flex flex-wrap gap-2">
+            <a href={markdownUrl(view.videoId)} download className={DOWNLOAD_LINK}>
+              <Download aria-hidden="true" className="h-4 w-4" />
+              Download .md
+            </a>
+            <a href={zipUrl(view.videoId)} download className={DOWNLOAD_LINK}>
+              <FolderDown aria-hidden="true" className="h-4 w-4" />
+              Download folder (.zip)
+            </a>
+          </div>
+        )}
       </div>
       <HowSeen view={view} />
-      {view.body === null ? (
-        <Notice tone="problem">
-          It could not be written: {view.problem ?? 'no reason was given'}
-        </Notice>
-      ) : (
-        <Answer text={view.body} />
-      )}
-      {PROMPT_IDS.map((id) => {
-        const text = view.prompts[id];
-        return text === null ? null : (
-          <ReadyPrompt
-            key={id}
-            label={PROMPT_LABELS[id]}
-            text={text}
-            fileTitle={`${view.title} - ${PROMPT_LABELS[id]}`}
-          />
-        );
-      })}
+      <Teardown view={view} />
     </section>
   );
 }

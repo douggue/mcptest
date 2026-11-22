@@ -16,6 +16,7 @@ import {
   analysisRequest,
   enginesFor,
   frameStudyRequest,
+  pictureEngines,
   picturesNeeded,
   seesFiles,
   type AnalysisSettings,
@@ -43,6 +44,8 @@ import { watchVideo, type DownloadVideo } from './engines/videoWatch';
 import { runClaudeWeb, type WebRunRequest } from './engines/webRun';
 import { inPrivateFolder } from './webRunner';
 import type { WorkTracker } from './running';
+import { STAGE_TITLES } from './teardownQuestions';
+import { looksAtPictures, teardownRequest, type TeardownAsk } from './teardownRequests';
 
 const IN_MEMORY = ':memory:';
 /** The Jgtube folder: the connector the engines are given lives under it. */
@@ -116,6 +119,12 @@ export interface AnalysisParts extends Pick<
    * start to end. Rejects with an EngineRunError like `analyse`.
    */
   studyFrames(videoId: string, only?: EngineId): Promise<EngineAnswer<EngineId>>;
+  /**
+   * One stage of a production teardown: a picture stage goes to the engines
+   * that see pictures (Claude Code and Codex, and one that passed the picture
+   * check, shown the pictures as files); a text stage to any engine in order.
+   */
+  askTeardown(ask: TeardownAsk, only?: EngineId): Promise<EngineAnswer<EngineId>>;
   /** Whether an engine here would watch a video from a file: Antigravity, installed and not left out. */
   watchesFiles(): Promise<boolean>;
   /**
@@ -275,7 +284,7 @@ function asker(
   shared: Shared,
   wiring: AnalysisWiring,
   stop: AbortSignal,
-): Pick<AnalysisParts, 'analyse' | 'studyFrames' | 'checkPictures'> {
+): Pick<AnalysisParts, 'analyse' | 'studyFrames' | 'checkPictures' | 'askTeardown'> {
   const { settings, engines, deps, folders, checks } = shared;
   const run =
     wiring.options.runEngine ??
@@ -355,6 +364,24 @@ function asker(
         now: () => new Date(),
         random: wiring.options.random,
       }),
+    async askTeardown(teardown, only) {
+      const at = settingsFor();
+      const seeing = pictureEngines(checks.passed());
+      const order = looksAtPictures(teardown)
+        ? allowedBy(only).filter((id) => seeing.includes(id))
+        : allowedBy(only);
+      const title = `The teardown's ${STAGE_TITLES[teardown.stage]}`;
+      return ask(
+        order,
+        (engine) => teardownRequest(teardown, engine, at(engine)),
+        nobodyFor(
+          { title, engines: looksAtPictures(teardown) ? seeing : null, checkable: true },
+          order,
+          engines,
+          only,
+        ),
+      );
+    },
     async studyFrames(videoId, only) {
       const at = settingsFor();
       const order = allowedBy(only).filter((id) => PICTURE_ENGINES.includes(id));
@@ -408,6 +435,7 @@ export function analysisEngines(wiring: AnalysisWiring, stop: AbortSignal): Anal
     analyse: (analysis, channel, only, focus) =>
       work.run(() => asking.analyse(analysis, channel, only, focus)),
     studyFrames: (videoId, only) => work.run(() => asking.studyFrames(videoId, only)),
+    askTeardown: (teardown, only) => work.run(() => asking.askTeardown(teardown, only)),
     checkPictures: (engine) => work.run(() => asking.checkPictures(engine)),
     watchesFiles: async () => settings.order.includes('agy') && (await agyInstalled(shared)),
     watchVideo: (videoId, question, options) => work.run(() => watch(videoId, question, options)),

@@ -1,6 +1,6 @@
 import {
+  SqliteTeardownRepo,
   SqliteVideoBreakdownRepo,
-  SqliteVideoStudyRepo,
   loadConfig,
   openDatabase,
   type StoredChannel,
@@ -13,6 +13,7 @@ import type { AnalysisParts } from '../src/analysisEngine';
 import type { BreakdownFiles } from '../src/breakdownEngine';
 import { breakdownHub, uploadPathIn } from '../src/breakdownHub';
 import type { DownloadsEngine } from '../src/downloadTypes';
+import { STAGE_ANSWERS } from './teardownFixtures';
 import {
   ONE_VIDEO_FILE_TOOLS,
   ONE_VIDEO_TOOLS,
@@ -76,8 +77,12 @@ function hub() {
     watchVideo: async () => {
       throw new Error('nobody watches');
     },
-    studyFrames: async () => ({ engine: 'claude', text: 'frames', skipped: [] }),
-    analyse: async () => ({ engine: 'claude', text: 'WHAT IT IS\n- x [0:01]', skipped: [] }),
+    watchesFiles: async () => false,
+    askTeardown: async (ask: { stage: keyof typeof STAGE_ANSWERS }) => ({
+      engine: 'claude',
+      text: JSON.stringify(STAGE_ANSWERS[ask.stage]),
+      skipped: [],
+    }),
   } as unknown as AnalysisParts;
   const files = {
     ownFolder: () => null,
@@ -96,7 +101,7 @@ function hub() {
       breakdowns: { list: () => [] },
       now: () => NOW,
     },
-    studies: new SqliteVideoStudyRepo(db),
+    teardowns: new SqliteTeardownRepo(db),
     store,
     reading,
     asking,
@@ -114,13 +119,25 @@ describe('the Breakdown view on the engine', () => {
     expect((await parts.readCandidate('@maps')).id).toBe(CHANNEL);
   });
 
-  test('breaks a video down from its frames, keeps it, lists it and finds it again', async () => {
+  test('takes a video apart without a file, keeps it, lists it and finds it again', async () => {
     const parts = hub();
+    expect(await parts.teardownRuns(VIDEO, false)).toEqual({ runs: 8, kept: 0, watch: false });
 
     const view = await parts.breakDownVideo({ kind: 'youtube', videoId: VIDEO }, () => undefined);
 
-    expect(view).toMatchObject({ title: 'How maps lie', channelId: CHANNEL, engine: 'claude' });
-    expect(view.seen).toMatchObject({ framesBy: 'claude', frames: 12, captions: 'none' });
+    expect(view).toMatchObject({ title: 'How maps lie', channelId: CHANNEL, engine: 'jgtube' });
+    expect(view.seen).toMatchObject({ file: 'none', frames: null, captions: 'none' });
+    expect(await parts.teardownRuns(VIDEO, false)).toEqual({ runs: 4, kept: 4, watch: false });
+    expect(await parts.teardownRuns(null, false)).toMatchObject({ runs: 8 });
+    expect(parts.teardownMarkdown(VIDEO)).toContain('## 8. How to replicate it');
+    expect(parts.teardownMarkdown(KEY)).toBeNull();
+    expect(await parts.teardownImage(VIDEO, 'k-001.jpg')).toBeNull();
+    expect(parts.teardownData(VIDEO, ['structure'])).toMatchObject({
+      structure: { format: 'A dark explainer' },
+    });
+    const zip = await parts.teardownZip(VIDEO);
+    expect(zip?.includes(Buffer.from('teardown.md'))).toBe(true);
+    expect(await parts.teardownZip(KEY)).toBeNull();
     expect(parts.videoBreakdowns()).toEqual([
       {
         videoId: VIDEO,
@@ -130,7 +147,7 @@ describe('the Breakdown view on the engine', () => {
         written: true,
       },
     ]);
-    expect(parts.findVideoBreakdown(VIDEO)?.body).toContain('WHAT IT IS');
+    expect(parts.findVideoBreakdown(VIDEO)?.teardown?.stages.plan.state).toBe('done');
     expect(parts.findVideoBreakdown(KEY)).toBeNull();
     expect(await parts.hasUpload(KEY)).toBe(false);
   });

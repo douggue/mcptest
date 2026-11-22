@@ -435,6 +435,22 @@ export class FakeEngine implements ConnectorEngine {
   ];
   outcome: () => Promise<CrawlOutcome> = () =>
     Promise.resolve({ centerChannelId: CENTER_ID, warnings: [] });
+  /** What was measured across a channel; a test replaces it. */
+  channelMeasurements: ConnectorEngine['channelMeasurements'] = (channel) =>
+    channel === '@nobody'
+      ? null
+      : ({ basis: { winners: 3 } } as unknown as ReturnType<
+          ConnectorEngine['channelMeasurements']
+        >);
+  /** The teardown reads of the Breakdown view; a test replaces what it uses. */
+  hub = {
+    teardownData: (videoId: string, include: readonly string[]): Record<string, unknown> => ({
+      video: videoId,
+      include,
+    }),
+    teardownImage: async (_videoId: string, name: string): Promise<Uint8Array | null> =>
+      name === 'k-001.jpg' ? Uint8Array.from([0xff, 0xd8, 1]) : null,
+  } as unknown as ConnectorEngine['hub'];
 
   findSnapshot(ref: string): MapSnapshot | null {
     this.lookups.push(ref);

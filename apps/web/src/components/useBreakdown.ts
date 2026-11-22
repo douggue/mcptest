@@ -50,7 +50,12 @@ export interface Breakdown {
   /** The stored breakdown of the picked channel, as far as it has been read. */
   readonly stored: StoredBreakdown;
   /** Starts a breakdown of a channel, and picks it. Ignored while one is running. */
-  readonly start: (channel: BreakdownChannel, choice: EngineChoice, fresh: boolean) => void;
+  readonly start: (
+    channel: BreakdownChannel,
+    choice: EngineChoice,
+    fresh: boolean,
+    videos?: number,
+  ) => void;
 }
 
 const POLL_INTERVAL_MS = 1500;
@@ -159,13 +164,13 @@ export function useBreakdown(api: Api): Breakdown {
   }, []);
 
   const start = useCallback(
-    (channel: BreakdownChannel, choice: EngineChoice, fresh: boolean) => {
+    (channel: BreakdownChannel, choice: EngineChoice, fresh: boolean, videos?: number) => {
       if (running.current) return;
       running.current = true;
       pick(channel);
       setState({ status: 'running', channel, progress: null });
       api
-        .startBreakdown(channel.id, choice, fresh)
+        .startBreakdown(channel.id, choice, fresh, videos)
         .then(setJobId)
         .catch((error: unknown) => {
           running.current = false;

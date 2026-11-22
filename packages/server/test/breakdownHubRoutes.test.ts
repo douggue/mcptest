@@ -43,9 +43,8 @@ const view: VideoBreakdownView = {
     notes: [],
   },
   engine: 'claude',
-  body: 'WHAT IT IS',
-  prompts: { script: null, visual: null, thumbnail: null },
   problem: null,
+  teardown: null,
 };
 
 let folder: string;
@@ -165,7 +164,7 @@ describe('POST /api/video-breakdowns', () => {
     const app = appWith({
       breakDownVideo: (asked, report) => {
         target = asked;
-        report({ step: 'watching', text: 'Antigravity is watching it' });
+        report({ step: 'judging', text: 'Antigravity is watching it' });
         return new Promise((resolve) => {
           finish = resolve;
         });

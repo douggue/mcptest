@@ -1,38 +1,27 @@
 /**
- * A deep breakdown of one video, as one job of a few steps: the video is
- * named and its captions read (a YouTube video), a file is found (the
- * owner's own copy, a download, or the file the owner gave), an engine that
- * watches video watches it, an engine that sees pictures goes through its
- * frames, and one engine writes the breakdown from those through read-only
- * tools. How the video was seen is recorded in code and kept beside the
- * answer, so the page can say what the engine could and could not see.
+ * The deep breakdown of one video: a production teardown led by code. The
+ * video is named and its captions read (a YouTube video), a file is found
+ * (the owner's own copy, a 720p download, or the file the owner gave), and
+ * the teardown pipeline measures it in code and has engines judge it stage by
+ * stage (`teardownEngine.ts`). How the video was seen is recorded in code and
+ * kept beside it; the whole teardown is also kept as Markdown in the list of
+ * one-video breakdowns.
  *
- * What could not be done is recorded with a plain reason. The job fails
- * only when there is nothing at all to go on, when the writing fails, or
- * when Jgtube is closing.
+ * What could not be done is recorded with a plain reason. The job fails only
+ * when nothing at all could be measured or judged, or when Jgtube is closing.
  */
 import {
-  liftOneVideoPrompts,
+  MAX_VIDEO_BREAKDOWN_CHARS,
+  teardownMarkdown,
   tooLongToWatch,
   type StoredVideoBreakdown,
-  type StudiedFrames,
+  type TimedLine,
   type TranscriptResult,
   type VideoBreakdownRepo,
   type VideoSeen,
-  type VideoStudyRepo,
 } from '@jgtube/core';
-import type { Engine } from './app';
 import { ENGINE_NAMES } from './breakdownBasis';
 import type { BreakdownFiles } from './breakdownEngine';
-import type { EngineAnswer } from './engines/fallback';
-import type { EngineId } from './engines/types';
-import type { DownloadVideo } from './engines/videoWatch';
-import { cleanMessage } from './jobs';
-import {
-  DEEP_WATCH_QUESTION,
-  type OneVideoAnalysisId,
-  type OneVideoFocus,
-} from './oneVideoQuestions';
 import type {
   OneVideoChoices,
   OneVideoProgress,
@@ -41,28 +30,26 @@ import type {
   VideoTarget,
 } from './oneVideoTypes';
 import { CLOSING } from './running';
+import {
+  plannedRuns,
+  runTeardown,
+  type TeardownDeps,
+  type TeardownOutcome,
+} from './teardownEngine';
+import { teardownReportOf } from './teardownStore';
 
 export interface OneVideoDeps {
   readonly now: () => Date;
   /** Aborted when Jgtube is closing. */
   readonly stop: AbortSignal;
-  readonly studies: VideoStudyRepo;
   readonly store: VideoBreakdownRepo;
   readonly files: BreakdownFiles;
+  readonly teardown: TeardownDeps;
   /** Where the file the owner gave under this id is; null when it is not there. */
   uploadPath(videoId: string): Promise<string | null>;
   /** A YouTube video's title, channel and length, read once; nulls for what is not known. */
   details(videoId: string): Promise<VideoAbout>;
   readTranscript(videoId: string): Promise<TranscriptResult>;
-  /** The frames there are to look at for a video, and where they come from; null when none. */
-  framesAvailable(videoId: string): Promise<StudiedFrames | null>;
-  readonly watchVideo: Engine['watchVideo'];
-  studyFrames(videoId: string, only?: EngineId): Promise<EngineAnswer<EngineId>>;
-  write(
-    analysis: OneVideoAnalysisId,
-    focus: OneVideoFocus,
-    only?: EngineId,
-  ): Promise<EngineAnswer<EngineId>>;
 }
 
 export interface VideoAbout {
@@ -82,34 +69,22 @@ type HeldFile =
     }
   | { readonly ok: false; readonly reason: string };
 
-interface Studied {
-  readonly by: string | null;
-  readonly note: string | null;
-}
-interface FramesStudied extends Studied {
-  readonly frames: StudiedFrames | null;
-}
-
-const NOTHING_TO_GO_ON =
-  'No engine could watch this video, its frames could not be studied, and it has no captions, so there is nothing to break it down from.';
+const NOTHING_MADE = 'Nothing could be measured or judged for this video, so there is no teardown.';
 const NO_UPLOAD = 'The video file you gave is no longer on this computer. Choose it again.';
-const NO_FRAMES = 'There were no frames to study: no file to cut them from and no preview frames.';
+const NO_FILE_NEEDED = 'Everything was kept from an earlier run, so no file was needed.';
 const MAX_TITLE_SHOWN = 80;
+const MS = 1000;
 
 const withoutStop = (text: string): string => text.trim().replace(/\.$/, '');
 const sentence = (text: string): string => `${withoutStop(text)}.`;
-const reasonOf = (error: unknown): string => sentence(cleanMessage(error));
 const nameOf = (engine: string): string => ENGINE_NAMES[engine] ?? engine;
 
 function stopIfClosing(deps: OneVideoDeps): void {
   if (deps.stop.aborted) throw new Error(CLOSING);
 }
 
-/** The video's title and channel: a YouTube video's own, or the name of the file the owner gave. */
 async function describe(deps: OneVideoDeps, target: VideoTarget): Promise<VideoAbout> {
-  if (target.kind === 'file') {
-    return { title: target.name, channelId: null, durationSeconds: null };
-  }
+  if (target.kind === 'file') return { title: target.name, channelId: null, durationSeconds: null };
   try {
     return await deps.details(target.videoId);
   } catch {
@@ -118,18 +93,28 @@ async function describe(deps: OneVideoDeps, target: VideoTarget): Promise<VideoA
   }
 }
 
-async function captionsOf(deps: OneVideoDeps, target: VideoTarget): Promise<VideoSeen['captions']> {
-  if (target.kind === 'file') return 'not-asked';
+interface Captions {
+  readonly state: VideoSeen['captions'];
+  readonly lines: readonly TimedLine[] | null;
+}
+
+async function captionsOf(deps: OneVideoDeps, target: VideoTarget): Promise<Captions> {
+  if (target.kind === 'file') return { state: 'not-asked', lines: null };
   try {
     const { transcript } = await deps.readTranscript(target.videoId);
-    return transcript === null ? 'none' : 'read';
+    if (transcript === null) return { state: 'none', lines: null };
+    const lines = transcript.segments.map((segment) => ({
+      at: segment.startMs / MS,
+      text: segment.text,
+    }));
+    return { state: 'read', lines };
   } catch {
     stopIfClosing(deps);
-    return 'failed';
+    return { state: 'failed', lines: null };
   }
 }
 
-/** The file to watch and cut frames from: the one given, the owner's own, else a download. */
+/** The file to measure and watch: the one given, the owner's own, else a 720p download. */
 async function fileFor(
   deps: OneVideoDeps,
   target: VideoTarget,
@@ -154,108 +139,51 @@ async function fileFor(
     : { ok: false, reason: sentence(copy.reason) };
 }
 
-/** Has an engine watch the video, picture and sound; a watch already stored is reused. */
-async function watchIt(
+/** Whether a file is needed at all: not when every part is kept from an earlier run. */
+async function needsFile(
   deps: OneVideoDeps,
   target: VideoTarget,
-  file: HeldFile,
   choices: OneVideoChoices,
-  say: Say,
-): Promise<Studied> {
-  const { videoId } = target;
-  const kept = choices.fresh ? null : deps.studies.find(videoId, 'watch');
-  if (kept !== null) return { by: kept.engine, note: null };
-  const download: DownloadVideo = async () =>
-    file.ok
-      ? deps.files.forWatching(videoId, file.path)
-      : { ok: false, reason: withoutStop(file.reason) };
-  try {
-    const answer = await deps.watchVideo(videoId, DEEP_WATCH_QUESTION, {
-      download,
-      fileOnly: target.kind === 'file',
-      onStep: (step) => {
-        if (step.kind === 'watching') say('watching', `${nameOf(step.engine)} is watching it`);
-      },
-    });
-    deps.studies.save(
-      { videoId, kind: 'watch', engine: answer.engine, text: answer.text },
-      deps.now(),
-    );
-    return { by: answer.engine, note: null };
-  } catch (error) {
-    stopIfClosing(deps);
-    return { by: null, note: `Not watched, so its sound is not known: ${reasonOf(error)}` };
-  }
+): Promise<boolean> {
+  if (target.kind === 'file' || choices.fresh) return true;
+  const measured = deps.teardown.repo.find(target.videoId, 'measured');
+  if (measured?.json == null) return true;
+  return (await plannedRuns(deps.teardown, target.videoId, false, true)).runs > 0;
 }
 
-/** Frames cut from the file when ffmpeg is there, else YouTube's preview frames (never for a file). */
-async function framesToStudy(
-  deps: OneVideoDeps,
-  target: VideoTarget,
-  file: HeldFile,
-  say: Say,
-): Promise<StudiedFrames | null> {
-  if (file.ok && (await deps.files.canCut())) {
-    say('frames', 'Cutting one frame a second from the file');
-    const cut = await deps.files.cut(target.videoId, file.path);
-    stopIfClosing(deps);
-    if (cut.ok) return deps.framesAvailable(target.videoId);
-  }
-  return target.kind === 'file' ? null : deps.framesAvailable(target.videoId);
-}
-
-/** Has an engine that sees pictures go through the frames; a study already stored is reused. */
-async function studyIt(
-  deps: OneVideoDeps,
-  target: VideoTarget,
-  file: HeldFile,
-  choices: OneVideoChoices,
-  say: Say,
-): Promise<FramesStudied> {
-  const { videoId } = target;
-  const kept = choices.fresh ? null : deps.studies.find(videoId, 'frames');
-  // A study from preview frames is made again once frames can be cut from a file.
-  if (kept !== null && (kept.frames?.source === 'file' || !file.ok)) {
-    return { by: kept.engine, note: null, frames: kept.frames };
-  }
-  try {
-    const frames = await framesToStudy(deps, target, file, say);
-    if (frames === null) return { by: null, note: NO_FRAMES, frames: null };
-    say('frames', `An AI is going through its ${frames.available} frames`);
-    const answer = await deps.studyFrames(videoId, choices.only);
-    deps.studies.save(
-      { videoId, kind: 'frames', engine: answer.engine, text: answer.text, frames },
-      deps.now(),
-    );
-    return { by: answer.engine, note: null, frames };
-  } catch (error) {
-    stopIfClosing(deps);
-    return { by: null, note: `Frames not studied: ${reasonOf(error)}`, frames: null };
-  }
-}
-
-/** How the video was seen, in the form it is kept. */
 function seenOf(
-  file: HeldFile,
-  watched: Studied,
-  frames: FramesStudied,
-  captions: VideoSeen['captions'],
+  file: HeldFile | null,
+  outcome: TeardownOutcome,
+  captions: Captions,
+  frames: number | null,
 ): VideoSeen {
   return {
-    file: file.ok ? file.used : 'none',
-    fileNote: file.ok ? null : file.reason,
-    watchedBy: watched.by,
-    framesBy: frames.by,
-    frameSource: frames.frames?.source ?? null,
-    frames: frames.frames?.available ?? null,
-    captions,
-    notes: [frames.note, watched.note].flatMap((note) => note ?? []),
+    file: file === null ? 'none' : file.ok ? file.used : 'none',
+    fileNote: file === null ? NO_FILE_NEEDED : file.ok ? null : file.reason,
+    watchedBy: outcome.watchedBy,
+    framesBy: outcome.lookedBy,
+    frameSource: frames === null ? null : 'file',
+    frames,
+    captions: captions.state,
+    notes: [],
   };
 }
 
-/** A kept breakdown as the page shows it, the prompts lifted out. */
-export function videoBreakdownView(entry: StoredVideoBreakdown): VideoBreakdownView {
-  const lifted = entry.written === null ? null : liftOneVideoPrompts(entry.written.text);
+function seenLines(seen: VideoSeen): readonly string[] {
+  return [
+    seen.watchedBy === null
+      ? 'Not watched with sound: sound rests on the measured loudness.'
+      : `Watched with sound by ${nameOf(seen.watchedBy)}.`,
+    seen.frames === null ? 'No frames were measured.' : `${seen.frames} frames measured in code.`,
+    seen.framesBy === null ? '' : `Pictures studied by ${nameOf(seen.framesBy)}.`,
+  ].filter((line) => line !== '');
+}
+
+/** A kept breakdown as the page shows it, with its teardown when there is one. */
+export function videoBreakdownView(
+  entry: StoredVideoBreakdown,
+  deps: Pick<OneVideoDeps, 'teardown'>,
+): VideoBreakdownView {
   return {
     videoId: entry.videoId,
     source: entry.source,
@@ -264,35 +192,17 @@ export function videoBreakdownView(entry: StoredVideoBreakdown): VideoBreakdownV
     writtenAt: entry.writtenAt.toISOString(),
     seen: entry.seen,
     engine: entry.written?.engine ?? null,
-    body: lifted?.body ?? null,
-    prompts: lifted?.prompts ?? { script: null, visual: null, thumbnail: null },
     problem: entry.problem,
+    teardown: teardownReportOf(deps.teardown.repo, entry.videoId),
   };
 }
 
 const shown = (title: string): string =>
   title.length > MAX_TITLE_SHOWN ? `${title.slice(0, MAX_TITLE_SHOWN)}…` : title;
 
-/** Watches and studies the video with whatever this computer has, keeping what each engine wrote. */
-async function study(deps: OneVideoDeps, target: VideoTarget, choices: OneVideoChoices, say: Say) {
-  const about = await describe(deps, target);
-  const captions = await captionsOf(deps, target);
-  const file = await fileFor(deps, target, about, say);
-  try {
-    const watched = await watchIt(deps, target, file, choices, say);
-    const frames = await studyIt(deps, target, file, choices, say);
-    return { about, seen: seenOf(file, watched, frames, captions) };
-  } finally {
-    // Only what Jgtube made is removed: the cut frames and a copy it downloaded.
-    await deps.files.removeFrames(target.videoId).catch(() => undefined);
-    if (file.ok) await file.remove?.().catch(() => undefined);
-  }
-}
-
 /**
- * Breaks one video down and resolves with the kept breakdown. Rejects when
- * there is nothing to go on, when the writing fails (the reason is kept),
- * or when Jgtube is closing.
+ * Takes one video apart and resolves with the kept breakdown. Rejects when
+ * nothing at all could be measured or judged, or when Jgtube is closing.
  */
 export async function breakDownVideo(
   deps: OneVideoDeps,
@@ -301,41 +211,70 @@ export async function breakDownVideo(
   choices: OneVideoChoices = {},
 ): Promise<VideoBreakdownView> {
   const say: Say = (step, text) => report({ step, text });
+  const { videoId } = target;
   say(
     'reading',
     target.kind === 'file' ? 'Opening the file you gave' : 'Reading the video and its captions',
   );
-  const { about, seen } = await study(deps, target, choices, say);
-  stopIfClosing(deps);
-  if (seen.watchedBy === null && seen.framesBy === null && seen.captions !== 'read') {
-    throw new Error([NOTHING_TO_GO_ON, ...seen.notes].join(' '));
-  }
-  const title = about.title ?? `YouTube video ${target.videoId}`;
-  const kept = {
-    videoId: target.videoId,
-    source: target.kind,
-    title,
-    channelId: about.channelId,
-    seen,
-  };
-  say('writing', `Writing the breakdown of “${shown(title)}”`);
-  const focus: OneVideoFocus = {
-    kind: 'one-video',
-    videoId: target.videoId,
-    watched: seen.watchedBy !== null,
-    frames: seen.framesBy !== null,
-    captions: seen.captions === 'read',
-  };
-  const analysis: OneVideoAnalysisId = target.kind === 'file' ? 'one-video-file' : 'one-video';
+  const about = await describe(deps, target);
+  const captions = await captionsOf(deps, target);
+  const file = (await needsFile(deps, target, choices))
+    ? await fileFor(deps, target, about, say)
+    : null;
+  const title = about.title ?? `YouTube video ${videoId}`;
+  let outcome: TeardownOutcome;
   try {
-    const answer = await deps.write(analysis, focus, choices.only);
-    deps.store.save({ ...kept, written: { engine: answer.engine, text: answer.text } }, deps.now());
-  } catch (error) {
-    stopIfClosing(deps);
-    deps.store.save({ ...kept, problem: reasonOf(error) }, deps.now());
-    throw error;
+    say('measuring', `Taking “${shown(title)}” apart`);
+    outcome = await runTeardown(
+      deps.teardown,
+      {
+        videoId,
+        path: file?.ok ? file.path : null,
+        fileNote: file !== null && !file.ok ? file.reason : null,
+        captions: captions.lines,
+        fileOnly: target.kind === 'file',
+        only: choices.only,
+        fresh: choices.fresh,
+      },
+      (text) => say('judging', text),
+    );
+  } finally {
+    if (file?.ok) await file.remove?.().catch(() => undefined);
   }
-  const stored = deps.store.find(target.videoId);
-  if (stored === null) throw new Error('The breakdown was written but could not be read back.');
-  return videoBreakdownView(stored);
+  stopIfClosing(deps);
+  const made = teardownReportOf(deps.teardown.repo, videoId);
+  const frames = made?.measured?.motion?.frames ?? made?.measured?.keyframes.length ?? null;
+  const seen = seenOf(file, outcome, captions, made?.measured ? frames : null);
+  deps.teardown.repo.save(
+    videoId,
+    'about',
+    {
+      engine: 'jgtube',
+      json: JSON.stringify({
+        title,
+        source: target.kind,
+        channelId: about.channelId,
+        seen: seenLines(seen),
+      }),
+    },
+    deps.now(),
+  );
+  const anything =
+    made !== null &&
+    (made.measured !== null || Object.values(made.stages).some((stage) => stage.state === 'done'));
+  const kept = { videoId, source: target.kind, title, channelId: about.channelId, seen };
+  if (!anything) {
+    const reasons = [file !== null && !file.ok ? file.reason : null, made?.measuredProblem ?? null];
+    const problem = [NOTHING_MADE, ...reasons.flatMap((reason) => reason ?? [])].join(' ');
+    deps.store.save({ ...kept, problem }, deps.now());
+    throw new Error(problem);
+  }
+  const text = teardownMarkdown(teardownReportOf(deps.teardown.repo, videoId) ?? made).slice(
+    0,
+    MAX_VIDEO_BREAKDOWN_CHARS,
+  );
+  deps.store.save({ ...kept, written: { engine: 'jgtube', text } }, deps.now());
+  const stored = deps.store.find(videoId);
+  if (stored === null) throw new Error('The breakdown was made but could not be read back.');
+  return videoBreakdownView(stored, deps);
 }

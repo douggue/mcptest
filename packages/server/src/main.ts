@@ -181,7 +181,8 @@ function start(): void {
       .then(app)
       .then(async (result) => {
         response.writeHead(result.status, Object.fromEntries(result.headers));
-        response.end(await result.text());
+        // As bytes, not text: pictures and archives must arrive unchanged.
+        response.end(Buffer.from(await result.arrayBuffer()));
       });
   };
 

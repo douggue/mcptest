@@ -77,6 +77,11 @@ export const UNUSED_HUB: BreakdownHub = {
   videoBreakdowns: unused('videoBreakdowns'),
   findVideoBreakdown: unused('findVideoBreakdown'),
   hasUpload: unused('hasUpload'),
+  teardownRuns: unused('teardownRuns'),
+  teardownImage: unused('teardownImage'),
+  teardownMarkdown: unused('teardownMarkdown'),
+  teardownZip: unused('teardownZip'),
+  teardownData: unused('teardownData'),
 };
 
 /** An engine whose later features are these, failing loudly on any other. */
@@ -110,6 +115,7 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     checkPictures: unused('checkPictures'),
     breakDown: unused('breakDown'),
     findBreakdown: unused('findBreakdown'),
+    channelMeasurements: unused('channelMeasurements'),
     breakdownText: unused('breakdownText'),
     ownVideosFolder: unused('ownVideosFolder'),
     saveThumbnails: unused('saveThumbnails'),

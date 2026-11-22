@@ -18,8 +18,15 @@ import type { Engine } from './app';
 import { breakDown, type BreakdownFiles } from './breakdownEngine';
 import { breakdownAnalysisId } from './breakdownParts';
 import { breakdownStore } from './breakdownStore';
+import {
+  channelMeasurements,
+  isMeasured,
+  measureForChannel,
+  type ChannelFactsDeps,
+} from './channelMeasure';
 import type { DownloadsEngine } from './downloadTypes';
 import type { WorkTracker } from './running';
+import type { TeardownDeps } from './teardownEngine';
 
 export interface BreakdownSetup {
   readonly config: Config;
@@ -36,9 +43,16 @@ export interface BreakdownSetup {
   readonly files: BreakdownFiles;
   /** Aborted when Jgtube is closing. */
   readonly stop: AbortSignal;
+  /** The teardown store and measuring, shared with the One video tab. */
+  readonly teardown: TeardownDeps;
+  /** What the channel measurements read besides the teardowns. */
+  readonly facts: Omit<ChannelFactsDeps, 'now' | 'teardowns' | 'studies'>;
 }
 
-type Breaking = Pick<Engine, 'breakDown' | 'ownVideosFolder' | 'findBreakdown' | 'breakdownText'>;
+type Breaking = Pick<
+  Engine,
+  'breakDown' | 'ownVideosFolder' | 'findBreakdown' | 'breakdownText' | 'channelMeasurements'
+>;
 
 /**
  * A channel breakdown: the steps in `breakdownEngine`, on this engine's store
@@ -93,6 +107,9 @@ export function breaking(setup: BreakdownSetup): Breaking {
             studyFrames: asking.studyFrames,
             write: (part, channelId, only, focus) =>
               asking.analyse(breakdownAnalysisId(part), channelId, only, focus),
+            measure: (videoId, path, fresh, captions, onStep) =>
+              measureForChannel(setup.teardown, videoId, path, fresh, captions, onStep),
+            isMeasured: (videoId) => isMeasured(setup.teardown.repo, videoId),
           },
           channel,
           onProgress,
@@ -101,5 +118,14 @@ export function breaking(setup: BreakdownSetup): Breaking {
       ),
 
     ownVideosFolder: () => ownVideosFolder(downloadsRoot(config)),
+
+    channelMeasurements(channel) {
+      const found = channelOf(channel);
+      if (found === null) return null;
+      return channelMeasurements(
+        { ...setup.facts, now, teardowns: setup.teardown.repo, studies },
+        videos.listByChannel(found.id),
+      );
+    },
   };
 }

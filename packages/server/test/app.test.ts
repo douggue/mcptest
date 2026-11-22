@@ -234,6 +234,10 @@ class FakeEngine implements Engine {
     throw new Error('findVideoStudy is not used in this test');
   }
 
+  channelMeasurements(): never {
+    throw new Error('channelMeasurements is not used in this test');
+  }
+
   findBreakdown(): never {
     throw new Error('findBreakdown is not used in this test');
   }
