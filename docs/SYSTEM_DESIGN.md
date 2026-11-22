@@ -211,7 +211,7 @@ a schema when read), `engine`, `checked_at` and `script_updated_at`. What code w
 out (overlaps, unchecked facts) is not kept: it is worked out at each look. See
 "Check before publishing".
 
-`channel_money_signs` (step 42, provisional; numbered at merge) holds what one
+`channel_money_signs` (step 27) holds what one
 read of a channel's watch page showed of its earning: `channel_id` (primary key),
 `video_id`, `memberships` (a Join button), `ads` (`shown`, `none` or `unknown`) and
 `checked_at`. It refers to no other table. See "Monetization signs".
@@ -1610,7 +1610,7 @@ nothing. It is not read during a crawl or refresh: the crawl reads channel pages
 sidebars through the library, which drops the Join tip, so it would cost one more
 page per channel, a third to a half more requests on a map of hundreds of channels.
 
-**Store** (step 42, provisional; numbered at merge): `channel_money_signs`
+**Store** (step 27): `channel_money_signs`
 (`channel_id` PK, `video_id`, `memberships` 0/1, `ads` shown|none|unknown,
 `checked_at`). A new check replaces the row. It refers to no other table.
 

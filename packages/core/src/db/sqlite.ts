@@ -508,7 +508,7 @@ CREATE TABLE IF NOT EXISTS thumbnail_reviews (
   PRIMARY KEY (center_channel_id, video_id)
 );
 `,
-  // 42 (provisional; numbered at merge): the public signs of a channel's earning.
+  // 27: the public signs of a channel's earning.
   //     channel_money_signs keeps, per channel, what one read of one of its watch pages
   //     showed: a Join button (memberships, which need the Partner Program) and whether ads
   //     were listed ('unknown' when YouTube would not play the video), and when. A new
