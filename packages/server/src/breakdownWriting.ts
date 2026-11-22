@@ -140,12 +140,14 @@ export async function writeParts(
   for (const part of BREAKDOWN_WRITTEN_PARTS) {
     if (deps.stop.aborted) throw new Error(CLOSING);
     const stored = deps.parts.find(channelId, part);
-    if (chosen !== undefined && !chosen.includes(part)) {
+    const builtOn = partsBuiltOn(part);
+    // A part that reads one written again in this run is out of date: the
+    // master prompt, the plan and the strategy follow the parts they rest on.
+    const stale = builtOn.some((earlier) => rewritten.includes(earlier));
+    if (chosen !== undefined && !chosen.includes(part) && !stale) {
       runs = [...runs, leftAsItIs(part, stored)];
       continue;
     }
-    const builtOn = partsBuiltOn(part);
-    const stale = builtOn.some((earlier) => rewritten.includes(earlier));
     if (chosen === undefined && unchanged && stored?.written === true && !stale) {
       runs = [...runs, { part, outcome: 'kept', engine: stored.engine, seconds: 0 }];
       continue;

@@ -1935,15 +1935,15 @@ engine that sees pictures, in the owner's order (`PICTURE_ENGINES` =
   them in the question with `@`, by role only; the picture tool is then not
   offered. What each question is handed (`PictureNeed`):
 
-  | Question                           | Files                                                                                                                                                                                        |
-  | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | Question                           | Files                                                                                                                                                                                      |
+  | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
   | Thumbnail review, thumbnail prompt | Thumbnails chosen from the board (`thumbnailFiles.ts`): the owner's latest four, two winners and two ordinary of the four closest channels, two winners of the next four, `thumb-<id>.jpg` |
-  | Thumbnail checklist                | The named thumbnails                                                                                                                                                                         |
-  | Breakdown, thumbnails part         | The top videos' and the ordinary videos' thumbnails, in two groups                                                                                                                           |
-  | Breakdown, picture and sound part  | Each measured video's frame strips (6) and keyframes (4), 24 in all, `<id>-s-001.jpg`, `<id>-k-001.jpg`; none measured is an empty set, not a failure                                       |
-  | Frame study                        | Every frame sheet (60 at most), `frames-01.jpg`, each listed with where its frames came from, its grid and the times of its frames, all from code                                           |
-  | One video                          | Its thumbnail                                                                                                                                                                                |
-  | Teardown picture stages            | The stage's own capped pictures (see the production teardown)                                                                                                                                |
+  | Thumbnail checklist                | The named thumbnails                                                                                                                                                                       |
+  | Breakdown, thumbnails part         | The top videos' and the ordinary videos' thumbnails, in two groups                                                                                                                         |
+  | Breakdown, picture and sound part  | Each measured video's frame strips (6) and keyframes (4), 24 in all, `<id>-s-001.jpg`, `<id>-k-001.jpg`; none measured is an empty set, not a failure                                      |
+  | Frame study                        | Every frame sheet (60 at most), `frames-01.jpg`, each listed with where its frames came from, its grid and the times of its frames, all from code                                          |
+  | One video                          | Its thumbnail                                                                                                                                                                              |
+  | Teardown picture stages            | The stage's own capped pictures (see the production teardown)                                                                                                                              |
 
   One shared helper (`pictureFiles.ts`) builds the listing, reads pictures from
   disk, and asks a text answer to start with a line `PICTURES OPENED:` naming
@@ -2252,8 +2252,10 @@ another AI**.
 **Writing one part again.** `POST /api/breakdowns` also takes `parts` (written
 parts to write again) and `avoid` (an engine to leave out). Then nothing is
 downloaded, watched, studied or measured: the deep videos are read back from
-their stored studies, the basis is left as it is, the chosen parts are written
-and every other part is kept as it stands. The page offers **Write this part**
+their stored studies, the basis is left as it is, the chosen parts are written,
+then every part built on one written again (the strategy, the plan and the
+master prompt read the parts before them), and every other part is kept as it
+stands. The page offers **Write this part**
 on every part that is not written (a part refused under the old rule that kept
 picture parts from Antigravity among them) and **Write it again on another AI**
 on one that may not have seen its pictures (with `avoid` set to its engine and

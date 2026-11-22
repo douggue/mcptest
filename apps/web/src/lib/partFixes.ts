@@ -1,7 +1,8 @@
 /**
  * What the page offers for one part of a stored breakdown that is not as it
  * should be: a part that was not written gets "Write this part", which writes
- * that part alone again; a part written from pictures it names none of gets a
+ * that part again and then the parts built on it (the strategy, the plan and
+ * the master prompt), so none is left out of date; a part written from pictures it names none of gets a
  * warning and the offer to write it again on another AI.
  */
 import { engineName } from './breakdown';

@@ -678,7 +678,7 @@ describe('the seven parts of a breakdown', () => {
     });
   });
 
-  test('write one chosen part again from what is stored, studying and downloading nothing', async () => {
+  test('write one chosen part again from what is stored, and the parts built on it after it, studying and downloading nothing', async () => {
     const no = new EngineRunError('failed', 'The breakdown’s part on thumbnails cannot be done.');
     await run(world({ failing: { thumbnails: no } }));
     const basis = parts.find(CHANNEL, 'basis');
@@ -688,17 +688,19 @@ describe('the seven parts of a breakdown', () => {
       parts: ['thumbnails'],
     });
 
-    expect(log.filter((line) => !line.startsWith('save texts'))).toEqual([
-      `write thumbnails of ${CHANNEL} top 5 deep 3 titles 8`,
-    ]);
+    // The strategy, the plan and the master prompt read the thumbnails part, so
+    // they are written again after it; the titles, scripts and picture are not.
+    expect(
+      log.filter((line) => line.startsWith('write ')).map((line) => line.split(' ')[1]),
+    ).toEqual(['thumbnails', 'strategy', 'plan', 'master']);
     expect(outcome.parts.map((part) => part.outcome)).toEqual([
       'kept',
       'written',
       'kept',
       'kept',
-      'kept',
-      'kept',
-      'kept',
+      'written',
+      'written',
+      'written',
     ]);
     expect(parts.find(CHANNEL, 'basis')).toEqual(basis);
     expect(outcome.deep.map((entry) => entry.frames.done)).toEqual([true, true, false]);
