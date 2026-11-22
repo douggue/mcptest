@@ -75,7 +75,7 @@ export async function runAnalysis(
       `${ANALYSES[analysis].title} for`,
       channel,
     );
-    const { text, engine, skipped } = await holdRun(
+    const { text, engine, skipped, standInFor, seen } = await holdRun(
       tracker.held,
       label,
       options.engine.analyse(analysis, channel, only),
@@ -91,6 +91,10 @@ export async function runAnalysis(
       writtenAt: kept?.writtenAt ?? null,
       engine,
       skipped,
+      // Who the owner chose, when another engine answered because it could not.
+      standInFor: standInFor ?? null,
+      // Pictures handed over as files: how many, and how many the answer names.
+      seen: seen ?? null,
     });
   } catch (error) {
     return error instanceof EngineRunError

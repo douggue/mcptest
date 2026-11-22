@@ -15,6 +15,7 @@ import {
   type PartRun,
   breakdownUses,
 } from '../src/lib/breakdownParts';
+import { partFixes } from '../src/lib/partFixes';
 
 const CHANNEL = `UC${'a'.repeat(22)}`;
 const AT = '2026-11-21T09:30:00.000Z';
@@ -98,12 +99,47 @@ describe('partNote', () => {
     expect(partNote(part({ engine: 'something-new' }))).toBe('Written by something-new');
   });
 
+  test('says when another AI wrote a part because the chosen one could not', () => {
+    const standInFor = { engine: 'agy', because: 'Antigravity CLI hit its limit.' };
+    expect(partNote(part({ engine: 'claude', standInFor }))).toBe(
+      'Written by Claude Code because Antigravity could not: Antigravity CLI hit its limit.',
+    );
+  });
+
   test('says why a part is not there', () => {
     expect(partNote(part({ state: 'failed', reason: 'Claude Code took too long.' }))).toBe(
       'Not written: Claude Code took too long.',
     );
     expect(partNote(part({ state: 'failed', reason: null }))).toBe('Not written');
     expect(partNote(part({ state: 'missing' }))).toBe('Not written yet');
+  });
+});
+
+describe('partFixes', () => {
+  test('offers to write a part that was not written, and that part only', () => {
+    const old =
+      'The breakdown’s part on thumbnails cannot be done by Antigravity CLI: it needs Claude Code or Codex CLI.';
+    expect(partFixes(part({ id: 'thumbnails', state: 'failed', reason: old }))).toEqual({
+      warning: null,
+      action: { label: 'Write this part', parts: ['thumbnails'], avoid: null },
+    });
+    expect(partFixes(part({ id: 'master', state: 'missing' })).action?.parts).toEqual(['master']);
+  });
+
+  test('warns that a part may not have seen its pictures, and offers it on another AI', () => {
+    expect(partFixes(part({ id: 'picture', engine: 'agy', unseen: true }))).toEqual({
+      warning:
+        'Antigravity may not have seen the pictures: its answer names none of the picture files it was given.',
+      action: { label: 'Write it again on another AI', parts: ['picture'], avoid: 'agy' },
+    });
+  });
+
+  test('offers nothing for a part written as it should be, or the part worked out in code', () => {
+    expect(partFixes(part())).toEqual({ warning: null, action: null });
+    expect(partFixes(part({ id: 'basis', state: 'failed' }))).toEqual({
+      warning: null,
+      action: null,
+    });
   });
 });
 
@@ -236,6 +272,26 @@ describe('runLines', () => {
 
     expect(runLines(skipped)[0]).toBe(
       'Master prompt: written by Codex in 30 s. Claude Code was passed over: A plan limit was reached.',
+    );
+  });
+
+  test('say which AI wrote a part in place of the chosen one, and one that may not have seen its pictures', () => {
+    const run: PartRun = {
+      part: 'thumbnails',
+      outcome: 'written',
+      engine: 'claude',
+      skipped: [{ engine: 'agy', reason: 'limit', message: 'Antigravity CLI hit its limit.' }],
+      seconds: 30,
+      standInFor: { engine: 'agy', because: 'Antigravity CLI hit its limit.' },
+    };
+
+    expect(runLines([run])[0]).toBe(
+      'Thumbnails: written by Claude Code because Antigravity could not: Antigravity CLI hit its limit. Took 30 s.',
+    );
+    expect(
+      runLines([{ ...run, engine: 'agy', skipped: [], standInFor: undefined, unseen: true }])[0],
+    ).toBe(
+      'Thumbnails: written by Antigravity in 30 s. It may not have seen the pictures: its answer names none of the files it was given.',
     );
   });
 

@@ -16,7 +16,7 @@ import {
   skippedNotes,
   type EngineStatus,
 } from '../src/lib/analyses';
-import { createApi } from '../src/lib/api';
+import { answerFrom, createApi } from '../src/lib/api';
 
 describe('the analyses the screen offers', () => {
   test('are the three the server knows, each with a title, a sentence and a button label', () => {
@@ -262,6 +262,27 @@ describe('answerCredit and skippedNotes', () => {
     ]);
   });
 
+  test('says when another AI answered because the chosen one could not, and when it may not have seen the pictures', () => {
+    const standInFor = { engine: 'agy', because: 'Antigravity CLI hit its limit.' } as const;
+    expect(answerCredit({ engine: 'claude', skipped: [], standInFor })).toBe(
+      'Answered by Claude Code because Antigravity could not: Antigravity CLI hit its limit.',
+    );
+    expect(answerCredit({ engine: 'agy', skipped: [], unseen: true })).toBe(
+      'Answered by Antigravity. It may not have seen the pictures: its answer names none of the files it was given.',
+    );
+  });
+
+  test('reads who the chosen AI was, and what was seen, from the server’s answer', () => {
+    const answer = answerFrom({
+      text: 'x',
+      standInFor: { engine: 'agy', because: 'No.' },
+      seen: { shown: 4, named: 0 },
+    } as never);
+    expect(answer.standInFor).toEqual({ engine: 'agy', because: 'No.' });
+    expect(answer.unseen).toBe(true);
+    expect(answerFrom({ text: 'x' }).unseen).toBeUndefined();
+  });
+
   test('uses the singular for one engine passed over', () => {
     const skipped = [
       { engine: 'agy', reason: 'not-installed', message: 'Not installed.' },
@@ -307,11 +328,11 @@ describe('the switch for which AI answers', () => {
 
   test('a chosen engine answers alone, and says what is in the way when it is not usable', () => {
     expect(choiceHelp('codex', report)).toBe(
-      'Only Codex answers; nothing else is tried if it cannot.',
+      'Only Codex answers; nothing else is tried if it cannot, except a question about pictures, which goes on to the next AI that sees them.',
     );
     expect(choiceHelp('agy', report)).toBe('Antigravity is not installed on this computer.');
     expect(choiceHelp('agy', { ...report, engines: [engine('agy')] })).toMatch(
-      /thumbnail review needs Claude Code or Codex until Antigravity passes the picture check/,
+      /Antigravity sees pictures as files\.$/,
     );
     expect(choiceHelp('codex', { engines: [], order: ['claude'] })).toMatch(/switched off/);
     expect(choiceHelp('claude', null)).toMatch(/^Only Claude Code answers/);
@@ -443,12 +464,8 @@ describe('the line saying when a kept answer was written', () => {
 });
 
 describe('a question the chosen AI cannot answer', () => {
-  test('sends a thumbnail review chosen for Antigravity to Automatic, and says so', () => {
-    const plan = choiceFor('thumbnails', 'agy');
-
-    expect(plan.choice).toBe(AUTOMATIC);
-    expect(plan.note).toMatch(/Antigravity has not passed the picture check yet/);
-    expect(plan.note).toMatch(/Claude Code, or else Codex/);
+  test('keeps a thumbnail review chosen for Antigravity with Antigravity, which sees pictures as files', () => {
+    expect(choiceFor('thumbnails', 'agy')).toEqual({ choice: 'agy', note: null });
   });
 
   test('keeps the chosen AI when it can answer', () => {

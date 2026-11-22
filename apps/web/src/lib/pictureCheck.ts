@@ -1,6 +1,11 @@
 /**
  * The picture check as the page shows it: which engines see pictures, which
  * could be checked, and one line on each result. The server keeps the results.
+ *
+ * Every engine sees pictures by default: Claude Code and Codex through a
+ * tool, Antigravity as files written into its folder. The check is an
+ * optional diagnostic; only a failed check keeps Antigravity from questions
+ * about pictures.
  */
 import type { EngineId, EngineReport } from './analyses';
 
@@ -15,40 +20,46 @@ export interface PictureCheck {
   readonly checkedAt: string;
 }
 
-/** The engines known to see pictures without a check, as the server's PICTURE_ENGINES. */
-export const PICTURE_ENGINES: readonly EngineId[] = ['claude', 'codex'];
+/** The engines that see a tool's pictures and need no check, as the server's TOOL_PICTURE_ENGINES. */
+export const TOOL_PICTURE_ENGINES: readonly EngineId[] = ['claude', 'codex'];
+/** Every engine that sees pictures by default, as the server's PICTURE_ENGINES. */
+export const PICTURE_ENGINES: readonly EngineId[] = [...TOOL_PICTURE_ENGINES, 'agy'];
 
 const checksOf = (report: EngineReport | null): readonly PictureCheck[] =>
   report?.pictureChecks ?? [];
 
-/** The engines that see pictures: Claude Code and Codex, then any whose last check passed. */
-export function seeingEngines(report: EngineReport | null): readonly EngineId[] {
-  const passed = checksOf(report)
-    .filter((check) => check.passed && !PICTURE_ENGINES.includes(check.engine))
-    .map((check) => check.engine);
-  return [...PICTURE_ENGINES, ...passed];
-}
+/** Whether an engine's last picture check failed: the only thing that keeps it from pictures. */
+export const failedCheck = (report: EngineReport | null, engine: EngineId): boolean =>
+  checksOf(report).some((check) => check.engine === engine && !check.passed);
+
+/** The engines that see pictures: all of them, less one whose last picture check failed. */
+export const seeingEngines = (report: EngineReport | null): readonly EngineId[] =>
+  PICTURE_ENGINES.filter(
+    (engine) => TOOL_PICTURE_ENGINES.includes(engine) || !failedCheck(report, engine),
+  );
 
 export interface CheckableEngine {
   readonly engine: EngineId;
   readonly check: PictureCheck | null;
 }
 
-/** The engines in use that are not known to see pictures, each with its last check. */
+/** The engines in use that are shown pictures as files, each with its last check. */
 export const enginesToCheck = (report: EngineReport | null): readonly CheckableEngine[] =>
   (report?.order ?? [])
-    .filter((engine) => !PICTURE_ENGINES.includes(engine))
+    .filter((engine) => !TOOL_PICTURE_ENGINES.includes(engine))
     .map((engine) => ({
       engine,
       check: checksOf(report).find((check) => check.engine === engine) ?? null,
     }));
 
-/** One line on a check's result; empty before one has run. */
+/** One line on an engine's last check, or on what it does before one has run. */
 export function pictureCheckLine(check: PictureCheck | null): string {
-  if (check === null) return '';
-  if (check.passed) return 'Sees pictures: picture questions can use it.';
+  if (check === null) {
+    return 'Sees pictures as files; the check is optional. Run it if its picture answers look wrong.';
+  }
+  if (check.passed) return 'Passed the picture check: it named both colours.';
   const said = check.answer.trim() === '' ? 'it gave no answer.' : `it answered “${check.answer}”`;
-  return `Did not see the pictures: ${said} The pictures were ${check.shown.join(' and ')}.`;
+  return `Did not see the pictures: ${said} The pictures were ${check.shown.join(' and ')}. Until it passes, questions about pictures go to Claude Code or Codex.`;
 }
 
 /** The report with a new result in place of the engine's last one. */

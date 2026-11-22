@@ -12,6 +12,7 @@ import {
   type BreakdownView,
   type PartAttachment,
 } from '../lib/breakdownParts';
+import { partFixes, type PartsRun } from '../lib/partFixes';
 import type { NamedVideo } from '../lib/videoRefs';
 import { leadOf } from '../lib/longAnswer';
 import { BreakdownUses } from './BreakdownUses';
@@ -99,6 +100,34 @@ interface PartProps {
   readonly videos: readonly NamedVideo[];
 }
 
+interface FixProps {
+  readonly part: BreakdownPartView;
+  readonly busy: boolean;
+  /** Writes chosen parts alone again, from what is stored. */
+  readonly onWrite: (only: PartsRun) => void;
+}
+
+/** A warning about how a part was written, and the one press that writes it again. */
+function PartFix({ part, busy, onWrite }: FixProps) {
+  const { warning, action } = partFixes(part);
+  if (warning === null && action === null) return null;
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      {warning && <p className="break-words text-body-sm text-metric-amber">{warning}</p>}
+      {action && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onWrite({ parts: action.parts, avoid: action.avoid })}
+          className={`self-start ${QUIET_BUTTON}`}
+        >
+          {action.label}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** What a written part holds, behind its disclosure: copy and download, its sections, its prompt. */
 function PartBody({ view, part, videos }: PartProps) {
   const attachment = attachmentOf(view, part.id);
@@ -114,8 +143,8 @@ function PartBody({ view, part, videos }: PartProps) {
 }
 
 /** One part on a card: its title, who wrote it, its opening line, and the rest closed until opened. */
-function Part(props: PartProps) {
-  const { part } = props;
+function Part(props: PartProps & Omit<FixProps, 'part'>) {
+  const { part, busy, onWrite } = props;
   const written = part.state === 'written';
   const lead = written ? leadOf(part.body) : null;
   return (
@@ -126,6 +155,7 @@ function Part(props: PartProps) {
           {partNote(part)}
         </p>
       </div>
+      <PartFix part={part} busy={busy} onWrite={onWrite} />
       {lead !== null && (
         <p className="line-clamp-3 break-words text-body-md text-on-surface-variant">{lead}</p>
       )}
@@ -144,8 +174,11 @@ interface Props {
   readonly notSaved: string | null;
   /** Something is running, so nothing new can start. */
   readonly busy: boolean;
-  /** Runs the breakdown of this channel again; `fresh` studies and writes everything again. */
-  readonly onRun: (channel: BreakdownChannel, fresh: boolean) => void;
+  /**
+   * Runs the breakdown of this channel again; `fresh` studies and writes
+   * everything again; `only` writes chosen parts alone, from what is stored.
+   */
+  readonly onRun: (channel: BreakdownChannel, fresh: boolean, only?: PartsRun) => void;
 }
 
 /** The quiet buttons at the top of a breakdown: run it again, fill its gaps, download it whole. */
@@ -224,7 +257,14 @@ export function BreakdownParts({ view, notSaved, busy, onRun }: Props) {
       </Card>
       <ol className="flex min-w-0 flex-col gap-space-md">
         {view.parts.map((part) => (
-          <Part key={part.id} view={view} part={part} videos={videos} />
+          <Part
+            key={part.id}
+            view={view}
+            part={part}
+            videos={videos}
+            busy={busy}
+            onWrite={(only) => onRun(channel, false, only)}
+          />
         ))}
       </ol>
     </div>

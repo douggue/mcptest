@@ -7,7 +7,6 @@ import {
   batchRequest,
   togglePick,
   withKept,
-  thumbnailEngineNote,
   withThumbnail,
   type AnswerOutcome,
   type ConceptThumbnailView,
@@ -184,12 +183,8 @@ export function useLab(
       started({ kind: 'batch' }, (id) => api.startBatch(batchRequest(id, picks, choices, engine))),
     grow: (kind, conceptId) =>
       started({ kind, conceptId }, (id) => api.grow(kind, id, conceptId, engine)),
+    // Every AI may be chosen: Antigravity is shown the thumbnails as files.
     writeThumbnail: (conceptId) => {
-      const note = thumbnailEngineNote(engine);
-      if (note !== null) {
-        setProblem(note);
-        return;
-      }
       started({ kind: 'thumbnail', conceptId }, (id) => api.startThumbnail(id, conceptId, engine));
     },
     keep: (conceptId, kept) => {

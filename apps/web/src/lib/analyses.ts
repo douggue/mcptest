@@ -1,4 +1,5 @@
-import { seeingEngines, type PictureCheck } from './pictureCheck';
+import { byLine, UNSEEN_LINE } from './breakdownParts';
+import { failedCheck, type PictureCheck } from './pictureCheck';
 import type { NamedVideo } from './videoRefs';
 
 /** The analyses an AI engine can run from the screen; the ids are the server's. */
@@ -74,10 +75,14 @@ export interface ChoicePlan {
   readonly note: string | null;
 }
 
+/** What a chosen engine whose last picture check failed means for questions about pictures. */
+const failedCheckNote = (name: string): string =>
+  `${name} did not pass its last picture check, so the next AI that sees pictures answers this one. Run the check again in Settings.`;
+
 /**
- * Which AI a question goes to. A picture question asked of an engine that has
- * not passed the picture check goes to Automatic for that one run, with a
- * note saying so and what to do, rather than failing.
+ * Which AI a question goes to: the chosen one. Antigravity sees pictures as
+ * files; when its last picture check failed, the server hands a picture
+ * question on to the next AI that sees pictures, and the note says so.
  */
 export function choiceFor(
   analysis: AnalysisId,
@@ -85,14 +90,10 @@ export function choiceFor(
   report: EngineReport | null = null,
 ): ChoicePlan {
   const needsPictures = PICTURE_ANALYSES.includes(analysis);
-  if (!needsPictures || choice === AUTOMATIC || seeingEngines(report).includes(choice)) {
+  if (!needsPictures || choice === AUTOMATIC || !failedCheck(report, choice)) {
     return { choice, note: null };
   }
-  const name = ENGINE_CHOICES.find((option) => option.choice === choice)?.label ?? choice;
-  return {
-    choice: AUTOMATIC,
-    note: `${name} has not passed the picture check yet, so this one goes to Claude Code, or else Codex. Run the check in Settings to let ${name} do it.`,
-  };
+  return { choice, note: failedCheckNote(nameOf(choice)) };
 }
 
 /** What the server knows about one engine on this computer. */
@@ -134,6 +135,10 @@ export interface AnalysisAnswer {
   readonly videos: readonly NamedVideo[];
   /** When the answer was kept for the channel; null when it was not. */
   readonly writtenAt: string | null;
+  /** The AI the owner chose, when another answered because it could not; absent when not. */
+  readonly standInFor?: { readonly engine: string; readonly because: string } | null;
+  /** Answered from pictures handed over as files, naming none of them. */
+  readonly unseen?: boolean;
 }
 
 /** The names a creator knows the engines by. */
@@ -193,19 +198,24 @@ export function choiceHelp(choice: EngineChoice, report: EngineReport | null): s
   if (status && !status.ready) {
     return `${name} is ${stateOf(status)} on this computer${status.note ? `. ${status.note}` : '.'}`;
   }
-  const pictures = seeingEngines(report).includes(choice)
-    ? ''
-    : ` The thumbnail review needs Claude Code or Codex until ${name} passes the picture check in Settings.`;
-  return `Only ${name} answers; nothing else is tried if it cannot.${pictures}`;
+  const files = choice === 'agy' ? ` ${name} sees pictures as files.` : '';
+  const failed = failedCheck(report, choice)
+    ? ` ${name} did not pass its last picture check, so questions about pictures go to the next AI that sees them. Run the check again in Settings.`
+    : files;
+  return `Only ${name} answers; nothing else is tried if it cannot, except a question about pictures, which goes on to the next AI that sees them.${failed}`;
 }
 
 /** Who answered, and which engines were passed over on the way. Empty when the server did not say. */
 export function answerCredit({
   engine,
   skipped,
-}: Pick<AnalysisAnswer, 'engine' | 'skipped'>): string {
+  standInFor,
+  unseen,
+}: Pick<AnalysisAnswer, 'engine' | 'skipped' | 'standInFor' | 'unseen'>): string {
   if (engine === null) return '';
-  const answered = `Answered by ${nameOf(engine)}.`;
+  const seen = unseen === true ? ` ${UNSEEN_LINE}` : '';
+  if (standInFor) return `Answered by ${byLine(engine, standInFor)}${seen}`;
+  const answered = `Answered by ${nameOf(engine)}.${seen}`;
   if (skipped.length === 0) return answered;
   const names = skipped.map((entry) => nameOf(entry.engine));
   const list =

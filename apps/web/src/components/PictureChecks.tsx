@@ -15,12 +15,17 @@ type Running = { readonly engine: EngineId } | null;
 
 const PICTURE_KINDS: readonly string[] = ['picture-check'];
 
+/** The button's words: the first check is optional; after one, it is run again. */
+const checkLabel = (last: PictureCheck | null): string =>
+  last === null ? 'Check it can see pictures (optional)' : 'Run the check again';
+
 const QUIET =
   'min-h-11 self-start rounded-lg border border-border-subtle px-3 py-1.5 text-body-sm text-on-surface-variant transition-colors hover:border-border-highlight hover:text-on-surface disabled:cursor-not-allowed disabled:opacity-50';
 
 /**
- * For each engine not known to see pictures: a quiet button that runs the
- * picture check, and the last result. A pass lets the picture questions use it.
+ * For each engine shown pictures as files (Antigravity): what it does with
+ * pictures, its last check, and a quiet button that runs the check. The check
+ * is optional: only a failed check keeps it from questions about pictures.
  */
 export function PictureChecks({ report, busy, check }: Props) {
   const [started, setStarted] = useState<Running>(null);
@@ -51,19 +56,19 @@ export function PictureChecks({ report, busy, check }: Props) {
         const working = running?.engine === engine;
         return (
           <li key={engine} className="flex min-w-0 flex-col gap-1">
-            <p className={`text-body-sm ${last?.passed ? 'text-primary' : 'text-outline'}`}>
-              {engineName(engine)}: {line || 'not checked for pictures yet.'}
+            <p
+              className={`text-body-sm ${last === null ? 'text-outline' : last.passed ? 'text-primary' : 'text-metric-amber'}`}
+            >
+              {engineName(engine)}: {line}
             </p>
-            {!last?.passed && (
-              <button
-                type="button"
-                className={QUIET}
-                disabled={busy || running !== null}
-                onClick={() => start(engine)}
-              >
-                {working ? 'Checking…' : 'Check it can see pictures'}
-              </button>
-            )}
+            <button
+              type="button"
+              className={QUIET}
+              disabled={busy || running !== null}
+              onClick={() => start(engine)}
+            >
+              {working ? 'Checking…' : checkLabel(last)}
+            </button>
             {working && (
               <p className="text-body-sm text-outline">
                 Shows it two small pictures and asks their colours. Takes up to three minutes.

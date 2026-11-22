@@ -1,5 +1,6 @@
 import { type BreakdownOutcome, restsOn, studiedLines, type VideoToSupply } from '../lib/breakdown';
 import { runLines } from '../lib/breakdownParts';
+import type { PartsRun } from '../lib/partFixes';
 import { BreakdownParts } from './BreakdownParts';
 import { Card } from './layout/Card';
 import { Details } from './layout/Details';
@@ -13,8 +14,11 @@ interface StatusProps {
   readonly breakdown: Breakdown;
   readonly busy: boolean;
   readonly onSend: SendVideo;
-  /** Runs the breakdown of a channel again; `fresh` studies and writes everything again. */
-  readonly onRun: (channel: BreakdownChannel, fresh: boolean) => void;
+  /**
+   * Runs the breakdown of a channel again; `fresh` studies and writes
+   * everything again; `only` writes chosen parts alone, from what is stored.
+   */
+  readonly onRun: (channel: BreakdownChannel, fresh: boolean, only?: PartsRun) => void;
 }
 
 interface SupplyProps extends Pick<StatusProps, 'busy' | 'onSend' | 'onRun'> {

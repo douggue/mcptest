@@ -1,3 +1,4 @@
+import type { PartsRun } from './partFixes';
 import {
   AUTOMATIC,
   type AnalysisAnswer,
@@ -152,7 +153,11 @@ export function apiCaller(fetcher: Fetch = (input, init) => fetch(input, init)) 
 
 /** An answer as the server gives it; a field an older server leaves out reads as none. */
 export const answerFrom = (
-  reply: Partial<AnalysisAnswer> & { readonly text: string },
+  reply: Partial<AnalysisAnswer> & {
+    readonly text: string;
+    /** Pictures handed over as files: how many, and how many the answer names. */
+    readonly seen?: { readonly shown: number; readonly named: number } | null;
+  },
 ): AnalysisAnswer => ({
   text: reply.text,
   engine: reply.engine ?? null,
@@ -160,6 +165,8 @@ export const answerFrom = (
   prompt: reply.prompt ?? null,
   videos: reply.videos ?? [],
   writtenAt: reply.writtenAt ?? null,
+  ...(reply.standInFor ? { standInFor: reply.standInFor } : {}),
+  ...(reply.seen && reply.seen.shown > 0 && reply.seen.named === 0 ? { unseen: true } : {}),
 });
 
 /** The local server's API. `fetcher` is injectable so it can be tested without a network. */
@@ -363,6 +370,8 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
       choice: EngineChoice = AUTOMATIC,
       fresh = false,
       videos?: number,
+      /** Write only these parts again, from what is stored, leaving out one AI if named. */
+      only?: PartsRun,
     ): Promise<string> {
       const envelope = await call('/api/breakdowns', {
         method: 'POST',
@@ -372,6 +381,8 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
           ...(choice === AUTOMATIC ? {} : { engine: choice }),
           ...(fresh ? { fresh: true } : {}),
           ...(videos === undefined ? {} : { videos }),
+          ...(only === undefined ? {} : { parts: only.parts }),
+          ...(only?.avoid ? { avoid: only.avoid } : {}),
         }),
       });
       return unwrap<{ jobId: string }>(envelope).jobId;

@@ -4,6 +4,7 @@ import type { Api } from '../lib/api';
 import type { BreakdownOutcome, BreakdownProgress, VideoToSupply } from '../lib/breakdown';
 import type { BreakdownView } from '../lib/breakdownParts';
 import { createJobsApi, findRunningJob } from '../lib/jobs';
+import type { PartsRun } from '../lib/partFixes';
 
 /** The kind of job a channel breakdown is listed under at GET /api/jobs. */
 const BREAKDOWN_KINDS: readonly string[] = ['breakdown'];
@@ -55,6 +56,8 @@ export interface Breakdown {
     choice: EngineChoice,
     fresh: boolean,
     videos?: number,
+    /** Write only these parts again, from what is stored. */
+    only?: PartsRun,
   ) => void;
 }
 
@@ -164,13 +167,19 @@ export function useBreakdown(api: Api): Breakdown {
   }, []);
 
   const start = useCallback(
-    (channel: BreakdownChannel, choice: EngineChoice, fresh: boolean, videos?: number) => {
+    (
+      channel: BreakdownChannel,
+      choice: EngineChoice,
+      fresh: boolean,
+      videos?: number,
+      only?: PartsRun,
+    ) => {
       if (running.current) return;
       running.current = true;
       pick(channel);
       setState({ status: 'running', channel, progress: null });
       api
-        .startBreakdown(channel.id, choice, fresh, videos)
+        .startBreakdown(channel.id, choice, fresh, videos, only)
         .then(setJobId)
         .catch((error: unknown) => {
           running.current = false;

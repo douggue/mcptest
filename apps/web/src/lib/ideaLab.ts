@@ -317,9 +317,3 @@ export const withThumbnail = (
     ? current.map((entry) => (entry.conceptId === written.conceptId ? written : entry))
     : [...current, written];
 };
-
-/** Why the chosen AI cannot write a thumbnail prompt, or null when it can: it must see pictures. */
-export const thumbnailEngineNote = (choice: EngineChoice): string | null =>
-  choice === 'agy'
-    ? 'A thumbnail prompt needs an AI that looks at the pictures: choose Claude Code or Codex, or Automatic, under Ask AI.'
-    : null;

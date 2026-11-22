@@ -12,6 +12,8 @@ import { breakdownHref } from '../lib/routes';
 import type { Candidate } from '../lib/breakdownPicks';
 import { brokenDownText } from '../lib/breakdownPicks';
 import { SLOW_NOTE } from '../lib/breakdown';
+import { AUTOMATIC } from '../lib/analyses';
+import type { PartsRun } from '../lib/partFixes';
 import { uploadVideoFile } from '../lib/upload';
 import { BreakdownStatus } from './Breakdown';
 import { AllCandidates, PasteChannel, SuggestedCandidates } from './BreakdownChooser';
@@ -97,12 +99,14 @@ function OneChannel({
     [pick, candidate.id, candidate.title],
   );
   const running = breakdown.state.status === 'running';
-  const start = (again: boolean): void =>
+  // A part written again on another AI leaves the choice to Jgtube, less the AI named.
+  const start = (again: boolean, only?: PartsRun): void =>
     breakdown.start(
       { id: candidate.id, title: candidate.title },
-      analysis.choice,
+      only?.avoid ? AUTOMATIC : analysis.choice,
       again,
       Number(videos),
+      only,
     );
   return (
     <>
@@ -162,7 +166,7 @@ function OneChannel({
         breakdown={breakdown}
         busy={asking}
         onSend={uploadVideoFile}
-        onRun={(_c, again) => start(again)}
+        onRun={(_c, again, only) => start(again, only)}
       />
     </>
   );

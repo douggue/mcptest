@@ -18,7 +18,6 @@ import {
   withKept,
   type ConceptView,
   type Pick,
-  thumbnailEngineNote,
   thumbnailFor,
   withThumbnail,
   type ConceptThumbnailView,
@@ -314,12 +313,6 @@ describe('the thumbnail prompts of a channel’s concepts', () => {
       'New',
     ]);
     expect(withThumbnail(null, next)).toEqual([next]);
-  });
-
-  test('can be asked only of an engine that sees pictures', () => {
-    expect(thumbnailEngineNote('auto')).toBeNull();
-    expect(thumbnailEngineNote('claude')).toBeNull();
-    expect(thumbnailEngineNote('agy')).toMatch(/Claude Code or Codex/);
   });
 });
 

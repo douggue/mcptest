@@ -99,13 +99,15 @@ export interface AnalysisParts extends Pick<
 > {
   /**
    * Has the first engine that sees pictures go through one video's frames,
-   * start to end. Rejects with an EngineRunError like `analyse`.
+   * start to end: Claude Code and Codex through the frames tool, Antigravity
+   * with the sheets as files. Rejects with an EngineRunError like `analyse`.
    */
   studyFrames(videoId: string, only?: EngineId): Promise<EngineAnswer<EngineId>>;
   /**
    * One stage of a production teardown: a picture stage goes to the engines
-   * that see pictures (Claude Code and Codex, and one that passed the picture
-   * check, shown the pictures as files); a text stage to any engine in order.
+   * that see pictures (Claude Code and Codex through the picture tool,
+   * Antigravity shown them as files unless its last picture check failed); a
+   * text stage to any engine in order.
    */
   askTeardown(ask: TeardownAsk, only?: EngineId): Promise<EngineAnswer<EngineId>>;
   /** Whether an engine here would watch a video from a file: Antigravity, installed and not left out. */

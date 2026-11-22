@@ -77,8 +77,38 @@ describe('POST /api/analyses', () => {
       text: 'Make the invention the hero.',
       engine: 'claude',
       skipped: [],
+      standInFor: null,
+      seen: null,
     });
     expect(asked).toEqual([['thumbnails', CHANNEL_ID]]);
+  });
+
+  test('says when another engine answered in place of the chosen one, and what it saw', async () => {
+    const app = createApp({
+      engine: stubEngine({
+        analyse: async () => ({
+          text: 'Styles.',
+          turns: 5,
+          engine: 'claude',
+          skipped: [],
+          standInFor: { engine: 'agy', because: 'Antigravity CLI hit its limit.' },
+          seen: { shown: 9, named: 0 },
+        }),
+      }),
+      jobs: new JobStore(),
+      allowedHosts: [HOST],
+    });
+
+    const response = await post(app, PATH, {
+      analysis: 'thumbnails',
+      channel: CHANNEL_ID,
+      engine: 'agy',
+    });
+
+    expect((await read(response)).data).toMatchObject({
+      standInFor: { engine: 'agy', because: 'Antigravity CLI hit its limit.' },
+      seen: { shown: 9, named: 0 },
+    });
   });
 
   test('says which engines were passed over, and why', async () => {
@@ -103,6 +133,8 @@ describe('POST /api/analyses', () => {
       text: 'Eight ideas.',
       engine: 'claude',
       skipped,
+      standInFor: null,
+      seen: null,
     });
   });
 

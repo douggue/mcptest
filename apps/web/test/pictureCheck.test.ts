@@ -4,6 +4,7 @@ import { createApi } from '../src/lib/api';
 import {
   enginesToCheck,
   pictureCheckLine,
+  failedCheck,
   seeingEngines,
   withCheck,
   type PictureCheck,
@@ -24,11 +25,17 @@ const report = (checks?: readonly PictureCheck[]): EngineReport => ({
 });
 
 describe('seeingEngines', () => {
-  test('is Claude Code and Codex until another engine passes the picture check', () => {
-    expect(seeingEngines(null)).toEqual(['claude', 'codex']);
-    expect(seeingEngines(report())).toEqual(['claude', 'codex']);
-    expect(seeingEngines(report([failed]))).toEqual(['claude', 'codex']);
+  test('is every engine by default: Antigravity sees pictures as files, the check is optional', () => {
+    expect(seeingEngines(null)).toEqual(['claude', 'codex', 'agy']);
+    expect(seeingEngines(report())).toEqual(['claude', 'codex', 'agy']);
     expect(seeingEngines(report([passed]))).toEqual(['claude', 'codex', 'agy']);
+  });
+
+  test('leaves out Antigravity only after it failed the check', () => {
+    expect(seeingEngines(report([failed]))).toEqual(['claude', 'codex']);
+    expect(failedCheck(report([failed]), 'agy')).toBe(true);
+    expect(failedCheck(report([passed]), 'agy')).toBe(false);
+    expect(failedCheck(null, 'agy')).toBe(false);
   });
 });
 
@@ -42,19 +49,21 @@ describe('enginesToCheck', () => {
 });
 
 describe('pictureCheckLine', () => {
-  test('says what a pass allows', () => {
-    expect(pictureCheckLine(passed)).toBe('Sees pictures: picture questions can use it.');
+  test('says what a pass shows', () => {
+    expect(pictureCheckLine(passed)).toBe('Passed the picture check: it named both colours.');
   });
 
-  test('quotes what the engine said when it did not see them, and what was shown', () => {
+  test('quotes what the engine said when it did not see them, and what that means', () => {
     expect(pictureCheckLine(failed)).toBe(
-      'Did not see the pictures: it answered “I cannot open images.” The pictures were red and blue.',
+      'Did not see the pictures: it answered “I cannot open images.” The pictures were red and blue. Until it passes, questions about pictures go to Claude Code or Codex.',
     );
     expect(pictureCheckLine({ ...failed, answer: '' })).toMatch(/it gave no answer/);
   });
 
-  test('says nothing before a check', () => {
-    expect(pictureCheckLine(null)).toBe('');
+  test('before a check, says it sees pictures as files and the check is optional', () => {
+    expect(pictureCheckLine(null)).toBe(
+      'Sees pictures as files; the check is optional. Run it if its picture answers look wrong.',
+    );
   });
 });
 
@@ -69,18 +78,19 @@ describe('withCheck', () => {
 });
 
 describe('a picture question asked of Antigravity', () => {
-  test('goes to Claude Code or Codex, saying why and what to do, until it passes the check', () => {
-    expect(choiceFor('thumbnails', 'agy', report([failed]))).toEqual({
-      choice: 'auto',
-      note: 'Antigravity has not passed the picture check yet, so this one goes to Claude Code, or else Codex. Run the check in Settings to let Antigravity do it.',
-    });
-  });
-
-  test('stays with Antigravity once it has passed', () => {
+  test('stays with Antigravity when no check was run, or it passed', () => {
+    expect(choiceFor('thumbnails', 'agy', report())).toEqual({ choice: 'agy', note: null });
     expect(choiceFor('thumbnails', 'agy', report([passed]))).toEqual({ choice: 'agy', note: null });
   });
 
-  test('the switch’s help names the check only while it has not passed', () => {
+  test('says another AI writes it once Antigravity failed the check, and what to do', () => {
+    expect(choiceFor('thumbnails', 'agy', report([failed]))).toEqual({
+      choice: 'agy',
+      note: 'Antigravity did not pass its last picture check, so the next AI that sees pictures answers this one. Run the check again in Settings.',
+    });
+  });
+
+  test('the switch’s help says pictures reach Antigravity as files, and names a failed check', () => {
     const ready = {
       ...report(),
       engines: [
@@ -95,9 +105,11 @@ describe('a picture question asked of Antigravity', () => {
         },
       ],
     } as const;
-    expect(choiceHelp('agy', ready)).toMatch(/needs Claude Code or Codex until Antigravity passes/);
-    expect(choiceHelp('agy', { ...ready, pictureChecks: [passed] })).toBe(
-      'Only Antigravity answers; nothing else is tried if it cannot.',
+    expect(choiceHelp('agy', ready)).toBe(
+      'Only Antigravity answers; nothing else is tried if it cannot, except a question about pictures, which goes on to the next AI that sees them. Antigravity sees pictures as files.',
+    );
+    expect(choiceHelp('agy', { ...ready, pictureChecks: [failed] })).toMatch(
+      /did not pass its last picture check.*Run the check again in Settings\.$/,
     );
   });
 });

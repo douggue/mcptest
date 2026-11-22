@@ -23,6 +23,16 @@ export interface BreakdownPartView {
   readonly engine: string | null;
   readonly writtenAt: string | null;
   readonly reason: string | null;
+  /** The AI the owner chose, when another wrote the part because it could not; absent from an older server. */
+  readonly standInFor?: StandIn | null;
+  /** Written from pictures handed over as files, naming none of them; absent from an older server. */
+  readonly unseen?: boolean;
+}
+
+/** The AI the owner chose, when another wrote a part because it could not, and why. */
+export interface StandIn {
+  readonly engine: string;
+  readonly because: string;
 }
 
 export type BreakdownFileId = 'whole' | 'plan' | 'thumbnail' | 'master' | 'style';
@@ -52,6 +62,8 @@ export type PartRun = {
       readonly outcome: 'written';
       readonly engine: EngineId;
       readonly skipped: readonly SkippedEngine[];
+      readonly standInFor?: StandIn | undefined;
+      readonly unseen?: boolean | undefined;
     }
   | { readonly outcome: 'kept'; readonly engine: string }
   | { readonly outcome: 'failed'; readonly reason: string }
@@ -101,8 +113,18 @@ export function partNote(part: BreakdownPartView): string {
     return part.reason === null ? 'Not written' : `Not written: ${part.reason}`;
   }
   if (part.engine === JGTUBE) return 'Worked out by Jgtube';
-  return `Written by ${engineName(part.engine ?? '')}`;
+  return `Written by ${byLine(part.engine ?? '', part.standInFor ?? null)}`;
 }
+
+/** Who wrote something, and in whose place when the chosen AI could not. */
+export const byLine = (engine: string, standIn: StandIn | null | undefined): string =>
+  standIn
+    ? `${engineName(engine)} because ${engineName(standIn.engine)} could not: ${standIn.because}`
+    : engineName(engine);
+
+/** What to say about a part written from pictures it names none of. */
+export const UNSEEN_LINE =
+  'It may not have seen the pictures: its answer names none of the files it was given.';
 
 /** What a part gives the owner to copy and to download. */
 export interface PartAttachment {
@@ -198,10 +220,14 @@ function runLine(run: PartRun): string {
     const after = run.seconds > 0 ? ` after ${durationText(run.seconds)}` : '';
     return `${title}: not written${after}. ${run.reason}`;
   }
+  const unseen = run.unseen === true ? ` ${UNSEEN_LINE}` : '';
+  if (run.standInFor) {
+    return `${title}: written by ${byLine(run.engine, run.standInFor)} Took ${durationText(run.seconds)}.${unseen}`;
+  }
   const passed = run.skipped
     .map((entry) => ` ${capitalised(engineName(entry.engine))} was passed over: ${entry.message}`)
     .join('');
-  return `${title}: written by ${engineName(run.engine)} in ${durationText(run.seconds)}.${passed}`;
+  return `${title}: written by ${engineName(run.engine)} in ${durationText(run.seconds)}.${passed}${unseen}`;
 }
 
 const NOTHING_CHANGED =
