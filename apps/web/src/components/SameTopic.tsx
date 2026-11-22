@@ -60,7 +60,6 @@ function Side({ list, busy, onChoose, centerTitle }: ListProps & { readonly cent
         />
         <StatTile label="Kept" value={list.kept.length} note="as competitors" />
       </dl>
-      <MoneyFilter view="same-topic" channelIds={list.channels.map((channel) => channel.id)} />
       <Kept list={list} busy={busy} onChoose={onChoose} />
       <Details summary="How this works">
         <p className="text-body-sm text-on-surface-variant">
@@ -138,6 +137,9 @@ export function SameTopic({ state, centerTitle, onSetStatus }: Props) {
         count={list?.channels.length}
         lead={`Channels the size and pace of ${centerTitle} that title their videos in other words. The ones sharing the most title words come first.`}
       />
+      {list && (
+        <MoneyFilter view="same-topic" channelIds={list.channels.map((channel) => channel.id)} />
+      )}
       {state.status === 'loading' && (
         <Notice tone="working">Going through the channels the filter left out</Notice>
       )}

@@ -1,3 +1,4 @@
+import { MoneyBadge } from './MoneyBadge';
 import { channelHref } from '../lib/routes';
 import type { BreakoutVideo } from '@jgtube/core';
 import { Check, Plus, TrendingUp } from 'lucide-react';
@@ -87,7 +88,8 @@ function BreakoutCard({ item, picked, onPick, onBreakDown }: CardProps) {
         >
           {item.channelTitle}
         </a>{' '}
-        · {formatCount(item.views)} views · {item.publishedRaw}
+        <MoneyBadge channelId={item.channelId} hideUnchecked /> · {formatCount(item.views)} views ·{' '}
+        {item.publishedRaw}
       </p>
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <Evidence item={item} />

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import {
   MAX_CHECK_IDS,
   MONEY_FILTERS,
@@ -23,11 +24,25 @@ interface Props {
 export function MoneyFilter({ view, channelIds }: Props) {
   const [value, setValue] = useMoneyFilter(view);
   const { byId } = useMoney(channelIds);
+  const unchecked = channelIds.filter(
+    (id) => (byId.get(id)?.status ?? 'not-checked') === 'not-checked',
+  );
+  const noneChecked = channelIds.length > 0 && unchecked.length === channelIds.length;
+  // With nothing checked a filter can only empty the list, so it stays on Any until some are.
+  useEffect(() => {
+    if (noneChecked && value !== 'any') setValue('any');
+  }, [noneChecked, value, setValue]);
   if (channelIds.length === 0) return null;
+  const next = unchecked.slice(0, MAX_CHECK_IDS);
+  if (noneChecked) {
+    return (
+      <p className="flex min-w-0 flex-wrap items-center gap-2 text-body-sm text-outline">
+        Monetization filter: check some channels first.
+        <MoneyCheck channelIds={next} label={`Check ${next.length}`} />
+      </p>
+    );
+  }
   const note = uncheckedNote(channelIds, byId, value);
-  const next = channelIds
-    .filter((id) => (byId.get(id)?.status ?? 'not-checked') === 'not-checked')
-    .slice(0, MAX_CHECK_IDS);
   return (
     <Field label="Monetization">
       <Segmented<Filter>

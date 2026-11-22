@@ -75,9 +75,6 @@ function Side({ niches, list, filter }: SideProps) {
   const { state, search, discover } = niches;
   return (
     <>
-      {list && (
-        <MoneyFilter view="niches" channelIds={list.channels.map((channel) => channel.id)} />
-      )}
       {state.status === 'ready' && (
         <NicheSearch canDiscover={state.canDiscover} search={search} onSearch={discover} />
       )}
@@ -131,6 +128,9 @@ export function Niches({ niches, hasMap, onBreakDown }: Props) {
               onChange={setFilter}
             />
           </div>
+        )}
+        {list && (
+          <MoneyFilter view="niches" channelIds={list.channels.map((channel) => channel.id)} />
         )}
         {state.status === 'loading' && (
           <Notice tone="working">Going through the channels read so far</Notice>
