@@ -1,6 +1,6 @@
 import type { SavedChannel } from '@jgtube/core';
 import { Check, ChevronDown } from 'lucide-react';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { ChannelLogo } from './ChannelLogo';
 
 interface Props {
@@ -18,6 +18,21 @@ interface Props {
  */
 export function ChannelSwitcher({ channels, currentId, busy, onOpen }: Props) {
   const menu = useRef<HTMLDetailsElement>(null);
+  // Closes on a press anywhere else, and when another view opens.
+  useEffect(() => {
+    const close = (event: Event): void => {
+      const open = menu.current;
+      if (open?.open && !(event.target instanceof Node && open.contains(event.target))) {
+        open.open = false;
+      }
+    };
+    document.addEventListener('click', close);
+    window.addEventListener('hashchange', close);
+    return () => {
+      document.removeEventListener('click', close);
+      window.removeEventListener('hashchange', close);
+    };
+  }, []);
   const current = channels.find((channel) => channel.id === currentId);
   if (!current) return null;
   return (
