@@ -157,15 +157,46 @@ interface Props {
   readonly reloadKey: unknown;
 }
 
+/** Viewers ask before a YouTube key is set: the one thing to do, and the way there. */
+function NeedsKey() {
+  return (
+    <ViewPage id="comment-mining" labelledBy="comment-mining-title">
+      <ViewHeader
+        titleId="comment-mining-title"
+        title="Viewers ask"
+        lead="Requests, questions and objections that recur in the comments of winning videos."
+      />
+      <Card>
+        <h3 className="text-headline-md font-bold text-on-surface">Needs a YouTube key</h3>
+        <p className="text-body-md text-on-surface-variant">
+          Comments are read through YouTube&rsquo;s own API, which needs a key.
+        </p>
+        <a
+          href={viewHref('settings')}
+          className="flex min-h-12 w-fit items-center rounded bg-primary-container px-5 text-body-md font-semibold text-on-primary hover:opacity-90"
+        >
+          Open Settings
+        </a>
+      </Card>
+    </ViewPage>
+  );
+}
+
 /** Comments of the map's winning videos, and what viewers ask for in them. */
 export function CommentMining({ channelId, reloadKey }: Props) {
   const comments = useComments(channelId, reloadKey);
   const { view, work, problem } = comments;
   if (!view) return null;
   const count = view.answer?.findings.length;
+  // Without a key nothing here can run: say so in one line, with the way to fix it, and nothing else.
+  if (!view.keySet && !view.answer) return <NeedsKey />;
   return (
     <ViewPage id="comment-mining" labelledBy="comment-mining-title">
-      <SplitView sideLabel="Comments to read" side={<Panel view={view} comments={comments} />}>
+      <SplitView
+        sideLabel="Comments to read"
+        mainFirst
+        side={<Panel view={view} comments={comments} />}
+      >
         <ViewHeader
           titleId="comment-mining-title"
           title="Viewers ask"
