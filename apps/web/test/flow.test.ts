@@ -35,7 +35,7 @@ describe('the flow strip', () => {
         count: '3 formats · 12 hooks',
         done: true,
       },
-      { id: 'ideas', label: 'Ideas', view: 'ideas', count: '1 concept', done: true },
+      { id: 'ideas', label: 'Ideas', view: 'ideas', count: '1 idea', done: true },
       {
         id: 'script',
         label: 'Script',

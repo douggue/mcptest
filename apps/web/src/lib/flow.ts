@@ -69,7 +69,7 @@ export function flowSteps(counts: FlowCounts | null): readonly FlowStep[] {
       'ideas',
       'Ideas',
       'ideas',
-      (k) => orNone(k.concepts, 'concept'),
+      (k) => orNone(k.concepts, 'idea'),
       (k) => k.concepts > 0,
     ),
     step(
