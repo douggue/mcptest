@@ -35,17 +35,16 @@ function Working({ children }: { readonly children: string }) {
   );
 }
 
-/** Said when the question chosen has no answer yet. */
-function NoAnswer({ question }: { readonly question: AnalysisId }) {
+/** Said when nothing has been asked yet: what to do, in neutral words. */
+function NoAnswer() {
   return (
     <Card>
       <Sparkles aria-hidden="true" className="h-6 w-6 text-metric-amber" />
       <p className="text-body-md text-on-surface">
-        No {titleOfQuestion(question).toLowerCase()} answer is kept for this channel yet.
+        Ask a question above, or pick one of the suggestions.
       </p>
       <p className="text-body-sm text-on-surface-variant">
-        Press it under the question box above. The answer comes in a minute or two, in short first,
-        then part by part.
+        Answers take a minute or two and are kept for this channel.
       </p>
     </Card>
   );
@@ -76,7 +75,7 @@ function AnalysisArea({
   }
   const stored = kept.find((entry) => entry.analysis === question);
   if (stored) return <AnalysisAnswerView title={title} answer={stored.answer} kept />;
-  return ofThis ? null : <NoAnswer question={question} />;
+  return ofThis ? null : <NoAnswer />;
 }
 
 /**
