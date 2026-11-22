@@ -56,7 +56,9 @@ export function progressText(progress: unknown): string | null {
   const { text, done, total, channels } = progress;
   if (typeof text === 'string' && text !== '') return text;
   if (typeof done === 'number' && typeof total === 'number') return `${done} of ${total} done`;
-  if (typeof channels === 'number') return `${channels} channels found so far`;
+  if (typeof channels === 'number') {
+    return `${channels} ${channels === 1 ? 'channel' : 'channels'} found so far`;
+  }
   return null;
 }
 

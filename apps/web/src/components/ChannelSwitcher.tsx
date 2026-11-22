@@ -29,7 +29,9 @@ export function ChannelSwitcher({ channels, currentId, busy, onOpen }: Props) {
         <span className="flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full bg-surface-container-high text-body-sm font-bold text-secondary">
           <ChannelLogo title={current.title} logoUrl={current.logoUrl} letters={1} />
         </span>
-        <span className="max-w-[12rem] truncate font-semibold">{current.title}</span>
+        <span className="hidden max-w-[12rem] truncate font-semibold sm:inline">
+          {current.title}
+        </span>
         <ChevronDown
           aria-hidden="true"
           className="h-4 w-4 flex-none text-outline transition-transform group-open/switch:rotate-180"

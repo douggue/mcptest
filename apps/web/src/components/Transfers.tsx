@@ -11,7 +11,6 @@ import {
   type TransferFilter,
 } from '../lib/transfers';
 import { FormatCard } from './FormatCard';
-import { Field } from './layout/Card';
 import { Details } from './layout/Details';
 import { Notice, ShowMore } from './layout/Notice';
 import { Segmented } from './layout/Segmented';
@@ -69,26 +68,13 @@ function Cards({ list, filter, onSetSaved, onMakeConcepts }: CardsProps) {
 interface SideProps {
   readonly transfers: TransfersData;
   readonly list: TransferList;
-  readonly filter: TransferFilter;
-  readonly onFilter: (filter: TransferFilter) => void;
 }
 
 /** The side panel: what to show, the place the ideas are judged for, and how the list is made. */
-function Side({ transfers, list, filter, onFilter }: SideProps) {
+function Side({ transfers, list }: SideProps) {
   const { state } = transfers;
   return (
     <>
-      <Field label="Show">
-        <Segmented<TransferFilter>
-          label="Which ideas to show"
-          options={TRANSFER_FILTERS.map((option) => ({
-            value: option.id,
-            label: filterLabel(option.id, list),
-          }))}
-          value={filter}
-          onChange={onFilter}
-        />
-      </Field>
       {state.status === 'ready' && (
         <TransferPlace
           list={state.list}
@@ -131,6 +117,19 @@ export function Transfers({ transfers, hasMap, onMakeConcepts }: Props) {
         title="Transfers"
         lead="Ideas that took off for another country and are untried or weak for yours."
       />
+      {list && (
+        <div className="flex min-w-0">
+          <Segmented<TransferFilter>
+            label="Which ideas to show"
+            options={TRANSFER_FILTERS.map((option) => ({
+              value: option.id,
+              label: filterLabel(option.id, list),
+            }))}
+            value={filter}
+            onChange={setFilter}
+          />
+        </div>
+      )}
       {state.status === 'loading' && (
         <Notice tone="working">Comparing the titles of the channels on this map</Notice>
       )}
@@ -156,9 +155,10 @@ export function Transfers({ transfers, hasMap, onMakeConcepts }: Props) {
     <ViewPage id="transfers" labelledBy="transfers-title">
       {list ? (
         <SplitView
-          sideLabel="What to show and your place"
+          sideLabel="Your place"
           width="narrow"
-          side={<Side transfers={transfers} list={list} filter={filter} onFilter={setFilter} />}
+          mainFirst
+          side={<Side transfers={transfers} list={list} />}
         >
           {main}
         </SplitView>

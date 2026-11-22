@@ -101,6 +101,8 @@ export function Formulas({ lab, busy, centerTitle, onRemix }: Props) {
   return (
     <ViewPage id="formulas" labelledBy="formulas-title">
       <SplitView
+        width="narrow"
+        mainFirst
         sideLabel="Finding formats"
         side={<FormulaPanel lab={lab} busy={busy} centerTitle={centerTitle} />}
       >

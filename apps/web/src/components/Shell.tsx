@@ -1,10 +1,10 @@
-import { Menu, Radar, Settings as SettingsIcon, X } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { Radar, Settings as SettingsIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import type { AiBadge as Badge } from '../lib/aiBadge';
 import { viewHref, type ViewId } from '../lib/routes';
 import { destinationOf } from '../lib/sections';
 import { AiBadge } from './AiBadge';
-import { RailLinks } from './RailLinks';
+import { BottomTabs, RailLinks } from './RailLinks';
 import { WorkingIndicator } from './WorkingIndicator';
 
 const TOP_BUTTON =
@@ -17,25 +17,22 @@ interface Props {
   readonly ai: Badge;
   /** The map's own channel, which the rail's Channel entry opens; null before any map. */
   readonly centerId: string | null;
-  /** Which channel the app is about and the way to switch; shown beside the logo, and in the phone menu. */
+  /** Which channel the app is about and the way to switch, beside the logo. */
   readonly switcher?: ReactNode;
   readonly children: ReactNode;
 }
 
 /**
- * The frame around every view: the top bar with the AI that answers and
- * Settings, the rail of the five destinations (a menu on a phone) and the
- * view itself.
+ * The frame around every view: the top bar with the open channel, the AI
+ * that answers and Settings; the destinations in a rail on a wide screen and
+ * in a tab bar at the foot of a phone; and the view itself.
  */
 export function Shell({ active, ai, centerId, switcher, children }: Props) {
   const destination = destinationOf(active)?.id ?? null;
-  const [menuOpen, setMenuOpen] = useState(false);
-  // Opening a view from anywhere closes the phone menu.
-  useEffect(() => setMenuOpen(false), [active]);
   return (
     <>
       <header className="fixed left-0 top-0 z-50 w-full border-b border-border-subtle bg-space-canvas/90 shadow-[0_4px_24px_rgba(5,7,14,0.6)] backdrop-blur-xl">
-        <div className="flex h-16 w-full min-w-0 items-center gap-2 px-gutter-desktop sm:gap-space-md">
+        <div className="flex h-16 w-full min-w-0 items-center gap-2 px-gutter sm:gap-space-md sm:px-gutter-desktop">
           <a
             href={viewHref('home')}
             aria-label="Jgtube home"
@@ -49,24 +46,10 @@ export function Shell({ active, ai, centerId, switcher, children }: Props) {
               Jgtube
             </span>
           </a>
-          <div className="hidden min-w-0 md:block">{switcher}</div>
+          <div className="min-w-0">{switcher}</div>
           <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
             <WorkingIndicator active={active} />
             <AiBadge badge={ai} />
-            <button
-              type="button"
-              aria-expanded={menuOpen}
-              aria-controls="view-menu"
-              onClick={() => setMenuOpen(!menuOpen)}
-              className={`${TOP_BUTTON} md:hidden`}
-            >
-              {menuOpen ? (
-                <X aria-hidden="true" className="h-[18px] w-[18px]" />
-              ) : (
-                <Menu aria-hidden="true" className="h-[18px] w-[18px]" />
-              )}
-              Menu
-            </button>
             <a
               href={viewHref('settings')}
               aria-current={active === 'settings' ? 'page' : undefined}
@@ -79,22 +62,14 @@ export function Shell({ active, ai, centerId, switcher, children }: Props) {
           </div>
         </div>
       </header>
-      {menuOpen && (
-        <div
-          id="view-menu"
-          className="fixed inset-x-0 bottom-0 top-16 z-40 overflow-y-auto bg-space-canvas p-space-sm md:hidden"
-        >
-          <div className="mb-space-sm">{switcher}</div>
-          <RailLinks active={destination} centerId={centerId} onPick={() => setMenuOpen(false)} />
-        </div>
-      )}
 
       <aside className="fixed bottom-0 left-0 top-16 z-40 hidden w-56 flex-col border-r border-border-subtle bg-space-canvas px-space-sm py-space-md md:flex">
         <RailLinks active={destination} centerId={centerId} />
       </aside>
+      <BottomTabs active={destination} centerId={centerId} />
 
       <div className="md:pl-56">
-        <main id="top" className="relative min-h-screen min-w-0 bg-space-deep pt-16">
+        <main id="top" className="relative min-h-screen min-w-0 bg-space-deep pb-20 pt-16 md:pb-0">
           {children}
         </main>
       </div>

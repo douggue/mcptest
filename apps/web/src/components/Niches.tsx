@@ -7,7 +7,6 @@ import {
   filterNiches,
   type NicheFilter,
 } from '../lib/niches';
-import { Field } from './layout/Card';
 import { Details } from './layout/Details';
 import { Notice, ShowMore } from './layout/Notice';
 import { Segmented } from './layout/Segmented';
@@ -69,24 +68,13 @@ interface SideProps {
   readonly niches: NichesData;
   readonly list: NicheList | null;
   readonly filter: NicheFilter;
-  readonly onFilter: (filter: NicheFilter) => void;
 }
 
-/** The side panel: which channels to show, the keyword search, and how the list is made. */
-function Side({ niches, list, filter, onFilter }: SideProps) {
+/** The side panel: the keyword search, and how the list is made. */
+function Side({ niches, list, filter }: SideProps) {
   const { state, search, discover } = niches;
   return (
     <>
-      {list && list.channels.length > 0 && (
-        <Field label="Show">
-          <Segmented<NicheFilter>
-            label="Which niches to show"
-            options={NICHE_FILTERS.map((option) => ({ value: option.id, label: option.label }))}
-            value={filter}
-            onChange={onFilter}
-          />
-        </Field>
-      )}
       {list && (
         <MoneyFilter view="niches" channelIds={list.channels.map((channel) => channel.id)} />
       )}
@@ -123,9 +111,10 @@ export function Niches({ niches, hasMap, onBreakDown }: Props) {
   return (
     <ViewPage id="niches" labelledBy="niches-title">
       <SplitView
-        sideLabel="Which niches to show and the keyword search"
+        sideLabel="The keyword search"
         width="narrow"
-        side={<Side niches={niches} list={list} filter={filter} onFilter={setFilter} />}
+        mainFirst
+        side={<Side niches={niches} list={list} filter={filter} />}
       >
         <ViewHeader
           titleId="niches-title"
@@ -133,6 +122,16 @@ export function Niches({ niches, hasMap, onBreakDown }: Props) {
           count={count}
           lead="New or small channels with a recent video far above their size or their usual views."
         />
+        {list && list.channels.length > 0 && (
+          <div className="flex min-w-0">
+            <Segmented<NicheFilter>
+              label="Which niches to show"
+              options={NICHE_FILTERS.map((option) => ({ value: option.id, label: option.label }))}
+              value={filter}
+              onChange={setFilter}
+            />
+          </div>
+        )}
         {state.status === 'loading' && (
           <Notice tone="working">Going through the channels read so far</Notice>
         )}

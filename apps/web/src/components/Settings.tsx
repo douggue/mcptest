@@ -44,7 +44,7 @@ interface SaveBarProps {
 /** The one primary action, kept in view at the foot while the owner scrolls the settings. */
 function SaveBar({ saving, changed, outcome, onSave }: SaveBarProps) {
   return (
-    <div className="sticky bottom-0 z-30 flex min-w-0 flex-wrap items-center gap-3 border-t border-border-subtle bg-space-deep/95 py-space-md backdrop-blur-md">
+    <div className="sticky bottom-14 z-30 md:bottom-0 flex min-w-0 flex-wrap items-center gap-3 border-t border-border-subtle bg-space-deep/95 py-space-md backdrop-blur-md">
       <button
         type="button"
         disabled={saving || !changed}

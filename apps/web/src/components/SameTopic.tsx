@@ -154,6 +154,7 @@ export function SameTopic({ state, centerTitle, onSetStatus }: Props) {
     <ViewPage id="same-topic" labelledBy="same-topic-title">
       {list ? (
         <SplitView
+          mainFirst
           sideLabel="Channels kept and how this works"
           width="narrow"
           side={<Side list={list} busy={busy} onChoose={choose} centerTitle={centerTitle} />}
