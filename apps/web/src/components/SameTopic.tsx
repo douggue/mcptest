@@ -53,7 +53,11 @@ function Side({ list, busy, onChoose, centerTitle }: ListProps & { readonly cent
   return (
     <>
       <dl className="grid grid-cols-2 gap-2">
-        <StatTile label="To look at" value={list.channels.length} note="left out for wording" />
+        <StatTile
+          label="Channels to check"
+          value={list.channels.length}
+          note="same size, other titles"
+        />
         <StatTile label="Kept" value={list.kept.length} note="as competitors" />
       </dl>
       <MoneyFilter view="same-topic" channelIds={list.channels.map((channel) => channel.id)} />
@@ -132,7 +136,7 @@ export function SameTopic({ state, centerTitle, onSetStatus }: Props) {
         titleId="same-topic-title"
         title="Same topic"
         count={list?.channels.length}
-        lead={`Channels that pass the size and pace check against ${centerTitle} but title their videos in other words, closest wording first.`}
+        lead={`Channels the size and pace of ${centerTitle} that title their videos in other words. The ones sharing the most title words come first.`}
       />
       {state.status === 'loading' && (
         <Notice tone="working">Going through the channels the filter left out</Notice>

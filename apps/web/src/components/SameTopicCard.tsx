@@ -18,7 +18,7 @@ function Numbers({ channel }: { readonly channel: SameTopicChannel }) {
   return (
     <dl className="grid grid-cols-2 gap-3 rounded-lg bg-space-deep p-space-sm sm:grid-cols-4">
       <Stat label="Subscribers">{formatCount(channel.subscribers)}</Stat>
-      <Stat label="Title match">
+      <Stat label="Same title words">
         <span className="text-secondary">{percent(channel.titleMatch)}</span>
       </Stat>
       <Stat label="30-day views">
