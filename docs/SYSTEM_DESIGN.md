@@ -2385,23 +2385,23 @@ addresses (`#breakdown…`) open it.
 
 **Channel tab** (`#/breakdown`, one channel at `#/breakdown/<id>`):
 
-- *Paste a channel link*: an @handle, a youtube.com channel link or a `UC…`
+- _Paste a channel link_: an @handle, a youtube.com channel link or a `UC…`
   id, checked on the page and again on the server.
   `POST /api/breakdowns/channel {channel}` reads a channel that is not stored
   the way a map's centre channel is read (`readChannelBrand`: its page, its
   logo and up to 100 recent videos; no crawl), in the slot crawls and refreshes
   hold (409 while one runs or another program reads YouTube), and answers
   `{candidate}`. A read that fails is a plain 502.
-- *Suggested to break down* (`suggestedPicks` in `lib/breakdownPicks.ts`):
+- _Suggested to break down_ (`suggestedPicks` in `lib/breakdownPicks.ts`):
   up to three channels from stored data only: not the owner's own, at least
   `MIN_STORED_VIDEOS` (10) stored videos, something breaking out now, and never
   broken down or last broken down `STALE_DAYS` (90) or more ago; closest
   look-alikes first (closeness outweighs everything else), then the most
   breaking out, then the best recent score (capped at 20×). Each has a one-line
   reason built from the same facts.
-- *Your breakdowns*: the channels with a kept breakdown, newest first, with
+- _Your breakdowns_: the channels with a kept breakdown, newest first, with
   logo, date and Open.
-- *All channels*: the map's channels, the owner's channels and the niche
+- _All channels_: the map's channels, the owner's channels and the niche
   lists, with a search (name or handle) and three filters (Close only, Has
   breakouts, Not broken down yet), twelve at a time. Every row shows the logo,
   name, subscribers, "N breaking out", Close / Medium / Far (map channels
@@ -2410,7 +2410,7 @@ addresses (`#breakdown…`) open it.
   channel never checked) in the row's badge slot.
 - `POST /api/breakdowns/candidates {ids}` (up to 800 channel ids) answers, per
   stored channel, `{id, title, handle, logoUrl, subscribers, storedVideos,
-  breakingOut, recentBest, top, brokenDownAt}`: breaking out is the feed's own
+breakingOut, recentBest, top, brokenDownAt}`: breaking out is the feed's own
   rule (2× usual or more, last 30 days), `top` the three best videos by score,
   `brokenDownAt` the newest `breakdown_parts` row. Read from the store only.
 - One channel opened shows its logo, numbers, three best thumbnails, the one
@@ -2461,8 +2461,7 @@ YouTube link or a video file.
   marker lines (`SCRIPT PROMPT` with `[TOPIC]`, `VISUAL PROMPT` with
   `[SCENE]`, `THUMBNAIL PROMPT` with `[SUBJECT]` and `[OVERLAY TEXT]`), lifted
   out in code (`liftOneVideoPrompts`) and never guessed.
-- **Kept** per video in `video_breakdowns` (store step 28, provisional number
-  43 before the merge): the title, source, channel, how it was seen
+- **Kept** per video in `video_breakdowns` (store step 28): the title, source, channel, how it was seen
   (`seen_json`: the file used or why none, who watched, who studied the frames
   and from where, how many frames, the captions, what could not be done), and
   the text and engine, or why it could not be written. A new run replaces the
