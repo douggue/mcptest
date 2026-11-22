@@ -21,6 +21,8 @@ interface CardProps {
   readonly picked: boolean;
   /** Adds it to the idea lab's inspiration, or takes it out again. */
   readonly onPick: () => void;
+  /** Starts a breakdown of its channel; absent while an AI run is under way. */
+  readonly onBreakDown?: (() => void) | undefined;
 }
 
 /** Why the score is what it is, behind a small disclosure so the grid stays calm. */
@@ -40,7 +42,7 @@ function Evidence({ item }: { readonly item: BreakoutVideo }) {
 }
 
 /** One video taking off, as a thumbnail tile: picture, title, channel and views, and Add to ideas. */
-function BreakoutCard({ item, picked, onPick }: CardProps) {
+function BreakoutCard({ item, picked, onPick, onBreakDown }: CardProps) {
   const href = watchUrl(item.videoId);
   const thumbnail = thumbnailUrl(item.videoId);
   const duration = formatDuration(item.durationSeconds);
@@ -75,8 +77,19 @@ function BreakoutCard({ item, picked, onPick }: CardProps) {
           item.title
         )}
       </h3>
-      <p className="truncate text-body-sm text-on-surface-variant">
-        {item.channelTitle} · {formatCount(item.views)} views · {item.publishedRaw}
+      <p className="flex min-w-0 items-center gap-1 text-body-sm text-on-surface-variant">
+        <span className="truncate">
+          {item.channelTitle} · {formatCount(item.views)} views · {item.publishedRaw}
+        </span>
+        {onBreakDown && (
+          <button
+            type="button"
+            onClick={onBreakDown}
+            className="flex-none rounded px-1 font-semibold text-primary hover:underline"
+          >
+            Break down
+          </button>
+        )}
       </p>
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <Evidence item={item} />
@@ -108,10 +121,13 @@ interface Props {
   /** The videos picked as inspiration for the idea lab, by id. */
   readonly pickedIds: readonly string[];
   readonly onPick: (item: BreakoutVideo) => void;
+  /** Starts a breakdown of a channel; absent while an AI run is under way. */
+  readonly onBreakDown?:
+    ((channel: { readonly id: string; readonly title: string }) => void) | undefined;
 }
 
 /** Recent videos across the map that are far above their channel's usual views. */
-export function BreakoutFeed({ items, centerTitle, pickedIds, onPick }: Props) {
+export function BreakoutFeed({ items, centerTitle, pickedIds, onPick, onBreakDown }: Props) {
   const [filter, setFilter] = useState<BreakoutFilter>('all');
   const [shown, setShown] = useState(PAGE_SIZE);
   const matching = filterBreakouts(items, filter);
@@ -150,6 +166,10 @@ export function BreakoutFeed({ items, centerTitle, pickedIds, onPick }: Props) {
                 item={item}
                 picked={pickedIds.includes(item.videoId)}
                 onPick={() => onPick(item)}
+                onBreakDown={
+                  onBreakDown &&
+                  (() => onBreakDown({ id: item.channelId, title: item.channelTitle }))
+                }
               />
             </li>
           ))}
