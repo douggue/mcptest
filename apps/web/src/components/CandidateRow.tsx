@@ -69,18 +69,29 @@ export function CandidateLogo({
   );
 }
 
-/** The meta line: subscribers, breaking out, closeness and the last breakdown, each labelled. */
-export function CandidateMeta({ candidate }: { readonly candidate: Candidate }) {
+/**
+ * The stats line under a name, one line joined with dots: closeness,
+ * subscribers, what is breaking out and the last breakdown. `brief` keeps
+ * only the subscribers, for a suggested row whose reason says the rest.
+ */
+export function CandidateMeta({
+  candidate,
+  brief = false,
+}: {
+  readonly candidate: Candidate;
+  readonly brief?: boolean;
+}) {
+  const [subscribers = '', ...rest] = metaLine(candidate);
   const done = brokenDownText(candidate.brokenDownAt);
   return (
-    <p className="flex min-w-0 flex-wrap gap-x-2 text-body-sm text-on-surface-variant">
-      {metaLine(candidate).map((part) => (
-        <span key={part}>{part}</span>
-      ))}
-      {candidate.closeness && (
-        <span className={TONE[candidate.closeness]}>{closenessWord(candidate.closeness)}</span>
+    <p className="min-w-0 text-body-sm text-on-surface-variant">
+      {!brief && candidate.closeness && (
+        <>
+          <span className={TONE[candidate.closeness]}>{closenessWord(candidate.closeness)}</span>
+          {' · '}
+        </>
       )}
-      {done !== '' && <span className="text-outline">{done}</span>}
+      {[subscribers, ...(brief ? [] : rest), ...(!brief && done !== '' ? [done] : [])].join(' · ')}
     </p>
   );
 }
@@ -108,7 +119,7 @@ export function CandidateRow({ candidate, badge, reason }: Props) {
             </span>
             {badge(candidate.id)}
           </span>
-          <CandidateMeta candidate={candidate} />
+          <CandidateMeta candidate={candidate} brief={reason !== undefined} />
         </span>
         <span className="hidden flex-none text-body-sm font-semibold text-primary sm:inline">
           Open
