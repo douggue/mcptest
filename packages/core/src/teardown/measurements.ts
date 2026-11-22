@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 const seconds = z.number().finite().nonnegative();
 const decibels = z.number().finite();
-const method = z.string().min(1).max(400);
+const method = z.string().min(1).max(1500);
 const file = z.string().regex(/^(?:k-\d{3}|s-\d{3}|hook|chapter-\d{2})\.jpg$/);
 const span = z.object({ start: seconds, end: seconds });
 

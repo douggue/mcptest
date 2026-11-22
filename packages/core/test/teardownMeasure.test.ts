@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { findProgram, type ProgramResult } from '../src/downloads/program';
 import { measureVideo } from '../src/teardown/measure';
-import { measurementsSchema } from '../src/teardown/measurements';
+import { measurementsSchema, parseMeasurements } from '../src/teardown/measurements';
 import {
   keyframeArgs,
   peakWindowSeconds,
@@ -245,6 +245,8 @@ describe('measureVideo with the real ffmpeg', async () => {
       ]);
       expect(m.hookSheet).toMatchObject({ file: 'hook.jpg', toSeconds: 12 });
       expect(m.problems).toEqual([]);
+      // What is measured is kept as JSON and must read back whole.
+      expect(parseMeasurements(JSON.stringify(m))).toEqual(m);
       expect(m.motion?.transitionCounts).toMatchObject({ cut: 3, dissolve: 0, flash: 0 });
       expect(m.motion?.cameraCounts.static).toBe(4);
       expect(m.motion?.frames).toBe(300);
