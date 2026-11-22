@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { aiBadge } from '../src/lib/aiBadge';
+import { aiBadge, readyEngines } from '../src/lib/aiBadge';
 import type { EngineReport, EngineStatus } from '../src/lib/analyses';
 
 const status = (
@@ -82,5 +82,12 @@ describe('the AI badge in the top bar', () => {
       summary: 'Checking which AI is set up on this computer.',
       lines: [],
     });
+  });
+});
+
+describe('the engines that can be chosen', () => {
+  test('are the answering engines that are set up; none before the report is in', () => {
+    expect([...readyEngines(report())].sort()).toEqual(['agy', 'codex']);
+    expect(readyEngines(null).size).toBe(0);
   });
 });

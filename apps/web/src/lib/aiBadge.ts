@@ -72,6 +72,12 @@ function automaticBadge(lines: readonly EngineLine[]): AiBadge {
 }
 
 /** What the badge says for the owner's choice and the engines the server reported. */
+/** The answering engines that are set up and can be chosen; none before the report is in. */
+export function readyEngines(report: EngineReport | null): ReadonlySet<string> {
+  if (report === null) return new Set();
+  return new Set(linesOf(report).flatMap((line) => (line.ready ? [line.id] : [])));
+}
+
 export function aiBadge(choice: EngineChoice, report: EngineReport | null): AiBadge {
   if (report === null) {
     return {

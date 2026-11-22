@@ -52,13 +52,14 @@ export function AiEngines({ ai }: { readonly ai: AiChoice }) {
   const badge = aiBadge(ai.choice, ai.engines);
   return (
     <section aria-labelledby="settings-ai" className="flex min-w-0 flex-col gap-space-sm">
-      <h3 id="settings-ai" className="text-label text-outline">
+      <h3 id="settings-ai" className="flex items-center gap-2 text-label text-outline">
         Which AI answers
+        <span className="rounded-full bg-surface-container-high px-2 text-body-sm text-primary">
+          Applies at once
+        </span>
       </h3>
       <EngineSwitch choice={ai.choice} engines={ai.engines} busy={ai.busy} onChoose={ai.choose} />
-      <p className="text-body-sm text-primary">
-        Kept as soon as you press it, in this browser. It needs no Save.
-      </p>
+      <p className="text-body-sm text-outline">Kept in this browser; it needs no Save.</p>
       {badge.lines.length > 0 && (
         <ul className="flex flex-col gap-1.5 rounded-lg border border-border-subtle bg-surface-card p-space-md text-body-sm">
           {badge.lines.map((line) => (

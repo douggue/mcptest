@@ -1,3 +1,4 @@
+import { readyEngines } from '../lib/aiBadge';
 import { useState } from 'react';
 import { engineName, type EngineId, type EngineReport } from '../lib/analyses';
 import { enginesToCheck, pictureCheckLine, type PictureCheck } from '../lib/pictureCheck';
@@ -28,7 +29,9 @@ export function PictureChecks({ report, busy, check }: Props) {
   const elsewhere = useRunningOnOpen(PICTURE_KINDS);
   const running: Running =
     started ?? (elsewhere?.engine ? { engine: elsewhere.engine as EngineId } : null);
-  const engines = enginesToCheck(report);
+  // Only an engine that is set up can be checked; the others wait until they are.
+  const ready = readyEngines(report);
+  const engines = enginesToCheck(report).filter(({ engine }) => ready.has(engine));
   if (engines.length === 0) return null;
 
   const start = (engine: EngineId): void => {
