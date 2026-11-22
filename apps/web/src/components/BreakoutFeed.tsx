@@ -1,3 +1,4 @@
+import { channelHref } from '../lib/routes';
 import type { BreakoutVideo } from '@jgtube/core';
 import { Check, Plus, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
@@ -79,39 +80,45 @@ function BreakoutCard({ item, picked, onPick, onBreakDown }: CardProps) {
           item.title
         )}
       </h3>
-      <p className="flex min-w-0 items-center gap-1 text-body-sm text-on-surface-variant">
-        <span className="truncate">
-          {item.channelTitle} · {formatCount(item.views)} views · {item.publishedRaw}
-        </span>
-        {onBreakDown && (
-          <button
-            type="button"
-            onClick={onBreakDown}
-            className="flex-none rounded px-1 font-semibold text-primary hover:underline"
-          >
-            Break down
-          </button>
-        )}
+      <p className="truncate text-body-sm text-on-surface-variant">
+        <a
+          href={channelHref(item.channelId)}
+          className="font-semibold text-on-surface hover:text-primary hover:underline"
+        >
+          {item.channelTitle}
+        </a>{' '}
+        · {formatCount(item.views)} views · {item.publishedRaw}
       </p>
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <Evidence item={item} />
-        <button
-          type="button"
-          aria-pressed={picked}
-          onClick={onPick}
-          className={`flex min-h-10 items-center gap-1.5 rounded-full px-3 text-body-sm font-semibold transition-colors ${
-            picked
-              ? 'text-primary hover:bg-surface-card'
-              : 'text-on-surface-variant hover:bg-surface-card hover:text-on-surface'
-          }`}
-        >
-          {picked ? (
-            <Check aria-hidden="true" className="h-4 w-4" />
-          ) : (
-            <Plus aria-hidden="true" className="h-4 w-4" />
+        <div className="flex flex-none items-center gap-1">
+          {onBreakDown && (
+            <button
+              type="button"
+              onClick={onBreakDown}
+              className="flex min-h-10 items-center rounded-full px-3 text-body-sm font-semibold text-on-surface-variant transition-colors hover:bg-surface-card hover:text-on-surface"
+            >
+              Break down
+            </button>
           )}
-          {picked ? 'In ideas' : 'Add to ideas'}
-        </button>
+          <button
+            type="button"
+            aria-pressed={picked}
+            onClick={onPick}
+            className={`flex min-h-10 items-center gap-1.5 rounded-full px-3 text-body-sm font-semibold transition-colors ${
+              picked
+                ? 'text-primary hover:bg-surface-card'
+                : 'text-on-surface-variant hover:bg-surface-card hover:text-on-surface'
+            }`}
+          >
+            {picked ? (
+              <Check aria-hidden="true" className="h-4 w-4" />
+            ) : (
+              <Plus aria-hidden="true" className="h-4 w-4" />
+            )}
+            {picked ? 'In ideas' : 'Add to ideas'}
+          </button>
+        </div>
       </div>
     </article>
   );
