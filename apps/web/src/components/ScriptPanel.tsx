@@ -36,12 +36,19 @@ interface Props {
 /** The one warning every script carries, in a line. */
 function FactsWarning({ markFacts }: { readonly markFacts: boolean }) {
   return (
-    <p className="flex items-start gap-2 rounded-lg bg-metric-amber-bg p-space-sm text-body-sm text-on-surface">
-      <TriangleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 flex-none text-metric-amber" />
-      {markFacts
-        ? 'Some facts may be wrong. Each one the AI could not vouch for is followed by [CHECK: …]: check them before you record. Invented facts stated as true break YouTube’s rules on misleading content.'
-        : 'Some facts may be wrong, and marking facts to check is off in Settings: check every name, number and date yourself before you record.'}
-    </p>
+    <div className="flex flex-col gap-1 rounded-lg bg-metric-amber-bg p-space-sm">
+      <p className="flex items-start gap-2 text-body-sm text-on-surface">
+        <TriangleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 flex-none text-metric-amber" />
+        Check the marked facts before you record.
+      </p>
+      <Details summary="Why">
+        <p className="text-body-sm text-on-surface-variant">
+          {markFacts
+            ? 'Each fact the AI could not vouch for is marked to check. Invented facts stated as true break YouTube’s rules on misleading content.'
+            : 'Marking facts is off in Settings, so check every name, number and date yourself.'}
+        </p>
+      </Details>
+    </div>
   );
 }
 

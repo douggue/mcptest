@@ -49,12 +49,42 @@ export function ScriptReader({ text }: { readonly text: string }) {
       </p>
     );
   }
+  const headings = blocks.flatMap((block, index) =>
+    block.kind === 'heading' ? [{ index, text: block.text }] : [],
+  );
   return (
     <div className="flex min-w-0 flex-col gap-3 pb-16">
+      {headings.length > 1 && (
+        <nav
+          aria-label="Parts of the script"
+          className="sticky top-16 z-20 -mx-space-md flex gap-1 overflow-x-auto bg-surface-card/95 px-space-md py-2 backdrop-blur-md [mask-image:linear-gradient(to_right,black_90%,transparent)]"
+        >
+          {headings.map((heading) => (
+            <a
+              key={heading.index}
+              href={`#script-part-${heading.index}`}
+              onClick={(event) => {
+                // Scrolls in place; the address keeps naming the script view.
+                event.preventDefault();
+                document
+                  .getElementById(`script-part-${heading.index}`)
+                  ?.scrollIntoView({ block: 'start' });
+              }}
+              className="flex min-h-9 flex-none items-center whitespace-nowrap rounded-full border border-border-subtle px-3 text-body-sm text-on-surface-variant hover:text-on-surface"
+            >
+              {heading.text}
+            </a>
+          ))}
+        </nav>
+      )}
       {blocks.map((block, index) => {
         if (block.kind === 'heading') {
           return (
-            <h4 key={index} className="pt-space-sm text-title-md text-primary">
+            <h4
+              key={index}
+              id={`script-part-${index}`}
+              className="scroll-mt-32 pt-space-sm text-title-md text-primary"
+            >
               {block.text}
             </h4>
           );
