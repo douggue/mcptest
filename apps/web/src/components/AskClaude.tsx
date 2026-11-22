@@ -1,11 +1,15 @@
 import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
-import { latestKept, type AnalysisId } from '../lib/analyses';
+import { choiceFor, latestKept, type AnalysisId } from '../lib/analyses';
 import { breakdownHref } from '../lib/routes';
 import { AnalysisAnswerView } from './AnalysisAnswerView';
-import { AskPanel, titleOfQuestion, type Question } from './AskPanel';
+import { AiLine } from './AiLine';
+import { AskBox, OwnAnswerView, titleOfQuestion, type Question } from './AskBox';
+import { Details } from './layout/Details';
+import { ViewHeader } from './layout/ViewHeader';
+import { useOwnQuestion } from './useOwnQuestion';
 import { Card } from './layout/Card';
-import { SplitView, ViewPage } from './layout/SplitView';
+import { ViewPage } from './layout/SplitView';
 import { NOTE } from './LabStatus';
 import type { Analysis } from './useAnalysis';
 import { useKeptAnswers } from './useAnswers';
@@ -40,8 +44,8 @@ function NoAnswer({ question }: { readonly question: AnalysisId }) {
         No {titleOfQuestion(question).toLowerCase()} answer is kept for this channel yet.
       </p>
       <p className="text-body-sm text-on-surface-variant">
-        Choose what to ask and press its button. The answer comes in a minute or two, in short
-        first, then part by part.
+        Press it under the question box above. The answer comes in a minute or two, in short first,
+        then part by part.
       </p>
     </Card>
   );
@@ -76,32 +80,50 @@ function AnalysisArea({
 }
 
 /**
- * Ask AI: the quick questions an AI engine on this computer can be asked
- * about the map on screen, in a side panel with one button, and the answer
- * in the main area, in short first and then section by section. Breaking a
- * channel or a video down has its own destination, Breakdown. (The
- * component keeps its first name; it is no longer one engine only.)
+ * Ask AI: one line to ask anything about the map in your own words, the
+ * quick questions as suggestions under it, and the answer below, as
+ * readable prose. Breaking a channel or a video down has its own
+ * destination, Breakdown. (The component keeps its first name.)
  */
 export function AskClaude(props: Props) {
   const { analysis, otherRun, breakingDown, centerId, centerTitle } = props;
   const { state } = analysis;
+  const own = useOwnQuestion(centerId);
   // One AI run at a time, here as on the server.
-  const busy = state.status === 'running' || otherRun;
+  const busy = state.status === 'running' || own.state.status === 'running' || otherRun;
   // Read again after each answer, so the ones shown are the latest.
   const kept = useKeptAnswers(centerId, state.status === 'done' ? 1 : 0);
-  const [chosen, setChosen] = useState<Question | null>(null);
-  const question: Question = chosen ?? latestKept(kept)?.analysis ?? 'topics';
+  const [chosen, setChosen] = useState<Question | 'own' | null>(null);
+  const shown = chosen ?? (own.answer ? 'own' : (latestKept(kept)?.analysis ?? 'topics'));
+  const quick = (question: Question): void => {
+    setChosen(question);
+    analysis.run(question, centerId, choiceFor(question, analysis.choice, analysis.engines).choice);
+  };
   return (
     <ViewPage id="ask-claude" labelledBy="ask-claude-title">
-      <SplitView
-        sideLabel="What to ask"
-        side={
-          <AskPanel
-            {...{ analysis, busy, centerId, centerTitle, question }}
-            onQuestion={setChosen}
-          />
-        }
-      >
+      <div className="mx-auto flex w-full max-w-3xl min-w-0 flex-col gap-space-lg">
+        <ViewHeader
+          titleId="ask-claude-title"
+          title="Ask AI"
+          lead={`About the map around ${centerTitle}, from what Jgtube has stored.`}
+        />
+        <AiLine choice={analysis.choice} engines={analysis.engines} />
+        <AskBox
+          busy={busy}
+          onAsk={(question) => {
+            setChosen('own');
+            own.ask(question, analysis.choice);
+          }}
+          onQuick={quick}
+        />
+        {own.state.status === 'running' && (
+          <Working>{`Working on your question: ${own.state.question}`}</Working>
+        )}
+        {own.state.status === 'failed' && (
+          <p role="alert" className="rounded-lg bg-surface-card p-space-lg text-body-md text-error">
+            Your question was not answered: {own.state.message}
+          </p>
+        )}
         {state.status === 'running' && (
           <Working>{`Working on: ${titleOfQuestion(state.analysis)}. This usually takes under two minutes.`}</Working>
         )}
@@ -114,8 +136,24 @@ export function AskClaude(props: Props) {
             .
           </p>
         )}
-        <AnalysisArea analysis={analysis} question={question} kept={kept} />
-      </SplitView>
+        {shown === 'own' ? (
+          own.answer && <OwnAnswerView answer={own.answer} />
+        ) : (
+          <AnalysisArea analysis={analysis} question={shown} kept={kept} />
+        )}
+        <Details summary="How this works">
+          <p className="text-body-sm text-on-surface-variant">
+            The AI reads only what Jgtube has stored, through read-only tools: no web and nothing
+            that changes your data. Your words are passed as a question, never as instructions. Each
+            question uses some of that AI&rsquo;s plan allowance, as a chat would. Answers are kept
+            for the channel. To take one channel or video apart, open{' '}
+            <a href={breakdownHref()} className="font-semibold text-primary underline">
+              Breakdown
+            </a>
+            .
+          </p>
+        </Details>
+      </div>
     </ViewPage>
   );
 }
