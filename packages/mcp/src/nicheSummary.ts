@@ -19,10 +19,7 @@ function adRate(tier: RateTier): string {
     : `${tier.id} (${tier.country}), ${tier.multiplier} of the top rate`;
 }
 
-function nicheEntry(
-  niche: NicheChannel,
-  money: MoneyVerdict | undefined,
-): Record<string, unknown> {
+function nicheEntry(niche: NicheChannel, money: MoneyVerdict | undefined): Record<string, unknown> {
   const topIds = new Set(niche.outperformers.map((video) => video.videoId));
   // The sample titles often repeat the outperformers; only the others add anything.
   const otherTitles = niche.sampleTitles

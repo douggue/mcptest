@@ -48,7 +48,6 @@ import {
   type FetchImage,
   type SearchHit,
   type StoredChannel,
-  type VideoPlayerSource,
   type YouTubeSource,
 } from '@jgtube/core';
 import { randomUUID } from 'node:crypto';
