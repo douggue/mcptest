@@ -362,6 +362,7 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
       channel: string,
       choice: EngineChoice = AUTOMATIC,
       fresh = false,
+      videos?: number,
     ): Promise<string> {
       const envelope = await call('/api/breakdowns', {
         method: 'POST',
@@ -370,6 +371,7 @@ export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) 
           channel,
           ...(choice === AUTOMATIC ? {} : { engine: choice }),
           ...(fresh ? { fresh: true } : {}),
+          ...(videos === undefined ? {} : { videos }),
         }),
       });
       return unwrap<{ jobId: string }>(envelope).jobId;

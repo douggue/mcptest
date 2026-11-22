@@ -161,3 +161,29 @@ export function createTeardownApi(fetcher?: Fetch) {
     },
   };
 }
+
+/** What a channel breakdown takes, as the server works it out before starting. */
+export interface ChannelRuns {
+  readonly videos: number;
+  readonly contrast: number;
+  readonly measuredInCode: number;
+  readonly aiRuns: number;
+  readonly watch: boolean;
+}
+
+/** The choices of how many top videos to study in depth. */
+export const CHANNEL_VIDEO_CHOICES = ['1', '2', '3', '4', '5'] as const;
+export type ChannelVideoChoice = (typeof CHANNEL_VIDEO_CHOICES)[number];
+export const DEFAULT_CHANNEL_VIDEOS: ChannelVideoChoice = '3';
+
+/** What a channel breakdown takes, in one line. */
+export function channelRunsLine(runs: ChannelRuns): string {
+  const watch = runs.watch ? ', one watch with sound' : '';
+  const plural = runs.videos === 1 ? '' : 's';
+  return `${runs.videos} top video${plural} studied in depth and ${runs.contrast} ordinary ones for contrast, ${runs.measuredInCode} measured in code (no AI). Up to ${runs.aiRuns} AI runs: one frame study${watch} per video, and the 7 parts.`;
+}
+
+export async function fetchChannelRuns(videos: number, fetcher?: Fetch): Promise<ChannelRuns> {
+  const { call, unwrap } = apiCaller(fetcher);
+  return unwrap<ChannelRuns>(await call(`/api/breakdowns/runs?videos=${videos}`));
+}

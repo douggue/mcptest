@@ -1,3 +1,11 @@
+import {
+  CHANNEL_VIDEO_CHOICES,
+  DEFAULT_CHANNEL_VIDEOS,
+  channelRunsLine,
+  fetchChannelRuns,
+  type ChannelVideoChoice,
+} from '../lib/teardown';
+import { Segmented } from './layout/Segmented';
 import { Microscope } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { breakdownHref } from '../lib/routes';
@@ -56,6 +64,21 @@ function KeptBreakdowns({ candidates }: { readonly candidates: readonly Candidat
   );
 }
 
+/** What a channel breakdown of this many videos takes, in one line; null while unknown. */
+function useChannelRuns(videos: number): string | null {
+  const [line, setLine] = useState<string | null>(null);
+  useEffect(() => {
+    let current = true;
+    fetchChannelRuns(videos)
+      .then((runs) => current && setLine(channelRunsLine(runs)))
+      .catch(() => current && setLine(null));
+    return () => {
+      current = false;
+    };
+  }, [videos]);
+  return line;
+}
+
 /** One channel opened in Breakdown: who it is, the one button, and its kept breakdown. */
 function OneChannel({
   candidate,
@@ -66,6 +89,8 @@ function OneChannel({
 }) {
   const { breakdown, analysis, asking } = parts.work;
   const [fresh, setFresh] = useState(false);
+  const [videos, setVideos] = useState<ChannelVideoChoice>(DEFAULT_CHANNEL_VIDEOS);
+  const runs = useChannelRuns(Number(videos));
   const pick = breakdown.pick;
   useEffect(
     () => pick({ id: candidate.id, title: candidate.title }),
@@ -73,7 +98,12 @@ function OneChannel({
   );
   const running = breakdown.state.status === 'running';
   const start = (again: boolean): void =>
-    breakdown.start({ id: candidate.id, title: candidate.title }, analysis.choice, again);
+    breakdown.start(
+      { id: candidate.id, title: candidate.title },
+      analysis.choice,
+      again,
+      Number(videos),
+    );
   return (
     <>
       <ViewHeader
@@ -98,6 +128,16 @@ function OneChannel({
       )}
       <div className="w-full max-w-2xl">
         <TopStrip facts={candidate} />
+      </div>
+      <div className="flex min-w-0 flex-col gap-2">
+        <Segmented
+          label="Top videos to study in depth"
+          options={CHANNEL_VIDEO_CHOICES.map((value) => ({ value, label: value }))}
+          value={videos}
+          onChange={setVideos}
+          disabled={running}
+        />
+        {runs && <p className="text-body-sm text-on-surface-variant">{runs}</p>}
       </div>
       <Details summary="How this works">
         <div className="flex flex-col gap-2 text-body-sm text-on-surface-variant">

@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
+  channelRunsLine,
+  fetchChannelRuns,
   clock,
   createTeardownApi,
   imageUrl,
@@ -133,5 +135,28 @@ describe('the teardown on the page', () => {
       `/api/video-teardowns/runs?video=${VIDEO}&fresh=1`,
       '/api/video-teardowns/runs?',
     ]);
+  });
+});
+
+describe('what a channel breakdown takes', () => {
+  test('is said in one line, and asked of the server for the chosen count', async () => {
+    expect(
+      channelRunsLine({ videos: 3, contrast: 2, measuredInCode: 5, aiRuns: 13, watch: true }),
+    ).toBe(
+      '3 top videos studied in depth and 2 ordinary ones for contrast, 5 measured in code (no AI). Up to 13 AI runs: one frame study, one watch with sound per video, and the 7 parts.',
+    );
+    expect(
+      channelRunsLine({ videos: 1, contrast: 2, measuredInCode: 3, aiRuns: 8, watch: false }),
+    ).toMatch(/^1 top video studied/);
+    const asked: string[] = [];
+    const runs = await fetchChannelRuns(4, async (url) => {
+      asked.push(String(url));
+      return new Response(JSON.stringify({ success: true, data: { videos: 4 }, error: null }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    });
+    expect(runs).toEqual({ videos: 4 });
+    expect(asked).toEqual(['/api/breakdowns/runs?videos=4']);
   });
 });
