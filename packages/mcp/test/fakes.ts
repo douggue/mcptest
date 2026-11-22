@@ -1,5 +1,6 @@
 import type {
   BrandResult,
+  MoneyVerdict,
   BreakdownPartId,
   CompetitorStatus,
   CrawlProgress,
@@ -611,7 +612,14 @@ export class FakeEngine implements ConnectorEngine {
 
   comparison: string | null = 'WINNING VALUES: Face or person = large';
 
+  /** The stored monetization verdicts; none unless a test sets them. */
+  money: readonly MoneyVerdict[] = [];
+
   readonly extras = {
+    findMoney: (channelIds: readonly string[]): readonly MoneyVerdict[] => {
+      this.reads.push(['money', [...channelIds]]);
+      return this.money.filter((verdict) => channelIds.includes(verdict.channelId));
+    },
     thumbnailComparison: (channelId: string, videoId: string): string | null => {
       this.reads.push(['thumbnail-comparison', channelId, videoId]);
       return this.comparison;

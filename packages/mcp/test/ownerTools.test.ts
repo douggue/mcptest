@@ -326,6 +326,37 @@ describe('list_niches', () => {
     expect(watched).not.toHaveProperty('more');
   });
 
+  test('carries each channel’s stored monetization verdict, asked for in one read', async () => {
+    engine.money = [
+      {
+        channelId: ALPHA_ID,
+        status: 'not-yet',
+        says: 'Not monetized yet as far as public signs show',
+        short: 'Not yet',
+        sign: 'No Join button on its watch page; no ads were shown.',
+        checkedAt: '2026-11-21T10:00:00.000Z',
+        videoId: 'aaaaaaaaaa1',
+        bar: { key: 'over-1000', says: '1,000+ subscribers', subscribers: 5000, note: 'n' },
+      },
+    ];
+    const data = jsonOf(await tools.listNiches({}));
+    const [first] = data['niches'] as Array<Record<string, unknown>>;
+
+    expect(first?.['money']).toEqual({
+      says: 'Not monetized yet as far as public signs show',
+      sign: 'No Join button on its watch page; no ads were shown.',
+      at: '2026-11-21T10:00:00.000Z',
+      bar: '1,000+ subscribers',
+    });
+    expect(engine.reads.filter(([kind]) => kind === 'money')).toEqual([['money', [ALPHA_ID]]]);
+  });
+
+  test('asks for no verdicts when the list is empty', async () => {
+    engine.niches = nicheList([]);
+    await tools.listNiches({});
+    expect(engine.reads.filter(([kind]) => kind === 'money')).toEqual([]);
+  });
+
   test('refuses a limit outside the range', async () => {
     const result = await tools.listNiches({ limit: 0 });
 

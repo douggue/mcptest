@@ -508,6 +508,21 @@ CREATE TABLE IF NOT EXISTS thumbnail_reviews (
   PRIMARY KEY (center_channel_id, video_id)
 );
 `,
+  // 42 (provisional; numbered at merge): the public signs of a channel's earning.
+  //     channel_money_signs keeps, per channel, what one read of one of its watch pages
+  //     showed: a Join button (memberships, which need the Partner Program) and whether ads
+  //     were listed ('unknown' when YouTube would not play the video), and when. A new
+  //     check replaces the row. It refers to no other table and needs nothing a later
+  //     step adds.
+  `
+CREATE TABLE IF NOT EXISTS channel_money_signs (
+  channel_id   TEXT PRIMARY KEY,
+  video_id     TEXT NOT NULL,
+  memberships  INTEGER NOT NULL CHECK (memberships IN (0, 1)),
+  ads          TEXT NOT NULL CHECK (ads IN ('shown', 'none', 'unknown')),
+  checked_at   TEXT NOT NULL
+);
+`,
 ];
 
 /** The number of the newest step: what `user_version` reads in a store that is up to date. */
