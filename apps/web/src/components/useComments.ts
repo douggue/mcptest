@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { readOutcomeLine, type CommentsView } from '../lib/comments';
 import { createExtrasApi, type ExtrasApi, type ExtrasJob } from '../lib/extrasApi';
 import { requestCounter } from '../lib/requests';
+import { useOnScreen, useReattach } from './useReattach';
 
 const POLL_MS = 1500;
 
@@ -32,15 +33,22 @@ function doneText(job: ExtrasJob): string {
   return 'Done.';
 }
 
-/** Polls a job until it ends. */
+/** The kinds of server job this view starts, to follow again when it reopens. */
+const COMMENT_KINDS: readonly string[] = ['comments-read', 'viewer-answer'];
+
+/**
+ * Polls a job until it ends, or until the view that asked is closed: the job
+ * goes on on the server, and the view finds it again when it reopens.
+ */
 export async function follow(
   api: ExtrasApi,
   id: string,
   onText: (text: string) => void,
+  isOnScreen: () => boolean = () => true,
 ): Promise<ExtrasJob> {
   for (;;) {
     const job = await api.extrasJob(id);
-    if (job.status !== 'running') return job;
+    if (job.status !== 'running' || !isOnScreen()) return job;
     onText(job.progress?.text ?? 'Working');
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
   }
@@ -54,6 +62,7 @@ export function useComments(channelId: string | null, reloadKey: unknown): Comme
   const [problem, setProblem] = useState<string | null>(null);
   const [work, setWork] = useState<Work>({ status: 'idle' });
   const [turn, setTurn] = useState(0);
+  const onScreen = useOnScreen();
 
   useEffect(() => {
     if (channelId === null) {
@@ -74,22 +83,27 @@ export function useComments(channelId: string | null, reloadKey: unknown): Comme
   const run = useCallback(
     (start: () => Promise<string>) => {
       setWork({ status: 'running', text: 'Starting' });
+      const stillHere = () => onScreen.current;
       start()
-        .then((id) => follow(api, id, (text) => setWork({ status: 'running', text })))
-        .then((job) =>
+        .then((id) => follow(api, id, (text) => setWork({ status: 'running', text }), stillHere))
+        .then((job) => {
+          if (!stillHere()) return;
           setWork(
             job.status === 'done'
               ? { status: 'done', text: doneText(job) }
               : { status: 'failed', text: job.error ?? 'It did not finish' },
-          ),
-        )
+          );
+        })
         .catch((error: unknown) =>
           setWork({ status: 'failed', text: messageOf(error, 'It could not start') }),
         )
         .finally(() => setTurn((value) => value + 1));
     },
-    [api],
+    [api, onScreen],
   );
+
+  // A read or a question started before the owner went elsewhere: follow it again.
+  useReattach(COMMENT_KINDS, channelId, (job) => run(() => Promise.resolve(job.id)));
 
   const read = useCallback(
     (videoIds: readonly string[]) => {

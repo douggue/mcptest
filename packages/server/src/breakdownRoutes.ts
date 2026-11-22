@@ -17,6 +17,7 @@ import { isWholeMp4 } from './engines/mp4';
 import { ENGINE_IDS } from './engines/settings';
 import { isVideoId } from './engines/videoId';
 import { fail, isCrossSite, ok, readJson } from './http';
+import { channelLabel } from './jobLabels';
 import { cleanMessage, type JobStore } from './jobs';
 
 const MAX_CHANNEL_LENGTH = 200;
@@ -76,10 +77,12 @@ export async function startBreakdown(
   }
   const { channel, engine: only, fresh } = parsed.data;
   tracker.running = true;
-  const job = jobs.start((report) =>
-    options.engine.breakDown(channel, report, { only, fresh }).finally(() => {
-      tracker.running = false;
-    }),
+  const job = jobs.start(
+    (report) =>
+      options.engine.breakDown(channel, report, { only, fresh }).finally(() => {
+        tracker.running = false;
+      }),
+    channelLabel(options.engine, 'breakdown', 'Breaking down', channel),
   );
   if (!job) {
     tracker.running = false;

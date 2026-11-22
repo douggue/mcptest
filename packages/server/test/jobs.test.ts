@@ -123,4 +123,64 @@ describe('JobStore', () => {
   test('returns null for an unknown job', () => {
     expect(new JobStore().get('nope')).toBeNull();
   });
+
+  test('lists each job with its label and when it started and finished', async () => {
+    let clock = 1_000;
+    const ids = ['job-1', 'job-2'];
+    const jobs = new JobStore<string, { text: string }>(
+      () => ids.shift() ?? 'job-x',
+      () => clock,
+    );
+    const label = { kind: 'claims', title: 'Checking claims for A video', channelId: 'UC1' };
+
+    jobs.start(async (report) => {
+      report({ text: 'Halfway' });
+      return 'first';
+    }, label);
+    clock = 4_000;
+    await settle();
+    const second = deferred<string>();
+    jobs.start(() => second.promise);
+
+    expect(jobs.list()).toEqual([
+      {
+        id: 'job-1',
+        status: 'done',
+        progress: { text: 'Halfway' },
+        error: null,
+        label,
+        startedAt: 1_000,
+        finishedAt: 4_000,
+      },
+      {
+        id: 'job-2',
+        status: 'running',
+        progress: null,
+        error: null,
+        label: null,
+        startedAt: 4_000,
+        finishedAt: null,
+      },
+    ]);
+    expect(jobs.get('job-1')).toEqual({
+      id: 'job-1',
+      status: 'done',
+      progress: { text: 'Halfway' },
+      result: 'first',
+      error: null,
+    });
+  });
+
+  test('times a failed job’s end too', async () => {
+    const jobs = new JobStore(
+      () => 'job-1',
+      () => 7,
+    );
+    jobs.start(async () => {
+      throw new Error('no');
+    });
+    await settle();
+
+    expect(jobs.list()[0]).toMatchObject({ status: 'failed', error: 'no', finishedAt: 7 });
+  });
 });

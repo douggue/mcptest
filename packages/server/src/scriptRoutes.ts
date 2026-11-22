@@ -29,6 +29,7 @@ import {
   type Routes,
 } from './labHttp';
 import { SCRIPT_STAGES } from './scriptTypes';
+import { channelLabel, conceptLabel } from './jobLabels';
 
 /** A save carries up to four texts of a script; this is room for all of them and the JSON around them. */
 const MAX_SAVE_CHARACTERS = 4 * MAX_SCRIPT_CHARS + 20_000;
@@ -133,6 +134,13 @@ async function saveScript(context: Context, request: Request): Promise<Response>
   }
 }
 
+/** What each stage of the script writer is doing, before the concept's title. */
+const STAGE_DOING: Readonly<Record<(typeof SCRIPT_STAGES)[number], string>> = {
+  hooks: 'Writing hooks for',
+  draft: 'Writing the script of',
+  tighten: 'Tightening the script of',
+};
+
 async function startStage(context: Context, request: Request): Promise<Response> {
   const body = await bodyOf(
     context,
@@ -144,8 +152,16 @@ async function startStage(context: Context, request: Request): Promise<Response>
   const { engine } = context.options;
   const problem = engine.stageProblem(body.stage, body.channel, body.concept);
   if (problem) return fail(400, problem);
-  return startAiJob(context, (report) =>
-    engine.runScriptStage(body.stage, body.channel, body.concept, body.engine, report),
+  return startAiJob(
+    context,
+    (report) => engine.runScriptStage(body.stage, body.channel, body.concept, body.engine, report),
+    conceptLabel(
+      engine,
+      `script-${body.stage}`,
+      STAGE_DOING[body.stage],
+      body.channel,
+      body.concept,
+    ),
   );
 }
 
@@ -164,7 +180,11 @@ async function startVoiceRead(context: Context, request: Request): Promise<Respo
   if (body instanceof Response) return body;
   const { engine } = context.options;
   if (engine.voiceOf(body.channel, body.voice) === null) return fail(404, NO_MAP);
-  return startLabJob(context, (report) => engine.readVoice(body.channel, body.voice, report));
+  return startLabJob(
+    context,
+    (report) => engine.readVoice(body.channel, body.voice, report),
+    channelLabel(engine, 'voice-read', 'Reading the voice of', body.voice),
+  );
 }
 
 export const SCRIPT_ROUTES: Routes = {

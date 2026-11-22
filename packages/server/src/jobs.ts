@@ -14,6 +14,41 @@ export interface Job<T, P = CrawlProgress> {
   readonly error: string | null;
 }
 
+/**
+ * What a job is, in words the owner reads, and what it belongs to, so a list
+ * of the work under way can name it and the page can find it again.
+ */
+export interface JobLabel {
+  /** What sort of work it is, such as `claims` or `refresh`. */
+  readonly kind: string;
+  /** A plain line, such as "Checking claims for <concept>". */
+  readonly title: string;
+  readonly channelId?: string | null;
+  readonly conceptId?: number | null;
+  readonly videoId?: string | null;
+  /** The AI engine the work is about, for a picture check. */
+  readonly engine?: string | null;
+}
+
+/** A job as a list of the work shows it: no result, with its label and its times. */
+export interface JobRecord<P = unknown> {
+  readonly id: string;
+  readonly status: Job<unknown>['status'];
+  readonly progress: P | null;
+  readonly error: string | null;
+  readonly label: JobLabel | null;
+  /** Milliseconds since the epoch. */
+  readonly startedAt: number;
+  readonly finishedAt: number | null;
+}
+
+interface Entry<T, P> {
+  readonly job: Job<T, P>;
+  readonly label: JobLabel | null;
+  readonly startedAt: number;
+  readonly finishedAt: number | null;
+}
+
 export type Work<T, P = CrawlProgress> = (report: (progress: P) => void) => Promise<T>;
 
 /** Matches things that look like file paths, which have no business reaching the browser. */
@@ -35,29 +70,35 @@ export function cleanMessage(error: unknown): string {
  * `T` is what a finished job leaves behind and `P` what it reports on the way.
  */
 export class JobStore<T, P = CrawlProgress> {
-  private jobs: ReadonlyMap<string, Job<T, P>> = new Map();
+  private entries: ReadonlyMap<string, Entry<T, P>> = new Map();
   /** Whether the one slot is taken, by a job or by work a caller is waiting on. */
   private busy = false;
 
-  constructor(private readonly nextId: () => string = randomUUID) {}
+  constructor(
+    private readonly nextId: () => string = randomUUID,
+    private readonly now: () => number = Date.now,
+  ) {}
 
   /** Whether the one slot is taken, so nothing new can start. */
   isBusy(): boolean {
     return this.busy;
   }
 
-  /** Starts the work in the background. Returns null when another job is still running. */
-  start(work: Work<T, P>): Job<T, P> | null {
+  /**
+   * Starts the work in the background, under a label that names it in the
+   * list of work. Returns null when another job is still running.
+   */
+  start(work: Work<T, P>, label: JobLabel | null = null): Job<T, P> | null {
     if (this.busy) return null;
     const id = this.nextId();
     const job: Job<T, P> = { id, status: 'running', progress: null, result: null, error: null };
     this.busy = true;
-    this.save(job);
+    this.save({ job, label, startedAt: this.now(), finishedAt: null });
     Promise.resolve()
       .then(() => work((progress) => this.update(id, { progress })))
       .then(
-        (result) => this.update(id, { status: 'done', result }),
-        (error: unknown) => this.update(id, { status: 'failed', error: cleanMessage(error) }),
+        (result) => this.end(id, { status: 'done', result }),
+        (error: unknown) => this.end(id, { status: 'failed', error: cleanMessage(error) }),
       )
       .finally(() => {
         this.busy = false;
@@ -81,16 +122,35 @@ export class JobStore<T, P = CrawlProgress> {
   }
 
   get(id: string): Job<T, P> | null {
-    return this.jobs.get(id) ?? null;
+    return this.entries.get(id)?.job ?? null;
   }
 
-  private update(id: string, changes: Partial<Job<T, P>>): void {
-    const current = this.jobs.get(id);
-    if (current) this.save({ ...current, ...changes });
+  /** The jobs kept, the oldest first, without what they left behind. */
+  list(): readonly JobRecord<P>[] {
+    return [...this.entries.values()].map(({ job, label, startedAt, finishedAt }) => ({
+      id: job.id,
+      status: job.status,
+      progress: job.progress,
+      error: job.error,
+      label,
+      startedAt,
+      finishedAt,
+    }));
   }
 
-  private save(job: Job<T, P>): void {
-    const kept = [...this.jobs].filter(([id]) => id !== job.id).slice(-(MAX_JOBS_KEPT - 1));
-    this.jobs = new Map([...kept, [job.id, job]]);
+  private update(id: string, changes: Partial<Job<T, P>>, finishedAt: number | null = null): void {
+    const current = this.entries.get(id);
+    if (!current) return;
+    this.save({ ...current, job: { ...current.job, ...changes }, finishedAt });
+  }
+
+  private end(id: string, changes: Partial<Job<T, P>>): void {
+    this.update(id, changes, this.now());
+  }
+
+  private save(entry: Entry<T, P>): void {
+    const { id } = entry.job;
+    const kept = [...this.entries].filter(([key]) => key !== id).slice(-(MAX_JOBS_KEPT - 1));
+    this.entries = new Map([...kept, [id, entry]]);
   }
 }

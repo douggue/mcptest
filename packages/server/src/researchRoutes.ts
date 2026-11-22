@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import { ENGINE_IDS } from './engines/settings';
 import { fail, ok } from './http';
+import { conceptLabel } from './jobLabels';
 import { CHANNEL_ID, bodyOf, startAiJob, type Context, type Routes } from './labHttp';
 
 const channel = z.string().regex(CHANNEL_ID);
@@ -37,10 +38,20 @@ async function start(
   if (body instanceof Response) return body;
   const { engine } = context.options;
   if (engine.findConcept(body.channel, body.concept) === null) return fail(404, NOT_THIS_CHANNELS);
-  return startAiJob(context, (report) =>
-    kind === 'research'
-      ? engine.researchConcept(body.channel, body.concept, body.engine, report)
-      : engine.checkClaims(body.channel, body.concept, body.which ?? 'draft', body.engine, report),
+  const doing = kind === 'research' ? 'Researching' : 'Checking the claims of';
+  return startAiJob(
+    context,
+    (report) =>
+      kind === 'research'
+        ? engine.researchConcept(body.channel, body.concept, body.engine, report)
+        : engine.checkClaims(
+            body.channel,
+            body.concept,
+            body.which ?? 'draft',
+            body.engine,
+            report,
+          ),
+    conceptLabel(engine, kind, doing, body.channel, body.concept),
   );
 }
 

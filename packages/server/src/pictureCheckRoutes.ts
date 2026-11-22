@@ -5,6 +5,7 @@ import type { AppOptions } from './app';
 import { EngineRunError } from './engines/failure';
 import { ENGINE_IDS } from './engines/settings';
 import { fail, ok, readJson } from './http';
+import { holdRun } from './jobList';
 import { cleanMessage } from './jobs';
 
 export const PICTURE_CHECK_PATH = '/api/engines/picture-check';
@@ -34,7 +35,8 @@ export async function runPictureCheckRoute(
 
   tracker.running = true;
   try {
-    return ok(await options.engine.checkPictures(engine));
+    const label = { kind: 'picture-check', title: 'Checking an AI can see pictures', engine };
+    return ok(await holdRun(tracker.held, label, options.engine.checkPictures(engine)));
   } catch (error) {
     return error instanceof EngineRunError
       ? fail(STATUS[error.reason], error.message)

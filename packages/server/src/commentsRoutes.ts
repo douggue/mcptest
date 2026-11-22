@@ -13,6 +13,7 @@ import {
   type ExtrasRouteTable,
 } from './extrasJobs';
 import { fail, ok } from './http';
+import { channelLabel } from './jobLabels';
 import { CHANNEL_ID, NO_MAP, VIDEO_ID, bodyOf, channelOf } from './labHttp';
 
 const NO_KEY =
@@ -38,13 +39,17 @@ async function startRead(context: ExtrasContext, request: Request): Promise<Resp
   const view = extras.findComments(body.channel);
   if (!view) return fail(404, NO_MAP);
   if (!view.keySet) return fail(400, NO_KEY);
-  return startExtrasJob(context, async (report) => {
-    report({ text: `Reading the comments of ${body.videoIds.length} videos` });
-    const outcomes = await extras.readComments(body.channel, body.videoIds, (done, total) =>
-      report({ text: `Read ${done} of ${total} videos` }),
-    );
-    return { kind: 'comments-read', outcomes };
-  });
+  return startExtrasJob(
+    context,
+    async (report) => {
+      report({ text: `Reading the comments of ${body.videoIds.length} videos` });
+      const outcomes = await extras.readComments(body.channel, body.videoIds, (done, total) =>
+        report({ text: `Read ${done} of ${total} videos` }),
+      );
+      return { kind: 'comments-read', outcomes };
+    },
+    channelLabel(context.options.engine, 'comments-read', 'Reading the comments of', body.channel),
+  );
 }
 
 async function startAsk(context: ExtrasContext, request: Request): Promise<Response> {
@@ -57,11 +62,20 @@ async function startAsk(context: ExtrasContext, request: Request): Promise<Respo
   if (body instanceof Response) return body;
   const { extras } = context.options.engine;
   if (!extras.findComments(body.channel)) return fail(404, NO_MAP);
-  return startExtrasAiJob(context, async (report) => {
-    report({ text: 'Asking the AI what viewers ask for' });
-    const outcome = await extras.askViewers(body.channel, body.videoIds, body.engine);
-    return { kind: 'viewer-answer', outcome };
-  });
+  return startExtrasAiJob(
+    context,
+    async (report) => {
+      report({ text: 'Asking the AI what viewers ask for' });
+      const outcome = await extras.askViewers(body.channel, body.videoIds, body.engine);
+      return { kind: 'viewer-answer', outcome };
+    },
+    channelLabel(
+      context.options.engine,
+      'viewer-answer',
+      'Asking what viewers want from',
+      body.channel,
+    ),
+  );
 }
 
 export const COMMENTS_ROUTES: ExtrasRouteTable = {
