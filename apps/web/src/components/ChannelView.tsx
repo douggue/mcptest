@@ -1,3 +1,4 @@
+import { channelHref } from '../lib/routes';
 import { outlierPicks } from '../lib/ideaLab';
 import type { ChannelProfile } from '@jgtube/core';
 import { channelActions, type ChannelAction } from '../lib/channelView';
@@ -113,6 +114,17 @@ function Profile(props: ActionsProps) {
   return (
     <div className="flex min-w-0 flex-col gap-space-lg">
       <ChannelSummary profile={profile} withBack={page.snapshot?.center.id !== profile.id} />
+      {page.snapshot && beside && page.snapshot.center.id !== profile.id && (
+        <p className="text-body-md text-on-surface-variant">
+          Competitor of{' '}
+          <a
+            href={channelHref(page.snapshot.center.id)}
+            className="font-semibold text-primary hover:underline"
+          >
+            {page.snapshot.center.title}
+          </a>
+        </p>
+      )}
       <ChannelMoney channelId={profile.id} />
       <Actions {...props} />
       <div
