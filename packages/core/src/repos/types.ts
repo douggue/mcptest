@@ -396,15 +396,26 @@ export type StoredBreakdownPart = {
       readonly engine: string;
       /** The part as it was written: a model's words, to be read as a study only. */
       readonly text: string;
+      /** What a reader should know about how it was written; absent for most parts. */
+      readonly caveat?: BreakdownCaveat;
     }
   | { readonly written: false; readonly reason: string }
 );
+
+/** What a reader of a written part should know about how it was written. */
+export interface BreakdownCaveat {
+  /** The engine the owner chose, when another wrote the part because it could not, and why. */
+  readonly standInFor?: { readonly engine: string; readonly because: string };
+  /** It was written from this many pictures handed over as files, and names none of them. */
+  readonly unseen?: { readonly shown: number };
+}
 
 export interface WrittenBreakdownPart {
   readonly channelId: string;
   readonly part: BreakdownPartId;
   readonly engine: string;
   readonly text: string;
+  readonly caveat?: BreakdownCaveat;
 }
 
 export interface FailedBreakdownPart {

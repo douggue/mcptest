@@ -30,6 +30,10 @@ export interface EngineAnswer<Id extends AnyEngineId> extends EngineRunResult {
   readonly engine: Id;
   /** The engines passed over on the way, and why. */
   readonly skipped: readonly SkippedEngine[];
+  /** The engine the owner chose, when another wrote the answer because it could not, and why. */
+  readonly standInFor?: { readonly engine: Id; readonly because: string };
+  /** Pictures handed over as files: how many there were, and how many the answer names. */
+  readonly seen?: { readonly shown: number; readonly named: number };
 }
 
 function nobodyCould(explanation: string, skipped: readonly SkippedEngine[]): EngineRunError {

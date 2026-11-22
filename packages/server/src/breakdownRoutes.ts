@@ -1,5 +1,6 @@
 import {
   BREAKDOWN_MAX_DEEP_VIDEOS,
+  BREAKDOWN_WRITTEN_PARTS,
   BREAKDOWN_FILES,
   BREAKDOWN_FILE_IDS,
   MAX_OWN_VIDEO_BYTES,
@@ -45,6 +46,14 @@ const breakdownRequest = z.object({
   fresh: z.boolean().optional(),
   // How many top videos to study in depth.
   videos: z.number().int().min(1).max(BREAKDOWN_MAX_DEEP_VIDEOS).optional(),
+  // Write only these parts again, from what is stored: "Write this part" on the page.
+  parts: z
+    .array(z.enum(BREAKDOWN_WRITTEN_PARTS))
+    .min(1)
+    .max(BREAKDOWN_WRITTEN_PARTS.length)
+    .optional(),
+  // An engine to leave out this time: a part written again on another engine.
+  avoid: z.enum(ENGINE_IDS).optional(),
 });
 
 function isChannel(text: string): boolean {
@@ -78,13 +87,15 @@ export async function startBreakdown(
   if (tracker.running) {
     return fail(409, 'A breakdown or an analysis is already running. Wait for it to finish.');
   }
-  const { channel, engine: only, fresh, videos } = parsed.data;
+  const { channel, engine: only, fresh, videos, parts, avoid } = parsed.data;
   tracker.running = true;
   const job = jobs.start(
     (report) =>
-      options.engine.breakDown(channel, report, { only, fresh, videos }).finally(() => {
-        tracker.running = false;
-      }),
+      options.engine
+        .breakDown(channel, report, { only, fresh, videos, parts, avoid })
+        .finally(() => {
+          tracker.running = false;
+        }),
     channelLabel(options.engine, 'breakdown', 'Breaking down', channel),
   );
   if (!job) {

@@ -12,6 +12,7 @@ import {
   frameStudyRequest,
   pictureEngines,
   picturesNeeded,
+  seesFiles,
   type AnalysisId,
   type AnalysisSettings,
 } from '../src/analyses';
@@ -173,23 +174,30 @@ describe('the analyses on offer', () => {
       'thumbnail-tags',
       'one-video',
     ]);
-    expect(PICTURE_ENGINES).toEqual(['claude', 'codex']);
+    expect(PICTURE_ENGINES).toEqual(['claude', 'codex', 'agy']);
   });
 
-  test('only the thumbnail review and the thumbnail prompt can hand their pictures over as files', () => {
-    expect(ANALYSIS_IDS.filter((id) => ANALYSES[id].filesRoute !== undefined)).toEqual([
-      'thumbnails',
-      'concept-thumbnail',
-      'thumbnail-tags',
-    ]);
+  test('every picture question can hand its pictures over as files, for Antigravity', () => {
+    const pictures = ANALYSIS_IDS.filter((id) => ANALYSES[id].pictures === true);
+    expect(ANALYSIS_IDS.filter((id) => ANALYSES[id].filesRoute !== undefined)).toEqual(pictures);
   });
 });
 
 describe('pictureEngines', () => {
-  test('is Claude Code and Codex always, then any engine that passed the picture check', () => {
-    expect(pictureEngines([])).toEqual(['claude', 'codex']);
-    expect(pictureEngines(['agy'])).toEqual(['claude', 'codex', 'agy']);
-    expect(pictureEngines(['codex'])).toEqual(['claude', 'codex']);
+  test('is Claude Code, Codex and Antigravity by default: the picture check is optional', () => {
+    expect(pictureEngines([])).toEqual(['claude', 'codex', 'agy']);
+  });
+
+  test('leaves out Antigravity only after it failed the picture check', () => {
+    expect(pictureEngines(['agy'])).toEqual(['claude', 'codex']);
+    // Claude Code and Codex see a tool's pictures; no check result removes them.
+    expect(pictureEngines(['codex'])).toEqual(['claude', 'codex', 'agy']);
+  });
+
+  test('shows only Antigravity its pictures as files', () => {
+    expect(seesFiles('agy')).toBe(true);
+    expect(seesFiles('claude')).toBe(false);
+    expect(seesFiles('codex')).toBe(false);
   });
 });
 
@@ -221,11 +229,56 @@ describe('picture questions shown as files', () => {
     expect(request.allowedTools).not.toContain('mcp__jgtube__view_thumbnails');
   });
 
-  test('is refused for a picture question with no files route', () => {
-    const focus = { kind: 'breakdown', videos: [], frames: [] } as unknown as QuestionFocus;
-    expect(() =>
-      analysisRequest('breakdown-thumbnails', CHANNEL_ID, settings, focus, files),
-    ).toThrow(/cannot be shown its pictures as files/);
+  test('is refused for a question that looks at no pictures', () => {
+    expect(() => analysisRequest('topics', CHANNEL_ID, settings, undefined, files)).toThrow(
+      /cannot be shown its pictures as files/,
+    );
+  });
+
+  const breakdown = {
+    top: ['aaaaaaaaaa1', 'aaaaaaaaaa2'],
+    deep: ['aaaaaaaaaa1'],
+    titles: ['aaaaaaaaaa1'],
+    ordinary: ['bbbbbbbbbb1'],
+    storedVideos: 3,
+  };
+
+  test.each([
+    ['breakdown-thumbnails', breakdown, 'mcp__jgtube__view_thumbnails'],
+    ['breakdown-picture', breakdown, 'mcp__jgtube__view_teardown_images'],
+    ['one-video', FOCUS['one-video'], 'mcp__jgtube__view_thumbnails'],
+    ['thumbnails', undefined, 'mcp__jgtube__view_thumbnails'],
+    ['concept-thumbnail', FOCUS['concept-thumbnail'], 'mcp__jgtube__view_thumbnails'],
+  ] as const)(
+    '%s names the files by @, asks which were opened, and offers no picture tool',
+    (id, focus, pictureTool) => {
+      const request = analysisRequest(id, CHANNEL_ID, settings, focus as QuestionFocus, files);
+
+      expect(request.files).toEqual(files.files);
+      expect(request.prompt).toContain('@thumb-aaaaaaaaaaa.jpg');
+      expect(request.prompt).toContain('PICTURES OPENED:');
+      expect(request.allowedTools).not.toContain(pictureTool);
+      expect(ANALYSES[id].allowedTools).toContain(pictureTool);
+    },
+  );
+
+  test('the breakdown parts hand over what their tools would have shown', () => {
+    const route = (id: AnalysisId) => ANALYSES[id].filesRoute?.pictures;
+    expect(route('breakdown-thumbnails')?.(breakdown)).toEqual({
+      kind: 'thumbnails',
+      groups: [
+        { label: 'top videos', videoIds: ['aaaaaaaaaa1', 'aaaaaaaaaa2'] },
+        { label: 'ordinary videos', videoIds: ['bbbbbbbbbb1'] },
+      ],
+    });
+    expect(route('breakdown-picture')?.(breakdown)).toEqual({
+      kind: 'teardown',
+      videoIds: ['aaaaaaaaaa1', 'bbbbbbbbbb1'],
+    });
+    expect(route('one-video')?.(FOCUS['one-video'])).toEqual({
+      kind: 'thumbnails',
+      groups: [{ label: 'its thumbnail', videoIds: ['aaaaaaaaaaa'] }],
+    });
   });
 
   test('a request without files has none', () => {
@@ -267,10 +320,11 @@ describe('the parts of a channel breakdown, as analyses', () => {
     ]);
   });
 
-  test('only the part that looks at thumbnails is kept to the engines that see pictures', () => {
+  test('a part that looks at pictures goes to every engine that sees them, Antigravity included', () => {
     const all = ['agy', 'claude', 'codex'] as const;
 
-    expect(enginesFor('breakdown-thumbnails', all)).toEqual(['claude', 'codex']);
+    expect(enginesFor('breakdown-thumbnails', all)).toEqual(all);
+    expect(enginesFor('breakdown-thumbnails', all, ['agy'])).toEqual(['claude', 'codex']);
     expect(enginesFor('breakdown-titles', all)).toEqual(all);
     expect(enginesFor('breakdown-master', all)).toEqual(all);
   });
@@ -415,28 +469,31 @@ describe('enginesFor', () => {
     expect(enginesFor('near-misses', ['codex', 'agy'])).toEqual(['codex', 'agy']);
   });
 
-  test('gives the thumbnail review to engines known to see pictures from tools, in the owner’s order', () => {
-    expect(enginesFor('thumbnails', ['agy', 'claude', 'codex'])).toEqual(['claude', 'codex']);
-    expect(enginesFor('thumbnails', ['codex', 'claude'])).toEqual(['codex', 'claude']);
+  test('gives every picture question to every engine that sees pictures, in the owner’s order', () => {
+    expect(enginesFor('thumbnails', ['agy', 'claude', 'codex'])).toEqual([
+      'agy',
+      'claude',
+      'codex',
+    ]);
+    expect(enginesFor('breakdown-thumbnails', ['agy', 'codex'])).toEqual(['agy', 'codex']);
+    expect(enginesFor('breakdown-picture', ['agy'])).toEqual(['agy']);
+    expect(enginesFor('one-video', ['codex', 'agy'])).toEqual(['codex', 'agy']);
   });
 
   test('never names an engine the owner’s settings leave out', () => {
-    expect(enginesFor('thumbnails', ['agy', 'codex'])).toEqual(['codex']);
-    expect(enginesFor('thumbnails', ['agy'])).toEqual([]);
+    expect(enginesFor('thumbnails', ['codex'])).toEqual(['codex']);
   });
 
-  test('lets an engine that passed the picture check answer the questions that can hand it files', () => {
-    expect(enginesFor('thumbnails', ['agy', 'claude'], ['agy'])).toEqual(['agy', 'claude']);
-    expect(enginesFor('concept-thumbnail', ['agy'], ['agy'])).toEqual(['agy']);
-    // A study of a breakdown's thumbnails has no files route yet: it stays with the other two.
+  test('passes Antigravity over for picture questions only after it failed the picture check', () => {
+    expect(enginesFor('thumbnails', ['agy', 'claude'], ['agy'])).toEqual(['claude']);
     expect(enginesFor('breakdown-thumbnails', ['agy', 'codex'], ['agy'])).toEqual(['codex']);
-    expect(enginesFor('topics', ['agy'], [])).toEqual(['agy']);
+    expect(enginesFor('topics', ['agy'], ['agy'])).toEqual(['agy']);
   });
 
   test('names the engines a picture question needs, and none for other questions', () => {
-    expect(picturesNeeded('thumbnails', ['agy'])).toEqual(['claude', 'codex', 'agy']);
+    expect(picturesNeeded('thumbnails', [])).toEqual(['claude', 'codex', 'agy']);
     expect(picturesNeeded('breakdown-thumbnails', ['agy'])).toEqual(['claude', 'codex']);
-    expect(picturesNeeded('topics', ['agy'])).toBeNull();
+    expect(picturesNeeded('topics', [])).toBeNull();
   });
 });
 

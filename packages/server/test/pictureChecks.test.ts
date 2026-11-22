@@ -50,14 +50,17 @@ describe('pictureChecks', () => {
   test('a later failure takes the engine back out', () => {
     const checks = pictureChecks(join(folder, 'x.json'));
     checks.record(passed);
+    expect(checks.failed()).toEqual([]);
     checks.record({ ...passed, passed: false });
     expect(checks.passed()).toEqual([]);
+    expect(checks.failed()).toEqual(['agy']);
   });
 
   test('treats a file that cannot be read, or holds anything else, as no check run', () => {
     const path = join(folder, 'x.json');
     writeFileSync(path, 'not json');
     expect(pictureChecks(path).all()).toEqual([]);
+    expect(pictureChecks(path).failed()).toEqual([]);
     writeFileSync(path, JSON.stringify({ checks: [{ ...passed, engine: 'someone' }] }));
     expect(pictureChecks(path).passed()).toEqual([]);
   });

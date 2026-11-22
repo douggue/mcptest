@@ -79,16 +79,16 @@ export interface AnalysisSpec {
    */
   readonly question: (channel: string, focus?: QuestionFocus) => string;
   /**
-   * Whether it looks at pictures. Then only Claude Code and Codex, which see
-   * the pictures a tool returns, may answer, and an engine that passed the
-   * picture check too when the question has a files route below. They are
-   * tried in the owner's order, and an engine the settings leave out is never used.
+   * Whether it looks at pictures. Then the engines that see pictures answer:
+   * Claude Code and Codex through a tool's results, Antigravity through the
+   * files route below, unless its last picture check failed. They are tried
+   * in the owner's order, and an engine the settings leave out is never used.
    */
   readonly pictures?: boolean;
   /**
    * The question for an engine shown the pictures as files in its folder
-   * (`files.listing` names them), with the tools it may use then. Only a
-   * question with this may go to an engine that passed the picture check.
+   * (`files.listing` names them), with the tools it may use then. Every
+   * picture question has one.
    */
   readonly filesRoute?: FilesRoute;
   /**
@@ -122,17 +122,32 @@ const TIMEOUT_MS = 5 * 60 * 1000;
 const CHECK_TIMEOUT_MS = 2 * 60 * 1000;
 const CHECK_MAX_TURNS = 4;
 
-/** The engines known to see the pictures a tool returns; see the thumbnail review. */
-export const PICTURE_ENGINES: readonly EngineId[] = ['claude', 'codex'];
-
-/** The engines that see pictures: Claude Code and Codex always, then any that passed the picture check. */
-export const pictureEngines = (passed: readonly EngineId[]): readonly EngineId[] => [
-  ...PICTURE_ENGINES,
-  ...passed.filter((engine) => !PICTURE_ENGINES.includes(engine)),
+/** The engines that see the pictures a tool returns: Claude Code and Codex. */
+export const TOOL_PICTURE_ENGINES: readonly EngineId[] = ['claude', 'codex'];
+/**
+ * The engines shown a question's pictures as files in their run folder,
+ * named in the question with `@`: Antigravity, whose CLI passes on only the
+ * text of a tool's results.
+ */
+export const FILE_PICTURE_ENGINES: readonly EngineId[] = ['agy'];
+/** Every engine that sees pictures, by default: the picture check is an optional diagnostic. */
+export const PICTURE_ENGINES: readonly EngineId[] = [
+  ...TOOL_PICTURE_ENGINES,
+  ...FILE_PICTURE_ENGINES,
 ];
 
+/**
+ * The engines that see pictures: all of them, less an engine shown pictures
+ * as files whose last picture check failed (`failed`). A check never run
+ * changes nothing.
+ */
+export const pictureEngines = (failed: readonly EngineId[]): readonly EngineId[] =>
+  PICTURE_ENGINES.filter(
+    (engine) => !(FILE_PICTURE_ENGINES.includes(engine) && failed.includes(engine)),
+  );
+
 /** Whether an engine is shown a question's pictures as files rather than as a tool's results. */
-export const seesFiles = (engine: EngineId): boolean => !PICTURE_ENGINES.includes(engine);
+export const seesFiles = (engine: EngineId): boolean => FILE_PICTURE_ENGINES.includes(engine);
 
 const SYSTEM_PROMPT = [
   'You are an analyst working for the owner of a small faceless YouTube channel.',
@@ -204,9 +219,9 @@ const QUICK_ANALYSES: Readonly<Record<QuickAnalysisId, AnalysisSpec>> = {
       'Looks at the thumbnails that took off on channels like yours, and at yours, names the styles that are winning and says what to test.',
     allowedTools: [tool('get_map'), tool('get_thumbnail_board'), tool('view_thumbnails')],
     maxTurns: 12,
-    // The pictures reach Claude Code and Codex as tool results, and Antigravity,
-    // once it has passed the picture check, as files: its CLI passes on only a
-    // tool's text. A review written without seeing them would be invented.
+    // The pictures reach Claude Code and Codex as tool results, and Antigravity
+    // as files: its CLI passes on only a tool's text. A review written without
+    // seeing them would be invented.
     pictures: true,
     filesRoute: {
       tools: [tool('get_map'), tool('get_thumbnail_board')],
@@ -256,14 +271,25 @@ const QUICK_ANALYSES: Readonly<Record<QuickAnalysisId, AnalysisSpec>> = {
 /** One part of a channel breakdown as an analysis: its spec with the tools under their full names. */
 function partAnalysis(part: BreakdownWrittenPart): AnalysisSpec {
   const spec = BREAKDOWN_PART_SPECS[part];
+  const { files } = spec;
   return {
     title: partAnalysisTitle(part),
     description: `One part of a channel breakdown: ${BREAKDOWN_PART_TITLES[part].toLowerCase()}.`,
     allowedTools: spec.tools.map(tool),
     maxTurns: spec.maxTurns,
     timeoutMs: spec.timeoutMs,
-    // Pictures reach an engine as a tool's results; see the thumbnail review.
+    // Pictures reach an engine as a tool's results or as files; see the thumbnail review.
     ...(spec.pictures ? { pictures: true } : {}),
+    ...(files
+      ? {
+          filesRoute: {
+            tools: files.tools.map(tool),
+            pictures: (focus) => files.pictures(breakdownFocusOf(focus)),
+            question: (channel, set, focus) =>
+              files.question(channel, set, breakdownFocusOf(focus)),
+          },
+        }
+      : {}),
     question: (channel, focus) => spec.question(channel, breakdownFocusOf(focus)),
   };
 }
@@ -358,43 +384,48 @@ export const FRAME_STUDY_TITLE = 'A frame study';
 
 /**
  * A study of one video's frames, start to end, as a boxed-in run of an engine
- * with the one tool that shows them. The video is named by its id alone.
+ * with the one tool that shows them, or, for an engine shown pictures as
+ * files, with the sheets in its folder and no tool. The video is named by its id alone.
  */
-export function frameStudyRequest(videoId: string, settings: AnalysisSettings): EngineRunRequest {
-  const allowedTools = FRAME_STUDY_TOOLS.map(tool);
+export function frameStudyRequest(
+  videoId: string,
+  settings: AnalysisSettings,
+  files?: PictureFileSet,
+): EngineRunRequest {
+  const allowedTools = files === undefined ? FRAME_STUDY_TOOLS.map(tool) : [];
   return {
-    prompt: frameStudyQuestion(videoId),
+    prompt: frameStudyQuestion(videoId, files),
     systemPrompt: SYSTEM_PROMPT,
-    mcpServers: { [SERVER_NAME]: connectorServer(settings, allowedTools) },
+    mcpServers:
+      allowedTools.length === 0 ? {} : { [SERVER_NAME]: connectorServer(settings, allowedTools) },
     allowedTools,
     maxTurns: FRAME_STUDY_MAX_TURNS,
     timeoutMs: FRAME_STUDY_TIMEOUT_MS,
     cwd: settings.workDir,
+    ...(files ? { files: files.files } : {}),
   };
 }
 
 /**
  * The engines to try for an analysis, in the owner's order: all of them, or,
- * for a picture question, those that see pictures: Claude Code and Codex, and
- * an engine in `passed` (its last picture check passed) when the question can
- * hand it the pictures as files.
+ * for a picture question, those that see pictures: all, less an engine in
+ * `failed` (its last picture check failed).
  */
 export function enginesFor(
   id: AnalysisId,
   allowed: readonly EngineId[],
-  passed: readonly EngineId[] = [],
+  failed: readonly EngineId[] = [],
 ): readonly EngineId[] {
-  const seeing = picturesNeeded(id, passed);
+  const seeing = picturesNeeded(id, failed);
   return seeing === null ? allowed : allowed.filter((engine) => seeing.includes(engine));
 }
 
 /** The engines a picture question may go to; null for a question without pictures. */
 export function picturesNeeded(
   id: AnalysisId,
-  passed: readonly EngineId[],
+  failed: readonly EngineId[],
 ): readonly EngineId[] | null {
-  const { pictures, filesRoute } = specOf(id);
-  return pictures ? pictureEngines(filesRoute ? passed : []) : null;
+  return specOf(id).pictures ? pictureEngines(failed) : null;
 }
 
 /**

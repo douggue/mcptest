@@ -228,6 +228,8 @@ export interface Engine
     only?: EngineId,
     /** What else the question is told, chosen or checked in code. */
     focus?: QuestionFocus,
+    /** An engine not to use this time: a rerun of a picture part on another engine. */
+    avoid?: EngineId,
   ): Promise<EngineAnswer<EngineId>>;
   /**
    * Has an engine watch one YouTube video, picture and sound, and answer a

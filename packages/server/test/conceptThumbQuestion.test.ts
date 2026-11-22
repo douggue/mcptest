@@ -42,7 +42,8 @@ describe('the question that writes a thumbnail prompt for one concept', () => {
     const spec = ANALYSES['concept-thumbnail'];
 
     expect(spec.pictures).toBe(true);
-    expect(PICTURE_ENGINES).toEqual(['claude', 'codex']);
+    expect(PICTURE_ENGINES).toEqual(['claude', 'codex', 'agy']);
+    expect(spec.filesRoute?.tools).not.toContain('mcp__jgtube__view_thumbnails');
     expect(spec.allowedTools).toEqual(
       CONCEPT_THUMBNAIL_TOOLS.map((name) => `mcp__jgtube__${name}`),
     );

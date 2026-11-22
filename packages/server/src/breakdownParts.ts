@@ -23,6 +23,8 @@ import {
   type BreakdownFocus,
 } from './breakdownPartQuestions';
 
+import type { PictureFileSet, PictureNeed } from './pictureFiles';
+
 export { NO_FOCUS, type BreakdownFocus } from './breakdownPartQuestions';
 
 const MINUTE_MS = 60 * 1000;
@@ -43,7 +45,36 @@ export interface BreakdownPartSpec {
   /** The earlier parts it reads through `get_breakdown_part`. */
   readonly builtOn: readonly BreakdownWrittenPart[];
   readonly question: (channel: string, focus?: BreakdownFocus) => string;
+  /**
+   * For a part that looks at pictures: how it is asked of an engine shown
+   * them as files (Antigravity): the tools then (the same, less the picture
+   * tool), the pictures that tool would have shown, and the question.
+   */
+  readonly files?: PartFilesRoute;
 }
+
+export interface PartFilesRoute {
+  readonly tools: readonly string[];
+  readonly pictures: (focus: BreakdownFocus) => PictureNeed;
+  readonly question: (channel: string, files: PictureFileSet, focus?: BreakdownFocus) => string;
+}
+
+const without = (tools: readonly string[], tool: string): readonly string[] =>
+  tools.filter((name) => name !== tool);
+
+const THUMBNAIL_TOOLS = [
+  'get_channel_brand',
+  'get_channel_videos',
+  'view_thumbnails',
+  'get_channel_measurements',
+];
+const PICTURE_TOOLS = [
+  'get_frame_study',
+  'get_video_watch',
+  'get_channel_videos',
+  'get_channel_measurements',
+  'view_teardown_images',
+];
 
 export const BREAKDOWN_PART_SPECS: Readonly<Record<BreakdownWrittenPart, BreakdownPartSpec>> = {
   titles: {
@@ -56,18 +87,24 @@ export const BREAKDOWN_PART_SPECS: Readonly<Record<BreakdownWrittenPart, Breakdo
     question: titlesQuestion,
   },
   thumbnails: {
-    tools: [
-      'get_channel_brand',
-      'get_channel_videos',
-      'view_thumbnails',
-      'get_channel_measurements',
-    ],
+    tools: THUMBNAIL_TOOLS,
     // Measured: 43 seconds, about 4 tool calls.
     maxTurns: 16,
     timeoutMs: 6 * MINUTE_MS,
     pictures: true,
     builtOn: [],
     question: thumbnailsQuestion,
+    files: {
+      tools: without(THUMBNAIL_TOOLS, 'view_thumbnails'),
+      pictures: (focus) => ({
+        kind: 'thumbnails',
+        groups: [
+          { label: 'top videos', videoIds: focus.top },
+          { label: 'ordinary videos', videoIds: focus.ordinary },
+        ],
+      }),
+      question: (channel, files, focus) => thumbnailsQuestion(channel, focus, files),
+    },
   },
   scripts: {
     tools: [
@@ -84,13 +121,7 @@ export const BREAKDOWN_PART_SPECS: Readonly<Record<BreakdownWrittenPart, Breakdo
     question: scriptsQuestion,
   },
   picture: {
-    tools: [
-      'get_frame_study',
-      'get_video_watch',
-      'get_channel_videos',
-      'get_channel_measurements',
-      'view_teardown_images',
-    ],
+    tools: PICTURE_TOOLS,
     // Measured: 46 seconds, about 7 tool calls, before the measured layer added up to 7 more.
     maxTurns: 30,
     timeoutMs: 10 * MINUTE_MS,
@@ -98,6 +129,12 @@ export const BREAKDOWN_PART_SPECS: Readonly<Record<BreakdownWrittenPart, Breakdo
     pictures: true,
     builtOn: [],
     question: pictureQuestion,
+    files: {
+      tools: without(PICTURE_TOOLS, 'view_teardown_images'),
+      // The strips and keyframes of the videos measured in code: the deep ones and the ordinary ones.
+      pictures: (focus) => ({ kind: 'teardown', videoIds: [...focus.deep, ...focus.ordinary] }),
+      question: (channel, files, focus) => pictureQuestion(channel, focus, files),
+    },
   },
   strategy: {
     tools: ['get_breakdown_part', 'get_channel_videos', 'get_channel_measurements'],

@@ -164,6 +164,36 @@ interface Studied {
   readonly deep: readonly StudiedVideo[];
 }
 
+const NOT_STUDIED_AGAIN = 'Not studied again: only chosen parts were written.';
+
+/** The deep videos as their stored studies left them, for a run that writes chosen parts only. */
+function storedStudies(deps: BreakdownDeps, picks: BreakdownPicks): readonly StudiedVideo[] {
+  return picks.deep.map(({ videoId, title }) => {
+    const watch = deps.studies.find(videoId, 'watch');
+    const frames = deps.studies.find(videoId, 'frames');
+    return {
+      videoId,
+      title,
+      file: { used: 'none', reason: NOT_STUDIED_AGAIN },
+      watch:
+        watch === null
+          ? { done: false, reason: NOT_STUDIED_AGAIN }
+          : { done: true, by: watch.engine, kept: true },
+      frames:
+        frames === null
+          ? { done: false, reason: NOT_STUDIED_AGAIN }
+          : {
+              done: true,
+              by: frames.engine,
+              kept: true,
+              source: frames.frames?.source ?? null,
+              available: frames.frames?.available ?? null,
+            },
+      ...(deps.isMeasured?.(videoId) ? { measured: { state: 'kept' as const } } : {}),
+    };
+  });
+}
+
 const idsOf = (videos: readonly BreakdownVideo[]): readonly string[] =>
   videos.map((video) => video.videoId);
 
@@ -215,8 +245,12 @@ export async function breakDown(
   const picks = pickBreakdownVideos(deps.listVideos(stored.id), deps.now(), choices.videos);
   if (picks.top.length === 0) throw new Error(NO_VIDEOS);
   const top = await readCaptions(deps, picks.top);
-  const deep = await studyDeep(deps, picks, choices, tell);
-  await measureContrast(deps, picks, choices, tell);
+  // Writing chosen parts again rests on what is stored: nothing is downloaded, watched or measured.
+  const deep =
+    choices.parts === undefined
+      ? await studyDeep(deps, picks, choices, tell)
+      : storedStudies(deps, picks);
+  if (choices.parts === undefined) await measureContrast(deps, picks, choices, tell);
   stopIfClosing(deps);
   const parts = await writeAll(deps, { channel: stored, picks, top, deep }, choices, (text) =>
     tell.say('writing', text),

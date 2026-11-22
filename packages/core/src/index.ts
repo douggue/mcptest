@@ -397,6 +397,7 @@ export type {
   BreakdownRepo,
   FailedBreakdownPart,
   StoredBreakdownPart,
+  BreakdownCaveat,
   WrittenBreakdownPart,
 } from './repos/types';
 export {

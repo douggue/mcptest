@@ -1,14 +1,14 @@
 /**
  * One teardown stage as a boxed-in run of an engine. A stage that looks at
  * pictures reaches Claude Code and Codex through the tool that shows a
- * teardown's pictures, and an engine that passed the picture check
- * (Antigravity) as files in its own folder named in the question. Every
+ * teardown's pictures, and Antigravity as files in its own folder named in
+ * the question (the shared `pictureFiles.ts`). Every
  * stage reads its data through `get_video_teardown`; none is handed text from
  * outside in its question.
  */
-import { readFile } from 'node:fs/promises';
 import { SERVER_NAME, connectorServer, seesFiles, tool, type AnalysisSettings } from './analyses';
-import type { EngineId, EngineRunRequest, RunFile } from './engines/types';
+import type { EngineId, EngineRunRequest } from './engines/types';
+import { filesFromPaths } from './pictureFiles';
 import {
   PICTURE_STAGES,
   TEARDOWN_SYSTEM_PROMPT,
@@ -68,13 +68,8 @@ export async function teardownRequest(
     tool(TEARDOWN_DATA_TOOL),
     ...(pictures && !asFiles ? [tool(TEARDOWN_PICTURE_TOOL)] : []),
   ];
-  const files: RunFile[] = asFiles
-    ? await Promise.all(
-        ask.pictures.map(async (picture) => ({
-          name: picture.name,
-          bytes: new Uint8Array(await readFile(picture.path)),
-        })),
-      )
+  const files = asFiles
+    ? (await filesFromPaths([{ label: 'the pictures', pictures: ask.pictures }])).files
     : [];
   const limits = pictures ? PICTURE_LIMITS : TEXT_LIMITS;
   return {

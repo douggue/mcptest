@@ -105,8 +105,8 @@ export function breaking(setup: BreakdownSetup): Breaking {
             watchesFiles: asking.watchesFiles,
             watchVideo: asking.watchVideo,
             studyFrames: asking.studyFrames,
-            write: (part, channelId, only, focus) =>
-              asking.analyse(breakdownAnalysisId(part), channelId, only, focus),
+            write: (part, channelId, only, focus, avoid) =>
+              asking.analyse(breakdownAnalysisId(part), channelId, only, focus, avoid),
             measure: (videoId, path, fresh, captions, onStep) =>
               measureForChannel(setup.teardown, videoId, path, fresh, captions, onStep),
             isMeasured: (videoId) => isMeasured(setup.teardown.repo, videoId),

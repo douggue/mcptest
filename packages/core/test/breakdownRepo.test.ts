@@ -35,6 +35,31 @@ describe('the stored parts of a channel breakdown', () => {
     });
   });
 
+  test('keep what a reader should know about how a part was written, and drop it when rewritten', () => {
+    const caveat = {
+      standInFor: { engine: 'agy', because: 'Antigravity CLI hit its limit.' },
+      unseen: { shown: 10 },
+    };
+    parts.saveWritten(
+      { channelId: CHANNEL, part: 'thumbnails', engine: 'claude', text: TITLES, caveat },
+      T1,
+    );
+    expect(parts.find(CHANNEL, 'thumbnails')).toMatchObject({ written: true, caveat });
+
+    parts.saveWritten({ channelId: CHANNEL, part: 'thumbnails', engine: 'agy', text: TITLES }, T2);
+    expect(parts.find(CHANNEL, 'thumbnails')).not.toHaveProperty('caveat');
+  });
+
+  test('read back only a caveat that says one of its two things', () => {
+    const bad = { unseen: { shown: -1 }, standInFor: { engine: '', because: 'x' }, other: 1 };
+    parts.saveWritten(
+      { channelId: CHANNEL, part: 'titles', engine: 'claude', text: TITLES, caveat: bad as never },
+      T1,
+    );
+    db.prepare("UPDATE breakdown_parts SET caveat_json = 'not json' WHERE part = 'scripts'").run();
+    expect(parts.find(CHANNEL, 'titles')).not.toHaveProperty('caveat');
+  });
+
   test('keep a part that could not be written, with the reason in plain words', () => {
     parts.saveFailed(
       { channelId: CHANNEL, part: 'thumbnails', reason: 'Claude Code took too long.' },
@@ -141,6 +166,14 @@ describe('the stored parts of a channel breakdown', () => {
       .all()
       .map((row) => (row as { name: string }).name);
 
-    expect(columns).toEqual(['channel_id', 'part', 'engine', 'notes', 'problem', 'written_at']);
+    expect(columns).toEqual([
+      'channel_id',
+      'part',
+      'engine',
+      'notes',
+      'problem',
+      'written_at',
+      'caveat_json',
+    ]);
   });
 });

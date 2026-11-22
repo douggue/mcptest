@@ -9,9 +9,17 @@
  * from YouTube and reach an engine only as tool results.
  */
 import type { FetchedImage, ThumbnailBoard } from '@jgtube/core';
-import type { RunFile } from './engines/types';
-import type { QuestionFocus } from './questionFocus';
 import { isVideoId } from './engines/videoId';
+import {
+  groupedFiles,
+  openedRule,
+  type PictureFileSet,
+  type PictureNeed,
+  type ThumbnailGroup,
+} from './pictureFiles';
+import type { QuestionFocus } from './questionFocus';
+
+export type { PictureFileSet, ThumbnailGroup } from './pictureFiles';
 
 const OWN = 4;
 const PER_GROUP = 2;
@@ -19,25 +27,19 @@ const PER_GROUP = 2;
 const CLOSE_CHANNELS = 4;
 const MORE_CHANNELS = 4;
 
-export interface ThumbnailGroup {
-  readonly label: string;
-  readonly videoIds: readonly string[];
-}
-
-export interface PictureFileSet {
-  readonly files: readonly RunFile[];
-  /** The files by role, each as `@name`, for the question. */
-  readonly listing: string;
-}
-
 /** A picture question as asked of an engine shown the pictures as files, with the tools it may use then. */
 export interface FilesRoute {
   readonly tools: readonly string[];
   /**
-   * The thumbnails to hand over, by video id, when the question names them;
-   * without it, code chooses them from the channel's board.
+   * The pictures to hand over, chosen in code from what the question is
+   * about; without it, thumbnails chosen from the channel's board.
    */
-  readonly pictureIds?: (focus?: QuestionFocus) => readonly string[];
+  readonly pictures?: (focus?: QuestionFocus) => PictureNeed;
+  /**
+   * The answer is JSON, which a line naming the files opened would spoil; its
+   * answer is not checked for the file names.
+   */
+  readonly json?: boolean;
   readonly question: (channel: string, files: PictureFileSet, focus?: QuestionFocus) => string;
 }
 
@@ -49,7 +51,7 @@ export interface PictureLook {
 
 /** Thumbnails handed as files: the listing comes from code, by role and file name only. */
 export const filesLook = (files: PictureFileSet): PictureLook => ({
-  look: `The thumbnails to look at are picture files in your folder. Open each one with your own file-reading tool and look at it: ${files.listing}. The channels are numbered in the order get_thumbnail_board lists them.`,
+  look: `The thumbnails to look at are picture files in your folder. Open each one with your own file-reading tool and look at it: ${files.listing}. The channels are numbered in the order get_thumbnail_board lists them. ${openedRule()}`,
   ids: 'The id of each thumbnail is the part of its file name between "thumb-" and ".jpg"; get_thumbnail_board names its channel and title.',
 });
 
@@ -78,12 +80,15 @@ export function chooseThumbnails(board: ThumbnailBoard): readonly ThumbnailGroup
 
 export const thumbnailFileName = (videoId: string): string => `thumb-${videoId}.jpg`;
 
-/** Named thumbnails fetched as files, listed together. Rejects when none could be fetched. */
+/** Named thumbnails fetched as files, by role. Rejects when none could be fetched. */
 export function idFiles(
-  videoIds: readonly string[],
+  groups: readonly ThumbnailGroup[],
   fetch: FetchThumbnailFile,
 ): Promise<PictureFileSet> {
-  return groupFiles([{ label: 'the thumbnails', videoIds: videoIds.filter(isVideoId) }], fetch);
+  return groupFiles(
+    groups.map((group) => ({ ...group, videoIds: group.videoIds.filter(isVideoId) })),
+    fetch,
+  );
 }
 
 /** The chosen thumbnails fetched as files. Rejects when none could be fetched. */
@@ -106,12 +111,7 @@ async function groupFiles(
       return { label: group.label, files };
     }),
   );
-  const shown = fetched.filter((group) => group.files.length > 0);
-  if (shown.length === 0) throw new Error('No thumbnails could be fetched to show as files.');
-  return {
-    files: shown.flatMap((group) => group.files),
-    listing: shown
-      .map((group) => `${group.label}: ${group.files.map((file) => `@${file.name}`).join(' ')}`)
-      .join('; '),
-  };
+  const set = groupedFiles(fetched);
+  if (set.files.length === 0) throw new Error('No thumbnails could be fetched to show as files.');
+  return set;
 }

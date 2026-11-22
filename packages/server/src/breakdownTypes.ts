@@ -98,11 +98,21 @@ export type PartRun = {
       /** The engine that wrote it, and the ones passed over on the way. */
       readonly engine: EngineId;
       readonly skipped: readonly SkippedEngine[];
+      /** The engine the owner chose, when it could not write the part, and why. */
+      readonly standInFor?: StandIn;
+      /** Written from pictures handed over as files, naming none of them: it may not have seen them. */
+      readonly unseen?: boolean;
     }
   /** Kept from an earlier breakdown: nothing it was written from has changed. */
   | { readonly outcome: 'kept'; readonly engine: string }
   | { readonly outcome: 'failed'; readonly reason: string }
 );
+
+/** The engine the owner chose, when another wrote a part because it could not, and why. */
+export interface StandIn {
+  readonly engine: string;
+  readonly because: string;
+}
 
 /** One part of a stored breakdown, as the page shows it. */
 export interface BreakdownPartView {
@@ -120,6 +130,10 @@ export interface BreakdownPartView {
   readonly writtenAt: string | null;
   /** Why it could not be written. */
   readonly reason: string | null;
+  /** The engine the owner chose, when another wrote the part because it could not; null otherwise. */
+  readonly standInFor: StandIn | null;
+  /** Written from pictures handed over as files, naming none of them: it may not have seen them. */
+  readonly unseen: boolean;
 }
 
 /** One of the four texts of a breakdown: whether there is one to download, or why not. */
@@ -171,4 +185,11 @@ export interface BreakdownChoices {
   readonly fresh?: boolean | undefined;
   /** How many top videos to study in depth, 1 to 5; absent, three. */
   readonly videos?: number | undefined;
+  /**
+   * Write only these parts again, from the studies already stored: nothing is
+   * downloaded, watched or measured, and the other parts are kept as they are.
+   */
+  readonly parts?: readonly BreakdownWrittenPart[] | undefined;
+  /** An engine not to use for the parts: a rerun of a part on another engine. */
+  readonly avoid?: EngineId | undefined;
 }

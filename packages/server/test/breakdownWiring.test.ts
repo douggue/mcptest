@@ -250,7 +250,9 @@ describe('a breakdown through the engine', () => {
     const requests: Array<[EngineId, EngineRunRequest]> = [];
     const runEngine: EngineOptions['runEngine'] = async (id, request) => {
       requests.push([id, request]);
-      const studies = request.allowedTools.join() === FRAME_TOOLS.join();
+      const studies =
+        request.allowedTools.join() === FRAME_TOOLS.join() ||
+        /every sheet of its frames/.test(request.prompt);
       return { text: studies ? 'SECRET FRAME NOTES' : partText(request.prompt), turns: 5 };
     };
     const partRuns = (): readonly string[] =>
@@ -428,34 +430,25 @@ describe('a breakdown through the engine', () => {
     expect(requests[0]?.[1].prompt).toContain(`For the video ${vid(1)}:`);
   });
 
-  test('lets the one engine the owner chose write every part it can, and says which it cannot', async () => {
+  test('lets Antigravity, when chosen, write every part, the picture parts from files', async () => {
     const { requests, runEngine } = standInEngines();
     start({ runEngine }, true);
 
     const outcome = await engine.breakDown(CHANNEL, () => {}, { only: 'agy' });
 
     expect(requests.every(([id]) => id === 'agy')).toBe(true);
-    // Thumbnails and the picture part look at pictures, which Antigravity is shown only as files.
-    expect(outcome.parts.map((part) => part.outcome)).toEqual([
-      'written',
-      'failed',
-      'written',
-      'failed',
-      'written',
-      'written',
-      'written',
-    ]);
-    expect(outcome.parts[1]).toMatchObject({
-      reason:
-        'The breakdown’s part on thumbnails cannot be done by Antigravity CLI: it needs Claude Code or Codex CLI. Choose one of those, or Automatic.',
-    });
-    expect(outcome.breakdown.files.find((file) => file.id === 'thumbnail')).toEqual({
-      id: 'thumbnail',
-      name: 'thumbnail-prompt.txt',
-      available: false,
-      reason:
-        'The thumbnails part was not written: The breakdown’s part on thumbnails cannot be done by Antigravity CLI: it needs Claude Code or Codex CLI. Choose one of those, or Automatic.',
-    });
+    expect(outcome.parts.map((part) => part.outcome)).toEqual(Array(7).fill('written'));
+    const thumbnails = requests.find(([, request]) => /This is part 2 of 7/.test(request.prompt));
+    expect(thumbnails?.[1].allowedTools).not.toContain('mcp__jgtube__view_thumbnails');
+    expect(thumbnails?.[1].files?.map((file) => file.name)).toContain(`thumb-${vid(1)}.jpg`);
+    expect(thumbnails?.[1].prompt).toContain(`@thumb-${vid(1)}.jpg`);
+    expect(thumbnails?.[1].prompt).toContain('PICTURES OPENED:');
+    const picture = requests.find(([, request]) => /This is part 4 of 7/.test(request.prompt));
+    expect(picture?.[1].allowedTools).not.toContain('mcp__jgtube__view_teardown_images');
+    // The stand-in names no file it was given: the part says it may not have seen the pictures.
+    expect(outcome.parts[1]).toMatchObject({ outcome: 'written', engine: 'agy', unseen: true });
+    const stored = outcome.breakdown.parts.find((part) => part.id === 'thumbnails');
+    expect(stored).toMatchObject({ state: 'written', unseen: true, standInFor: null });
   });
 
   test('reads a video’s stored length, for the numbers worked out from a frame study', async () => {

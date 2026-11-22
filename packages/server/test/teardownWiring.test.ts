@@ -173,7 +173,7 @@ describe('askTeardown on the real engine', () => {
       new AbortController().signal,
     );
 
-  test("a picture stage skips engines that have not passed the picture check; a text stage takes the owner's order", async () => {
+  test('a picture stage goes to Antigravity as files by default, and past it once it failed the check', async () => {
     const picture = join(folder, 'k-001.jpg');
     writeFileSync(picture, Buffer.from([0xff, 0xd8]));
     const tried: Array<[EngineId, EngineRunRequest]> = [];
@@ -186,13 +186,31 @@ describe('askTeardown on the real engine', () => {
       pictures: [{ name: 'k-001.jpg', path: picture }],
     };
 
-    await expect(asking.askTeardown(ask)).resolves.toMatchObject({ engine: 'codex', text: '{}' });
+    await expect(asking.askTeardown(ask)).resolves.toMatchObject({ engine: 'agy', text: '{}' });
+    expect(tried[0]?.[1].files?.map((file) => file.name)).toEqual(['k-001.jpg']);
+    expect(tried[0]?.[1].prompt).toContain('@k-001.jpg');
     await expect(
       asking.askTeardown({ ...ask, stage: 'plan', pictures: [] }),
     ).resolves.toMatchObject({ engine: 'agy' });
-    await expect(asking.askTeardown(ask, 'agy')).rejects.toThrow(/picture check/);
-    expect(tried.map(([id]) => id)).toEqual(['codex', 'agy']);
+    writeFileSync(
+      join(folder, 'checks.json'),
+      JSON.stringify({
+        checks: [
+          { engine: 'agy', passed: false, answer: 'x', shown: ['red', 'blue'], checkedAt: 'now' },
+        ],
+      }),
+    );
+    const afterCheck = parts(['agy', 'codex', 'claude'], tried);
+    await expect(afterCheck.askTeardown(ask, 'agy')).resolves.toMatchObject({
+      engine: 'codex',
+      standInFor: {
+        engine: 'agy',
+        because: 'Antigravity CLI failed the picture check in Settings.',
+      },
+    });
+    expect(tried.map(([id]) => id)).toEqual(['agy', 'agy', 'codex']);
     asking.cleanUp();
+    afterCheck.cleanUp();
   });
 });
 

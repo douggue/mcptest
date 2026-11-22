@@ -55,7 +55,7 @@ import {
 } from '@jgtube/core';
 import { randomUUID } from 'node:crypto';
 import { analysisEngines, type AnalysisOptions } from './analysisEngine';
-import { idFiles, thumbnailFiles, type PictureFileSet } from './thumbnailFiles';
+import { pictureSource } from './pictureSource';
 import { answerEngine } from './answerEngine';
 import { conceptThumbEngine } from './conceptThumbEngine';
 import { styleLockEngine } from './styleLockEngine';
@@ -408,17 +408,6 @@ function discovery(wiring: Wiring, fillFacts: FillFacts): Discovery {
   };
 }
 
-/** A channel's thumbnails as files, chosen from its board and fetched from YouTube. */
-const boardFiles =
-  (maps: MapReads, fetchImage: FetchImage | undefined) =>
-  (channel: string, videoIds?: readonly string[]): Promise<PictureFileSet> => {
-    const fetch = (videoId: string) => fetchThumbnail(videoId, fetchImage);
-    if (videoIds !== undefined) return idFiles(videoIds, fetch);
-    const board = maps.findThumbnailBoard(channel);
-    if (!board) return Promise.reject(new Error('this channel has no map yet'));
-    return thumbnailFiles(board, fetch);
-  };
-
 /** Wires the API to the store and to YouTube. */
 export function createEngine(config: Config, options: EngineOptions = {}): RunningEngine {
   const wiring = wire(config, options);
@@ -443,7 +432,21 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       options: {
         ...options,
         downloadVideo: options.downloadVideo ?? copies.fetch,
-        pictureFiles: options.pictureFiles ?? boardFiles(maps, options.fetchImage),
+        pictureFiles:
+          options.pictureFiles ??
+          pictureSource({
+            board: (channel) => maps.findThumbnailBoard(channel),
+            fetchThumbnail: (videoId) => fetchThumbnail(videoId, options.fetchImage),
+            downloads: () => {
+              try {
+                return downloadsRoot(config);
+              } catch {
+                return null;
+              }
+            },
+            // The readers are made below; this runs only once an engine's turn comes.
+            readFrames: (videoId, sheets, from) => reading.readVideoFrames(videoId, sheets, from),
+          }),
       },
     },
     stop,

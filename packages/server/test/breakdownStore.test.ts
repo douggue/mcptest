@@ -64,6 +64,8 @@ describe('a stored breakdown as the page shows it', () => {
       engine: 'claude',
       writtenAt: T1.toISOString(),
       reason: null,
+      standInFor: null,
+      unseen: false,
     });
     expect(view.parts[3]).toMatchObject({
       body: '',
@@ -73,6 +75,21 @@ describe('a stored breakdown as the page shows it', () => {
       reason: 'Claude Code took too long.',
     });
     expect(view.parts[0]).toMatchObject({ body: '', writtenAt: null, reason: null });
+  });
+
+  test('says when another engine wrote a part in place of the chosen one, or it may not have seen the pictures', () => {
+    const caveat = {
+      standInFor: { engine: 'agy', because: 'Antigravity CLI hit its limit.' },
+      unseen: { shown: 8 },
+    };
+    const parts = [{ ...written('thumbnails', 'T', T1), caveat }];
+
+    const view = breakdownView(CHANNEL, parts, null);
+
+    expect(view.parts.find((part) => part.id === 'thumbnails')).toMatchObject({
+      standInFor: caveat.standInFor,
+      unseen: true,
+    });
   });
 
   test('says when its newest part was written, and nothing when none is', () => {

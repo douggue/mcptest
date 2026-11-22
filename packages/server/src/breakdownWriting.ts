@@ -12,6 +12,7 @@
 import {
   BREAKDOWN_BASIS_PART,
   BREAKDOWN_WRITTEN_PARTS,
+  type BreakdownCaveat,
   type BreakdownRepo,
   type BreakdownWrittenPart,
 } from '@jgtube/core';
@@ -40,6 +41,7 @@ export interface WritingDeps {
     channel: string,
     only: EngineId | undefined,
     focus: BreakdownFocus,
+    avoid?: EngineId,
   ): Promise<EngineAnswer<EngineId>>;
 }
 
@@ -68,6 +70,16 @@ function storeBasis(deps: WritingDeps, { channelId, basis }: WritingInput): bool
   return same;
 }
 
+/** What a reader should know about how an answer was written; undefined when nothing. */
+function caveatOf(answer: EngineAnswer<EngineId>): BreakdownCaveat | undefined {
+  const unseen = answer.seen !== undefined && answer.seen.shown > 0 && answer.seen.named === 0;
+  if (answer.standInFor === undefined && !unseen) return undefined;
+  return {
+    ...(answer.standInFor ? { standInFor: answer.standInFor } : {}),
+    ...(unseen && answer.seen ? { unseen: { shown: answer.seen.shown } } : {}),
+  };
+}
+
 /** Has an engine write one part and stores it, or stores why it could not be written. */
 async function writeOne(
   deps: WritingDeps,
@@ -78,9 +90,10 @@ async function writeOne(
   const started = deps.tick();
   const seconds = (): number => Math.round((deps.tick() - started) / SECOND_MS);
   try {
-    const answer = await deps.write(part, channelId, choices.only, focus);
+    const answer = await deps.write(part, channelId, choices.only, focus, choices.avoid);
+    const caveat = caveatOf(answer);
     deps.parts.saveWritten(
-      { channelId, part, engine: answer.engine, text: answer.text },
+      { channelId, part, engine: answer.engine, text: answer.text, ...(caveat ? { caveat } : {}) },
       deps.now(),
     );
     return {
@@ -89,6 +102,8 @@ async function writeOne(
       engine: answer.engine,
       skipped: answer.skipped,
       seconds: seconds(),
+      ...(caveat?.standInFor ? { standInFor: caveat.standInFor } : {}),
+      ...(caveat?.unseen ? { unseen: true } : {}),
     };
   } catch (error) {
     if (deps.stop.aborted) throw new Error(CLOSING, { cause: error });
@@ -96,6 +111,16 @@ async function writeOne(
     deps.parts.saveFailed({ channelId, part, reason }, deps.now());
     return { part, outcome: 'failed', reason, seconds: seconds() };
   }
+}
+
+/** A part not chosen to be written again: kept when it is written, else as it failed. */
+function leftAsItIs(
+  part: BreakdownWrittenPart,
+  stored: ReturnType<BreakdownRepo['find']>,
+): PartRun {
+  if (stored?.written === true) return { part, outcome: 'kept', engine: stored.engine, seconds: 0 };
+  const reason = stored?.written === false ? stored.reason : 'It has not been written yet.';
+  return { part, outcome: 'failed', reason, seconds: 0 };
 }
 
 /**
@@ -107,15 +132,21 @@ export async function writeParts(
   input: WritingInput,
 ): Promise<readonly PartRun[]> {
   const { channelId, choices } = input;
-  const unchanged = storeBasis(deps, input) && choices.fresh !== true;
+  // Writing chosen parts again leaves the basis as it was: it was not worked out afresh.
+  const chosen = choices.parts;
+  const unchanged = chosen === undefined ? storeBasis(deps, input) && choices.fresh !== true : true;
   let rewritten: readonly BreakdownWrittenPart[] = [];
   let runs: readonly PartRun[] = [];
   for (const part of BREAKDOWN_WRITTEN_PARTS) {
     if (deps.stop.aborted) throw new Error(CLOSING);
     const stored = deps.parts.find(channelId, part);
+    if (chosen !== undefined && !chosen.includes(part)) {
+      runs = [...runs, leftAsItIs(part, stored)];
+      continue;
+    }
     const builtOn = partsBuiltOn(part);
     const stale = builtOn.some((earlier) => rewritten.includes(earlier));
-    if (unchanged && stored?.written === true && !stale) {
+    if (chosen === undefined && unchanged && stored?.written === true && !stale) {
       runs = [...runs, { part, outcome: 'kept', engine: stored.engine, seconds: 0 }];
       continue;
     }

@@ -19,6 +19,7 @@ import {
   markerLines,
 } from '@jgtube/core';
 import { isVideoId } from './engines/videoId';
+import { filesLook, type PictureFileSet } from './pictureFiles';
 
 /** The videos a breakdown rests on, as ids chosen in code. */
 export interface BreakdownFocus {
@@ -86,6 +87,23 @@ const STUDIES =
 const MEASURED =
   'Call get_channel_measurements for the channel first: it holds numbers measured and counted in code across the top videos (winners) and ordinary ones, side by side, each with its method. Copy those numbers as they are, each with the method in a few words, as list items of the form “- what: winners X, ordinary Y (method)”. Never give a number it does not hold, and set winners beside ordinary only where both groups were measured; where it says a video was not measured or not heard, say so. Everything that is not a number from a tool is your reading: say what it rests on (the video, the time, a quoted line).';
 
+/** How the picture part is told to look at the strips and keyframes: by tool, or among its files. */
+const TOOL_PICTURES = {
+  strips:
+    'look at the frame strips listed under each video’s pictures with view_teardown_images (that video’s id, at most eight names a call, at most three calls, strips of different kinds and from different videos)',
+  keyframes: 'look at keyframes from several videos the same way',
+};
+const FILE_PICTURES = {
+  strips:
+    'look at the frame strips among the picture files you were given (each named with its video id and the strip name get_channel_measurements lists, such as <video id>-s-001.jpg; strips of different kinds and from different videos)',
+  keyframes:
+    'look at the keyframes among those files the same way (named such as <video id>-k-001.jpg)',
+};
+
+/** The picture part's style bible, looking at the strips and keyframes as the run can see them. */
+const pictureSections = (look: typeof TOOL_PICTURES): string =>
+  `This part is the channel’s STYLE BIBLE. Add these sections first. MEASURED STYLE: the shared palette (each hex value with its share), the pace (cuts a minute, median shot), the loudness target (integrated LUFS and range), the transitions a minute and their mix, the camera mix and the animations a minute, winners against ordinary, all from get_channel_measurements with their methods. MOTION AND TRANSITION VOCABULARY: ${look.strips}; name each animation or transition you see (text reveals, line draws, counters, slides, masks, wipes, zooms), with the video, its time, frames and measured duration from the tool, the easing you see and how to rebuild it (code-animated: which property changes over how many frames; or an AI video or editor technique). COMPONENT LIBRARY: ${look.keyframes}; name each recurring visual template with the videos and keyframe names that show it, and what to build it with. WINNERS AGAINST ORDINARY: only differences the measured numbers show.`;
+
 /** What each part adds from the measured layer, so it reaches the depth of a production teardown. */
 const MEASURED_SECTIONS = {
   titles:
@@ -94,8 +112,6 @@ const MEASURED_SECTIONS = {
     'Add these sections before IMPROVEMENTS FOR US. CHECKLIST COUNTED: every attribute get_channel_measurements counted under thumbnails, winners against ordinary; when no thumbnail was tagged, say that a thumbnail review has not run for them and count nothing yourself. LAYOUT ARCHETYPES: the two to five layouts the thumbnails use, each with the thumbnails that show it, its composition, text size and word count as seen. After the marked prompt: one detailed prompt for each archetype, each 120 to 250 words with [SUBJECT] and [OVERLAY TEXT], written as plain lines (no marker lines).',
   scripts:
     'Add these sections to WHAT THEY SHARE. MEASURED NUMBERS: words, words a minute, median sentence length, the pace of the first minute and the hammer lines (2 to 5 word sentences) that get_channel_measurements found, winners against ordinary. HOOK SECOND BY SECOND: for up to three winners, the first 30 to 60 seconds as list items “- m:ss–m:ss | what is said, quoted | what it does”. OPEN LOOPS AND CALLBACKS: each with the line quoted and the times it opens and closes. SCRIPT TEMPLATE: the shared structure as a numbered skeleton with each beat’s share of the length. SCRIPT PROMPT: a ready prompt to write a script for a new topic in this structure, with the slot [TOPIC] and the measured pace written in.',
-  picture:
-    'This part is the channel’s STYLE BIBLE. Add these sections first. MEASURED STYLE: the shared palette (each hex value with its share), the pace (cuts a minute, median shot), the loudness target (integrated LUFS and range), the transitions a minute and their mix, the camera mix and the animations a minute, winners against ordinary, all from get_channel_measurements with their methods. MOTION AND TRANSITION VOCABULARY: look at the frame strips listed under each video’s pictures with view_teardown_images (that video’s id, at most eight names a call, at most three calls, strips of different kinds and from different videos); name each animation or transition you see (text reveals, line draws, counters, slides, masks, wipes, zooms), with the video, its time, frames and measured duration from the tool, the easing you see and how to rebuild it (code-animated: which property changes over how many frames; or an AI video or editor technique). COMPONENT LIBRARY: look at keyframes from several videos the same way; name each recurring visual template with the videos and keyframe names that show it, and what to build it with. WINNERS AGAINST ORDINARY: only differences the measured numbers show.',
   strategy:
     'Tie every strength and weakness to a measured difference from get_channel_measurements (the number for winners and for ordinary videos, with its method) or to a quoted line from an earlier part. Add GAPS TO EXPLOIT and RISKS (what could make copying this style fail: rules, effort, sameness), each resting on the same kind of evidence.',
   plan: 'Add a PIPELINE section before THE PLAN, STEP BY STEP: one list item per layer (script, voice, motion graphics, AI pictures, AI video, stock or archival footage with its licence, music, sound effects, mix) with the kind of tool, the components to build (from the picture part’s component library), and the rules from the measurements: the loudness target (the measured median integrated LUFS), the pacing rules (cuts a minute, median shot, words a minute) and the motion recipes from the picture part. Give a time for a step only when a tool measured it; never make up a duration.',
@@ -176,15 +192,23 @@ const THUMBNAIL_SECTIONS = [
 ];
 
 /** Part 2: the thumbnails, what to improve, and a prompt to make one. */
-export function thumbnailsQuestion(channel: string, given: BreakdownFocus = NO_FOCUS): string {
+export function thumbnailsQuestion(
+  channel: string,
+  given: BreakdownFocus = NO_FOCUS,
+  files?: PictureFileSet,
+): string {
   const focus = checked(given);
+  const look =
+    files === undefined
+      ? 'Look at the thumbnails with view_thumbnails: the top videos in one call, the ordinary ones in another.'
+      : `Look at the thumbnails, the top videos and the ordinary ones. ${filesLook(files)} The video id of each is the part of its file name between "thumb-" and ".jpg".`;
   if (focus.top.length === 0) return `${opening(channel, 2, 'its thumbnails')} ${NO_VIDEOS}`;
   const { start, end } = markerLines('THUMBNAIL PROMPT');
   return [
     opening(channel, 2, 'its thumbnails'),
     chosen(focus),
     ordinaryLine(focus),
-    'Gather first. Call get_channel_brand to see the logo and the cover. Call get_channel_videos with limit 100 for the titles, views and scores of these videos. Look at the thumbnails with view_thumbnails: the top videos in one call, the ordinary ones in another.',
+    `Gather first. Call get_channel_brand to see the logo and the cover. Call get_channel_videos with limit 100 for the titles, views and scores of these videos. ${look}`,
     `Then write these sections in this order. ${THUMBNAIL_SECTIONS.join(' ')}`,
     `THUMBNAIL PROMPT: last, one text prompt the owner can paste into an image generator to make a thumbnail in this style with the improvements built in. Put it between these two lines, each on a line of its own, written exactly so and used nowhere else in your answer: ${start} and ${end}. The prompt describes the picture in plain words: the layout, the colours, the lighting, how the subject is framed, the style of the words and where they sit, in a 16:9 frame. It has two slots, written exactly as [SUBJECT] and [OVERLAY TEXT], and says in its own words how many words the overlay may hold at most (the most seen on the top thumbnails). It names no channel, no video title, no real person’s name or likeness, no logo and no trademark: where the thumbnails show a person, describe the kind of person and the expression, and where they show a flag or another mark of one country, write “a national flag” and name no country and none of its colours. After the closing line, add two lines on how to use it: fill the two slots, and add the words in an image editor instead when the generator spells them badly. Call it “the prompt” there; the owner is shown it on its own, without the two lines around it.`,
     'Describe only what you can see in the pictures you were shown.',
@@ -249,7 +273,11 @@ function styleLockRule(): string {
 }
 
 /** Part 4: what the videos show and, when one was watched, how they sound. */
-export function pictureQuestion(channel: string, given: BreakdownFocus = NO_FOCUS): string {
+export function pictureQuestion(
+  channel: string,
+  given: BreakdownFocus = NO_FOCUS,
+  files?: PictureFileSet,
+): string {
   const focus = checked(given);
   if (focus.deep.length === 0) {
     return `${opening(channel, 4, 'its picture and sound')} ${NO_VIDEOS}`;
@@ -258,12 +286,13 @@ export function pictureQuestion(channel: string, given: BreakdownFocus = NO_FOCU
     opening(channel, 4, 'its picture and sound'),
     chosen(focus),
     'Gather first. For each deep video call get_frame_study and get_video_watch. Call get_channel_videos with limit 100 for their titles.',
+    ...(files === undefined ? [] : [filesLook(files)]),
     STUDIES,
     `Then write these sections in this order. ${PICTURE_SECTIONS.join(' ')}`,
     styleLockRule(),
     'For a deep video with no frame study write NO FRAME STUDY and say what is unknown; do not fill it in from a thumbnail or a transcript.',
     MEASURED,
-    MEASURED_SECTIONS.picture,
+    pictureSections(files === undefined ? TOOL_PICTURES : FILE_PICTURES),
     RULES,
     'At most 1500 words, the style lock not counted.',
   ].join(' ');

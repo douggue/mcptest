@@ -28,7 +28,7 @@ interface Channel {
 /** One part as the page shows it: its text without the marked prompt, and the prompt on its own. */
 function partView(id: BreakdownPartId, stored: StoredBreakdownPart | undefined): BreakdownPartView {
   const head = { id, title: BREAKDOWN_PART_TITLES[id] };
-  const none = { body: '', prompt: null, engine: null };
+  const none = { body: '', prompt: null, engine: null, standInFor: null, unseen: false };
   if (stored === undefined) {
     return { ...head, ...none, state: 'missing', writtenAt: null, reason: null };
   }
@@ -48,6 +48,8 @@ function partView(id: BreakdownPartId, stored: StoredBreakdownPart | undefined):
     engine: stored.engine,
     writtenAt,
     reason: null,
+    standInFor: stored.caveat?.standInFor ?? null,
+    unseen: stored.caveat?.unseen !== undefined,
   };
 }
 

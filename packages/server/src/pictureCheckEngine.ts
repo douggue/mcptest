@@ -3,7 +3,7 @@
  * random colours in, the colour names out, checked in code. See
  * `pictureCheck.ts` for why it hands files and how likely a guess is to pass.
  */
-import { PICTURE_ENGINES } from './analyses';
+import { TOOL_PICTURE_ENGINES } from './analyses';
 import { EngineRunError } from './engines/failure';
 import type { EngineId, EngineRunRequest, EngineRunResult } from './engines/types';
 import { checkPictureAnswer, pickColours, pictureCheckRequest } from './pictureCheck';
@@ -33,7 +33,7 @@ export async function runPictureCheck(
   engine: EngineId,
   deps: PictureCheckDeps,
 ): Promise<PictureCheckRecord> {
-  if (PICTURE_ENGINES.includes(engine)) {
+  if (TOOL_PICTURE_ENGINES.includes(engine)) {
     throw new EngineRunError('failed', 'This engine is already known to see pictures.');
   }
   if (!deps.order().includes(engine)) {

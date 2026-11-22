@@ -45,16 +45,16 @@ describe('the tagging question', () => {
     expect(request.allowedTools).toEqual([]);
     expect(request.mcpServers).toEqual({});
     expect(
-      ANALYSES['thumbnail-tags'].filesRoute?.pictureIds?.({ kind: 'thumb-tags', videoIds: [A] }),
-    ).toEqual([A]);
+      ANALYSES['thumbnail-tags'].filesRoute?.pictures?.({ kind: 'thumb-tags', videoIds: [A] }),
+    ).toEqual({ kind: 'thumbnails', groups: [{ label: 'the thumbnails', videoIds: [A] }] });
     expect(tagFilesQuestion(CENTER, files, { kind: 'thumb-tags', videoIds: [A] })).not.toContain(
       'view_thumbnails',
     );
   });
 
   test('goes only to engines that see pictures', () => {
-    expect(enginesFor('thumbnail-tags', ['agy', 'claude'])).toEqual(['claude']);
-    expect(enginesFor('thumbnail-tags', ['agy', 'claude'], ['agy'])).toEqual(['agy', 'claude']);
+    expect(enginesFor('thumbnail-tags', ['agy', 'claude'])).toEqual(['agy', 'claude']);
+    expect(enginesFor('thumbnail-tags', ['agy', 'claude'], ['agy'])).toEqual(['claude']);
     expect(enginesFor('thumbnail-advice', ['agy'])).toEqual(['agy']);
   });
 

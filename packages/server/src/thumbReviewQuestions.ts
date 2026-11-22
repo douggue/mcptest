@@ -126,7 +126,12 @@ export function thumbReviewAnalyses(tool: (name: string) => string) {
     pictures: true,
     filesRoute: {
       tools: [],
-      pictureIds: (focus) => tagFocusOf(focus).videoIds,
+      pictures: (focus) => ({
+        kind: 'thumbnails',
+        groups: [{ label: 'the thumbnails', videoIds: tagFocusOf(focus).videoIds }],
+      }),
+      // A JSON answer: it names the thumbnails by id, so no line of files opened is asked for.
+      json: true,
       question: (channel, files, focus) => tagFilesQuestion(channel, files, tagFocusOf(focus)),
     },
     question: (channel, focus) => tagQuestion(channel, tagFocusOf(focus)),

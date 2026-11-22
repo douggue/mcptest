@@ -256,7 +256,8 @@ describe('opening a store made by an earlier version', () => {
        ALTER TABLE channels DROP COLUMN banner_json;
        ALTER TABLE channels DROP COLUMN keywords_json;
        ALTER TABLE channels DROP COLUMN links_json;
-       ALTER TABLE channels DROP COLUMN brand_fetched_at;`,
+       ALTER TABLE channels DROP COLUMN brand_fetched_at;
+       ALTER TABLE breakdown_parts DROP COLUMN caveat_json;`,
     );
     first.close();
 

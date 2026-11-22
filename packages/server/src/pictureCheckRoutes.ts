@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PICTURE_ENGINES } from './analyses';
+import { TOOL_PICTURE_ENGINES } from './analyses';
 import { STATUS, type AnalysisTracker } from './analysisRoutes';
 import type { AppOptions } from './app';
 import { EngineRunError } from './engines/failure';
@@ -28,7 +28,7 @@ export async function runPictureCheckRoute(
   const parsed = checkRequest.safeParse(body);
   if (!parsed.success) return fail(400, `Name an engine (${ENGINE_IDS.join(', ')})`);
   const { engine } = parsed.data;
-  if (PICTURE_ENGINES.includes(engine)) {
+  if (TOOL_PICTURE_ENGINES.includes(engine)) {
     return fail(400, 'That engine is already known to see pictures; it needs no check.');
   }
   if (tracker.running) return fail(409, 'An AI is already working. Wait for it to finish.');

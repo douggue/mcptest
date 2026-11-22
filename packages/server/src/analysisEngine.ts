@@ -2,33 +2,19 @@
  * The part of the engine that asks an AI: the fixed analyses, watching a
  * video, and what is known about the AI engines on this computer.
  */
-import { downloadsRoot, type Config } from '@jgtube/core';
+import type { Config } from '@jgtube/core';
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  ANALYSES,
-  FRAME_STUDY_TITLE,
-  PICTURE_ENGINES,
-  SERVER_NAME,
-  VIDEO_SYSTEM_PROMPT,
-  analysisRequest,
-  enginesFor,
-  frameStudyRequest,
-  pictureEngines,
-  picturesNeeded,
-  seesFiles,
-  type AnalysisSettings,
-} from './analyses';
+import { asker } from './analysisAsker';
+import { SERVER_NAME, VIDEO_SYSTEM_PROMPT } from './analyses';
 import { runPictureCheck } from './pictureCheckEngine';
 import { pictureChecks, pictureChecksPath, type PictureChecks } from './pictureChecks';
-import type { PictureFileSet } from './thumbnailFiles';
-import { EngineRunError } from './engines/failure';
-import { cleanMessage } from './jobs';
+import type { PictureFileSet, PictureNeed } from './pictureFiles';
 import type { Engine } from './app';
 import { checkEngines, createEngines, type Engines } from './engines/catalog';
-import { firstAnswer, type EngineAnswer } from './engines/fallback';
+import type { EngineAnswer } from './engines/fallback';
 import type { GeminiFetch } from './engines/geminiVideo';
 import { spawnProcess } from './engines/process';
 import { DEFAULT_ENGINE_SETTINGS, type EngineSettings } from './engines/settings';
@@ -44,8 +30,7 @@ import { watchVideo, type DownloadVideo } from './engines/videoWatch';
 import { runClaudeWeb, type WebRunRequest } from './engines/webRun';
 import { inPrivateFolder } from './webRunner';
 import type { WorkTracker } from './running';
-import { STAGE_TITLES } from './teardownQuestions';
-import { looksAtPictures, teardownRequest, type TeardownAsk } from './teardownRequests';
+import type { TeardownAsk } from './teardownRequests';
 
 const IN_MEMORY = ':memory:';
 /** The Jgtube folder: the connector the engines are given lives under it. */
@@ -90,13 +75,11 @@ export interface AnalysisOptions {
   /** Replaces the request to Google; used by tests. */
   readonly geminiFetch?: GeminiFetch;
   /**
-   * A channel's thumbnails as files, for an engine shown pictures that way.
-   * Without it, such an engine is passed over for picture questions.
+   * The pictures a question needs as files, for an engine shown pictures that
+   * way: thumbnails, a teardown's strips and keyframes, or a video's frame
+   * sheets. Without it, such an engine is passed over for picture questions.
    */
-  readonly pictureFiles?: (
-    channel: string,
-    videoIds?: readonly string[],
-  ) => Promise<PictureFileSet>;
+  readonly pictureFiles?: (channel: string, need: PictureNeed) => Promise<PictureFileSet>;
   /** Where the picture checks are kept; defaults to a file beside the store, none for one in memory. */
   readonly pictureChecksPath?: string | null;
   /** Replaces Math.random for the picture check's colours; used by tests. */
@@ -205,40 +188,6 @@ function remembered<T>(load: () => Promise<T>, freshMs: number): (fresh?: boolea
   };
 }
 
-/** What is being asked, as far as the message for "nobody could" needs it. */
-interface Asked {
-  readonly title: string;
-  /** The engines that may answer it, when it cannot be left to every engine. */
-  readonly engines?: readonly EngineId[] | null;
-  /** Whether an engine that passed the picture check could answer it. */
-  readonly checkable?: boolean;
-}
-
-/** What to say when no engine could answer; `only` is the one engine the owner chose, if any. */
-function nobodyFor(
-  asked: Asked,
-  order: readonly EngineId[],
-  engines: Engines,
-  only?: EngineId,
-): string {
-  const chosen = only === undefined ? null : engines[only].label;
-  if (order.length > 0) {
-    return chosen === null
-      ? 'None of the AI engines on this computer could answer.'
-      : `${chosen} could not answer. Choose another AI, or Automatic, and try again.`;
-  }
-  const { title, engines: needed, checkable = false } = asked;
-  const names = (needed ?? []).map((id) => engines[id].label).join(' or ');
-  if (chosen !== null && only !== undefined && needed && !needed.includes(only)) {
-    const check = checkable
-      ? ` ${chosen} has not passed the picture check yet: run it in Settings.`
-      : '';
-    return `${title} cannot be done by ${chosen}: it needs ${names}.${check} Choose one of those, or Automatic.`;
-  }
-  if (chosen !== null) return `${chosen} is left out by the JGTUBE_ENGINES setting.`;
-  return `${title} needs ${names}, and the JGTUBE_ENGINES setting leaves that out.`;
-}
-
 /** What the analyses and video watching are both built from. */
 interface Shared {
   readonly settings: EngineSettings;
@@ -251,17 +200,6 @@ interface Shared {
   readonly checks: PictureChecks;
 }
 
-/** The store as a file an engine's connector can open. Throws when it is only in memory. */
-function storeFile({ config, options }: AnalysisWiring): string {
-  if (options.storePath !== undefined) return options.storePath;
-  if (config.dbPath === IN_MEMORY) {
-    throw new Error(
-      'An AI engine needs the store to be a file on disk, and this one is only in memory',
-    );
-  }
-  return resolve(config.dbPath);
-}
-
 /** Where the picture checks are kept: beside the store on disk, nowhere for one in memory. */
 function checksPathOf({ config, options }: AnalysisWiring): string | null {
   if (options.pictureChecksPath !== undefined) return options.pictureChecksPath;
@@ -270,127 +208,23 @@ function checksPathOf({ config, options }: AnalysisWiring): string | null {
   return pictureChecksPath(store);
 }
 
-/** The downloads folder, for the connector to look in; none for a store that is only in memory. */
-function downloadsPathOf(config: Config): string | undefined {
-  try {
-    return downloadsRoot(config);
-  } catch {
-    return undefined;
-  }
-}
-
-/** The fixed analyses and the frame study, each put to the engines in order until one answers. */
-function asker(
-  shared: Shared,
-  wiring: AnalysisWiring,
-  stop: AbortSignal,
-): Pick<AnalysisParts, 'analyse' | 'studyFrames' | 'checkPictures' | 'askTeardown'> {
-  const { settings, engines, deps, folders, checks } = shared;
+/** The analyses, the frame study, the teardown stages and the picture check. */
+function askers(shared: Shared, wiring: AnalysisWiring, stop: AbortSignal) {
+  const asking = asker(shared, { ...wiring, projectRoot: PROJECT_ROOT }, stop);
   const run =
     wiring.options.runEngine ??
-    ((id: EngineId, request: EngineRunRequest) => engines[id].run(request, deps));
-  // The owner's choice of one engine means that engine and no backup.
-  const allowedBy = (only?: EngineId): readonly EngineId[] =>
-    only === undefined ? settings.order : settings.order.filter((id) => id === only);
-  /** Where an engine's connector finds the store; throws when the store is only in memory. */
-  const settingsFor = (): ((engine: EngineId) => AnalysisSettings) => {
-    const dbPath = storeFile(wiring);
-    const downloadsPath = downloadsPathOf(wiring.config);
-    return (engine) => ({
-      projectRoot: PROJECT_ROOT,
-      dbPath,
-      workDir: folders.for(engine),
-      downloadsPath,
-    });
-  };
-  const ask = (
-    order: readonly EngineId[],
-    requestFor: (engine: EngineId) => EngineRunRequest | Promise<EngineRunRequest>,
-    nobody: string,
-  ): Promise<EngineAnswer<EngineId>> =>
-    firstAnswer(
-      order.map((id) => ({ engine: id, run: async () => run(id, await requestFor(id), stop) })),
-      nobody,
-      () => stop.aborted,
-    );
-  /** The thumbnails as files, fetched only when such an engine's turn comes. */
-  const filesFor = async (
-    channel: string,
-    videoIds: readonly string[] | undefined,
-  ): Promise<PictureFileSet> => {
-    const fetch = wiring.options.pictureFiles;
-    if (!fetch) throw new EngineRunError('failed', 'Jgtube cannot hand this engine pictures here.');
-    try {
-      return await fetch(channel, videoIds);
-    } catch (error) {
-      throw new EngineRunError(
-        'failed',
-        `The thumbnails could not be made into files: ${cleanMessage(error)}`,
-      );
-    }
-  };
+    ((id: EngineId, request: EngineRunRequest) => shared.engines[id].run(request, shared.deps));
   return {
-    async analyse(analysis, channel, only, focus) {
-      const at = settingsFor();
-      const passed = checks.passed();
-      const order = enginesFor(analysis, allowedBy(only), passed);
-      const spec = ANALYSES[analysis];
-      const asked = {
-        title: spec.title,
-        engines: picturesNeeded(analysis, passed),
-        checkable: spec.filesRoute !== undefined,
-      };
-      return ask(
-        order,
-        async (engine) =>
-          spec.pictures && seesFiles(engine)
-            ? analysisRequest(
-                analysis,
-                channel,
-                at(engine),
-                focus,
-                await filesFor(channel, spec.filesRoute?.pictureIds?.(focus)),
-              )
-            : analysisRequest(analysis, channel, at(engine), focus),
-        nobodyFor(asked, order, engines, only),
-      );
-    },
-    checkPictures: (engine) =>
+    ...asking,
+    checkPictures: (engine: EngineId) =>
       runPictureCheck(engine, {
         run: (id, request) => run(id, request, stop),
-        workDir: (id) => folders.for(id),
-        checks,
-        order: () => settings.order,
+        workDir: (id) => shared.folders.for(id),
+        checks: shared.checks,
+        order: () => shared.settings.order,
         now: () => new Date(),
         random: wiring.options.random,
       }),
-    async askTeardown(teardown, only) {
-      const at = settingsFor();
-      const seeing = pictureEngines(checks.passed());
-      const order = looksAtPictures(teardown)
-        ? allowedBy(only).filter((id) => seeing.includes(id))
-        : allowedBy(only);
-      const title = `The teardown's ${STAGE_TITLES[teardown.stage]}`;
-      return ask(
-        order,
-        (engine) => teardownRequest(teardown, engine, at(engine)),
-        nobodyFor(
-          { title, engines: looksAtPictures(teardown) ? seeing : null, checkable: true },
-          order,
-          engines,
-          only,
-        ),
-      );
-    },
-    async studyFrames(videoId, only) {
-      const at = settingsFor();
-      const order = allowedBy(only).filter((id) => PICTURE_ENGINES.includes(id));
-      return ask(
-        order,
-        (engine) => frameStudyRequest(videoId, at(engine)),
-        nobodyFor({ title: FRAME_STUDY_TITLE, engines: PICTURE_ENGINES }, order, engines, only),
-      );
-    },
   };
 }
 
@@ -429,11 +263,11 @@ export function analysisEngines(wiring: AnalysisWiring, stop: AbortSignal): Anal
   );
   const checks = pictureChecks(checksPathOf(wiring));
   const shared: Shared = { settings, engines, deps, folders: privateFolders(), statuses, checks };
-  const asking = asker(shared, wiring, stop);
+  const asking = askers(shared, wiring, stop);
   const watch = watcher(shared, options);
   return {
-    analyse: (analysis, channel, only, focus) =>
-      work.run(() => asking.analyse(analysis, channel, only, focus)),
+    analyse: (analysis, channel, only, focus, avoid) =>
+      work.run(() => asking.analyse(analysis, channel, only, focus, avoid)),
     studyFrames: (videoId, only) => work.run(() => asking.studyFrames(videoId, only)),
     askTeardown: (teardown, only) => work.run(() => asking.askTeardown(teardown, only)),
     checkPictures: (engine) => work.run(() => asking.checkPictures(engine)),

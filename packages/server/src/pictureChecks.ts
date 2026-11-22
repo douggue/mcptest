@@ -2,8 +2,8 @@
  * The last picture check of each engine, kept in a small file beside the
  * store (what the engines are like on this computer, as the engine status
  * is, not research). A file that is missing, unreadable or holds anything
- * else counts as no check run, which leaves the picture questions to the
- * engines known to see pictures.
+ * else counts as no check run, which changes nothing: only a failed check
+ * keeps an engine from the picture questions.
  */
 import { randomUUID } from 'node:crypto';
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
@@ -33,6 +33,8 @@ export interface PictureChecks {
   all(): readonly PictureCheckRecord[];
   /** The engines whose last check passed. */
   passed(): readonly EngineId[];
+  /** The engines whose last check failed: the only ones kept from the picture questions. */
+  failed(): readonly EngineId[];
   /** Keeps a result, replacing the engine's earlier one. */
   record(result: PictureCheckRecord): void;
 }
@@ -63,6 +65,7 @@ export function pictureChecks(path: string | null): PictureChecks {
   return {
     all: () => kept,
     passed: () => kept.filter((check) => check.passed).map((check) => check.engine),
+    failed: () => kept.filter((check) => !check.passed).map((check) => check.engine),
     record(result) {
       const next = [...kept.filter((check) => check.engine !== result.engine), result];
       if (path !== null) writeChecks(path, next);

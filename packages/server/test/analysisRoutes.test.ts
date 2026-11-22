@@ -36,6 +36,25 @@ function appWith(analyse: Analyse, more: Partial<Engine> = {}) {
 }
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+const PICTURE_SET = {
+  files: [{ name: 'thumb-aaaaaaaaaaa.jpg', bytes: new Uint8Array([0xff, 0xd8]) }],
+  listing: 'your own: @thumb-aaaaaaaaaaa.jpg',
+};
+
+/** A picture checks file in which Antigravity's last check failed. */
+function failedCheckFile(): string {
+  const path = join(mkdtempSync(join(tmpdir(), 'jgtube-checks-')), 'checks.json');
+  const check = {
+    engine: 'agy',
+    passed: false,
+    answer: 'green, blue',
+    shown: ['red', 'yellow'],
+    checkedAt: '2026-11-01T00:00:00.000Z',
+  };
+  writeFileSync(path, JSON.stringify({ checks: [check] }));
+  return path;
+}
+
 const engineWith = (options: EngineOptions) =>
   createEngine({ dbPath: ':memory:', region: 'US' }, { storePath: '/data/jgtube.db', ...options });
 
@@ -314,11 +333,12 @@ describe('the engine’s analyse', () => {
     engine.close();
   });
 
-  test('gives the thumbnail review only to engines known to see the pictures', async () => {
-    const tried: EngineId[] = [];
+  test('gives the thumbnail review to every engine that sees pictures, Antigravity as files', async () => {
+    const asked: { id: EngineId; request: EngineRunRequest }[] = [];
     const engine = engineWith({
-      runEngine: async (id) => {
-        tried.push(id);
+      pictureFiles: async () => PICTURE_SET,
+      runEngine: async (id, request) => {
+        asked.push({ id, request });
         throw new EngineRunError('not-installed', `${id} is not installed.`);
       },
     });
@@ -326,20 +346,44 @@ describe('the engine’s analyse', () => {
     await expect(engine.analyse('thumbnails', CHANNEL_ID)).rejects.toMatchObject({
       reason: 'not-installed',
     });
-    expect(tried).toEqual(['claude', 'codex']);
+    expect(asked.map((entry) => entry.id)).toEqual(['claude', 'agy', 'codex']);
+    const agy = asked.find((entry) => entry.id === 'agy')?.request;
+    expect(agy?.files).toEqual(PICTURE_SET.files);
+    expect(agy?.prompt).toContain('@thumb-aaaaaaaaaaa.jpg');
+    expect(agy?.allowedTools).not.toContain('mcp__jgtube__view_thumbnails');
     engine.close();
   });
 
-  test('says which setting is in the way when it leaves out every engine an analysis needs', async () => {
+  test('says how many of the pictures handed over as files the answer names', async () => {
+    const answers: Record<string, string> = {
+      named: 'PICTURES OPENED: 1, thumb-aaaaaaaaaaa.jpg\nWINNING STYLES',
+      none: 'WINNING STYLES\n- Bold red words.',
+    };
+    for (const [kind, text] of Object.entries(answers)) {
+      const engine = engineWith({
+        engines: { order: ['agy'], agyYouTubeLinks: false },
+        pictureFiles: async () => PICTURE_SET,
+        runEngine: async () => ({ text, turns: 3 }),
+      });
+
+      const answer = await engine.analyse('thumbnails', CHANNEL_ID);
+
+      expect(answer.engine).toBe('agy');
+      expect(answer.seen).toEqual({ shown: 1, named: kind === 'named' ? 1 : 0 });
+      engine.close();
+    }
+  });
+
+  test('says why when no engine that sees pictures is left for a picture question', async () => {
     const engine = engineWith({
       engines: { order: ['agy'], agyYouTubeLinks: false },
+      pictureChecksPath: failedCheckFile(),
       runEngine: async () => ({ text: 'never', turns: null }),
     });
 
     await expect(engine.analyse('thumbnails', CHANNEL_ID)).rejects.toMatchObject({
-      reason: 'not-installed',
       message:
-        'Thumbnail review needs Claude Code or Codex CLI, and the JGTUBE_ENGINES setting leaves that out.',
+        'Thumbnail review needs an AI that sees pictures (Claude Code, Codex or Antigravity), and none is available here.',
     });
     engine.close();
   });
@@ -581,20 +625,74 @@ describe('an analysis from the one engine the owner chose', () => {
     engine.close();
   });
 
-  test('says which engines can do an analysis the chosen one cannot', async () => {
+  test('lets Antigravity, when chosen, write a picture question from files', async () => {
     const tried: EngineId[] = [];
     const engine = engineWith({
+      pictureFiles: async () => PICTURE_SET,
       runEngine: async (id) => {
         tried.push(id);
-        return { text: 'never', turns: 1 };
+        return { text: 'PICTURES OPENED: 1, thumb-aaaaaaaaaaa.jpg', turns: 1 };
       },
     });
 
-    await expect(engine.analyse('thumbnails', CHANNEL_ID, 'agy')).rejects.toMatchObject({
-      message:
-        'Thumbnail review cannot be done by Antigravity CLI: it needs Claude Code or Codex CLI. Antigravity CLI has not passed the picture check yet: run it in Settings. Choose one of those, or Automatic.',
+    const answer = await engine.analyse('thumbnails', CHANNEL_ID, 'agy');
+
+    expect(tried).toEqual(['agy']);
+    expect(answer.standInFor).toBeUndefined();
+    engine.close();
+  });
+
+  test('has the next engine that sees pictures write it when the chosen one failed the check', async () => {
+    const tried: EngineId[] = [];
+    const engine = engineWith({
+      pictureChecksPath: failedCheckFile(),
+      runEngine: async (id) => {
+        tried.push(id);
+        return { text: 'From Claude Code.', turns: 1 };
+      },
     });
-    expect(tried).toEqual([]);
+
+    const answer = await engine.analyse('thumbnails', CHANNEL_ID, 'agy');
+
+    expect(tried).toEqual(['claude']);
+    expect(answer.engine).toBe('claude');
+    expect(answer.standInFor).toEqual({
+      engine: 'agy',
+      because: 'Antigravity CLI failed the picture check in Settings.',
+    });
+    engine.close();
+  });
+
+  test('has the next engine write a picture question when the chosen one fails its run', async () => {
+    const engine = engineWith({
+      pictureFiles: async () => PICTURE_SET,
+      runEngine: async (id) => {
+        if (id === 'agy') throw new EngineRunError('limit', 'Antigravity hit its limit.');
+        return { text: 'From Codex.', turns: 1 };
+      },
+      engines: { order: ['agy', 'codex'], agyYouTubeLinks: false },
+    });
+
+    const answer = await engine.analyse('thumbnails', CHANNEL_ID, 'agy');
+
+    expect(answer.engine).toBe('codex');
+    expect(answer.standInFor).toEqual({ engine: 'agy', because: 'Antigravity hit its limit.' });
+    engine.close();
+  });
+
+  test('leaves out the engine asked to be avoided', async () => {
+    const tried: EngineId[] = [];
+    const engine = engineWith({
+      pictureFiles: async () => PICTURE_SET,
+      runEngine: async (id) => {
+        tried.push(id);
+        return { text: 'ok', turns: 1 };
+      },
+    });
+
+    await engine.analyse('thumbnails', CHANNEL_ID, undefined, undefined, 'claude');
+
+    expect(tried).toEqual(['agy']);
     engine.close();
   });
 

@@ -557,6 +557,10 @@ CREATE TABLE IF NOT EXISTS video_teardown_parts (
   PRIMARY KEY (video_id, part)
 );
 `,
+  // 30: what a reader of a written breakdown part should know about how it was written, as
+  //     JSON: another engine wrote it because the one the owner chose could not, or it was
+  //     written from pictures handed over as files and names none of them. Empty for most.
+  `ALTER TABLE breakdown_parts ADD COLUMN caveat_json TEXT;`,
 ];
 
 /** The number of the newest step: what `user_version` reads in a store that is up to date. */

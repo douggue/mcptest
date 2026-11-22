@@ -257,10 +257,13 @@ describe('the picture check, wired to the engines', () => {
     answer = 'green, green';
     await engine.checkPictures('agy');
 
-    await expect(engine.analyse('thumbnails', CHANNEL_ID, 'agy')).rejects.toThrow(
-      /has not passed the picture check/,
-    );
-    expect(tried).toEqual([]);
+    const written = await engine.analyse('thumbnails', CHANNEL_ID, 'agy');
+
+    expect(tried).toEqual(['claude']);
+    expect(written.standInFor).toEqual({
+      engine: 'agy',
+      because: 'Antigravity CLI failed the picture check in Settings.',
+    });
     engine.close();
   });
 
