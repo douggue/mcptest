@@ -259,6 +259,18 @@ describe('watchVideo', () => {
     expect(started[0]?.args[1]).toContain(`https://www.youtube.com/watch?v=${VIDEO_ID}`);
   });
 
+  test('never hands an engine a link for a file the owner gave', async () => {
+    const { started, context } = setup({
+      settings: { agyYouTubeLinks: true, ...withKey },
+      download: async () => ({ ok: false, reason: 'the file is gone' }),
+    });
+
+    await expect(watchVideo(video, { ...context, fileOnly: true })).rejects.toMatchObject({
+      message: expect.stringMatching(/watches YouTube links, and this video is a file/),
+    });
+    expect(started).toEqual([]);
+  });
+
   test('refuses something that is not a video id before anything is downloaded', async () => {
     const { asked, download } = downloader();
     const { context } = setup({ download });

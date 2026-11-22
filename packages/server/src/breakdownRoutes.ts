@@ -104,19 +104,20 @@ function refusalOf(options: AppOptions, request: Request, videoId: string): Resp
   return announced > maxBytesOf(options) ? tooLarge(options) : null;
 }
 
-const maxBytesOf = (options: AppOptions): number => options.maxUploadBytes ?? MAX_OWN_VIDEO_BYTES;
+export const maxBytesOf = (options: AppOptions): number =>
+  options.maxUploadBytes ?? MAX_OWN_VIDEO_BYTES;
 
-const tooLarge = (options: AppOptions): Response =>
+export const tooLarge = (options: AppOptions): Response =>
   fail(
     413,
     `That file is larger than the ${Math.round(maxBytesOf(options) / BYTES_PER_MB)} MB a video file may be.`,
   );
 
 /** Thrown inside the write loop when the body passes the cap, so the loop's tidying still runs. */
-class OverTheCap extends Error {}
+export class OverTheCap extends Error {}
 
 /** Writes the body to a new file, stopping as soon as it passes the cap. Returns the bytes written. */
-async function writeBody(
+export async function writeBody(
   body: ReadableStream<Uint8Array>,
   path: string,
   maxBytes: number,

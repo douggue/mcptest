@@ -10,11 +10,7 @@
  */
 import { FINDING_MAX_QUOTES, FINDING_MIN_QUOTES } from '@jgtube/core';
 import type { AnalysisSpec } from './analyses';
-import {
-  ONE_VIDEO_ANALYSIS_IDS,
-  oneVideoAnalyses,
-  type OneVideoFocus,
-} from './oneVideoQuestions';
+import { ONE_VIDEO_ANALYSIS_IDS, oneVideoAnalyses, type OneVideoFocus } from './oneVideoQuestions';
 import { thumbReviewAnalyses, type ThumbReviewFocus } from './thumbReviewQuestions';
 
 export const EXTRA_ANALYSIS_IDS = [

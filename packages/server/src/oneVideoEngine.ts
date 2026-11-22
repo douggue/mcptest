@@ -28,7 +28,11 @@ import type { EngineAnswer } from './engines/fallback';
 import type { EngineId } from './engines/types';
 import type { DownloadVideo } from './engines/videoWatch';
 import { cleanMessage } from './jobs';
-import { DEEP_WATCH_QUESTION, type OneVideoAnalysisId, type OneVideoFocus } from './oneVideoQuestions';
+import {
+  DEEP_WATCH_QUESTION,
+  type OneVideoAnalysisId,
+  type OneVideoFocus,
+} from './oneVideoQuestions';
 import type {
   OneVideoChoices,
   OneVideoProgress,
@@ -173,7 +177,10 @@ async function watchIt(
         if (step.kind === 'watching') say('watching', `${nameOf(step.engine)} is watching it`);
       },
     });
-    deps.studies.save({ videoId, kind: 'watch', engine: answer.engine, text: answer.text }, deps.now());
+    deps.studies.save(
+      { videoId, kind: 'watch', engine: answer.engine, text: answer.text },
+      deps.now(),
+    );
     return { by: answer.engine, note: null };
   } catch (error) {
     stopIfClosing(deps);
@@ -216,7 +223,10 @@ async function studyIt(
     if (frames === null) return { by: null, note: NO_FRAMES, frames: null };
     say('frames', `An AI is going through its ${frames.available} frames`);
     const answer = await deps.studyFrames(videoId, choices.only);
-    deps.studies.save({ videoId, kind: 'frames', engine: answer.engine, text: answer.text, frames }, deps.now());
+    deps.studies.save(
+      { videoId, kind: 'frames', engine: answer.engine, text: answer.text, frames },
+      deps.now(),
+    );
     return { by: answer.engine, note: null, frames };
   } catch (error) {
     stopIfClosing(deps);
@@ -291,14 +301,23 @@ export async function breakDownVideo(
   choices: OneVideoChoices = {},
 ): Promise<VideoBreakdownView> {
   const say: Say = (step, text) => report({ step, text });
-  say('reading', target.kind === 'file' ? 'Opening the file you gave' : 'Reading the video and its captions');
+  say(
+    'reading',
+    target.kind === 'file' ? 'Opening the file you gave' : 'Reading the video and its captions',
+  );
   const { about, seen } = await study(deps, target, choices, say);
   stopIfClosing(deps);
   if (seen.watchedBy === null && seen.framesBy === null && seen.captions !== 'read') {
     throw new Error(NOTHING_TO_GO_ON);
   }
   const title = about.title ?? `YouTube video ${target.videoId}`;
-  const kept = { videoId: target.videoId, source: target.kind, title, channelId: about.channelId, seen };
+  const kept = {
+    videoId: target.videoId,
+    source: target.kind,
+    title,
+    channelId: about.channelId,
+    seen,
+  };
   say('writing', `Writing the breakdown of “${shown(title)}”`);
   const focus: OneVideoFocus = {
     kind: 'one-video',

@@ -45,7 +45,24 @@ const FOCUS: Partial<Record<AnalysisId, QuestionFocus>> = {
   'risk-check': { kind: 'risk', conceptId: 1 },
   'thumbnail-tags': { kind: 'thumb-tags', videoIds: ['aaaaaaaaaaa'] },
   'thumbnail-advice': { kind: 'thumb-advice', videoId: 'aaaaaaaaaaa' },
+  'one-video': {
+    kind: 'one-video',
+    videoId: 'aaaaaaaaaaa',
+    watched: true,
+    frames: true,
+    captions: true,
+  },
+  'one-video-file': {
+    kind: 'one-video',
+    videoId: 'aaaaaaaaaaa',
+    watched: false,
+    frames: true,
+    captions: false,
+  },
 };
+/** The questions about one video name no channel. */
+const CHANNEL_FREE: readonly AnalysisId[] = ['one-video', 'one-video-file'];
+const NAMES_A_CHANNEL = ANALYSIS_IDS.filter((id) => !CHANNEL_FREE.includes(id));
 /** Tools that change stored choices or reach the network for minutes; an analysis only reads. */
 const NOT_FOR_ANALYSIS = ['set_competitor_status', 'make_map'];
 
@@ -76,6 +93,8 @@ describe('the analyses on offer', () => {
       'risk-check',
       'thumbnail-tags',
       'thumbnail-advice',
+      'one-video',
+      'one-video-file',
     ]);
     // The parts of a breakdown are steps of a longer job, so they are not among the one-press ones.
     expect(QUICK_ANALYSIS_IDS).toEqual(['thumbnails', 'topics', 'near-misses']);
@@ -135,7 +154,13 @@ describe('the analyses on offer', () => {
     const looks = (id: (typeof ANALYSIS_IDS)[number]) =>
       ANALYSES[id].allowedTools.includes('mcp__jgtube__view_thumbnails');
 
-    const seeing = ['thumbnails', 'breakdown-thumbnails', 'concept-thumbnail', 'thumbnail-tags'];
+    const seeing = [
+      'thumbnails',
+      'breakdown-thumbnails',
+      'concept-thumbnail',
+      'thumbnail-tags',
+      'one-video',
+    ];
     expect(ANALYSIS_IDS.filter(looks)).toEqual(seeing);
     expect(ANALYSIS_IDS.filter((id) => ANALYSES[id].pictures === true)).toEqual(seeing);
     expect(PICTURE_ENGINES).toEqual(['claude', 'codex']);
@@ -305,11 +330,18 @@ describe('analysisRequest', () => {
     expect(request.systemPrompt).toMatch(/plain text/i);
   });
 
-  test.each(ANALYSIS_IDS)('names the channel in the question for %s', (id) => {
+  test.each(NAMES_A_CHANNEL)('names the channel in the question for %s', (id) => {
     const asked = (channel: string) => analysisRequest(id, channel, settings, FOCUS[id]).prompt;
 
     expect(asked('@americainvents2')).toContain('@americainvents2');
     expect(asked(CHANNEL_ID)).toContain(CHANNEL_ID);
+  });
+
+  test.each(CHANNEL_FREE)('asks %s about the video alone, whatever channel is given', (id) => {
+    const asked = analysisRequest(id, 'not even a channel', settings, FOCUS[id]).prompt;
+
+    expect(asked).toContain('aaaaaaaaaaa');
+    expect(asked).not.toContain('not even a channel');
   });
 
   test('puts the channel into the question in a fixed form, not as typed', () => {
