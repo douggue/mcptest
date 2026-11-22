@@ -42,6 +42,7 @@ type EngineParts = Pick<
   | 'findBreakdownPart'
   | 'findChannelNote'
   | 'findResearch'
+  | 'hub'
 >;
 
 /** What the connector needs from the engine, so tests can stand in for it. */

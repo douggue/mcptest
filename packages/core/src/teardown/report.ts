@@ -101,7 +101,7 @@ const clampSpan = (span: Span, end: number): Span => ({
 });
 
 /** The chapters an engine named, else the video cut into even parts (and said so). */
-function chapterSpans(structure: StageState<'structure'>, duration: number) {
+export function chapterSpans(structure: StageState<'structure'>, duration: number) {
   if (structure.state === 'done') {
     const named = structure.data.chapters
       .map((chapter) => ({ ...chapter, ...clampSpan(chapter, duration) }))

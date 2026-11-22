@@ -18,6 +18,7 @@ import {
   SqliteTransferRepo,
   SqliteVideoPageRepo,
   SqliteVideoBreakdownRepo,
+  SqliteTeardownRepo,
   SqliteVideoRepo,
   SqliteVideoStudyRepo,
   SqliteWatchlistRepo,
@@ -147,6 +148,7 @@ function openRepos(db: Db) {
     conceptThumbnails: new SqliteConceptThumbnailRepo(db),
     research: new SqliteResearchRepo(db),
     videoBreakdowns: new SqliteVideoBreakdownRepo(db),
+    teardowns: new SqliteTeardownRepo(db),
   };
 }
 
@@ -505,8 +507,9 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     hub: breakdownHub({
       config,
       candidates: { ...wiring.repos, now: wiring.now },
-      studies: wiring.repos.studies,
+      teardowns: wiring.repos.teardowns,
       store: wiring.repos.videoBreakdowns,
+      ...env,
       reading,
       asking,
       files,

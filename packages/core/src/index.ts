@@ -664,6 +664,7 @@ export {
 } from './teardown/stages';
 export {
   buildTeardownReport,
+  chapterSpans,
   type ChapterRow,
   type HookRow,
   type StoredTranscript as TeardownTranscript,
