@@ -4,7 +4,7 @@ import { ViewHeader } from './layout/ViewHeader';
 import { MapToolbar } from './MapToolbar';
 import { NextStepCard } from './NextStepCard';
 import { SavedChannels } from './SavedChannels';
-import { downloadMap } from './useMapPage';
+import { TodayBreakouts } from './TodayBreakouts';
 import type { ViewParts } from './viewParts';
 
 /** Before any map: what to do first, in one line. */
@@ -50,6 +50,9 @@ export function HomeView({ page, work, path, openChannel }: ViewParts) {
         ) : (
           <Welcome running={running} />
         )}
+        {page.visible && page.visible.breakouts.length > 0 && (
+          <TodayBreakouts breakouts={page.visible.breakouts} />
+        )}
         <SavedChannels
           channels={page.saved}
           currentId={snapshot?.center.id ?? null}
@@ -79,7 +82,8 @@ export function HomeView({ page, work, path, openChannel }: ViewParts) {
             onDepthChange={page.setDepth}
             size={page.size}
             onSizeChange={page.setSize}
-            onExport={snapshot ? () => downloadMap(snapshot) : null}
+            onExport={null}
+            quiet={snapshot !== null}
           />
         </section>
       </div>

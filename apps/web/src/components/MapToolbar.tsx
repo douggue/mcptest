@@ -41,6 +41,8 @@ interface Props {
   readonly size: number;
   readonly onSizeChange: (size: number) => void;
   readonly onExport: (() => void) | null;
+  /** A map is open, so the next step is elsewhere and this button is quiet. */
+  readonly quiet?: boolean;
 }
 
 /** What the map being made is doing, or why the last one did not start. */
@@ -169,7 +171,7 @@ export function MapToolbar(props: Props) {
         <button
           type="submit"
           disabled={running || props.query.trim() === ''}
-          className={props.onExport ? SECONDARY : PANEL_BUTTON}
+          className={props.quiet ? SECONDARY : PANEL_BUTTON}
         >
           {running ? 'Mapping…' : 'Find competitors'}
         </button>

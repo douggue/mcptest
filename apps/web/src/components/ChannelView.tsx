@@ -10,7 +10,7 @@ import { Inspector } from './Inspector';
 import { ViewPage } from './layout/SplitView';
 import { NOTE, QUIET_BUTTON } from './LabStatus';
 import { useChannelProfile } from './useChannelProfile';
-import { messageOf } from './useMapPage';
+import { downloadMap, messageOf } from './useMapPage';
 import type { ViewParts } from './viewParts';
 
 /** The channel's one primary action: the next step in the app, not a re-run or an exit. */
@@ -60,6 +60,15 @@ function Actions({ profile, page, work, path, go }: ActionsProps) {
           {action.label}
         </button>
       ))}
+      {isCenter && page.snapshot && (
+        <button
+          type="button"
+          onClick={() => page.snapshot && downloadMap(page.snapshot)}
+          className={QUIET_BUTTON}
+        >
+          Download this map
+        </button>
+      )}
       {work.asking && (
         <span className="text-body-sm text-outline">
           Break it down waits for the AI run under way.

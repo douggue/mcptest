@@ -44,7 +44,8 @@ export function downloadMap(snapshot: MapSnapshot): void {
 
 /** The crawl, its job and the map it made: what the toolbar and the saved channels work on. */
 function useCrawl(api: Api) {
-  const [query, setQuery] = useState(recall);
+  // The add form starts empty: the remembered channel is opened, not typed in again.
+  const [query, setQuery] = useState('');
   const [snapshot, setSnapshot] = useState<MapSnapshot | null>(null);
   const [job, setJob] = useState<JobState | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -152,9 +153,8 @@ export function useMapPage(api: Api) {
 
   // Back to a channel looked up earlier: its stored map, with nothing read from YouTube.
   const open = (channel: SavedChannel) => {
-    const typed = channel.handle ? `@${channel.handle}` : channel.id;
-    crawl.setQuery(typed);
-    remember(typed);
+    // Remembered for the next visit; the add form is left for a new channel.
+    remember(channel.handle ? `@${channel.handle}` : channel.id);
     setMessage(null);
     void load(channel.id);
   };

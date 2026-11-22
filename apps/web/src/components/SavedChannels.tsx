@@ -1,5 +1,5 @@
 import type { SavedChannel } from '@jgtube/core';
-import { Plus, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useState } from 'react';
 import { badgeText } from '../lib/alerts';
 import { formatCount } from '../lib/format';
@@ -17,18 +17,6 @@ interface Props {
   readonly badges?: Readonly<Record<string, number>>;
   /** How many videos are breaking out on the map on screen, for its card. */
   readonly breakouts?: number | null;
-}
-
-const ADD_BUTTON =
-  'flex min-h-11 items-center gap-1.5 rounded-full px-3 text-body-sm font-semibold text-on-surface-variant transition-colors hover:bg-surface-card hover:text-on-surface';
-
-/** Takes the owner to the search for competitors, where a channel is added. */
-function focusSearch(): void {
-  const input = document.getElementById('channel-query');
-  if (!(input instanceof HTMLInputElement)) return;
-  input.scrollIntoView({ block: 'center' });
-  input.focus();
-  input.select();
 }
 
 const SMALL_BUTTON =
@@ -154,10 +142,6 @@ export function SavedChannels(props: Props) {
     <nav aria-label="Your channels" className="flex min-w-0 flex-col gap-space-md">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <h3 className="text-headline-md font-bold text-on-surface">Your channels</h3>
-        <button type="button" onClick={focusSearch} className={ADD_BUTTON}>
-          <Plus aria-hidden="true" className="h-4 w-4" />
-          Add a channel
-        </button>
       </div>
       <ul className="grid min-w-0 grid-cols-1 gap-space-md xl:grid-cols-2">
         {channels.map((channel) =>
