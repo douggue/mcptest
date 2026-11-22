@@ -111,7 +111,7 @@ step. These rules replace the earlier ones where they disagree.
 
 ### Information architecture
 
-Five destinations in the rail (the Menu on a phone), Settings behind the gear
+Five destinations in the rail (a tab bar at the foot of a phone), Settings behind the gear
 in the top bar:
 
 | Destination  | Opens                               | Tabs (each its own address)                                                 |
