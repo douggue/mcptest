@@ -62,6 +62,7 @@ const niche = (n: number, overrides: Partial<NicheChannel> = {}): NicheChannel =
   createdAt: null,
   country: null,
   logoUrl: null,
+  topic: { label: 'Other', source: 'none' },
   ...overrides,
 });
 

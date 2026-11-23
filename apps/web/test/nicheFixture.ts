@@ -57,5 +57,6 @@ export const niche = (n: number, overrides: Partial<NicheChannel> = {}): NicheCh
   createdAt: null,
   country: null,
   logoUrl: null,
+  topic: { label: 'Other', source: 'none' },
   ...overrides,
 });

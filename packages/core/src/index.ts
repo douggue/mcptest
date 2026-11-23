@@ -116,6 +116,13 @@ export { SqliteFactsRepo } from './repos/sqliteFactsRepo';
 export type { FactsRepo, NewFacts, OwnerPlaceRepo, StoredFacts } from './repos/types';
 export { NICHE_MIN_LATIN_SHARE, dominantScript, latinShare } from './niches/script';
 export {
+  NICHE_TOPICS,
+  OTHER_TOPIC,
+  assignTopics,
+  type NicheTopic,
+  type TopicSource,
+} from './niches/topic';
+export {
   READING_ELSEWHERE,
   ReadingElsewhereError,
   withYouTubeLease,

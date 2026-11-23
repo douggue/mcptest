@@ -2,6 +2,7 @@ import type { BoardVideo } from '../map/thumbnails';
 import type { StoredChannel, StoredFacts, StoredVideo, VideoReading } from '../repos/types';
 import type { EarningsEstimate } from '../scoring/earnings';
 import type { NicheGrowth } from './growth';
+import type { NicheTopic, TopicInput } from './topic';
 
 /** What the niche list is made from and what it holds. */
 
@@ -77,6 +78,12 @@ export interface NicheChannel {
    * been read since logos were kept.
    */
   readonly logoUrl: string | null;
+  /**
+   * What the channel is about, as one label from a fixed table, and where the
+   * label came from: its own keywords and description, or its titles. "Other"
+   * when nothing pointed clearly anywhere.
+   */
+  readonly topic: NicheTopic;
   /** False only on a watched channel that no longer meets the rule. */
   readonly qualifies: boolean;
   /** The owner marked it to keep an eye on. */
@@ -114,6 +121,8 @@ export interface NicheInput {
   readonly factsOf?: (channelId: string) => StoredFacts | null;
   /** The address of a channel's stored logo, asked for only for listed channels. */
   readonly logoOf?: (channelId: string) => string | null;
+  /** A channel's own keywords and description, asked for only for listed channels. */
+  readonly brandOf?: (channelId: string) => TopicInput['brand'];
   /**
    * How many stored channels the sources were chosen from, when they are not
    * the whole store. Left out, the sources are taken to be all of it.

@@ -301,6 +301,7 @@ export function niche(overrides: Partial<NicheChannel> = {}): NicheChannel {
     createdAt: null,
     country: null,
     logoUrl: null,
+    topic: { label: 'Other', source: 'none' },
     ...overrides,
   };
 }

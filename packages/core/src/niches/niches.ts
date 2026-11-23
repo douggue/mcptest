@@ -19,6 +19,7 @@ import type {
 import { GROWTH_WINDOW_DAYS, viewsGained } from './growth';
 import { NICHE_OUTPERFORM_WINDOW_DAYS, hitRate, isOutperformer } from './outperform';
 import { NICHE_MIN_LATIN_SHARE, dominantScript, latinShare } from './script';
+import { assignTopics, type NicheTopic } from './topic';
 import type {
   NicheChannel,
   NicheInput,
@@ -171,6 +172,7 @@ type ListedOnly =
   | 'createdAt'
   | 'country'
   | 'logoUrl'
+  | 'topic'
   | 'recentViews'
   | 'recentUploads'
   | 'viewsPerSubscriber'
@@ -231,6 +233,21 @@ const byDemand = (a: NicheChannel, b: NicheChannel): number =>
   (b.outperformers[0]?.views ?? 0) - (a.outperformers[0]?.views ?? 0) ||
   a.title.localeCompare(b.title);
 
+const NO_TOPIC: NicheTopic = { label: 'Other', source: 'none' };
+
+/** The topic of each listed channel, its title words weighed against the other listed ones. */
+function topicsOf(input: NicheInput, listedIds: ReadonlySet<string>) {
+  return assignTopics(
+    input.sources
+      .filter((source) => listedIds.has(source.channel.id))
+      .map((source) => ({
+        id: source.channel.id,
+        titles: source.videos.map((video) => video.title),
+        brand: input.brandOf?.(source.channel.id) ?? null,
+      })),
+  );
+}
+
 /**
  * The channels that are new or small and have a recent video that outperforms,
  * plus every channel the owner is watching: a watched channel stays listed
@@ -238,7 +255,7 @@ const byDemand = (a: NicheChannel, b: NicheChannel): number =>
  * rule and listed with its mark.
  */
 export function buildNicheList(input: NicheInput, now: Date): NicheList {
-  const channels = input.sources.flatMap((source): NicheChannel[] => {
+  const listed = input.sources.flatMap((source): Omit<NicheChannel, 'topic'>[] => {
     const { id } = source.channel;
     const watched = input.watchedIds.has(id);
     const entry = describe(source, now);
@@ -256,6 +273,11 @@ export function buildNicheList(input: NicheInput, now: Date): NicheList {
     const logoUrl = input.logoOf?.(id) ?? null;
     return [{ ...entry, ...counted, qualifies, watched, growth, createdAt, country, logoUrl }];
   });
+  const topics = topicsOf(input, new Set(listed.map((channel) => channel.id)));
+  const channels = listed.map((channel): NicheChannel => ({
+    ...channel,
+    topic: topics.get(channel.id) ?? NO_TOPIC,
+  }));
   return {
     channels: [...channels].sort(byDemand),
     channelsChecked: input.channelsChecked ?? input.sources.length,
@@ -317,6 +339,7 @@ export function loadNicheList(deps: NicheDeps, now: Date): NicheList {
       factsOf: (channelId) => deps.facts?.find(channelId) ?? null,
       logoOf: (channelId) =>
         pickImage(deps.brands?.find(channelId)?.avatar ?? [], LOGO_SHOWN_MIN_WIDTH)?.url ?? null,
+      brandOf: (channelId) => deps.brands?.find(channelId) ?? null,
     },
     now,
   );

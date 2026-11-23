@@ -259,8 +259,22 @@ describe('buildNicheList', () => {
       createdAt: null,
       country: null,
       logoUrl: null,
+      topic: { label: 'Other', source: 'none' },
     });
     expect(entry?.outperformers[0]?.score).toBeGreaterThan(40);
+  });
+
+  test('labels a listed channel’s topic from its own keywords when they are stored', () => {
+    const [entry] = buildNicheList(
+      {
+        sources: [source('A', 2000)],
+        watchedIds: new Set(),
+        excludedIds: new Set(),
+        brandOf: () => ({ keywords: ['history', 'ancient empires'], description: null }),
+      },
+      NOW,
+    ).channels;
+    expect(entry?.topic).toEqual({ label: 'History', source: 'keywords' });
   });
 
   test('says how many channels it went through and where new and small stop', () => {
