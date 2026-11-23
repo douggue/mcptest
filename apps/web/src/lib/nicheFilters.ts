@@ -10,6 +10,7 @@ import {
   countryKey,
   languageKey,
   revenueKey,
+  rpmKey,
   sizeKey,
   tookOffKeys,
   uploadsKey,
@@ -18,7 +19,7 @@ import { countryName } from './niches';
 import { sortNiches, type NicheSort } from './nicheSort';
 
 export type FilterGroupId =
-  'language' | 'age' | 'revenue' | 'money' | 'size' | 'tookOff' | 'uploads' | 'country';
+  'language' | 'age' | 'revenue' | 'rpm' | 'money' | 'size' | 'tookOff' | 'uploads' | 'country';
 
 export interface NicheFilterState {
   readonly chosen: Readonly<Record<FilterGroupId, readonly string[]>>;
@@ -77,13 +78,28 @@ export const FILTER_GROUPS: readonly FilterGroup[] = [
     label: 'Revenue',
     note: 'Estimate: what the views on its last 30 days of uploads may be worth, middle of the range.',
     options: [
-      { key: 'under-100', label: 'Under $100' },
-      { key: '100-1k', label: '$100–1K' },
-      { key: '1k-10k', label: '$1K–10K' },
+      { key: 'under-1k', label: 'Under $1K' },
+      { key: '1k-3k', label: '$1K–3K' },
+      { key: '3k-5k', label: '$3K–5K' },
+      { key: '5k-10k', label: '$5K–10K' },
       { key: '10k-plus', label: '$10K+' },
       { key: 'none', label: 'No estimate (no uploads in 30 days)' },
     ],
     keysOf: (channel) => one(revenueKey(channel)),
+  },
+  {
+    id: 'rpm',
+    label: 'RPM',
+    note: 'Estimate: the dollars per 1,000 views the revenue estimate works out to, middle of the range. It tops out near $5 (long videos, top ad-rate tier).',
+    options: [
+      { key: 'under-0.5', label: 'Under $0.50 (mostly Shorts)' },
+      { key: '0.5-1', label: '$0.50–1' },
+      { key: '1-2', label: '$1–2' },
+      { key: '2-3', label: '$2–3' },
+      { key: '3-plus', label: '$3–5' },
+      { key: 'none', label: 'No estimate (no uploads in 30 days)' },
+    ],
+    keysOf: (channel) => one(rpmKey(channel)),
   },
   {
     id: 'money',
@@ -150,6 +166,7 @@ export const NO_FILTERS: NicheFilterState = {
     language: [],
     age: [],
     revenue: [],
+    rpm: [],
     money: [],
     size: [],
     tookOff: [],

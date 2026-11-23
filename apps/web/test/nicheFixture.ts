@@ -16,12 +16,17 @@ export const tookOff = (n: number, score: number | null): BoardVideo => ({
   durationSeconds: 600,
 });
 
-/** An estimate of `low` to `high` dollars for the last 30 days of uploads. */
-export const worth = (low: number, high: number): NicheChannel['earnings'] => ({
+/** An estimate of `low` to `high` dollars for the last 30 days of uploads, from these views. */
+export const worth = (
+  low: number,
+  high: number,
+  longFormViews = 100_000,
+  shortsViews = 0,
+): NicheChannel['earnings'] => ({
   low,
   high,
-  longFormViews: 0,
-  shortsViews: 0,
+  longFormViews,
+  shortsViews,
   belowAdThreshold: false,
   rateTier: UNKNOWN_TIER,
 });

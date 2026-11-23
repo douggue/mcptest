@@ -1,9 +1,10 @@
 /** The orders New niches can be shown in, each from numbers the list already carries. */
 import type { NicheChannel } from '@jgtube/core';
-import { bestScore, estimateMiddle } from './nicheBuckets';
+import { bestScore, estimateMiddle, rpmOf } from './nicheBuckets';
 import { accountAgeDays } from './niches';
 
-export type NicheSort = 'demand' | 'breakout' | 'newest' | 'views' | 'per-subscriber' | 'revenue';
+export type NicheSort =
+  'demand' | 'breakout' | 'newest' | 'views' | 'per-subscriber' | 'revenue' | 'rpm';
 
 export const NICHE_SORTS: readonly { readonly id: NicheSort; readonly label: string }[] = [
   { id: 'demand', label: 'Most 90-day views' },
@@ -11,7 +12,8 @@ export const NICHE_SORTS: readonly { readonly id: NicheSort; readonly label: str
   { id: 'newest', label: 'Newest' },
   { id: 'views', label: 'Most 30-day views' },
   { id: 'per-subscriber', label: 'Views per subscriber' },
-  { id: 'revenue', label: 'Estimated worth' },
+  { id: 'revenue', label: 'Estimated revenue' },
+  { id: 'rpm', label: 'Estimated RPM' },
 ];
 
 /** A number to sort by, highest first; null sorts last. */
@@ -27,6 +29,7 @@ const MEASURES: Readonly<Record<Exclude<NicheSort, 'demand'>, Measure>> = {
   views: (channel) => channel.recentViews,
   'per-subscriber': (channel) => channel.viewsPerSubscriber,
   revenue: (channel) => (channel.earnings.high > 0 ? estimateMiddle(channel.earnings) : null),
+  rpm: (channel) => rpmOf(channel)?.middle ?? null,
 };
 
 /**

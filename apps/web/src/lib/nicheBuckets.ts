@@ -8,7 +8,14 @@ import { accountAgeDays, countryName, isRestarted } from './niches';
 
 /** Under 3 months, 3 to 6 months, 6 to 12 months, over a year, then the two marks apart. */
 export type AgeKey = 'new' | 'under-6m' | 'under-1y' | 'older' | 'restarted' | 'unknown';
-export type RevenueKey = 'under-100' | '100-1k' | '1k-10k' | '10k-plus' | 'none';
+export type RevenueKey = 'under-1k' | '1k-3k' | '3k-5k' | '5k-10k' | '10k-plus' | 'none';
+/**
+ * Bands of the estimate's RPM. The estimate values long videos at $2–8 per
+ * 1,000 views times the country tier (1, 0.5 or 0.2) and Shorts at $0.10–0.50,
+ * so its middle RPM runs from $0.30 (all Shorts) to $5 (long videos, top tier):
+ * no band above $5 could ever hold a channel.
+ */
+export type RpmKey = 'under-0.5' | '0.5-1' | '1-2' | '2-3' | '3-plus' | 'none';
 export type SizeKey = 'under-1k' | '1k-10k' | '10k-100k' | 'hidden';
 export type UploadsKey = 'under-1' | '1-3' | '3-7' | '7-plus';
 /** The multiples a best video can reach, each kept when it is reached. */
@@ -21,10 +28,18 @@ const AGE_LIMITS: readonly (readonly [AgeKey, number])[] = [
   ['under-1y', 366],
 ];
 const REVENUE_LIMITS: readonly (readonly [RevenueKey, number])[] = [
-  ['under-100', 100],
-  ['100-1k', 1000],
-  ['1k-10k', 10_000],
+  ['under-1k', 1000],
+  ['1k-3k', 3000],
+  ['3k-5k', 5000],
+  ['5k-10k', 10_000],
 ];
+const RPM_LIMITS: readonly (readonly [RpmKey, number])[] = [
+  ['under-0.5', 0.5],
+  ['0.5-1', 1],
+  ['1-2', 2],
+  ['2-3', 3],
+];
+const VIEWS_PER_RPM = 1000;
 const SIZE_LIMITS: readonly (readonly [SizeKey, number])[] = [
   ['under-1k', 1000],
   ['1k-10k', 10_000],
@@ -76,6 +91,35 @@ export function revenueKey(channel: Pick<NicheChannel, 'earnings'>): RevenueKey 
   return rangeOf(estimateMiddle(channel.earnings), REVENUE_LIMITS, '10k-plus');
 }
 
+/** Dollars per 1,000 views at the low end, middle and high end of an estimate. */
+export interface Rpm {
+  readonly low: number;
+  readonly middle: number;
+  readonly high: number;
+}
+
+/**
+ * The RPM the 30-day estimate works out to: its dollars over the views it was
+ * made from, per 1,000. Null when there were no views to value.
+ */
+export function rpmOf(channel: Pick<NicheChannel, 'earnings'>): Rpm | null {
+  const { earnings } = channel;
+  const views = earnings.longFormViews + earnings.shortsViews;
+  if (views <= 0 || earnings.high <= 0) return null;
+  const per = (dollars: number): number => (dollars / views) * VIEWS_PER_RPM;
+  return {
+    low: per(earnings.low),
+    middle: per(estimateMiddle(earnings)),
+    high: per(earnings.high),
+  };
+}
+
+/** The band of the estimate's middle RPM; 'none' when there is no estimate. */
+export function rpmKey(channel: Pick<NicheChannel, 'earnings'>): RpmKey {
+  const rpm = rpmOf(channel);
+  return rpm === null ? 'none' : rangeOf(rpm.middle, RPM_LIMITS, '3-plus');
+}
+
 export function sizeKey(channel: Pick<NicheChannel, 'subscribers'>): SizeKey {
   if (channel.subscribers === null) return 'hidden';
   return rangeOf(channel.subscribers, SIZE_LIMITS, '10k-100k');
@@ -109,4 +153,13 @@ export function uploadsKey(channel: Pick<NicheChannel, 'recentUploads'>): Upload
 export function countryKey(channel: Pick<NicheChannel, 'country'>): string {
   const code = channel.country;
   return code !== null && COUNTRY_CODE.test(code) && countryName(code) !== null ? code : 'unknown';
+}
+
+/** Dollars to two places under $1 and to one place above, as RPMs are usually written. */
+const rpmDollars = (value: number): string => `$${value.toFixed(value < 1 ? 2 : 1)}`;
+
+/** The estimate's RPM in words, or why there is none. */
+export function describeRpm(rpm: Rpm | null): string {
+  if (rpm === null) return 'No RPM: no uploads in the last 30 days to estimate from';
+  return `Works out to ${rpmDollars(rpm.low)}–${rpmDollars(rpm.high)} per 1,000 views (RPM)`;
 }

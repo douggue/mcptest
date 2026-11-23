@@ -10,18 +10,25 @@ interface Props {
   readonly label?: string;
   /** A row in a list: tighter padding and gaps. */
   readonly compact?: boolean;
+  /** One of several cards side by side: the same padding on every screen. */
+  readonly medium?: boolean;
 }
+
+const PADDING = {
+  compact: 'gap-space-sm px-space-md py-space-sm',
+  medium: 'gap-space-sm p-space-md',
+  roomy: 'gap-space-md p-space-md sm:p-space-lg',
+} as const;
 
 /** A roomy card: one thing, with space around what it holds. */
 export function Card(props: Props) {
-  const { children, highlighted, id, as: Tag = 'div', className, label, compact } = props;
+  const { children, highlighted, id, as: Tag = 'div', className, label, compact, medium } = props;
+  const padding = PADDING[compact ? 'compact' : medium ? 'medium' : 'roomy'];
   return (
     <Tag
       id={id}
       aria-label={label}
-      className={`flex min-w-0 scroll-mt-20 flex-col rounded-lg border bg-surface-card ${
-        compact ? 'gap-space-sm px-space-md py-space-sm' : 'gap-space-md p-space-md sm:p-space-lg'
-      } ${highlighted ? 'border-border-highlight' : 'border-border-subtle'} ${className ?? ''}`}
+      className={`flex min-w-0 scroll-mt-20 flex-col rounded-lg border bg-surface-card ${padding} ${highlighted ? 'border-border-highlight' : 'border-border-subtle'} ${className ?? ''}`}
     >
       {children}
     </Tag>

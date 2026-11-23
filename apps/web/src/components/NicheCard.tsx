@@ -1,69 +1,22 @@
-import type { NicheChannel, NicheReason } from '@jgtube/core';
+import type { NicheChannel } from '@jgtube/core';
 import { Bookmark, BookmarkCheck } from 'lucide-react';
-import type { ReactNode } from 'react';
-import { scoreTone } from '../lib/board';
-import { channelUrl, formatCount, watchUrl } from '../lib/format';
+import { channelUrl, formatAge, formatCount, formatScore } from '../lib/format';
+import { bestScore } from '../lib/nicheBuckets';
+import { describeLanguage, isRestarted } from '../lib/niches';
+import { channelHref } from '../lib/routes';
 import { ChannelLogo } from './ChannelLogo';
-import {
-  describeEarnings,
-  describeGrowth,
-  describeHits,
-  describeLanguage,
-  describeOrigin,
-  describeRateTier,
-  formatPerSubscriber,
-  otherTitles,
-} from '../lib/niches';
-import { Card, Label } from './layout/Card';
+import { Card } from './layout/Card';
 import { Details } from './layout/Details';
-import { ThumbnailTile } from './ThumbnailTile';
 import { MoneyBadge } from './MoneyBadge';
+import { NicheCardDetails } from './NicheCardDetails';
+import { Outbound } from './NicheParts';
+import { NicheThumbStrip } from './NicheThumbStrip';
 
-/** The multiple from which a score is drawn in amber, as on the thumbnail board. */
-const AMBER = { winnerMinScore: 2 };
-const PILL = 'rounded-full bg-surface-container-high px-2 py-0.5 text-label';
+export { Outbound, Stat } from './NicheParts';
 
-const REASON_LABEL: Readonly<Record<NicheReason, string>> = {
-  new: 'New channel',
-  small: 'Small channel',
-};
-
-export function Stat({
-  label,
-  children,
-}: {
-  readonly label: string;
-  readonly children: ReactNode;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col">
-      <dt className="truncate text-label text-outline">{label}</dt>
-      <dd className="text-title-md text-on-surface">{children}</dd>
-    </div>
-  );
-}
-
-/** A link to YouTube when the id is well formed, plain text otherwise. */
-export function Outbound({
-  href,
-  children,
-}: {
-  readonly href: string | null;
-  readonly children: ReactNode;
-}) {
-  return href ? (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="transition-colors hover:text-primary"
-    >
-      {children}
-    </a>
-  ) : (
-    <>{children}</>
-  );
-}
+const PILL = 'whitespace-nowrap rounded-full bg-surface-container-high px-2 py-0.5 text-label';
+const QUIET =
+  'flex min-h-10 items-center rounded-full px-3 text-body-sm font-semibold text-primary transition-colors hover:bg-surface-container-high';
 
 interface Props {
   readonly channel: NicheChannel;
@@ -80,7 +33,7 @@ function WatchToggle({ channel, onSetWatched }: Props) {
       aria-pressed={channel.watched}
       aria-label={channel.watched ? `Stop watching ${channel.title}` : `Watch ${channel.title}`}
       onClick={() => onSetWatched(!channel.watched)}
-      className={`ml-auto flex flex-none items-center gap-1.5 rounded-full px-3 py-2 text-label transition-colors ${
+      className={`ml-auto flex min-h-10 flex-none items-center gap-1 rounded-full px-3 text-label transition-colors ${
         channel.watched
           ? 'bg-primary-container font-semibold text-on-primary'
           : 'bg-surface-container-high text-on-surface hover:bg-surface-variant'
@@ -92,176 +45,107 @@ function WatchToggle({ channel, onSetWatched }: Props) {
   );
 }
 
-/** Why the channel is listed, how often its videos take off, and when and where it started. */
-function Evidence({ channel }: { readonly channel: NicheChannel }) {
-  const origin = describeOrigin(channel);
+/** How old the channel is, in a few words; null when its first upload is not known. */
+function ageTag(channel: NicheChannel, now: Date): string | null {
+  if (channel.channelAgeDays === null) return null;
+  const age = formatAge(channel.channelAgeDays);
+  if (isRestarted(channel, now)) return `Restarted ${age} ago`;
+  return channel.reasons.includes('new') ? `New channel · ${age}` : `${age} old`;
+}
+
+/** The short marks: age, alphabet, and a watched channel that stopped outperforming. */
+function Tags({ channel }: { readonly channel: NicheChannel }) {
+  const age = ageTag(channel, new Date());
   return (
-    <div className="flex flex-col gap-space-sm">
-      <div className="flex flex-wrap items-center gap-2">
-        {channel.reasons.map((reason) => (
-          <span key={reason} className={`${PILL} text-primary-fixed-dim`}>
-            {REASON_LABEL[reason]}
-          </span>
-        ))}
-        {channel.otherLanguage && (
-          <span
-            className={`${PILL} text-secondary`}
-            title="Most of its titles are in another alphabet. An idea that works there may not have been made in your language yet. Jgtube does not translate."
-          >
-            {describeLanguage(channel.otherLanguage)}
-          </span>
-        )}
-        {!channel.qualifies && (
-          <span className={`${PILL} text-on-surface-variant`}>No longer outperforming</span>
-        )}
-        <span className="text-label text-outline">{describeHits(channel)}</span>
-      </div>
-      {origin && (
-        <p
-          className="text-label text-outline"
-          title="The first upload is the oldest video Jgtube has read. The account's year and the country come from YouTube's official records, once a refresh or a search has asked for them."
+    <div className="flex min-h-6 min-w-0 flex-wrap items-center gap-1.5">
+      {age && <span className={`${PILL} text-primary-fixed-dim`}>{age}</span>}
+      {channel.otherLanguage && (
+        <span
+          className={`${PILL} text-secondary`}
+          title="Most of its titles are in another alphabet. An idea that works there may not have been made in your language yet. Jgtube does not translate."
         >
-          {origin}
-        </p>
+          {describeLanguage(channel.otherLanguage)}
+        </span>
+      )}
+      {!channel.qualifies && (
+        <span className={`${PILL} text-on-surface-variant`}>No longer outperforming</span>
       )}
     </div>
   );
 }
 
-/**
- * Size, then the two windows. On a wide card the pairs stand as three columns;
- * on a phone as three rows, so each window's views and uploads stay together.
- */
-function Numbers({ channel }: { readonly channel: NicheChannel }) {
+/** Subscribers, views on the last 30 days of uploads, and the best multiple, on one line. */
+function KeyNumbers({ channel }: { readonly channel: NicheChannel }) {
+  const best = bestScore(channel);
   return (
-    <dl className="grid grid-cols-2 gap-3 rounded-lg bg-space-deep p-space-sm sm:grid-flow-col sm:grid-cols-3 sm:grid-rows-2">
-      <Stat label="Subscribers">{formatCount(channel.subscribers)}</Stat>
-      <Stat label="Per subscriber">
-        <span className="text-secondary">{formatPerSubscriber(channel.viewsPerSubscriber)}</span>
-      </Stat>
-      <Stat label="90-day views">
-        <span className="text-primary">{formatCount(channel.ninetyDayViews)}</span>
-      </Stat>
-      <Stat label="90-day uploads">{channel.ninetyDayUploads}</Stat>
-      <Stat label="30-day views">
-        <span className="text-primary">{formatCount(channel.recentViews)}</span>
-      </Stat>
-      <Stat label="30-day uploads">{channel.recentUploads}</Stat>
-    </dl>
+    <p className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-body-sm text-outline">
+      <span>
+        <span className="font-semibold text-on-surface">{formatCount(channel.subscribers)}</span>{' '}
+        subs
+      </span>
+      ·
+      <span>
+        <span className="font-semibold text-primary">{formatCount(channel.recentViews)}</span>{' '}
+        30-day views
+      </span>
+      {best !== null && (
+        <>
+          ·
+          <span>
+            <span className="font-semibold text-metric-amber">{formatScore(best)}</span> best
+          </span>
+        </>
+      )}
+    </p>
   );
 }
 
-/** What the views are worth over both windows, and which ad rate that was worked out at. */
-function Earnings({ channel }: { readonly channel: NicheChannel }) {
+/** The channel's logo, name, handle and money badge, with Save at the right. */
+function Header({ channel, onSetWatched }: Props) {
   return (
-    <Details summary="What the views may be worth (estimate)">
-      <div className="flex flex-col gap-1 text-body-sm text-on-surface-variant">
-        <p>{describeEarnings(channel.ninetyDayEarnings, 90)} · estimate</p>
-        <p>{describeEarnings(channel.earnings)} · estimate</p>
-        <p className="text-outline">{describeRateTier(channel.earnings.rateTier)}</p>
-        <p className="text-outline">
-          A rough range from typical ad rates for the views on this channel&rsquo;s uploads. Jgtube
-          cannot see whether the channel is monetised or where its viewers live.
-        </p>
+    <div className="flex min-w-0 items-center gap-space-sm">
+      <div className="flex h-10 w-10 flex-none items-center justify-center overflow-hidden rounded-full bg-surface-container-high text-body-sm font-bold text-secondary ring-2 ring-border-subtle">
+        <ChannelLogo title={channel.title} logoUrl={channel.logoUrl} letters={1} />
       </div>
-    </Details>
-  );
-}
-
-/** The videos that took off, as thumbnails, then the other titles it has been publishing. */
-function Videos({ channel }: { readonly channel: NicheChannel }) {
-  const others = otherTitles(channel);
-  return (
-    <>
-      {channel.outperformers.length > 0 && (
-        <div className="flex min-w-0 flex-col gap-space-sm">
-          <Label>
-            <span className="flex items-center gap-1.5">
-              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-metric-amber" />
-              Took off: far above its size or its usual views
-            </span>
-          </Label>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-space-md sm:grid-cols-3">
-            {channel.outperformers.map((video) => (
-              <ThumbnailTile
-                key={video.videoId}
-                video={video}
-                tone={scoreTone(video.score, AMBER)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-      {others.length > 0 && (
-        <Details summary={`Also publishing (${others.length})`}>
-          <ul className="flex flex-col gap-space-sm">
-            {others.map((sample) => (
-              <li key={sample.videoId} className="flex items-baseline justify-between gap-3">
-                <span className="line-clamp-2 min-w-0 text-body-sm text-on-surface">
-                  <Outbound href={watchUrl(sample.videoId)}>{sample.title}</Outbound>
-                </span>
-                <span className="flex-none text-label text-outline">
-                  {formatCount(sample.views)} views
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Details>
-      )}
-    </>
-  );
-}
-
-/** The channel's own logo once it has been read, and its initial until then. */
-function Logo({ channel }: { readonly channel: NicheChannel }) {
-  return (
-    <div className="flex h-10 w-10 flex-none items-center justify-center overflow-hidden rounded-full bg-surface-container-high text-body-sm font-bold text-secondary ring-2 ring-border-subtle">
-      <ChannelLogo title={channel.title} logoUrl={channel.logoUrl} letters={1} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <h3 className="truncate text-body-md font-semibold text-on-surface">
+          <Outbound href={channelUrl(channel.id)}>{channel.title}</Outbound>
+        </h3>
+        <span className="flex min-w-0 items-center gap-x-2">
+          {channel.handle && (
+            <span className="truncate text-body-sm text-outline">@{channel.handle}</span>
+          )}
+          <MoneyBadge channelId={channel.id} />
+        </span>
+      </div>
+      <WatchToggle channel={channel} onSetWatched={onSetWatched} />
     </div>
   );
 }
 
-/** One channel worth a look: why it is here, its numbers, and the videos that took off. */
+/** One channel worth a look, small enough to stand three in a row; the rest behind Details. */
 export function NicheCard({ channel, onSetWatched, onBreakDown }: Props) {
   return (
-    <Card as="article" highlighted={channel.watched}>
-      <div className="flex min-w-0 items-center gap-space-sm">
-        <Logo channel={channel} />
-        <div className="flex min-w-0 flex-col">
-          <h3 className="truncate text-title-md text-on-surface">
-            <Outbound href={channelUrl(channel.id)}>{channel.title}</Outbound>
-          </h3>
-          <span className="flex min-w-0 flex-wrap items-center gap-x-2">
-            {channel.handle && (
-              <span className="truncate text-body-sm text-outline">@{channel.handle}</span>
-            )}
-            <MoneyBadge channelId={channel.id} />
-          </span>
+    <Card as="article" medium highlighted={channel.watched} className="h-full">
+      <Header channel={channel} onSetWatched={onSetWatched} />
+      <Tags channel={channel} />
+      <KeyNumbers channel={channel} />
+      <NicheThumbStrip videos={channel.outperformers} />
+      <div className="mt-auto flex min-w-0 flex-col gap-space-sm pt-space-xs">
+        <div className="flex min-w-0 flex-wrap items-center gap-1">
+          <a href={channelHref(channel.id)} className={QUIET}>
+            Open
+          </a>
+          {onBreakDown && (
+            <button type="button" onClick={onBreakDown} className={QUIET}>
+              Break down
+            </button>
+          )}
         </div>
-        <WatchToggle channel={channel} onSetWatched={onSetWatched} />
+        <Details summary="Details">
+          <NicheCardDetails channel={channel} />
+        </Details>
       </div>
-      <Evidence channel={channel} />
-      <Numbers channel={channel} />
-      <Earnings channel={channel} />
-      {channel.growth && (
-        <p
-          className="text-label text-outline"
-          title="Counted from the view numbers Jgtube stored each time it read this channel: the first reading of the last 30 days against the latest."
-        >
-          <span className="text-primary-fixed-dim">{describeGrowth(channel.growth)}</span> ·
-          measured
-        </p>
-      )}
-      <Videos channel={channel} />
-      {onBreakDown && (
-        <button
-          type="button"
-          onClick={onBreakDown}
-          className="self-start rounded-full bg-surface-container-high px-4 py-2 text-body-sm font-semibold text-primary ring-1 ring-primary-container transition-colors hover:bg-primary-container hover:text-on-primary"
-        >
-          Break down this channel
-        </button>
-      )}
     </Card>
   );
 }

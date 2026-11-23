@@ -4,9 +4,12 @@ import {
   ageKeys,
   bestScore,
   countryKey,
+  describeRpm,
   estimateMiddle,
   languageKey,
   revenueKey,
+  rpmKey,
+  rpmOf,
   sizeKey,
   tookOffKeys,
   uploadsKey,
@@ -71,11 +74,31 @@ describe('the buckets a channel falls in', () => {
 
   test('ranges the 30-day estimate by its middle, apart when there is nothing to estimate', () => {
     expect(estimateMiddle(worth(20, 80))).toBe(50);
-    expect(revenueKey(niche(1, { earnings: worth(20, 80) }))).toBe('under-100');
-    expect(revenueKey(niche(1, { earnings: worth(100, 400) }))).toBe('100-1k');
-    expect(revenueKey(niche(1, { earnings: worth(1000, 4000) }))).toBe('1k-10k');
+    expect(revenueKey(niche(1, { earnings: worth(200, 800) }))).toBe('under-1k');
+    expect(revenueKey(niche(1, { earnings: worth(1000, 2000) }))).toBe('1k-3k');
+    expect(revenueKey(niche(1, { earnings: worth(2000, 4000) }))).toBe('3k-5k');
+    expect(revenueKey(niche(1, { earnings: worth(5000, 9000) }))).toBe('5k-10k');
     expect(revenueKey(niche(1, { earnings: worth(8000, 32_000) }))).toBe('10k-plus');
     expect(revenueKey(niche(1, { earnings: worth(0, 0) }))).toBe('none');
+  });
+
+  test('works out the RPM from the same estimate and views, apart when there are no views', () => {
+    const channel = niche(1, { earnings: worth(200, 800, 100_000, 0) });
+    expect(rpmOf(channel)).toEqual({ low: 2, middle: 5, high: 8 });
+    expect(rpmKey(channel)).toBe('3-plus');
+    expect(rpmKey(niche(1, { earnings: worth(10, 50, 0, 100_000) }))).toBe('under-0.5');
+    expect(rpmKey(niche(1, { earnings: worth(40, 120, 100_000, 0) }))).toBe('0.5-1');
+    expect(rpmKey(niche(1, { earnings: worth(100, 200, 100_000, 0) }))).toBe('1-2');
+    expect(rpmKey(niche(1, { earnings: worth(200, 300, 100_000, 0) }))).toBe('2-3');
+    expect(rpmOf(niche(1, { earnings: worth(0, 0, 0, 0) }))).toBeNull();
+    expect(rpmKey(niche(1, { earnings: worth(0, 0, 0, 0) }))).toBe('none');
+  });
+
+  test('says the RPM range in dollars, or that there is none', () => {
+    expect(describeRpm({ low: 0.25, middle: 1, high: 2 })).toBe(
+      'Works out to $0.25–$2.0 per 1,000 views (RPM)',
+    );
+    expect(describeRpm(null)).toMatch(/No RPM/);
   });
 
   test('ranges the subscribers, with a hidden count apart', () => {
@@ -243,6 +266,7 @@ describe('sortNiches', () => {
     expect(ids('per-subscriber')).toEqual([3, 2, 1]);
     expect(ids('newest')).toEqual([3, 2, 1]);
     expect(ids('revenue')).toEqual([1, 3, 2]);
+    expect(ids('rpm')).toEqual([1, 3, 2]);
   });
 
   test('leaves the list it was given alone', () => {
