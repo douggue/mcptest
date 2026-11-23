@@ -897,6 +897,20 @@ NicheList { channelsChecked, smallMaxSubscribers, newMaxAgeDays,
 Each entry also carries `logoUrl`: the channel's stored logo at a size for showing
 beside its name, or null until the channel has been read since logos were kept.
 
+And `topic: { label, source }` (`packages/core/src/niches/topic.ts`): what the
+channel is about, as one label from a fixed word table (Engineering & inventions,
+Science & space, Geopolitics, Military, Cars, History, Finance, Tech & AI, Mysteries
+& crime, Gaming, Food & health, Nature & animals, Travel & places). The store keeps
+no YouTube video category, so the label is read, in order, from the channel's own
+keywords and description (`source: 'keywords'`, from the stored brand read), then
+from its name and titles (`'titles'`), each title word weighted by its rarity across
+the listed channels as the title match weighs it,
+ln((channels + 1) / (channels using it + 1)) + 1. Fewer than two word hits, or a
+tie, is `Other` (`'none'`). The card shows the label as a tag whose tooltip names
+the source. A word table misreads some channels (a fighter-jet channel whose titles
+name China reads as Geopolitics); a judged labelling by an engine would do better
+and is left as a TODO, since this view reads the store only.
+
 The owner can mark a channel as watched (`niche_watchlist`, one row per channel, no
 map involved). A watched channel stays on the list after it stops qualifying, with
 `qualifies: false`. On the page a watched channel is shown under **Saved** and
@@ -924,6 +938,7 @@ says "Showing 12 of 103", and the choice is kept in the browser
 
 | Filter    | Options                                                                              | From                                                                                     |
 | --------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Niche     | Each topic found, then Other                                                         | `topic` (below)                                                                          |
 | Language  | Latin letters, then each alphabet found; shortcuts "Latin only" / "Other alphabets"  | `otherLanguage.script` (the alphabet of the titles; no language is detected beyond that) |
 | Age       | Under 3 months, 3–6, 6–12, over a year, restarted, not known                         | `channelAgeDays`, else the account's age from `createdAt`; restarted as on the card      |
 | Revenue   | Under $1K, $1K–3K, $3K–5K, $5K–10K, $10K+, no estimate (estimate)                    | Middle of the 30-day `earnings` range                                                    |

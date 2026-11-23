@@ -19,7 +19,16 @@ import { countryName } from './niches';
 import { sortNiches, type NicheSort } from './nicheSort';
 
 export type FilterGroupId =
-  'language' | 'age' | 'revenue' | 'rpm' | 'money' | 'size' | 'tookOff' | 'uploads' | 'country';
+  | 'topic'
+  | 'language'
+  | 'age'
+  | 'revenue'
+  | 'rpm'
+  | 'money'
+  | 'size'
+  | 'tookOff'
+  | 'uploads'
+  | 'country';
 
 export interface NicheFilterState {
   readonly chosen: Readonly<Record<FilterGroupId, readonly string[]>>;
@@ -53,6 +62,12 @@ export interface FilterGroup {
 const one = (key: string): readonly string[] => [key];
 
 export const FILTER_GROUPS: readonly FilterGroup[] = [
+  {
+    id: 'topic',
+    label: 'Niche',
+    note: 'From the channel’s own keywords, else its titles; hover a card’s tag to see which.',
+    keysOf: (channel) => one(channel.topic.label),
+  },
   {
     id: 'language',
     label: 'Language',
@@ -163,6 +178,7 @@ const groupOf = (id: FilterGroupId): FilterGroup => GROUP_BY_ID.get(id) as Filte
 
 export const NO_FILTERS: NicheFilterState = {
   chosen: {
+    topic: [],
     language: [],
     age: [],
     revenue: [],
@@ -229,10 +245,13 @@ export function optionCounts(
 const LATIN_LABEL = 'Latin letters (English, Spanish, French…)';
 const OTHER_SCRIPT_LABEL = 'Another alphabet (not named)';
 const UNKNOWN_COUNTRY = 'Not known';
+/** The label core gives a channel no topic fits; written here, as the page imports no values from core. */
+const OTHER_TOPIC = 'Other';
 
 /** The name an option found on the list is shown by. */
 function presentLabel(groupId: FilterGroupId, key: string): string {
   if (groupId === 'country') return key === 'unknown' ? UNKNOWN_COUNTRY : (countryName(key) ?? key);
+  if (groupId === 'topic') return key;
   if (key === 'latin') return LATIN_LABEL;
   return key === 'other' ? OTHER_SCRIPT_LABEL : key;
 }
@@ -240,7 +259,7 @@ function presentLabel(groupId: FilterGroupId, key: string): string {
 /** Where a found option goes: Latin first, unknown and unnamed last, the rest by count. */
 function presentRank(key: string): number {
   if (key === 'latin') return 0;
-  return key === 'unknown' || key === 'other' ? 2 : 1;
+  return key === 'unknown' || key === 'other' || key === OTHER_TOPIC ? 2 : 1;
 }
 
 /** The options a group offers: its fixed ones, or the values found on the list, most common first. */

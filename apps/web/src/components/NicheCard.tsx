@@ -1,7 +1,7 @@
 import type { NicheChannel } from '@jgtube/core';
 import { Bookmark, BookmarkCheck } from 'lucide-react';
 import { channelUrl, formatAge, formatCount, formatScore } from '../lib/format';
-import { bestScore } from '../lib/nicheBuckets';
+import { bestScore, describeTopicSource } from '../lib/nicheBuckets';
 import { describeLanguage, isRestarted } from '../lib/niches';
 import { channelHref } from '../lib/routes';
 import { ChannelLogo } from './ChannelLogo';
@@ -53,12 +53,21 @@ function ageTag(channel: NicheChannel, now: Date): string | null {
   return channel.reasons.includes('new') ? `New channel · ${age}` : `${age} old`;
 }
 
-/** The short marks: money signs, age, alphabet, and a watched channel that stopped outperforming. */
+/** The short marks: money signs, niche, age, alphabet, and a watched channel that stopped outperforming. */
 function Tags({ channel }: { readonly channel: NicheChannel }) {
   const age = ageTag(channel, new Date());
   return (
     <div className="flex min-h-6 min-w-0 flex-wrap items-center gap-1.5">
       <MoneyBadge channelId={channel.id} />
+      {channel.topic.source !== 'none' && (
+        <span
+          className={`${PILL} text-on-surface`}
+          title={describeTopicSource(channel.topic)}
+          aria-label={`Niche: ${channel.topic.label}. ${describeTopicSource(channel.topic)}`}
+        >
+          {channel.topic.label}
+        </span>
+      )}
       {age && <span className={`${PILL} text-primary-fixed-dim`}>{age}</span>}
       {channel.otherLanguage && (
         <span

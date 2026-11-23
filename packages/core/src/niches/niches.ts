@@ -242,7 +242,8 @@ function topicsOf(input: NicheInput, listedIds: ReadonlySet<string>) {
       .filter((source) => listedIds.has(source.channel.id))
       .map((source) => ({
         id: source.channel.id,
-        titles: source.videos.map((video) => video.title),
+        // The channel's own name is one more title: "Okeanos History" says what it is about.
+        titles: [source.channel.title, ...source.videos.map((video) => video.title)],
         brand: input.brandOf?.(source.channel.id) ?? null,
       })),
   );

@@ -155,6 +155,17 @@ export function countryKey(channel: Pick<NicheChannel, 'country'>): string {
   return code !== null && COUNTRY_CODE.test(code) && countryName(code) !== null ? code : 'unknown';
 }
 
+const TOPIC_FROM: Readonly<Record<NicheChannel['topic']['source'], string>> = {
+  keywords: 'From the keywords and description the channel set for itself.',
+  titles: 'From the words of its titles, a rare word counting for more than a common one.',
+  none: 'Other: neither its keywords nor its titles point clearly to one subject.',
+};
+
+/** Where a channel's topic label came from, for its tooltip. */
+export function describeTopicSource(topic: NicheChannel['topic']): string {
+  return TOPIC_FROM[topic.source];
+}
+
 /** Dollars to two places under $1 and to one place above, as RPMs are usually written. */
 const rpmDollars = (value: number): string => `$${value.toFixed(value < 1 ? 2 : 1)}`;
 

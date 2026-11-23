@@ -5,6 +5,7 @@ import {
   bestScore,
   countryKey,
   describeRpm,
+  describeTopicSource,
   estimateMiddle,
   languageKey,
   revenueKey,
@@ -212,6 +213,25 @@ describe('the options a group offers', () => {
     expect(options.map((option) => option.key)).toEqual(['US', 'BG', 'unknown']);
     expect(options[0]?.label).toBe('United States');
     expect(options[2]?.label).toBe('Not known');
+  });
+
+  test('offers the topics present, most common first, Other last', () => {
+    const topical = [
+      niche(1, { topic: { label: 'Other', source: 'none' } }),
+      niche(2, { topic: { label: 'Cars', source: 'titles' } }),
+      niche(3, { topic: { label: 'History', source: 'keywords' } }),
+      niche(4, { topic: { label: 'History', source: 'titles' } }),
+    ];
+    const options = groupOptions(topical, 'topic', CONTEXT);
+    expect(options.map((option) => option.key)).toEqual(['History', 'Cars', 'Other']);
+    const state = toggleChoice(NO_FILTERS, 'topic', 'History');
+    expect(applyFilters(topical, state, CONTEXT).map((one) => one.id)).toEqual([cid(3), cid(4)]);
+  });
+
+  test('says where a topic label came from', () => {
+    expect(describeTopicSource({ label: 'Cars', source: 'keywords' })).toMatch(/keywords/);
+    expect(describeTopicSource({ label: 'Cars', source: 'titles' })).toMatch(/titles/);
+    expect(describeTopicSource({ label: 'Other', source: 'none' })).toMatch(/Other/);
   });
 
   test('offers every fixed bucket, even an empty one', () => {
