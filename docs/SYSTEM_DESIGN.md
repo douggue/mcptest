@@ -899,10 +899,10 @@ beside its name, or null until the channel has been read since logos were kept.
 
 The owner can mark a channel as watched (`niche_watchlist`, one row per channel, no
 map involved). A watched channel stays on the list after it stops qualifying, with
-`qualifies: false`. On the page a watched channel is shown under **Watched** and
-nowhere else: the All, New, Small and Other language views hold only what the owner
-has not taken up yet, the intro sentence counts what the view on screen shows and
-says how many are under Watched, and unwatching brings the channel back. That is the
+`qualifies: false`. On the page a watched channel is shown under **Saved** and
+nowhere else: **To look at** holds only what the owner has not taken up yet, the
+intro sentence counts what the view on screen shows and says how many are saved,
+and unwatching brings the channel back. That is the
 page's doing (`apps/web/src/lib/niches.ts`): the stored list, the API and the
 connector's `list_niches` still return every channel with its `watched` flag. `POST /api/niches/watch` takes `{ channel, watched }`, accepts
 only a well-formed channel id of a stored channel (404 otherwise), and goes through
@@ -911,6 +911,38 @@ the same Host, Origin, content-type and size checks as every other write.
 On the owner's 286-channel store the list holds 55 channels: 45 new and 10 small
 ones that are older. It is computed on each request (about 0.2 s there) and is not
 frozen with any map.
+
+**Filters and order on the page** (`apps/web/src/lib/nicheBuckets.ts`,
+`nicheFilters.ts`, `nicheSort.ts`, `nicheFilterSave.ts`). The old New, Small and
+Other language tabs are folded into filters; only To look at / Saved stays a tab.
+Every filter is worked out in the page from the list above and the stored
+monetization verdicts; none asks the server for anything new. Within a group a
+channel passes when it is in any option chosen; across groups it must pass all.
+Each option shows how many channels it would keep given the other groups, the page
+says "Showing 12 of 103", and the choice is kept in the browser
+(`jgtube.nicheFilters.v1`, read back through a validator).
+
+| Filter    | Options                                                                              | From                                                                                     |
+| --------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Language  | Latin letters, then each alphabet found; shortcuts "Latin only" / "Other alphabets"  | `otherLanguage.script` (the alphabet of the titles; no language is detected beyond that) |
+| Age       | Under 3 months, 3–6, 6–12, over a year, restarted, not known                         | `channelAgeDays`, else the account's age from `createdAt`; restarted as on the card      |
+| Revenue   | Under $1K, $1K–3K, $3K–5K, $5K–10K, $10K+, no estimate (estimate)                    | Middle of the 30-day `earnings` range                                                    |
+| RPM       | Under $0.50, $0.50–1, $1–2, $2–3, $3–5, no estimate (estimate)                       | The same estimate over the views it was made from, per 1,000                             |
+| Monetized | Monetized, Likely, Not yet, No sign, Not checked; "Check N of them" beside the count | The stored verdicts; unchecked channels are an option, never dropped unseen              |
+| Size      | Under 1K, 1K–10K, 10K–100K, hidden                                                   | `subscribers`                                                                            |
+| Took off  | 5×, 10× or 50× or more (one at a time)                                               | The best `score` among `outperformers`                                                   |
+| Uploads   | Under 1, 1–3, 3–7, 7 or more a week                                                  | `recentUploads` over 30 days                                                             |
+| Country   | Each country found, then not known                                                   | `country`                                                                                |
+
+The RPM bands stop at $5 because the estimate cannot go higher: long videos are
+valued at $2–8 per 1,000 views times the tier (1, 0.5 or 0.2), so the middle tops
+out at $5, and Shorts at $0.10–0.50. The orders are most 90-day views (the stored
+order), biggest breakout, newest, most 30-day views, views per subscriber,
+estimated revenue and estimated RPM; unknown values go last. Cards stand three to
+a row on a wide screen, two on a tablet, one on a phone: logo, name, handle, money
+badge and tags, one line of subscribers, 30-day views and best multiple, three
+small thumbnails of the videos that took off, Open and Break down; the numbers,
+the estimate with its RPM and the titles are behind Details.
 
 Not built: a model's reading of what the listed channels have in common, and a
 language check beyond the alphabet.
@@ -1636,7 +1668,9 @@ topic cards, the radar inspector, competitor rows and the channel header ("$
 Monetized", "$? Likely", "Not yet", "No sign", "Not checked") whose tooltip names the sign, the
 day and the video read; a monetization filter on New niches, Same topic and Breaking
 out ("Only monetized" keeps a sign of memberships, not ads alone; channels never
-checked are left out of both filters, and the panel says how many).
+checked are left out of both filters, and the panel says how many). New niches has
+its own Monetized filter with every verdict as an option, "Not checked" among them,
+and the count of unchecked channels with "Check N of them" beside it.
 
 **Verified here (November 2026, signed out, from a data-centre address).** The Join
 tip was on two videos each of Linus Tech Tips, Markiplier and NileRed, and on none of

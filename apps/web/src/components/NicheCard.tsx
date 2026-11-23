@@ -53,11 +53,12 @@ function ageTag(channel: NicheChannel, now: Date): string | null {
   return channel.reasons.includes('new') ? `New channel · ${age}` : `${age} old`;
 }
 
-/** The short marks: age, alphabet, and a watched channel that stopped outperforming. */
+/** The short marks: money signs, age, alphabet, and a watched channel that stopped outperforming. */
 function Tags({ channel }: { readonly channel: NicheChannel }) {
   const age = ageTag(channel, new Date());
   return (
     <div className="flex min-h-6 min-w-0 flex-wrap items-center gap-1.5">
+      <MoneyBadge channelId={channel.id} />
       {age && <span className={`${PILL} text-primary-fixed-dim`}>{age}</span>}
       {channel.otherLanguage && (
         <span
@@ -100,7 +101,7 @@ function KeyNumbers({ channel }: { readonly channel: NicheChannel }) {
   );
 }
 
-/** The channel's logo, name, handle and money badge, with Save at the right. */
+/** The channel's logo, name and handle, with Save at the right. */
 function Header({ channel, onSetWatched }: Props) {
   return (
     <div className="flex min-w-0 items-center gap-space-sm">
@@ -111,12 +112,9 @@ function Header({ channel, onSetWatched }: Props) {
         <h3 className="truncate text-body-md font-semibold text-on-surface">
           <Outbound href={channelUrl(channel.id)}>{channel.title}</Outbound>
         </h3>
-        <span className="flex min-w-0 items-center gap-x-2">
-          {channel.handle && (
-            <span className="truncate text-body-sm text-outline">@{channel.handle}</span>
-          )}
-          <MoneyBadge channelId={channel.id} />
-        </span>
+        {channel.handle && (
+          <span className="truncate text-body-sm text-outline">@{channel.handle}</span>
+        )}
       </div>
       <WatchToggle channel={channel} onSetWatched={onSetWatched} />
     </div>
