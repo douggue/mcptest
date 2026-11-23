@@ -40,7 +40,8 @@ function WatchToggle({ channel, onSetWatched }: Props) {
       }`}
     >
       <Icon aria-hidden="true" className="h-4 w-4" />
-      {channel.watched ? 'Saved' : 'Save'}
+      {/* Two narrow cards to a row on a tablet: the icon alone, the name read from aria-label. */}
+      <span className="sm:hidden lg:inline">{channel.watched ? 'Saved' : 'Save'}</span>
     </button>
   );
 }
