@@ -63,7 +63,7 @@ const UNKNOWN_REGION = 'ZZ';
 const regionNames = new Intl.DisplayNames(['en'], { type: 'region', fallback: 'none' });
 
 /** The country's name in English, or null for a code that is not a known country. */
-function countryName(code: string | null): string | null {
+export function countryName(code: string | null): string | null {
   if (code === null || code === UNKNOWN_REGION || !COUNTRY_CODE.test(code)) return null;
   try {
     return regionNames.of(code) ?? null;
@@ -72,16 +72,39 @@ function countryName(code: string | null): string | null {
   }
 }
 
+/** When the account was made, as a time; null when not asked for or unreadable. */
+function createdTime(channel: Pick<NicheChannel, 'createdAt'>): number | null {
+  const created = channel.createdAt === null ? Number.NaN : new Date(channel.createdAt).getTime();
+  return Number.isNaN(created) ? null : created;
+}
+
+/** Days since the account was made, from the official record; null when it is not known. */
+export function accountAgeDays(channel: Pick<NicheChannel, 'createdAt'>, now: Date): number | null {
+  const created = createdTime(channel);
+  return created === null ? null : (now.getTime() - created) / DAY_MS;
+}
+
+/** The account is far older than the first upload: it sat unused or was emptied, then started again. */
+export function isRestarted(
+  channel: Pick<NicheChannel, 'createdAt' | 'channelAgeDays'>,
+  now: Date,
+): boolean {
+  const account = accountAgeDays(channel, now);
+  return (
+    account !== null &&
+    channel.channelAgeDays !== null &&
+    account - channel.channelAgeDays > RESTART_MIN_GAP_DAYS
+  );
+}
+
 /** When the channel started: the account's year beside the first upload when the two are far apart. */
 function describeStart(channel: NicheChannel, now: Date): string | null {
-  const created = channel.createdAt === null ? Number.NaN : new Date(channel.createdAt).getTime();
-  const account = Number.isNaN(created)
-    ? null
-    : { year: new Date(created).getUTCFullYear(), ageDays: (now.getTime() - created) / DAY_MS };
-  if (channel.channelAgeDays === null) return account ? `Account from ${account.year}` : null;
+  const created = createdTime(channel);
+  const year = created === null ? null : new Date(created).getUTCFullYear();
+  if (channel.channelAgeDays === null) return year === null ? null : `Account from ${year}`;
   const age = formatAge(channel.channelAgeDays);
-  return account && account.ageDays - channel.channelAgeDays > RESTART_MIN_GAP_DAYS
-    ? `Account from ${account.year}, restarted ${age} ago`
+  return isRestarted(channel, now)
+    ? `Account from ${year}, restarted ${age} ago`
     : `First upload about ${age} ago`;
 }
 
