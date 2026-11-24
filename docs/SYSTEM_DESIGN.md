@@ -985,6 +985,97 @@ the estimate with its RPM and the titles are behind Details.
 Not built: a model's reading of what the listed channels have in common, and a
 language check beyond the alphabet.
 
+### Niche watchlist and sweeps
+
+Built (`packages/core/src/sweep/`, `repos/sqliteSweepRepo.ts`; server
+`sweepEngine.ts`, `sweepRoutes.ts`, `schedule.ts`; web `NicheWatchlist.tsx`,
+`WatchlistEntries.tsx`, `SweepControls.tsx`, `NewNichesEntry.tsx`, `useSweep.ts`,
+`lib/sweep.ts`). The owner asked that New niches "catch more". It does so by
+looking in more places and by running on a schedule, never by reading faster:
+the pace limiter (`YOUTUBE_PACE`) is untouched and the same with or without a
+proxy, and every request goes through `youtubeFetch`.
+
+**Watchlist.** Keywords and topics the owner keeps (`niche_keywords`; add,
+pause, remove; 2 to 80 characters, 50 at most, one per wording whatever its
+case). Suggestions are worked out in code (`suggest.ts`) from the channels on
+the owner's maps as the bank holds them: the three topic labels most of them
+carry, and up to six title words that winners (5× or more) share across at
+least two channels and that fewer channels use in titles that did not win.
+Nothing is added unasked.
+
+**A sweep** (`runSweep`; job kind `niche-sweep`, in Working). For each active
+keyword, least recently swept first (never swept before all): one search (the
+Data API when a key is set, else one signed-out results page), then up to 10 of
+the channels behind what it found, most found first, through the usual ingest
+(`SWEEP_CHANNELS_PER_KEYWORD`). A channel the store read in the last 7 days is
+left alone and costs nothing (`SWEEP_REREAD_DAYS`); the refresh keeps those
+current. What is read is judged by the niche rule and the bank like any other
+channel: nothing is added to either list by hand.
+
+**Snowball** (`snowball.ts`). From each channel the sweep read that is a niche
+now and was not before it, at most five (`SNOWBALL_MAX_SOURCES`): the sidebars
+of its two top took-off videos (the map's sidebar read), then the three
+channels standing there most often that the store has never held. One hop:
+what the snowball finds is never snowballed from. Whether a sibling is small
+is known only once read; the niche rule then judges it.
+
+**Budget.** One owner setting, "YouTube reading budget per day", in page
+requests: 400 by default (the cap "Find more outliers" always had), 100 to
+2,000 (`READING_BUDGET_MIN`, `READING_BUDGET_MAX` = 5× the default). Sweeps and
+finds share it: what either spent in the last 24 hours counts against both
+(`niche_sweeps` and `outlier_bank_finds`). With a key, the search and channel
+reads are counted in the key's units against `BANK_FIND_DAILY_API_UNITS`
+instead; sidebars are always page requests. Each read is charged before it is
+asked for, at the most it can take (search 1, channel 5, sidebar 2; a search
+100 units and a channel up to 5 on the API, settled to the exact count), and
+is not asked for when what is left cannot cover it (`reader.ts`); the spend is
+written as the sweep goes. The keywords may use three quarters of what is left
+so the snowball keeps its share (`SNOWBALL_BUDGET_SHARE`). A sweep that runs
+out stops with a plain message and `stopped: 'budget'`; the next one starts
+with the keywords it did not reach. A retry the pace limiter makes after a
+passing failure is not charged separately.
+
+**A refusal ends the day.** A sign-in wall, "confirm you're not a bot", an
+"unusual traffic" page or a 403/429 that outlasted the limiter's usual retries
+(`isRefusal`) stops the sweep at once with `stopped: 'refused'`. Sweeps then
+rest 24 hours (`SWEEP_REFUSAL_REST_HOURS`): the button answers 429 and the
+schedule passes. Nothing is retried another way; there is no second address,
+no rotation and no puzzle handling. Five other failures in a row end a sweep
+as `failed`.
+
+**Schedule.** Off, daily or every N days (1 to 30), kept in the store
+(`niche_sweep_settings`), so a change needs no restart. The server asks its
+own `POST /api/niches/sweep {by: 'schedule'}` every hour through the refresh
+timer (`startSweepThroughApi`); the route starts a sweep only when one is due
+(`sweepDue`: 20 hours for a day's turn; a sweep that stopped at the budget
+resumes the next day whatever N is) and answers 409, so the timer comes back
+in 15 minutes, while a map, a refresh, a find or a money check holds the lease.
+
+**What the list shows.** `niche_sweep_finds` keeps which sweep first brought a
+channel into the store and how. Each niche entry carries `foundBy` (a keyword,
+the snowball from a named channel, or one of the owner's maps; null when none
+is recorded) and `newSinceSweep` (the latest finished sweep brought it in);
+the list carries `lastSweepAt` and the count. The page has a "New since last
+sweep (N)" toggle, a badge and a "Found by" line on the card. What changed
+(`newNiches`, since the moment compared from) and Alerts (`newNiches {count,
+at}` of the latest sweep) show "N new niche channels found", linked to New
+niches. The panel shows the last sweep per keyword: channels read, qualified
+and requests charged.
+
+Routes: `GET /api/niches/sweep` (keywords, suggestions, settings, today's
+budget, the most a sweep can cost, the last sweep, `restingUntil`,
+`cannotStart`, a job under way), `POST /api/niches/sweep` (202; 409 busy or no
+keyword; 429 budget used or resting), `POST .../keywords {action, keyword |
+id}`, `POST .../settings {everyDays, pageBudget}`.
+
+**Run for real** (November 2026, a copy of a test store, signed out, no proxy,
+budget 100): one keyword, "abandoned megaprojects", found 20 channels, read 9
+(one already known), 3 qualified; the snowball read 5 sidebars and 8 siblings,
+7 qualified; 96 page requests charged. The API path, a proxy and a real
+refusal were tested with fakes only.
+
+Not built: a connector tool for the watchlist, and bigram suggestions.
+
 ### Niche transfer opportunities
 
 Built (`packages/core/src/transfer/`, `GET /api/transfers`,

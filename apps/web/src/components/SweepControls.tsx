@@ -110,7 +110,9 @@ export function SweepControls({ info, run, onStart, onSave }: Props) {
   const running = run.status === 'running';
   return (
     <div className="flex min-w-0 flex-col gap-space-sm">
-      <p className="text-body-sm text-on-surface-variant">{costLine(info)}</p>
+      {(info.cannotStart === null || info.keywords.length === 0) && (
+        <p className="text-body-sm text-on-surface-variant">{costLine(info)}</p>
+      )}
       <div className="flex min-w-0 flex-wrap items-center gap-3">
         <button
           type="button"
