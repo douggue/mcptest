@@ -1,0 +1,129 @@
+/**
+ * The format builder's formats as the page reads them: the local server's
+ * API, and the words beside each slot. Every check and number comes from the
+ * server, worked out in code; this only phrases it.
+ */
+import type {
+  Format,
+  FormatChange,
+  FormatChecks,
+  FormatSlots,
+  Ingredient,
+  IngredientLayer,
+} from '@jgtube/core';
+import { applySuggestion, clearSlot, fillSlot, noteSlot } from '@jgtube/core/src/format/formats';
+import { apiCaller, type Fetch } from './api';
+
+export { applySuggestion, clearSlot, fillSlot, noteSlot };
+
+/** A format with its checks, as the server sends it. */
+export interface FormatView extends Format {
+  readonly checks: FormatChecks;
+  readonly topChannelTitle: string | null;
+}
+
+export const FORMATS_PATH = '/api/format/formats';
+export const MIX_JOB_KIND = 'format-mix';
+
+export function createFormatBuilderApi(fetcher?: Fetch) {
+  const { call, unwrap, send } = apiCaller(fetcher);
+  const one = async (path: string, body: unknown): Promise<FormatView> =>
+    unwrap<FormatView>(await send(path, body));
+  return {
+    async list(): Promise<readonly FormatView[]> {
+      return unwrap<{ formats: FormatView[] }>(await call(FORMATS_PATH)).formats;
+    },
+    create: (name: string, targetSeconds: number | null) =>
+      one(FORMATS_PATH, { name, targetSeconds }),
+    update: (id: number, change: FormatChange) => one(`${FORMATS_PATH}/update`, { id, ...change }),
+    duplicate: (id: number) => one(`${FORMATS_PATH}/duplicate`, { id }),
+    async remove(id: number): Promise<void> {
+      unwrap(await send(`${FORMATS_PATH}/remove`, { id }));
+    },
+    /** Starts "Suggest a mix"; resolves with the job to follow. */
+    async suggest(id: number, channel: string | null, engine: string | null): Promise<string> {
+      const body = { id, channel, ...(engine === null ? {} : { engine }) };
+      return unwrap<{ jobId: string }>(await send(`${FORMATS_PATH}/suggest`, body)).jobId;
+    },
+  };
+}
+
+export type FormatBuilderApi = ReturnType<typeof createFormatBuilderApi>;
+
+/** One warning beside a slot, in plain words. */
+export interface SlotWarning {
+  readonly kind: 'clash' | 'unproven' | 'copies';
+  readonly text: string;
+}
+
+const UNPROVEN =
+  'Not proven yet: fewer than two videos from two channels use it. It may have been one lucky video.';
+
+/** The warnings beside each slot: clashes, unproven ingredients and copying one channel. */
+export function slotWarnings(
+  view: Pick<FormatView, 'checks' | 'topChannelTitle'>,
+): Readonly<Partial<Record<IngredientLayer, readonly SlotWarning[]>>> {
+  const { clashes, unproven, originality } = view.checks;
+  const byLayer = new Map<IngredientLayer, SlotWarning[]>();
+  const add = (layer: IngredientLayer, warning: SlotWarning): void => {
+    byLayer.set(layer, [...(byLayer.get(layer) ?? []), warning]);
+  };
+  for (const clash of clashes) {
+    for (const layer of clash.layers) add(layer, { kind: 'clash', text: clash.says });
+  }
+  for (const layer of unproven) add(layer, { kind: 'unproven', text: UNPROVEN });
+  if (originality.copiesOneChannel) {
+    for (const layer of originality.layers) {
+      add(layer, { kind: 'copies', text: `From ${view.topChannelTitle ?? 'one channel'}.` });
+    }
+  }
+  return Object.fromEntries(byLayer);
+}
+
+/** The originality line for the whole format, with the counts it rests on; null with too little to say. */
+export function originalityLine(
+  view: Pick<FormatView, 'checks' | 'topChannelTitle'>,
+): string | null {
+  const { originality } = view.checks;
+  if (originality.channelId === null) return null;
+  const share = Math.round(originality.share * 100);
+  const counted = `${originality.fromChannel} of ${originality.filled} filled slots (${share}%) come from ${view.topChannelTitle ?? 'one channel'}`;
+  return originality.copiesOneChannel
+    ? `This copies one channel: ${counted}. Mix in pieces from others.`
+    : `${counted}: a mix, not a copy.`;
+}
+
+/** The ingredients on the shelf that can fill a layer's slot, proven first. */
+export function choicesFor(
+  shelf: readonly Ingredient[],
+  layer: IngredientLayer,
+): readonly Ingredient[] {
+  return shelf
+    .filter((item) => item.layer === layer)
+    .sort((a, b) => Number(b.proven) - Number(a.proven) || b.id - a.id);
+}
+
+/** How many slots are filled. */
+export const filledCount = (slots: FormatSlots): number =>
+  Object.values(slots).filter((slot) => slot !== undefined).length;
+
+const MINUTE = 60;
+
+/** A planned length as the owner reads it: "45 s", "10 min", "1 h 5 min". */
+export function lengthText(seconds: number | null): string {
+  if (seconds === null) return 'No length set';
+  if (seconds < MINUTE) return `${seconds} s`;
+  const minutes = Math.round(seconds / MINUTE);
+  if (minutes < 60) return `${minutes} min`;
+  const rest = minutes % 60;
+  return rest === 0 ? `${Math.floor(minutes / 60)} h` : `${Math.floor(minutes / 60)} h ${rest} min`;
+}
+
+/** The length the owner typed in minutes, as seconds; null for none, NaN-free. */
+export function secondsFrom(minutesText: string): number | null | 'bad' {
+  const text = minutesText.trim();
+  if (text === '') return null;
+  const minutes = Number(text);
+  if (!Number.isFinite(minutes) || minutes <= 0) return 'bad';
+  return Math.round(minutes * MINUTE);
+}
