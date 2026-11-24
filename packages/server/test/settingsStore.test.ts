@@ -44,6 +44,7 @@ describe('the settings as the page is shown them', () => {
       'JGTUBE_MARK_FACTS',
       'JGTUBE_YT_DLP_PATH',
       'JGTUBE_FFMPEG_PATH',
+      'JGTUBE_YOUTUBE_PROXY',
       'JGTUBE_DOWNLOADS_PATH',
       'JGTUBE_REFRESH_HOURS',
       'JGTUBE_REGION',
@@ -201,6 +202,7 @@ describe('settings that take effect at once', () => {
       'JGTUBE_MARK_FACTS',
       'JGTUBE_YT_DLP_PATH',
       'JGTUBE_FFMPEG_PATH',
+      'JGTUBE_YOUTUBE_PROXY',
     ]);
   });
 

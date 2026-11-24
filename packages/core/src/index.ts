@@ -8,7 +8,14 @@ export { SqliteVideoRepo } from './repos/sqliteVideoRepo';
 export type { ChannelRepo, StoredChannel, StoredVideo, VideoRepo } from './repos/types';
 export { ageRamp, scoreVideos, type OutlierScore } from './scoring/outlier';
 export { InnertubeSource } from './sources/innertube';
-export { RateLimiter } from './sources/limiter';
+export { RateLimiter, type RateLimiterOptions } from './sources/limiter';
+export {
+  YOUTUBE_PROXY_RULE,
+  YOUTUBE_PROXY_SETTING,
+  hideProxySecret,
+  youtubeProxyOf,
+} from './sources/youtubeProxy';
+export { checkYouTubeProxy, type ProxyCheck, type ProxyVerdict } from './sources/youtubeProxyCheck';
 export { parseChannelRef, VIDEO_ID_PATTERN } from './sources/parse';
 export type { ChannelInfo, SidebarItem, VideoItem, YouTubeSource } from './sources/types';
 export { crawlMap, type CrawlDeps, type CrawlOptions, type CrawlResult } from './crawl/crawl';

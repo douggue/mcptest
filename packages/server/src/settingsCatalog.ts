@@ -1,4 +1,4 @@
-import { CONFIG_ENV_RULES, PROGRAM_PATH_RULE } from '@jgtube/core';
+import { CONFIG_ENV_RULES, PROGRAM_PATH_RULE, YOUTUBE_PROXY_SETTING } from '@jgtube/core';
 import type { z } from 'zod';
 import { ENGINE_ENV_RULES } from './engines/settings';
 
@@ -78,6 +78,15 @@ export const SETTINGS: readonly SettingSpec[] = [
     secret: false,
     effect: 'now',
     rule: PROGRAM_PATH_RULE,
+  },
+  {
+    name: YOUTUBE_PROXY_SETTING,
+    label: 'Proxy for YouTube',
+    help: 'Sends Jgtube’s YouTube reading and downloads through this address. Use an address in your own country, or your map’s recommendations will be another country’s.',
+    // It may carry a user name and password.
+    secret: true,
+    effect: 'now',
+    rule: CONFIG_ENV_RULES.JGTUBE_YOUTUBE_PROXY,
   },
   {
     name: 'JGTUBE_DOWNLOADS_PATH',

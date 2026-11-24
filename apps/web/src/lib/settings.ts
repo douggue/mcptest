@@ -37,6 +37,38 @@ export interface AllowReport {
   readonly lines: readonly string[];
 }
 
+/** The proxy for YouTube: a secret, since it may carry a user name and password. */
+export const PROXY_SETTING = 'JGTUBE_YOUTUBE_PROXY';
+
+/** What the Test of the proxy for YouTube found, as the server says it. */
+export type ProxyVerdict = 'reachable' | 'refused' | 'sign-in' | 'not-set';
+
+export interface ProxyTestReply {
+  readonly verdict: ProxyVerdict;
+  /** One plain sentence; never the address or its password. */
+  readonly reason: string;
+}
+
+const VERDICT_TITLES: Readonly<Record<ProxyVerdict, string>> = {
+  reachable: 'Reachable',
+  refused: 'Refused',
+  'sign-in': 'Sign-in asked',
+  'not-set': 'Not set',
+};
+
+export const proxyTestTitle = (verdict: ProxyVerdict): string => VERDICT_TITLES[verdict];
+
+/** What an empty box says: the shape of a proxy address, or what to do with a key. */
+export function placeholderOf(setting: SettingView): string {
+  if (setting.name === PROXY_SETTING) {
+    return setting.set
+      ? 'Paste a new address to replace it'
+      : 'http://host:port or socks5://user:password@host:port';
+  }
+  if (!setting.secret) return '';
+  return setting.set ? 'Paste a new key to replace it' : 'Paste the key';
+}
+
 /** What the owner has done to one setting since the screen was opened. */
 export type Draft = { readonly kind: 'set'; readonly value: string } | { readonly kind: 'clear' };
 export type Drafts = Readonly<Record<string, Draft>>;
@@ -105,6 +137,10 @@ export function createSettingsApi(fetcher?: Fetch) {
     },
     async allowAntigravity(): Promise<AllowReport> {
       return unwrap<AllowReport>(await send('/api/settings/allow-antigravity', {}));
+    },
+    /** Fetches one public YouTube page through the saved proxy; one request, on the server. */
+    async testYouTubeProxy(): Promise<ProxyTestReply> {
+      return unwrap<ProxyTestReply>(await send('/api/settings/youtube-proxy-test', {}));
     },
   };
 }

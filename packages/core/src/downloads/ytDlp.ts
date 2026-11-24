@@ -1,5 +1,6 @@
 import { readdir, rm, stat } from 'node:fs/promises';
 import { VIDEO_ID_PATTERN } from '../sources/parse';
+import { hideProxySecret } from '../sources/youtubeProxy';
 import { pathInside } from './folder';
 import { programRunner, type ProgramResult, type RunProgram } from './program';
 import {
@@ -84,6 +85,7 @@ const runDirectly: RunProgram = programRunner(DOWNLOAD_TIMEOUT_MS);
  * told to use that Node as its JavaScript runtime. The runtime and its path
  * are one argument (`node:C:\Program Files\nodejs\node.exe` on Windows):
  * nothing here passes through a shell, so spaces and the drive's colon are safe.
+ * `proxy` is the owner's proxy for YouTube, handed to yt-dlp as it is.
  */
 export function ytDlpArguments(
   videoId: string,
@@ -91,6 +93,7 @@ export function ytDlpArguments(
   maxBytes: number,
   nodePath: string | null = null,
   ffmpegPath: string | null = null,
+  proxy: string | null = null,
 ): string[] {
   // Joined first when it can be: that is where the height asked for is found.
   const format = ffmpegPath === null ? FORMAT : [...JOINED_FORMATS, FORMAT].join('/');
@@ -99,6 +102,7 @@ export function ytDlpArguments(
     ...(ffmpegPath === null
       ? []
       : ['--ffmpeg-location', ffmpegPath, '--merge-output-format', JOINED_AS]),
+    ...(proxy === null ? [] : ['--proxy', proxy]),
     '--no-playlist',
     '--no-progress',
     '--no-warnings',
@@ -209,6 +213,11 @@ export interface YtDlpOptions {
    * single file with both can be fetched.
    */
   readonly ffmpegPath?: string | null;
+  /**
+   * The owner's proxy for YouTube, when one is set: yt-dlp reads YouTube
+   * through it. Taken out of anything yt-dlp says before it is passed on.
+   */
+  readonly proxy?: string | null;
 }
 
 /**
@@ -224,8 +233,21 @@ export function ytDlpFetcher(
   const nodePath = options.nodePath === undefined ? process.execPath : options.nodePath;
   const { signal } = options;
   const ffmpegPath = options.ffmpegPath ?? null;
-  const start = (videoId: string, folder: string, maxBytes: number, node: string | null) =>
-    run(program, ytDlpArguments(videoId, folder, maxBytes, node, ffmpegPath), signal);
+  const proxy = options.proxy ?? null;
+  const start = async (
+    videoId: string,
+    folder: string,
+    maxBytes: number,
+    node: string | null,
+  ): Promise<ProgramResult> => {
+    const args = ytDlpArguments(videoId, folder, maxBytes, node, ffmpegPath, proxy);
+    const result = await run(program, args, signal);
+    return {
+      ...result,
+      stdout: hideProxySecret(result.stdout, proxy),
+      stderr: hideProxySecret(result.stderr, proxy),
+    };
+  };
   return {
     route: 'yt-dlp',
     async fetch(videoId, folder, maxBytes) {

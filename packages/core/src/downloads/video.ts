@@ -1,3 +1,4 @@
+import { youtubeProxyOf } from '../sources/youtubeProxy';
 import { parseVideoRef } from '../video/ref';
 import { builtInVideoFetcher, type VideoPlayerSource } from './builtInVideo';
 import { programSetting } from './program';
@@ -41,12 +42,15 @@ export async function downloadVideo(
   const videoId = parseVideoRef(video);
   const program = await findProgram(YT_DLP_PROGRAM, options.env, options.platform);
   const ffmpegPath = await findProgram(FFMPEG, options.env, options.platform);
+  // Read with the program paths, from the same settings: yt-dlp is told the owner's proxy.
+  const proxy = youtubeProxyOf(options.env ?? process.env);
   const fetchers: readonly VideoFetcher[] = [
     ...(program === null
       ? []
       : [
           ytDlpFetcher(program, options.run, {
             ffmpegPath,
+            proxy,
             ...(options.signal ? { signal: options.signal } : {}),
           }),
         ]),

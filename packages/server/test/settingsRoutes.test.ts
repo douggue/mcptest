@@ -24,6 +24,7 @@ function appWith(parts: Partial<SettingsEngine> = {}) {
       helpers: ['yt-dlp: not found'],
     }),
     allowAntigravity: () => ({ ok: true, lines: ['Done.'] }),
+    testYouTubeProxy: async () => ({ verdict: 'not-set', reason: 'No proxy is saved yet.' }),
     ...parts,
   };
   return createApp({

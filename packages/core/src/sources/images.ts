@@ -1,4 +1,5 @@
 import { VIDEO_ID_PATTERN } from './parse';
+import { youtubeFetch } from './youtubeFetch';
 
 /**
  * Fetches pictures from YouTube's image hosts and nowhere else.
@@ -147,7 +148,7 @@ async function readImage(response: Response, rule: ImageRule): Promise<FetchedIm
 export async function fetchPinnedImage(
   url: string,
   rule: ImageRule,
-  fetchImage: FetchImage = fetch,
+  fetchImage: FetchImage = youtubeFetch,
 ): Promise<FetchedImage> {
   if (!isPinnedImageUrl(url, rule)) {
     return failed('its address is not on the image host Jgtube reads');
@@ -180,7 +181,7 @@ const FULL_THUMBNAIL_RULE: ImageRule = { ...THUMBNAIL_RULE, maxBytes: MAX_FULL_T
  */
 export async function fetchFullThumbnail(
   videoId: string,
-  fetchImage: FetchImage = fetch,
+  fetchImage: FetchImage = youtubeFetch,
 ): Promise<FetchedImage> {
   if (!VIDEO_ID_PATTERN.test(videoId)) return failed('that is not a video id');
   let last: FetchedImage = failed('the image could not be reached');
@@ -195,7 +196,7 @@ export async function fetchFullThumbnail(
 /** Fetches one video's thumbnail; see `fetchPinnedImage`. */
 export async function fetchThumbnail(
   videoId: string,
-  fetchImage: FetchImage = fetch,
+  fetchImage: FetchImage = youtubeFetch,
 ): Promise<FetchedImage> {
   if (!VIDEO_ID_PATTERN.test(videoId)) return failed('that is not a video id');
   return fetchPinnedImage(thumbnailUrl(videoId), THUMBNAIL_RULE, fetchImage);
