@@ -1,6 +1,7 @@
-import type { Draft, Drafts, SettingView } from '../lib/settings';
+import { PROXY_SETTING, type Draft, type Drafts, type SettingView } from '../lib/settings';
 import { Card } from './layout/Card';
 import { Details } from './layout/Details';
+import { ProxyTest } from './ProxyTest';
 import { SettingRow } from './SettingRow';
 
 /**
@@ -24,6 +25,7 @@ const GROUPS: readonly {
       'JGTUBE_YT_DLP_PATH',
       'JGTUBE_FFMPEG_PATH',
       'JGTUBE_DOWNLOADS_PATH',
+      PROXY_SETTING,
     ],
   },
 ];
@@ -77,6 +79,15 @@ function GroupCard({ group, ...props }: Props & { readonly group: Group }) {
             draft={drafts[setting.name]}
             disabled={disabled}
             onDraft={(draft) => onDrafts((now) => withDraft(now, setting.name, draft))}
+            extra={
+              setting.name === PROXY_SETTING ? (
+                <ProxyTest
+                  saved={setting.set}
+                  unsaved={drafts[setting.name] !== undefined}
+                  disabled={disabled}
+                />
+              ) : null
+            }
           />
         ))}
       </div>
@@ -99,7 +110,7 @@ export function SettingGroups(props: Props) {
           <GroupCard key={group.title} group={group} {...props} />
         ))}
       {advanced.length > 0 && (
-        <Details summary="Advanced: AI order, program paths and folders">
+        <Details summary="Advanced: AI order, program paths, folders and proxy">
           {advanced.map((group) => (
             <GroupCard key={group.title} group={group} {...props} />
           ))}

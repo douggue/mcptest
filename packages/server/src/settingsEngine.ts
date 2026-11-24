@@ -1,9 +1,18 @@
-import { FFMPEG_PROGRAM, YT_DLP_PROGRAM, findProgram } from '@jgtube/core';
+import {
+  FFMPEG_PROGRAM,
+  YT_DLP_PROGRAM,
+  checkYouTubeProxy,
+  findProgram,
+  youtubeProxyOf,
+  type ProxyCheck,
+} from '@jgtube/core';
 import { SERVER_NAME } from './analyses';
 import { allowAntigravity } from './engines/allowAgy';
 import type { EngineReport } from './engines/catalog';
 import { helperLines, reportLines } from './engines/report';
-import type { SettingsEngine } from './settingsRoutes';
+import type { ProxyTest, SettingsEngine } from './settingsRoutes';
+
+type Env = Readonly<Record<string, string | undefined>>;
 import type { SettingsStore } from './settingsStore';
 
 export interface SettingsEngineDeps {
@@ -14,6 +23,25 @@ export interface SettingsEngineDeps {
   readonly env?: Readonly<Record<string, string | undefined>>;
   /** Replaces the owner's home folder; used by tests. */
   readonly homeDir?: string;
+  /** Fetches one public YouTube page through a proxy; tests replace it. */
+  readonly checkProxy?: (proxy: string) => Promise<ProxyCheck>;
+}
+
+const NOT_SET: ProxyTest = {
+  verdict: 'not-set',
+  reason: 'No proxy is saved yet. Save one, then test it.',
+};
+
+/** The saved proxy for YouTube, tested with one page; a bad or missing one is said, not thrown. */
+async function testProxy(deps: SettingsEngineDeps, env: Env): Promise<ProxyTest> {
+  let proxy: string | null;
+  try {
+    proxy = youtubeProxyOf(env);
+  } catch (error) {
+    return { verdict: 'refused', reason: error instanceof Error ? error.message : String(error) };
+  }
+  if (proxy === null) return NOT_SET;
+  return (deps.checkProxy ?? checkYouTubeProxy)(proxy);
 }
 
 /** Everything the settings screen can do: the `.env` settings and what `npm run engines` does. */
@@ -36,5 +64,7 @@ export function settingsEngine(deps: SettingsEngineDeps): SettingsEngine {
     },
 
     allowAntigravity: () => allowAntigravity(SERVER_NAME, deps.homeDir),
+
+    testYouTubeProxy: () => testProxy(deps, env),
   };
 }

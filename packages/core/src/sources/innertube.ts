@@ -23,6 +23,7 @@ import {
   type CaptionTrack,
 } from './videoPage';
 import { WATCH_HEADERS, WATCH_TIMEOUT_MS, readWatchResponse, watchPageUrl } from './watchHtml';
+import { youtubeFetch } from './youtubeFetch';
 
 /** The slice of the YouTube client this source uses, so tests can fake it. */
 export interface VideosTab {
@@ -110,7 +111,7 @@ export class InnertubeSource implements YouTubeSource, WatchPageSource {
     private readonly client: InnertubeClient,
     private readonly limiter: RateLimiter,
     private readonly now: () => Date,
-    private readonly fetchText: FetchText = fetch,
+    private readonly fetchText: FetchText = youtubeFetch,
   ) {}
 
   static async create(options: InnertubeSourceOptions): Promise<InnertubeSource> {
@@ -119,6 +120,8 @@ export class InnertubeSource implements YouTubeSource, WatchPageSource {
     Parser.setParserErrorHandler(() => {});
     Log.setLevel(Log.Level.ERROR);
     const client = await Innertube.create({
+      // Every request the library makes, video files included, goes the one way to YouTube.
+      fetch: youtubeFetch,
       retrieve_player: false,
       lang: LISTING_LANGUAGE,
       location: options.region,

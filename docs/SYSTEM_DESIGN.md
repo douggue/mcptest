@@ -3113,6 +3113,7 @@ beside where Jgtube is started, the one `process.loadEnvFile` reads.
 | Antigravity model       | `JGTUBE_AGY_MODEL`                         | restart      |
 | Mark facts in scripts   | `JGTUBE_MARK_FACTS`                        | at once      |
 | yt-dlp and ffmpeg paths | `JGTUBE_YT_DLP_PATH`, `JGTUBE_FFMPEG_PATH` | at once      |
+| Proxy for YouTube       | `JGTUBE_YOUTUBE_PROXY`                     | at once      |
 | Downloads folder        | `JGTUBE_DOWNLOADS_PATH`                    | restart      |
 | Refresh interval        | `JGTUBE_REFRESH_HOURS`                     | restart      |
 | Region                  | `JGTUBE_REGION`                            | restart      |
@@ -3146,6 +3147,63 @@ beside where Jgtube is started, the one `process.loadEnvFile` reads.
 - **Set outside the file.** A setting the environment already held when
   Jgtube started wins over the file. The screen says so, and a change is
   written to the file without touching the running value.
+
+### Proxy for YouTube
+
+One setting in Advanced, `JGTUBE_YOUTUBE_PROXY`: one address,
+`http://host:port`, `https://host:port` or `socks5://host:port`, with an
+optional `user:password@` before the host (percent-encoded where needed).
+Help on the screen: "Sends Jgtube’s YouTube reading and downloads through this
+address. Use an address in your own country, or your map’s recommendations
+will be another country’s."
+
+- **What goes through it.** Only Jgtube's own YouTube traffic, all of it
+  through one helper, `youtubeFetch` (`core/src/sources/youtubeFetch.ts`): the
+  InnerTube library (`Innertube.create({ fetch: youtubeFetch })`, so crawl,
+  refresh, a pasted channel, sidebars, the player answer and the built-in
+  video download), the watch page read for monetization signs, caption tracks,
+  and pictures from `i.ytimg.com` and `yt3.googleusercontent.com`
+  (`sources/images.ts`). yt-dlp is started with `--proxy <address>`.
+- **What does not.** The official Data API (`dataApi.ts`, `commentsApi.ts`,
+  on `googleapis.com`), the Gemini API and every other AI engine, and the
+  browser's own loading of thumbnails on the page. A Gemini model that watches
+  a video from its link is Google reading YouTube, not this computer.
+- **Kept honest by a test.** `youtubeFetchPaths.test.ts` reads every source
+  file of core, server and connector: only the helper and the three files
+  above may use the global `fetch` (and those three may not name a YouTube
+  host), every `Innertube.create` must be given `fetch: youtubeFetch`, and
+  only the helper and the server's entry point may import a network module.
+- **A secret.** It may hold a password, so the screen shows only Set or Not
+  set, and the address and password are taken out of every message
+  (`hideProxySecret`), yt-dlp's included. It is checked with
+  `YOUTUBE_PROXY_RULE` (scheme, host, a port from 1 to 65535, nothing after
+  the port) on save and at start, and a refusal never repeats it.
+- **Applies on save.** The save writes the running environment as for every
+  setting, and `youtubeFetch` reads the setting at each request, so the next
+  request uses the new address; clearing it goes straight to YouTube again.
+  An address changed by hand into a bad one stops YouTube reading with a
+  plain error rather than going without the proxy.
+- **Pace unchanged.** The limiter (`YOUTUBE_PACE` in `connection.ts`: two at
+  a time, 300 to 600 ms apart, the same retries and caching) is the same with
+  or without a proxy; a test checks it. Jgtube has one proxy and never
+  rotates, switches or retries with another address; whatever a provider does
+  behind its gateway is outside Jgtube.
+- **Test** (`POST /api/settings/youtube-proxy-test`, `youtubeProxyCheck.ts`).
+  Fetches one public watch page through the saved proxy, redirects not
+  followed, 15 seconds at most, and answers `reachable`, `refused` (with the
+  plain reason: nothing listening, host not found, password refused, a 403 or
+  429 from YouTube) or `sign-in` (sent to a sign-in or consent page, or
+  "confirm you're not a bot" on the page).
+- **How.** `undici`'s `ProxyAgent` (HTTP CONNECT) and `Socks5ProxyAgent`
+  (marked experimental by undici; it prints one warning the first time).
+  Tested against small HTTP and SOCKS5 proxies run on this computer in the
+  tests, user name and password included; no provider's proxy has been tried.
+- **Seen here (November 2026).** Through a local HTTP proxy with a password,
+  passed on through this sandbox's own data-centre egress, a channel page and
+  30 of its videos were read through InnerTube, and Test said Refused: the
+  watch page was sent to `google.com/sorry` ("unusual traffic"). A wrong
+  password was reported as such, and an address with nothing listening as
+  "Nothing answered".
 
 ## Testing
 

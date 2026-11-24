@@ -13,6 +13,7 @@ import type { SaveOutcome, SettingsView } from './settingsStore';
 export const SETTINGS_PATH = '/api/settings';
 export const PROGRAMS_PATH = '/api/settings/programs';
 export const ALLOW_AGY_PATH = '/api/settings/allow-antigravity';
+export const PROXY_TEST_PATH = '/api/settings/youtube-proxy-test';
 
 /** No setting is longer than a full path. */
 const MAX_VALUE_LENGTH = 1000;
@@ -26,6 +27,12 @@ export interface ProgramsReport {
   readonly helpers: readonly string[];
 }
 
+/** What testing the proxy for YouTube found: one of the check's verdicts, or that none is saved. */
+export interface ProxyTest {
+  readonly verdict: 'reachable' | 'refused' | 'sign-in' | 'not-set';
+  readonly reason: string;
+}
+
 /** What the routes need; `main.ts` wires it to the `.env` file and the running engine. */
 export interface SettingsEngine {
   view(): SettingsView;
@@ -34,6 +41,8 @@ export interface SettingsEngine {
   programs(): Promise<ProgramsReport>;
   /** Lets Antigravity use Jgtube's tools, by one line in its own settings. */
   allowAntigravity(): AllowReport;
+  /** Fetches one public YouTube page through the saved proxy for YouTube. Never throws. */
+  testYouTubeProxy(): Promise<ProxyTest>;
 }
 
 const saveRequest = z.object({
@@ -72,6 +81,16 @@ async function allow(
   }
 }
 
+async function testProxy(
+  settings: SettingsEngine,
+  allowedHosts: readonly string[],
+  request: Request,
+): Promise<Response> {
+  const body = await readJson(allowedHosts, request);
+  if (body instanceof Response) return body;
+  return ok(await settings.testYouTubeProxy());
+}
+
 async function programs(settings: SettingsEngine): Promise<Response> {
   try {
     return ok(await settings.programs());
@@ -91,12 +110,15 @@ export function settingsRoute(
   request: Request,
   pathname: string,
 ): Promise<Response> | Response | null {
-  const paths: readonly string[] = [SETTINGS_PATH, PROGRAMS_PATH, ALLOW_AGY_PATH];
+  const paths: readonly string[] = [SETTINGS_PATH, PROGRAMS_PATH, ALLOW_AGY_PATH, PROXY_TEST_PATH];
   if (!paths.includes(pathname)) return null;
   if (!settings) return fail(404, 'Settings cannot be changed from here');
   const { method } = request;
   if (pathname === PROGRAMS_PATH) {
     return method === 'GET' ? programs(settings) : fail(405, 'Use GET');
+  }
+  if (pathname === PROXY_TEST_PATH) {
+    return method === 'POST' ? testProxy(settings, allowedHosts, request) : fail(405, 'Use POST');
   }
   if (pathname === ALLOW_AGY_PATH) {
     return method === 'POST' ? allow(settings, allowedHosts, request) : fail(405, 'Use POST');

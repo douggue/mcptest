@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { YOUTUBE_PROXY_RULE } from './sources/youtubeProxy';
 
 /** A refresh more often than hourly reads nothing new; a week is the longest gap that still builds history. */
 const MIN_REFRESH_HOURS = 1;
@@ -22,6 +23,8 @@ const envSchema = z.object({
     .optional(),
   JGTUBE_DOWNLOADS_PATH: z.string().min(1).max(1000).optional(),
   JGTUBE_MARK_FACTS: z.enum(['on', 'off'], 'must be on or off').optional(),
+  // A secret: read at each request by `youtubeFetch`, checked here so a bad one stops a start.
+  JGTUBE_YOUTUBE_PROXY: YOUTUBE_PROXY_RULE.optional(),
 });
 
 /**
