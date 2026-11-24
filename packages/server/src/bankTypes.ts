@@ -2,44 +2,19 @@
 import type {
   BankCollection,
   BankFilterState,
-  BankPage,
   BrandRepo,
   ChannelSnapshot,
   ChannelRepo,
   Db,
-  FindAllowance,
-  FindOutcome,
-  FindPlan,
   FindProgress,
-  FindVia,
   MapSnapshot,
   SearchHit,
-
   VideoRepo,
 } from '@jgtube/core';
 import type { LazySource } from './connection';
 
-export interface BankLook {
-  /** When the bank was last worked out from the store, ISO-8601. */
-  readonly builtAt: string;
-  readonly page: BankPage;
-  readonly collections: readonly BankCollection[];
-}
-
-export interface FindInfo {
-  readonly via: FindVia;
-  /** The most a run of that many channels can cost, said before it starts. */
-  readonly plan: FindPlan;
-  readonly allowance: FindAllowance;
-  /** The topics that can be searched for, by label. */
-  readonly topics: readonly string[];
-}
-
-export interface FindResult extends FindOutcome {
-  /** Videos in the bank before and after the run. */
-  readonly bankBefore: number;
-  readonly bankAfter: number;
-}
+export type { BankLook, FindInfo, FindResult } from '@jgtube/core/src/bank/view';
+import type { BankLook, FindInfo, FindResult } from '@jgtube/core/src/bank/view';
 
 export interface CollectionFile {
   readonly filename: string;
@@ -49,10 +24,7 @@ export interface CollectionFile {
 
 export interface BankEngine {
   /** One page of the bank under the filters given; reads the store only. */
-  look(
-    state: BankFilterState,
-    page: { readonly offset: number; readonly limit: number },
-  ): BankLook;
+  look(state: BankFilterState, page: { readonly offset: number; readonly limit: number }): BankLook;
   /** How a find would read YouTube now, what it would cost, and what is left of today's cap. */
   findInfo(channels: number): FindInfo;
   /** Searches and reads the channels found, under the store's lease. */

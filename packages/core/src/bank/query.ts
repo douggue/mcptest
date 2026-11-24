@@ -78,7 +78,10 @@ export function withChoice(
 }
 
 const wordsOf = (text: string): readonly string[] =>
-  text.toLowerCase().split(/\s+/).filter((word) => word !== '');
+  text
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((word) => word !== '');
 
 function wordsPass(video: BankVideo, state: BankFilterState): boolean {
   const title = video.title.toLowerCase();
@@ -108,8 +111,7 @@ function passes(
   return (
     wordsPass(video, state) &&
     BANK_GROUPS.every(
-      (group) =>
-        group.id === except || groupPasses(group, state.chosen[group.id], video, context),
+      (group) => group.id === except || groupPasses(group, state.chosen[group.id], video, context),
     )
   );
 }
@@ -200,9 +202,7 @@ function cleanKeys(group: BankGroup, raw: string | null): readonly string[] {
 }
 
 const cleanWords = (raw: string | null): string =>
-  (raw ?? '')
-    .replace(/[\u0000-\u001f\u007f]/g, ' ')
-    .slice(0, BANK_MAX_WORDS_LENGTH);
+  (raw ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').slice(0, BANK_MAX_WORDS_LENGTH);
 
 /** The state an address holds; anything that is not a known option is dropped. */
 export function parseBankQuery(params: URLSearchParams): BankFilterState {

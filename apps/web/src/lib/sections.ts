@@ -41,6 +41,7 @@ export const DESTINATIONS: readonly Destination[] = [
     label: 'Research',
     tabs: [
       { label: 'Breaking out', view: 'breakouts' },
+      { label: 'Outlier bank', view: 'outlier-bank' },
       { label: 'Formats', view: 'formats' },
       { label: 'Hooks', view: 'hooks' },
       { label: 'Same topic', view: 'same-topic' },

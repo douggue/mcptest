@@ -52,9 +52,19 @@ export function closenessTable(
 }
 
 const filename = (name: string, extension: string): string =>
-  `${name.replace(/[^\w -]+/g, '').trim().replace(/\s+/g, '-').slice(0, 60) || 'collection'}.${extension}`;
+  `${
+    name
+      .replace(/[^\w -]+/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .slice(0, 60) || 'collection'
+  }.${extension}`;
 
-function collectionsPart(deps: BankFindDeps, collections: SqliteCollectionRepo, read: () => BankViewSource) {
+function collectionsPart(
+  deps: BankFindDeps,
+  collections: SqliteCollectionRepo,
+  read: () => BankViewSource,
+) {
   return {
     list: () => collections.list(),
     create: (name: string) => collections.find(collections.create(name, deps.now())),

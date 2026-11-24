@@ -1,9 +1,8 @@
+import { type BankPage, type ChannelSnapshot, type YouTubeSource } from '@jgtube/core';
 import {
-  type BankPage,
-  type ChannelSnapshot,
-  type YouTubeSource,
-} from '@jgtube/core';
-import { BANK_FIND_DAILY_PAGE_REQUESTS, PAGE_REQUESTS_PER_CHANNEL } from '@jgtube/core/src/bank/cost';
+  BANK_FIND_DAILY_PAGE_REQUESTS,
+  PAGE_REQUESTS_PER_CHANNEL,
+} from '@jgtube/core/src/bank/cost';
 import { afterEach, describe, expect, test } from 'vitest';
 import { createApp } from '../src/app';
 import type { BankLook, FindInfo, FindResult } from '../src/bankTypes';
@@ -86,7 +85,13 @@ function world(apiKey?: string) {
       search: async (query) => {
         searches.push(`api:${query}`);
         return [
-          { videoId: 'DDDDDDDDD00', channelId: cid('D'), channelTitle: 'D', title: 't', publishedAt: NOW },
+          {
+            videoId: 'DDDDDDDDD00',
+            channelId: cid('D'),
+            channelTitle: 'D',
+            title: 't',
+            publishedAt: NOW,
+          },
         ];
       },
       fetchApiChannel: async (channelId, _max, options) => {
@@ -122,7 +127,8 @@ describe('the outlier bank routes', () => {
     const tenX = (await read<BankLook>(await get(app, '/api/bank?score=10&limit=2'))).data.page;
     expect(tenX.matched).toBe(1);
     expect(tenX.limit).toBe(2);
-    const none = (await read<{ page: BankPage }>(await get(app, '/api/bank?contains=nothing'))).data;
+    const none = (await read<{ page: BankPage }>(await get(app, '/api/bank?contains=nothing')))
+      .data;
     expect(none.page.matched).toBe(0);
   });
 
@@ -146,7 +152,8 @@ describe('the outlier bank routes', () => {
 
     const listed = (await read<{ jobs: { kind: string }[] }>(await get(app, '/api/jobs'))).data;
     expect(listed.jobs.map((one) => one.kind)).toContain('bank-find');
-    const after = (await read<FindInfo & { lastJobId: string }>(await get(app, '/api/bank/find'))).data;
+    const after = (await read<FindInfo & { lastJobId: string }>(await get(app, '/api/bank/find')))
+      .data;
     expect(after.allowance.used).toBe(1 + 2 * PAGE_REQUESTS_PER_CHANNEL);
     expect(after.lastJobId).toBe(jobId);
   });
@@ -154,7 +161,9 @@ describe('the outlier bank routes', () => {
   test('with a key it searches and reads channels through the official API', async () => {
     const { app, searches, apiReads } = world(KEY);
     const { jobId } = (
-      await read<{ jobId: string }>(await post(app, '/api/bank/find', { query: 'rockets', channels: 3 }))
+      await read<{ jobId: string }>(
+        await post(app, '/api/bank/find', { query: 'rockets', channels: 3 }),
+      )
     ).data;
     const job = await finished(app, jobId);
     expect(job.result).toMatchObject({ via: 'api', channelsRead: 1, requests: 3, apiUnits: 102 });
@@ -188,7 +197,9 @@ describe('the outlier bank routes', () => {
     expect(
       (await post(app, '/api/bank/collections/add', { id, video: 'AAAAAAAAA00' })).status,
     ).toBe(200);
-    expect((await post(app, '/api/bank/collections/add', { id: 99, video: 'AAAAAAAAA00' })).status).toBe(404);
+    expect(
+      (await post(app, '/api/bank/collections/add', { id: 99, video: 'AAAAAAAAA00' })).status,
+    ).toBe(404);
     const inIt = (await read<BankLook>(await get(app, `/api/bank?collection=c${id}`))).data;
     expect(inIt.page.videos.map((v) => v.videoId)).toEqual(['AAAAAAAAA00']);
     expect(inIt.collections).toMatchObject([{ id, name: 'Hooks to steal', count: 1 }]);
@@ -202,7 +213,9 @@ describe('the outlier bank routes', () => {
     expect((await get(app, '/api/bank/collections/export?id=77&as=md')).status).toBe(404);
 
     await post(app, '/api/bank/collections/remove', { id, video: 'AAAAAAAAA00' });
-    const list = await read<{ collections: { count: number }[] }>(await get(app, '/api/bank/collections'));
+    const list = await read<{ collections: { count: number }[] }>(
+      await get(app, '/api/bank/collections'),
+    );
     expect(list.data.collections[0]?.count).toBe(0);
     expect((await post(app, '/api/bank/collections/delete', { id })).status).toBe(200);
     expect((await post(app, '/api/bank/collections/delete', { id })).status).toBe(404);

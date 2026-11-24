@@ -110,7 +110,12 @@ function toVideo(raw: unknown, channelId: string): VideoItem | null {
   const seconds = isoSeconds(contentDetails.duration);
   const date = new Date(snippet.publishedAt);
   const live = (snippet.liveBroadcastContent ?? 'none') !== 'none';
-  if (live || seconds === null || seconds <= API_MAX_SHORT_SECONDS || Number.isNaN(date.getTime())) {
+  if (
+    live ||
+    seconds === null ||
+    seconds <= API_MAX_SHORT_SECONDS ||
+    Number.isNaN(date.getTime())
+  ) {
     return null;
   }
   return {

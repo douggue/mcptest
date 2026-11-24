@@ -25,27 +25,64 @@ export const searchOutlierBankShape = {
   min_score: z
     .union([z.literal(2), z.literal(5), z.literal(10), z.literal(50), z.literal(100)])
     .optional()
-    .describe('Keep videos at least this many times their channel’s usual views (2, 5, 10, 50 or 100).'),
+    .describe(
+      'Keep videos at least this many times their channel’s usual views (2, 5, 10, 50 or 100).',
+    ),
   max_age_days: z
     .union([z.literal(7), z.literal(30), z.literal(90), z.literal(365)])
     .optional()
     .describe('Keep videos uploaded within this many days (7, 30, 90 or 365). Leave out for all.'),
   views: keys(['under-10k', '10k-100k', '100k-1m', '1m-plus'], 'View ranges to keep.'),
-  length: keys(['shorts', 'under-8', '8-20', '20-plus'], 'Lengths to keep (Shorts: a minute or less; minutes otherwise).'),
+  length: keys(
+    ['shorts', 'under-8', '8-20', '20-plus'],
+    'Lengths to keep (Shorts: a minute or less; minutes otherwise).',
+  ),
   channel_size: keys(
     ['under-1k', '1k-10k', '10k-100k', '100k-1m', '1m-plus', 'hidden'],
     'Channel sizes in subscribers to keep.',
   ),
-  topics: z.array(z.string().min(1).max(40)).max(13).optional().describe('Topic labels to keep, as the results name them (such as "Cars").'),
-  alphabets: z.array(z.string().min(1).max(20)).max(10).optional().describe('Title alphabets to keep: "latin", "Cyrillic", "Arabic", "CJK"…'),
-  countries: z.array(z.string().regex(/^(?:[A-Z]{2}|unknown)$/)).max(20).optional().describe('Two-letter countries the channels set, or "unknown".'),
-  monetized: keys(['monetized', 'likely', 'not-yet', 'no-sign', 'not-checked'], 'Money signs to keep.'),
-  source: z.enum(['maps', 'elsewhere']).optional().describe('"maps": channels on the owner’s maps; "elsewhere": the rest.'),
-  collection: z.string().min(1).max(60).optional().describe('Only videos in the owner’s collection of this name.'),
+  topics: z
+    .array(z.string().min(1).max(40))
+    .max(13)
+    .optional()
+    .describe('Topic labels to keep, as the results name them (such as "Cars").'),
+  alphabets: z
+    .array(z.string().min(1).max(20))
+    .max(10)
+    .optional()
+    .describe('Title alphabets to keep: "latin", "Cyrillic", "Arabic", "CJK"…'),
+  countries: z
+    .array(z.string().regex(/^(?:[A-Z]{2}|unknown)$/))
+    .max(20)
+    .optional()
+    .describe('Two-letter countries the channels set, or "unknown".'),
+  monetized: keys(
+    ['monetized', 'likely', 'not-yet', 'no-sign', 'not-checked'],
+    'Money signs to keep.',
+  ),
+  source: z
+    .enum(['maps', 'elsewhere'])
+    .optional()
+    .describe('"maps": channels on the owner’s maps; "elsewhere": the rest.'),
+  collection: z
+    .string()
+    .min(1)
+    .max(60)
+    .optional()
+    .describe('Only videos in the owner’s collection of this name.'),
   title_has: z.string().max(100).optional().describe('Words every title kept must hold.'),
   title_lacks: z.string().max(100).optional().describe('Words no title kept may hold.'),
-  sort: z.enum(['score', 'views', 'newest', 'pace']).optional().describe('score (default), views, newest or pace (views a day).'),
-  limit: z.number().int().min(1).max(MAX_BANK_RESULTS).optional().describe(`At most ${MAX_BANK_RESULTS}; ${DEFAULT_BANK_RESULTS} by default.`),
+  sort: z
+    .enum(['score', 'views', 'newest', 'pace'])
+    .optional()
+    .describe('score (default), views, newest or pace (views a day).'),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_BANK_RESULTS)
+    .optional()
+    .describe(`At most ${MAX_BANK_RESULTS}; ${DEFAULT_BANK_RESULTS} by default.`),
 };
 const bankArgs = z.object(searchOutlierBankShape);
 export type SearchOutlierBankArgs = z.input<typeof bankArgs>;
@@ -55,7 +92,8 @@ type BankToolEngine = Pick<ConnectorEngine, 'bank'>;
 const NO_COLLECTION = 'The owner has no collection of that name.';
 
 function queryOf(engine: BankToolEngine, args: z.output<typeof bankArgs>): URLSearchParams {
-  const join = (values?: readonly string[]) => (values && values.length > 0 ? values.join(',') : null);
+  const join = (values?: readonly string[]) =>
+    values && values.length > 0 ? values.join(',') : null;
   const collection =
     args.collection === undefined
       ? null
@@ -79,7 +117,9 @@ function queryOf(engine: BankToolEngine, args: z.output<typeof bankArgs>): URLSe
     ['excludes', args.title_lacks ?? null],
     ['sort', args.sort ?? null],
   ];
-  return new URLSearchParams(pairs.flatMap(([key, value]) => (value === null ? [] : [[key, value]])));
+  return new URLSearchParams(
+    pairs.flatMap(([key, value]) => (value === null ? [] : [[key, value]])),
+  );
 }
 
 function row(video: BankVideo) {
@@ -103,7 +143,9 @@ function row(video: BankVideo) {
     country: channel.country,
     alphabet: channel.alphabet === 'latin' ? null : channel.alphabet,
     money: channel.money,
-    close: channel.closeness ? `${channel.closeness.tier} to ${channel.closeness.centerTitle}` : null,
+    close: channel.closeness
+      ? `${channel.closeness.tier} to ${channel.closeness.centerTitle}`
+      : null,
   });
 }
 

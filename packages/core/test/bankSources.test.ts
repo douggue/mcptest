@@ -10,7 +10,11 @@ const json = (body: unknown, status = 200) =>
 
 const video = (id: string, duration: string, extra: Record<string, unknown> = {}) => ({
   id,
-  snippet: { title: `Video ${id}`, publishedAt: '2026-11-01T10:00:00Z', liveBroadcastContent: 'none' },
+  snippet: {
+    title: `Video ${id}`,
+    publishedAt: '2026-11-01T10:00:00Z',
+    liveBroadcastContent: 'none',
+  },
   statistics: { viewCount: '12345' },
   contentDetails: { duration },
   ...extra,
@@ -41,14 +45,23 @@ function fakeApi() {
             items: [{ contentDetails: { videoId: 'aaaaaaaaaa1' } }, { bad: true }],
             nextPageToken: 'p2',
           })
-        : json({ items: [{ contentDetails: { videoId: 'aaaaaaaaaa2' } }, { contentDetails: { videoId: 'aaaaaaaaaa3' } }] });
+        : json({
+            items: [
+              { contentDetails: { videoId: 'aaaaaaaaaa2' } },
+              { contentDetails: { videoId: 'aaaaaaaaaa3' } },
+            ],
+          });
     }
     return json({
       items: [
         video('aaaaaaaaaa1', 'PT12M5S'),
         video('aaaaaaaaaa2', 'PT45S'),
         video('aaaaaaaaaa3', 'PT1H', {
-          snippet: { title: 'Live', publishedAt: '2026-11-01T10:00:00Z', liveBroadcastContent: 'live' },
+          snippet: {
+            title: 'Live',
+            publishedAt: '2026-11-01T10:00:00Z',
+            liveBroadcastContent: 'live',
+          },
         }),
       ],
     });
@@ -110,7 +123,10 @@ describe('a signed-out search results page', () => {
   test('gives each video once with its channel, sections opened out', () => {
     const found = mapSearchResults([
       { type: 'Video', video_id: 'aaaaaaaaaa1', author: { id: CHANNEL } },
-      { type: 'ItemSection', contents: [{ type: 'Video', id: 'aaaaaaaaaa2', author: { id: CHANNEL } }] },
+      {
+        type: 'ItemSection',
+        contents: [{ type: 'Video', id: 'aaaaaaaaaa2', author: { id: CHANNEL } }],
+      },
       { type: 'Video', video_id: 'aaaaaaaaaa1', author: { id: CHANNEL } },
       { type: 'Channel', id: CHANNEL },
       { type: 'Video', video_id: 'short', author: { id: CHANNEL } },
@@ -132,7 +148,13 @@ describe('a signed-out search results page', () => {
         return { results: [{ type: 'Video', video_id: 'aaaaaaaaaa1', author: { id: CHANNEL } }] };
       },
     } as unknown as InnertubeClient;
-    const limiter = new RateLimiter({ concurrency: 1, minDelayMs: 0, maxDelayMs: 0, maxRetries: 0, baseBackoffMs: 0 });
+    const limiter = new RateLimiter({
+      concurrency: 1,
+      minDelayMs: 0,
+      maxDelayMs: 0,
+      maxRetries: 0,
+      baseBackoffMs: 0,
+    });
     const source = new InnertubeSource(client, limiter, () => new Date());
     expect(await source.searchVideos(' rockets ')).toHaveLength(1);
     expect(asked).toEqual([

@@ -80,7 +80,9 @@ describe('querying the bank', () => {
   });
 
   test('groups combine; options count what they would keep given the other groups', () => {
-    const state = withChoice(withChoice(NO_BANK_FILTERS, 'length', ['shorts']), 'source', ['elsewhere']);
+    const state = withChoice(withChoice(NO_BANK_FILTERS, 'length', ['shorts']), 'source', [
+      'elsewhere',
+    ]);
     const page = queryBank(BANK, state, context);
     expect(page.matched).toBe(1);
     expect(page.options.length.find((o) => o.key === '8-20')?.count).toBe(0);
@@ -91,7 +93,11 @@ describe('querying the bank', () => {
   test('title words: contains needs every word, excludes drops any', () => {
     const contains = queryBank(BANK, { ...NO_BANK_FILTERS, contains: 'rocket' }, context);
     expect(contains.videos.map((v) => v.videoId[0])).toEqual(['a', 'c']);
-    const both = queryBank(BANK, { ...NO_BANK_FILTERS, contains: 'ROCKET', excludes: 'fails' }, context);
+    const both = queryBank(
+      BANK,
+      { ...NO_BANK_FILTERS, contains: 'ROCKET', excludes: 'fails' },
+      context,
+    );
     expect(both.videos.map((v) => v.videoId[0])).toEqual(['a']);
   });
 

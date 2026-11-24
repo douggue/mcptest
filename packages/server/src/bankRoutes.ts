@@ -36,7 +36,10 @@ const findRequest = z.object({
 });
 const nameRequest = z.object({ name: z.string().max(MAX_COLLECTION_NAME * 2) });
 const idRequest = z.object({ id: z.number().int().positive() });
-const itemRequest = z.object({ id: z.number().int().positive(), video: z.string().regex(VIDEO_ID) });
+const itemRequest = z.object({
+  id: z.number().int().positive(),
+  video: z.string().regex(VIDEO_ID),
+});
 
 async function body<T>(options: AppOptions, request: Request, schema: z.ZodType<T>, rule: string) {
   const raw = await readJson(options.allowedHosts, request);
@@ -111,7 +114,12 @@ async function collectionWrite(options: AppOptions, request: Request, action: st
       ? ok({ collections: collections.list() })
       : fail(404, 'There is no such collection');
   }
-  const asked = await body(options, request, itemRequest, 'Give the collection’s id and a video id');
+  const asked = await body(
+    options,
+    request,
+    itemRequest,
+    'Give the collection’s id and a video id',
+  );
   if (asked instanceof Response) return asked;
   if (action === 'add' && !collections.add(asked.id, asked.video)) {
     return fail(404, 'There is no such collection');
@@ -149,7 +157,12 @@ export interface BankRoutes {
 
 export function bankRoutes(options: AppOptions): BankRoutes {
   const jobs: FindJobs = new JobStore();
-  const routes: Readonly<Record<string, Partial<Record<'GET' | 'POST', (request: Request, url: URL) => Response | Promise<Response>>>>> = {
+  const routes: Readonly<
+    Record<
+      string,
+      Partial<Record<'GET' | 'POST', (request: Request, url: URL) => Response | Promise<Response>>>
+    >
+  > = {
     [BANK_PATH]: { GET: (_request, url) => look(options, url) },
     [`${BANK_PATH}/find`]: {
       GET: (_request, url) => findInfo(options, jobs, url),
@@ -170,7 +183,8 @@ export function bankRoutes(options: AppOptions): BankRoutes {
     handle(request, url) {
       const route = routes[url.pathname];
       if (!route) return null;
-      const handler = request.method === 'GET' ? route.GET : request.method === 'POST' ? route.POST : undefined;
+      const handler =
+        request.method === 'GET' ? route.GET : request.method === 'POST' ? route.POST : undefined;
       if (!handler) return Promise.resolve(fail(405, route.GET ? 'Use GET' : 'Use POST'));
       return Promise.resolve(handler(request, url));
     },

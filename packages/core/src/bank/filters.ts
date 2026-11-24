@@ -217,5 +217,7 @@ export function optionLabel(
   if (group === 'collection') {
     return context.collectionNames.get(Number(key.slice(1))) ?? 'A collection';
   }
-  return BANK_GROUPS.find((one) => one.id === group)?.options?.find((o) => o.key === key)?.label ?? key;
+  return (
+    BANK_GROUPS.find((one) => one.id === group)?.options?.find((o) => o.key === key)?.label ?? key
+  );
 }

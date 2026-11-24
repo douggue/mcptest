@@ -65,7 +65,11 @@ function snapshot(letter: string): ChannelSnapshot {
       title: `Video ${n}`,
       views: 1000 * (n + 1),
       durationSeconds: 600,
-      published: { date: new Date(NOW.getTime() - n * 86_400_000), precision: 'day', raw: `${n}d ago` },
+      published: {
+        date: new Date(NOW.getTime() - n * 86_400_000),
+        precision: 'day',
+        raw: `${n}d ago`,
+      },
     })),
   };
 }

@@ -117,7 +117,11 @@ async function readChannels(
 ): Promise<Reads> {
   let reads: Reads = { read: 0, known: 0, problems: [], failed: 0 };
   for (const [index, channelId] of channelIds.entries()) {
-    onProgress({ text: `Reading channel ${index + 1} of ${channelIds.length}`, done: index, total: channelIds.length });
+    onProgress({
+      text: `Reading channel ${index + 1} of ${channelIds.length}`,
+      done: index,
+      total: channelIds.length,
+    });
     try {
       const { fromCache } = await ingestChannel(deps, channelId);
       reads = fromCache ? { ...reads, known: reads.known + 1 } : { ...reads, read: reads.read + 1 };
