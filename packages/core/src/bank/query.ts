@@ -91,29 +91,67 @@ function wordsPass(video: BankVideo, state: BankFilterState): boolean {
   );
 }
 
-function groupPasses(
-  group: BankGroup,
-  chosen: readonly string[],
-  video: BankVideo,
-  context: BankFilterContext,
-): boolean {
-  if (chosen.length === 0) return true;
-  const keys = group.keysOf(video, context);
-  return chosen.some((key) => keys.includes(key));
+/** One video's options in every group, worked out once per look. */
+type Keyed = Readonly<Record<BankGroupId, readonly string[]>>;
+
+function keyed(video: BankVideo, context: BankFilterContext): Keyed {
+  return Object.fromEntries(
+    BANK_GROUPS.map((group) => [group.id, group.keysOf(video, context)]),
+  ) as unknown as Keyed;
 }
 
-function passes(
-  video: BankVideo,
+/** The groups a video fails, given what is chosen; empty when it passes them all. */
+function failedGroups(keys: Keyed, state: BankFilterState): readonly BankGroupId[] {
+  return BANK_GROUP_IDS.filter((id) => {
+    const chosen = state.chosen[id];
+    return chosen.length > 0 && !chosen.some((key) => keys[id].includes(key));
+  });
+}
+
+interface Tally {
+  readonly matching: readonly BankVideo[];
+  /** Per group, how many videos each option would keep given the other groups. */
+  readonly counts: ReadonlyMap<BankGroupId, ReadonlyMap<string, number>>;
+  /** Per group whose options are the values found, every value with how many videos hold it. */
+  readonly found: ReadonlyMap<BankGroupId, ReadonlyMap<string, number>>;
+}
+
+function bump(
+  table: Map<BankGroupId, Map<string, number>>,
+  id: BankGroupId,
+  keys: readonly string[],
+) {
+  const counts = table.get(id) ?? new Map<string, number>();
+  for (const key of keys) counts.set(key, (counts.get(key) ?? 0) + 1);
+  table.set(id, counts);
+}
+
+/**
+ * One pass over the bank: which videos the filters keep, and each option's
+ * count. A video that fails no group counts in every group; one that fails a
+ * single group counts in that group only, since choosing there could keep it.
+ */
+function tally(
+  videos: readonly BankVideo[],
   state: BankFilterState,
   context: BankFilterContext,
-  except: BankGroupId | null = null,
-): boolean {
-  return (
-    wordsPass(video, state) &&
-    BANK_GROUPS.every(
-      (group) => group.id === except || groupPasses(group, state.chosen[group.id], video, context),
-    )
-  );
+): Tally {
+  const matching: BankVideo[] = [];
+  const counts = new Map<BankGroupId, Map<string, number>>();
+  const found = new Map<BankGroupId, Map<string, number>>();
+  for (const video of videos) {
+    const keys = keyed(video, context);
+    for (const group of BANK_GROUPS) if (!group.options) bump(found, group.id, keys[group.id]);
+    if (!wordsPass(video, state)) continue;
+    const failed = failedGroups(keys, state);
+    if (failed.length === 0) {
+      matching.push(video);
+      for (const id of BANK_GROUP_IDS) bump(counts, id, keys[id]);
+    } else if (failed.length === 1 && failed[0] !== undefined) {
+      bump(counts, failed[0], keys[failed[0]]);
+    }
+  }
+  return { matching, counts, found };
 }
 
 const SORTS: Readonly<Record<BankSort, (a: BankVideo, b: BankVideo) => number>> = {
@@ -123,40 +161,34 @@ const SORTS: Readonly<Record<BankSort, (a: BankVideo, b: BankVideo) => number>> 
   pace: (a, b) => b.viewsPerDay - a.viewsPerDay,
 };
 
+const LAST_KEYS: ReadonlySet<string> = new Set(['Other', 'unknown', 'other']);
+
 /** The values found for a group whose options are not fixed, in the order the page lists them. */
 function foundKeys(
   group: BankGroup,
-  videos: readonly BankVideo[],
+  found: ReadonlyMap<string, number> | undefined,
   context: BankFilterContext,
 ): readonly string[] {
   if (group.id === 'collection') return [...context.collectionNames.keys()].map((id) => `c${id}`);
-  const counts = new Map<string, number>();
-  for (const video of videos) {
-    for (const key of group.keysOf(video, context)) counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  const last = new Set(['Other', 'unknown', 'other']);
-  const rank = (key: string) => (key === 'latin' ? -1 : last.has(key) ? 1 : 0);
-  return [...counts.entries()]
+  const rank = (key: string) => (key === 'latin' ? -1 : LAST_KEYS.has(key) ? 1 : 0);
+  return [...(found ?? new Map<string, number>()).entries()]
     .sort((a, b) => rank(a[0]) - rank(b[0]) || b[1] - a[1] || a[0].localeCompare(b[0]))
     .map(([key]) => key);
 }
 
 function groupOptions(
   group: BankGroup,
-  videos: readonly BankVideo[],
-  state: BankFilterState,
+  counted: Tally,
   context: BankFilterContext,
 ): readonly BankOptionCount[] {
-  const kept = videos.filter((video) => passes(video, state, context, group.id));
-  const counts = new Map<string, number>();
-  for (const video of kept) {
-    for (const key of group.keysOf(video, context)) counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  const keys = group.options?.map((option) => option.key) ?? foundKeys(group, videos, context);
+  const counts = counted.counts.get(group.id);
+  const keys =
+    group.options?.map((option) => option.key) ??
+    foundKeys(group, counted.found.get(group.id), context);
   return keys.map((key) => ({
     key,
     label: optionLabel(group.id, key, context),
-    count: counts.get(key) ?? 0,
+    count: counts?.get(key) ?? 0,
   }));
 }
 
@@ -170,7 +202,8 @@ export function queryBank(
     limit: BANK_DEFAULT_PAGE,
   },
 ): BankPage {
-  const matching = videos.filter((video) => passes(video, state, context));
+  const counted = tally(videos, state, context);
+  const { matching } = counted;
   const sorted = [...matching].sort(
     (a, b) => SORTS[state.sort](a, b) || a.videoId.localeCompare(b.videoId),
   );
@@ -183,7 +216,7 @@ export function queryBank(
     limit,
     videos: sorted.slice(offset, offset + limit),
     options: Object.fromEntries(
-      BANK_GROUPS.map((group) => [group.id, groupOptions(group, videos, state, context)]),
+      BANK_GROUPS.map((group) => [group.id, groupOptions(group, counted, context)]),
     ) as unknown as BankPage['options'],
   };
 }

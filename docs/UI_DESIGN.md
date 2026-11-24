@@ -114,14 +114,14 @@ step. These rules replace the earlier ones where they disagree.
 Six destinations in the rail (a tab bar at the foot of a phone), Settings behind the gear
 in the top bar:
 
-| Destination   | Opens                               | Tabs (each its own address)                                                     |
-| ------------- | ----------------------------------- | ------------------------------------------------------------------------------- |
-| **Home**      | `#/`                                | none: your channels, Find competitors, your next step                           |
-| **Channel**   | the map's channel, `#/channel/<id>` | Overview, Radar, What changed, Your videos, Calendar, Pacing, Viewers ask       |
-| **Research**  | `#/breakouts`                       | Breaking out, Formats, Hooks, Same topic, Thumbnails, Transfers, New niches     |
-| **Create**    | `#/ideas`                           | Ideas, Script, Check, Format (`#/format`, the format builder)                   |
-| **Breakdown** | `#/breakdown`                       | Channel (`#/breakdown/<id>` opens one channel), One video (`#/video-breakdown`) |
-| **Ask AI**    | `#/ask`                             | none                                                                            |
+| Destination   | Opens                               | Tabs (each its own address)                                                               |
+| ------------- | ----------------------------------- | ----------------------------------------------------------------------------------------- |
+| **Home**      | `#/`                                | none: your channels, Find competitors, your next step                                     |
+| **Channel**   | the map's channel, `#/channel/<id>` | Overview, Radar, What changed, Your videos, Calendar, Pacing, Viewers ask                 |
+| **Research**  | `#/breakouts`                       | Breaking out, Outlier bank, Formats, Hooks, Same topic, Thumbnails, Transfers, New niches |
+| **Create**    | `#/ideas`                           | Ideas, Script, Check, Format (`#/format`, the format builder)                             |
+| **Breakdown** | `#/breakdown`                       | Channel (`#/breakdown/<id>` opens one channel), One video (`#/video-breakdown`)           |
+| **Ask AI**    | `#/ask`                             | none                                                                                      |
 
 - Every older address (`#/radar`, `#/hooks`, `#concept-12`) still opens its
   view; the view now shows as a tab of its destination. The destinations and

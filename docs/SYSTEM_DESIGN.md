@@ -238,6 +238,12 @@ the format it was copied from (a copy starts without a suggestion or a
 Bible). `channel_formats` keeps each channel's active
 format and goes with its format.
 
+`outlier_bank_rows` (a view), `outlier_collections`, `outlier_collection_videos`
+and `outlier_bank_finds` (step 47, provisional) are the outlier bank's: the
+view reads every stored video with its channel and money signs, the tables keep
+the owner's collections and each "Find more outliers" run for the daily cap.
+See "Outlier bank".
+
 `format_ingredients` (step 31) is the format builder's shelf: one row
 per piece of a format taken from one source, unique per `(layer, source_kind,
 source_key)`, with `name`, `source_label`, `center_channel_id`,
@@ -1851,6 +1857,7 @@ Claude reads what the app shows. Setup for the owner is in
 | `get_thumbnail_comparison`    | `channel` (id), `video`                                                                 | The kept comparison of one video's thumbnail as text, counted in code: its checklist and description, the winners compared, winning values, flagged values, other values, thumbnails not tagged                                                                      |
 | `get_format_shelf`            | `format` (number)                                                                       | JSON: the format (name, length, slots) and every ingredient on the shelf with its layer, source, channels, evidence counted in code, `proven`, and the names of its pictures (`i<id>-<n>.<ext>`); the AI's earlier readings are labelled as such                     |
 | `view_format_pictures`        | `names` (1 to 8 picture names from the question)                                        | The shelf's pictures (teardown keyframes and strips, the owner's pictures) as image content, each under a line naming it; one that is gone is a line of text                                                                                                         |
+| `search_outlier_bank`         | filters (`min_score`, `max_age_days`, `topics`, `length`, …), `limit?` (15; 1..30)      | Every stored video across all maps and lists under the filters: score with its usual and sample, views, age, length, channel, topic, money, closeness; `total`, `matched`, `more`. Store only; see "Outlier bank"                                                    |
 
 One prompt, `thumbnail_review` (argument `channel`), tells the model to read the
 board, look at the owner's thumbnails and the winners with `view_thumbnails`, and
@@ -3080,6 +3087,118 @@ store (nine ingredients, teardown pictures made with ffmpeg): no console error,
 no sideways scroll, no broken picture; filter by layer and search; adding a
 link and uploading a PNG through the running server. Not run for real: any
 AI (batch 1 has none).
+
+### Outlier bank (`core/src/bank/`, `repos/sqliteCollectionRepo.ts`, `repos/sqliteFindRepo.ts`, `sources/apiChannels.ts`, `sources/searchResults.ts`; server `bankEngine.ts`, `bankRoutes.ts`; connector `bankTool.ts`; web `OutlierBank.tsx`, `BankCard.tsx`, `BankFilterBar.tsx`, `BankFind.tsx`, `BankSave.tsx`, `BankCollections.tsx`, `lib/bank.ts`)
+
+The owner asked for "a global breakout outlier bank": every stored video,
+whichever map, saved channel, niche list, pasted channel or refresh read it,
+not just the open map. Research → **Outlier bank** is the second tab, right
+after Breaking out (the rail still opens Breaking out).
+
+**Data, not a copy.** Store step 47 (provisional; renumbered at merge) adds the
+view `outlier_bank_rows`: every row of `videos` (its key is the video id, so
+each video is there once) joined to its channel (title, handle, subscribers,
+country, logo, keywords, description), the channel's stored money signs and
+whether any map holds it, with `read_at`, when the video was last read. An
+index `map_channels (channel_id)` serves that last test. Scores need each
+channel's median, so they are worked out in code (`buildBank`): the channel's
+videos go through `buildVideoReport`, the same score, baseline, sample size
+and `cautionFor` as Breaking out. Per video: score (null when there are fewer
+than three to compare against), views, age, length, Short (a minute or less,
+`SHORTS_MAX_SECONDS`), views a day (views over days since upload, at least one:
+an average, not a measured pace), and the channel's logo, subscribers,
+country, topic label (`assignTopics`, the New niches word table), alphabet
+(`latinShare`/`dominantScript` over its 30 newest titles), money verdict
+(`moneyVerdict`) and closeness: the closest tier it has on any of the owner's
+latest maps, with that map's centre (`closenessTable`). The built bank is kept
+in memory until a fingerprint of the store changes (video count and newest
+reading, channel, brand and facts readings, money checks, maps and the owner's
+keeps and removals) or an hour passes; on the owner's store of 27,394 videos
+the build takes about 1.5 s and a filtered page about 0.1 s.
+
+**Filters** (`bank/filters.ts`, `bank/query.ts`, worked out on the server over
+the whole bank; the page imports the same definitions by path, never the core
+index). As on New niches, a video passes a group when it is in any option
+chosen, every group in use must pass, and each option shows how many videos it
+would keep given the other groups (one pass over the bank: a video failing no
+group counts everywhere, one failing exactly one group counts in that group).
+Groups: outlier score (2×, 5×, 10×, 50×, 100× or more, one at a time), views
+(under 10K, 10K–100K, 100K–1M, 1M+), age (last 7, 30, 90, 365 days, one at a
+time; none is all), length (Shorts, under 8, 8–20, 20+ minutes, not known),
+channel size, niche (topic label), language (alphabet), country, monetized,
+source (on my maps / elsewhere) and collections; then title contains (every
+word) and title excludes (any word). Orders: highest ×, most views, newest,
+most views a day. "Showing N of M" counts the whole bank. The choice is kept in
+the browser (`jgtube.bankFilters.v1`) and read back through `parseBankQuery`,
+the same checks the server makes. `GET /api/bank?<filters>&offset&limit`
+answers one page (24 by default, 100 at most) with every option's count, the
+collections and which of them each video on the page is in.
+
+**Cards** stand one, two, three (and four on the widest screens) to a row: the
+thumbnail with the amber multiple (its tooltip gives the usual it divides by,
+the sample and any caution; `*` marks a caution), the title, the channel with
+its logo linked to its page, subscribers and closeness, views · age · length
+(and the usual beside any multiple over 500×), the topic tag and the money
+badge. Presses: Add to ideas (the idea lab's picks), Add to format (the
+`video` source), Break down (hands the video to One video, where the owner
+presses the button) and Save (collections).
+
+**Collections** (`outlier_collections`, `outlier_collection_videos`): named by
+the owner, one per name whatever its case, at most 60 characters on one line.
+A video is saved from its card, where a new collection can also be named. The
+Collections filter shows one or several; each collection can be exported as
+CSV (labelled columns: `outlier_score_x`, `usual_views_baseline`,
+`videos_in_baseline`, `views_per_day_average` and so on; a cell that a
+spreadsheet would run as a formula is opened with a quote mark) or Markdown (a
+table with the score and its usual, and a line saying what the score is and
+that nothing is a forecast), or deleted (its videos stay in the bank). Routes:
+`GET /api/bank/collections`, `POST .../create`, `.../delete`, `.../add`,
+`.../remove`, `GET .../export?id=&as=csv|md`.
+
+**Find more outliers** (`bank/grow.ts`, `bank/cost.ts`). Only on the owner's
+press: a keyword, or a topic (its label's words), and 5 to 25 channels (10 by
+default). With a YouTube API key, the official Data API does all of it: one
+search (most viewed in the last 90 days, 100 units), then each channel's
+details, up to two pages of its uploads and their views and lengths (one unit
+each; `fetchApiChannel`). The API cannot tell a Short from a long video, and
+the store holds the long-form Videos tab, so uploads of three minutes or less,
+and live or upcoming ones, are left out. Without a key, the signed-out reading
+does it: one page of search results (popular videos of the last month,
+`InnertubeSource.searchVideos`), then each channel through the usual ingest;
+both go through `youtubeFetch` (so through the owner's proxy when one is set)
+and the shared limiter at its usual pace. Channels are read most-found first;
+one read in the last day costs nothing. Before starting, the panel says the
+most it can cost ("Up to 51 page requests … 374 of today's 400 left") and the
+route refuses (429) a run the day's cap cannot cover:
+`BANK_FIND_DAILY_PAGE_REQUESTS` (400 page requests) or
+`BANK_FIND_DAILY_API_UNITS` (1,500 units) in any 24 hours, counted from
+`outlier_bank_finds` (each run's query, way, requests, units and channels
+read). A signed-out run is charged the most a channel can take (five requests)
+for each channel it read; an API run is charged what it counted. It holds the
+store's lease and is refused while a map, a refresh, a keyword search or a
+money check runs here or in another program, and they are refused while it
+runs. It is a job (`bank-find`) in its own store, listed in Working and
+followed again when the page is reopened (`GET /api/bank/find` names a run
+under way). Nothing rotates, switches or retries addresses.
+
+**Connector.** `search_outlier_bank` (read-only, store only): the filters as
+arguments (`min_score`, `max_age_days`, `views`, `length`, `channel_size`,
+`topics`, `alphabets`, `countries`, `monetized`, `source`, `collection` by
+name, `title_has`, `title_lacks`, `sort`, `limit` up to 30, 15 by default);
+answers `total`, `matched`, short rows and `more`. Ask AI's own question may
+use it beside the map tools; "Suggest a mix" may use it as evidence to weigh
+(never as an ingredient); the Format Bible is not offered it.
+
+**What was run for real** (November 2026, a copy of the owner's store at
+`user_version` 22, migrated on open): the bank held 27,394 videos from 432
+channels; at 1440, 768 and 390 wide with score 10×, length 8–20 minutes, title
+contains "how" and most views it showed 75 of 27,394, three, two and one
+cards to a row, no console error and no sideways scroll; a video saved to a
+new collection, the Collections filter, a CSV export, Add to ideas, Break down
+handing the video to One video, and the cost line. One signed-out find of
+"abandoned megaprojects" for five channels found 20 videos, read five channels
+in 26 page requests and grew the bank to 27,786. The API path was tested with
+fakes only (no key was available).
 
 ### Starting a program on Windows (`engines/executable.ts`)
 

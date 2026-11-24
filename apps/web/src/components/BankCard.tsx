@@ -10,6 +10,8 @@ import { ChannelLogo } from './ChannelLogo';
 import { MoneyBadge } from './MoneyBadge';
 import { CAUTION_LABEL } from './tiers';
 
+/** Above this multiple the usual views are shown beside it: a tiny usual makes a huge multiple. */
+const HUGE_SCORE = 500;
 const QUIET =
   'flex min-h-10 items-center gap-1.5 rounded-full px-3 text-body-sm font-semibold text-on-surface-variant transition-colors hover:bg-surface-card hover:text-on-surface';
 
@@ -97,7 +99,12 @@ export function BankCard({ video, picked, onPick, collections, inCollections, on
         )}
       </h3>
       <ChannelLine video={video} />
-      <p className="text-body-sm text-outline">{videoMeta(video)}</p>
+      <p className="text-body-sm text-outline">
+        {videoMeta(video)}
+        {video.score !== null && video.score > HUGE_SCORE && video.baseline !== null
+          ? ` · usual ${formatCount(Math.round(video.baseline))}`
+          : ''}
+      </p>
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         <span
           title={`Topic from ${video.channel.topic.source === 'keywords' ? 'the channel’s own keywords' : video.channel.topic.source === 'titles' ? 'its titles' : 'nothing clear'}`}
