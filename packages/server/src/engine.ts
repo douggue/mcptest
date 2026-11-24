@@ -75,6 +75,9 @@ import {
 import { downloads } from './downloadEngine';
 import { breakdownHub, teardownDeps } from './breakdownHub';
 import { extras } from './extrasSetup';
+import { formatEngine, ingredientRepo, storedVideoFacts } from './formatEngine';
+import { teardownReportOf } from './teardownStore';
+import { join } from 'node:path';
 import { cleanMessage } from './jobs';
 import { lab } from './labSetup';
 import { logos } from './logoEngine';
@@ -483,6 +486,23 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     markFacts: () => config.markFacts !== false,
   });
 
+  const choices = ownerChoices(wiring);
+  const formats = formatEngine({
+    repo: ingredientRepo(wiring.db),
+    now: wiring.now,
+    imagesFolder: () => join(downloadsRoot(config), 'formats'),
+    sources: {
+      listFormulas: labbing.listFormulas,
+      hookLibrary: labbing.hookLibrary,
+      listTransfers: () => transferring.listTransfers(),
+      listNiches: choices.listNiches,
+      findBreakdownPart: (channel, part) => wiring.repos.breakdowns.find(channel, part),
+      channelTitle: (channel) => wiring.repos.channels.findById(channel)?.title ?? null,
+      teardownReport: (videoId) => teardownReportOf(wiring.repos.teardowns, videoId),
+      videoFacts: storedVideoFacts(wiring.db, wiring.repos.channels, wiring.now),
+    },
+  });
+
   let closed = false;
   let shuttingDown: Promise<void> | null = null;
   const close = (): void => {
@@ -496,7 +516,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
   };
   return {
     ...maps,
-    ...ownerChoices(wiring),
+    ...choices,
     ...transferring,
     ...logos({ ...wiring, findSnapshot: maps.findSnapshot }),
     ...answerEngine(wiring),
@@ -529,6 +549,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     }),
     ...labbing,
     extras: extras({ ...wiring, analyse: asking.analyse }),
+    formats,
     hub: breakdownHub({
       config,
       candidates: { ...wiring.repos, now: wiring.now },

@@ -66,6 +66,8 @@ import { downloadThumbnails, downloadTranscripts } from './downloadRoutes';
 import type { DownloadsEngine } from './downloadTypes';
 import { hubRoutes } from './breakdownHubRoutes';
 import { extraRoutes } from './extrasRoutes';
+import { formatRoutes } from './formatRoutes';
+import type { FormatEngine } from './formatTypes';
 import type { BreakdownHub } from './oneVideoTypes';
 import type { ExtrasEngine } from './extrasTypes';
 import { labRoutes, type LabRoutes } from './labRoutes';
@@ -150,6 +152,8 @@ export interface Engine
     ResearchEngine {
   /** The later features, kept together: what changed since the owner last looked. */
   readonly extras: ExtrasEngine;
+  /** The format builder: the shelf of ingredients taken from the other views. */
+  readonly formats: FormatEngine;
   /** The Breakdown view: the channels it offers, a pasted channel, and one video in depth. */
   readonly hub: BreakdownHub;
   /** The latest stored map around a channel; reads the store only. */
@@ -526,6 +530,8 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     if (hubAnswer) return hubAnswer;
     const extraAnswer = extra.handle(request, url);
     if (extraAnswer) return extraAnswer;
+    const formatAnswer = formatRoutes(options, request, url);
+    if (formatAnswer) return formatAnswer;
     if (pathname === '/api/maps/latest') {
       return method === 'GET'
         ? readLatest(url, (channel) => options.engine.findSnapshot(channel))
