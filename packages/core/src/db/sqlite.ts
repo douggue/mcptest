@@ -585,7 +585,7 @@ CREATE TABLE IF NOT EXISTS format_ingredients (
   UNIQUE (layer, source_kind, source_key)
 );
 `,
-  // 46 (provisional; renumbered at merge): the formats the owner builds from the shelf,
+  // 32: the formats the owner builds from the shelf,
   //     and the one each channel uses.
   //     formats keeps a named format of a channel (null: made with no map open): a target length, notes, the ingredient chosen for
   //     each layer's slot with a note (slots_json), the last AI suggestion of a mix and

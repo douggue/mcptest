@@ -229,7 +229,7 @@ should know about how it was written: another engine wrote it in place of the
 one chosen, and why; or it was written from pictures handed over as files and
 names none of them. Null for most parts. See "Channel breakdown".
 
-`formats` (step 46, provisional until merged) keeps the formats the owner
+`formats` (step 32) keeps the formats the owner
 builds: the channel it is a format of (null when made with no map open), a
 name, a planned length, notes, one slot per layer (`slots_json`: an
 ingredient's id and a note), the last suggested mix and the last Format Bible
