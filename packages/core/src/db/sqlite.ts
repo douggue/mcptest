@@ -656,7 +656,7 @@ CREATE TABLE IF NOT EXISTS outlier_bank_finds (
 );
 CREATE INDEX IF NOT EXISTS outlier_bank_finds_started ON outlier_bank_finds (started_at);
 `,
-  // 34 (labelled 48, provisional): the niche watchlist and its sweeps.
+  // 34: the niche watchlist and its sweeps.
   //     niche_keywords are the owner's keywords and topics; niche_sweep_settings is one row
   //     (the schedule and the reading budget per day); niche_sweeps is one row per sweep with
   //     what it spent, written as it goes so the day's budget survives a stop; and
