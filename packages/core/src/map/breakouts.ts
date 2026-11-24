@@ -74,7 +74,7 @@ export function capPerChannel<T extends { readonly channelId: string }>(
   });
 }
 
-function cautionFor(sampleSize: number, baseline: number): ScoreCaution | null {
+export function cautionFor(sampleSize: number, baseline: number): ScoreCaution | null {
   if (sampleSize < THIN_SAMPLE_SIZE) return 'few-videos';
   return baseline < THIN_BASELINE_VIEWS ? 'low-baseline' : null;
 }

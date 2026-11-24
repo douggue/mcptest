@@ -612,6 +612,50 @@ CREATE TABLE IF NOT EXISTS channel_formats (
   set_at      TEXT NOT NULL
 );
 `,
+  // 47 (provisional; renumbered at merge): the outlier bank.
+  //     outlier_bank_rows is a view, not a copy: every stored video with its channel and the
+  //     channel's stored money signs, and whether any map holds the channel. Scores are
+  //     worked out in code from it (they need each channel's median). The owner's named
+  //     collections of bank videos, and each "Find more outliers" run with the requests it
+  //     spent, so a daily cap can be kept across restarts. They refer to no other table
+  //     (a collection's video may be one the store no longer holds).
+  `
+CREATE INDEX IF NOT EXISTS map_channels_channel ON map_channels (channel_id);
+CREATE VIEW IF NOT EXISTS outlier_bank_rows AS
+SELECT v.id AS video_id, v.channel_id, v.title, v.views, v.duration_s,
+       v.published_at, v.published_precision, v.published_raw, v.fetched_at AS read_at,
+       c.title AS channel_title, c.handle, c.subscribers, c.subs_hidden, c.country,
+       c.avatar_json, c.keywords_json, c.description,
+       m.memberships, m.ads, m.checked_at AS money_checked_at, m.video_id AS money_video_id,
+       EXISTS (SELECT 1 FROM map_channels mc WHERE mc.channel_id = v.channel_id) AS on_a_map
+FROM videos v
+JOIN channels c ON c.id = v.channel_id
+LEFT JOIN channel_money_signs m ON m.channel_id = v.channel_id;
+CREATE TABLE IF NOT EXISTS outlier_collections (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  name        TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  created_at  TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS outlier_collection_videos (
+  collection_id  INTEGER NOT NULL REFERENCES outlier_collections (id) ON DELETE CASCADE,
+  video_id       TEXT NOT NULL,
+  added_at       TEXT NOT NULL,
+  PRIMARY KEY (collection_id, video_id)
+);
+CREATE INDEX IF NOT EXISTS outlier_collection_videos_video
+  ON outlier_collection_videos (video_id);
+CREATE TABLE IF NOT EXISTS outlier_bank_finds (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  query          TEXT NOT NULL,
+  via            TEXT NOT NULL CHECK (via IN ('api', 'pages')),
+  requests       INTEGER NOT NULL,
+  api_units      INTEGER NOT NULL,
+  channels_read  INTEGER NOT NULL,
+  started_at     TEXT NOT NULL,
+  finished_at    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS outlier_bank_finds_started ON outlier_bank_finds (started_at);
+`,
 ];
 
 /** The number of the newest step: what `user_version` reads in a store that is up to date. */
