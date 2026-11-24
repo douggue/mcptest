@@ -32,6 +32,16 @@ export const viewFormatPicturesShape = {
     .max(MAX_NAMES)
     .describe(`Up to ${MAX_NAMES} picture names to look at.`),
 };
+const CHANNEL_RULE = 'channel is the channel id (UC… with 24 characters) given in the question.';
+export const getActiveFormatShape = {
+  channel: z
+    .string({ error: CHANNEL_RULE })
+    .regex(/^UC[\w-]{22}$/, CHANNEL_RULE)
+    .describe('The channel id.'),
+};
+const activeArgs = z.object(getActiveFormatShape);
+export type GetActiveFormatArgs = z.input<typeof activeArgs>;
+export const NO_ACTIVE_FORMAT = 'This channel has no active format: work as you would without one.';
 const shelfArgs = z.object(getFormatShelfShape);
 const pictureArgs = z.object(viewFormatPicturesShape);
 export type GetFormatShelfArgs = z.input<typeof shelfArgs>;
@@ -81,6 +91,22 @@ export async function viewFormatPictures(
   }
 }
 
+/** The channel's active format as the other runs read it; a channel without one says so. */
+export function getActiveFormat(
+  engine: FormatToolsEngine,
+  input: GetActiveFormatArgs,
+): CallToolResult {
+  try {
+    const args = checkedArgs(activeArgs, input);
+    const plan = engine.formatBuilder.activePlan(args.channel);
+    const answer =
+      plan === null ? { active: false, note: NO_ACTIVE_FORMAT } : { active: true, plan };
+    return { content: [{ type: 'text', text: JSON.stringify(answer) }] };
+  } catch (error) {
+    return failureResult(plainMessage(error));
+  }
+}
+
 /** Registers the tools; a server limited to other tools never offers them. */
 export function registerFormatTools(server: McpServer, engine: FormatToolsEngine): void {
   server.registerTool(
@@ -96,6 +122,20 @@ export function registerFormatTools(server: McpServer, engine: FormatToolsEngine
       annotations: READS_STORE,
     },
     (args) => getFormatShelf(engine, args),
+  );
+  server.registerTool(
+    'get_active_format',
+    {
+      title: 'Read the channel’s active format',
+      description:
+        'The format the owner made active for a channel: its title formulas (from the slot, counted in ' +
+        'code, or from its Bible), its hook with beats, chapter beats, words and cuts a minute measured ' +
+        'in code, pacing rules, visual style, thumbnail layouts with prompts, and the measured palette. ' +
+        'Text from the Bible is an AI’s reading. Says so when the channel has none. Reads the local store only.',
+      inputSchema: getActiveFormatShape,
+      annotations: READS_STORE,
+    },
+    (args) => getActiveFormat(engine, args),
   );
   server.registerTool(
     'view_format_pictures',
