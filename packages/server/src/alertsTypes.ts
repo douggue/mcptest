@@ -38,6 +38,11 @@ export interface AlertsReply {
   readonly unread: number;
   /** When the last refresh finished: alerts are only as fresh as that. */
   readonly lastRefreshAt: string | null;
+  /**
+   * New niche channels the latest watchlist sweep found, and when it finished;
+   * null when it found none or nothing has been swept. Not tied to this channel.
+   */
+  readonly newNiches: { readonly count: number; readonly at: string } | null;
 }
 
 export interface AlertsEngine {

@@ -9,6 +9,7 @@ import {
   SqliteMoneyRepo,
   SqliteRiskRepo,
   SqliteScheduleRepo,
+  SqliteSweepRepo,
   SqliteThumbReviewRepo,
   SqliteVideoLinkRepo,
   SqliteVideoPageRepo,
@@ -71,14 +72,15 @@ export function extras(deps: ExtrasDeps): ExtrasEngine {
     thumbReviews: new SqliteThumbReviewRepo(db),
     money: new SqliteMoneyRepo(db),
   };
+  const sweeps = new SqliteSweepRepo(db);
   const readChannel = (channelId: string): Promise<void> =>
     reading(async () => {
       const ingest = { ...repos, source: lazySource, transact: transactionRunner(db), now };
       await ingestChannel(ingest, channelId, { refresh: true });
     });
   return {
-    ...changesEngine({ now, repos: all }),
-    ...alertsEngine({ now, repos: all }),
+    ...changesEngine({ now, repos: all, sweeps }),
+    ...alertsEngine({ now, repos: all, sweeps }),
     ...planEngine({ now, repos: all, readChannel }),
     ...calendarEngine({ now, repos: all }),
     ...pacingEngine({ now, repos: all }),

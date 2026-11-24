@@ -22,6 +22,7 @@ import {
   UNUSED_FORMATS,
   UNUSED_FORMAT_BUILDER,
   UNUSED_BANK,
+  UNUSED_SWEEP,
   UNUSED_HUB,
   UNUSED_LAB,
 } from './support';
@@ -47,6 +48,8 @@ const niches = {
   channelsChecked: 12,
   smallMaxSubscribers: 10_000,
   newMaxAgeDays: 90,
+  lastSweepAt: null,
+  newSinceSweep: 0,
 } satisfies NicheList;
 
 class FakeEngine implements Engine {
@@ -101,6 +104,7 @@ class FakeEngine implements Engine {
   formats = UNUSED_FORMATS;
   formatBuilder = UNUSED_FORMAT_BUILDER;
   bank = UNUSED_BANK;
+  sweep = UNUSED_SWEEP;
   nicheReads = 0;
   /** The channels the fake store holds, for the watchlist. */
   known: readonly string[] = [CHANNEL_ID];

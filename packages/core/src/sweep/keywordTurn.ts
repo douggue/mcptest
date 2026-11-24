@@ -108,11 +108,6 @@ export async function sweepKeyword(
   if (search.kind === 'stop') return { ...none, stop: search.stop };
   if (search.kind === 'failed') return { ...none, failed: 1, stop: null };
   const ranked = rankChannels(search.value);
-  const tally = await readFound(
-    deps,
-    reader,
-    ranked.slice(0, SWEEP_CHANNELS_PER_KEYWORD),
-    reserve,
-  );
+  const tally = await readFound(deps, reader, ranked.slice(0, SWEEP_CHANNELS_PER_KEYWORD), reserve);
   return { entry, searched: true, channelsFound: ranked.length, ...tally };
 }

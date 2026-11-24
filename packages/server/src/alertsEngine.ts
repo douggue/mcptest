@@ -8,9 +8,11 @@ import {
   ALERT_MIN_MIN_SCORE,
   DEFAULT_ALERT_MIN_SCORE,
   checkDueAlerts,
+  latestFinished,
   type AlertCheckDeps,
   type AlertRule,
   type StoredAlert,
+  type SweepRepo,
 } from '@jgtube/core';
 import type { AlertRuleView, AlertsEngine, AlertsReply, AlertView } from './alertsTypes';
 
@@ -20,6 +22,16 @@ export const ALERTS_SHOWN = 30;
 export interface AlertsEngineDeps {
   readonly now: () => Date;
   readonly repos: AlertCheckDeps;
+  /** Where the niche sweeps are kept; without it no sweep is told of. */
+  readonly sweeps?: SweepRepo;
+}
+
+/** What the latest finished sweep found, when it found anything. */
+export function sweepNews(sweeps: SweepRepo | undefined): AlertsReply['newNiches'] {
+  const last = sweeps && latestFinished(sweeps);
+  if (!sweeps || !last?.finishedAt) return null;
+  const count = sweeps.qualifiedSince(last.startedAt);
+  return count > 0 ? { count, at: last.finishedAt.toISOString() } : null;
 }
 
 const ruleView = (rule: AlertRule): AlertRuleView => ({
@@ -41,7 +53,7 @@ const alertView = ({
   read: readAt !== null,
 });
 
-export function alertsEngine({ now, repos }: AlertsEngineDeps): AlertsEngine {
+export function alertsEngine({ now, repos, sweeps }: AlertsEngineDeps): AlertsEngine {
   const hasMap = (center: string): boolean => repos.maps.latestForCenter(center) !== null;
 
   const reply = (center: string): AlertsReply => {
@@ -55,6 +67,7 @@ export function alertsEngine({ now, repos }: AlertsEngineDeps): AlertsEngine {
       alerts: repos.alerts.list(center, ALERTS_SHOWN).map(alertView),
       unread: repos.alerts.unreadCounts().get(center) ?? 0,
       lastRefreshAt: repos.runs.latest()?.finishedAt.toISOString() ?? null,
+      newNiches: sweepNews(sweeps),
     };
   };
 

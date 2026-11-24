@@ -2,11 +2,13 @@
 import type {
   BankCollection,
   BankFilterState,
+  BankVideo,
   BrandRepo,
   ChannelSnapshot,
   ChannelRepo,
   Db,
   FindProgress,
+  FindVia,
   MapSnapshot,
   SearchHit,
   VideoRepo,
@@ -20,6 +22,12 @@ export interface CollectionFile {
   readonly filename: string;
   readonly type: string;
   readonly text: string;
+}
+
+/** The bank's engine with what other parts of the server build on. */
+export interface BankInside extends BankEngine {
+  /** Every video in the bank as last built. */
+  videos(): readonly BankVideo[];
 }
 
 export interface BankEngine {
@@ -62,6 +70,14 @@ export interface BankFindDeps {
   readonly source: LazySource;
   /** Runs work that reads YouTube under the store's lease. */
   readonly reading: <T>(work: () => Promise<T>) => Promise<T>;
+  /**
+   * The owner's reading budget per day and what else spent from it (the niche
+   * sweeps), so finds and sweeps share one number. Without it the usual cap holds.
+   */
+  readonly budget?: {
+    readonly pageCap: () => number;
+    readonly alsoSpent: (via: FindVia, since: Date) => number;
+  };
   readonly apiSearch?: (
     query: string,
     options: { readonly apiKey: string; readonly publishedAfter: Date },

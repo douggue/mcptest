@@ -70,7 +70,12 @@ describe('sweeps as stored', () => {
     expect(repo.latest()).toMatchObject({ id, requests: 26, stopped: null, finishedAt: null });
     expect(repo.spentSince(later(-1))).toEqual({ pages: 26, units: 0 });
     expect(repo.spentSince(later(1))).toEqual({ pages: 0, units: 0 });
-    repo.finish(id, { stopped: 'budget', message: 'Stopped', summary: SUMMARY, finishedAt: later(1) });
+    repo.finish(id, {
+      stopped: 'budget',
+      message: 'Stopped',
+      summary: SUMMARY,
+      finishedAt: later(1),
+    });
     expect(repo.latest()).toMatchObject({
       stopped: 'budget',
       message: 'Stopped',
@@ -111,7 +116,10 @@ describe('sweeps as stored', () => {
       foundAt: later(30),
     });
     expect(repo.finds().get(cid('A'))).toEqual(find);
-    expect(repo.finds().get(cid('B'))).toMatchObject({ source: 'snowball', fromChannelId: cid('A') });
+    expect(repo.finds().get(cid('B'))).toMatchObject({
+      source: 'snowball',
+      fromChannelId: cid('A'),
+    });
     expect(repo.keywords()[0]?.found).toBe(1);
     expect(repo.qualifiedSince(later(-1))).toBe(2);
     expect(repo.qualifiedSince(later(1))).toBe(1);

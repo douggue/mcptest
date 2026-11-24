@@ -63,6 +63,8 @@ const niche = (n: number, overrides: Partial<NicheChannel> = {}): NicheChannel =
   country: null,
   logoUrl: null,
   topic: { label: 'Other', source: 'none' },
+  foundBy: null,
+  newSinceSweep: false,
   ...overrides,
 });
 
@@ -71,6 +73,8 @@ const listOf = (channels: readonly NicheChannel[], channelsChecked = 286): Niche
   channelsChecked,
   smallMaxSubscribers: 10_000,
   newMaxAgeDays: 90,
+  lastSweepAt: null,
+  newSinceSweep: 0,
 });
 
 describe('filterNiches', () => {

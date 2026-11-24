@@ -20,6 +20,8 @@ export interface ChangesReply extends ChangesView {
   readonly sinceKind: SinceKind;
   /** When the owner last marked this channel as seen; null when never. */
   readonly lastLookAt: string | null;
+  /** New niche channels the watchlist sweeps found since that moment. Not tied to this channel. */
+  readonly newNiches: number;
 }
 
 export interface ChangesEngine {

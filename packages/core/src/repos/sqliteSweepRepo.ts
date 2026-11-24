@@ -126,10 +126,9 @@ export class SqliteSweepRepo implements SweepRepo {
 
   settings(): SweepSettings {
     const row = this.db
-      .prepare<
-        [],
-        { every_days: number | null; page_budget: number }
-      >('SELECT every_days, page_budget FROM niche_sweep_settings WHERE id = 1')
+      .prepare<[], { every_days: number | null; page_budget: number }>(
+        'SELECT every_days, page_budget FROM niche_sweep_settings WHERE id = 1',
+      )
       .get();
     return row
       ? { everyDays: row.every_days, pageBudget: row.page_budget }
@@ -185,10 +184,9 @@ export class SqliteSweepRepo implements SweepRepo {
 
   spentSince(since: Date): Pots {
     const row = this.db
-      .prepare<
-        [string],
-        { pages: number | null; units: number | null }
-      >('SELECT sum(requests) AS pages, sum(api_units) AS units FROM niche_sweeps WHERE started_at >= ?')
+      .prepare<[string], { pages: number | null; units: number | null }>(
+        'SELECT sum(requests) AS pages, sum(api_units) AS units FROM niche_sweeps WHERE started_at >= ?',
+      )
       .get(since.toISOString());
     return { pages: row?.pages ?? 0, units: row?.units ?? 0 };
   }
@@ -219,10 +217,9 @@ export class SqliteSweepRepo implements SweepRepo {
 
   qualifiedSince(since: Date): number {
     const row = this.db
-      .prepare<
-        [string],
-        { found: number }
-      >('SELECT count(*) AS found FROM niche_sweep_finds WHERE qualified = 1 AND found_at >= ?')
+      .prepare<[string], { found: number }>(
+        'SELECT count(*) AS found FROM niche_sweep_finds WHERE qualified = 1 AND found_at >= ?',
+      )
       .get(since.toISOString());
     return row?.found ?? 0;
   }

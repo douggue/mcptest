@@ -53,17 +53,14 @@ export interface SweepOutcome {
   readonly summary: SweepSummary;
 }
 
-export const NO_KEYWORDS =
-  'Add a keyword or topic to the watchlist first, or resume a paused one.';
+export const NO_KEYWORDS = 'Add a keyword or topic to the watchlist first, or resume a paused one.';
 
 const minus = (a: Pots, b: Pots): Pots => ({ pages: a.pages - b.pages, units: a.units - b.units });
 
 /** Active keywords, never swept first, then swept longest ago, then in the order added. */
 export function sweepOrder(keywords: readonly WatchKeyword[]): readonly WatchKeyword[] {
   const time = (entry: WatchKeyword): number => entry.lastSweptAt?.getTime() ?? 0;
-  return keywords
-    .filter((entry) => !entry.paused)
-    .sort((a, b) => time(a) - time(b) || a.id - b.id);
+  return keywords.filter((entry) => !entry.paused).sort((a, b) => time(a) - time(b) || a.id - b.id);
 }
 
 interface Turn {
@@ -88,7 +85,8 @@ async function keywordTurns(
     const before = reader.spent();
     const turn = await sweepKeyword(deps, reader, entry, reserve);
     if (turn.searched) deps.sweeps.markSwept(entry.id, deps.now());
-    if (turn.searched || turn.failed > 0) turns.push({ turn, spent: minus(reader.spent(), before) });
+    if (turn.searched || turn.failed > 0)
+      turns.push({ turn, spent: minus(reader.spent(), before) });
     if (turn.stop) return { turns, stop: turn.stop };
   }
   return { turns, stop: null };

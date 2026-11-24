@@ -48,11 +48,7 @@ interface Beside {
 }
 
 /** The unknown channels beside a source's top videos, with how often each stood there. */
-async function besideOf(
-  deps: ReadingDeps,
-  reader: SweepReader,
-  source: NicheNow,
-): Promise<Beside> {
+async function besideOf(deps: ReadingDeps, reader: SweepReader, source: NicheNow): Promise<Beside> {
   const costs = sweepCosts(deps.via);
   const counts = new Map<string, number>();
   let done = { sidebarsRead: 0, failed: 0 };

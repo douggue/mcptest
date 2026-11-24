@@ -93,7 +93,9 @@ export function world(options: WorldOptions) {
     search: (query) => {
       calls.searches.push(query);
       const failure = options.searchFailing?.[query];
-      return failure ? Promise.reject(failure) : Promise.resolve(hits(options.results[query] ?? ''));
+      return failure
+        ? Promise.reject(failure)
+        : Promise.resolve(hits(options.results[query] ?? ''));
     },
     niches: () =>
       [...(options.qualifying ?? '')]
@@ -107,8 +109,7 @@ export function world(options: WorldOptions) {
     channels,
     calls,
     /** Page requests the stand-in was asked for, at what each read can take at most. */
-    pagesAsked: () =>
-      calls.searches.length + calls.channels.length * 5 + calls.sidebars.length * 2,
+    pagesAsked: () => calls.searches.length + calls.channels.length * 5 + calls.sidebars.length * 2,
     setNow: (at: Date) => {
       clock = at;
     },

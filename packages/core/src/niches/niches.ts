@@ -22,6 +22,7 @@ import { NICHE_MIN_LATIN_SHARE, dominantScript, latinShare } from './script';
 import { assignTopics, type NicheTopic } from './topic';
 import type {
   NicheChannel,
+  NicheFound,
   NicheInput,
   NicheLanguage,
   NicheList,
@@ -75,6 +76,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type {
   NicheChannel,
+  NicheFound,
+  NicheFoundBy,
   NicheInput,
   NicheLanguage,
   NicheList,
@@ -166,6 +169,8 @@ function outperformers(source: NicheSource, report: readonly VideoReportRow[]): 
 
 /** What is known about a listed channel only once it is known to be listed. */
 type ListedOnly =
+  | 'foundBy'
+  | 'newSinceSweep'
   | 'qualifies'
   | 'watched'
   | 'growth'
@@ -249,6 +254,8 @@ function topicsOf(input: NicheInput, listedIds: ReadonlySet<string>) {
   );
 }
 
+const NOT_SAID: NicheFound = { foundBy: null, newSinceSweep: false };
+
 /**
  * The channels that are new or small and have a recent video that outperforms,
  * plus every channel the owner is watching: a watched channel stays listed
@@ -272,7 +279,9 @@ export function buildNicheList(input: NicheInput, now: Date): NicheList {
     const country = facts?.country ?? null;
     const counted = figures(source, country, now);
     const logoUrl = input.logoOf?.(id) ?? null;
-    return [{ ...entry, ...counted, qualifies, watched, growth, createdAt, country, logoUrl }];
+    const found = input.foundOf?.(id) ?? NOT_SAID;
+    const facts30 = { ...entry, ...counted, qualifies, watched, growth, createdAt, country };
+    return [{ ...facts30, logoUrl, ...found }];
   });
   const topics = topicsOf(input, new Set(listed.map((channel) => channel.id)));
   const channels = listed.map((channel): NicheChannel => ({
@@ -284,6 +293,8 @@ export function buildNicheList(input: NicheInput, now: Date): NicheList {
     channelsChecked: input.channelsChecked ?? input.sources.length,
     smallMaxSubscribers: NICHE_SMALL_MAX_SUBSCRIBERS,
     newMaxAgeDays: NICHE_NEW_MAX_AGE_DAYS,
+    lastSweepAt: input.lastSweepAt?.toISOString() ?? null,
+    newSinceSweep: channels.filter((channel) => channel.newSinceSweep).length,
   };
 }
 
@@ -296,6 +307,11 @@ export interface NicheDeps {
   readonly facts?: FactsRepo;
   /** Where channel logos are kept. Without it entries carry none. */
   readonly brands?: BrandRepo;
+  /** How each channel was found, read afresh for each list. Without it nothing is said. */
+  readonly found?: () => {
+    readonly foundOf: (channelId: string) => NicheFound;
+    readonly lastSweepAt: Date | null;
+  };
 }
 
 const byId = (a: StoredChannel, b: StoredChannel): number =>
@@ -329,6 +345,7 @@ export function loadNicheList(deps: NicheDeps, now: Date): NicheList {
   const watchedIds = deps.watchlist.listWatched();
   return buildNicheList(
     {
+      ...deps.found?.(),
       sources: nicheCandidates(deps, watchedIds, now).map((channel) => ({
         channel,
         videos: deps.videos.listByChannel(channel.id),

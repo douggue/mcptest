@@ -3,6 +3,7 @@ import type { ExtrasEngine } from '../src/extrasTypes';
 import type { FormatEngine } from '../src/formatTypes';
 import type { FormatBuilderEngine } from '../src/formatBuilderTypes';
 import type { BankEngine } from '../src/bankTypes';
+import type { SweepEngine } from '../src/sweepTypes';
 import type { LabEngine } from '../src/labTypes';
 import type { BreakdownHub } from '../src/oneVideoTypes';
 import type { ScriptEngine } from '../src/scriptTypes';
@@ -114,6 +115,17 @@ export const UNUSED_FORMAT_BUILDER: FormatBuilderEngine = {
   followed: unused('followed'),
 };
 
+export const UNUSED_SWEEP: SweepEngine = {
+  info: unused('info'),
+  addKeyword: unused('addKeyword'),
+  removeKeyword: unused('removeKeyword'),
+  setPaused: unused('setPaused'),
+  saveSettings: unused('saveSettings'),
+  isDue: unused('isDue'),
+  startProblem: unused('startProblem'),
+  sweep: unused('sweep'),
+};
+
 export const UNUSED_BANK: BankEngine = {
   look: unused('look'),
   findInfo: unused('findInfo'),
@@ -197,6 +209,7 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     formats: UNUSED_FORMATS,
     formatBuilder: UNUSED_FORMAT_BUILDER,
     bank: UNUSED_BANK,
+    sweep: UNUSED_SWEEP,
     ...parts,
   };
 }

@@ -258,7 +258,11 @@ describe('reads that fail', () => {
     ['one', 'two'].forEach((keyword) => w.sweeps.addKeyword(keyword, NOW));
     const outcome = await runSweep(w.deps, { startedBy: 'owner', left: ROOMY });
     expect(outcome.stopped).toBe('done');
-    expect(outcome.summary.keywords[0]).toMatchObject({ keyword: 'one', failed: 1, channelsRead: 0 });
+    expect(outcome.summary.keywords[0]).toMatchObject({
+      keyword: 'one',
+      failed: 1,
+      channelsRead: 0,
+    });
     expect(outcome.summary.keywords[1]).toMatchObject({ keyword: 'two', channelsRead: 1 });
   });
 });
