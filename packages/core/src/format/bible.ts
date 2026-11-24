@@ -7,6 +7,7 @@
  * number in its text that no fact holds is listed, so the reader knows.
  */
 import { z } from 'zod';
+import { fitToSchema } from '../repair';
 import { liftJson } from '../teardown/stages';
 import { knownNumbers, type BibleFacts } from './bibleFacts';
 import { INGREDIENT_LAYERS, type IngredientLayer } from './types';
@@ -62,7 +63,8 @@ export const bibleAnswerSchema = z.object({
     .array(z.object({ layer: z.string().max(40), steps: z.array(line(300)).max(10) }))
     .max(INGREDIENT_LAYERS.length)
     .default([]),
-  masterPrompt: line(4_000),
+  // About 700 words, with room: the same as a ready prompt of a teardown's plan.
+  masterPrompt: line(6_000),
   doNotCopy: z.array(line(300)).max(10).default([]),
 });
 
@@ -158,17 +160,27 @@ function keptPipeline(answer: Answer, dropped: string[]): BibleWritten['pipeline
   });
 }
 
+/**
+ * What may be repaired in a Bible. A required text left empty is never filled
+ * in: a rule, a name or the master prompt that says nothing is no use, so
+ * the Bible is then refused, naming the field.
+ */
+const BIBLE_RULES = { typedLists: [], mayBeUnstated: () => false };
+
 export function checkBible(
   answer: string,
   facts: BibleFacts,
   engine: string,
   now: Date,
 ): BibleCheck {
-  const parsed = bibleAnswerSchema.safeParse(liftJson(answer));
-  if (!parsed.success) {
+  const lifted = liftJson(answer);
+  if (lifted === null) {
     return { ok: false, reason: 'the answer held no Format Bible in the form asked for' };
   }
-  const dropped: string[] = [];
+  // One field too long or one empty entry does not lose the Bible: it is repaired, kept and said.
+  const parsed = fitToSchema(bibleAnswerSchema, lifted, BIBLE_RULES);
+  if (!parsed.ok) return { ok: false, reason: parsed.reason };
+  const dropped: string[] = [...parsed.repaired];
   const written: BibleWritten = {
     ...parsed.data,
     visualSystem: {

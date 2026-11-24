@@ -109,6 +109,71 @@ describe('a teardown stage with one thing wrong is kept, not refused', () => {
     expect(checked.ok && checked.data.items[0]?.kind).toBe('other');
   });
 
+  test('a null where a text may be left out is a text left out, and nothing is said of it', () => {
+    const hook = ask('hook', {
+      summary: 's',
+      rows: [{ start: 0, end: 5, visual: 'x', camera: null, onScreenText: null }],
+    });
+    const motion = ask('motion', {
+      items: [
+        {
+          name: 'M',
+          kind: 'text',
+          strips: null,
+          at: [1],
+          easing: null,
+          rebuild: { method: 'code', recipe: 'r' },
+        },
+      ],
+    });
+
+    expect(hook).toMatchObject({ ok: true, repaired: [] });
+    expect(hook.ok && hook.data.rows[0]).toMatchObject({ camera: '', onScreenText: '' });
+    expect(motion).toMatchObject({ ok: true, repaired: [] });
+    expect(motion.ok && motion.data.items[0]).toMatchObject({ easing: '', strips: [] });
+  });
+
+  test('a required text left empty reads “not stated”, and the stage says so', () => {
+    const hook = ask('hook', { summary: 's', rows: [{ start: 0, end: 5, visual: '  ' }] });
+    const sound = ask('sound', { voice: 'v', music: '', sfx: [], mix: 'm' });
+
+    expect(hook.ok && hook.data.rows[0]?.visual).toBe('not stated');
+    expect(hook.ok && hook.repaired).toEqual([
+      'rows 1, visual: left empty, so it reads “not stated”.',
+    ]);
+    expect(sound.ok && sound.data.music).toBe('not stated');
+  });
+
+  test('a name, a ready prompt or a quoted line left empty is never filled in: the stage is refused, naming it', () => {
+    const noName = ask('archetypes', {
+      items: [{ name: '', description: 'd', keyframe: 'k-001', at: [], buildWith: 'b' }],
+    });
+    const noPrompt = ask('plan', {
+      layers: [{ layer: 'l', toolType: 't', produces: 'p' }],
+      components: [],
+      workflow: ['w'],
+      prompts: { script: '', visuals: [], thumbnail: 't' },
+      avoid: ['a'],
+    });
+    const nullSummary = ask('hook', { summary: null, rows: [{ start: 0, end: 5, visual: 'x' }] });
+
+    expect(noName).toEqual({ ok: false, reason: expect.stringMatching(/items\.0\.name/) });
+    expect(noPrompt).toEqual({ ok: false, reason: expect.stringMatching(/prompts\.script/) });
+    expect(nullSummary).toEqual({ ok: false, reason: expect.stringMatching(/summary/) });
+  });
+
+  test('an empty entry of a list of texts is left out', () => {
+    const plan = ask('plan', {
+      layers: [{ layer: 'l', toolType: 't', produces: 'p' }],
+      components: [],
+      workflow: ['first', '', 'third'],
+      prompts: { script: 's', visuals: [], thumbnail: 't' },
+      avoid: ['a'],
+    });
+
+    expect(plan.ok && plan.data.workflow).toEqual(['first', 'third']);
+  });
+
   test('a stage that fits has nothing repaired', () => {
     const fine = ask('sound', { voice: 'v', music: 'm', sfx: [], mix: 'x' });
 

@@ -43,7 +43,12 @@ const SHAPE = JSON.stringify({
   ],
   motion: [{ name: 'a move', recipe: 'what changes, from what to what, how fast, timed to what' }],
   pacing: ['one rule a line'],
-  hook: [{ beat: 'a beat of the opening', does: 'what it does to the viewer, and by what second' }],
+  hook: [
+    {
+      beat: 'a beat of the opening',
+      does: 'what it does to the viewer, and its place in the order (a second only when the hook ingredient gives one)',
+    },
+  ],
   chapters: [{ beat: 'a beat of the video', does: 'its job, and how it hands over to the next' }],
   titleFormulas: [
     { formula: 'a title wording with [slots]', example: 'that formula with its slots filled' },
@@ -69,9 +74,14 @@ const DOUBLE_QUOTES = /["\u201c\u201d\u201e\u201f\u00ab\u00bb\uff02]/g;
 const quotedName = (name: string): string =>
   `"${name.replace(HIDDEN, ' ').replace(DOUBLE_QUOTES, "'").trim()}"`;
 
-/** The room each text of the answer has: code refuses a Bible whose text runs over. */
+/**
+ * The room each text of the answer has, in words: an engine counts words far
+ * better than characters. Code keeps a little more than is said here and
+ * shortens what runs over (`checkBible` in core); it no longer refuses a
+ * Bible for one long field.
+ */
 const BIBLE_LIMITS =
-  'Keep every text within its room, or the whole Bible is refused: a name or a beat at most 70 characters; a rule, a pacing rule, a sound target or what a beat does at most 350; a step, a purpose, a use or a thing not to copy at most 250; a weight or a casing at most 30; a colour role or a title formula at most 180; a layout at most 450; a component’s build or a motion recipe at most 700; a thumbnail prompt at most 1,100; the look in at most 1,400; the master prompt at most 3,800 characters. At most 12 core rules, 12 colour roles, 8 type styles, 12 components, 12 moves, 12 pacing rules, 10 hook beats, 12 chapter beats, 8 title formulas, 6 thumbnail layouts, 10 sound targets, 10 steps to a layer and 10 things not to copy.';
+  'Keep every text short enough for its field: a name or a beat in at most 10 words; a rule, a pacing rule, a sound target or what a beat does in about 50 words; a step, a purpose, a use, a colour role, a title formula or a thing not to copy in about 30 words; a layout in about 60 words; a component’s build or a motion recipe in about 100 words; a thumbnail prompt in about 150 words; the look in about 200 words; the master prompt in about 700 words. A text that runs over is cut to fit, so say the most important thing first. At most 12 core rules, 12 colour roles, 8 type styles, 12 components, 12 moves, 12 pacing rules, 10 hook beats, 12 chapter beats, 8 title formulas, 6 thumbnail layouts, 10 sound targets, 10 steps to a layer and 10 things not to copy: what comes after is left off.';
 
 /** The question, for a format and channel already checked in code. */
 export function bibleQuestion(ask: MixAsk, look: string): string {
@@ -94,9 +104,9 @@ export function bibleQuestion(ask: MixAsk, look: string): string {
       ...bullets([
         'A rule is something a video either follows or breaks: say what to do, where and how much. A rule that every video would pass is left out.',
         'The hook template gives each beat of the opening its job and its deadline, with times taken from the hook ingredient on the shelf; where the shelf gives no times, say the order only. The jobs, in order: the promise of the title confirmed, then the stake and an open question, then a turn or a reason to stay.',
-        'The chapter template gives each beat its job and says how it ends so that the next is needed, and where the promise of the title is paid.',
+        'The chapter template gives each beat its job and says where the promise of the title is paid. Most beats end on a pull into the next; say which device suits each, and never the same one twice running.',
         'A title formula keeps the fixed words that carry the pull and names each slot for the kind of thing that goes in it. Its example fills the slots with a general kind of subject, never one of the titles on the shelf.',
-        'A thumbnail layout has one focal point, says how much of the frame it fills, where the overlay sits and how many words it may hold; its prompt can be pasted into an image tool as it stands.',
+        'A thumbnail layout has one focal point, says how much of the frame it fills, where the overlay sits and how many words it may hold; its prompt can be pasted into an image tool as it stands, keeps the overlay and anything that matters out of the bottom-right corner (YouTube sets the video’s length there), and offers the option to leave the text area clear so the words can be set in an image editor.',
         'The master prompt is a complete brief for another AI: who it is to be, what the owner gives it as slots ([TOPIC], [LENGTH IN MINUTES]), the structure beat by beat, the pace as a number the tool gave, the words to write for the length asked and the instruction to write to that count beat by beat, and the rule that any fact the owner did not supply is marked [CHECK: what to verify].',
         'What not to copy names what would make a copy instead of a video in the format: the source channels’ own marks, names, wording and recurring characters.',
       ]),

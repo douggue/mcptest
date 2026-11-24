@@ -65,6 +65,17 @@ function Written({ format }: { readonly format: FormatView }) {
           them at its end.
         </p>
       )}
+      {bible.dropped.length > 0 && (
+        <Details summary={`Shortened or left out by the checks (${bible.dropped.length})`}>
+          <ul className="flex list-disc flex-col gap-1 pl-5 text-body-sm text-on-surface-variant">
+            {bible.dropped.map((line) => (
+              <li key={line} className="break-words">
+                {line}
+              </li>
+            ))}
+          </ul>
+        </Details>
+      )}
       <div className="flex flex-wrap gap-2">
         <a href={bibleUrl(format.id, 'md')} download className={LINK}>
           <Download aria-hidden="true" className="h-4 w-4" />

@@ -236,6 +236,63 @@ describe('the Bible an AI writes, as code keeps it', () => {
     expect(bible.facts).toEqual(facts);
   });
 
+  test('one field too long does not lose the Bible: it is shortened at a sentence, kept, and said', () => {
+    const facts = bibleFacts(format, shelf);
+    const sentence = 'Keep the picture dark and the words few. ';
+    const long = {
+      ...answer,
+      masterPrompt: sentence.repeat(400),
+      coreRules: [sentence.repeat(30)],
+    };
+
+    const checked = checkBible(JSON.stringify(long), facts, 'claude', NOW);
+
+    expect(checked.ok).toBe(true);
+    if (!checked.ok) return;
+    expect(checked.bible.written.masterPrompt.length).toBeLessThanOrEqual(6000);
+    expect(checked.bible.written.masterPrompt.endsWith('few.')).toBe(true);
+    expect(checked.bible.written.coreRules[0]?.length).toBeLessThanOrEqual(400);
+    expect(checked.bible.dropped).toEqual(
+      expect.arrayContaining(['masterPrompt: shortened to fit.', 'coreRules 1: shortened to fit.']),
+    );
+  });
+
+  test('a list too long keeps its first entries, and a null or an empty entry is left out', () => {
+    const facts = bibleFacts(format, shelf);
+    const many = {
+      ...answer,
+      coreRules: Array.from({ length: 15 }, (_, at) => `Rule ${at + 1}.`),
+      pacing: ['A rule.', '', 'Another.'],
+      sound: null,
+    };
+
+    const checked = checkBible(JSON.stringify(many), facts, 'claude', NOW);
+
+    expect(checked.ok && checked.bible.written.coreRules).toHaveLength(12);
+    expect(checked.ok && checked.bible.written.pacing).toEqual(['A rule.', 'Another.']);
+    expect(checked.ok && checked.bible.written.sound).toEqual([]);
+    expect(checked.ok && checked.bible.dropped).toContain('coreRules: only the first 12 are kept.');
+  });
+
+  test('a Bible that truly cannot be read is refused, naming the field', () => {
+    const facts = bibleFacts(format, shelf);
+    const noMaster = checkBible(
+      JSON.stringify({ ...answer, masterPrompt: '' }),
+      facts,
+      'claude',
+      NOW,
+    );
+    const noRules = checkBible(
+      JSON.stringify({ ...answer, coreRules: 'none' }),
+      facts,
+      'claude',
+      NOW,
+    );
+
+    expect(noMaster).toEqual({ ok: false, reason: expect.stringMatching(/masterPrompt/) });
+    expect(noRules).toEqual({ ok: false, reason: expect.stringMatching(/coreRules/) });
+  });
+
   test('refuses an answer that is not a Bible', () => {
     const facts = bibleFacts(format, shelf);
     expect(checkBible('no json', facts, 'claude', NOW)).toEqual({

@@ -1,5 +1,13 @@
 import { z } from 'zod';
-import { shortened } from '../script/stages';
+import {
+  fitToSchema,
+  isIndex,
+  placeOf,
+  valueAt,
+  type Issue,
+  type Repair,
+  type RepairRules,
+} from '../repair';
 
 /**
  * What each judged stage of a teardown answers, as checked JSON. An engine is
@@ -239,88 +247,32 @@ export function liftJson(answer: string): unknown {
 /** The key a stored stage carries its repairs under, beside what was judged. */
 export const REPAIRED_KEY = 'repaired';
 
-const MAX_ISSUES = 3;
-/** How many times an answer is repaired and checked again: a repair can uncover the next thing wrong. */
-const REPAIR_ROUNDS = 6;
 /** Lists whose entries are checked one by one: a bad entry is dropped, the list stays. */
 const TYPED_LISTS = ['at', 'hexes', 'strips'];
 /** A time an item cannot do without: an item whose time cannot be read is left out. */
 const ITEM_TIMES = ['start', 'end', 'at'];
 const MOTION_KINDS = ['transition', 'text', 'graphic', 'camera', 'other'];
+/**
+ * Required texts that are never filled with "not stated" when left empty: a
+ * name the page lists by, a ready prompt the owner pastes, a line quoted
+ * from the transcript. Left empty, the stage is refused, naming the field.
+ */
+const NEVER_UNSTATED = ['name', 'title', 'script', 'thumbnail', 'prompt', 'text', 'keyframe'];
 
-type Path = readonly PropertyKey[];
-interface Issue {
-  readonly code?: string;
-  readonly path: Path;
-  readonly message: string;
-  readonly origin?: string;
-  readonly maximum?: number | bigint;
-}
-
-const isIndex = (key: PropertyKey | undefined): key is number => typeof key === 'number';
-
-/** Where in the answer something is, in words: "items 2, description". */
-const placeOf = (path: Path): string =>
-  path
-    .map((key, at) => (isIndex(key) ? ` ${key + 1}` : `${at === 0 ? '' : ', '}${String(key)}`))
-    .join('');
-
-/** What sits at a path of the answer; undefined when the path leads nowhere. */
-function at(root: unknown, path: Path): unknown {
-  return path.reduce<unknown>(
-    (value, key) =>
-      typeof value === 'object' && value !== null
-        ? (value as Record<PropertyKey, unknown>)[key]
-        : undefined,
-    root,
-  );
-}
-
-/** Puts a value at a path of the answer. */
-function put(root: unknown, path: Path, value: unknown): void {
-  const holder = at(root, path.slice(0, -1));
-  const key = path.at(-1);
-  if (typeof holder === 'object' && holder !== null && key !== undefined) {
-    (holder as Record<PropertyKey, unknown>)[key] = value;
-  }
-}
-
-/** A repair to make: the array an entry is taken out of, or a value to set. */
-type Repair =
-  | { readonly drop: Path; readonly note: string }
-  | { readonly set: Path; readonly value: unknown; readonly note: string };
-
-/** The repair that answers one thing wrong, or null when nothing honest can be done about it. */
-function repairOf(root: unknown, issue: Issue): Repair | null {
+/** The repairs only a teardown stage knows. */
+function stageRepair(root: unknown, issue: Issue): Repair | null | undefined {
   const { path } = issue;
   const last = path.at(-1);
   const parent = path.at(-2);
-  const value = at(root, path);
+  const value = valueAt(root, path);
   const where = placeOf(path);
-  const max = Number(issue.maximum);
-  if (issue.code === 'too_big' && typeof value === 'string' && Number.isFinite(max)) {
-    return { set: path, value: shortened(value, max), note: `${where}: shortened to fit.` };
-  }
-  if (issue.code === 'too_big' && Array.isArray(value) && Number.isFinite(max)) {
-    return {
-      set: path,
-      value: value.slice(0, max),
-      note: `${where}: only the first ${max} are kept.`,
-    };
-  }
-  if (isIndex(last) && typeof parent === 'string' && TYPED_LISTS.includes(parent)) {
-    return {
-      drop: path,
-      note: `${placeOf(path.slice(0, -1))}: one entry could not be read, so it was left out.`,
-    };
-  }
   if (last === 'keyframe') {
     return { set: path, value: null, note: `${where}: not a keyframe name, so left empty.` };
   }
-  if (last === 'kind' && !MOTION_KINDS.includes(String(value))) {
+  if (last === 'kind' && value !== undefined && !MOTION_KINDS.includes(String(value))) {
     return { set: path, value: 'other', note: `${where}: not one of the kinds, so set to other.` };
   }
-  if (last === 'method' && path.at(-2) === 'rebuild' && isIndex(path.at(-3))) {
+  if (last === 'method' && parent === 'rebuild' && isIndex(path.at(-3))) {
     const item = path.slice(0, -2);
     return {
       drop: item,
@@ -334,63 +286,26 @@ function repairOf(root: unknown, issue: Issue): Repair | null {
       note: `${placeOf(item)}: its time could not be read, so it was left out.`,
     };
   }
-  return null;
+  return undefined;
 }
 
-/**
- * The answer with what is wrong repaired, where it can be: a text too long
- * shortened at a sentence, a list too long cut to its size, a bad entry of a
- * typed list or an item with an unreadable time left out, a keyframe that is
- * none set to none. Nothing is made up: what is required and missing stays
- * missing, and the stage is then refused. Null when an issue has no repair.
- */
-function repairedOnce(root: unknown, issues: readonly Issue[]): readonly string[] | null {
-  const repairs = issues.map((issue) => repairOf(root, issue));
-  if (repairs.some((repair) => repair === null)) return null;
-  const made = repairs as readonly Repair[];
-  for (const repair of made) if ('set' in repair) put(root, repair.set, repair.value);
-  // Entries are taken out from the end of a list first, so the places of the others hold.
-  const drops = made
-    .flatMap((repair) => ('drop' in repair ? [repair.drop] : []))
-    .filter(
-      (path, index, all) => all.findIndex((other) => other.join('/') === path.join('/')) === index,
-    )
-    .sort((a, b) => b.length - a.length || Number(b.at(-1)) - Number(a.at(-1)));
-  for (const path of drops) {
-    const list = at(root, path.slice(0, -1));
-    const index = path.at(-1);
-    if (Array.isArray(list) && isIndex(index)) list.splice(index, 1);
-  }
-  return [...new Set(made.map((repair) => repair.note))];
-}
-
-const reasonOf = (issues: readonly Issue[]): string =>
-  `the answer did not fit the form asked for (${issues
-    .slice(0, MAX_ISSUES)
-    .map((issue) => `${issue.path.join('.') || 'the answer'}: ${issue.message}`)
-    .join('; ')})`;
+const STAGE_RULES: RepairRules = {
+  typedLists: TYPED_LISTS,
+  special: stageRepair,
+  mayBeUnstated: (path) => !NEVER_UNSTATED.includes(String(path.at(-1))),
+};
 
 /**
- * One stage's answer, checked. An answer with a field too long or a typed
- * entry that is not one is repaired and kept, with what was done; it is
- * refused, with where it went wrong, only when nothing honest can repair it.
+ * One stage's answer, checked. An answer with a field too long, a null where
+ * a text may be left out, or a typed entry that is not one is repaired and
+ * kept, with what was done; it is refused, with where it went wrong, only
+ * when nothing honest can repair it.
  */
 export function checkStage<S extends TeardownStage>(stage: S, answer: string): StageCheck<S> {
   const lifted = liftJson(answer);
   if (lifted === null) return { ok: false, reason: 'the answer held no JSON object' };
-  const first = stageSchemas[stage].safeParse(lifted);
-  if (first.success) return { ok: true, data: first.data as StageData<S>, repaired: [] };
-  const refused = { ok: false as const, reason: reasonOf(first.error.issues) };
-  const working: unknown = structuredClone(lifted);
-  let issues: readonly Issue[] = first.error.issues;
-  const repaired: string[] = [];
-  for (let round = 0; round < REPAIR_ROUNDS; round += 1) {
-    const notes = repairedOnce(working, issues);
-    if (notes === null) return refused;
-    repaired.push(...notes);
-    const again = stageSchemas[stage].safeParse(working);
-    if (again.success) return { ok: true, data: again.data as StageData<S>, repaired };
-    issues = again.error.issues;
-  }
-  return refused;
+  const fitted = fitToSchema(stageSchemas[stage], lifted, STAGE_RULES);
+  return fitted.ok
+    ? { ok: true, data: fitted.data as StageData<S>, repaired: fitted.repaired }
+    : fitted;
 }
