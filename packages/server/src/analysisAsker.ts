@@ -27,11 +27,17 @@ import { EngineRunError, type SkippedEngine } from './engines/failure';
 import { firstAnswer, type EngineAnswer } from './engines/fallback';
 import type { EngineDeps, EngineId, EngineRunRequest } from './engines/types';
 import { cleanMessage } from './jobs';
-import { picturesSeen, type PictureFileSet, type PictureNeed } from './pictureFiles';
+import {
+  filesFromPaths,
+  picturesSeen,
+  type PictureFileSet,
+  type PictureNeed,
+} from './pictureFiles';
 import { pictureRoute, withStandIn, type PictureRoute } from './pictureRoute';
 import type { PictureChecks } from './pictureChecks';
 import type { EngineSettings } from './engines/settings';
 import type { QuestionFocus } from './questionFocus';
+import { MIX_TITLE, looksAtPictures as mixLooks, mixRequest, type MixAsk } from './formatMixRequests';
 import { STAGE_TITLES } from './teardownQuestions';
 import { looksAtPictures, teardownRequest, type TeardownAsk } from './teardownRequests';
 
@@ -71,6 +77,7 @@ export interface Asker {
   ): Answer;
   studyFrames(videoId: string, only?: EngineId): Answer;
   askTeardown(ask: TeardownAsk, only?: EngineId): Answer;
+  askFormatMix(ask: MixAsk, only?: EngineId): Answer;
 }
 
 /** The store as a file an engine's connector can open. Throws when it is only in memory. */
@@ -115,6 +122,16 @@ function nobodyForPictures(title: string, route: PictureRoute, chosen: string | 
   }
   const why = route.ruledOut.map((entry) => entry.message).join(' ');
   return `${title} needs an AI that sees pictures (Claude Code, Codex or Antigravity), and none is available here.${why ? ` ${why}` : ''}`;
+}
+
+/** Two sets of picture files as one. */
+export function joinFiles(first: PictureFileSet, second: PictureFileSet | null): PictureFileSet {
+  if (second === null || second.files.length === 0) return first;
+  if (first.files.length === 0) return second;
+  return {
+    files: [...first.files, ...second.files],
+    listing: `${first.listing}; ${second.listing}`,
+  };
 }
 
 /** How one engine is asked a picture question, and the pictures it was handed as files, if any. */
@@ -243,6 +260,36 @@ export function asker(shared: AskerShared, wiring: AskerWiring, stop: AbortSigna
         `The teardown's ${STAGE_TITLES[teardown.stage]}`,
         { only },
         async (engine) => ({ request: await teardownRequest(teardown, engine, at(engine)) }),
+        false,
+      );
+    },
+    async askFormatMix(mix, only) {
+      const at = settingsFor();
+      if (!mixLooks(mix)) {
+        const order = allowedBy(only);
+        return ask(
+          order,
+          (engine) => mixRequest(mix, engine, at(engine)),
+          nobodyFor(order, engines, only),
+        );
+      }
+      // The answer is JSON, which a line naming the files opened would spoil.
+      return askPictures(
+        MIX_TITLE,
+        { only },
+        async (engine) => {
+          if (!seesFiles(engine)) return { request: mixRequest(mix, engine, at(engine)) };
+          const files = joinFiles(
+            await filesFromPaths([{ label: 'pictures on the shelf', pictures: mix.pictures }]),
+            mix.thumbnails.length === 0
+              ? null
+              : await filesFor('', {
+                  kind: 'thumbnails',
+                  groups: [{ label: 'thumbnails on the shelf', videoIds: mix.thumbnails }],
+                }),
+          );
+          return { request: mixRequest(mix, engine, at(engine), files) };
+        },
         false,
       );
     },

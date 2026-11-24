@@ -1,6 +1,7 @@
 import type { Engine } from '../src/app';
 import type { ExtrasEngine } from '../src/extrasTypes';
 import type { FormatEngine } from '../src/formatTypes';
+import type { FormatBuilderEngine } from '../src/formatBuilderTypes';
 import type { LabEngine } from '../src/labTypes';
 import type { BreakdownHub } from '../src/oneVideoTypes';
 import type { ScriptEngine } from '../src/scriptTypes';
@@ -94,6 +95,18 @@ export const UNUSED_FORMATS: FormatEngine = {
   imagesFolder: unused('imagesFolder'),
 };
 
+export const UNUSED_FORMAT_BUILDER: FormatBuilderEngine = {
+  listFormats: unused('listFormats'),
+  createFormat: unused('createFormat'),
+  updateFormat: unused('updateFormat'),
+  duplicateFormat: unused('duplicateFormat'),
+  removeFormat: unused('removeFormat'),
+  formatName: unused('formatName'),
+  suggestMix: unused('suggestMix'),
+  shelfForMix: unused('shelfForMix'),
+  mixPicture: unused('mixPicture'),
+};
+
 /** An engine whose later features are these, failing loudly on any other. */
 export const withExtras = (parts: Partial<ExtrasEngine>): Partial<Engine> => ({
   extras: { ...UNUSED_EXTRAS, ...parts },
@@ -161,6 +174,7 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     extras: UNUSED_EXTRAS,
     hub: UNUSED_HUB,
     formats: UNUSED_FORMATS,
+    formatBuilder: UNUSED_FORMAT_BUILDER,
     ...parts,
   };
 }

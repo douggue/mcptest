@@ -31,6 +31,7 @@ import { runClaudeWeb, type WebRunRequest } from './engines/webRun';
 import { inPrivateFolder } from './webRunner';
 import type { WorkTracker } from './running';
 import type { TeardownAsk } from './teardownRequests';
+import type { MixAsk } from './formatMixRequests';
 
 const IN_MEMORY = ':memory:';
 /** The Jgtube folder: the connector the engines are given lives under it. */
@@ -110,6 +111,8 @@ export interface AnalysisParts extends Pick<
    * text stage to any engine in order.
    */
   askTeardown(ask: TeardownAsk, only?: EngineId): Promise<EngineAnswer<EngineId>>;
+  /** "Suggest a mix" for a format: a picture question when the shelf has pictures, else a text one. */
+  askFormatMix(ask: MixAsk, only?: EngineId): Promise<EngineAnswer<EngineId>>;
   /** Whether an engine here would watch a video from a file: Antigravity, installed and not left out. */
   watchesFiles(): Promise<boolean>;
   /**
@@ -272,6 +275,7 @@ export function analysisEngines(wiring: AnalysisWiring, stop: AbortSignal): Anal
       work.run(() => asking.analyse(analysis, channel, only, focus, avoid)),
     studyFrames: (videoId, only) => work.run(() => asking.studyFrames(videoId, only)),
     askTeardown: (teardown, only) => work.run(() => asking.askTeardown(teardown, only)),
+    askFormatMix: (mix, only) => work.run(() => asking.askFormatMix(mix, only)),
     checkPictures: (engine) => work.run(() => asking.checkPictures(engine)),
     watchesFiles: async () => settings.order.includes('agy') && (await agyInstalled(shared)),
     watchVideo: (videoId, question, options) => work.run(() => watch(videoId, question, options)),
