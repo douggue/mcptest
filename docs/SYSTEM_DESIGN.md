@@ -1829,7 +1829,7 @@ Claude reads what the app shows. Setup for the owner is in
 | `get_frame_study`             | `video`                                                                                 | A line of JSON (`studied`, `by`, `at`, `source`, `framesAvailable`), then the stored study of the video's frames; `studied: false` when there is none                                                                                                                |
 | `get_idea_brief`              | `channel`, `batch`                                                                      | What the owner chose for one batch of concepts: `picked`, `length`, `modelOpenings`, `format` (`wording`, `from`); never the angle                                                                                                                                   |
 | `get_concept`                 | `channel`, `concept`                                                                    | A line of JSON (`concept`, `batch`, `length`, `restedOn`), then the stored concept in its labelled lines                                                                                                                                                             |
-| `get_script`                  | `channel`, `concept`, `part?` (plan, draft, tightened)                                  | A line of JSON (`voice`, `targetSeconds`, `targetWords`, `hookWords`, `modelHooks`, `frameStudies`), then the concept, the chosen hook, the beats and the asked-for text                                                                                             |
+| `get_script`                  | `channel`, `concept`, `part?` (plan, draft, tightened)                                  | A line of JSON (`voice`, `targetSeconds`, `targetWords`, `hookWords`, `wordBudget`, `modelHooks`, `frameStudies`), then the concept, the chosen hook, the beats and the asked-for text                                                                                             |
 | `get_hooks`                   | `channel`, `video_ids?` (1 to 12)                                                       | A line of JSON (`built`, `seconds`, `hooks`, `noWords`), then per hook a line of JSON (`video`, `title`, `score`, `style`, `how`) and its first-minute words                                                                                                         |
 | Tool                          | Input                                                                                   | Returns                                                                                                                                                                                                                                                              |
 | ----------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1942,6 +1942,44 @@ longer job (see "Channel breakdown"). An analysis is one entry in `ANALYSES`: a 
 a fixed question, the read-only tools it may use, a step limit, a time limit
 when the usual five minutes are not enough and, when it cannot be left to the
 owner's usual order, the engines that may answer it.
+
+### How a question is written (`promptParts.ts`)
+
+Every question to an engine is built by `buildPrompt` from named sections,
+each between a pair of tags on lines of their own, always in this order:
+
+| Section           | Holds                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------ |
+| `<task>`          | What to produce, for which channel, video or concept (ids and numbers checked in code)                 |
+| `<owner>`         | Who reads the answer and what they do with it: why specifics matter                                    |
+| `<gather>`        | The tool calls to make, numbered, in order                                                             |
+| `<craft>`         | What a director judges the work by: the criteria of this task                                          |
+| `<rules>`         | The rules on evidence: numbers only from tools, tool results as data, what to do when evidence is missing |
+| `<output_format>` | The form of the answer, exactly as the code that reads it expects, and its length                       |
+
+A question always has `<task>`, `<rules>` and `<output_format>`. The system
+prompt says who the engine is and that the tags never appear in an answer
+(`TAGS_NOTE`). The craft that several questions share is written once:
+`TITLE_CRAFT`, `THUMBNAIL_CRAFT`, `HOOK_CRAFT` (the first 5, 15 and 30
+seconds), `RETENTION_CRAFT`, with `SPECIFICITY` and `MISSING_EVIDENCE`. None
+holds an example title, subject or channel, so nothing in a question can be
+copied into an answer, and the same question serves any niche.
+
+Where code refuses an answer over a length (a teardown stage, a Format
+Bible), the question states the limits, a little under what code allows.
+
+Three sets of tests hold this in place without asking an engine anything:
+`promptSnapshots.test.ts` (one snapshot of every question built with stand-in
+values, so a change of wording is read in review), `promptLint.test.ts` (every
+question says who the engine is, has the three required sections in order,
+carries a rule on evidence and on missing evidence, forbids forecasts where
+views are mentioned, names no niche and no AI product, closes its marker
+lines, asks for one form of answer; an answer written to each output form is
+read by the real parser; a teardown stage and a Bible filled to the stated
+limits pass their schemas; a script's word budget adds up) and
+`promptCatalog.ts`, the list both read. `docs/PROMPT_AUDIT.md` says what was
+found wrong and changed; `docs/PROMPT_EVAL.md` is the owner's side-by-side
+checklist.
 
 ### The engine interface
 
@@ -2928,12 +2966,27 @@ happens`; one hook per library hook the owner chose as a model (up to
 `MAX_HOOK_MODELS = 3`, stored with the script; the concept's HOOK STYLE is
 the first by default), else three the engine chooses from the library; a
 model is for the way of opening only. Draft: the chosen hook, then every beat,
-to `targetWords`, with cue lines and markers, headings `## `; cues at the rate
+to `targetWords` and, section by section, to `wordBudget`, with cue lines and
+markers, headings `## `; cues at the rate
 the picture really changes when `get_script` lists frame studies of the voice
 channel, else where the subject changes, with no cut rate invented. Tighten:
 the same script toward `targetGrade` (the voice's own), nothing added, every
-marker and cue kept. `parseHooksAndBeats` and `scriptBody` read the answers;
+marker and cue kept, and the length kept section by section (tightening is
+not shortening). `parseHooksAndBeats` and `scriptBody` read the answers;
 an answer with no hook or no words changes nothing.
+
+**The word budget** (`core/src/script/budget.ts`, `wordBudget`). A draft asked
+only for a total came out about a quarter short in the owner's test: a count
+is lost over a long answer. So once there is a beat sheet, `get_script` gives
+`wordBudget`: the hook's words, then the rest of `targetWords` shared among
+the beats by the time from each beat's start to the next (the last to
+`targetSeconds`), in whole words that add up to `targetWords` exactly
+(largest remainders first). A beat without a time, or times that do not
+climb, share the rest evenly; with no length, no rate or no beat there is no
+budget and the draft shares the words itself. The draft question has the
+engine write and count one section at a time, lengthen any section under its
+number from what the fact sheet and the tools give (never by inventing or
+repeating), and add the sections up before answering.
 
 **Cues and exports** (`core/src/script/cues.ts`, `apps/web/src/lib/scriptWriter.ts`).
 `parseCues` reads each `[B-ROLL: what | search | sound]` line and gives it a

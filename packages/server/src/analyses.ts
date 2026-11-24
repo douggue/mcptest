@@ -301,7 +301,7 @@ function topicsQuestion(channel: string): string {
       ...bullets([
         'Demand first: prefer subjects where a small channel got large views, and where more than one channel did. One hit on one large channel is weak proof.',
         'Skip anything this channel has already made.',
-        "When list_transfer_opportunities returns ideas that are open or weak for the owner's place, at least three of them should come from them: an idea that took off for another place and has not been made, or did poorly, for the owner's. Where it lists a title for the owner's place that differs by one word, judge by meaning whether that is the same idea already made, and skip it if so.",
+        "When list_transfer_opportunities returns ideas that are open or weak for the owner's place, at least three of the ideas should come from them: an idea that took off for another place and has not been made, or did poorly, for the owner's. Where it lists a title for the owner's place that differs by one word, judge by meaning whether that is the same idea already made, and skip it if so.",
         'Each idea is one specific video, not a theme: a viewer could tell from the title what happens in it.',
       ]),
       'Each title must pass these:',
@@ -315,7 +315,7 @@ function topicsQuestion(channel: string): string {
       "Every idea must belong to this channel's own niche: the subjects this channel and its look-alikes on this map make videos about. The store may hold other channels the owner has looked up, in other niches; nothing from them is an idea for this channel, so use only what these calls return for this channel and never carry a subject, a country or a title format over from anywhere else.",
       'Every number you give must be one a tool returned. Do not estimate, forecast or predict views for the owner.',
       "Write each title yourself in the niche's format: never reuse a competitor's title word for word, or with only the country or one word changed.",
-      'If the tool results do not show which real invention, product or event an idea is about, mark it NEEDS A REAL STORY and say what to look up before making it.',
+      'If the tool results do not show which real thing, person, product or event an idea is about, mark it NEEDS A REAL STORY and say what to look up before making it.',
       `If the tools support fewer than ${IDEAS_ASKED} ideas in this niche, give fewer and say so. A weak idea added to reach ${IDEAS_ASKED} costs the owner a video.`,
       VIDEO_REF_RULE,
       MISSING_EVIDENCE,
