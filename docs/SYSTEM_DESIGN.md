@@ -229,8 +229,7 @@ should know about how it was written: another engine wrote it in place of the
 one chosen, and why; or it was written from pictures handed over as files and
 names none of them. Null for most parts. See "Channel breakdown".
 
-`format_ingredients` (step 45, provisional: numbered at merge; the 31st entry
-of the migration list on this branch) is the format builder's shelf: one row
+`format_ingredients` (step 31) is the format builder's shelf: one row
 per piece of a format taken from one source, unique per `(layer, source_kind,
 source_key)`, with `name`, `source_label`, `center_channel_id`,
 `channel_ids_json`, `details_json`, `evidence_json`, `media_json`, the owner's

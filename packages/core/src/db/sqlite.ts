@@ -561,7 +561,7 @@ CREATE TABLE IF NOT EXISTS video_teardown_parts (
   //     JSON: another engine wrote it because the one the owner chose could not, or it was
   //     written from pictures handed over as files and names none of them. Empty for most.
   `ALTER TABLE breakdown_parts ADD COLUMN caveat_json TEXT;`,
-  // 31 here; step 45 (provisional, numbered at merge): the format builder's shelf.
+  // 31: the format builder's shelf.
   //     format_ingredients keeps each piece of a format the owner took from a source: its
   //     layer, a short name, where it came from (kind and key, unique per layer), the
   //     channels it comes from, what the source holds (details), what code counted
