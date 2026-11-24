@@ -129,14 +129,22 @@ Run it again on a channel you have a breakdown of (seven runs).
 - Strategy part: is each list in order of importance, and is every item
   something you could do on your next video?
 - Master prompt: paste it into any AI with a topic and a length. Does the
-  script come out at the length asked?
+  script come out at the length asked? The same for the script prompt of the
+  scripts part, of "One video, in depth" and of a teardown's plan: each now
+  has a [LENGTH IN MINUTES] slot.
+- Ten ready titles: is every fact, name or number no tool returned followed
+  by (check)?
+- Did the plan and the scripts part finish, and are they whole? (Their ready
+  prompts and quoted openings no longer count against their length.)
 - Are all three prompts (thumbnail, style lock, master) still lifted out with
   their Copy buttons? (If one is missing, report it.)
 
 ## 6. Production teardown
 
-- Did every stage come back, or did one say it could not be read? (A stage
-  refused for length is the thing to report.)
+- Did every stage come back? A stage with one field too long is now kept:
+  under its heading it says "To keep it, the app shortened or left out: …".
+  Read what it names. A stage that still says "Not made" is the thing to
+  report, with its reason.
 - Techniques: is each one named, with at least one quoted line and its time?
 - Hook: does the summary end with a pattern you could reuse on another topic?
 - Plan: is the script prompt a complete brief, with the chapters and their

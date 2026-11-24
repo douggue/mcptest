@@ -155,7 +155,8 @@ export const BREAKDOWN_PART_SPECS: Readonly<Record<BreakdownWrittenPart, Breakdo
     ],
     // Measured: 66 seconds, about 15 tool calls.
     maxTurns: 40,
-    timeoutMs: 8 * MINUTE_MS,
+    // Twelve minutes: it reads six parts and three studies of each deep video, then writes the longest answer.
+    timeoutMs: 12 * MINUTE_MS,
     pictures: false,
     builtOn: ['titles', 'thumbnails', 'scripts', 'picture', 'strategy'],
     question: planQuestion,

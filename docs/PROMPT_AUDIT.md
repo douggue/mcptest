@@ -238,6 +238,33 @@ fixture (`packages/core/test/fixtures/hooksLongBeats.txt`).
   number and offers "Write the short sections again", which re-asks only
   those (see the script writer in `SYSTEM_DESIGN.md`).
 
+**And four that needed the parts and stages changed (fixed).**
+
+- A teardown stage was refused whole for one field too long or one typed
+  entry that was not one, with no retry. Code now repairs and keeps it
+  (shortens, drops the bad entry, sets a wrong keyframe to none) and says
+  what it did under the stage; only what cannot be repaired honestly is
+  refused. The questions say what to write when something is missing by the
+  kind of field (say so in a text; leave a list empty; null for a keyframe),
+  give limits in words, name the four ways to rebuild as four exact words,
+  and hold no "e.g." an answer could copy.
+- The Format Bible was told "by about 15 … by about 30" seconds and, in the
+  same breath, to quote only numbers a tool gave; code then flagged those
+  numbers as unbacked. The hook template now takes its times from the hook
+  ingredient on the shelf, or gives the order only. Where a teardown or a
+  one-video breakdown judges by 5, 15 and 30 seconds, the question says
+  these are its yardstick, not measurements.
+- Breakdown parts asked for more than their caps hold. The scripts part no
+  longer asks for the hook twice or the skeleton twice; quoted openings,
+  ready prompts and motion recipes do not count against a cap; the plan has
+  12 minutes instead of 8. The measurements are read as step 1 of every
+  part, the videos chosen are named in the task, and no tool call sits in an
+  output form.
+- Every script prompt an answer hands on (the scripts part, the plan, the
+  master prompt, one video in depth, a teardown's plan) has a
+  [LENGTH IN MINUTES] slot and works its words out from it. A ready title
+  marks with (check) any fact, name or number no tool returned.
+
 ## What did not change
 
 - Every marker and labelled form code reads: `CONCEPT n`, `TITLE:`, `ALT:`,

@@ -288,6 +288,9 @@ describe('no output form contradicts the code that reads the answer', () => {
     expect(part(find('script-tighten'), 'rules')).toMatch(/Keep every heading line/);
   });
 
+  /** The room an ordinary English word takes, with its space: longer than the average of five or six. */
+  const WORD_CHARS = 7;
+
   /** A text of exactly the length a question says is allowed. */
   const chars = (count: number): string => 'x'.repeat(count);
   const limit = (text: string, what: RegExp): number => {
@@ -298,10 +301,12 @@ describe('no output form contradicts the code that reads the answer', () => {
 
   test('a teardown stage filled to the lengths its question allows is accepted', () => {
     const rules = part(find('teardown-structure'), 'rules');
-    const short = limit(rules, /a camera note at most (\d+) characters/);
-    const line = limit(rules, /any other one-field text at most (\d+) characters/);
-    const long = limit(rules, /of the whole stage at most (\d+) characters/);
-    const prompt = limit(rules, /a ready prompt at most (\d+) characters/);
+    // The limits are said in words; a text of that many ordinary words must fit as written.
+    const worded = (what: RegExp): number => limit(rules, what) * WORD_CHARS;
+    const short = worded(/a camera note in at most (\d+) words/);
+    const line = worded(/any other one-field text in about (\d+) words/);
+    const long = worded(/of the whole stage in about (\d+) words/);
+    const prompt = worded(/a ready prompt in about (\d+) words/);
     const times = limit(rules, /A list of times holds at most (\d+)/);
     const at = Array.from({ length: times }, (_, n) => n);
 
@@ -356,8 +361,15 @@ describe('no output form contradicts the code that reads the answer', () => {
       'sound',
       'plan',
     ]) {
-      expect(part(find(`teardown-${stage}`), 'rules')).toMatch(/or the whole answer is refused/);
+      const rules = part(find(`teardown-${stage}`), 'rules');
+      expect(rules).toMatch(/A text that runs over is cut to fit/);
+      expect(rules).toMatch(/In a list of times, hexes or strips, leave the list empty/);
+      expect(rules).toMatch(/for a keyframe write null/);
+      expect(find(`teardown-${stage}`).prompt).not.toMatch(/e\.g\./);
     }
+    expect(find('teardown-motion').prompt).toMatch(
+      /exactly one of these four words: code, ai-video, editor, stock/,
+    );
     expect(part(find('teardown-techniques'), 'rules')).toMatch(/At most 6 quotes/);
     expect(part(find('teardown-plan'), 'rules')).toMatch(/16 workflow steps/);
   });
@@ -389,6 +401,71 @@ describe('no output form contradicts the code that reads the answer', () => {
     };
 
     expect(bibleAnswerSchema.safeParse(bible).success).toBe(true);
+  });
+});
+
+describe('what the first real runs found, kept fixed', () => {
+  const BREAKDOWN_PARTS = [
+    'titles',
+    'thumbnails',
+    'scripts',
+    'picture',
+    'strategy',
+    'plan',
+    'master',
+  ];
+
+  test('a script prompt an answer hands on always has a slot for the length', () => {
+    for (const name of [
+      'breakdown-scripts',
+      'breakdown-plan',
+      'breakdown-master',
+      'one-video',
+      'teardown-plan',
+    ]) {
+      expect(find(name).prompt, name).toContain('[LENGTH IN MINUTES]');
+    }
+  });
+
+  test('the Format Bible is given no times of its own for the opening: they come from the shelf', () => {
+    const craft = part(find('format-bible'), 'craft');
+
+    expect(craft).toMatch(/with times taken from the hook ingredient on the shelf/);
+    expect(craft).toMatch(/where the shelf gives no times, say the order only/);
+    expect(craft).not.toMatch(/\b(15|30)\b/);
+  });
+
+  test('where a question judges by the 5, 15 and 30 second marks, it says they are its own yardstick', () => {
+    for (const name of ['teardown-plan', 'teardown-hook', 'one-video']) {
+      expect(find(name).prompt, name).toMatch(/yardstick, not measurements/);
+    }
+  });
+
+  test('every breakdown part reads the measurements as its first step, and calls no tool from its output form', () => {
+    for (const name of BREAKDOWN_PARTS) {
+      const entry = find(`breakdown-${name}`);
+
+      expect(part(entry, 'gather').startsWith('1. Call get_channel_measurements'), name).toBe(true);
+      expect(part(entry, 'output_format'), name).not.toMatch(/view_teardown_images|\bCall get_/);
+      expect(entry.prompt, name).not.toMatch(/get_channel_measurements for the channel first/);
+    }
+    expect(part(find('breakdown-picture'), 'gather')).toMatch(/view_teardown_images/);
+  });
+
+  test('the scripts part asks for the hook and the skeleton once each, and its cap leaves out what is quoted', () => {
+    const form = part(find('breakdown-scripts'), 'output_format');
+
+    expect(form).not.toMatch(/HOOK SECOND BY SECOND|SCRIPT TEMPLATE/);
+    expect(form).toMatch(/the quoted openings and endings and the script prompt are not counted/);
+    expect(part(find('breakdown-plan'), 'output_format')).toMatch(
+      /the ready prompts are not counted/,
+    );
+  });
+
+  test('a ready title marks what no tool returned', () => {
+    expect(part(find('breakdown-titles'), 'output_format')).toMatch(
+      /any fact, name or number in a ready title that no tool returned is followed by \(check\)/,
+    );
   });
 });
 

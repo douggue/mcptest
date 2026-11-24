@@ -100,33 +100,26 @@ const STUDIES =
  * them; it never makes a number up.
  */
 const MEASURED =
-  'Call get_channel_measurements for the channel first: it holds numbers measured and counted in code across the top videos (winners) and ordinary ones, side by side, each with its method. Copy those numbers as they are, each with the method in a few words, as list items of the form “- what: winners X, ordinary Y (method)”. Never give a number it does not hold, and set winners beside ordinary only where both groups were measured; where it says a video was not measured or not heard, say so. Everything that is not a number from a tool is your reading: say what it rests on (the video, the time, a quoted line).';
+  'Call get_channel_measurements for the channel: it holds numbers measured and counted in code across the top videos (winners) and ordinary ones, side by side, each with its method. Copy those numbers as they are, each with the method in a few words, as list items of the form “- what: winners X, ordinary Y (method)”. Never give a number it does not hold, and set winners beside ordinary only where both groups were measured; where it says a video was not measured or not heard, say so. Everything that is not a number from a tool is your reading: say what it rests on (the video, the time, a quoted line).';
 
 /** How the picture part is told to look at the strips and keyframes: by tool, or among its files. */
-const TOOL_PICTURES = {
-  strips:
-    'look at the frame strips listed under each video’s pictures with view_teardown_images (that video’s id, at most eight names a call, at most three calls, strips of different kinds and from different videos)',
-  keyframes: 'look at keyframes from several videos the same way',
-};
-const FILE_PICTURES = {
-  strips:
-    'look at the frame strips among the picture files you were given (each named with its video id and the strip name get_channel_measurements lists, such as <video id>-s-001.jpg; strips of different kinds and from different videos)',
-  keyframes:
-    'look at the keyframes among those files the same way (named such as <video id>-k-001.jpg)',
-};
+const TOOL_PICTURES =
+  'Look at the frame strips listed under each video’s pictures with view_teardown_images (that video’s id, at most eight names a call, at most three calls, strips of different kinds and from different videos). Look at keyframes from several videos the same way.';
+const FILE_PICTURES =
+  'Look at the frame strips among the picture files you were given (each named with its video id and the strip name get_channel_measurements lists, such as <video id>-s-001.jpg; strips of different kinds and from different videos). Look at the keyframes among those files the same way (named such as <video id>-k-001.jpg).';
 
 /** The picture part's style bible, looking at the strips and keyframes as the run can see them. */
-const pictureSections = (look: typeof TOOL_PICTURES): string =>
-  `This part is the channel’s STYLE BIBLE. Add these sections first. MEASURED STYLE: the shared palette (each hex value with its share), the pace (cuts a minute, median shot), the loudness target (integrated LUFS and range), the transitions a minute and their mix, the camera mix and the animations a minute, winners against ordinary, all from get_channel_measurements with their methods. MOTION AND TRANSITION VOCABULARY: ${look.strips}; name each animation or transition you see (text reveals, line draws, counters, slides, masks, wipes, zooms), with the video, its time, frames and measured duration from the tool, the easing you see and how to rebuild it (code-animated: which property changes over how many frames; or an AI video or editor technique). COMPONENT LIBRARY: ${look.keyframes}; name each recurring visual template with the videos and keyframe names that show it, and what to build it with. WINNERS AGAINST ORDINARY: only differences the measured numbers show.`;
+const PICTURE_BIBLE =
+  'This part is the channel’s STYLE BIBLE. Add these sections first. MEASURED STYLE: the shared palette (each hex value with its share), the pace (cuts a minute, median shot), the loudness target (integrated LUFS and range), the transitions a minute and their mix, the camera mix and the animations a minute, winners against ordinary, all from the measurements with their methods. MOTION AND TRANSITION VOCABULARY: from the frame strips you looked at, name each animation or transition you see (text reveals, line draws, counters, slides, masks, wipes, zooms), with the video, its time, frames and measured duration from the tool, the easing you see and how to rebuild it (code-animated: which property changes over how many frames; or an AI video or editor technique). COMPONENT LIBRARY: from the keyframes you looked at, name each recurring visual template with the videos and keyframe names that show it, and what to build it with. WINNERS AGAINST ORDINARY: only differences the measured numbers show.';
 
 /** What each part adds from the measured layer, so it reaches the depth of a production teardown. */
 const MEASURED_SECTIONS = {
   titles:
-    'Add these sections after WORD PATTERNS. MEASURED PATTERNS: every pattern get_channel_measurements counted under titles (winners x of n, ordinary y of n), the median words and characters, and the openings that recur, with its method. After BETTER FORMULAS FOR US: TEN READY TITLES, ten titles for new topics in the owner’s niche, each built from one of the formulas with its slots filled, the formula named. WHAT NOT TO COPY: the wording, names or marks that would make a copy rather than a title in the same style.',
+    'Add these sections after WORD PATTERNS. MEASURED PATTERNS: every pattern get_channel_measurements counted under titles (winners x of n, ordinary y of n), the median words and characters, and the openings that recur, with its method. After BETTER FORMULAS FOR US: TEN READY TITLES, ten titles for new topics in the owner’s niche, each built from one of the formulas with its slots filled, the formula named; any fact, name or number in a ready title that no tool returned is followed by (check). WHAT NOT TO COPY: the wording, names or marks that would make a copy rather than a title in the same style.',
   thumbnails:
     'Add these sections before IMPROVEMENTS FOR US. CHECKLIST COUNTED: every attribute get_channel_measurements counted under thumbnails, winners against ordinary; when no thumbnail was tagged, say that a thumbnail review has not run for them and count nothing yourself. LAYOUT ARCHETYPES: the two to five layouts the thumbnails use, each with the thumbnails that show it, its composition, text size and word count as seen. After the marked prompt: one detailed prompt for each archetype, each 120 to 250 words with [SUBJECT] and [OVERLAY TEXT], written as plain lines (no marker lines).',
   scripts:
-    'Add these sections to WHAT THEY SHARE. MEASURED NUMBERS: words, words a minute, median sentence length, the pace of the first minute and the hammer lines (2 to 5 word sentences) that get_channel_measurements found, winners against ordinary. HOOK SECOND BY SECOND: for up to three winners, the first 30 to 60 seconds as list items “- m:ss–m:ss | what is said, quoted | what it does”. OPEN LOOPS AND CALLBACKS: each with the line quoted and the times it opens and closes. SCRIPT TEMPLATE: the shared structure as a numbered skeleton with each beat’s share of the length. SCRIPT PROMPT: a ready prompt to write a script for a new topic in this structure, with the slot [TOPIC] and the measured pace written in.',
+    'Add these sections to WHAT THEY SHARE. MEASURED NUMBERS: words, words a minute, median sentence length, the pace of the first minute and the hammer lines (2 to 5 word sentences) that get_channel_measurements found, winners against ordinary.  OPEN LOOPS AND CALLBACKS: each with the line quoted and the times it opens and closes. SCRIPT PROMPT: a ready prompt to write a script for a new topic in this structure (the numbered skeleton above, with each step’s share of the length), with the slots [TOPIC] and [LENGTH IN MINUTES], the measured pace written in, and the words to write worked out as the minutes asked times the words a minute.',
   strategy:
     'Tie every strength and weakness to a measured difference from get_channel_measurements (the number for winners and for ordinary videos, with its method) or to a quoted line from an earlier part. Add GAPS TO EXPLOIT and RISKS (what could make copying this style fail: rules, effort, sameness), each resting on the same kind of evidence.',
   plan: 'Add a PIPELINE section before THE PLAN, STEP BY STEP: one list item per layer (script, voice, motion graphics, AI pictures, AI video, stock or archival footage with its licence, music, sound effects, mix) with the kind of tool, the components to build (from the picture part’s component library), and the rules from the measurements: the loudness target (the measured median integrated LUFS), the pacing rules (cuts a minute, median shot, words a minute) and the motion recipes from the picture part. Give a time for a step only when a tool measured it; never make up a duration.',
@@ -209,17 +202,17 @@ export function titlesQuestion(channel: string, given: BreakdownFocus = NO_FOCUS
     task: [
       opening(channel, 1, 'its titles'),
       'Rank its titles, find the formulas its strongest titles share and where those formulas failed, and write better formulas and ready titles for the owner.',
-    ],
-    owner: PART_OWNER,
-    gather: numbered([
       `Jgtube chose in code, by the same rule for every channel, ${count} titles to study, most viewed first, out of ${focus.storedVideos} stored (it takes the ${BREAKDOWN_TITLES} most viewed and, when the channel has more, up to ${BREAKDOWN_TITLES} of its least viewed; all of them when the channel has fewer): ${list(focus.titles)}.`,
       count < BREAKDOWN_TITLES &&
         `That is fewer than the ${BREAKDOWN_TITLES} a title study wants: say plainly, in the first section, that the patterns rest on few titles.`,
       `Number them 1 to ${count} in that order. Titles 1 to ${high} are the HIGH group and titles ${lowFrom} to ${count} are the LOW group; any between them are the MIDDLE.`,
+    ],
+    owner: PART_OWNER,
+    gather: numbered([
+      MEASURED,
       'Call get_channel_videos for the channel with order views and limit 100, and keep only the videos named above, in the order above. It gives each title with its views, its score (views as a multiple of the channel’s usual views at that age), ageDays and secs.',
       `A title can sit low in the ranking only because the video is new: when ageDays is under ${NEW_VIDEO_DAYS}, mark it (new) and do not count it as a weak title unless its score is low too.`,
       `Call get_video_details for the top videos (${list(focus.top)})${focus.ordinary.length > 0 ? ` and for these ordinary ones (${list(focus.ordinary)})` : ''} to read their descriptions and tags.`,
-      MEASURED,
     ]),
     craft: bullets(TITLE_PART_CRAFT),
     rules: bullets(RULES),
@@ -264,15 +257,15 @@ export function thumbnailsQuestion(
     task: [
       opening(channel, 2, 'its thumbnails'),
       'Take its thumbnails apart one by one, find the template its strongest share, say what the owner should improve on it, and write prompts that make a thumbnail in the improved style.',
+      chosen(focus),
+      ordinaryLine(focus),
     ],
     owner: PART_OWNER,
     gather: numbered([
-      chosen(focus),
-      ordinaryLine(focus),
+      MEASURED,
       'Call get_channel_brand to see the logo and the cover.',
       'Call get_channel_videos with limit 100 for the titles, views and scores of these videos.',
       look,
-      MEASURED,
     ]),
     craft: bullets(THUMBNAIL_PART_CRAFT),
     rules: bullets(['Describe only what you can see in the pictures you were shown.', ...RULES]),
@@ -288,7 +281,7 @@ export function thumbnailsQuestion(
 
 const SCRIPT_SECTIONS = [
   'LENGTH AND PACE: words, wordsPerMinute and spokenSeconds as get_transcript_pace gives them for the whole video, then the fastest and the slowest minute from its minute-by-minute spans, with their times.',
-  'THE HOOK: the first minute, quoted word for word as the captions give it. Then what it promises, what question it opens in the viewer’s mind, and the time at which that question is answered.',
+  'THE HOOK: the first minute, quoted word for word as the captions give it, as list items “- m:ss–m:ss | what is said | what it does”. Then what it promises, what question it opens in the viewer’s mind, and the time at which that question is answered.',
   'BEAT SHEET: every beat in order: its start and end time, what happens in it, the job it does in the script (for example set-up, stakes, proof, turn, payoff, call to action), and its words and wordsPerMinute as get_transcript_pace gave them for that span.',
   'TENSION: where tension is raised (the time and the line, quoted) and where each of those is paid off (the time). Name any that is left open.',
   'SENTENCE STYLE: how long the sentences are, who speaks to whom (I, we, you), the tense, and the devices used (questions, contrasts, lists, comparisons with everyday things), each with a quoted example and its time.',
@@ -314,13 +307,13 @@ export function scriptsQuestion(channel: string, given: BreakdownFocus = NO_FOCU
     task: [
       opening(channel, 3, 'its scripts'),
       `Study the script of each of the ${focus.deep.length} deep videos, in that order: how it opens, how it is built beat by beat, how it holds a viewer and how it ends. Then set out the structure they share so that the owner can write to it.`,
+      chosen(focus),
     ],
     owner: PART_OWNER,
     gather: numbered([
-      chosen(focus),
+      MEASURED,
       'For each deep video, call get_transcript with max_chars 40000 so that it comes whole; if it is cut, call again from cut.startSeconds until you have all of it. Captions marked auto were made by speech recognition, so names and numbers may be misheard: say so once.',
       'Call get_transcript_pace for the video with no cuts, for the pace of every minute. Find the beats of the script. Then call get_transcript_pace again with cuts set to the second at which each beat after the first begins, so that every beat’s words and pace are counted for you. Take every pace from get_transcript_pace and never work a pace out yourself.',
-      MEASURED,
     ]),
     craft: bullets(SCRIPT_PART_CRAFT),
     rules: bullets([
@@ -333,7 +326,7 @@ export function scriptsQuestion(channel: string, given: BreakdownFocus = NO_FOCU
       ...SCRIPT_SECTIONS,
       'Then, once, WHAT THEY SHARE: the structure the scripts have in common as a numbered skeleton, each step with the share of the video’s length it takes (worked out from the beat times); the hook pattern or patterns as fill-in forms; the phrases that recur across videos; the range of pace; how they ask for something; and how they end. Then WHAT DIFFERS, briefly.',
       MEASURED_SECTIONS.scripts,
-      `At most ${PART_WORDS.scripts} words.`,
+      `At most ${PART_WORDS.scripts} words; the quoted openings and endings and the script prompt are not counted.`,
     ],
   });
 }
@@ -380,14 +373,15 @@ export function pictureQuestion(
     task: [
       opening(channel, 4, 'its picture and sound'),
       'Set out what its videos show and how they sound, as a style bible: the look, the motion, the components and the pace, each exact enough for the owner to rebuild.',
+      chosen(focus),
     ],
     owner: PART_OWNER,
     gather: numbered([
-      chosen(focus),
+      MEASURED,
       'For each deep video call get_frame_study and get_video_watch. Call get_channel_videos with limit 100 for their titles.',
       files !== undefined && filesLook(files),
+      files === undefined ? TOOL_PICTURES : FILE_PICTURES,
       STUDIES,
-      MEASURED,
     ]),
     craft: bullets(PICTURE_PART_CRAFT),
     rules: bullets([
@@ -395,11 +389,11 @@ export function pictureQuestion(
       ...RULES,
     ]),
     output_format: [
-      pictureSections(files === undefined ? TOOL_PICTURES : FILE_PICTURES),
+      PICTURE_BIBLE,
       `Then write these sections in this order. ${PICTURE_SECTIONS[0] ?? ''}`,
       ...PICTURE_SECTIONS.slice(1),
       styleLockRule(),
-      `At most ${PART_WORDS.picture} words, the style lock not counted.`,
+      `At most ${PART_WORDS.picture} words; the style lock and the recipes of the motion vocabulary are not counted.`,
     ],
   });
 }
@@ -427,10 +421,10 @@ export function strategyQuestion(channel: string, given: BreakdownFocus = NO_FOC
     task: [opening(channel, 5, what)],
     owner: PART_OWNER,
     gather: numbered([
+      MEASURED,
       'Call get_breakdown_part for this channel five times, for the parts basis, titles, thumbnails, scripts and picture.',
       'Call get_channel_videos for the channel with order newest and limit 100, to see how often it publishes (ageDays), how long its videos are (secs) and the views and score of every stored video.',
       EARLIER_PARTS,
-      MEASURED,
     ]),
     craft: bullets(STRATEGY_PART_CRAFT),
     rules: bullets([
@@ -461,15 +455,17 @@ export function planQuestion(channel: string, given: BreakdownFocus = NO_FOCUS):
   const focus = checked(given);
   if (focus.top.length === 0) return nothingStored(channel, 6, 'a production plan');
   return buildPrompt({
-    task: [opening(channel, 6, 'a production plan for one video of the kind it makes')],
+    task: [
+      opening(channel, 6, 'a production plan for one video of the kind it makes'),
+      chosen(focus),
+    ],
     owner: PART_OWNER,
     gather: numbered([
-      chosen(focus),
+      MEASURED,
       'Call get_breakdown_part for this channel for the parts basis, titles, thumbnails, scripts, picture and strategy.',
       'For each deep video call get_transcript_pace (for its words and wordsPerMinute), get_frame_study (for secs, secondsPerFrame and, when it is there, secondsPerChange) and get_video_watch.',
       EARLIER_PARTS,
       STUDIES,
-      MEASURED,
     ]),
     craft: bullets(PLAN_PART_CRAFT),
     rules: bullets(RULES),
@@ -479,10 +475,10 @@ export function planQuestion(channel: string, given: BreakdownFocus = NO_FOCUS):
       'THE NUMBERS TO HIT: the length (secs of the deep videos), the words, the pace (wordsPerMinute), how often the picture changes (secondsPerChange from the deep video whose frames are closest together, when a tool gives it, said as the most seconds there can be between changes; else the study’s own estimate, labelled so), how many pictures one video then needs at least (length over the seconds between changes, marked (worked out)), the length of a title in words and the most words on a thumbnail. Give each with the video and the tool or part it comes from.',
       MEASURED_SECTIONS.plan,
       `THE PLAN, STEP BY STEP, for one video: ${PLAN_STEPS} For every step write WHAT TO DO, concrete and with the numbers above; WITH AI, where AI fits, naming the KIND of tool (a chat assistant, a voice generator, an image generator, an image-to-video tool, a stock library, a video editor), with a product name only as an example the owner can swap for any other of its kind, and marked as an example; and BY HAND OR ANOTHER WAY, where that is better or cheaper, saying why.`,
-      'Give a READY PROMPT wherever a prompt is what the step needs, each on lines of its own with [SLOTS] for what changes: a prompt for the script’s outline; three scene picture prompts in the channel’s look, built from the kinds of shot in the picture part; a voice direction (the pace from the numbers; the tone only from watch notes, else say the tone is unknown and give the direction the sentence style supports); and a music brief (from watch notes only; with none, say the channel’s music is unknown and offer a plain brief marked as the owner’s own choice).',
+      'Give a READY PROMPT wherever a prompt is what the step needs, each on lines of its own with [SLOTS] for what changes: a prompt for the script’s outline, with the slots [TOPIC] and [LENGTH IN MINUTES]; three scene picture prompts in the channel’s look, built from the kinds of shot in the picture part; a voice direction (the pace from the numbers; the tone only from watch notes, else say the tone is unknown and give the direction the sentence style supports); and a music brief (from watch notes only; with none, say the channel’s music is unknown and offer a plain brief marked as the owner’s own choice).',
       'STEP 6 and the scene picture prompts: when the picture part holds a STYLE LOCK, start each scene prompt with its style block word for word, end it with its negative list, and set out its KEEP IT CONSISTENT steps in STEP 6. When the picture part says NO CONSISTENT STYLE, say so in STEP 6 and make up no style.',
       'WHAT AI CANNOT DO FOR YOU: say plainly that every name, number, date and claim in a script must be checked against a source by the owner before publishing, because an AI makes facts up and auto-made captions mishear; and that YouTube has rules on reused content, on misleading titles and thumbnails, and on labelling realistic AI-made content, which the owner must read on YouTube’s own help pages, since they change and nothing in this plan has checked them.',
-      `At most ${PART_WORDS.plan} words.`,
+      `At most ${PART_WORDS.plan} words; the ready prompts are not counted.`,
     ],
   });
 }
@@ -506,9 +502,9 @@ export function masterQuestion(channel: string, given: BreakdownFocus = NO_FOCUS
     ],
     owner: PART_OWNER,
     gather: numbered([
+      MEASURED,
       'Call get_breakdown_part for this channel for the parts titles, thumbnails, scripts, picture and strategy.',
       EARLIER_PARTS,
-      MEASURED,
     ]),
     craft: bullets(MASTER_PART_CRAFT),
     rules: bullets(RULES),

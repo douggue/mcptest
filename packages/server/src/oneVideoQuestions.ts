@@ -17,6 +17,7 @@ import {
   OWNER,
   PLAIN_TEXT_FORM,
   TAGS_NOTE,
+  YARDSTICK_NOTE,
   buildPrompt,
   bullets,
   numbered,
@@ -124,6 +125,7 @@ const ONE_VIDEO_CRAFT: readonly string[] = [
   'The hook, against the clock: what the first sentence promises in the first 5 seconds; the stake and the question left open by about 15 seconds; the turn or the surprise by about 30 seconds; and the time at which that question is finally answered. Quote each line. Say plainly when one is missing.',
   'Retention: each question the video leaves open, with the time it opens and the time it closes; the line at the end of each segment that pulls into the next; where the pace changes and how; where the promise of the title is paid.',
   'The package: what the thumbnail shows, what the title names and what the first sentence confirms, and whether the three make one promise.',
+  YARDSTICK_NOTE,
   'Replication is a procedure, not a summary: every step says what to do, with what kind of tool, to which number, and how to tell it came out right.',
 ];
 
@@ -142,10 +144,10 @@ function promptLines(): readonly string[] {
   };
   return [
     'Inside HOW TO REPLICATE IT WITH AI, give three ready prompts, each between its own two lines, written exactly so, each on a line of its own and used nowhere else:',
-    `a script prompt for any AI to write a new video on a topic of the owner's choosing in this video's structure, with the slot [TOPIC], between ${between(ONE_VIDEO_PROMPTS.script)};`,
+    `a script prompt for any AI to write a new video on a topic of the owner's choosing in this video's structure, with the slots [TOPIC] and [LENGTH IN MINUTES], between ${between(ONE_VIDEO_PROMPTS.script)};`,
     `an image or visual prompt that gives this video's picture style, with the slot [SCENE], between ${between(ONE_VIDEO_PROMPTS.visual)};`,
     `a thumbnail prompt in the style of this video's thumbnail, with the slots [SUBJECT] and [OVERLAY TEXT], between ${between(ONE_VIDEO_PROMPTS.thumbnail)}.`,
-    'Each prompt is complete for someone who never saw this video. The script prompt says who the AI is to be; gives the segments in order, each with its job and its share of the length; says what the first 5, 15 and 30 seconds must do; gives the pace in words a minute and has the AI work out the words to write for the length asked, write to that count segment by segment and count before answering; and has every fact the owner did not supply marked [CHECK: what to verify]. The visual prompt gives the medium, the palette by colour name, the lighting, the framing and what never appears. The thumbnail prompt gives one focal point, its size in the frame, the colours and where the words sit.',
+    'Each prompt is complete for someone who never saw this video. The script prompt says who the AI is to be; gives the segments in order, each with its job and its share of the length; says what the first 5, 15 and 30 seconds must do; gives the pace in words a minute and has the AI work out the words to write (the minutes in [LENGTH IN MINUTES] times the words a minute), write to that count segment by segment and count before answering; and has every fact the owner did not supply marked [CHECK: what to verify]. The visual prompt gives the medium, the palette by colour name, the lighting, the framing and what never appears. The thumbnail prompt gives one focal point, its size in the frame, the colours and where the words sit.',
     'A prompt names no channel, no real person and no logo.',
   ];
 }

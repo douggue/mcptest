@@ -2574,7 +2574,7 @@ watch with:
 | Part 3, scripts (3 videos)              | 111 s                  | 98 s                    | 40 turns, 12 min |
 | Part 4, picture and sound               | 46 s                   | 48 s                    | 20 turns, 6 min  |
 | Part 5, strengths, weaknesses, strategy | 57 s                   | 70 s                    | 20 turns, 6 min  |
-| Part 6, production plan                 | 66 s                   | 62 s                    | 40 turns, 8 min  |
+| Part 6, production plan                 | 66 s                   | 62 s                    | 40 turns, 12 min |
 | Part 7, master prompt                   | 61 s                   | 78 s (in a third run)   | 16 turns, 6 min  |
 | Whole job                               | 747 s (12 min 27 s)    | about 430 s             |                  |
 
@@ -2800,7 +2800,25 @@ LUFS and −20 dBFS true peak; four colours read back with their shares; a pan
 frames, fades out and in, a one-frame flash, a whip and a sliding graphic.
 
 **Judged by engines**, each stage one run answering one JSON object checked with
-zod (`stages.ts`), stored as it is made and reused unless `fresh`:
+zod (`stages.ts`), stored as it is made and reused unless `fresh`.
+
+**A stage is repaired and kept, not refused, for one thing wrong**
+(`checkStage`). A stage used to be lost whole when one text ran over its
+length or one typed entry was not what was asked, with no second try. Now
+code repairs what it honestly can and checks again, up to six rounds: a text
+too long is shortened at the end of a sentence; a list too long keeps its
+first entries; an entry of a list of times, hexes or strips that is not one
+is dropped from the list; a keyframe that is not `k-###` becomes none; a
+motion kind that is not one of the kinds becomes `other`; an item whose time
+cannot be read, or whose way to rebuild is none of the four, is left out.
+Nothing is made up: a required part that is missing stays missing, and the
+stage is then refused with where it first went wrong. What was repaired is
+stored with the stage (`repaired`), and the page and the Markdown say it
+under the stage ("To keep it, the app shortened or left out: …"). The
+questions give the limits in words (about 70 words to a field) and say that a
+text over them is cut.
+
+The stages:
 
 1. `structure`: chapters from the transcript and the cut times (any engine).
 2. `watch`: Antigravity, when installed and in the owner's order, watches the
