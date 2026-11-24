@@ -17,6 +17,7 @@ const reply: AlertsReply = {
   alerts: [],
   unread: 0,
   lastRefreshAt: null,
+  newNiches: null,
 };
 const rule = { channel: CHANNEL_ID, minScore: 6.5, takenOff: false, enabled: true };
 

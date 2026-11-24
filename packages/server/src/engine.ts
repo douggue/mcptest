@@ -24,6 +24,9 @@ import {
   SqliteVideoRepo,
   SqliteVideoStudyRepo,
   SqliteWatchlistRepo,
+  SqliteFindRepo,
+  SqliteSweepRepo,
+  foundReader,
   crawlMap,
   discoverByKeyword,
   downloadVideo,
@@ -80,6 +83,7 @@ import { formatEngine, ingredientRepo, storedVideoFacts } from './formatEngine';
 import { formatBuilder, mixPicturePath } from './formatBuilder';
 import { ownVideosOf } from './formatOwnVideos';
 import { bankEngine } from './bankEngine';
+import { sweepEngine } from './sweepEngine';
 import { teardownReportOf } from './teardownStore';
 import { join } from 'node:path';
 import { cleanMessage } from './jobs';
@@ -142,6 +146,7 @@ function openRepos(db: Db) {
     edges: new SqliteEdgeRepo(db),
     maps: new SqliteMapRepo(db),
     watchlist: new SqliteWatchlistRepo(db),
+    sweeps: new SqliteSweepRepo(db),
     runs: new SqliteRefreshRepo(db),
     facts: new SqliteFactsRepo(db),
     transfers: new SqliteTransferRepo(db),
@@ -280,7 +285,13 @@ function ownerChoices({ repos, now }: Wiring): OwnerChoices {
     },
 
     listNiches() {
-      return loadNicheList(repos, now());
+      const found = () =>
+        foundReader({
+          sweeps: repos.sweeps,
+          titleOf: (id) => repos.channels.findById(id)?.title ?? null,
+          onAMap: () => repos.maps.listMemberIds(),
+        });
+      return loadNicheList({ ...repos, found }, now());
     },
 
     setNicheWatched(channelId, watched) {
@@ -564,6 +575,35 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     },
   });
 
+  // What "Find more outliers" and the niche sweeps both read YouTube with.
+  const finding: Omit<BankFindDeps, 'snapshots' | 'budget'> = {
+    db: wiring.db,
+    now: wiring.now,
+    repos: wiring.repos,
+    transact: transactionRunner(wiring.db),
+    // Read at each use: the owner can set or clear the key while Jgtube runs.
+    apiKey: () => config.youtubeApiKey,
+    source: wiring.lazySource,
+    reading: wiring.reading,
+    ...(options.search
+      ? { apiSearch: (query, { publishedAfter }) => options.search!(query, { publishedAfter }) }
+      : {}),
+    ...(options.fetchApiChannel ? { fetchApiChannel: options.fetchApiChannel } : {}),
+  };
+  const bank = bankEngine({
+    ...finding,
+    snapshots: () =>
+      wiring.repos.maps.listCenterIds().flatMap((center) => maps.findSnapshot(center) ?? []),
+    // One reading budget per day: what the sweeps spent counts against a find, and the other way.
+    budget: {
+      pageCap: () => wiring.repos.sweeps.settings().pageBudget,
+      alsoSpent: (via, since) => {
+        const spent = wiring.repos.sweeps.spentSince(since);
+        return via === 'api' ? spent.units : spent.pages;
+      },
+    },
+  });
+
   return {
     ...maps,
     ...choices,
@@ -579,21 +619,12 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     extras: extras({ ...wiring, analyse: asking.analyse }),
     formats,
     formatBuilder: builder,
-    bank: bankEngine({
-      db: wiring.db,
-      now: wiring.now,
-      repos: wiring.repos,
-      transact: transactionRunner(wiring.db),
-      snapshots: () =>
-        wiring.repos.maps.listCenterIds().flatMap((center) => maps.findSnapshot(center) ?? []),
-      // Read at each use: the owner can set or clear the key while Jgtube runs.
-      apiKey: () => config.youtubeApiKey,
-      source: wiring.lazySource,
-      reading: wiring.reading,
-      ...(options.search
-        ? { apiSearch: (query, { publishedAfter }) => options.search!(query, { publishedAfter }) }
-        : {}),
-      ...(options.fetchApiChannel ? { fetchApiChannel: options.fetchApiChannel } : {}),
+    bank,
+    sweep: sweepEngine({
+      ...finding,
+      nicheList: choices.listNiches,
+      bankVideos: bank.videos,
+      finds: new SqliteFindRepo(wiring.db),
     }),
     hub: breakdownHub({
       config,

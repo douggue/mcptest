@@ -94,3 +94,31 @@ export function startThroughApi(
     throw new Error(`The refresh could not be started (${reply.status})`);
   };
 }
+
+/** How often the server asks whether the watchlist's sweep is due. */
+export const SWEEP_CHECK_HOURS = 1;
+
+/**
+ * A `start` for the timer that asks the sweep's own route for the schedule's
+ * turn. The route starts a sweep only when the owner's schedule says one is
+ * due, so the timer can ask every hour and a schedule changed on the page is
+ * followed without a restart. It answers false, to come back sooner, only
+ * when a map, a refresh or a find is reading YouTube at its turn.
+ */
+export function startSweepThroughApi(
+  app: (request: Request) => Promise<Response>,
+  host: string,
+): () => Promise<boolean> {
+  return async () => {
+    const reply = await app(
+      new Request(`http://${host}/api/niches/sweep`, {
+        method: 'POST',
+        headers: { host, 'content-type': 'application/json' },
+        body: JSON.stringify({ by: 'schedule' }),
+      }),
+    );
+    if (reply.status === 202 || reply.status === 200) return true;
+    if (reply.status === 409) return false;
+    throw new Error(`The scheduled sweep could not be started (${reply.status})`);
+  };
+}

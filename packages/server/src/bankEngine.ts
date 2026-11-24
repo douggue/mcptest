@@ -20,11 +20,12 @@ import {
   type BankFilterState,
   type Db,
   type FindProgress,
+  type FindRepo,
   type FindVia,
   type MapSnapshot,
   type YouTubeSource,
 } from '@jgtube/core';
-import type { BankEngine, BankFindDeps } from './bankTypes';
+import type { BankFindDeps, BankInside } from './bankTypes';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** How far back an API search looks: the bank's longest age filter but one. */
@@ -89,7 +90,12 @@ function collectionsPart(
 
 type BankViewSource = ReturnType<ReturnType<typeof createBankReader>['read']>;
 
-function findSource(deps: BankFindDeps, via: FindVia, counted: { requests: number }) {
+/** How YouTube is searched and channels are read: the owner's API key when set, else the paced pages. */
+export function findSource(
+  deps: Pick<BankFindDeps, 'apiKey' | 'source' | 'now' | 'apiSearch' | 'fetchApiChannel'>,
+  via: FindVia,
+  counted: { requests: number },
+) {
   const apiKey = deps.apiKey();
   if (via === 'api' && apiKey !== undefined) {
     const read = deps.fetchApiChannel ?? fetchApiChannel;
@@ -111,10 +117,19 @@ function findSource(deps: BankFindDeps, via: FindVia, counted: { requests: numbe
   return { source: deps.source, search: (query: string) => deps.source.searchVideos(query) };
 }
 
-export function bankEngine(deps: BankFindDeps): BankEngine {
+/** The finds' spending with what the sweeps spent from the same budget added. */
+function sharedSpend(deps: BankFindDeps, finds: FindRepo): FindRepo {
+  return {
+    record: (run) => finds.record(run),
+    spentSince: (via, since) =>
+      finds.spentSince(via, since) + (deps.budget?.alsoSpent(via, since) ?? 0),
+  };
+}
+
+export function bankEngine(deps: BankFindDeps): BankInside {
   const db: Db = deps.db;
   const collections = new SqliteCollectionRepo(db);
-  const finds = new SqliteFindRepo(db);
+  const finds = sharedSpend(deps, new SqliteFindRepo(db));
   const reader = createBankReader(db, {
     now: deps.now,
     context: () => {
@@ -148,7 +163,7 @@ export function bankEngine(deps: BankFindDeps): BankEngine {
       return {
         via: how,
         plan: planFind(how, channels),
-        allowance: allowanceNow(finds, how, deps.now()),
+        allowance: allowanceNow(finds, how, deps.now(), deps.budget?.pageCap()),
         topics: NICHE_TOPICS.map((topic) => topic.label),
       };
     },
@@ -164,6 +179,7 @@ export function bankEngine(deps: BankFindDeps): BankEngine {
             now: deps.now,
             finds,
             via: how,
+            ...(deps.budget ? { pageCap: deps.budget.pageCap() } : {}),
             ...findSource(deps, how, counted),
             ...(how === 'api' ? { apiRequestsMade: () => counted.requests } : {}),
           },
@@ -174,5 +190,6 @@ export function bankEngine(deps: BankFindDeps): BankEngine {
       });
     },
     collections: collectionsPart(deps, collections, () => reader.read()),
+    videos: () => reader.read().videos,
   };
 }

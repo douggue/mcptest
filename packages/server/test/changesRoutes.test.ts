@@ -23,7 +23,13 @@ const view: ChangesView = {
   lookalikes: { comparable: false, reason: 'same-map' },
   freshness: { channels: 0, oldestReadAt: null, newestReadAt: null, lastRefreshAt: null },
 };
-const reply: ChangesReply = { ...view, asked: 'last-look', sinceKind: 'week', lastLookAt: null };
+const reply: ChangesReply = {
+  ...view,
+  asked: 'last-look',
+  sinceKind: 'week',
+  lastLookAt: null,
+  newNiches: 0,
+};
 
 describe('GET /api/changes', () => {
   test('answers what changed for a channel, since the last look unless told otherwise', async () => {

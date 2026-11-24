@@ -33,6 +33,8 @@ export interface AlertsReply {
   readonly alerts: readonly AlertView[];
   readonly unread: number;
   readonly lastRefreshAt: string | null;
+  /** What the latest watchlist sweep found; null or left out when nothing. */
+  readonly newNiches?: { readonly count: number; readonly at: string } | null;
 }
 
 /** What the owner sets. */
