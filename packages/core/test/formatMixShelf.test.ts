@@ -38,6 +38,7 @@ const format: Format = {
   notes: '',
   slots: { visual: { ingredientId: 1, note: '' } },
   suggestion: null,
+  bible: null,
   copiedFrom: null,
   createdAt: 'x',
   updatedAt: 'x',

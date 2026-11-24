@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { openDatabase } from '../src/db/sqlite';
 import { SqliteFormatRepo, nextVersionName } from '../src/repos/sqliteFormatRepo';
+import { checkBible } from '../src/format/bible';
+import { bibleFacts } from '../src/format/bibleFacts';
 
 const NOW = new Date('2026-11-24T10:00:00Z');
 const later = (minutes: number) => new Date(NOW.getTime() + minutes * 60_000);
@@ -100,6 +102,28 @@ describe('SqliteFormatRepo', () => {
     expect(repo.list()).toHaveLength(4);
     expect(repo.duplicate(long.id, later(4))?.channelId).toBe(CHANNEL);
     expect(() => repo.create('Bad', null, NOW, 'nope')).toThrow(/channel/);
+  });
+
+  test('keeps the last Format Bible, read back with a schema, and a copy starts without one', () => {
+    const { db, repo } = fresh();
+    const format = repo.create('A', 600, NOW);
+    const checked = checkBible(
+      JSON.stringify({
+        coreRules: ['One idea.'],
+        pipeline: [{ layer: 'visual', steps: ['Draw.'] }],
+        masterPrompt: 'Make it.',
+      }),
+      bibleFacts(format, []),
+      'claude',
+      NOW,
+    );
+    if (!checked.ok) throw new Error('fixture');
+    expect(repo.saveBible(format.id, checked.bible)).toBe(true);
+    expect(repo.saveBible(99, checked.bible)).toBe(false);
+    expect(repo.find(format.id)?.bible).toEqual(checked.bible);
+    expect(repo.duplicate(format.id, later(1))?.bible).toBeNull();
+    db.prepare('UPDATE formats SET bible_json = \'{"written": 1}\' WHERE id = ?').run(format.id);
+    expect(repo.find(format.id)?.bible).toBeNull();
   });
 
   test('keeps each channel’s active format, and lets it go with its format', () => {

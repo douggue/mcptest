@@ -131,14 +131,20 @@ const answer = {
       { hex: '#123456', role: 'Made up' },
     ],
   },
-  typography: [{ role: 'Title', font: 'Inter Tight', weight: '800', casing: 'upper', use: 'On maps' }],
+  typography: [
+    { role: 'Title', font: 'Inter Tight', weight: '800', casing: 'upper', use: 'On maps' },
+  ],
   components: [{ name: 'Map pin', purpose: 'Place', build: 'Code it.' }],
   motion: [{ name: 'Line draws', recipe: 'Stroke over 15 frames.' }],
-  pacing: ['A cut every 5 seconds.'],
+  pacing: ['A cut every 25 seconds.'],
   hook: [{ beat: 'Cold open', does: 'Starts mid-scene.' }],
   chapters: [{ beat: 'Setup', does: 'Who and where.' }],
-  titleFormulas: [{ formula: 'Why [thing] failed in [year]', example: 'Why Concorde failed in 2003' }],
-  thumbnails: [{ name: 'Object on dark', layout: 'Left object, right word', prompt: 'A plane on black.' }],
+  titleFormulas: [
+    { formula: 'Why [thing] failed in [year]', example: 'Why Concorde failed in 2003' },
+  ],
+  thumbnails: [
+    { name: 'Object on dark', layout: 'Left object, right word', prompt: 'A plane on black.' },
+  ],
   sound: ['Voice on top of a low drone.'],
   pipeline: [{ layer: 'visual', steps: ['Draw the map.', 'Grade it dark.'] }],
   masterPrompt: 'Make a calm explainer.',
@@ -148,8 +154,12 @@ const answer = {
 describe('the facts of a format, from code', () => {
   test('lists the filled slots with their evidence, measured numbers, palette and formulas', () => {
     const facts = bibleFacts(format, shelf);
-    expect(facts.format).toEqual({ name: 'Long-form', targetSeconds: 720, notes: 'Calm explainers.' });
-    expect(facts.slots.map((slot) => slot.layer)).toEqual(['title', 'hook', 'visual', 'pacing']);
+    expect(facts.format).toEqual({
+      name: 'Long-form',
+      targetSeconds: 720,
+      notes: 'Calm explainers.',
+    });
+    expect(facts.slots.map((slot) => slot.layer)).toEqual(['title', 'hook', 'pacing', 'visual']);
     expect(facts.slots[1]).toMatchObject({
       name: 'Cold open',
       from: 'Source 2',
@@ -173,15 +183,26 @@ describe('the facts of a format, from code', () => {
       { formula: 'Why [thing] failed in [year]', videos: 6, channels: 3, score: 4.3 },
     ]);
     expect(facts.wordsPerMinute).toBe(162);
-    expect(facts.pictures).toEqual([{ name: 'i3-1.jpg', ingredientId: 3, ref: { kind: 'teardown', videoId: 'seedVideo01', file: 'k-001.jpg' } }]);
+    expect(facts.pictures).toEqual([
+      {
+        name: 'i3-1.jpg',
+        ingredientId: 3,
+        ref: { kind: 'teardown', videoId: 'seedVideo01', file: 'k-001.jpg' },
+      },
+    ]);
     expect(facts.typography).toEqual([]);
   });
 
   test('a format with nothing measured has no palette, no pace and no hook length', () => {
-    const facts = bibleFacts({ ...format, slots: { visual: { ingredientId: 5, note: '' } } }, shelf);
+    const facts = bibleFacts(
+      { ...format, slots: { visual: { ingredientId: 5, note: '' } } },
+      shelf,
+    );
     expect(facts.palette).toEqual([]);
     expect(facts.wordsPerMinute).toBeNull();
-    expect(facts.typography).toEqual([{ role: 'Title', style: 'Heavy condensed sans', casing: 'upper' }]);
+    expect(facts.typography).toEqual([
+      { role: 'Title', style: 'Heavy condensed sans', casing: 'upper' },
+    ]);
     expect(bibleFacts({ ...format, slots: {} }, shelf).slots).toEqual([]);
   });
 
@@ -203,13 +224,15 @@ describe('the Bible an AI writes, as code keeps it', () => {
     expect(bible.engine).toBe('claude');
     expect(bible.writtenAt).toBe(NOW.toISOString());
     expect(bible.written.visualSystem.roles).toEqual([{ hex: '#0A0B0E', role: 'Background' }]);
-    expect(bible.dropped).toEqual(['#123456 was not measured in any slot, so its role was left out.']);
+    expect(bible.dropped).toEqual([
+      '#123456 was not measured in any slot, so its role was left out.',
+    ]);
     expect(bible.unbacked).toEqual([
-      { where: 'Pacing rules', number: 5 },
       { where: 'Typography', number: 800 },
-      { where: 'Title formulas', number: 2003 },
       { where: 'Motion recipes', number: 15 },
-    ].sort((a, b) => a.where.localeCompare(b.where)));
+      { where: 'Pacing rules', number: 25 },
+      { where: 'Title formulas', number: 2003 },
+    ]);
     expect(bible.facts).toEqual(facts);
   });
 
@@ -225,7 +248,9 @@ describe('the Bible an AI writes, as code keeps it', () => {
   test('numbers: hex codes, small counts and known values are fine', () => {
     const known = new Set([11.4, 162]);
     expect(unbackedNumbers('Use #E63946 and 3 beats at 11.4 cuts; 162 wpm', known)).toEqual([]);
-    expect(unbackedNumbers('About 40% faster, 1,200 views, -14 LUFS', known)).toEqual([40, 1200, -14]);
+    expect(unbackedNumbers('About 40% faster, 1,200 views, -14 LUFS', known)).toEqual([
+      40, 1200, -14,
+    ]);
   });
 });
 
@@ -259,11 +284,14 @@ describe('the Bible as files', () => {
     }
     expect(text).toContain("_AI's reading (claude)._");
     expect(text).toContain('| #0A0B0E | 52% | Source 3 |');
-    expect(text).toContain('| Pacing | Cuts a minute | 11.4 a minute | ffmpeg scene > 0.3 | Source 4 |');
+    expect(text).toContain(
+      '| Pacing | Cuts a minute | 11.4 a minute | ffmpeg scene > 0.3 | Source 4 |',
+    );
     expect(text).toContain('6 videos · 3 channels · 4.3× (measured)');
     expect(text).toContain('Numbers in the AI text that no measurement holds');
     expect(text).toContain('![i3-1.jpg](images/i3-1.jpg)');
-    expect(text).not.toContain('#123456');
+    expect(text).not.toContain('Made up');
+    expect(text).toContain('#123456 was not measured in any slot');
   });
 
   test('palette JSON, a font list and the Markdown, ready to zip', () => {

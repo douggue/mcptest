@@ -3,6 +3,7 @@
  * ingredient from the shelf (or left empty), with a note. Every change makes
  * a new value; nothing here changes the format it is given.
  */
+import type { FormatBible } from './bible';
 import { INGREDIENT_LAYERS, type IngredientLayer } from './types';
 
 /** The most characters of a format's name, its notes and a slot's note. */
@@ -49,6 +50,8 @@ export interface Format {
   readonly notes: string;
   readonly slots: FormatSlots;
   readonly suggestion: MixSuggestion | null;
+  /** The last Format Bible written for it; null when none is. */
+  readonly bible: FormatBible | null;
   /** The format it was copied from, when it is a copy. */
   readonly copiedFrom: number | null;
   readonly createdAt: string;

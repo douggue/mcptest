@@ -820,3 +820,24 @@ export {
   type ShelfEntry,
   type ShelfForMix,
 } from './format/mixShelf';
+export {
+  bibleAnswerSchema,
+  checkBible,
+  unbackedNumbers,
+  type BibleCheck,
+  type BibleWritten,
+  type FormatBible,
+  type UnbackedNumber,
+} from './format/bible';
+export {
+  bibleFacts,
+  knownNumbers,
+  type BibleColour,
+  type BibleFacts,
+  type BibleFormula,
+  type BibleMeasured,
+  type BibleSlotFact,
+  type BibleTypeSeen,
+} from './format/bibleFacts';
+export { LAYER_TITLES, bibleFiles, bibleMarkdown, valueText } from './format/bibleMarkdown';
+export { palettePng, PALETTE_STRIP_HEIGHT, PALETTE_STRIP_WIDTH } from './format/paletteStrip';
