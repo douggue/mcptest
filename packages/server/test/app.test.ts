@@ -17,7 +17,13 @@ import {
 import { createApp, type CrawlOutcome, type Engine } from '../src/app';
 import { createEngine } from '../src/engine';
 import { JobStore } from '../src/jobs';
-import { UNUSED_EXTRAS, UNUSED_FORMATS, UNUSED_FORMAT_BUILDER, UNUSED_HUB, UNUSED_LAB } from './support';
+import {
+  UNUSED_EXTRAS,
+  UNUSED_FORMATS,
+  UNUSED_FORMAT_BUILDER,
+  UNUSED_HUB,
+  UNUSED_LAB,
+} from './support';
 
 const CHANNEL_ID = 'UCHnyfMqiRRG1u-2MsSQLbXA';
 const HOST = '127.0.0.1:4317';

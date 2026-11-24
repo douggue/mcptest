@@ -37,7 +37,12 @@ import { pictureRoute, withStandIn, type PictureRoute } from './pictureRoute';
 import type { PictureChecks } from './pictureChecks';
 import type { EngineSettings } from './engines/settings';
 import type { QuestionFocus } from './questionFocus';
-import { MIX_TITLE, looksAtPictures as mixLooks, mixRequest, type MixAsk } from './formatMixRequests';
+import {
+  MIX_TITLE,
+  looksAtPictures as mixLooks,
+  mixRequest,
+  type MixAsk,
+} from './formatMixRequests';
 import { STAGE_TITLES } from './teardownQuestions';
 import { looksAtPictures, teardownRequest, type TeardownAsk } from './teardownRequests';
 
