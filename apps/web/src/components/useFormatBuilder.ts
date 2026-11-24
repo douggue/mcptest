@@ -1,7 +1,12 @@
 import type { FormatChange } from '@jgtube/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createJobsApi, findRunningJob } from '../lib/jobs';
-import { MIX_JOB_KIND, createFormatBuilderApi, type FormatView } from '../lib/formatBuilder';
+import {
+  BIBLE_JOB_KIND,
+  MIX_JOB_KIND,
+  createFormatBuilderApi,
+  type FormatView,
+} from '../lib/formatBuilder';
 
 export type FormatsState =
   | { readonly status: 'loading' }
@@ -23,18 +28,21 @@ export interface FormatBuilder {
   readonly remove: () => void;
   readonly mix: MixState;
   readonly suggest: (channel: string | null, engine: string | null) => void;
+  /** "Write my Format Bible", followed like "Suggest a mix". */
+  readonly bible: MixState;
+  readonly writeBible: (channel: string | null, engine: string | null) => void;
   /** The last problem with a change, in plain words; null when there is none. */
   readonly problem: string | null;
 }
 
 const POLL_MS = 1500;
-const KINDS = [MIX_JOB_KIND];
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-/** Follows one "Suggest a mix" job until it ends, then hands back the format it changed. */
-function useMixJob(
+/** Follows one job of a kind (found again after a reload) until it ends, then hands back the format. */
+function useFormatJob(
   api: ReturnType<typeof createFormatBuilderApi>,
+  kind: string,
   onDone: (view: FormatView) => void,
 ) {
   const [mix, setMix] = useState<MixState>({ status: 'idle' });
@@ -43,7 +51,7 @@ function useMixJob(
   done.current = onDone;
   useEffect(() => {
     let current = true;
-    void findRunningJob(createJobsApi(), KINDS, {}).then((job) => {
+    void findRunningJob(createJobsApi(), [kind], {}).then((job) => {
       if (current && job) {
         setMix({ status: 'running', text: job.progress });
         setJobId(job.id);
@@ -52,7 +60,7 @@ function useMixJob(
     return () => {
       current = false;
     };
-  }, []);
+  }, [kind]);
   useEffect(() => {
     if (jobId === null) return undefined;
     const timer = window.setInterval(() => {
@@ -121,7 +129,8 @@ export function useFormatBuilder(shelfKey: string, channelId: string | null): Fo
           },
     );
   }, []);
-  const { mix, start } = useMixJob(api, replace);
+  const { mix, start } = useFormatJob(api, MIX_JOB_KIND, replace);
+  const { mix: bible, start: startBible } = useFormatJob(api, BIBLE_JOB_KIND, replace);
   const attempt = useCallback(
     async (work: () => Promise<FormatView>): Promise<string | null> => {
       try {
@@ -158,6 +167,10 @@ export function useFormatBuilder(shelfKey: string, channelId: string | null): Fo
     },
     suggest: (channel, engine) => {
       if (id !== null) start(() => api.suggest(id, channel, engine));
+    },
+    bible,
+    writeBible: (channel, engine) => {
+      if (id !== null) startBible(() => api.writeBible(id, channel, engine));
     },
   };
 }

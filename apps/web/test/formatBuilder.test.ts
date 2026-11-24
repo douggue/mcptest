@@ -9,6 +9,8 @@ import {
   secondsFrom,
   slotWarnings,
   writtenBy,
+  BIBLE_JOB_KIND,
+  bibleUrl,
 } from '../src/lib/formatBuilder';
 
 const checks = (parts: Partial<FormatChecks> = {}): FormatChecks => ({
@@ -44,7 +46,7 @@ const item = (id: number, parts: Partial<Ingredient> = {}): Ingredient => ({
 });
 
 describe('slot warnings', () => {
-  test('put each clash, unproven slot and copied slot beside its layer', () => {
+  test('put each clash and unproven slot beside its layer; copying is said once, in the banner', () => {
     const warnings = slotWarnings({
       topChannelTitle: 'Alpha',
       checks: checks({
@@ -60,9 +62,12 @@ describe('slot warnings', () => {
         },
       }),
     });
-    expect(warnings.pacing?.map((w) => w.kind)).toEqual(['clash', 'unproven', 'copies']);
+    expect(warnings.pacing).toEqual([
+      { kind: 'clash', text: 'Paces differ.' },
+      { kind: 'unproven', text: 'Not proven: fewer than two videos from two channels.' },
+    ]);
     expect(warnings.motion).toEqual([{ kind: 'clash', text: 'Paces differ.' }]);
-    expect(warnings.title).toEqual([{ kind: 'copies', text: 'From Alpha.' }]);
+    expect(warnings.title).toBeUndefined();
     expect(warnings.sound).toBeUndefined();
     expect(slotWarnings({ topChannelTitle: null, checks: checks() })).toEqual({});
   });
@@ -92,7 +97,7 @@ describe('slot warnings', () => {
       topChannelTitle: null,
       checks: checks({ originality: { ...originality, layers: ['sound'] } }),
     });
-    expect(warned.sound?.[0]?.text).toBe('From one channel.');
+    expect(warned.sound).toBeUndefined();
   });
 });
 
@@ -164,6 +169,23 @@ test('the formats of a map are asked for by its channel', async () => {
   });
   await api.list('UCaaaaaaaaaaaaaaaaaaaaaa');
   expect(paths).toEqual(['/api/format/formats?channel=UCaaaaaaaaaaaaaaaaaaaaaa']);
+});
+
+test('the Bible is written as a job and downloaded by the format’s number', async () => {
+  const sent: Array<[string, unknown]> = [];
+  const api = createFormatBuilderApi(async (input, init) => {
+    sent.push([String(input), init?.body === undefined ? null : JSON.parse(String(init.body))]);
+    return new Response(JSON.stringify({ success: true, data: { jobId: 'b1' }, error: null }));
+  });
+  expect(await api.writeBible(3, 'UCaaaaaaaaaaaaaaaaaaaaaa', null)).toBe('b1');
+  await api.writeBible(3, null, 'codex');
+  expect(sent).toEqual([
+    ['/api/format/formats/bible', { id: 3, channel: 'UCaaaaaaaaaaaaaaaaaaaaaa' }],
+    ['/api/format/formats/bible', { id: 3, channel: null, engine: 'codex' }],
+  ]);
+  expect(bibleUrl(3, 'md')).toBe('/api/format/formats/3/format-bible.md');
+  expect(bibleUrl(3, 'zip')).toBe('/api/format/formats/3/format-bible.zip');
+  expect(BIBLE_JOB_KIND).toBe('format-bible');
 });
 
 test('writtenBy names a known engine and no other', () => {

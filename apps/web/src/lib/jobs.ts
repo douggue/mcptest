@@ -110,6 +110,7 @@ const VIEW_OF: Readonly<Record<string, Exclude<ViewId, 'channel'>>> = {
   'risk-check': 'risk',
   'thumbnail-review': 'thumbnails',
   'format-mix': 'format',
+  'format-bible': 'format',
 };
 
 export const viewOfJob = (job: JobEntry): ViewId | null => VIEW_OF[job.kind] ?? null;

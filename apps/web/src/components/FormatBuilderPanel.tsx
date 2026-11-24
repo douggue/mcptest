@@ -7,6 +7,7 @@ import { FormatSlots } from './FormatSlots';
 import { Card } from './layout/Card';
 import { Notice } from './layout/Notice';
 import { MixPanel } from './MixPanel';
+import { BiblePanel } from './BiblePanel';
 import type { FormatBuilder } from './useFormatBuilder';
 
 interface Props {
@@ -50,6 +51,11 @@ export function FormatBuilderPanel({ builder, shelf, channelId, ai }: Props) {
             ai={ai}
           />
           <FormatSlots key={chosen.id} format={chosen} shelf={shelf} builder={builder} />
+        </Card>
+      )}
+      {chosen !== null && (
+        <Card>
+          <BiblePanel format={chosen} builder={builder} channelId={channelId} ai={ai} />
         </Card>
       )}
       {builder.problem && <Notice tone="problem">{builder.problem}</Notice>}
