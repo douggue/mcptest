@@ -1,3 +1,4 @@
+import { HEADING_LINE, countWords } from './measure';
 import { readBeats } from './stages';
 
 /**
@@ -85,4 +86,101 @@ export function wordBudget(input: BudgetInput): readonly SectionBudget[] | null 
       words: words[at] ?? 0,
     })),
   ];
+}
+
+/** A section of a script as written: its heading's name and its lines, heading first. */
+interface WrittenSection {
+  readonly name: string;
+  readonly lines: readonly string[];
+}
+
+/** A script cut at its headings; what stands before the first heading belongs to no section. */
+function sectionsOf(script: string): {
+  readonly before: readonly string[];
+  readonly sections: readonly WrittenSection[];
+} {
+  const before: string[] = [];
+  const sections: { name: string; lines: string[] }[] = [];
+  for (const line of script.split('\n')) {
+    const current = sections.at(-1);
+    if (HEADING_LINE.test(line.trim())) {
+      sections.push({ name: line.trim().replace(HEADING_LINE, '').trim(), lines: [line] });
+    } else if (current) current.lines.push(line);
+    else before.push(line);
+  }
+  return { before, sections };
+}
+
+const sameName = (a: string, b: string): boolean =>
+  a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** The spoken words under each heading of a script, in order. Cues and markers count for nothing. */
+export function sectionWords(script: string): readonly SectionBudget[] {
+  return sectionsOf(script).sections.map((section) => ({
+    section: section.name,
+    words: countWords(section.lines.join('\n')),
+  }));
+}
+
+/** A section counts as short under this share of its number: a tenth is asked for, a little more is let go. */
+export const SHORT_SECTION_SHARE = 0.85;
+
+export interface ShortSection {
+  /** The section's name as its heading in the script carries it. */
+  readonly section: string;
+  readonly words: number;
+  readonly budget: number;
+}
+
+/**
+ * The sections of a draft that came out short of their number. The hook is
+ * the owner's own and is never one of them; a section whose name matches no
+ * line of the budget is not judged.
+ */
+export function shortSections(
+  script: string,
+  budget: readonly SectionBudget[] | null,
+): readonly ShortSection[] {
+  if (budget === null) return [];
+  return sectionWords(script).flatMap((written) => {
+    const planned = budget.find((line) => sameName(line.section, written.section));
+    if (!planned || sameName(written.section, HOOK_SECTION)) return [];
+    return written.words < planned.words * SHORT_SECTION_SHARE
+      ? [{ section: written.section, words: written.words, budget: planned.words }]
+      : [];
+  });
+}
+
+/** Lines without the empty ones at their end. */
+function trimmedEnd(lines: readonly string[]): readonly string[] {
+  const last = lines.findLastIndex((line) => line.trim() !== '');
+  return lines.slice(0, last + 1);
+}
+
+/**
+ * A script with some of its sections replaced by the ones of the same name
+ * in `rewritten`. Only the sections named in `asked` are ever replaced, so
+ * an answer that rewrites more than it was asked changes nothing else.
+ */
+export function replaceSections(
+  script: string,
+  rewritten: string,
+  asked: readonly string[],
+): { readonly script: string; readonly replaced: readonly string[] } {
+  const fresh = sectionsOf(rewritten).sections.filter(
+    (section) => countWords(section.lines.join('\n')) > 0,
+  );
+  const { before, sections } = sectionsOf(script);
+  const replaced: string[] = [];
+  const lines = sections.flatMap((section) => {
+    const wanted = asked.some((name) => sameName(name, section.name));
+    const found = wanted ? fresh.find((other) => sameName(other.name, section.name)) : undefined;
+    if (!found) return section.lines;
+    replaced.push(section.name);
+    // The heading stays as the draft had it; the words under it are the new ones.
+    return [section.lines[0] ?? '', ...trimmedEnd(found.lines.slice(1))];
+  });
+  return replaced.length === 0
+    ? { script, replaced }
+    : { script: [...before, ...lines].join('\n'), replaced };
 }

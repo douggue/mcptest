@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { wordBudget } from '../src/script/budget';
+import { replaceSections, sectionWords, shortSections, wordBudget } from '../src/script/budget';
 
 const total = (budget: readonly { readonly words: number }[] | null): number =>
   (budget ?? []).reduce((sum, section) => sum + section.words, 0);
@@ -92,5 +92,83 @@ describe('the words each section of a script is written to', () => {
     });
 
     expect(budget?.[1]).toEqual({ section: 'Beat 1', words: 1350 });
+  });
+});
+
+describe('a draft checked against its budget', () => {
+  const words = (count: number): string => Array.from({ length: count }, () => 'word').join(' ');
+  const draft = [
+    '## HOOK',
+    '[B-ROLL: a wide shot | a wide shot | nothing]',
+    `${words(100)} [CHECK: a fact].`,
+    '## The bill',
+    words(300),
+    '[B-ROLL: a bill | a bill | paper]',
+    words(100),
+    '## The turn',
+    words(200),
+  ].join('\n');
+  const budget = [
+    { section: 'HOOK', words: 100 },
+    { section: 'The bill', words: 450 },
+    { section: 'The turn', words: 450 },
+  ];
+
+  test('counts the spoken words under each heading, without cues or markers', () => {
+    expect(sectionWords(draft)).toEqual([
+      { section: 'HOOK', words: 100 },
+      { section: 'The bill', words: 400 },
+      { section: 'The turn', words: 200 },
+    ]);
+  });
+
+  test('lists the sections under 85% of their number, and never the hook', () => {
+    // The bill has 400 of 450 (89%): close enough. The turn has 200 of 450.
+    expect(shortSections(draft, budget)).toEqual([
+      { section: 'The turn', words: 200, budget: 450 },
+    ]);
+    expect(shortSections(draft.replace(words(100), words(40)), budget)).toEqual([
+      { section: 'The turn', words: 200, budget: 450 },
+    ]);
+  });
+
+  test('matches a section to its number by name, whatever its case, and skips one it cannot match', () => {
+    const renamed = draft.replace('## The turn', '## THE TURN').replace('## The bill', '## Mine');
+
+    expect(shortSections(renamed, budget)).toEqual([
+      { section: 'THE TURN', words: 200, budget: 450 },
+    ]);
+    expect(shortSections('', budget)).toEqual([]);
+    expect(shortSections(draft, null)).toEqual([]);
+  });
+
+  test('puts rewritten sections in the place of the old ones and leaves the rest as it was', () => {
+    const rewritten = [
+      'Here they are.',
+      '## the turn',
+      words(430),
+      '## Not in the draft',
+      'x',
+    ].join('\n');
+
+    const result = replaceSections(draft, rewritten, ['The turn']);
+
+    expect(result.replaced).toEqual(['The turn']);
+    expect(sectionWords(result.script)).toEqual([
+      { section: 'HOOK', words: 100 },
+      { section: 'The bill', words: 400 },
+      { section: 'The turn', words: 430 },
+    ]);
+    expect(result.script.startsWith('## HOOK\n[B-ROLL: a wide shot')).toBe(true);
+  });
+
+  test('replaces only the sections that were asked for, and nothing when none came back', () => {
+    const rewritten = ['## HOOK', 'Another hook.', '## The bill', 'Short.'].join('\n');
+
+    expect(replaceSections(draft, rewritten, ['The turn'])).toEqual({
+      script: draft,
+      replaced: [],
+    });
+    expect(replaceSections(draft, 'No headings here.', ['The turn']).replaced).toEqual([]);
   });
 });

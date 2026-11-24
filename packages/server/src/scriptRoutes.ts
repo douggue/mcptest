@@ -139,6 +139,7 @@ const STAGE_DOING: Readonly<Record<(typeof SCRIPT_STAGES)[number], string>> = {
   hooks: 'Writing hooks for',
   draft: 'Writing the script of',
   tighten: 'Tightening the script of',
+  lengthen: 'Writing the short sections again of',
 };
 
 async function startStage(context: Context, request: Request): Promise<Response> {

@@ -26,6 +26,9 @@ import {
   type StoredScript,
   type TypedLength,
   type VideoTranscript,
+  replaceSections,
+  shortSections,
+  wordBudget,
 } from '@jgtube/core';
 import type { AnalysisId } from './analyses';
 import { findConceptOf, type FoundConcept } from './ideaEngine';
@@ -46,12 +49,14 @@ const ANALYSIS: Readonly<Record<ScriptStage, AnalysisId>> = {
   hooks: 'script-hooks',
   draft: 'script-draft',
   tighten: 'script-tighten',
+  lengthen: 'script-lengthen',
 };
 
 const WORKING: Readonly<Record<ScriptStage, string>> = {
   hooks: 'Asking the AI for three hooks and a beat sheet',
   draft: 'Asking the AI to write the draft',
   tighten: 'Asking the AI to tighten the draft',
+  lengthen: 'Asking the AI to write the short sections again',
 };
 
 /** The best videos of a channel: the ones its voice is measured over. */
@@ -100,10 +105,18 @@ function planOf(
   const rate = script?.wordsPerMinute ?? null;
   const words = (seconds: number | null): number | null =>
     rate === null || seconds === null ? null : Math.round((rate * seconds) / SECONDS_PER_MINUTE);
+  const hookWords = words(hookSeconds);
+  const targetWords = targetWordsOf(script, typed);
   return {
     hookSeconds,
-    hookWords: words(hookSeconds),
-    targetWords: targetWordsOf(script, typed),
+    hookWords,
+    targetWords,
+    wordBudget: wordBudget({
+      beats: script?.beats ?? null,
+      targetSeconds: script?.targetSeconds ?? null,
+      targetWords,
+      hookWords,
+    }),
   };
 }
 
@@ -114,11 +127,13 @@ function viewOf(deps: LabDeps, found: FoundConcept): ScriptView {
   const center = found.batch.centerChannelId;
   const script = deps.repos.scripts.find(center, found.concept.id);
   const typed = deps.repos.research?.findLength(center, found.concept.id) ?? null;
+  const plan = planOf(found, script, typed);
   return {
     concept: found.view,
     script,
     typedLength: typed,
-    plan: planOf(found, script, typed),
+    plan,
+    shortSections: shortSections(script?.draft ?? '', plan.wordBudget),
     lengthRange: winnersRange(deps, center),
     markFacts: marksFacts(deps),
     voice: script?.voiceChannelId ? voiceView(deps, center, script.voiceChannelId) : null,
@@ -198,13 +213,33 @@ interface Read {
 
 const NOT_A_SCRIPT = 'The AI answered, but not with a script. Nothing was changed. Try again.';
 
+/** The draft with its short sections written again; throws when the answer holds none of them. */
+function lengthened(view: ScriptView, answer: string): Read {
+  const asked = view.shortSections.map((short) => short.section);
+  const { script, replaced } = replaceSections(view.script?.draft ?? '', scriptBody(answer), asked);
+  if (replaced.length === 0) {
+    throw new Error(
+      'The AI answered, but with none of the short sections under their headings. Nothing was changed. Try again.',
+    );
+  }
+  const missed = asked.filter((name) => !replaced.includes(name));
+  return {
+    fields: { draft: script },
+    notes: [
+      `Written again: ${replaced.join(', ')}. The rest of the draft is as it was.`,
+      ...(missed.length > 0 ? [`Not written again, so still short: ${missed.join(', ')}.`] : []),
+    ],
+  };
+}
+
 /** What a stage's answer becomes in the script; throws, in plain words, when it holds nothing usable. */
-function readAnswer(stage: ScriptStage, answer: string): Read {
+function readAnswer(stage: ScriptStage, answer: string, view: ScriptView): Read {
   if (stage === 'hooks') {
     const { hooks, beats, problem, notes } = parseHooksAndBeats(answer);
     if (problem) throw new Error(`The AI answered, but ${problem} Nothing was changed. Try again.`);
     return { fields: { hooks, beats: beats.join('\n'), status: 'drafting' }, notes };
   }
+  if (stage === 'lengthen') return lengthened(view, answer);
   const script = scriptBody(answer);
   if (countWords(script) === 0) throw new Error(NOT_A_SCRIPT);
   return {
@@ -213,11 +248,23 @@ function readAnswer(stage: ScriptStage, answer: string): Read {
   };
 }
 
+/** What the owner is told when a draft still has short sections after a run. */
+function shortNote(view: ScriptView): readonly string[] {
+  const short = view.shortSections;
+  if (short.length === 0) return [];
+  const listed = short.map((s) => `${s.section} (${s.words} of ${s.budget} words)`).join(', ');
+  return [`Short of their share of the length: ${listed}. You can have them written again.`];
+}
+
 /** The script writer, on this engine's store and engines. */
 export function scriptEngine(deps: LabDeps): ScriptEngine {
   const { scripts } = deps.repos;
   const found = (center: string, conceptId: number): FoundConcept | null =>
     findConceptOf(deps, center, conceptId);
+  const findView = (center: string, conceptId: number): ScriptView | null => {
+    const concept = found(center, conceptId);
+    return concept ? viewOf(deps, concept) : null;
+  };
   const stageProblem: ScriptEngine['stageProblem'] = (stage, center, conceptId) => {
     const script = scripts.find(center, conceptId);
     if (!found(center, conceptId) || !script) return NOT_THIS_CHANNELS;
@@ -226,8 +273,14 @@ export function scriptEngine(deps: LabDeps): ScriptEngine {
     if (stage === 'draft' && (script.chosenHook.trim() === '' || script.beats.trim() === '')) {
       return 'Choose a hook and keep a beat sheet first: the draft is written from them.';
     }
-    return stage === 'tighten' && script.draft.trim() === ''
-      ? 'There is no draft to tighten yet.'
+    if (stage === 'tighten' && script.draft.trim() === '') {
+      return 'There is no draft to tighten yet.';
+    }
+    if (stage !== 'lengthen') return null;
+    if (script.draft.trim() === '') return 'There is no draft yet.';
+    const view = findView(center, conceptId);
+    return (view?.shortSections.length ?? 0) === 0
+      ? 'No section of the draft is short of its share of the length.'
       : null;
   };
   return {
@@ -285,17 +338,22 @@ export function scriptEngine(deps: LabDeps): ScriptEngine {
         ...(marksFacts(deps) ? {} : { markFacts: false }),
       });
       onProgress({ step: 'reading', text: 'Reading what the AI wrote' });
-      const read = readAnswer(stage, answer.text);
+      const before = findView(center, conceptId);
+      if (!before) throw new Error(NOT_THIS_CHANNELS);
+      const read = readAnswer(stage, answer.text, before);
       scripts.save(center, conceptId, read.fields, deps.now());
-      const concept = found(center, conceptId);
-      if (!concept) throw new Error(NOT_THIS_CHANNELS);
+      const view = findView(center, conceptId);
+      if (!view) throw new Error(NOT_THIS_CHANNELS);
       return {
         kind: 'script',
         stage,
-        view: viewOf(deps, concept),
+        view,
         engine: answer.engine,
         skipped: answer.skipped,
-        notes: read.notes,
+        notes: [
+          ...read.notes,
+          ...(stage === 'draft' || stage === 'lengthen' ? shortNote(view) : []),
+        ],
       };
     },
 

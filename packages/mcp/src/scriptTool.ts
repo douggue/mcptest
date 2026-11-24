@@ -1,4 +1,4 @@
-import { wordBudget } from '@jgtube/core';
+import { shortSections } from '@jgtube/core';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { ToolFailure } from './failure';
 import { conceptText, pickedEntry } from './labTools';
@@ -36,6 +36,8 @@ export function getScript(engine: ConnectorEngine, input: GetScriptArgs): CallTo
   if (found === null) throw new ToolFailure(NOT_THIS_CHANNELS);
   const { concept, batch, picked, script, plan, voice } = found;
   const profile = voice?.profile;
+  // Counted in code at each look: the sections of the draft under their share of the length.
+  const short = shortSections(script?.draft ?? '', plan.wordBudget);
   const head = withoutAbsent({
     concept: concept.id,
     length: batch.length,
@@ -51,12 +53,8 @@ export function getScript(engine: ConnectorEngine, input: GetScriptArgs): CallTo
     targetGrade: script?.targetGrade == null ? null : oneDecimal(script.targetGrade),
     hookSeconds: plan.hookSeconds,
     hookWords: plan.hookWords,
-    wordBudget: wordBudget({
-      beats: script?.beats ?? null,
-      targetSeconds: script?.targetSeconds ?? null,
-      targetWords: plan.targetWords,
-      hookWords: plan.hookWords,
-    }),
+    wordBudget: plan.wordBudget,
+    shortSections: short.length > 0 ? short : null,
     modelHooks: script && script.hookModels.length > 0 ? script.hookModels : null,
     frameStudies: voice && voice.frameStudies.length > 0 ? voice.frameStudies : null,
     pacing: voice && voice.frameStudies.length > 0 ? null : NO_FRAME_STUDIES,

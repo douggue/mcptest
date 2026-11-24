@@ -560,7 +560,16 @@ export {
 } from './script/types';
 export { MAX_SCRIPT_CHARS, SqliteScriptRepo } from './repos/sqliteScriptRepo';
 export { parseHooksAndBeats, readBeats, scriptBody, type Beat } from './script/stages';
-export { HOOK_SECTION, wordBudget, type SectionBudget } from './script/budget';
+export {
+  HOOK_SECTION,
+  SHORT_SECTION_SHARE,
+  replaceSections,
+  sectionWords,
+  shortSections,
+  wordBudget,
+  type SectionBudget,
+  type ShortSection,
+} from './script/budget';
 export {
   checkMarkers,
   cleanVoiceover,

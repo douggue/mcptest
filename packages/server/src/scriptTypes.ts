@@ -4,12 +4,20 @@
  * that channel's own map, measured from its own captions.
  */
 import type { TypedLength } from '@jgtube/core';
-import type { LengthRange, ScriptFields, StoredScript, VoiceProfile } from '@jgtube/core';
+import type {
+  LengthRange,
+  ScriptFields,
+  SectionBudget,
+  ShortSection,
+  StoredScript,
+  VoiceProfile,
+} from '@jgtube/core';
 import type { SkippedEngine } from './engines/failure';
 import type { EngineId } from './engines/types';
 import type { ConceptForTool, ConceptView, Report } from './labTypes';
 
-export const SCRIPT_STAGES = ['hooks', 'draft', 'tighten'] as const;
+/** The three steps of a script, and `lengthen`: writing again the sections of a draft that came out short. */
+export const SCRIPT_STAGES = ['hooks', 'draft', 'tighten', 'lengthen'] as const;
 export type ScriptStage = (typeof SCRIPT_STAGES)[number];
 
 /** A channel's voice as numbers, and what they were measured from. */
@@ -32,6 +40,8 @@ export interface ScriptPlan {
   readonly hookWords: number | null;
   /** Words in the whole script at the voice's rate; null until a rate and a length are known. */
   readonly targetWords: number | null;
+  /** The words each section is written to, hook first; null until there is a length and a beat sheet. */
+  readonly wordBudget: readonly SectionBudget[] | null;
 }
 
 export interface ScriptView {
@@ -47,6 +57,11 @@ export interface ScriptView {
   readonly markFacts: boolean;
   /** Which length field the owner typed last, with the words when it was words; null when neither. */
   readonly typedLength: TypedLength | null;
+  /**
+   * The sections of the draft that hold under 85% of their words, counted in
+   * code at each look; empty when there is no draft, no budget, or none is short.
+   */
+  readonly shortSections: readonly ShortSection[];
 }
 
 /** A length as the owner typed it: minutes (as seconds) or words. */
@@ -62,7 +77,8 @@ export interface ScriptOutcome {
   readonly skipped: readonly SkippedEngine[];
   /**
    * What the owner should know about how the answer was read: a beat that
-   * was shortened, beats left off. Empty when the answer was stored as written.
+   * was shortened, beats left off, the sections written again. Empty when
+   * the answer was stored as written.
    */
   readonly notes: readonly string[];
 }
