@@ -1,3 +1,4 @@
+import { wordBudget } from '@jgtube/core';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { ToolFailure } from './failure';
 import { conceptText, pickedEntry } from './labTools';
@@ -50,6 +51,12 @@ export function getScript(engine: ConnectorEngine, input: GetScriptArgs): CallTo
     targetGrade: script?.targetGrade == null ? null : oneDecimal(script.targetGrade),
     hookSeconds: plan.hookSeconds,
     hookWords: plan.hookWords,
+    wordBudget: wordBudget({
+      beats: script?.beats ?? null,
+      targetSeconds: script?.targetSeconds ?? null,
+      targetWords: plan.targetWords,
+      hookWords: plan.hookWords,
+    }),
     modelHooks: script && script.hookModels.length > 0 ? script.hookModels : null,
     frameStudies: voice && voice.frameStudies.length > 0 ? voice.frameStudies : null,
     pacing: voice && voice.frameStudies.length > 0 ? null : NO_FRAME_STUDIES,

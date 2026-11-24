@@ -113,6 +113,11 @@ describe('get_script', () => {
       targetGrade: 6.4,
       hookSeconds: 60,
       hookWords: 152,
+      // Worked out in code from the beat sheet: it adds up to targetWords.
+      wordBudget: [
+        { section: 'HOOK', words: 152 },
+        { section: 'The bill', words: 1368 },
+      ],
       modelHooks: [A],
       frameStudies: [A],
       restedOn: [{ video: A, title: 'Title of A', channel: 'Alpha' }],
