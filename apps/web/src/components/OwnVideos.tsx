@@ -11,6 +11,7 @@ import { StatTile } from './layout/StatTile';
 import { ViewHeader } from './layout/ViewHeader';
 import { FIELD, NOTE } from './LabStatus';
 import { OwnUploads } from './OwnUploads';
+import { AgainstFormat } from './AgainstFormat';
 import { LinkedCard, PlanTable } from './OwnVideoParts';
 import { usePlan, type Plan } from './usePlan';
 
@@ -183,6 +184,7 @@ export function OwnVideos({ channelId, reloadKey }: Props) {
             It could not be loaded: {state.message}
           </p>
         )}
+        {channelId && <AgainstFormat channelId={channelId} reloadKey={reloadKey} />}
         {/* Before anything is linked, the uploads come first and no tiles of zeros are shown. */}
         {plan && plan.linked.length > 0 && <Counts plan={plan} />}
         {plan && plan.linked.length > 0 && <Linked plan={plan} actions={actions} />}

@@ -31,6 +31,10 @@ export interface FormatBuilder {
   /** "Write my Format Bible", followed like "Suggest a mix". */
   readonly bible: MixState;
   readonly writeBible: (channel: string | null, engine: string | null) => void;
+  /** Whether a map is open, so the chosen format can be made its channel's active one. */
+  readonly canActivate: boolean;
+  /** Makes the chosen format the channel's active one (true), or the channel's format none (false). */
+  readonly setActive: (on: boolean) => void;
   /** The last problem with a change, in plain words; null when there is none. */
   readonly problem: string | null;
 }
@@ -161,6 +165,17 @@ export function useFormatBuilder(shelfKey: string, channelId: string | null): Fo
         () => {
           setChosenId(null);
           reload();
+        },
+        (error: unknown) => setProblem(messageOf(error)),
+      );
+    },
+    canActivate: channelId !== null,
+    setActive: (on) => {
+      if (channelId === null || id === null) return;
+      api.setActive(channelId, on ? id : null).then(
+        (formats) => {
+          setState({ status: 'ready', formats });
+          setProblem(null);
         },
         (error: unknown) => setProblem(messageOf(error)),
       );

@@ -21,6 +21,8 @@ export { applySuggestion, clearSlot, fillSlot, noteSlot };
 export interface FormatView extends Format {
   readonly checks: FormatChecks;
   readonly topChannelTitle: string | null;
+  /** Whether it is its channel's active format. */
+  readonly active: boolean;
 }
 
 /** A "Suggest a mix" job as the server reports it. */
@@ -58,6 +60,11 @@ export function createFormatBuilderApi(fetcher?: Fetch) {
     },
     async job(id: string): Promise<MixJob> {
       return unwrap<MixJob>(await call(`/api/jobs/${encodeURIComponent(id)}`));
+    },
+    /** Makes a format the channel's active one, or (null) none; resolves with the channel's formats. */
+    async setActive(channel: string, id: number | null): Promise<readonly FormatView[]> {
+      return unwrap<{ formats: FormatView[] }>(await send('/api/format/active', { channel, id }))
+        .formats;
     },
     /** Starts "Write my Format Bible"; resolves with the job to follow. */
     async writeBible(id: number, channel: string | null, engine: string | null): Promise<string> {
