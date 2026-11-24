@@ -12,10 +12,14 @@ import type { AppOptions } from './app';
 import { ENGINE_IDS } from './engines/settings';
 import type { FormatView, MixProgress } from './formatBuilderTypes';
 import { fail, ok, readJson } from './http';
+import { download } from './teardownRoutes';
 import { JobStore, type Job, type JobRecord } from './jobs';
 
 export const FORMATS_PATH = '/api/format/formats';
 export const MIX_JOB_KIND = 'format-mix';
+export const BIBLE_JOB_KIND = 'format-bible';
+const BIBLE_FILE = /^\/api\/format\/formats\/(\d{1,9})\/format-bible\.(md|zip)$/;
+const NO_BIBLE = 'This format has no Bible yet. Press “Write my Format Bible” first.';
 
 const BUSY = 'An AI run is already under way. Wait for it to finish.';
 const NOT_FOUND = 'There is no such format.';
@@ -136,12 +140,58 @@ async function suggest(context: Context, request: Request): Promise<Response> {
   return ok({ jobId: job?.id }, 202);
 }
 
+async function bible(context: Context, request: Request): Promise<Response> {
+  const body = await bodyOf(context, request, suggestRequest, 'Give the format’s number.');
+  if (body instanceof Response) return body;
+  const builder = context.options.engine.formatBuilder;
+  const name = builder.formatName(body.id);
+  if (name === null) return fail(404, NOT_FOUND);
+  const { tracker, jobs } = context;
+  if (tracker.running || jobs.isBusy()) return fail(409, BUSY);
+  tracker.running = true;
+  const job = jobs.start(
+    (report) =>
+      builder.writeBible(body.id, body.channel, body.engine, report).finally(() => {
+        tracker.running = false;
+      }),
+    {
+      kind: BIBLE_JOB_KIND,
+      title: `Writing the Format Bible of “${name}”`,
+      channelId: body.channel,
+    },
+  );
+  return ok({ jobId: job?.id }, 202);
+}
+
+/** "Long-form v2" saves as "format-bible-long-form-v2". */
+const fileName = (name: string, id: number): string => {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40);
+  return `format-bible-${slug || id}`;
+};
+
+async function bibleFile(context: Context, id: number, kind: string): Promise<Response> {
+  const builder = context.options.engine.formatBuilder;
+  const markdown = builder.bibleMarkdown(id);
+  if (markdown === null) return fail(404, NO_BIBLE);
+  const name = fileName(markdown.name, id);
+  if (kind === 'md') {
+    return download(markdown.text, 'text/markdown; charset=utf-8', `${name}.md`);
+  }
+  const zip = await builder.bibleZip(id);
+  return zip === null ? fail(404, NO_BIBLE) : download(zip, 'application/zip', `${name}.zip`);
+}
+
 const POSTS: Readonly<Record<string, (context: Context, request: Request) => Promise<Response>>> = {
   [FORMATS_PATH]: create,
   [`${FORMATS_PATH}/update`]: update,
   [`${FORMATS_PATH}/duplicate`]: duplicate,
   [`${FORMATS_PATH}/remove`]: remove,
   [`${FORMATS_PATH}/suggest`]: suggest,
+  [`${FORMATS_PATH}/bible`]: bible,
 };
 
 export interface FormatBuilderRoutes {
@@ -162,6 +212,12 @@ export function formatBuilderRoutes(
         const channel = CHANNEL.safeParse(url.searchParams.get('channel'));
         if (!channel.success) return fail(400, 'That is not a channel id.');
         return ok({ formats: options.engine.formatBuilder.listFormats(channel.data) });
+      }
+      const file = BIBLE_FILE.exec(pathname);
+      if (file !== null) {
+        return request.method === 'GET'
+          ? bibleFile(context, Number(file[1]), file[2] ?? 'md')
+          : fail(405, 'Use GET');
       }
       const post = POSTS[pathname];
       if (!post) return null;

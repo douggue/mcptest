@@ -43,7 +43,7 @@ async function channelRunsAnswer(options: AppOptions, url: URL): Promise<Respons
 
 const VIDEO_ID = /^[\w-]{11}$/;
 
-function download(body: Uint8Array | string, type: string, name: string): Response {
+export function download(body: Uint8Array | string, type: string, name: string): Response {
   return new Response(typeof body === 'string' ? body : Buffer.from(body), {
     status: 200,
     headers: {

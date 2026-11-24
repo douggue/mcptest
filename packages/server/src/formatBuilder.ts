@@ -25,10 +25,13 @@ import type { EngineAnswer } from './engines/fallback';
 import type { EngineId } from './engines/types';
 import type { FormatBuilderEngine, FormatView } from './formatBuilderTypes';
 import type { MixAsk } from './formatMixRequests';
+import { bibleText, bibleZip, writeBible } from './formatBible';
+
+export { EMPTY_SLOTS } from './formatBible';
 
 export type FormatStore = Pick<
   SqliteFormatRepo,
-  'list' | 'find' | 'create' | 'update' | 'duplicate' | 'remove' | 'saveSuggestion'
+  'list' | 'find' | 'create' | 'update' | 'duplicate' | 'remove' | 'saveSuggestion' | 'saveBible'
 >;
 
 export interface FormatBuilderDeps {
@@ -120,13 +123,24 @@ export function formatBuilder(deps: FormatBuilderDeps): FormatBuilderEngine {
       return saved;
     },
 
+    async writeBible(formatId, channel, only, report) {
+      const saved = view(await writeBible(deps, formatId, channel, only, report));
+      if (saved === null) throw new Error(NO_FORMAT);
+      return saved;
+    },
+    bibleMarkdown: (formatId) => bibleText(deps, formatId),
+    bibleZip: (formatId) => bibleZip(deps, formatId),
+
     shelfForMix(formatId) {
       const format = formats.find(formatId);
       return format === null ? null : shelfForMix(format, shelf());
     },
 
     async mixPicture(name) {
-      const picture = mixPictureNamed(mixPictures(shelf()), name);
+      // Any ingredient's own first pictures, so a Bible's slots are shown even past the mix's cap.
+      const owner = Number(/^i(\d+)-/.exec(name)?.[1] ?? NaN);
+      const item = shelf().find((one) => one.id === owner);
+      const picture = item === undefined ? null : mixPictureNamed(mixPictures([item]), name);
       const path = picture === null ? null : deps.picturePath(picture.ref);
       if (path === null) return null;
       try {
