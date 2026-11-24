@@ -32,6 +32,10 @@ const SIGN_IN_PAGE =
 const AUTH = 'The proxy asked for a user name and password, or did not accept the ones given.';
 const PLAYER_STATUS = /"playabilityStatus"\s*:\s*\{\s*"status"\s*:\s*"([A-Z_]+)"/;
 const SIGN_IN_HOSTS = /^https:\/\/(consent\.youtube\.com|accounts\.google\.com)\//;
+/** Google's "unusual traffic" check, where an address it suspects of being a program is sent. */
+const SORRY_PAGE = /^https:\/\/(www\.)?google\.[a-z.]+\/sorry\//;
+const UNUSUAL_TRAFFIC =
+  'YouTube sent the page to Google’s “unusual traffic” check, which turns this address away for now.';
 
 /** Plain reasons for the ways a connection to the proxy fails, by the error's code. */
 const BY_CODE: Readonly<Record<string, string>> = {
@@ -64,13 +68,16 @@ function failureReason(error: unknown, proxy: string): ProxyCheck {
   const message = field(error, 'message');
   if (/\b407\b|auth/i.test(message)) return refused(AUTH);
   const reason = hideProxySecret(message, proxy).slice(0, MAX_REASON_LENGTH);
-  return refused(`The proxy could not reach YouTube: ${reason || 'no reason was given'}.`);
+  return refused(
+    `The proxy could not reach YouTube: ${reason.replace(/\.$/, '') || 'no reason was given'}.`,
+  );
 }
 
 /** What YouTube's answer says, in a word and a reason. */
 async function answerVerdict(response: Response): Promise<ProxyCheck> {
   const location = response.headers.get('location') ?? '';
   if (response.status >= 300 && response.status < 400) {
+    if (SORRY_PAGE.test(location)) return refused(UNUSUAL_TRAFFIC);
     return SIGN_IN_HOSTS.test(location)
       ? { verdict: 'sign-in', reason: SIGN_IN_PAGE }
       : refused(`YouTube sent the page somewhere else (status ${response.status}).`);

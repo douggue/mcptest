@@ -56,18 +56,32 @@ async function partsOf(
   };
 }
 
-const reasonOf = (error: unknown): string => {
-  const cause = error instanceof Error ? error.cause : undefined;
-  const own = error instanceof Error ? error.message : String(error);
-  const deeper = cause instanceof Error ? cause.message : '';
-  return deeper && deeper !== own ? `${own}: ${deeper}` : own;
-};
+/** How deep a chain of causes is followed; undici nests the real reason two or three down. */
+const MAX_CAUSES = 5;
 
-const codeOf = (error: unknown): string | undefined => {
-  const cause = error instanceof Error ? error.cause : undefined;
-  const code = (cause as { code?: unknown } | undefined)?.code;
-  return typeof code === 'string' ? code : undefined;
-};
+/** An error and the causes under it, outermost first. */
+function chainOf(error: unknown): readonly unknown[] {
+  const chain: unknown[] = [];
+  let current: unknown = error;
+  while (current !== undefined && current !== null && chain.length < MAX_CAUSES) {
+    chain.push(current);
+    current = current instanceof Error ? current.cause : undefined;
+  }
+  return chain;
+}
+
+/** Every message in the chain, each once, joined: "fetch failed: Proxy response (407) …". */
+const reasonOf = (error: unknown): string =>
+  [...new Set(chainOf(error).map((link) => (link instanceof Error ? link.message : String(link))))]
+    .map((message) => message.replace(/\.$/, ''))
+    .join(': ');
+
+/** The deepest error code in the chain, such as ECONNREFUSED. */
+const codeOf = (error: unknown): string | undefined =>
+  chainOf(error)
+    .map((link) => (link as { code?: unknown }).code)
+    .filter((code): code is string => typeof code === 'string')
+    .at(-1);
 
 /**
  * A failure through the proxy, with the proxy's address and password taken

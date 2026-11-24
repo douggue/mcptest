@@ -109,6 +109,19 @@ describe('Jgtube’s one way to reach YouTube', () => {
     expect(target.seen).toEqual([]);
   });
 
+  test('says the HTTP proxy refused the password, from deep in the error', async () => {
+    const target = await started(startTarget());
+    const proxy = await started(startHttpProxy('owner:right'));
+    const fetcher = makeYouTubeFetch(() => `http://owner:wrong-hunter2@127.0.0.1:${proxy.port}`);
+    const failure = await fetcher(`http://127.0.0.1:${target.port}/`, OPTIONS).then(
+      () => null,
+      (error: unknown) => error as Error,
+    );
+    expect(failure?.message).toMatch(/^fetch failed through the proxy for YouTube: .*\(407\)/);
+    expect(failure?.message).not.toContain('wrong-hunter2');
+    expect(target.seen).toEqual([]);
+  });
+
   test('fails when the proxy refuses the password, without repeating it', async () => {
     const target = await started(startTarget());
     const proxy = await started(startSocks5Proxy('owner:right'));

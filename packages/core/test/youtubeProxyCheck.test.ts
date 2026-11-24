@@ -60,6 +60,21 @@ describe('testing the proxy for YouTube', () => {
     }
   });
 
+  test('says refused when YouTube sends the page to Google’s unusual traffic check', async () => {
+    // What a data-centre address got through a chain of proxies, November 2026.
+    const location =
+      'https://www.google.com/sorry/index?continue=https://www.youtube.com/watch%3Fv%3DjNQXAC9IVRw&q=x';
+    const result = await checkYouTubeProxy(
+      PROXY,
+      answering(new Response(null, { status: 302, headers: { location } })),
+    );
+    expect(result).toEqual({
+      verdict: 'refused',
+      reason:
+        'YouTube sent the page to Google’s “unusual traffic” check, which turns this address away for now.',
+    });
+  });
+
   test('says refused when YouTube turns the address away', async () => {
     for (const status of [403, 429]) {
       const result = await checkYouTubeProxy(PROXY, answering(new Response('', { status })));
