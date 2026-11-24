@@ -256,7 +256,9 @@ export const TOOL_TEXT = {
       'part gives the numbers it is written to: voice (the channel it is written in the voice of, with ' +
       'wordsPerMinute and, when they could be measured from that channel’s captions, sentenceWords and ' +
       'grade), targetSeconds and targetWords (the whole script), hookSeconds and hookWords (the hook), ' +
-      'targetGrade (what a tighten pass aims at), modelHooks (library hooks the owner chose as models, by ' +
+      'wordBudget (once there is a beat sheet: the spoken words each section is to hold, the hook first ' +
+      'and then each beat by name, worked out in code from the beats’ start times and adding up to ' +
+      'targetWords), targetGrade (what a tighten pass aims at), modelHooks (library hooks the owner chose as models, by ' +
       'video id), frameStudies (videos of the voice channel with a stored frame study, for how often its ' +
       'picture changes; pacing says so when there are none) and restedOn (the videos the concept rested ' +
       'on). Then come the concept in labelled lines, the hook the owner chose, the beat sheet and, with ' +

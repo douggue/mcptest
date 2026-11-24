@@ -58,9 +58,9 @@ describe('teardown questions', () => {
 
   test('the watch question goes chapter by chapter and asks for words only without captions', () => {
     expect(watchQuestion([{ start: 0, end: 20.4 }], true)).toMatch(
-      /0–20 s.*Write down every spoken line/,
+      /0–20 s.*Write down every spoken line/s,
     );
-    expect(watchQuestion([], false)).toMatch(/natural parts.*Leave "transcript" empty/);
+    expect(watchQuestion([], false)).toMatch(/natural parts.*Leave "transcript" empty/s);
   });
 
   test('looks are written in calls of eight, or as files', () => {
