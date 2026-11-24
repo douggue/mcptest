@@ -44,7 +44,7 @@ const call = async (name: string, args: Record<string, unknown>): Promise<CallTo
   (await client.callTool({ name, arguments: args })) as CallToolResult;
 
 describe('the connector over the protocol', () => {
-  test('lists the thirty tools, each with a description and an input schema', async () => {
+  test('lists the thirty-two tools, each with a description and an input schema', async () => {
     const { tools } = await client.listTools();
 
     expect(tools.map((tool) => tool.name).sort()).toEqual([
@@ -56,6 +56,7 @@ describe('the connector over the protocol', () => {
       'get_channel_videos',
       'get_concept',
       'get_fact_sheet',
+      'get_format_shelf',
       'get_frame_study',
       'get_hooks',
       'get_idea_brief',
@@ -75,6 +76,7 @@ describe('the connector over the protocol', () => {
       'list_transfer_opportunities',
       'make_map',
       'set_competitor_status',
+      'view_format_pictures',
       'view_teardown_images',
       'view_thumbnails',
       'view_video_frames',

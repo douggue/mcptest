@@ -217,6 +217,7 @@ describe('a teardown section', () => {
     expect(transitions.evidence.measured.map((number) => number.label)).toEqual([
       'Transitions: cut',
       'Transitions: dissolve',
+      'Cuts a minute of its video',
     ]);
   });
 
@@ -235,7 +236,12 @@ describe('a teardown section', () => {
     });
     expect(ingredientFromTeardown(bare, 'typography')).toBeNull();
     expect(ingredientFromTeardown(bare, 'sound')!.evidence.measured).toEqual([]);
-    expect(ingredientFromTeardown(bare, 'transitions')!.evidence.measured).toEqual([]);
+    expect(
+      ingredientFromTeardown(bare, 'transitions')!.evidence.measured.map((n) => n.label),
+    ).toEqual(['Cuts a minute of its video']);
+    expect(ingredientFromTeardown(bare, 'metrics')!.evidence.measured[0]?.label).toBe(
+      'Cuts a minute',
+    );
     expect(ingredientFromTeardown(bare, 'hook')!.media).toEqual([]);
     const metrics = ingredientFromTeardown(bare, 'metrics')!;
     expect(metrics.evidence.measured).toHaveLength(3);

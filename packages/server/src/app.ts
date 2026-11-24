@@ -68,6 +68,8 @@ import { hubRoutes } from './breakdownHubRoutes';
 import { extraRoutes } from './extrasRoutes';
 import { formatRoutes } from './formatRoutes';
 import type { FormatEngine } from './formatTypes';
+import type { FormatBuilderEngine } from './formatBuilderTypes';
+import { formatBuilderRoutes, type FormatBuilderRoutes } from './formatBuilderRoutes';
 import type { BreakdownHub } from './oneVideoTypes';
 import type { ExtrasEngine } from './extrasTypes';
 import { labRoutes, type LabRoutes } from './labRoutes';
@@ -154,6 +156,8 @@ export interface Engine
   readonly extras: ExtrasEngine;
   /** The format builder: the shelf of ingredients taken from the other views. */
   readonly formats: FormatEngine;
+  /** The format builder's formats, their checks and "Suggest a mix". */
+  readonly formatBuilder: FormatBuilderEngine;
   /** The Breakdown view: the channels it offers, a pasted channel, and one video in depth. */
   readonly hub: BreakdownHub;
   /** The latest stored map around a channel; reads the store only. */
@@ -484,9 +488,15 @@ function jobStatus(
   logos: LogoRoutes,
   id: string,
   hub: ReturnType<typeof hubRoutes>,
+  builder: FormatBuilderRoutes,
 ): Response {
   const job =
-    options.jobs.get(id) ?? breakdowns.get(id) ?? lab.job(id) ?? logos.job(id) ?? hub.job(id);
+    options.jobs.get(id) ??
+    breakdowns.get(id) ??
+    lab.job(id) ??
+    logos.job(id) ??
+    hub.job(id) ??
+    builder.job(id);
   return job ? ok(job) : fail(404, 'No such job');
 }
 
@@ -510,6 +520,7 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
   });
   const extra = extraRoutes(options, analysing);
   const hub = hubRoutes(options, analysing, uploading);
+  const builder = formatBuilderRoutes(options, analysing);
   return async (request) => {
     if (!isTrustedHost(request, options.allowedHosts)) {
       return fail(403, 'This server only answers to its own address');
@@ -530,6 +541,8 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     if (hubAnswer) return hubAnswer;
     const extraAnswer = extra.handle(request, url);
     if (extraAnswer) return extraAnswer;
+    const builderAnswer = builder.handle(request, url);
+    if (builderAnswer) return builderAnswer;
     const formatAnswer = formatRoutes(options, request, url);
     if (formatAnswer) return formatAnswer;
     if (pathname === '/api/maps/latest') {
@@ -640,13 +653,20 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
       if (method !== 'GET') return fail(405, 'Use GET');
       const sources = [options.jobs, breakdowns, held].map((store) => () => store.list());
       return ok({
-        jobs: listJobs([...sources, lab.listJobs, logos.listJobs, extra.listJobs, hub.listJobs]),
+        jobs: listJobs([
+          ...sources,
+          lab.listJobs,
+          logos.listJobs,
+          extra.listJobs,
+          hub.listJobs,
+          builder.listJobs,
+        ]),
       });
     }
     if (pathname.startsWith('/api/jobs/')) {
       const id = pathname.slice('/api/jobs/'.length);
       return method === 'GET'
-        ? jobStatus(options, breakdowns, lab, logos, id, hub)
+        ? jobStatus(options, breakdowns, lab, logos, id, hub, builder)
         : fail(405, 'Use GET');
     }
     return fail(404, 'Not found');

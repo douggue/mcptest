@@ -1,3 +1,4 @@
+import { registerFormatTools } from './formatTools';
 import { registerTeardownTools } from './teardownTools';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
@@ -338,6 +339,7 @@ export function createConnectorServer(
   registerLabTools(tooled, tools);
   registerExtraTools(tooled, deps.engine);
   registerTeardownTools(tooled, deps.engine);
+  registerFormatTools(tooled, deps.engine);
   registerPrompts(server);
   return server;
 }

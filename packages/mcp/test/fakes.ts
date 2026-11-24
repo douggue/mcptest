@@ -453,6 +453,14 @@ export class FakeEngine implements ConnectorEngine {
       name === 'k-001.jpg' ? Uint8Array.from([0xff, 0xd8, 1]) : null,
   } as unknown as ConnectorEngine['hub'];
 
+  /** The format builder's reads; a test replaces what it uses. */
+  formatBuilder = {
+    shelfForMix: (formatId: number) =>
+      formatId === 1 ? { note: 'n', format: { id: 1 }, ingredients: [] } : null,
+    mixPicture: async (name: string): Promise<Uint8Array | null> =>
+      name === 'i1-1.png' ? Uint8Array.from([0x89, 0x50]) : null,
+  } as unknown as ConnectorEngine['formatBuilder'];
+
   findSnapshot(ref: string): MapSnapshot | null {
     this.lookups.push(ref);
     return this.stored;

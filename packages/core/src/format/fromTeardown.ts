@@ -239,6 +239,29 @@ function partOf(
   }
 }
 
+/** The sections whose look or motion is tied to how fast the video they came from cuts. */
+const PACED: ReadonlySet<TeardownSection> = new Set([
+  'palette',
+  'typography',
+  'component',
+  'motion',
+  'transitions',
+]);
+
+/** How fast the video cuts, kept beside a look or a motion so the fit check can compare paces. */
+function videoPace(section: TeardownSection, measured: Measured): readonly MeasuredNumber[] {
+  if (!PACED.has(section)) return [];
+  const { shots } = measured;
+  return [
+    {
+      label: 'Cuts a minute of its video',
+      value: round(shots.cutsPerMinute),
+      unit: 'a minute',
+      method: shots.method,
+    },
+  ];
+}
+
 /**
  * The ingredient one section of a teardown makes; null when the teardown has
  * no measurements yet, or the section (or its numbered item) is not there.
@@ -269,7 +292,7 @@ export function ingredientFromTeardown(
       scoredVideos: 0,
       videos: 1,
       channels: channelId === null ? null : 1,
-      measured: part.measured,
+      measured: [...part.measured, ...videoPace(section, measured)],
     },
     media: part.media,
   };

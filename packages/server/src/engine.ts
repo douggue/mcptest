@@ -1,4 +1,5 @@
 import {
+  SqliteFormatRepo,
   SqliteChannelRepo,
   SqliteConceptRepo,
   SqliteEdgeRepo,
@@ -76,6 +77,7 @@ import { downloads } from './downloadEngine';
 import { breakdownHub, teardownDeps } from './breakdownHub';
 import { extras } from './extrasSetup';
 import { formatEngine, ingredientRepo, storedVideoFacts } from './formatEngine';
+import { formatBuilder, mixPicturePath } from './formatBuilder';
 import { teardownReportOf } from './teardownStore';
 import { join } from 'node:path';
 import { cleanMessage } from './jobs';
@@ -487,8 +489,9 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
   });
 
   const choices = ownerChoices(wiring);
+  const shelf = ingredientRepo(wiring.db);
   const formats = formatEngine({
-    repo: ingredientRepo(wiring.db),
+    repo: shelf,
     now: wiring.now,
     imagesFolder: () => join(downloadsRoot(config), 'formats'),
     sources: {
@@ -501,6 +504,15 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       teardownReport: (videoId) => teardownReportOf(wiring.repos.teardowns, videoId),
       videoFacts: storedVideoFacts(wiring.db, wiring.repos.channels, wiring.now),
     },
+  });
+
+  const builder = formatBuilder({
+    formats: new SqliteFormatRepo(wiring.db),
+    shelf,
+    now: wiring.now,
+    channelTitle: (channel) => wiring.repos.channels.findById(channel)?.title ?? null,
+    picturePath: mixPicturePath(() => downloadsRoot(config)),
+    askMix: asking.askFormatMix,
   });
 
   let closed = false;
@@ -550,6 +562,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     ...labbing,
     extras: extras({ ...wiring, analyse: asking.analyse }),
     formats,
+    formatBuilder: builder,
     hub: breakdownHub({
       config,
       candidates: { ...wiring.repos, now: wiring.now },
