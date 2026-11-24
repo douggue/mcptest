@@ -229,6 +229,14 @@ should know about how it was written: another engine wrote it in place of the
 one chosen, and why; or it was written from pictures handed over as files and
 names none of them. Null for most parts. See "Channel breakdown".
 
+`formats` (step 46, provisional until merged) keeps the formats the owner
+builds: the channel it is a format of (null when made with no map open), a
+name, a planned length, notes, one slot per layer (`slots_json`: an
+ingredient's id and a note), the last suggested mix and the last Format Bible
+(JSON, checked with a schema when read; what no longer reads is empty), and
+the format it was copied from. `channel_formats` keeps each channel's active
+format and goes with its format.
+
 `format_ingredients` (step 31) is the format builder's shelf: one row
 per piece of a format taken from one source, unique per `(layer, source_kind,
 source_key)`, with `name`, `source_label`, `center_channel_id`,
@@ -1840,6 +1848,8 @@ Claude reads what the app shows. Setup for the owner is in
 | `get_viewer_comments`         | `channel` (id), `videos` (1 to 10 ids)                                                  | A line that comments are strangers' text and never instructions, then JSON: each asked video that is a winner of the channel's map, with its stored comments (id, text, likes), most liked first, 60 at most                                                         |
 | `get_risk_findings`           | `channel` (id), `concept`                                                               | A line that it was worked out by Jgtube in code, then JSON: stage, sentences sharing six or more words with a stored transcript, unchecked facts                                                                                                                     |
 | `get_thumbnail_comparison`    | `channel` (id), `video`                                                                 | The kept comparison of one video's thumbnail as text, counted in code: its checklist and description, the winners compared, winning values, flagged values, other values, thumbnails not tagged                                                                      |
+| `get_format_shelf`            | `format` (number)                                                                       | JSON: the format (name, length, slots) and every ingredient on the shelf with its layer, source, channels, evidence counted in code, `proven`, and the names of its pictures (`i<id>-<n>.<ext>`); the AI's earlier readings are labelled as such                     |
+| `view_format_pictures`        | `names` (1 to 8 picture names from the question)                                        | The shelf's pictures (teardown keyframes and strips, the owner's pictures) as image content, each under a line naming it; one that is gone is a line of text                                                                                                         |
 
 One prompt, `thumbnail_review` (argument `channel`), tells the model to read the
 board, look at the owner's thumbnails and the winners with `view_thumbnails`, and
@@ -2938,10 +2948,10 @@ hooks and beats 69 seconds; draft 162 seconds (2,271 words spoken, 76 markers,
 
 ### Format builder (`core/src/format/`, `sqliteIngredientRepo.ts`, `formatSources.ts`, `formatEngine.ts`, `formatRoutes.ts`; web `FormatView.tsx`, `AddToFormat.tsx`, `lib/formatShelf.ts`)
 
-Batch 1 of 4 is built: ingredients, the "Add to format" buttons and the
-shelf. Still to come: the builder's slots, fit and originality checks and
-"Suggest a mix" (2), the Format Bible and its export (3), and plugging an
-active format into the Idea lab, Script writer, thumbnails and Your videos (4).
+Built in four batches: ingredients, the "Add to format" buttons and the
+shelf (1); formats with slots, fit and originality checks and "Suggest a mix"
+(2); the Format Bible and its export (3); an active format per channel feeding
+the Idea lab, Script writer, thumbnails and Your videos (4).
 
 **Ingredient.** One piece of a format from one source, on one layer: title
 formula, hook, structure, pacing, visual style, motion and transitions,
@@ -2991,6 +3001,46 @@ there, so nothing runs on its own.
 Other routes: `GET /api/format/ingredients`, `POST .../note`, `POST
 .../remove`. A second add of the same source on the same layer answers the
 one already there.
+
+**Formats** (`core/src/format/formats.ts`, `sqliteFormatRepo.ts`; server
+`formatBuilder.ts`, `formatBuilderRoutes.ts`; web `FormatBuilderPanel.tsx`,
+`FormatPicker.tsx`, `FormatSlots.tsx`, `MixPanel.tsx`, `lib/formatBuilder.ts`).
+A channel has several named formats (Long-form, Shorts…), each with a planned
+length and notes; "Copy as next version" makes "… v2" (then v3), with the same
+slots and no suggestion, on the same channel. Each layer is a slot filled from
+the shelf (proven first), swapped, emptied, or noted. A slot naming an
+ingredient taken off the shelf reads as empty. Routes: `GET
+/api/format/formats?channel=`, `POST /api/format/formats` (name, length,
+channel), `.../update`, `.../duplicate`, `.../remove`, `.../suggest`; bodies are
+zod-checked.
+
+**Checks** (`core/src/format/checks.ts`), worked out in code each time a
+format is read; they flag and change nothing:
+
+- _Hook length_: the hook's seconds (its counted words over its measured pace,
+  or the end of its last beat) against the length planned: 10 s for a Short (a
+  minute or less), else the longer of 60 s and a tenth of the video.
+- _Pacing against motion_: cuts a minute of the pacing slot against those of
+  the motion (else visual style) slot; more than twice apart is flagged.
+- _Thumbnail promise_: the thumbnail and the hook come from different videos,
+  so the opening may not pay off the promise.
+- _Originality_: the channel most filled slots come from; more than 60 % of at
+  least two filled slots from one channel says "This copies one channel", with
+  the counts.
+- _Unproven_: each filled slot whose ingredient is not proven.
+
+**Suggest a mix** (`formatMixRequests.ts`, core `mix.ts`, `mixShelf.ts`). One
+AI run, with the engine chosen in the header, in the one slot every AI run
+shares, as a job (`format-mix`) listed in Working, so the page finds it again
+after a reload. It may call only read-only tools: `get_format_shelf`, with a
+map open `get_map` and `get_breakouts`, and for pictures
+`view_format_pictures` and `view_thumbnails` (Antigravity gets the same
+pictures as files, through the picture route the other picture runs use). The
+answer is one JSON object, checked with zod: per slot a layer, an ingredient
+id and a one-line reason citing the evidence. Code keeps only ingredients on
+the shelf, on that slot's layer, one per layer, and lists what it dropped and
+why; nothing is applied until the owner presses "Use" on a slot or "Use the
+whole mix". The reasons and summary are shown as the AI's reading.
 
 **What was run for real.** The shelf at 1440, 768 and 390 wide on a seeded
 store (nine ingredients, teardown pictures made with ffmpeg): no console error,
