@@ -329,6 +329,28 @@ describe('a batch of concepts', () => {
     expect(engine.listConcepts(MINE)?.concepts).toHaveLength(2);
   });
 
+  test('a new batch is shown the ideas already stored, and a card says when its idea is close to an earlier one', async () => {
+    const first = await engine.makeConcepts(request(), () => {});
+    const keeper = first.added[3];
+    engine.setConceptKept(MINE, keeper?.id ?? 0, true);
+    answer = concepts(2);
+
+    const second = await engine.makeConcepts(request(), () => {});
+
+    // The brief of the second batch lists what is stored from before it, and none of its own.
+    expect(engine.findIdeaBrief(MINE, second.batchId)?.storedIdeas).toEqual([
+      { id: keeper?.id, title: 'The Machine Nobody Switched Off 4' },
+    ]);
+    // The titles here differ by a number only: each is close to the earliest stored one.
+    expect(second.added.map((one) => one.closeTo)).toEqual([
+      { id: keeper?.id, title: 'The Machine Nobody Switched Off 4' },
+      { id: keeper?.id, title: 'The Machine Nobody Switched Off 4' },
+    ]);
+    expect(engine.listConcepts(MINE)?.concepts.find((one) => one.id === keeper?.id)?.closeTo).toBe(
+      null,
+    );
+  });
+
   test('replaces the concepts that were not kept, and only those', async () => {
     await engine.makeConcepts(request(), () => {});
     const keeper = engine.listConcepts(MINE)?.concepts[3];

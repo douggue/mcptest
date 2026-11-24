@@ -54,7 +54,7 @@ export function getIdeaBrief(engine: ConnectorEngine, input: GetIdeaBriefArgs): 
   requireChannelRef(args.channel);
   const brief = engine.findIdeaBrief(args.channel, args.batch);
   if (brief === null) throw new ToolFailure(NOT_THIS_CHANNELS);
-  const { batch, picked } = brief;
+  const { batch, picked, storedIdeas } = brief;
   return jsonResult(
     withoutAbsent({
       batch: batch.id,
@@ -64,6 +64,8 @@ export function getIdeaBrief(engine: ConnectorEngine, input: GetIdeaBriefArgs): 
       format: batch.format
         ? { wording: batch.format.template, from: FORMAT_FROM[batch.format.source] }
         : null,
+      // Titles an AI wrote earlier for this channel: subjects a new batch must not repeat.
+      storedIdeas: storedIdeas.length > 0 ? storedIdeas.map((idea) => idea.title) : null,
       note: BRIEF_NOTE,
     }),
   );

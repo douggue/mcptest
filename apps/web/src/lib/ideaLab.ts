@@ -243,6 +243,15 @@ export interface ConceptView extends Omit<StoredConcept, 'createdAt'> {
   readonly formatTemplate: string | null;
   readonly restsOnVideos: readonly PickedVideo[];
   readonly pickedCount: number;
+  /** An earlier idea of this channel whose title shares most of its subject words; absent from an older server. */
+  readonly closeTo?: { readonly id: number; readonly title: string } | null;
+}
+
+/** What a card says of an idea that is close to one already stored; null when it is not. */
+export function closeNote(concept: { readonly closeTo?: ConceptView['closeTo'] }): string | null {
+  return concept.closeTo
+    ? `Close to an idea you already have: “${concept.closeTo.title}”. Their titles share most of their words; check it is not the same video.`
+    : null;
 }
 
 /** The concepts with one marked kept or not, the kept ones first and the order otherwise as it was. */

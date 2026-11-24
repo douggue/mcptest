@@ -102,6 +102,19 @@ describe('researching a concept’s subject', () => {
     expect(prompt).toContain('(2): "how long others last".');
   });
 
+  test('says on the sheet how many of the things marked to check one run could not take', async () => {
+    const marked = Array.from({ length: 24 }, (_, at) => `Claim ${at} [CHECK: thing ${at}].`);
+    scripts.save(MINE, conceptId, { chosenHook: marked.join(' ') }, NOW);
+
+    await engine.researchConcept(MINE, conceptId, undefined, quiet);
+
+    expect(asked[0]?.prompt).toContain('(20): "thing 19".');
+    expect(asked[0]?.prompt).not.toContain('"thing 20"');
+    expect(engine.findResearch(MINE, conceptId).sheet?.notFound[0]).toMatch(
+      /^Not looked up in this run: 4 more of the 24 things/,
+    );
+  });
+
   test('a fact too long to keep is left off, and the sheet the owner sees says so', async () => {
     const long = `It ${'was built and opened and '.repeat(30)}closed.`;
     answer = `FACT 1: A short fact.\nSOURCE: https://a.example/1\nFACT 2: ${long}\nSOURCE: https://a.example/2`;

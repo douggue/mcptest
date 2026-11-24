@@ -541,6 +541,13 @@ export {
   parseConcepts,
   type ParsedConcepts,
 } from './concepts/parse';
+export {
+  CLOSE_SHARE,
+  closeIdea,
+  closeTitles,
+  subjectWords,
+  type TitledIdea,
+} from './concepts/similar';
 export { SqliteConceptRepo } from './repos/sqliteConceptRepo';
 export {
   FORMULA_DEFAULT_WINDOW_DAYS,

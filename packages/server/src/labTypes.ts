@@ -60,6 +60,12 @@ export interface ConceptView extends StoredConcept {
   readonly restsOnVideos: readonly PickedVideo[];
   /** How many videos were picked for its batch. */
   readonly pickedCount: number;
+  /**
+   * An idea stored earlier for this channel whose title shares most of its
+   * subject words with this one's, found in code; null when none does. A
+   * prompt for the owner to look, never a verdict.
+   */
+  readonly closeTo: { readonly id: number; readonly title: string } | null;
 }
 
 export interface ConceptList {
@@ -157,10 +163,15 @@ export interface IdeaBrief {
   readonly batch: StoredBatch;
   /** The picked videos that are still stored. */
   readonly picked: readonly PickedVideo[];
+  /** The ideas already stored for the channel in other batches, newest first: a new batch repeats none. */
+  readonly storedIdeas: readonly { readonly id: number; readonly title: string }[];
 }
 
+/** The most stored ideas a brief lists: the newest, which a new batch is likeliest to repeat. */
+export const BRIEF_STORED_IDEAS = 120;
+
 /** One stored concept with its batch, as a tool hands it to an engine. */
-export interface ConceptForTool extends IdeaBrief {
+export interface ConceptForTool extends Omit<IdeaBrief, 'storedIdeas'> {
   readonly concept: StoredConcept;
 }
 

@@ -2812,7 +2812,15 @@ is dropped from the list; a keyframe that is not `k-###` becomes none; a
 motion kind that is not one of the kinds becomes `other`; an item whose time
 cannot be read, or whose way to rebuild is none of the four, is left out.
 Nothing is made up: a required part that is missing stays missing, and the
-stage is then refused with where it first went wrong. What was repaired is
+stage is then refused with where it first went wrong. A null where a text
+may be left out (a camera note, an easing) is a text left out and is said
+nowhere; a required text left empty reads "not stated", with a note, except
+a name, a ready prompt or a quoted line, which are never filled in: the
+stage is then refused, naming the field. The loop is shared
+(`core/src/repair.ts`, `fitToSchema`) with the Format Bible, whose reader
+(`checkBible`) used to refuse a whole Bible for one field too long with no
+reason given: it now shortens, trims and keeps, lists what it did with the
+other things the checks left out, and names the field when it must refuse. What was repaired is
 stored with the stage (`repaired`), and the page and the Markdown say it
 under the stage ("To keep it, the app shortened or left out: …"). The
 questions give the limits in words (about 70 words to a field) and say that a
@@ -3083,6 +3091,10 @@ the same script toward `targetGrade` (the voice's own), nothing added, every
 marker and cue kept, and the length kept section by section (tightening is
 not shortening).
 
+**Beat lines however they are labelled.** Under the BEATS heading, a line
+written as "BEAT 4: 4:00 | …", "4. 4:00 | …" or with no label at all, only
+its time, starts a new beat; it used to read as more of the beat above it.
+
 **A beat is never dropped silently.** The question asks for each beat in one
 line of at most 45 words. `parseHooksAndBeats` keeps a beat of up to
 `MAX_BEAT_CHARS = 1200` characters whole (a real run wrote nine beats of 257
@@ -3112,8 +3124,17 @@ The budget makes a short draft less likely; it cannot make an engine count.
 So at every look the server counts the spoken words under each heading of
 the draft against the budget line of the same name (case aside) and lists
 the sections under `SHORT_SECTION_SHARE = 85%` of their number in
-`ScriptView.shortSections`. The hook is the owner's own and is never listed;
-a heading that matches no budget line is not judged. After a draft, the
+`ScriptView.shortSections`. The hook is the owner's own and is never listed.
+The check (`checkDraft`) walks the beat sheet, not the headings written: a
+beat with no section in the draft is listed as `missing`, and "write the short
+sections again" writes it and puts it in its place in the order of the beats.
+A heading is matched to its beat tolerantly (`sameSection`: case and
+punctuation aside, a numbering such as "Two:" or "2." ignored, the part
+before or after a colon taken), and by place when the draft has exactly one
+section for every beat. When most beats have no section of their name and
+the counts differ, the beat sheet was rewritten after the draft: the view
+says `draftStale`, nothing is judged section by section, and the page says
+to write the draft again. After a draft, the
 stage's `notes` name the short sections, and the Draft step shows them with
 "Write the short sections again". That starts the stage `lengthen` (analysis
 `script-lengthen`): the question names no section (their names are a model's

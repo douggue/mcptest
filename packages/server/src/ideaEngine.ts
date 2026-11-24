@@ -24,6 +24,7 @@ import {
   type PickedVideo,
   type StoredBatch,
   type StoredConcept,
+  closeIdea,
 } from '@jgtube/core';
 import type { AnalysisId } from './analyses';
 import type { EngineAnswer } from './engines/fallback';
@@ -38,6 +39,7 @@ import type {
   LabEngine,
   Report,
 } from './labTypes';
+import { BRIEF_STORED_IDEAS } from './labTypes';
 import type { QuestionFocus } from './questionFocus';
 
 type IdeaParts = Pick<
@@ -110,6 +112,12 @@ function batchOf(deps: LabDeps, request: ConceptRequest): NewBatch | { readonly 
   return { centerChannelId, inspiration, hookModels, format, angle, length };
 }
 
+/** The earlier stored idea of the same channel this one's title is close to, if any. */
+function closeToOf(deps: LabDeps, concept: StoredConcept): ConceptView['closeTo'] {
+  const close = closeIdea(concept, deps.repos.concepts.listForCenter(concept.centerChannelId));
+  return close ? { id: close.id, title: close.title } : null;
+}
+
 function viewOf(deps: LabDeps, concept: StoredConcept, batch: StoredBatch): ConceptView {
   return {
     ...concept,
@@ -118,6 +126,7 @@ function viewOf(deps: LabDeps, concept: StoredConcept, batch: StoredBatch): Conc
     formatTemplate: batch.format?.template ?? null,
     restsOnVideos: stillStored(deps, namedVideoIds(concept.restsOn, batch.inspiration)),
     pickedCount: batch.inspiration.length,
+    closeTo: closeToOf(deps, concept),
   };
 }
 
@@ -321,7 +330,14 @@ export function ideaEngine(deps: LabDeps): IdeaParts {
     findIdeaBrief(channel, batchId) {
       const stored = storedChannel(deps, channel);
       const batch = stored ? concepts.findBatch(stored.id, batchId) : null;
-      return batch ? { batch, picked: stillStored(deps, batch.inspiration) } : null;
+      if (!stored || !batch) return null;
+      const storedIdeas = concepts
+        .listForCenter(stored.id)
+        .filter((concept) => concept.batchId !== batch.id)
+        .sort((a, b) => b.id - a.id)
+        .slice(0, BRIEF_STORED_IDEAS)
+        .map((concept) => ({ id: concept.id, title: concept.title }));
+      return { batch, picked: stillStored(deps, batch.inspiration), storedIdeas };
     },
 
     findConcept(channel, conceptId) {

@@ -19,7 +19,15 @@ import {
   PROMPT_MARKERS,
   markerLines,
 } from '@jgtube/core';
-import { OWNER, SPECIFICITY, THUMBNAIL_CRAFT, buildPrompt, bullets, numbered } from './promptParts';
+import {
+  OWNER,
+  SPECIFICITY,
+  THUMBNAIL_CRAFT,
+  YARDSTICK_NOTE,
+  buildPrompt,
+  bullets,
+  numbered,
+} from './promptParts';
 import { isVideoId } from './engines/videoId';
 import { filesLook, type PictureFileSet } from './pictureFiles';
 
@@ -293,6 +301,7 @@ const SCRIPT_SECTIONS = [
 const SCRIPT_PART_CRAFT: readonly string[] = [
   'Read each script as a director reads a cut for retention, and name what you find:',
   'The hook, against the clock: what the first sentence does in the first 5 seconds, what is at stake by about 15 seconds, and what turn or reason to stay has come by about 30 seconds. Give the time and the quoted line for each, and say plainly when one is missing.',
+  YARDSTICK_NOTE,
   'Re-hooks: the line at the end of each beat that makes the next one necessary (a question, an unpaid promise, a turn), quoted with its time, and how far apart they come.',
   'Payoff pacing: when each promise is paid, how long the main promise of the title is held, and whether the ending pays it in full.',
   'Give each technique a plain name, quote the line that does it and give its time. A technique named without its line is not a finding.',
@@ -485,7 +494,7 @@ export function planQuestion(channel: string, given: BreakdownFocus = NO_FOCUS):
 
 const MASTER_PART_CRAFT: readonly string[] = [
   'The master prompt is read by an AI that knows nothing of this breakdown. Write it the way a good brief is written: who the AI is to be, what it is given, the rules, the structure with numbers, and the exact form of what it delivers, each under its own heading.',
-  'Carry the craft, not just the outline: say what the first sentence must do, what must be at stake and open within the first half minute, how each beat must end so that the next is needed, and where the promise of the title is paid.',
+  'Carry the craft, not just the outline: say what the first sentence must do, what must be at stake and open within the first half minute, that most beats end on a pull into the next with the device varied and never the same twice running, and where the promise of the title is paid.',
   'Hold it to its length: have it work out the words to write (the minutes asked times the words a minute), share them among the beats by each beat’s share of the length, write beat by beat to those counts, and count before it answers.',
   'Describe the style in general terms that work for any topic the owner puts in the slot: no subject, name or line from this channel’s videos.',
 ];

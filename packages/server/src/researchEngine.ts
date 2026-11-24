@@ -20,7 +20,12 @@ import {
 } from '@jgtube/core';
 import type { EngineId, EngineRunResult } from './engines/types';
 import type { WebRunRequest } from './engines/webRun';
-import { RESEARCH_SYSTEM_PROMPT, claimsQuestion, researchQuestion } from './researchQuestions';
+import {
+  MAX_TO_CHECK,
+  RESEARCH_SYSTEM_PROMPT,
+  claimsQuestion,
+  researchQuestion,
+} from './researchQuestions';
 import type { Report } from './labTypes';
 import { targetWordsOf } from './scriptLength';
 
@@ -154,7 +159,19 @@ export function researchEngine(deps: ResearchDeps): ResearchEngine {
         RESEARCH_TIMEOUT_MS,
       );
       onProgress({ step: 'reading', text: 'Reading the fact sheet' });
-      const sheet = parseFactSheet(answer.text);
+      const read = parseFactSheet(answer.text);
+      const leftOut = toCheck.length - MAX_TO_CHECK;
+      // More open questions than one run is asked: the owner is told, on the sheet, how many were not.
+      const sheet =
+        leftOut > 0
+          ? {
+              ...read,
+              notFound: [
+                `Not looked up in this run: ${leftOut} more of the ${toCheck.length} things your hook and beat sheet mark to check. A run is asked ${MAX_TO_CHECK}; the claims check can check the rest once they are in the script.`,
+                ...read.notFound,
+              ],
+            }
+          : read;
       if (sheet.facts.length === 0 && sheet.notFound.length === 0) {
         throw new Error(
           'The research run answered, but with no fact sheet in it. Nothing was changed. Try again.',

@@ -4,6 +4,7 @@ import {
   PHONE_TITLE_CHARS,
   SHORTS_TITLE_CHARS,
   YOUTUBE_TITLE_CHARS,
+  closeNote,
   batchRequest,
   canGenerate,
   generateBlocked,
@@ -55,6 +56,16 @@ const hook = (videoId: string, overrides: Partial<LibraryHook> = {}): LibraryHoo
   style: 'cold open',
   how: 'It starts mid-scene.',
   ...overrides,
+});
+
+describe('an idea close to one already stored', () => {
+  test('is said on its card with the other idea’s title, and nothing is said when it is not', () => {
+    expect(closeNote({ closeTo: { id: 5, title: 'An earlier idea' } })).toBe(
+      'Close to an idea you already have: “An earlier idea”. Their titles share most of their words; check it is not the same video.',
+    );
+    expect(closeNote({ closeTo: null })).toBeNull();
+    expect(closeNote({})).toBeNull();
+  });
 });
 
 describe('picking inspiration', () => {

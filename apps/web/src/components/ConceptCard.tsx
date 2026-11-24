@@ -4,6 +4,7 @@ import { liftedFrom } from '@jgtube/core/src/hooks/lift';
 import { useState } from 'react';
 import type { LibraryHook } from '../lib/hookLibrary';
 import {
+  closeNote,
   hookModelOf,
   overlayNote,
   titleCheck,
@@ -225,6 +226,9 @@ export function ConceptCard(props: Props) {
         onToggle={() => setOpen((shown) => !shown)}
       />
       <LiftNote concept={concept} hooks={hooks} />
+      {closeNote(concept) && (
+        <p className="break-words text-body-sm text-metric-amber">{closeNote(concept)}</p>
+      )}
       {open && <ConceptBody {...props} />}
     </Card>
   );

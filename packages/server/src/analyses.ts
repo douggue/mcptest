@@ -309,6 +309,7 @@ function topicsQuestion(channel: string): string {
       ...bullets(titleCraft('marked NEEDS A REAL STORY to be checked unless a tool returned it')),
       ...bullets([
         'The two title options differ in how they pull (one may ask, the other state or contrast): two rewordings of one title are one option.',
+        'Vary how the titles open across the list, unless the winners you read all open the same way; say so when they do.',
         'The thumbnail line names the single thing shown and the overlay words, four or fewer, that add what the title does not say.',
       ]),
     ],

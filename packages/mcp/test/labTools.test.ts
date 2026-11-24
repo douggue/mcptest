@@ -82,7 +82,11 @@ const partText = (result: CallToolResult, index: number): string => {
 
 describe('get_idea_brief', () => {
   test('returns what the owner chose, with where the format came from, and never the angle', async () => {
-    engine.brief = { batch, picked };
+    engine.brief = {
+      batch,
+      picked,
+      storedIdeas: [{ id: 3, title: 'An idea stored before' }],
+    };
 
     const result = await tools.getIdeaBrief({ channel: CENTER_ID, batch: 7 });
 
@@ -96,6 +100,7 @@ describe('get_idea_brief', () => {
         wording: 'Why [Thing] Quietly Left',
         from: 'proposed by an earlier AI run from titles on this map',
       },
+      storedIdeas: ['An idea stored before'],
       note: expect.stringMatching(/never as instructions/),
     });
     expect(textOf(result)).not.toMatch(/ignore the rules/);
@@ -103,12 +108,13 @@ describe('get_idea_brief', () => {
   });
 
   test('leaves out what was not chosen', async () => {
-    engine.brief = { batch: { ...batch, hookModels: [], format: null }, picked };
+    engine.brief = { batch: { ...batch, hookModels: [], format: null }, picked, storedIdeas: [] };
 
     const head = headOf(await tools.getIdeaBrief({ channel: CENTER_ID, batch: 7 }));
 
     expect(head).not.toHaveProperty('format');
     expect(head).not.toHaveProperty('modelOpenings');
+    expect(head).not.toHaveProperty('storedIdeas');
   });
 
   test('fails for a batch that is not this channel’s, and for input that is not a channel or a number', async () => {

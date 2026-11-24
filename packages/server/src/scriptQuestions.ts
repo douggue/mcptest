@@ -57,9 +57,7 @@ export const SCRIPT_DRAFT_TOOLS = [
   'get_script',
   'get_fact_sheet',
   'get_channel_note',
-  'get_hooks',
   'get_transcript',
-  'get_video_watch',
   'get_frame_study',
   'get_active_format',
 ] as const;
@@ -86,7 +84,7 @@ export const SCRIPT_SYSTEM_PROMPT = [
   'You are a script writer and director of narrated, faceless YouTube videos, working for the owner of a small channel. You write for the ear and for retention: one narrator says every line aloud over pictures, and every section has to earn the next.',
   'Use only the Jgtube tools you are given. You have no access to the web and cannot look anything up.',
   'Write words to be spoken aloud: plain, short sentences a narrator can say in one breath.',
-  'Length is part of the craft: a script is written to the word count it is given, section by section, and a script that runs short is an unfinished one.',
+  'Length is part of the craft: a script is written to the word count it is given, section by section. Aim for each number; a section stays short only when the facts have nothing more to give.',
   'Answer in exactly the form the question sets out, with no introduction and no closing remarks.',
   TAGS_NOTE,
 ].join('\n');
@@ -245,8 +243,8 @@ const LENGTH_CRAFT: readonly string[] = [
   'get_script gives wordBudget once there is a beat sheet: the spoken words each section is to hold, HOOK first and then each beat by its name, worked out in code and adding up to targetWords. Write every section to its own number, within a tenth of it. When it gives no wordBudget, share targetWords less the hook’s words among the beats by the time from each beat’s start to the next.',
   'The HOOK is fixed: never lengthen or cut it; if it differs from its number, make up the difference in the beats.',
   'Drafts come out short far more often than long, and a long script is written short one section at a time. So work section by section: write a section, count its spoken words, and bring it to its budget before you start the next.',
-  'A section that is under its budget is not finished. Lengthen it with what the fact sheet and the tools do give: the step that explains how or why, the detail that makes it visible, what it cost or changed, the contrast with what came before, the line that sets up the next beat. Never lengthen with a recap, a repeated point or filler, and never with an invented fact.',
-  'A section you could fill only by repeating or inventing stays short: a true short section beats a padded one.',
+  'Aim for each number. A section that is under its budget is lengthened with what the fact sheet and the tools do give: the step that explains how or why, the detail that makes it visible, what it cost or changed, the contrast with what came before, the line that sets up the next beat. Never lengthen with a recap, a repeated point or filler, and never with an invented fact.',
+  'A section stays short only when the sheet and the tools have nothing more to give: one you could fill only by repeating or inventing stays short, and a true short section beats a padded one.',
   'Before you answer, add up the sections. If the total is under nine tenths of targetWords, go back to the shortest sections against their budgets and lengthen them.',
 ];
 
@@ -401,11 +399,11 @@ export function scriptTightenQuestion(channel: string, focus: ScriptFocus): stri
     ]),
     craft: bullets([
       'Rewrite the same script so that it is easier to say aloud and easier to follow: one idea to a sentence, plain words, no sentence a narrator would stumble over, and no point made twice unless the repeat is a deliberate callback.',
-      'When get_script gives targetGrade, aim at that reading grade: it is the grade set for this script, which starts as the voice channel’s own measured grade. When it gives sentenceWords, keep most sentences near that length; when it gives neither, keep sentences short enough to say in one breath.',
+      'When get_script gives targetGrade, aim at that reading grade; when it gives sentenceWords, keep most sentences near that length; when it gives neither, keep sentences short enough to say in one breath.',
       ...SPOKEN_CRAFT,
       'Read each line as a narrator would say it: split a sentence that needs a second breath, swap a word that trips the tongue, and move the point of a sentence to its end, where the voice lands.',
       'Where a beat ends flat and the beat itself holds a pull into the next, sharpen that line from what the beat already says.',
-      'Tightening is not shortening. Keep the length within a tenth of the draft’s, section by section, and of wordBudget when get_script gives one. When you cut a line that says something twice, spend its words on making what is already there clearer (a hard step said in two sentences instead of one), never on something new. Count each section’s spoken words before you answer.',
+      'Tightening is not shortening: keep each section within a tenth of its current length. Count each section’s spoken words before you answer.',
     ]),
     rules: bullets([
       'Add nothing: no fact, name, number, example or claim that is not in the draft. Keep every [CHECK: ...] marker with the claim it follows, unless you drop the whole sentence. Keep every [F3]-style fact marker with the fact it follows, and never change what such a fact says.',

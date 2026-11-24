@@ -265,6 +265,49 @@ fixture (`packages/core/test/fixtures/hooksLongBeats.txt`).
   [LENGTH IN MINUTES] slot and works its words out from it. A ready title
   marks with (check) any fact, name or number no tool returned.
 
+## Found by the second round of real runs
+
+Two more real runs after those fixes: the hooks stage wrote ten beats and
+ten were stored; a batch of ten concepts was read whole. What they and a
+second reading still found, now fixed:
+
+- **The Format Bible was still refused whole for one field too long**, with
+  a reason that named nothing. It now goes through the same repair as a
+  teardown stage, its limits are given in words, and the master prompt has
+  room for about 700 words.
+- **The check after a draft had blind spots.** It read only the headings
+  written, so a beat the draft left out altogether was never reported, and a
+  heading worded a little differently from its beat was skipped. It now
+  walks the beat sheet, reports a missing beat and can have it written into
+  its place, matches headings tolerantly, and says so when the draft was
+  written from an older beat sheet instead of judging it section by section.
+- **A teardown stage was refused for a null** in a text that may be left out.
+  That is now read as left out; a required text left empty reads "not
+  stated" unless it is a name, a prompt or a quoted line.
+- **An idea's opening** was held to one sentence, which made the sentences
+  long. It is now at most two short sentences, about 25 words: the promise,
+  then the open question.
+- **A new batch did not know the ideas already stored**, so it could repeat
+  them. The brief now lists their titles, the question says never to repeat
+  a stored subject, and code marks on the card an idea whose title shares
+  most of its words with an earlier one. That mark compares words, not
+  meaning: it is a prompt to look.
+- **Sameness across a batch:** every overlay "top left", eight of ten titles
+  opening on one word. The craft now asks to vary both unless the winners
+  read all do the same, and to say so when they do.
+- **Beat lines** labelled "BEAT 4:", "4." or not at all were merged into the
+  beat above. Each now starts a new beat.
+- **Leftovers:** "a script that runs short is an unfinished one" and "a
+  section under its budget is not finished" contradicted "a true short
+  section beats a padded one"; they now say to aim for each number, and that
+  a section stays short only when the facts run out. The tighten pass has
+  one anchor (each section within a tenth of its current length). The draft
+  is offered only tools one of its lines uses. Thumbnail prompts handed on
+  by one video, a teardown's plan and the Bible carry the corner rule and
+  the editor option. A teardown stage's tool calls no longer restate its
+  task. A research run says on the sheet when it was handed more open
+  questions than it takes.
+
 ## What did not change
 
 - Every marker and labelled form code reads: `CONCEPT n`, `TITLE:`, `ALT:`,

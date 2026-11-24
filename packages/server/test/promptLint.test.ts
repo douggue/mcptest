@@ -25,6 +25,7 @@ import {
   type PromptSection,
 } from '../src/promptParts';
 import { factsAsked, researchQuestion } from '../src/researchQuestions';
+import { SCRIPT_DRAFT_TOOLS } from '../src/scriptQuestions';
 import { promptCatalog, type CatalogEntry } from './promptCatalog';
 
 /**
@@ -376,31 +377,35 @@ describe('no output form contradicts the code that reads the answer', () => {
 
   test('a Format Bible filled to the lengths its question allows is accepted', () => {
     const rules = part(find('format-bible'), 'rules');
-    const n = (what: RegExp): number => limit(rules, what);
+    // The limits are said in words; a text of that many ordinary words must fit as written.
+    const n = (what: RegExp): string => chars(limit(rules, what) * WORD_CHARS);
     const bible = {
-      coreRules: [chars(n(/what a beat does at most (\d+)/))],
+      coreRules: [n(/what a beat does in about (\d+) words/)],
       visualSystem: {
-        summary: chars(n(/the look in at most ([\d,]+)/)),
-        roles: [{ hex: '#000000', role: chars(n(/a title formula at most (\d+)/)) }],
+        summary: n(/the look in about (\d+) words/),
+        roles: [{ hex: '#000000', role: n(/a title formula in about (\d+) words/) }],
       },
       components: [
         {
-          name: chars(n(/a name or a beat at most (\d+)/)),
-          purpose: chars(n(/a thing not to copy at most (\d+)/)),
-          build: chars(n(/a motion recipe at most (\d+)/)),
+          name: n(/a name or a beat in at most (\d+) words/),
+          purpose: n(/a thing not to copy in about (\d+) words/),
+          build: n(/a motion recipe in about (\d+) words/),
         },
       ],
       thumbnails: [
         {
           name: 'a layout',
-          layout: chars(n(/a layout at most (\d+)/)),
-          prompt: chars(n(/a thumbnail prompt at most ([\d,]+)/)),
+          layout: n(/a layout in about (\d+) words/),
+          prompt: n(/a thumbnail prompt in about (\d+) words/),
         },
       ],
-      masterPrompt: chars(n(/the master prompt at most ([\d,]+)/)),
+      titleFormulas: [{ formula: n(/a title formula in about (\d+) words/), example: '' }],
+      masterPrompt: n(/the master prompt in about (\d+) words/),
     };
 
     expect(bibleAnswerSchema.safeParse(bible).success).toBe(true);
+    expect(rules).toMatch(/A text that runs over is cut to fit/);
+    expect(rules).not.toMatch(/the whole Bible is refused/);
   });
 });
 
@@ -469,6 +474,117 @@ describe('what the first real runs found, kept fixed', () => {
   });
 });
 
+describe('what the second round of real runs found, kept fixed', () => {
+  const CONCEPTS = [
+    'concepts',
+    'concept-twist',
+    'concept-more',
+    'concepts (shorts, an angle, a format, formulas, a hook model)',
+  ];
+
+  test('an idea’s opening may be two short sentences, and the reader takes them', () => {
+    for (const name of CONCEPTS) {
+      expect(part(find(name), 'output_format'), name).toContain(
+        'HOOK: the opening, at most two short sentences, about 25 words: the promise first, then the open question.',
+      );
+    }
+    const hook = 'A promise is made here in a dozen plain words. Then what is left open?';
+    const answer = [
+      'CONCEPT 1',
+      'TITLE: A title',
+      'ALT: One',
+      'ALT: Two',
+      'THUMBNAIL: A subject.',
+      'OVERLAY: TWO WORDS',
+      `HOOK: ${hook}`,
+      'HOOK STYLE: none',
+      'RESTS ON: video000001 its structure',
+      'NEEDS: nothing',
+    ].join('\n');
+
+    expect(parseConcepts(answer, 1)).toMatchObject({ problems: [], concepts: [{ hook }] });
+  });
+
+  test('a batch is shown the ideas already stored, told never to repeat one, and told to vary', () => {
+    for (const name of CONCEPTS) {
+      const entry = find(name);
+
+      expect(part(entry, 'gather'), name).toMatch(/get_idea_brief[^\n]*storedIdeas/);
+      expect(part(entry, 'craft'), name).toMatch(/Never repeat a stored subject/);
+      expect(part(entry, 'craft'), name).toMatch(
+        /Vary the title’s opening word and the overlay’s position/,
+      );
+      expect(entry.prompt, name).not.toMatch(/a number a tool gave, a stake/);
+    }
+  });
+
+  test('a script is aimed at its numbers, and stays short only when the facts run out', () => {
+    const system = find('script-draft').systemPrompt;
+    const craft = part(find('script-draft'), 'craft');
+
+    expect(system).not.toMatch(/unfinished/);
+    expect(system).toMatch(/a section stays short only when the facts have nothing more to give/);
+    expect(craft).not.toMatch(/is not finished/);
+    expect(craft).toMatch(
+      /A section stays short only when the sheet and the tools have nothing more/,
+    );
+  });
+
+  test('the draft is offered only tools one of its lines uses', () => {
+    const draft = find('script-draft').prompt;
+
+    for (const tool of SCRIPT_DRAFT_TOOLS) expect(draft, tool).toContain(tool);
+  });
+
+  test('a teardown stage never asks for a null in a text, and its tool calls only call', () => {
+    for (const stage of [
+      'structure',
+      'hook',
+      'design',
+      'archetypes',
+      'motion',
+      'techniques',
+      'sound',
+      'plan',
+    ]) {
+      const entry = find(`teardown-${stage}`);
+
+      expect(part(entry, 'rules'), stage).toMatch(/Never write null in a text field/);
+      expect(part(entry, 'gather'), stage).not.toMatch(
+        /\b(Write|Find|Build|Name|Split|Give|Group|Go through) /,
+      );
+    }
+    expect(part(find('teardown-hook'), 'craft')).toMatch(
+      /Start "summary" with the reusable pattern/,
+    );
+  });
+
+  test('every thumbnail prompt an answer hands on keeps clear of the corner and offers the editor', () => {
+    for (const name of [
+      'one-video',
+      'teardown-plan',
+      'format-bible',
+      'thumbnails',
+      'concept-thumbnail',
+    ]) {
+      const prompt = find(name).prompt;
+
+      expect(prompt, name).toMatch(/bottom-right corner/);
+      expect(prompt, name).toMatch(/image editor/);
+    }
+  });
+
+  test('the Format Bible gives a beat its place in the order, and a second only from the shelf', () => {
+    const bible = find('format-bible').prompt;
+
+    expect(bible).toContain('a second only when the hook ingredient gives one');
+    expect(bible).not.toContain('by what second');
+    expect(bible).not.toMatch(/ends so that the next is needed/);
+    expect(find('breakdown-master').prompt).not.toMatch(/must end so that the next is needed/);
+    expect(find('breakdown-scripts').prompt).toMatch(/yardstick, not measurements/);
+  });
+});
+
 describe('lengths add up', () => {
   test('the draft is written to a budget per section that code works out, and the tighten pass keeps it', () => {
     const draft = part(find('script-draft'), 'craft');
@@ -478,8 +594,11 @@ describe('lengths add up', () => {
     expect(draft).toMatch(/adding up to targetWords/);
     expect(draft).toMatch(/Write every section to its own number, within a tenth/);
     expect(draft).toMatch(/under nine tenths of targetWords/);
-    expect(tighten).toMatch(/Tightening is not shortening/);
-    expect(tighten).toMatch(/within a tenth of the draft’s, section by section/);
+    // One anchor for the tighten pass: each section against its own current length.
+    expect(tighten).toMatch(
+      /Tightening is not shortening: keep each section within a tenth of its current length/,
+    );
+    expect(tighten).not.toMatch(/wordBudget|the draft’s, section by section/);
   });
 
   test('the draft never touches the hook, and a section it cannot fill honestly stays short', () => {

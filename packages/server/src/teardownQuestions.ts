@@ -80,8 +80,10 @@ interface StageBrief {
   readonly include: string;
   /** Whether it looks at pictures chosen in code. */
   readonly pictures?: boolean;
-  /** How to read what it is given, in order. */
+  /** What it is given, and how to read it: said with the tool call. */
   readonly reading: readonly string[];
+  /** What to make of it, step by step: said with the craft, never among the tool calls. */
+  readonly doing: readonly string[];
   /** What a director looks for in this stage. */
   readonly craft: readonly string[];
   readonly heard?: boolean;
@@ -93,8 +95,9 @@ const STAGE_BRIEFS: Readonly<Record<JudgedStage, StageBrief>> = {
   structure: {
     task: 'Find how this video is built: its chapters, the job each does, and what carries a viewer from one to the next.',
     include: '["measured", "transcript"]',
-    reading: [
-      'Split the video into its chapters (2 to 10) from what is said and from where the cuts get denser or sparser: shots.cuts lists every measured cut.',
+    reading: ['shots.cuts lists every measured cut.'],
+    doing: [
+      'Split the video into its chapters (2 to 10) from what is said and from where the cuts get denser or sparser.',
       'Chapters must follow each other without gaps from 0 to the end of the video.',
     ],
     craft: [
@@ -109,13 +112,15 @@ const STAGE_BRIEFS: Readonly<Record<JudgedStage, StageBrief>> = {
     include: '["measured", "transcript", "structure", "watch"]',
     pictures: true,
     reading: [
-      'Go through the opening frame by frame: hook.jpg shows the first seconds one frame a second, left to right then top to bottom; the keyframes are from the first shots.',
-      'Give one row per beat (a new shot, a new text or graphic layer, a new line), up to 20 rows, covering the opening without gaps.',
+      'hook.jpg shows the first seconds one frame a second, left to right then top to bottom; the keyframes are from the first shots.',
+    ],
+    doing: [
+      'Go through the opening frame by frame and give one row per beat (a new shot, a new text or graphic layer, a new line), up to 20 rows, covering the opening without gaps.',
     ],
     craft: [
+      'Start "summary" with the reusable pattern: the opening as steps the owner can reuse on another topic, in order, each with its length in seconds. Then the judgement against the clock.',
       'In "summary" judge the opening against the clock (the 5, 15 and 30 second marks are this question’s yardstick, not measurements), quoting the transcript with times: what the first sentence promises in the first 5 seconds; what is at stake and what question is left open by about 15 seconds; what turn, contrast or surprise comes by about 30 seconds; and when that question is finally answered. Say plainly when one of these is missing.',
       'Say how picture and words work together in the opening: what the first frame shows before a word is said, how many cuts the measurements count in the first 30 seconds, and what on-screen text adds to the spoken line.',
-      'End "summary" with the opening as a pattern the owner can reuse on another topic: its steps in order, each with its length in seconds.',
       'In each row, "visual" says what is on screen and what changed from the row before.',
     ],
   },
@@ -126,8 +131,10 @@ const STAGE_BRIEFS: Readonly<Record<JudgedStage, StageBrief>> = {
     include: '["measured", "structure"]',
     pictures: true,
     reading: [
-      'Each chapter sheet shows that chapter as frames spread evenly across it.',
-      'Group the measured palette (measured.palette) into 2 to 6 colour modes; use only hex values from that palette. Name the type styles by look (geometric sans, condensed grotesque, monospace, serif, handwritten), never a guessed font file. List the motion signatures you can see repeat.',
+      'Each chapter sheet shows that chapter as frames spread evenly across it; measured.palette holds the measured palette.',
+    ],
+    doing: [
+      'Group the measured palette into 2 to 6 colour modes; use only hex values from that palette. Name the type styles by look (geometric sans, condensed grotesque, monospace, serif, handwritten), never a guessed font file. List the motion signatures you can see repeat.',
     ],
     craft: [
       'For each colour mode say what job it does (the ground, the emphasis, a warning, a quotation, a change of chapter) and in which chapters it is used.',
@@ -139,8 +146,8 @@ const STAGE_BRIEFS: Readonly<Record<JudgedStage, StageBrief>> = {
     task: 'Build the library of visual templates this video is assembled from, each described well enough to rebuild.',
     include: '["measured", "structure"]',
     pictures: true,
-    reading: [
-      'Each keyframe k-### is the middle of one shot; measured.keyframes gives its time.',
+    reading: ['Each keyframe k-### is the middle of one shot; measured.keyframes gives its time.'],
+    doing: [
       'Build the library of recurring visual templates (3 to 16): for each, the keyframe that shows it best and every time it appears.',
     ],
     craft: [
@@ -157,6 +164,8 @@ const STAGE_BRIEFS: Readonly<Record<JudgedStage, StageBrief>> = {
     heard: true,
     reading: [
       'Each strip s-### shows ten frames in a row around one measured event; measured.motion.strips gives its kind, time, frames, step and measured duration.',
+    ],
+    doing: [
       'Name the animation and transition vocabulary you see (text reveals, line draws, counters, slides, masks, wipes, zooms), each with the strips it is seen in and a recipe precise enough to rebuild it. Do not repeat a measured duration in words: code shows it.',
     ],
     craft: [
@@ -169,8 +178,9 @@ const STAGE_BRIEFS: Readonly<Record<JudgedStage, StageBrief>> = {
     limits: 'At most 6 quotes to a technique.',
     task: 'Find the storytelling and rhetoric techniques this script uses to hold a viewer, each named, quoted and timed.',
     include: '["transcript", "structure", "measured"]',
-    reading: [
-      'Find the storytelling and rhetoric techniques (3 to 12): open loops, callbacks, contrasts, short hammer lines (measured.words.hammers lists the 2 to 5 word sentences found in code), specific numbers, admissions of doubt, calls to action.',
+    reading: ['measured.words.hammers lists the 2 to 5 word sentences found in code.'],
+    doing: [
+      'Find the storytelling and rhetoric techniques (3 to 12): open loops, callbacks, contrasts, short hammer lines, specific numbers, admissions of doubt, calls to action.',
       'Quote the transcript word for word for each; code checks every quote against it.',
     ],
     craft: [
@@ -186,7 +196,10 @@ const STAGE_BRIEFS: Readonly<Record<JudgedStage, StageBrief>> = {
     include: '["measured", "watch", "structure"]',
     heard: true,
     reading: [
-      'Write the sound design blueprint: voice, music bed, sound effects with their times, and the mix, using the measured integrated loudness, loudness range, true peak, quiet dips and peaks.',
+      'The measurements hold the integrated loudness, the loudness range, the true peak, the quiet dips and the peaks.',
+    ],
+    doing: [
+      'Give the voice, the music bed, the sound effects with their times, and the mix, using those measured numbers.',
     ],
     craft: [
       'Voice: who speaks, the pace as measured in words a minute, the delivery, and where it changes (a pause before a reveal, a faster run).',
@@ -200,16 +213,17 @@ const STAGE_BRIEFS: Readonly<Record<JudgedStage, StageBrief>> = {
       'At most 10 layers, 16 components, 16 workflow steps, 16 visual prompts and 12 things to avoid.',
     task: 'Write the plan to make new videos in this style: the layers, the components, the workflow and ready prompts.',
     include: '["measured", "structure", "design", "archetypes", "motion", "techniques", "sound"]',
-    reading: [
-      'Write the plan to make new videos in this style: tool types per layer (code-animated motion graphics, AI image, AI video, stock or archival footage with its licence, voice, music, mix with the measured loudness as the target), the components to build, the workflow step by step, and ready prompts.',
-      "The script prompt carries this video's structure (chapter roles in order, hook length, hammer lines, pace in words a minute from the measurements) with the slot [TOPIC]. Give one visual prompt per main archetype. Name kinds of tools, not products.",
+    reading: [],
+    doing: [
+      'Give the tool types per layer (code-animated motion graphics, AI image, AI video, stock or archival footage with its licence, voice, music, mix with the measured loudness as the target), the components to build, the workflow step by step, and ready prompts.',
+      "The script prompt carries this video's structure (chapter roles in order, hook length, hammer lines, pace in words a minute from the measurements). Give one visual prompt per main archetype. Name kinds of tools, not products.",
       "Say what not to copy: the channel's own marks, its exact wording, anything that would make a copy rather than a video in the same style.",
     ],
     craft: [
       'Each workflow step says what to do, what comes out of it and the measured number to hit (the pace, the cuts a minute, the loudness), in the order the owner would work.',
       'The script prompt is a complete brief for another AI: who it is to be; the slots [TOPIC] and [LENGTH IN MINUTES]; the chapters in order, each with its job and its share of the length from the measured chapter times; what the first 5, 15 and 30 seconds must do; the techniques to use, by the names the techniques stage gave them; the pace in words a minute and the words to write for the length asked (the minutes in the slot times the words a minute); and the rule that any fact the owner did not supply is marked [CHECK: what to verify].',
       'Have the script prompt hold its writer to the length: share the words among the chapters, write chapter by chapter to those counts, and count before answering.',
-      'Each visual prompt gives the frame, the layout by layers, the colours as measured hex values, the type style and what moves, with [SCENE] for the content. The thumbnail prompt gives one focal point, the colours and where the words sit.',
+      'Each visual prompt gives the frame, the layout by layers, the colours as measured hex values, the type style and what moves, with [SCENE] for the content. The thumbnail prompt gives one focal point, the colours and where the words sit, keeps the words and anything that matters out of the bottom-right corner (YouTube sets the video’s length there), and offers the option to leave the text area clear so the words can be set in an image editor.',
       'A prompt names no channel, no real person and no logo.',
       YARDSTICK_NOTE,
     ],
@@ -230,11 +244,11 @@ export function stageQuestion(stage: JudgedStage, facts: QuestionFacts): string 
       brief.pictures && facts.look,
       ...brief.reading,
     ]),
-    craft: bullets(brief.craft),
+    craft: bullets([...brief.doing, ...brief.craft]),
     rules: bullets([
       brief.heard && heardRule(facts),
       'Every number, time and colour comes from the tool. A time is in seconds, as the measurements give it.',
-      'Describe only pictures you were shown and quote only words the transcript holds. What the tool does not hold (no transcript, no watch notes, a picture that would not load) is never filled in. In a text field, write that it is missing. In a list of times, hexes or strips, leave the list empty; for a keyframe write null.',
+      'Describe only pictures you were shown and quote only words the transcript holds. What the tool does not hold (no transcript, no watch notes, a picture that would not load) is never filled in. In a text field, write that it is missing. In a list of times, hexes or strips, leave the list empty; for a keyframe write null. Never write null in a text field: leave the field out or say what is missing.',
       TEXT_LIMITS,
       `A list of times holds at most ${MAX_TIMES}: for something seen more often, give the first ${MAX_TIMES}.`,
       brief.limits,

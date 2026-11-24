@@ -53,6 +53,8 @@ If a section is under 85% of its share, the Draft step lists it with the
 words it has and the words it was to hold. Press "Write the short sections
 again" once and check:
 
+- a beat the draft left out is listed as "missing from the draft", and
+  after the run it stands in its place between the others;
 - only the listed sections changed (the hook and the others read as before);
 - the rewritten sections tell more, not the same thing twice;
 - a section that stays short says something true and stops. That is the
@@ -100,6 +102,13 @@ Pick a video you know well, ideally one you compared with another AI before.
 
 - How many of the ideas could you start on today, without asking "but about
   what, exactly"?
+- Does a new batch repeat a subject you already have? A card that says
+  "Close to an idea you already have" is the app's own check: read both.
+- Across the batch: do the titles open on different words, and do the
+  overlays sit in different places, unless the answer says the winners all
+  do the same?
+- Is each opening at most two short sentences: the promise, then the open
+  question?
 - For each title: can you say from the title alone what the video gives you?
 - Are the two alternates really different pulls, or the same title reworded?
 - Does the overlay add something the title does not say, in four words or
@@ -160,7 +169,7 @@ Run it again on a channel you have a breakdown of (seven runs).
 | What viewers ask for     | Each finding exact enough to become a title or a line in a script                          |
 | Check before publishing  | Promises the title or thumbnail makes that the script pays late, in part or never          |
 | Suggest a mix            | The summary names the weakest slot and what would strengthen it                            |
-| Format Bible             | It comes back whole (not refused for length); rules you can check a video against          |
+| Format Bible             | It comes back whole; "Shortened or left out by the checks" lists anything cut; rules you can check a video against |
 | Your own question        | The answer first, then the videos and numbers behind it                                    |
 
 ## What to send back
