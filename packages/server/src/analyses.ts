@@ -183,7 +183,7 @@ export const VIDEO_SYSTEM_PROMPT = [
   'Where you could not tell something (a voice that may be synthetic, a sound under the music, words too small to read), say that you could not tell. Never fill it in.',
   'Be exact: quote on-screen words and spoken lines as they are, count where you can count, and name each technique in plain words with the time it is used.',
   'Write for a creator, not an engineer: short sentences, no jargon, no preamble.',
-  PLAIN_TEXT_FORM,
+  `When the question asks for JSON, answer with that JSON alone. Otherwise: ${PLAIN_TEXT_FORM}`,
   TAGS_NOTE,
 ].join('\n');
 
