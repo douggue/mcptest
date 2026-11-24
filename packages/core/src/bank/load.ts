@@ -211,8 +211,10 @@ export function buildBank(rows: readonly BankRow[], context: BankContext, now: D
   return { builtAt: now.toISOString(), videos: [...videos].sort(strongestFirst) };
 }
 
-export interface BankReaderDeps extends BankContext {
+export interface BankReaderDeps {
   readonly now: () => Date;
+  /** What a build needs besides the rows, worked out once per build. */
+  readonly context: () => BankContext;
 }
 
 export interface BankReader {
@@ -234,7 +236,7 @@ export function createBankReader(db: Db, deps: BankReaderDeps): BankReader {
         kept.fingerprint === fingerprint &&
         now.getTime() - new Date(kept.bank.builtAt).getTime() < MAX_BANK_AGE_MS;
       if (fresh && kept) return kept.bank;
-      const bank = buildBank(loadBankRows(db), deps, now);
+      const bank = buildBank(loadBankRows(db), deps.context(), now);
       kept = { fingerprint, bank };
       return bank;
     },

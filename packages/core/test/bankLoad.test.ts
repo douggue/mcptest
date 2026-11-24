@@ -74,15 +74,15 @@ describe('the bank reader', () => {
     const db = seededStore();
     let builds = 0;
     const reader = createBankReader(db, {
-      closenessOf: () => {
+      context: () => {
         builds += 1;
-        return null;
+        return { closenessOf: noCloseness };
       },
       now: () => NOW,
     });
     const first = reader.read();
     expect(reader.read()).toBe(first);
-    expect(builds).toBe(2);
+    expect(builds).toBe(1);
     const before = bankFingerprint(db);
     new SqliteVideoRepo(db).upsertMany(
       videosOf('B', [

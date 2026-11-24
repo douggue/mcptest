@@ -2,6 +2,7 @@ import type { Engine } from '../src/app';
 import type { ExtrasEngine } from '../src/extrasTypes';
 import type { FormatEngine } from '../src/formatTypes';
 import type { FormatBuilderEngine } from '../src/formatBuilderTypes';
+import type { BankEngine } from '../src/bankTypes';
 import type { LabEngine } from '../src/labTypes';
 import type { BreakdownHub } from '../src/oneVideoTypes';
 import type { ScriptEngine } from '../src/scriptTypes';
@@ -110,6 +111,20 @@ export const UNUSED_FORMAT_BUILDER: FormatBuilderEngine = {
   bibleZip: unused('bibleZip'),
 };
 
+export const UNUSED_BANK: BankEngine = {
+  look: unused('look'),
+  findInfo: unused('findInfo'),
+  findMore: unused('findMore'),
+  collections: {
+    list: unused('list'),
+    create: unused('create'),
+    remove: unused('remove'),
+    add: unused('add'),
+    take: unused('take'),
+    exportAs: unused('exportAs'),
+  },
+};
+
 /** An engine whose later features are these, failing loudly on any other. */
 export const withExtras = (parts: Partial<ExtrasEngine>): Partial<Engine> => ({
   extras: { ...UNUSED_EXTRAS, ...parts },
@@ -178,6 +193,7 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     hub: UNUSED_HUB,
     formats: UNUSED_FORMATS,
     formatBuilder: UNUSED_FORMAT_BUILDER,
+    bank: UNUSED_BANK,
     ...parts,
   };
 }
