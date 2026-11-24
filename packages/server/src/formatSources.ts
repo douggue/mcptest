@@ -16,6 +16,8 @@ import {
   ingredientFromTransferIdea,
   ingredientFromUnreadLink,
   ingredientFromVideo,
+  measuredForLayer,
+  PART_LAYERS,
   type IngredientDraft,
 } from '@jgtube/core';
 import { randomUUID } from 'node:crypto';
@@ -73,15 +75,21 @@ function niche(sources: FormatSources, request: Of<'niche'>): Resolved {
 function breakdownPart(sources: FormatSources, request: Of<'breakdown-part'>): Resolved {
   const part = sources.findBreakdownPart(request.channelId, request.part);
   if (!part?.written) return missing('That part of the breakdown has not been written.');
-  const draft = ingredientFromBreakdownPart({
-    channelId: request.channelId,
-    channelTitle: sources.channelTitle(request.channelId) ?? request.channelId,
-    part: request.part,
-    engine: part.engine,
-    text: part.text,
-    measured: [],
-  });
-  return request.layer === null ? draft : { ...draft, layer: request.layer };
+  const layer = request.layer ?? PART_LAYERS[request.part];
+  const facts = sources.channelMeasurements(request.channelId);
+  const measured = facts === null ? { measured: [], palette: [] } : measuredForLayer(layer, facts);
+  return ingredientFromBreakdownPart(
+    {
+      channelId: request.channelId,
+      channelTitle: sources.channelTitle(request.channelId) ?? request.channelId,
+      part: request.part,
+      engine: part.engine,
+      text: part.text,
+      measured: measured.measured,
+      palette: measured.palette,
+    },
+    layer,
+  );
 }
 
 function teardown(sources: FormatSources, request: Of<'teardown'>): Resolved {

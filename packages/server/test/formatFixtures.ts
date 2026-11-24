@@ -95,6 +95,7 @@ export function sourcesWith(parts: Partial<FormatSources> = {}): FormatSources {
       text: 'A flat look.',
     }),
     channelTitle: () => 'Alpha',
+    channelMeasurements: () => null,
     teardownReport: (videoId) =>
       buildTeardownReport({
         videoId,

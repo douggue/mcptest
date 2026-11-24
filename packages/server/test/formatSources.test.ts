@@ -42,6 +42,41 @@ describe('resolveIngredient', () => {
     expect(draftOf(own, unnamed).name).toBe(`Scripts of ${OTHER}`);
   });
 
+  test('a breakdown part carries the channel’s measured medians for its layer', () => {
+    const group = {
+      videos: 4,
+      measured: 3,
+      medianCutsPerMinute: 9.5,
+      medianShotSeconds: null,
+      medianWordsPerMinute: 158,
+      medianAnimationsPerMinute: 2,
+    };
+    const facts = {
+      winners: group,
+      palette: { items: [{ hex: '#0A0B0E', share: 0.5 }], method: 'k-means' },
+      methods: { pace: 'ffmpeg', words: 'captions', transitions: 'frames' },
+    };
+    const measured = sourcesWith({ channelMeasurements: () => facts as never });
+    const picture = {
+      kind: 'breakdown-part',
+      channelId: OTHER,
+      part: 'picture',
+      layer: null,
+    } as const;
+    const draft = draftOf(picture, measured);
+    expect(draft.details['palette']).toEqual([{ hex: '#0A0B0E', share: 0.5 }]);
+    expect(draft.evidence.measured.map((one) => one.label)).toEqual([
+      '#0A0B0E',
+      'Animations a minute',
+    ]);
+    const paced = draftOf({ ...picture, part: 'scripts', layer: 'pacing' }, measured);
+    expect(paced.evidence.measured.map((one) => one.label)).toEqual([
+      'Cuts a minute',
+      'Words a minute',
+    ]);
+    expect(draftOf(picture).evidence.measured).toEqual([]);
+  });
+
   test('the owner’s own note, picture and clip', () => {
     expect(
       draftOf({ kind: 'note', layer: 'sound', name: 'Quiet', text: 'Low music' }).details,

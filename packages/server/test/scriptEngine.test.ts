@@ -275,6 +275,36 @@ describe('opening a script', () => {
     expect(view?.concept.kept).toBe(true);
   });
 
+  test('takes the active format’s measured rate and planned length over the voice’s', () => {
+    pages.save(vid('voice1'), spoken(), NOW);
+    const planned = lab({
+      ...deps,
+      activeFormat: (channel) =>
+        channel === MINE
+          ? ({ wordsPerMinute: 162.4, format: { targetSeconds: 600 } } as never)
+          : null,
+    });
+
+    expect(planned.openScript(MINE, conceptId)?.script).toMatchObject({
+      voiceChannelId: MODEL,
+      wordsPerMinute: 162,
+      targetSeconds: 600,
+    });
+  });
+
+  test('keeps the voice’s rate when the active format measured none', () => {
+    pages.save(vid('voice1'), spoken(), NOW);
+    const planned = lab({
+      ...deps,
+      activeFormat: () => ({ wordsPerMinute: null, format: { targetSeconds: null } }) as never,
+    });
+
+    expect(planned.openScript(MINE, conceptId)?.script).toMatchObject({
+      wordsPerMinute: 151,
+      targetSeconds: 720,
+    });
+  });
+
   test('leaves the rate empty when the voice’s captions were never read: no preset stands in', () => {
     const view = engine.openScript(MINE, conceptId);
 

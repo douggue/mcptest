@@ -1,4 +1,4 @@
-import { Copy, Plus, Trash2 } from 'lucide-react';
+import { CheckCircle2, Copy, Plus, Star, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { lengthText, secondsFrom, type FormatView } from '../lib/formatBuilder';
 import { FIELD, QUIET_BUTTON } from './LabStatus';
@@ -128,10 +128,31 @@ export function FormatPicker({ builder }: { readonly builder: FormatBuilder }) {
             {formats.map((one) => (
               <option key={one.id} value={one.id}>
                 {one.name} · {lengthText(one.targetSeconds)}
+                {one.active ? ' · active' : ''}
               </option>
             ))}
           </select>
         </label>
+        {builder.canActivate && (
+          <button
+            type="button"
+            aria-pressed={chosen.active}
+            onClick={() => builder.setActive(!chosen.active)}
+            className={`${SMALL} self-end ${chosen.active ? 'text-primary' : ''}`}
+            title={
+              chosen.active
+                ? 'Ideas, scripts and thumbnail prompts follow this format. Press to stop.'
+                : 'Have Ideas, scripts and thumbnail prompts follow this format.'
+            }
+          >
+            {chosen.active ? (
+              <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
+            ) : (
+              <Star aria-hidden="true" className="h-4 w-4" />
+            )}
+            {chosen.active ? 'Active for this channel' : 'Make active'}
+          </button>
+        )}
         <button type="button" onClick={builder.duplicate} className={`${SMALL} self-end`}>
           <Copy aria-hidden="true" className="h-4 w-4" />
           Copy as next version

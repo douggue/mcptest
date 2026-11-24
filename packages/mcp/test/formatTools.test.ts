@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { getFormatShelf, viewFormatPictures } from '../src/formatTools';
+import { getActiveFormat, getFormatShelf, viewFormatPictures } from '../src/formatTools';
 import { FakeEngine } from './fakes';
 
 const textOf = (result: { content: readonly unknown[] }): string =>
@@ -23,5 +23,21 @@ describe('the format tools', () => {
     expect(shown.content[2]).toMatchObject({ text: 'i1-2.jpg: there is no such picture.' });
     expect((await viewFormatPictures(engine, { names: ['i1-2.webp'] })).isError).toBe(true);
     expect((await viewFormatPictures(engine, { names: ['../x.jpg'] })).isError).toBe(true);
+  });
+
+  test('get_active_format hands back the plan, says when there is none, refuses a bad channel', () => {
+    const engine = new FakeEngine();
+    const A = 'UCaaaaaaaaaaaaaaaaaaaaaa';
+    expect(JSON.parse(textOf(getActiveFormat(engine, { channel: A })))).toMatchObject({
+      active: true,
+      plan: { format: { name: 'Long-form' } },
+    });
+    expect(
+      JSON.parse(textOf(getActiveFormat(engine, { channel: 'UCbbbbbbbbbbbbbbbbbbbbbb' }))),
+    ).toEqual({
+      active: false,
+      note: 'This channel has no active format: work as you would without one.',
+    });
+    expect(getActiveFormat(engine, { channel: 'bad' }).isError).toBe(true);
   });
 });

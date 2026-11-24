@@ -5,6 +5,7 @@
 import {
   parseChannelRef,
   type BreakdownRepo,
+  type FormatPlan,
   type ResearchRepo,
   type ChannelRepo,
   type ConceptRepo,
@@ -43,6 +44,8 @@ export interface LabDeps {
   readonly markFacts?: () => boolean;
   /** Whether Jgtube is closing, so a job of several steps stops between them. */
   readonly isClosing: () => boolean;
+  /** The channel's active format, for a new script's rate and length; absent or null when none. */
+  readonly activeFormat?: (channelId: string) => FormatPlan | null;
 }
 
 /** The stored channel a handle, link or id refers to; null when it is not stored or not a channel. */

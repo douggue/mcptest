@@ -49,6 +49,9 @@ const updateRequest = z.object({
   slots: SLOTS.optional(),
 });
 const idRequest = z.object({ id: ID });
+const activeRequest = z.object({ channel: z.string().regex(/^UC[\w-]{22}$/), id: ID.nullable() });
+export const ACTIVE_PATH = '/api/format/active';
+export const FOLLOWED_PATH = '/api/format/followed';
 const suggestRequest = z.object({
   id: ID,
   channel: CHANNEL,
@@ -185,6 +188,22 @@ async function bibleFile(context: Context, id: number, kind: string): Promise<Re
   return zip === null ? fail(404, NO_BIBLE) : download(zip, 'application/zip', `${name}.zip`);
 }
 
+async function setActive(context: Context, request: Request): Promise<Response> {
+  const body = await bodyOf(context, request, activeRequest, 'Give the channel and the format.');
+  if (body instanceof Response) return body;
+  const builder = context.options.engine.formatBuilder;
+  return builder.setActive(body.channel, body.id)
+    ? ok({ formats: builder.listFormats(body.channel) })
+    : fail(404, NOT_FOUND);
+}
+
+function followed(context: Context, url: URL): Response {
+  const channel = CHANNEL.safeParse(url.searchParams.get('channel'));
+  if (!channel.success || channel.data === null) return fail(400, 'Give the channel’s id.');
+  const view = context.options.engine.formatBuilder.followed(channel.data);
+  return view === null ? fail(404, 'This channel has no active format yet.') : ok(view);
+}
+
 const POSTS: Readonly<Record<string, (context: Context, request: Request) => Promise<Response>>> = {
   [FORMATS_PATH]: create,
   [`${FORMATS_PATH}/update`]: update,
@@ -192,6 +211,7 @@ const POSTS: Readonly<Record<string, (context: Context, request: Request) => Pro
   [`${FORMATS_PATH}/remove`]: remove,
   [`${FORMATS_PATH}/suggest`]: suggest,
   [`${FORMATS_PATH}/bible`]: bible,
+  [ACTIVE_PATH]: setActive,
 };
 
 export interface FormatBuilderRoutes {
@@ -212,6 +232,9 @@ export function formatBuilderRoutes(
         const channel = CHANNEL.safeParse(url.searchParams.get('channel'));
         if (!channel.success) return fail(400, 'That is not a channel id.');
         return ok({ formats: options.engine.formatBuilder.listFormats(channel.data) });
+      }
+      if (pathname === FOLLOWED_PATH) {
+        return request.method === 'GET' ? followed(context, url) : fail(405, 'Use GET');
       }
       const file = BIBLE_FILE.exec(pathname);
       if (file !== null) {

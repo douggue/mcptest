@@ -1851,6 +1851,7 @@ Claude reads what the app shows. Setup for the owner is in
 | `get_thumbnail_comparison`    | `channel` (id), `video`                                                                 | The kept comparison of one video's thumbnail as text, counted in code: its checklist and description, the winners compared, winning values, flagged values, other values, thumbnails not tagged                                                                      |
 | `get_format_shelf`            | `format` (number)                                                                       | JSON: the format (name, length, slots) and every ingredient on the shelf with its layer, source, channels, evidence counted in code, `proven`, and the names of its pictures (`i<id>-<n>.<ext>`); the AI's earlier readings are labelled as such                     |
 | `view_format_pictures`        | `names` (1 to 8 picture names from the question)                                        | The shelf's pictures (teardown keyframes and strips, the owner's pictures) as image content, each under a line naming it; one that is gone is a line of text                                                                                                         |
+| `get_active_format`           | `channel` (id)                                                                          | JSON: `active: false` when none; else the plan: title formulas, hook and beats, chapters, words and cuts a minute (measured), pacing rules, visual style, thumbnail layouts, palette                                                                                 |
 
 One prompt, `thumbnail_review` (argument `channel`), tells the model to read the
 board, look at the owner's thumbnails and the winners with `view_thumbnails`, and
@@ -3074,6 +3075,44 @@ filled slots only.
   `palette.png` (a 600×80 strip, each colour as wide as its share), `fonts.txt`
   (the fonts the Bible names, as the AI's reading) and `images/` (the slots'
   pictures still on this computer).
+
+**Active format** (core `format/plan.ts`, `titleFit.ts`, `followed.ts`;
+server `formatInQuestions.ts`, `formatOwnVideos.ts`; web `FormatPicker.tsx`,
+`AgainstFormat.tsx`, `lib/formatFollowed.ts`). A channel has at most one
+active format (`channel_formats`), set with "Make active" on the Format tab
+(`POST /api/format/active {channel, id | null}`); the list marks it.
+
+- _Its plan_ (`formatPlan`) is what the other runs read through the
+  read-only `get_active_format`: title formulas, the hook (name, how it opens,
+  a quote, its seconds, its Bible beats), chapter beats, words and cuts a
+  minute measured in the slots, pacing rules, the visual style (slot, Bible
+  summary, components, motion), thumbnail layouts with prompts and the
+  measured palette. Bible text is marked as an AI's reading.
+- _Idea lab_: concept, twist and more-like-this runs write at least half of
+  their titles in its title formulas (a title format picked in the brief comes
+  first) and open the way its hook does.
+- _Script writer_: a new script takes the format's measured words a minute
+  and planned length in code (over the voice's rate and the winners' typical
+  length; a Shorts batch keeps its own length); the hooks stage follows its
+  hook and chapter beats, the draft its pacing rules and its visual style for
+  picture cues (a kept style lock still comes first).
+- _Thumbnail prompts_ build on its layouts and take colours from its measured
+  palette.
+- _Your videos against the plan_ (`GET /api/format/followed?channel=`): the
+  channel's 50 newest stored videos, each checked in code against the slots
+  code can check: the title fits one of its title formulas (fixed words in
+  order around filled slots, `titleFits`); cuts a minute within 25 % of the
+  pacing slot's, else words a minute within 15 %, from the video's teardown;
+  its main colour within an RGB distance of 48 of a measured palette colour.
+  Per slot: how many followed it, did not, or could not be checked (never
+  measured), with the median outlier score of those that followed and those
+  that did not. Shown on Your videos as "Against your format".
+- _Breakdown parts_: adding a written breakdown part to the shelf now carries
+  the channel's measured layer for the part's layer (`measuredForLayer`): the
+  winners' medians with their methods (cuts a minute, median shot and words a
+  minute for pacing; opening pace for the hook; loudness for sound;
+  transitions, animations and cuts for motion; the shared palette and
+  animations for visual style), so the checks and the Bible can use them.
 
 **What was run for real.** The shelf at 1440, 768 and 390 wide on a seeded
 store (nine ingredients, teardown pictures made with ffmpeg): no console error,

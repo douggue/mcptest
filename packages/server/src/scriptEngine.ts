@@ -138,11 +138,17 @@ function firstFields(deps: LabDeps, found: FoundConcept): Partial<ScriptFields> 
   const voice = voiceView(deps, center, voiceId);
   const shorts = found.batch.length === 'shorts';
   const typical = winnersRange(deps, center)?.typicalSeconds ?? null;
+  // The channel's active format, when it has one, sets the pace (measured in its slots) and the length.
+  const plan = deps.activeFormat?.(center) ?? null;
+  const planRate = plan?.wordsPerMinute == null ? null : Math.round(plan.wordsPerMinute);
+  const planSeconds = shorts ? null : (plan?.format.targetSeconds ?? null);
   return {
     voiceChannelId: voice ? voiceId : null,
-    wordsPerMinute: voice?.profile.wordsPerMinute ?? null,
+    wordsPerMinute: planRate ?? voice?.profile.wordsPerMinute ?? null,
     targetGrade: voice?.profile.grade ?? null,
-    targetSeconds: shorts ? SHORTS_TARGET_SECONDS : typical === null ? null : Math.round(typical),
+    targetSeconds: shorts
+      ? SHORTS_TARGET_SECONDS
+      : (planSeconds ?? (typical === null ? null : Math.round(typical))),
     // The library hook the concept's opening follows becomes the first model for the script's.
     hookModels: namedVideoIds(found.concept.hookStyle ?? '', libraryIds(deps, center)).slice(0, 1),
   };

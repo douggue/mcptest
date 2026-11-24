@@ -755,7 +755,9 @@ export {
 export {
   PART_LAYERS,
   ingredientFromBreakdownPart,
+  measuredForLayer,
   type BreakdownPartSource,
+  type PartMeasured,
 } from './format/fromBreakdown';
 export {
   TEARDOWN_SECTIONS,
@@ -848,3 +850,21 @@ export {
 } from './format/bibleFacts';
 export { LAYER_TITLES, bibleFiles, bibleMarkdown, valueText } from './format/bibleMarkdown';
 export { palettePng, PALETTE_STRIP_HEIGHT, PALETTE_STRIP_WIDTH } from './format/paletteStrip';
+export {
+  PLAN_NOTE,
+  formatPlan,
+  type FormatPlan,
+  type PlanBeat,
+  type PlanFormula,
+} from './format/plan';
+export { titleFits } from './format/titleFit';
+export {
+  COLOUR_DISTANCE,
+  CUTS_TOLERANCE,
+  WORDS_TOLERANCE,
+  followedSlots,
+  type FollowedReport,
+  type FollowedRow,
+  type FollowedSlot,
+  type OwnVideoInput,
+} from './format/followed';

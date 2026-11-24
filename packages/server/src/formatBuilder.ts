@@ -15,6 +15,9 @@ import {
   type Ingredient,
   type IngredientRepo,
   type MixPictureRef,
+  type OwnVideoInput,
+  followedSlots,
+  formatPlan,
   type SqliteFormatRepo,
   pathInside,
   teardownFolder,
@@ -31,7 +34,16 @@ export { EMPTY_SLOTS } from './formatBible';
 
 export type FormatStore = Pick<
   SqliteFormatRepo,
-  'list' | 'find' | 'create' | 'update' | 'duplicate' | 'remove' | 'saveSuggestion' | 'saveBible'
+  | 'list'
+  | 'find'
+  | 'create'
+  | 'update'
+  | 'duplicate'
+  | 'remove'
+  | 'saveSuggestion'
+  | 'saveBible'
+  | 'activeFor'
+  | 'setActive'
 >;
 
 export interface FormatBuilderDeps {
@@ -42,13 +54,20 @@ export interface FormatBuilderDeps {
   /** Where a picture of the shelf is on this computer; null when it cannot be there. */
   picturePath(ref: MixPictureRef): string | null;
   askMix(ask: MixAsk, only?: EngineId): Promise<EngineAnswer<EngineId>>;
+  /** The channel's own stored videos, newest first, with their scores and what was measured. */
+  ownVideos?(channel: string): readonly OwnVideoInput[];
 }
 
 export const NO_FORMAT = 'There is no such format.';
 export const EMPTY_SHELF =
   'Put a few ingredients on the shelf first: a suggestion mixes only what is there.';
 
-function viewOf(deps: FormatBuilderDeps, format: Format, shelf: readonly Ingredient[]): FormatView {
+function viewOf(
+  deps: FormatBuilderDeps,
+  format: Format,
+  shelf: readonly Ingredient[],
+  activeId: number | null = activeOf(deps, format),
+): FormatView {
   const slots = liveSlots(format.slots, new Set(shelf.map((item) => item.id)));
   const checks = formatChecks({ slots, targetSeconds: format.targetSeconds }, shelf);
   const top = checks.originality.channelId;
@@ -58,7 +77,13 @@ function viewOf(deps: FormatBuilderDeps, format: Format, shelf: readonly Ingredi
     checks,
     // A channel not in the store is "one channel" on the page, never a bare id.
     topChannelTitle: top === null ? null : deps.channelTitle(top),
+    active: activeId === format.id,
   };
+}
+
+/** The active format's id of the format's channel; null when it has none or no channel. */
+function activeOf(deps: FormatBuilderDeps, format: Format): number | null {
+  return format.channelId === null ? null : (deps.formats.activeFor(format.channelId)?.id ?? null);
 }
 
 function pictureAsk(deps: FormatBuilderDeps, shelf: readonly Ingredient[]) {
@@ -93,7 +118,22 @@ export function formatBuilder(deps: FormatBuilderDeps): FormatBuilderEngine {
   return {
     listFormats(channel = null) {
       const items = shelf();
-      return formats.list(channel).map((format) => viewOf(deps, format, items));
+      const activeId = channel === null ? null : (formats.activeFor(channel)?.id ?? null);
+      return formats.list(channel).map((format) => viewOf(deps, format, items, activeId));
+    },
+    setActive: (channel, formatId) => formats.setActive(channel, formatId, now()),
+    activePlan(channel) {
+      const format = formats.activeFor(channel);
+      return format === null ? null : formatPlan(format, shelf());
+    },
+    followed(channel) {
+      const format = formats.activeFor(channel);
+      if (format === null) return null;
+      const plan = formatPlan(format, shelf());
+      return {
+        format: { id: format.id, name: format.name },
+        report: followedSlots(plan, deps.ownVideos?.(channel) ?? []),
+      };
     },
     createFormat: (name, targetSeconds, channel = null) =>
       viewOf(deps, formats.create(name, targetSeconds, now(), channel), shelf()),

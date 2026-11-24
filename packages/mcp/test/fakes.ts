@@ -459,6 +459,8 @@ export class FakeEngine implements ConnectorEngine {
       formatId === 1 ? { note: 'n', format: { id: 1 }, ingredients: [] } : null,
     mixPicture: async (name: string): Promise<Uint8Array | null> =>
       name === 'i1-1.png' ? Uint8Array.from([0x89, 0x50]) : null,
+    activePlan: (channel: string) =>
+      channel === 'UCaaaaaaaaaaaaaaaaaaaaaa' ? { format: { id: 1, name: 'Long-form' } } : null,
   } as unknown as ConnectorEngine['formatBuilder'];
 
   findSnapshot(ref: string): MapSnapshot | null {
