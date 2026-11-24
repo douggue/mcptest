@@ -110,6 +110,7 @@ const VIEW_OF: Readonly<Record<string, Exclude<ViewId, 'channel'>>> = {
   'risk-check': 'risk',
   'thumbnail-review': 'thumbnails',
   'format-mix': 'format',
+  'bank-find': 'outlier-bank',
   'format-bible': 'format',
 };
 

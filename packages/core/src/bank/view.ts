@@ -9,6 +9,8 @@ export interface BankLook {
   readonly builtAt: string;
   readonly page: BankPage;
   readonly collections: readonly BankCollection[];
+  /** The collections each video on the page is in, by video id; a video in none is left out. */
+  readonly saved: Readonly<Record<string, readonly number[]>>;
 }
 
 export interface FindInfo {

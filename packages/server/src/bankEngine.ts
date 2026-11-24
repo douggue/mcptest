@@ -133,11 +133,15 @@ export function bankEngine(deps: BankFindDeps): BankEngine {
   return {
     look(state: BankFilterState, page) {
       const bank = reader.read();
-      return {
-        builtAt: bank.builtAt,
-        page: queryBank(bank.videos, state, filterContext(), page),
-        collections: collections.list(),
-      };
+      const context = filterContext();
+      const found = queryBank(bank.videos, state, context, page);
+      const saved = Object.fromEntries(
+        found.videos.flatMap((video) => {
+          const ids = context.collectionsOf(video.videoId);
+          return ids.length > 0 ? [[video.videoId, ids] as const] : [];
+        }),
+      );
+      return { builtAt: bank.builtAt, page: found, collections: collections.list(), saved };
     },
     findInfo(channels) {
       const how = via();
