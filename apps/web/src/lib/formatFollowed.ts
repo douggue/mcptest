@@ -39,6 +39,9 @@ const score = (median: number | null): string =>
 /** One slot's counts in a sentence: "Title formula: 2 of 6 followed it (median 4×), …". */
 export function followedLine(slot: FollowedSlot): string {
   const total = slot.followed + slot.not + slot.unknown;
+  if (slot.followed + slot.not === 0) {
+    return `${LAYER_LABELS[slot.layer]}: none of your ${total} videos is measured yet, so code cannot tell.`;
+  }
   const not = slot.not === 0 ? '0 did not' : `${slot.not} did not (${score(slot.medianScoreNot)})`;
   const unknown = slot.unknown === 0 ? '' : `, ${slot.unknown} not measured`;
   return `${LAYER_LABELS[slot.layer]}: ${slot.followed} of ${total} followed it (${score(slot.medianScoreFollowed)}), ${not}${unknown}.`;

@@ -54,6 +54,17 @@ describe('your videos against the active format', () => {
     expect(
       rowLine({ videoId: 'v', title: 'T', score: null, followed: ['title'], not: ['pacing'] }),
     ).toBe('Followed: Title formula · Not: Pacing');
+    expect(
+      followedLine({
+        layer: 'visual',
+        check: 'c',
+        followed: 0,
+        not: 0,
+        unknown: 6,
+        medianScoreFollowed: null,
+        medianScoreNot: null,
+      }),
+    ).toBe('Visual style: none of your 6 videos is measured yet, so code cannot tell.');
     expect(rowLine({ videoId: 'v', title: 'T', score: null, followed: [], not: [] })).toBe(
       'Nothing code could check',
     );
