@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'vitest';
-import { replaceSections, sectionWords, shortSections, wordBudget } from '../src/script/budget';
+import {
+  checkDraft,
+  replaceSections,
+  sameSection,
+  sectionWords,
+  shortSections,
+  wordBudget,
+} from '../src/script/budget';
 
 const total = (budget: readonly { readonly words: number }[] | null): number =>
   (budget ?? []).reduce((sum, section) => sum + section.words, 0);
@@ -170,5 +177,108 @@ describe('a draft checked against its budget', () => {
       replaced: [],
     });
     expect(replaceSections(draft, 'No headings here.', ['The turn']).replaced).toEqual([]);
+  });
+});
+
+describe('a draft checked by walking the beat sheet, not only the headings written', () => {
+  const words = (count: number): string => Array.from({ length: count }, () => 'word').join(' ');
+  const budget = [
+    { section: 'HOOK', words: 100 },
+    { section: 'The bill', words: 300 },
+    { section: 'The turn', words: 300 },
+    { section: 'The end', words: 300 },
+  ];
+  const section = (heading: string, count: number): string => `## ${heading}\n${words(count)}`;
+
+  test('a beat with no heading in the draft is reported as missing, in beat order', () => {
+    const draft = [section('HOOK', 100), section('The bill', 300), section('The end', 100)].join(
+      '\n',
+    );
+
+    expect(checkDraft(draft, budget)).toEqual({
+      stale: false,
+      short: [
+        { section: 'The turn', words: 0, budget: 300, missing: true },
+        { section: 'The end', words: 100, budget: 300 },
+      ],
+    });
+  });
+
+  test('a heading is matched to its beat whatever its case, punctuation or numbering', () => {
+    for (const heading of [
+      'THE TURN',
+      'The turn.',
+      'Two: The turn',
+      '2. The turn',
+      'Beat 2: The turn',
+      'The turn: what changed',
+      'The Turn — ',
+    ]) {
+      expect(sameSection(heading, 'The turn'), heading).toBe(true);
+    }
+    expect(sameSection('The return', 'The turn')).toBe(false);
+    expect(sameSection('Two: the bill', 'The turn')).toBe(false);
+  });
+
+  test('a heading no name matches is taken by its place when the draft has one section for every beat', () => {
+    const draft = [
+      section('HOOK', 100),
+      section('The bill', 300),
+      section('A name of the writer’s own', 100),
+      section('The end', 300),
+    ].join('\n');
+
+    expect(checkDraft(draft, budget).short).toEqual([
+      { section: 'A name of the writer’s own', words: 100, budget: 300 },
+    ]);
+  });
+
+  test('a draft written from another beat sheet is said to be so, and not judged section by section', () => {
+    const draft = [
+      section('HOOK', 100),
+      section('How it began', 200),
+      section('Who paid', 200),
+    ].join('\n');
+
+    expect(checkDraft(draft, budget)).toEqual({ stale: true, short: [] });
+  });
+
+  test('is not checked without a draft or a budget', () => {
+    expect(checkDraft('', budget)).toEqual({ stale: false, short: [] });
+    expect(checkDraft(section('HOOK', 100), null)).toEqual({ stale: false, short: [] });
+  });
+
+  test('a missing section that comes back is put in its place in the order of the beats', () => {
+    const draft = [section('HOOK', 100), section('The bill', 300), section('The end', 300)].join(
+      '\n',
+    );
+    const order = budget.map((line) => line.section);
+
+    const result = replaceSections(draft, `## 2. The turn\n${words(290)}`, ['The turn'], order);
+
+    expect(result.replaced).toEqual(['The turn']);
+    expect(sectionWords(result.script)).toEqual([
+      { section: 'HOOK', words: 100 },
+      { section: 'The bill', words: 300 },
+      { section: 'The turn', words: 290 },
+      { section: 'The end', words: 300 },
+    ]);
+  });
+
+  test('a missing first beat goes right after the hook, and a rewritten heading is found by a tolerant name', () => {
+    const draft = [section('HOOK', 100), section('The turn', 50), section('The end', 300)].join(
+      '\n',
+    );
+    const rewritten = [section('The Bill', 280), section('Two: the turn', 290)].join('\n');
+    const order = budget.map((line) => line.section);
+
+    const result = replaceSections(draft, rewritten, ['The bill', 'The turn'], order);
+
+    expect(sectionWords(result.script)).toEqual([
+      { section: 'HOOK', words: 100 },
+      { section: 'The bill', words: 280 },
+      { section: 'The turn', words: 290 },
+      { section: 'The end', words: 300 },
+    ]);
   });
 });

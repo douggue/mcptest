@@ -1,4 +1,4 @@
-import { readBlocks, single } from '../labelled';
+import { readBlocks, single, unmarked } from '../labelled';
 import { VIDEO_ID_PATTERN } from '../sources/parse';
 import { HEADING_LINE } from './measure';
 import { SCRIPT_HOOKS, type ScriptHook } from './types';
@@ -63,9 +63,35 @@ export function shortened(text: string, max: number): string {
   return `${words.slice(0, Math.max(words.lastIndexOf(' '), 1)).trimEnd()}…`;
 }
 
+/**
+ * A beat line however it was labelled: "BEAT 4:", "Beat 4 -", "4." or "4)"
+ * before the time, or the time with no label at all.
+ */
+const LOOSE_BEAT =
+  /^(?:BEAT\s*\d*\s*[:.)\-–]?\s*|\d+\s*[.)]\s+)?(\d{1,2}:\d{2}(?::\d{2})?\s*\|.*)$/i;
+
+/**
+ * The answer with every beat line under the BEATS heading given the label it
+ * was asked for. Without this, a beat written as "BEAT 4: 4:00 | …" or with
+ * no label reads as more of the beat above it, and two beats become one.
+ */
+function withBeatLabels(answer: string): string {
+  let inBeats = false;
+  return answer
+    .split('\n')
+    .map((raw) => {
+      const line = unmarked(raw);
+      if (BEATS_HEADING.test(line)) inBeats = true;
+      else if (HOOK_HEADING.test(line)) inBeats = false;
+      const beat = inBeats ? LOOSE_BEAT.exec(line)?.[1] : undefined;
+      return beat === undefined ? raw : `BEAT: ${beat}`;
+    })
+    .join('\n');
+}
+
 /** The hooks and the beat sheet of a first-stage answer. */
 export function parseHooksAndBeats(answer: string): HooksAndBeats {
-  const blocks = readBlocks(answer, {
+  const blocks = readBlocks(withBeatLabels(answer), {
     labels: LABELS,
     opens: (line) => HOOK_HEADING.test(line) || BEATS_HEADING.test(line),
   });

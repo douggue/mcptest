@@ -46,6 +46,9 @@ describe('a short section in a line', () => {
     expect(shortSectionLine({ section: 'Odd', words: 3, budget: 0 })).toBe(
       'Odd: 3 of 0 words (0%)',
     );
+    expect(shortSectionLine({ section: 'Gone', words: 0, budget: 300, missing: true })).toBe(
+      'Gone: missing from the draft (300 words)',
+    );
   });
 });
 

@@ -62,6 +62,12 @@ export interface ScriptView {
    * code at each look; empty when there is no draft, no budget, or none is short.
    */
   readonly shortSections: readonly ShortSection[];
+  /**
+   * The draft's sections are not the beat sheet's beats: the sheet was
+   * rewritten after the draft, so the draft is to be written again and
+   * nothing is judged section by section.
+   */
+  readonly draftStale: boolean;
 }
 
 /** A length as the owner typed it: minutes (as seconds) or words. */

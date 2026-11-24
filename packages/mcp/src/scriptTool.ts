@@ -1,4 +1,4 @@
-import { shortSections } from '@jgtube/core';
+import { checkDraft } from '@jgtube/core';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { ToolFailure } from './failure';
 import { conceptText, pickedEntry } from './labTools';
@@ -37,7 +37,7 @@ export function getScript(engine: ConnectorEngine, input: GetScriptArgs): CallTo
   const { concept, batch, picked, script, plan, voice } = found;
   const profile = voice?.profile;
   // Counted in code at each look: the sections of the draft under their share of the length.
-  const short = shortSections(script?.draft ?? '', plan.wordBudget);
+  const { short } = checkDraft(script?.draft ?? '', plan.wordBudget);
   const head = withoutAbsent({
     concept: concept.id,
     length: batch.length,

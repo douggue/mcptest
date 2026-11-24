@@ -27,7 +27,7 @@ import {
   type TypedLength,
   type VideoTranscript,
   replaceSections,
-  shortSections,
+  checkDraft,
   wordBudget,
 } from '@jgtube/core';
 import type { AnalysisId } from './analyses';
@@ -128,12 +128,14 @@ function viewOf(deps: LabDeps, found: FoundConcept): ScriptView {
   const script = deps.repos.scripts.find(center, found.concept.id);
   const typed = deps.repos.research?.findLength(center, found.concept.id) ?? null;
   const plan = planOf(found, script, typed);
+  const draft = checkDraft(script?.draft ?? '', plan.wordBudget);
   return {
     concept: found.view,
     script,
     typedLength: typed,
     plan,
-    shortSections: shortSections(script?.draft ?? '', plan.wordBudget),
+    shortSections: draft.short,
+    draftStale: draft.stale,
     lengthRange: winnersRange(deps, center),
     markFacts: marksFacts(deps),
     voice: script?.voiceChannelId ? voiceView(deps, center, script.voiceChannelId) : null,
@@ -211,12 +213,23 @@ interface Read {
   readonly notes: readonly string[];
 }
 
+/** What is said of a draft whose sections are not the beats of the sheet as it now stands. */
+export const DRAFT_STALE =
+  'The draft was written from an older beat sheet: its sections are not the beats you have now. Write the draft again.';
+
 const NOT_A_SCRIPT = 'The AI answered, but not with a script. Nothing was changed. Try again.';
 
 /** The draft with its short sections written again; throws when the answer holds none of them. */
 function lengthened(view: ScriptView, answer: string): Read {
   const asked = view.shortSections.map((short) => short.section);
-  const { script, replaced } = replaceSections(view.script?.draft ?? '', scriptBody(answer), asked);
+  // A beat the draft has no section for is put in its place in the order of the beats.
+  const order = (view.plan.wordBudget ?? []).map((line) => line.section);
+  const { script, replaced } = replaceSections(
+    view.script?.draft ?? '',
+    scriptBody(answer),
+    asked,
+    order,
+  );
   if (replaced.length === 0) {
     throw new Error(
       'The AI answered, but with none of the short sections under their headings. Nothing was changed. Try again.',
@@ -250,10 +263,18 @@ function readAnswer(stage: ScriptStage, answer: string, view: ScriptView): Read 
 
 /** What the owner is told when a draft still has short sections after a run. */
 function shortNote(view: ScriptView): readonly string[] {
-  const short = view.shortSections;
-  if (short.length === 0) return [];
+  if (view.draftStale) return [DRAFT_STALE];
+  const short = view.shortSections.filter((s) => !s.missing);
+  const missing = view.shortSections.filter((s) => s.missing).map((s) => s.section);
   const listed = short.map((s) => `${s.section} (${s.words} of ${s.budget} words)`).join(', ');
-  return [`Short of their share of the length: ${listed}. You can have them written again.`];
+  return [
+    ...(missing.length > 0
+      ? [`Missing from the draft: ${missing.join(', ')}. You can have them written.`]
+      : []),
+    ...(short.length > 0
+      ? [`Short of their share of the length: ${listed}. You can have them written again.`]
+      : []),
+  ];
 }
 
 /** The script writer, on this engine's store and engines. */
@@ -279,6 +300,7 @@ export function scriptEngine(deps: LabDeps): ScriptEngine {
     if (stage !== 'lengthen') return null;
     if (script.draft.trim() === '') return 'There is no draft yet.';
     const view = findView(center, conceptId);
+    if (view?.draftStale) return DRAFT_STALE;
     return (view?.shortSections.length ?? 0) === 0
       ? 'No section of the draft is short of its share of the length.'
       : null;

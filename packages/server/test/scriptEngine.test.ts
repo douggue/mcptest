@@ -277,6 +277,7 @@ describe('opening a script', () => {
       wordBudget: null,
     });
     expect(view?.shortSections).toEqual([]);
+    expect(view?.draftStale).toBe(false);
     expect(view?.voice?.channelId).toBe(MODEL);
     expect(view?.concept.kept).toBe(true);
   });
@@ -458,10 +459,13 @@ describe('the three stages', () => {
     const budget = outcome.view.plan.wordBudget ?? [];
     expect(budget.map((line) => line.section)).toEqual(['HOOK', 'The bill', 'The plant']);
     expect(budget.reduce((sum, line) => sum + line.words, 0)).toBe(outcome.view.plan.targetWords);
+    // The draft has no section for the second beat at all: that is said too.
     expect(outcome.view.shortSections).toEqual([
       { section: 'The bill', words: 2, budget: budget[1]?.words },
+      { section: 'The plant', words: 0, budget: budget[2]?.words, missing: true },
     ]);
     expect(outcome.notes).toEqual([
+      'Missing from the draft: The plant. You can have them written.',
       expect.stringMatching(/^Short of their share of the length: The bill \(2 of \d+ words\)/),
     ]);
   });
@@ -493,17 +497,53 @@ describe('the three stages', () => {
     );
     expect(draft).not.toContain('A new hook.');
     expect(draft).toContain(`## The bill\n[B-ROLL: a bill | a bill | paper]\n${full}`);
+    expect(outcome.view.shortSections.map((short) => short.section)).toEqual(['The plant']);
+    expect(outcome.notes.slice(0, 2)).toEqual([
+      'Written again: The bill. The rest of the draft is as it was.',
+      'Not written again, so still short: The plant.',
+    ]);
+  });
+
+  test('lengthen: a beat the draft has no section for is listed as missing and written into its place', async () => {
+    await engine.runScriptStage('hooks', MINE, conceptId, undefined, () => {});
+    const budget = engine.findScriptView(MINE, conceptId)?.plan.wordBudget ?? [];
+    const full = (at: number) =>
+      Array.from({ length: budget[at]?.words ?? 0 }, () => 'word').join(' ');
+    const draft = `## HOOK\nIt never stopped.\n## The plant\n${full(2)}`;
+    engine.saveScript(MINE, conceptId, { chosenHook: 'It never stopped.', draft });
+
+    expect(engine.findScriptView(MINE, conceptId)?.shortSections).toEqual([
+      { section: 'The bill', words: 0, budget: budget[1]?.words, missing: true },
+    ]);
+    answer = `## The bill\n${full(1)}`;
+    const outcome = await engine.runScriptStage('lengthen', MINE, conceptId, undefined, () => {});
+
+    expect((outcome.view.script?.draft ?? '').match(/^## .*$/gm)).toEqual([
+      '## HOOK',
+      '## The bill',
+      '## The plant',
+    ]);
     expect(outcome.view.shortSections).toEqual([]);
-    expect(outcome.notes).toEqual(['Written again: The bill. The rest of the draft is as it was.']);
-    expect(engine.stageProblem('lengthen', MINE, conceptId)).toMatch(
-      /No section of the draft is short/,
-    );
+  });
+
+  test('a draft written from an older beat sheet is said to be so, and its sections are not judged', async () => {
+    await engine.runScriptStage('hooks', MINE, conceptId, undefined, () => {});
+    engine.saveScript(MINE, conceptId, {
+      chosenHook: 'It never stopped.',
+      draft: '## HOOK\nIt never stopped.\n## How it began\nA few words.',
+      beats: '1:00 | One | a\n3:00 | Two | b\n5:00 | Three | c',
+    });
+
+    const view = engine.findScriptView(MINE, conceptId);
+
+    expect(view).toMatchObject({ draftStale: true, shortSections: [] });
+    expect(engine.stageProblem('lengthen', MINE, conceptId)).toMatch(/older beat sheet/);
   });
 
   test('lengthen: an answer without the sections asked for changes nothing', async () => {
     await engine.runScriptStage('hooks', MINE, conceptId, undefined, () => {});
     engine.saveScript(MINE, conceptId, { chosenHook: 'It never stopped.', draft: DRAFT.slice(20) });
-    answer = '## The plant\nSomething else entirely.';
+    answer = '## Another thing\nSomething else entirely.';
 
     await expect(
       engine.runScriptStage('lengthen', MINE, conceptId, undefined, () => {}),

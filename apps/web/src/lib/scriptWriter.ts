@@ -56,6 +56,8 @@ export interface ScriptView {
   readonly typedLength?: TypedLength | null;
   /** The sections of the draft under 85% of their words, counted by the server; absent from an older one. */
   readonly shortSections?: readonly ShortSection[];
+  /** The draft was written from an older beat sheet and is to be written again; absent from an older server. */
+  readonly draftStale?: boolean;
 }
 
 /** A section of the draft that came out short: the words it has and the words it was to hold. */
@@ -63,10 +65,14 @@ export interface ShortSection {
   readonly section: string;
   readonly words: number;
   readonly budget: number;
+  /** The beat has no section in the draft at all. */
+  readonly missing?: true;
 }
 
 /** One short section in a line: its name, its words against its number, and how far it got. */
 export function shortSectionLine(section: ShortSection): string {
+  if (section.missing)
+    return `${section.section}: missing from the draft (${section.budget} words)`;
   const share = section.budget > 0 ? Math.round((section.words / section.budget) * 100) : 0;
   return `${section.section}: ${section.words} of ${section.budget} words (${share}%)`;
 }

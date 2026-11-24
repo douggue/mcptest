@@ -142,6 +142,7 @@ function Workbench(props: Props & { readonly view: ScriptView }) {
             {step === 'draft' && (
               <ShortSections
                 sections={view.shortSections ?? []}
+                stale={view.draftStale ?? false}
                 busy={busy}
                 onWriteAgain={script.writeShortAgain}
               />

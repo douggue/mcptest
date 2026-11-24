@@ -133,6 +133,56 @@ describe('a beat sheet written at length', () => {
   });
 });
 
+describe('beat lines written a little differently', () => {
+  test('a numbered label, a bare number or no label at all still starts a new beat', () => {
+    const answer = [
+      hook(1, 'none'),
+      'BEATS',
+      'BEAT: 1:00 | One | labelled as asked',
+      '- **BEAT:** 2:00 | Two | with marks around it',
+      'BEAT 3: 3:00 | Three | a numbered label',
+      '4. 4:00 | Four | a bare number',
+      '5) 5:00 | Five | a number and a bracket',
+      '6:00 | Six | no label at all',
+      'BEAT: 7:00 | Seven | line one',
+      'continues on the next line',
+      '',
+      'Beat 8 - 8:00 | Eight | a dash after the number',
+    ].join('\n');
+
+    const { beats, notes } = parseHooksAndBeats(answer);
+
+    expect(beats).toEqual([
+      '1:00 | One | labelled as asked',
+      '2:00 | Two | with marks around it',
+      '3:00 | Three | a numbered label',
+      '4:00 | Four | a bare number',
+      '5:00 | Five | a number and a bracket',
+      '6:00 | Six | no label at all',
+      '7:00 | Seven | line one continues on the next line',
+      '8:00 | Eight | a dash after the number',
+    ]);
+    expect(notes).toEqual([]);
+  });
+
+  test('a line that only looks like a time inside a hook is left where it is', () => {
+    const answer = [
+      'HOOK 1',
+      'WAY: a way',
+      'MODEL: none',
+      'TEXT: It began at',
+      '5:00 | in the morning | they said.',
+      'BEATS',
+      'BEAT: 1:00 | One | x',
+    ].join('\n');
+
+    const { hooks, beats } = parseHooksAndBeats(answer);
+
+    expect(hooks[0]?.text).toBe('It began at 5:00 | in the morning | they said.');
+    expect(beats).toEqual(['1:00 | One | x']);
+  });
+});
+
 describe('the script in an answer', () => {
   test('starts at its first heading, whatever was said before it, and loses its code fences', () => {
     const answer = ['Here is the draft.', '', '```', '## HOOK', 'It never stopped.', '```'].join(

@@ -343,7 +343,7 @@ export function scriptLengthenQuestion(channel: string, focus: ScriptFocus): str
         channel,
         focus,
         ' and part "draft"',
-        'It lists under shortSections the sections to write again, each with the spoken words it has now (words) and the words it is to hold (budget); the draft it returns is the script they belong to, and beats says what each is for.',
+        'It lists under shortSections the sections to write again, each with the spoken words it has now (words) and the words it is to hold (budget); one marked missing has no section in the draft yet. The draft it returns is the script they belong to, and beats says what each is for.',
       ),
       factSheetCall(channel, focus),
       ...cueReading(channel),
@@ -351,6 +351,7 @@ export function scriptLengthenQuestion(channel: string, focus: ScriptFocus): str
     craft: [
       'THE LENGTH',
       ...bullets([
+        'A section marked missing is written whole, from its beat on the beat sheet; Jgtube puts it in its place in the order of the beats.',
         'Write each section under shortSections to its budget, within a tenth of it. Only spoken words count: headings, cue lines and markers in square brackets do not.',
         'Keep what the section already says that is true and well said, and build on it: the step that explains how or why, the detail that makes it visible, what it cost or changed, the contrast with what came before, the line that sets up the next beat.',
         'Take new content only from the fact sheet and the tools. Do not retell what the sections before or after it say in the draft: read them so that yours does not repeat them.',

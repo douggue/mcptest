@@ -610,10 +610,13 @@ export { parseHooksAndBeats, readBeats, scriptBody, type Beat } from './script/s
 export {
   HOOK_SECTION,
   SHORT_SECTION_SHARE,
+  checkDraft,
   replaceSections,
+  sameSection,
   sectionWords,
   shortSections,
   wordBudget,
+  type DraftCheck,
   type SectionBudget,
   type ShortSection,
 } from './script/budget';
