@@ -67,7 +67,7 @@ export function sectionOf(prompt: string, name: PromptSection): string | null {
  * specifics matter more than brevity: the owner acts on the answer alone.
  */
 export const OWNER = [
-  'The owner is one creator, not an engineer, who makes faceless YouTube videos alone: narration over pictures, nobody on camera.',
+  'The owner is one creator with no technical background who makes faceless YouTube videos alone: narration over pictures, nobody on camera.',
   'They act on your answer as it stands: they title, design, write, record and publish from it, and nobody rewrites it for them first.',
 ].join(' ');
 
