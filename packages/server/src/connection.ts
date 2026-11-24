@@ -1,6 +1,7 @@
 import {
   InnertubeSource,
   RateLimiter,
+  type RateLimiterOptions,
   type Config,
   type VideoPlayerSource,
   type WatchPageSource,
@@ -22,19 +23,41 @@ const NO_WATCH_PAGE = 'This connection to YouTube cannot read a watch page';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
+/**
+ * How gently YouTube is read: two requests at a time, each after a random
+ * 300 to 600 ms. The same whether or not the owner has set a proxy for
+ * YouTube: a proxy changes the road a request takes, never how many are made
+ * or how fast.
+ */
+export const YOUTUBE_PACE: RateLimiterOptions = {
+  concurrency: 2,
+  minDelayMs: 300,
+  maxDelayMs: 600,
+  maxRetries: 3,
+  baseBackoffMs: 2000,
+  taskTimeoutMs: REQUEST_TIMEOUT_MS,
+};
+
+/** What the connection is made with; tests replace them. */
+export interface YouTubeSourceDeps {
+  readonly makeLimiter: (options: RateLimiterOptions) => RateLimiter;
+  readonly create: (options: {
+    readonly region: string;
+    readonly limiter: RateLimiter;
+  }) => Promise<YouTubeSource>;
+}
+
+const REAL_SOURCE: YouTubeSourceDeps = {
+  makeLimiter: (options) => new RateLimiter(options),
+  create: (options) => InnertubeSource.create(options),
+};
+
 /** The real connection to YouTube's pages, paced so it stays gentle. */
-export function youtubeSource(config: Config): Promise<YouTubeSource> {
-  return InnertubeSource.create({
-    region: config.region,
-    limiter: new RateLimiter({
-      concurrency: 2,
-      minDelayMs: 300,
-      maxDelayMs: 600,
-      maxRetries: 3,
-      baseBackoffMs: 2000,
-      taskTimeoutMs: REQUEST_TIMEOUT_MS,
-    }),
-  });
+export function youtubeSource(
+  config: Config,
+  deps: YouTubeSourceDeps = REAL_SOURCE,
+): Promise<YouTubeSource> {
+  return deps.create({ region: config.region, limiter: deps.makeLimiter(YOUTUBE_PACE) });
 }
 
 /**

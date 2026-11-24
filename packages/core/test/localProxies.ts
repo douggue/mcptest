@@ -51,8 +51,16 @@ export async function startTarget(body = 'hello from the target'): Promise<Local
   };
 }
 
-/** An HTTP proxy. With `credentials` ("user:password") it answers 407 to anyone without them. */
-export async function startHttpProxy(credentials?: string): Promise<LocalServer> {
+/**
+ * An HTTP proxy. With `credentials` ("user:password") it answers 407 to anyone
+ * without them. With `onlyRecord` it notes where a tunnel was asked for and
+ * answers 403 without connecting anywhere, so a test can see that a request
+ * for a real YouTube host came this way without it leaving this computer.
+ */
+export async function startHttpProxy(
+  credentials?: string,
+  onlyRecord = false,
+): Promise<LocalServer> {
   const seen: string[] = [];
   const sockets = new Set<Socket>();
   const allowed = (header: string | undefined): boolean =>
@@ -79,6 +87,10 @@ export async function startHttpProxy(credentials?: string): Promise<LocalServer>
     seen.push(String(request.url));
     if (!allowed(request.headers['proxy-authorization'])) {
       client.end('HTTP/1.1 407 Proxy Authentication Required\r\n\r\n');
+      return;
+    }
+    if (onlyRecord) {
+      client.end('HTTP/1.1 403 Forbidden\r\n\r\n');
       return;
     }
     const [host = '', port = '0'] = String(request.url).split(':');
