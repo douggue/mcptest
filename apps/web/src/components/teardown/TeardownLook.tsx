@@ -1,3 +1,4 @@
+import { AddToFormat } from '../AddToFormat';
 import { engineName } from '../../lib/breakdown';
 import {
   clock,
@@ -7,7 +8,14 @@ import {
   stageProblem,
   type TeardownView,
 } from '../../lib/teardown';
-import { DataTable, Points, SubHeading, TeardownImage, TeardownSection } from './TeardownBits';
+import {
+  DataTable,
+  Points,
+  SubHeading,
+  TeardownAdds,
+  TeardownImage,
+  TeardownSection,
+} from './TeardownBits';
 
 type Props = { readonly view: TeardownView };
 
@@ -19,6 +27,13 @@ export function MetricsSection({ view }: Props) {
     <TeardownSection
       id="td-metrics"
       title="1. Core style and measured numbers"
+      adds={
+        <TeardownAdds
+          videoId={view.videoId}
+          measured={view.measured !== null}
+          sections={[{ section: 'metrics', label: 'Add pacing to format' }]}
+        />
+      }
       problem={view.measured === null ? view.measuredProblem : null}
     >
       {structure.state === 'done' ? (
@@ -53,6 +68,18 @@ export function DesignSection({ view }: Props) {
     <TeardownSection
       id="td-design"
       title="2. Visual design system"
+      adds={
+        <TeardownAdds
+          videoId={view.videoId}
+          measured={view.measured !== null}
+          sections={[
+            { section: 'palette', label: 'Add palette' },
+            ...(design.state === 'done'
+              ? [{ section: 'typography', label: 'Add typography' }]
+              : []),
+          ]}
+        />
+      }
       note={judgedBy(view, 'design', engineName)}
       problem={stageProblem(view, 'design')}
     >
@@ -144,6 +171,9 @@ export function ComponentsSection({ view, videoId }: Props & { readonly videoId:
             </p>
             <p className="text-body-sm text-on-surface-variant">{item.description}</p>
             <p className="text-body-sm text-outline">Build with: {item.buildWith}</p>
+            {view.measured !== null && (
+              <AddToFormat source={{ kind: 'teardown', videoId, section: 'component', index }} />
+            )}
           </li>
         ))}
       </ul>
@@ -158,6 +188,13 @@ export function HookSection({ view, videoId }: Props & { readonly videoId: strin
   return (
     <TeardownSection
       id="td-hook"
+      adds={
+        <TeardownAdds
+          videoId={videoId}
+          measured={view.measured !== null}
+          sections={[{ section: 'hook', label: 'Add hook beats' }]}
+        />
+      }
       title="4. The hook, frame by frame"
       note={judgedBy(view, 'hook', engineName)}
       problem={stageProblem(view, 'hook')}

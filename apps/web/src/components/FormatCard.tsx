@@ -1,3 +1,4 @@
+import { AddToFormat } from './AddToFormat';
 import type { TransferFormat } from '@jgtube/core';
 import { formatCount, watchUrl } from '../lib/format';
 import { describeFormat } from '../lib/transfers';
@@ -44,6 +45,7 @@ export function FormatCard({ format }: { readonly format: TransferFormat }) {
         </h3>
         <span className="text-label text-outline">{describeFormat(format)}</span>
       </div>
+      <AddToFormat source={{ kind: 'transfer-format', key: format.key }} />
       <Numbers format={format} />
       <div className="flex flex-col gap-space-sm">
         <span className="text-label text-outline">Subjects it was used for</span>

@@ -1,5 +1,6 @@
 import type { Engine } from '../src/app';
 import type { ExtrasEngine } from '../src/extrasTypes';
+import type { FormatEngine } from '../src/formatTypes';
 import type { LabEngine } from '../src/labTypes';
 import type { BreakdownHub } from '../src/oneVideoTypes';
 import type { ScriptEngine } from '../src/scriptTypes';
@@ -84,6 +85,15 @@ export const UNUSED_HUB: BreakdownHub = {
   teardownData: unused('teardownData'),
 };
 
+/** The format builder's part of an engine, failing loudly when a test reaches it. */
+export const UNUSED_FORMATS: FormatEngine = {
+  listIngredients: unused('listIngredients'),
+  addIngredient: unused('addIngredient'),
+  setIngredientNote: unused('setIngredientNote'),
+  removeIngredient: unused('removeIngredient'),
+  imagesFolder: unused('imagesFolder'),
+};
+
 /** An engine whose later features are these, failing loudly on any other. */
 export const withExtras = (parts: Partial<ExtrasEngine>): Partial<Engine> => ({
   extras: { ...UNUSED_EXTRAS, ...parts },
@@ -150,6 +160,7 @@ export function stubEngine(parts: Partial<Engine>): Engine {
     ...UNUSED_LAB,
     extras: UNUSED_EXTRAS,
     hub: UNUSED_HUB,
+    formats: UNUSED_FORMATS,
     ...parts,
   };
 }

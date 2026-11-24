@@ -1,3 +1,4 @@
+import { AddToFormat } from './AddToFormat';
 import { Copy, Download } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -142,6 +143,39 @@ function PartBody({ view, part, videos }: PartProps) {
   );
 }
 
+/** The other layers a part also speaks to, which the owner may add it as. */
+const ALSO_AS: Partial<
+  Record<BreakdownPartView['id'], readonly ('motion' | 'sound' | 'pacing' | 'hook')[]>
+> = {
+  picture: ['motion', 'sound'],
+  scripts: ['hook', 'pacing'],
+};
+const AS_LABEL = {
+  motion: 'Add as motion',
+  sound: 'Add as sound',
+  pacing: 'Add as pacing',
+  hook: 'Add as hook',
+};
+
+/** Puts a written part on the format builder's shelf, on its own layer or another it speaks to. */
+function PartAdd({
+  channelId,
+  part,
+}: {
+  readonly channelId: string;
+  readonly part: BreakdownPartView;
+}) {
+  const source = { kind: 'breakdown-part', channelId, part: part.id } as const;
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-1">
+      <AddToFormat source={{ ...source, layer: null }} />
+      {(ALSO_AS[part.id] ?? []).map((layer) => (
+        <AddToFormat key={layer} source={{ ...source, layer }} label={AS_LABEL[layer]} />
+      ))}
+    </div>
+  );
+}
+
 /** One part on a card: its title, who wrote it, its opening line, and the rest closed until opened. */
 function Part(props: PartProps & Omit<FixProps, 'part'>) {
   const { part, busy, onWrite } = props;
@@ -159,6 +193,7 @@ function Part(props: PartProps & Omit<FixProps, 'part'>) {
       {lead !== null && (
         <p className="line-clamp-3 break-words text-body-md text-on-surface-variant">{lead}</p>
       )}
+      {written && part.id !== 'basis' && <PartAdd channelId={props.view.channel.id} part={part} />}
       {written && (
         <Details summary="Read the part">
           <PartBody {...props} />

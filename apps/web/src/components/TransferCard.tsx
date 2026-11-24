@@ -1,3 +1,4 @@
+import { AddToFormat } from './AddToFormat';
 import type { OwnerPlace, TransferIdea, TransferVersion } from '@jgtube/core';
 import { Bookmark, BookmarkCheck, Lightbulb } from 'lucide-react';
 import { scoreTone } from '../lib/board';
@@ -183,6 +184,7 @@ function Verdict({ idea, ownerPlace, onMakeConcepts }: Omit<Props, 'onSetSaved'>
             Add to ideas
           </button>
         )}
+        <AddToFormat source={{ kind: 'transfer-idea', key: idea.key }} />
       </div>
     </div>
   );

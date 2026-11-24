@@ -721,3 +721,58 @@ export {
   type TitleFacts,
   type PatternCount,
 } from './teardown/titlePatterns';
+export {
+  MAX_INGREDIENT_NAME,
+  MAX_INGREDIENT_NOTE,
+  PROVEN_MIN_CHANNELS,
+  PROVEN_MIN_VIDEOS,
+  compareByEvidence,
+  draftProblem,
+  isProven,
+  noEvidence,
+} from './format/evidence';
+export {
+  ingredientFromFormula,
+  ingredientFromHook,
+  ingredientFromTransferFormat,
+  ingredientFromTransferIdea,
+  shortName,
+} from './format/fromLab';
+export {
+  ingredientFromNiche,
+  ingredientFromUnreadLink,
+  ingredientFromVideo,
+  type FormatVideo,
+  type VideoUse,
+} from './format/fromVideo';
+export {
+  PART_LAYERS,
+  ingredientFromBreakdownPart,
+  type BreakdownPartSource,
+} from './format/fromBreakdown';
+export {
+  TEARDOWN_SECTIONS,
+  ingredientFromTeardown,
+  type TeardownSection,
+} from './format/fromTeardown';
+export {
+  CLIP_KEY,
+  IMAGE_FILE,
+  MAX_NOTE_TEXT,
+  ingredientFromClip,
+  ingredientFromImage,
+  ingredientFromNote,
+} from './format/fromOwn';
+export {
+  INGREDIENT_LAYERS,
+  INGREDIENT_SOURCES,
+  type Ingredient,
+  type IngredientDraft,
+  type IngredientEvidence,
+  type IngredientLayer,
+  type IngredientMedia,
+  type IngredientRepo,
+  type IngredientSource,
+  type MeasuredNumber,
+} from './format/types';
+export { SqliteIngredientRepo } from './repos/sqliteIngredientRepo';

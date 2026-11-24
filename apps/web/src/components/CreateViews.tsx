@@ -1,6 +1,7 @@
 import { usePlan } from './usePlan';
 import type { ViewId } from '../lib/routes';
 import { toggleModel } from '../lib/scriptWriter';
+import { FormatView } from './FormatView';
 import { Formulas } from './Formulas';
 import { HookLibrary } from './HookLibrary';
 import { IdeaLab } from './IdeaLab';
@@ -55,6 +56,7 @@ export const CREATE_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
       lab={work.lab}
       busy={work.asking}
       centerTitle={snapshot.center.title}
+      centerId={snapshot.center.id}
       onRemix={path.remix}
     />
   )),
@@ -75,6 +77,7 @@ export const CREATE_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
   script: withMap('script', (snapshot, parts) => (
     <Script {...parts} centerId={snapshot.center.id} />
   )),
+  format: () => <FormatView />,
   risk: ({ page, work }) => (
     <RiskCheck
       channelId={page.snapshot?.center.id ?? null}

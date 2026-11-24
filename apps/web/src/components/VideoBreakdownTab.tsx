@@ -2,6 +2,7 @@ import { Download, Film, FolderDown, Upload } from 'lucide-react';
 import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { sendingText } from '../lib/breakdown';
 import { thumbnailUrl } from '../lib/format';
+import { takeHandedVideo } from '../lib/videoHandoff';
 import { createTeardownApi, markdownUrl, runsLine, zipUrl } from '../lib/teardown';
 import {
   fileProblem,
@@ -52,7 +53,7 @@ function VideoInput({
   readonly video: VideoBreakdown;
   readonly parts: ViewParts;
 }) {
-  const [link, setLink] = useState('');
+  const [link, setLink] = useState(takeHandedVideo);
   const [problem, setProblem] = useState<string | null>(null);
   const runs = useRunsLine(videoIdFrom(link));
   const { asking, analysis } = parts.work;

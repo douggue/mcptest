@@ -5,6 +5,7 @@ import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { UPLOAD_PATH, createApp } from './app';
 import { VIDEO_FILES_PATH } from './breakdownHubRoutes';
+import { FORMAT_IMAGES_PATH } from './formatRoutes';
 import { createEngine } from './engine';
 import { JobStore, cleanMessage } from './jobs';
 import { liveSettings } from './liveSettings';
@@ -77,7 +78,9 @@ async function toRequest(request: IncomingMessage): Promise<Request> {
   // A video file is far larger than any other body: it is handed on as a
   // stream for the route to write to disk, with the route's own size cap.
   const path = request.url ?? '';
-  if (request.method === 'PUT' && (path.startsWith(UPLOAD_PATH) || path === VIDEO_FILES_PATH)) {
+  const isStreamed =
+    path.startsWith(UPLOAD_PATH) || path === VIDEO_FILES_PATH || path === FORMAT_IMAGES_PATH;
+  if (request.method === 'PUT' && isStreamed) {
     // A request whose body is a stream must say it does not expect to read
     // the reply while it sends; the browser's type for this lacks the field.
     const streamed: RequestInit & { duplex: 'half' } = {

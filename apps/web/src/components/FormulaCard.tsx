@@ -3,6 +3,7 @@ import { formulaParts } from '@jgtube/core/src/formulas/formulas';
 import { Shuffle } from 'lucide-react';
 import { formatAge, formatCount, formatScore, thumbnailUrl, watchUrl } from '../lib/format';
 import type { FormulaView } from '../lib/labApi';
+import { AddToFormat } from './AddToFormat';
 import { Card } from './layout/Card';
 import { Details } from './layout/Details';
 import { QUIET_BUTTON } from './LabStatus';
@@ -90,6 +91,8 @@ interface Props {
   readonly formula: FormulaView;
   readonly windowDays: number;
   readonly onRemix: () => void;
+  /** The map's own channel the formula was found for. */
+  readonly centerId: string;
 }
 
 /** Why the wording works: its first sentence, and the rest behind a disclosure. */
@@ -108,7 +111,7 @@ function Why({ text }: { readonly text: string }) {
 }
 
 /** One trending format: its wording, why it works, its numbers and the videos behind it. */
-export function FormulaCard({ formula, windowDays, onRemix }: Props) {
+export function FormulaCard({ formula, windowDays, onRemix, centerId }: Props) {
   const shown = formula.videos.slice(0, VIDEOS_ON_CARD);
   const rest = formula.videos.slice(VIDEOS_ON_CARD);
   return (
@@ -125,6 +128,7 @@ export function FormulaCard({ formula, windowDays, onRemix }: Props) {
           <Shuffle aria-hidden="true" className="h-4 w-4" />
           Add to ideas
         </button>
+        <AddToFormat source={{ kind: 'formula', center: centerId, id: formula.id, windowDays }} />
       </div>
       <Numbers formula={formula} windowDays={windowDays} />
       <Why text={formula.why} />

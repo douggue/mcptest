@@ -1,3 +1,4 @@
+import { AddToFormat } from './AddToFormat';
 import { MoneyBadge } from './MoneyBadge';
 import { channelHref } from '../lib/routes';
 import type { BreakoutVideo } from '@jgtube/core';
@@ -94,6 +95,10 @@ function BreakoutCard({ item, picked, onPick, onBreakDown }: CardProps) {
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
         <Evidence item={item} />
         <div className="flex flex-none items-center gap-1">
+          <AddToFormat
+            source={{ kind: 'video', use: 'video', videoId: item.videoId, center: null }}
+            iconOnly
+          />
           {onBreakDown && (
             <button
               type="button"

@@ -1,3 +1,4 @@
+import { AddToFormat } from './AddToFormat';
 import { Link2 } from 'lucide-react';
 import { formatCount, thumbnailUrl } from '../lib/format';
 import { Card } from './layout/Card';
@@ -62,6 +63,15 @@ export function OwnUploads({ channelId, reloadKey, canLink, onLink }: Props) {
                   Link
                 </button>
               )}
+              <AddToFormat
+                source={{
+                  kind: 'video',
+                  use: 'own-video',
+                  videoId: video.videoId,
+                  center: channelId,
+                }}
+                iconOnly
+              />
             </li>
           );
         })}

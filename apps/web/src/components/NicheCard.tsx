@@ -1,3 +1,4 @@
+import { AddToFormat } from './AddToFormat';
 import type { NicheChannel } from '@jgtube/core';
 import { Bookmark, BookmarkCheck } from 'lucide-react';
 import { channelUrl, formatAge, formatCount, formatScore } from '../lib/format';
@@ -149,6 +150,7 @@ export function NicheCard({ channel, onSetWatched, onBreakDown }: Props) {
               Break down
             </button>
           )}
+          <AddToFormat source={{ kind: 'niche', channelId: channel.id }} iconOnly />
         </div>
         <Details summary="Details">
           <NicheCardDetails channel={channel} />

@@ -1,3 +1,4 @@
+import { AddToFormat } from '../AddToFormat';
 import { engineName } from '../../lib/breakdown';
 import {
   clock,
@@ -8,7 +9,14 @@ import {
   type TeardownView,
 } from '../../lib/teardown';
 import { ReadyPrompt } from '../ReadyPrompt';
-import { DataTable, Points, SubHeading, TeardownImage, TeardownSection } from './TeardownBits';
+import {
+  DataTable,
+  Points,
+  SubHeading,
+  TeardownAdds,
+  TeardownImage,
+  TeardownSection,
+} from './TeardownBits';
 
 type Props = { readonly view: TeardownView; readonly videoId: string; readonly title: string };
 
@@ -19,7 +27,18 @@ export function StorySection({ view }: { readonly view: TeardownView }) {
       ? "Chapters are the AI's reading; every number beside them is counted in code."
       : 'No chapters were named, so the video is cut evenly in code.';
   return (
-    <TeardownSection id="td-story" title="5. Structure and storytelling" note={note}>
+    <TeardownSection
+      id="td-story"
+      title="5. Structure and storytelling"
+      note={note}
+      adds={
+        <TeardownAdds
+          videoId={view.videoId}
+          measured={view.measured !== null}
+          sections={[{ section: 'structure', label: 'Add structure' }]}
+        />
+      }
+    >
       <DataTable
         label="Chapters"
         head={[
@@ -81,6 +100,13 @@ export function MotionSection({ view, videoId }: Props) {
     <TeardownSection
       id="td-motion"
       title="6. Motion and transitions"
+      adds={
+        <TeardownAdds
+          videoId={videoId}
+          measured={Boolean(motion)}
+          sections={[{ section: 'transitions', label: 'Add transitions' }]}
+        />
+      }
       note={judgedBy(view, 'motion', engineName)}
       problem={
         motion ? stageProblem(view, 'motion') : 'its frames could not be gone through one by one.'
@@ -130,6 +156,9 @@ export function MotionSection({ view, videoId }: Props) {
               <span className="font-semibold">Rebuild ({item.rebuild.method}):</span>{' '}
               {item.rebuild.recipe}
             </p>
+            {view.measured !== null && (
+              <AddToFormat source={{ kind: 'teardown', videoId, section: 'motion', index }} />
+            )}
           </li>
         ))}
       </ul>
@@ -145,6 +174,13 @@ export function SoundSection({ view }: { readonly view: TeardownView }) {
     <TeardownSection
       id="td-sound"
       title="7. Sound design and mix"
+      adds={
+        <TeardownAdds
+          videoId={view.videoId}
+          measured={view.measured !== null}
+          sections={[{ section: 'sound', label: 'Add sound' }]}
+        />
+      }
       note={judgedBy(view, 'sound', engineName)}
       problem={stageProblem(view, 'sound')}
     >

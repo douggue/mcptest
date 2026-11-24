@@ -125,6 +125,7 @@ function HookGrid({ lab, hooks, seconds, models }: GridProps) {
           <HookCard
             hook={hook}
             seconds={seconds}
+            center={lab.library?.centerChannelId ?? null}
             picked={lab.picks.some((pick) => pick.videoId === hook.videoId)}
             onUse={() =>
               lab.pick({

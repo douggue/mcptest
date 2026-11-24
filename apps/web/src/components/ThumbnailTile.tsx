@@ -1,3 +1,4 @@
+import { AddToFormat } from './AddToFormat';
 import type { BoardVideo } from '@jgtube/core';
 import type { ScoreTone } from '../lib/board';
 import { formatCount, formatDuration, formatScore, thumbnailUrl, watchUrl } from '../lib/format';
@@ -10,10 +11,12 @@ const BADGE: Readonly<Record<Exclude<ScoreTone, 'none'>, string>> = {
 interface Props {
   readonly video: BoardVideo;
   readonly tone: ScoreTone;
+  /** Offers to put its layout on the format builder's shelf. */
+  readonly addable?: boolean;
 }
 
 /** One 16:9 thumbnail with its score on it, linking to the video. */
-export function ThumbnailTile({ video, tone }: Props) {
+export function ThumbnailTile({ video, tone, addable }: Props) {
   const href = watchUrl(video.videoId);
   const thumbnail = thumbnailUrl(video.videoId);
   const duration = formatDuration(video.durationSeconds);
@@ -51,11 +54,21 @@ export function ThumbnailTile({ video, tone }: Props) {
     </>
   );
   const className = 'group flex min-w-0 flex-col gap-1.5';
-  return href ? (
+  const tile = href ? (
     <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
       {body}
     </a>
   ) : (
     <div className={className}>{body}</div>
+  );
+  if (!addable) return tile;
+  return (
+    <div className="flex min-w-0 flex-col items-start gap-1">
+      {tile}
+      <AddToFormat
+        source={{ kind: 'video', use: 'thumbnail', videoId: video.videoId, center: null }}
+        label="Add layout"
+      />
+    </div>
   );
 }

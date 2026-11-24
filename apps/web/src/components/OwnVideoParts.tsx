@@ -1,3 +1,4 @@
+import { AddToFormat } from './AddToFormat';
 import type { LinkedVideo, PlanTableRow } from '@jgtube/core';
 import { formatDuration, thumbnailUrl, watchUrl } from '../lib/format';
 import { KIND_LABELS, inspirationLine, medianText, scoreLine, tableCaution } from '../lib/plan';
@@ -81,9 +82,14 @@ export function LinkedCard({ video, busy, onUnlink }: CardProps) {
       </div>
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-space-sm">
         <Inspirations video={video} />
-        <button type="button" disabled={busy} onClick={onUnlink} className={QUIET_BUTTON}>
-          Unlink
-        </button>
+        <span className="flex flex-wrap items-center gap-2">
+          <AddToFormat
+            source={{ kind: 'video', use: 'own-video', videoId: video.videoId, center: null }}
+          />
+          <button type="button" disabled={busy} onClick={onUnlink} className={QUIET_BUTTON}>
+            Unlink
+          </button>
+        </span>
       </div>
     </Card>
   );
