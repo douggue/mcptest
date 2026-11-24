@@ -50,7 +50,7 @@ const put = (app: ReturnType<typeof appWith>, body: Uint8Array, headers = {}) =>
     new Request(`http://${HOST}${FORMAT_IMAGES_PATH}`, {
       method: 'PUT',
       headers: { host: HOST, ...headers },
-      body,
+      body: Buffer.from(body),
     }),
   );
 
