@@ -2972,7 +2972,16 @@ the picture really changes when `get_script` lists frame studies of the voice
 channel, else where the subject changes, with no cut rate invented. Tighten:
 the same script toward `targetGrade` (the voice's own), nothing added, every
 marker and cue kept, and the length kept section by section (tightening is
-not shortening). `parseHooksAndBeats` and `scriptBody` read the answers;
+not shortening).
+
+**A beat is never dropped silently.** The question asks for each beat in one
+line of at most 45 words. `parseHooksAndBeats` keeps a beat of up to
+`MAX_BEAT_CHARS = 1200` characters whole (a real run wrote nine beats of 257
+to 946 characters; under the old limit of 400 the app stored two of them and
+said nothing). A longer beat is shortened at the end of a sentence (at a
+word, with "…", when it has none) and kept, and a sheet of more than 120
+beats keeps the first 120; each is said in `notes`, which the stage's outcome
+carries (`ScriptOutcome.notes`) and the page shows above the script. `parseHooksAndBeats` and `scriptBody` read the answers;
 an answer with no hook or no words changes nothing.
 
 **The word budget** (`core/src/script/budget.ts`, `wordBudget`). A draft asked

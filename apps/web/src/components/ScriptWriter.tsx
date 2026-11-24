@@ -153,6 +153,17 @@ export function ScriptWriter(props: Props) {
           {script.problem}
         </p>
       )}
+      {script.notes.length > 0 && (
+        <ul
+          role="status"
+          aria-label="What changed while the AI’s answer was read"
+          className="flex flex-col gap-1 rounded border border-border-subtle bg-surface-card p-space-lg text-body-sm text-on-surface"
+        >
+          {script.notes.map((note) => (
+            <li key={note}>{note}</li>
+          ))}
+        </ul>
+      )}
       {view ? (
         <Workbench key={view.concept.id} {...props} view={view} />
       ) : (

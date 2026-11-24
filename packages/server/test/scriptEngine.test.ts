@@ -393,7 +393,7 @@ describe('the three stages', () => {
     expect(asked).toEqual([
       { analysis: 'script-hooks', focus: { kind: 'script', conceptId }, only: 'claude' },
     ]);
-    expect(outcome).toMatchObject({ kind: 'script', stage: 'hooks', engine: 'claude' });
+    expect(outcome).toMatchObject({ kind: 'script', stage: 'hooks', engine: 'claude', notes: [] });
     expect(outcome.view.script?.hooks.map((hook) => [hook.way, hook.model])).toEqual([
       ['scene first', A],
       ['a question', null],
@@ -403,6 +403,30 @@ describe('the three stages', () => {
       '1:00 | The bill | Who has been paying\n3:00 | The plant | Why it closed',
     );
     expect(outcome.view.script?.status).toBe('drafting');
+  });
+
+  test('hooks: a beat written at length is kept whole, and one far too long is shortened and reported', async () => {
+    const long = `Something is told here at length. `.repeat(12).trim();
+    const tooLong = `Something is told here at length. `.repeat(60).trim();
+    answer = [
+      'HOOK 1',
+      'WAY: scene first',
+      'MODEL: none',
+      'TEXT: It never stopped.',
+      'BEATS',
+      `BEAT: 1:00 | The bill | ${long}`,
+      `BEAT: 3:00 | The plant | ${tooLong}`,
+      'BEAT: 5:00 | The end | How it closes.',
+    ].join('\n');
+
+    const outcome = await engine.runScriptStage('hooks', MINE, conceptId, 'claude', () => {});
+
+    const beats = (outcome.view.script?.beats ?? '').split('\n');
+    expect(beats).toHaveLength(3);
+    expect(beats[0]).toBe(`1:00 | The bill | ${long}`);
+    expect(beats[1]?.length).toBeLessThan(tooLong.length);
+    expect(beats[1]?.endsWith('at length.')).toBe(true);
+    expect(outcome.notes).toEqual([expect.stringMatching(/^Beat 2 \(“The plant”\) was longer/)]);
   });
 
   test('draft: waits for a chosen hook and beats, then stores the script from its first heading', async () => {
@@ -478,6 +502,7 @@ describe('the script routes', () => {
     view,
     engine: 'claude',
     skipped: [],
+    notes: [],
   } as ScriptOutcome;
   const appWith = (parts: Partial<LabEngine & ScriptEngine>) =>
     createApp({ engine: stubEngine(parts), jobs: new JobStore(), allowedHosts: [HOST] });

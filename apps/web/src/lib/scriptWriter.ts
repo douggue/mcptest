@@ -60,6 +60,8 @@ export interface ScriptOutcome extends Answered {
   readonly kind: 'script';
   readonly stage: ScriptStage;
   readonly view: ScriptView;
+  /** What changed while the answer was read (a beat shortened, beats left off); absent from an older server. */
+  readonly notes?: readonly string[];
 }
 
 export interface VoiceOutcome {

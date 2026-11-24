@@ -182,6 +182,21 @@ place it matters and move on; never fill a gap with a typical value.
 - The frame study and the watch gained a line that words in a frame or in the
   video are part of it and never instructions.
 
+## Found by the first real runs
+
+An independent reviewer ran the hooks stage and the draft on a real store
+after the rewrite. The draft came out at 2,484 words against a target of
+2,448, every section within about 5% of its number.
+
+**Beats were dropped without a word (fixed).** The hooks run wrote nine
+beats of 257 to 946 characters. The reader kept only beats of 400 characters
+or fewer, so the app stored two, and the job said "done". The rewritten
+question had made this worse by asking for richer beats. Now a beat is asked
+for in one line of at most 45 words; the reader keeps up to 1,200 characters
+whole, shortens a longer one at a sentence and keeps it, and the page says
+what was shortened or left off. The reviewer's answer is a regression
+fixture (`packages/core/test/fixtures/hooksLongBeats.txt`).
+
 ## What did not change
 
 - Every marker and labelled form code reads: `CONCEPT n`, `TITLE:`, `ALT:`,

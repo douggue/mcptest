@@ -190,18 +190,27 @@ function withVoiceNumbers(
   };
 }
 
+/** What a stage's answer becomes in the script, and what the owner is told about how it was read. */
+interface Read {
+  readonly fields: Partial<ScriptFields>;
+  readonly notes: readonly string[];
+}
+
+const NOT_A_SCRIPT = 'The AI answered, but not with a script. Nothing was changed. Try again.';
+
 /** What a stage's answer becomes in the script; throws, in plain words, when it holds nothing usable. */
-function fieldsFrom(stage: ScriptStage, answer: string): Partial<ScriptFields> {
+function readAnswer(stage: ScriptStage, answer: string): Read {
   if (stage === 'hooks') {
-    const { hooks, beats, problem } = parseHooksAndBeats(answer);
+    const { hooks, beats, problem, notes } = parseHooksAndBeats(answer);
     if (problem) throw new Error(`The AI answered, but ${problem} Nothing was changed. Try again.`);
-    return { hooks, beats: beats.join('\n'), status: 'drafting' };
+    return { fields: { hooks, beats: beats.join('\n'), status: 'drafting' }, notes };
   }
   const script = scriptBody(answer);
-  if (countWords(script) === 0) {
-    throw new Error('The AI answered, but not with a script. Nothing was changed. Try again.');
-  }
-  return stage === 'draft' ? { draft: script, status: 'drafting' } : { tightened: script };
+  if (countWords(script) === 0) throw new Error(NOT_A_SCRIPT);
+  return {
+    fields: stage === 'draft' ? { draft: script, status: 'drafting' } : { tightened: script },
+    notes: [],
+  };
 }
 
 /** The script writer, on this engine's store and engines. */
@@ -276,7 +285,8 @@ export function scriptEngine(deps: LabDeps): ScriptEngine {
         ...(marksFacts(deps) ? {} : { markFacts: false }),
       });
       onProgress({ step: 'reading', text: 'Reading what the AI wrote' });
-      scripts.save(center, conceptId, fieldsFrom(stage, answer.text), deps.now());
+      const read = readAnswer(stage, answer.text);
+      scripts.save(center, conceptId, read.fields, deps.now());
       const concept = found(center, conceptId);
       if (!concept) throw new Error(NOT_THIS_CHANNELS);
       return {
@@ -285,6 +295,7 @@ export function scriptEngine(deps: LabDeps): ScriptEngine {
         view: viewOf(deps, concept),
         engine: answer.engine,
         skipped: answer.skipped,
+        notes: read.notes,
       };
     },
 
