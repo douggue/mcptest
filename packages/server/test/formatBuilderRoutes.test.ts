@@ -86,6 +86,17 @@ describe('the format builder engine', () => {
     });
     expect(changed?.checks.originality).toMatchObject({ copiesOneChannel: true, fromChannel: 2 });
     expect(changed?.topChannelTitle).toBe('Alpha');
+    const unknown = setup('', { channelTitle: () => null });
+    const one = unknown.shelf.add(draft('title', '1'), NOW);
+    const two = unknown.shelf.add(draft('hook', '2'), NOW);
+    const bare = unknown.engine.createFormat('Bare', null);
+    const filled = unknown.engine.updateFormat(bare.id, {
+      slots: {
+        title: { ingredientId: one.id, note: '' },
+        hook: { ingredientId: two.id, note: '' },
+      },
+    });
+    expect(filled?.topChannelTitle).toBeNull();
     expect(changed?.checks.unproven).toEqual(['title', 'hook', 'sound']);
     shelf.remove(sound.id);
     expect(engine.listFormats()[0]?.slots.sound).toBeUndefined();

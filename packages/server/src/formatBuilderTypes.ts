@@ -9,7 +9,7 @@ import type { EngineId } from './engines/types';
 /** A format with its checks, as the page shows it. */
 export interface FormatView extends Format {
   readonly checks: FormatChecks;
-  /** The name of the channel the originality check counts most slots from; null when none. */
+  /** The name of the channel the originality check counts most slots from; null when none or not stored. */
   readonly topChannelTitle: string | null;
 }
 

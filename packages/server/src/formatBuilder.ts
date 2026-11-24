@@ -53,7 +53,8 @@ function viewOf(deps: FormatBuilderDeps, format: Format, shelf: readonly Ingredi
     ...format,
     slots,
     checks,
-    topChannelTitle: top === null ? null : (deps.channelTitle(top) ?? top),
+    // A channel not in the store is "one channel" on the page, never a bare id.
+    topChannelTitle: top === null ? null : deps.channelTitle(top),
   };
 }
 
