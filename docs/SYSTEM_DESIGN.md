@@ -3115,6 +3115,12 @@ will be another country’s."
   (marked experimental by undici; it prints one warning the first time).
   Tested against small HTTP and SOCKS5 proxies run on this computer in the
   tests, user name and password included; no provider's proxy has been tried.
+- **Seen here (November 2026).** Through a local HTTP proxy with a password,
+  passed on through this sandbox's own data-centre egress, a channel page and
+  30 of its videos were read through InnerTube, and Test said Refused: the
+  watch page was sent to `google.com/sorry` ("unusual traffic"). A wrong
+  password was reported as such, and an address with nothing listening as
+  "Nothing answered".
 
 ## Testing
 
