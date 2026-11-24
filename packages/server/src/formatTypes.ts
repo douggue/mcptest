@@ -8,6 +8,7 @@ import type {
   FormatVideo,
   Ingredient,
   IngredientLayer,
+  MeasuredChannelFacts,
   NicheList,
   StoredBreakdownPart,
   TeardownReport,
@@ -70,6 +71,8 @@ export interface FormatSources {
   listNiches(): NicheList;
   findBreakdownPart(channelId: string, part: BreakdownPartId): StoredBreakdownPart | null;
   channelTitle(channelId: string): string | null;
+  /** What code measured across a channel's studied videos; null when it was never measured. */
+  channelMeasurements(channelId: string): MeasuredChannelFacts | null;
   teardownReport(videoId: string): TeardownReport | null;
   /** A stored video with its outlier score; null when it is not stored. */
   videoFacts(videoId: string): FormatVideo | null;

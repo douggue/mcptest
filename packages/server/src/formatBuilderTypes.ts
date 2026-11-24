@@ -3,7 +3,14 @@
  * originality checks worked out in code from the shelf, and "Suggest a mix",
  * an AI run whose answer code checks against the shelf before it is kept.
  */
-import type { Format, FormatChange, FormatChecks, ShelfForMix } from '@jgtube/core';
+import type {
+  FollowedReport,
+  Format,
+  FormatChange,
+  FormatChecks,
+  FormatPlan,
+  ShelfForMix,
+} from '@jgtube/core';
 import type { EngineId } from './engines/types';
 
 /** A format with its checks, as the page shows it. */
@@ -11,6 +18,14 @@ export interface FormatView extends Format {
   readonly checks: FormatChecks;
   /** The name of the channel the originality check counts most slots from; null when none or not stored. */
   readonly topChannelTitle: string | null;
+  /** Whether it is its channel's active format. */
+  readonly active: boolean;
+}
+
+/** The owner's videos against the active format, counted in code. */
+export interface FollowedView {
+  readonly format: { readonly id: number; readonly name: string };
+  readonly report: FollowedReport;
 }
 
 /** The step a suggestion is on, in plain words. */
@@ -58,6 +73,12 @@ export interface FormatBuilderEngine {
   bibleMarkdown(formatId: number): { readonly name: string; readonly text: string } | null;
   /** The kept Bible with its palette, fonts and pictures as one zip; null when there is none. */
   bibleZip(formatId: number): Promise<Uint8Array | null>;
+  /** Makes a format the channel's active one, or (null) none; false when there is no such format. */
+  setActive(channel: string, formatId: number | null): boolean;
+  /** What the channel's active format plans, for the other tools; null when it has none. */
+  activePlan(channel: string): FormatPlan | null;
+  /** The channel's own videos against its active format; null when it has none. */
+  followed(channel: string): FollowedView | null;
   /** The shelf as the connector's tool shows it; null when there is no such format. */
   shelfForMix(formatId: number): ShelfForMix | null;
   /** One of the shelf's pictures by its name made in code; null when there is none. */

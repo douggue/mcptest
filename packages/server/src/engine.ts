@@ -78,6 +78,7 @@ import { breakdownHub, teardownDeps } from './breakdownHub';
 import { extras } from './extrasSetup';
 import { formatEngine, ingredientRepo, storedVideoFacts } from './formatEngine';
 import { formatBuilder, mixPicturePath } from './formatBuilder';
+import { ownVideosOf } from './formatOwnVideos';
 import { teardownReportOf } from './teardownStore';
 import { join } from 'node:path';
 import { cleanMessage } from './jobs';
@@ -501,6 +502,8 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       listNiches: choices.listNiches,
       findBreakdownPart: (channel, part) => wiring.repos.breakdowns.find(channel, part),
       channelTitle: (channel) => wiring.repos.channels.findById(channel)?.title ?? null,
+      // Read when an ingredient is added, after `broken` below is made.
+      channelMeasurements: (channel) => broken.channelMeasurements(channel),
       teardownReport: (videoId) => teardownReportOf(wiring.repos.teardowns, videoId),
       videoFacts: storedVideoFacts(wiring.db, wiring.repos.channels, wiring.now),
     },
@@ -513,6 +516,11 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     channelTitle: (channel) => wiring.repos.channels.findById(channel)?.title ?? null,
     picturePath: mixPicturePath(() => downloadsRoot(config)),
     askMix: asking.askFormatMix,
+    ownVideos: ownVideosOf({
+      now: wiring.now,
+      listByChannel: (channel) => wiring.repos.videos.listByChannel(channel),
+      teardownReport: (videoId) => teardownReportOf(wiring.repos.teardowns, videoId),
+    }),
   });
 
   let closed = false;
@@ -526,6 +534,30 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     copies.removeLeftovers();
     wiring.db.close();
   };
+  const broken = breaking({
+    config,
+    now: wiring.now,
+    videos: wiring.repos.videos,
+    studies: wiring.repos.studies,
+    channels: wiring.repos.channels,
+    breakdowns: wiring.repos.breakdowns,
+    run: wiring.work.run,
+    asking,
+    reading,
+    files,
+    stop,
+    teardown,
+    facts: {
+      thumbnailTags: (ids) =>
+        thumbTags.tagsFor(ids) as ReadonlyMap<string, Readonly<Record<string, unknown>>>,
+      storedCaptions: (videoId) =>
+        wiring.repos.pages.find(videoId)?.transcript?.segments.map((segment) => ({
+          at: segment.startMs / 1000,
+          text: segment.text,
+        })) ?? null,
+    },
+  });
+
   return {
     ...maps,
     ...choices,
@@ -536,29 +568,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     ...crawling(wiring),
     ...refreshing(wiring, fillFacts),
     ...discovery(wiring, fillFacts),
-    ...breaking({
-      config,
-      now: wiring.now,
-      videos: wiring.repos.videos,
-      studies: wiring.repos.studies,
-      channels: wiring.repos.channels,
-      breakdowns: wiring.repos.breakdowns,
-      run: wiring.work.run,
-      asking,
-      reading,
-      files,
-      stop,
-      teardown,
-      facts: {
-        thumbnailTags: (ids) =>
-          thumbTags.tagsFor(ids) as ReadonlyMap<string, Readonly<Record<string, unknown>>>,
-        storedCaptions: (videoId) =>
-          wiring.repos.pages.find(videoId)?.transcript?.segments.map((segment) => ({
-            at: segment.startMs / 1000,
-            text: segment.text,
-          })) ?? null,
-      },
-    }),
+    ...broken,
     ...labbing,
     extras: extras({ ...wiring, analyse: asking.analyse }),
     formats,

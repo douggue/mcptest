@@ -108,6 +108,9 @@ export const UNUSED_FORMAT_BUILDER: FormatBuilderEngine = {
   writeBible: unused('writeBible'),
   bibleMarkdown: unused('bibleMarkdown'),
   bibleZip: unused('bibleZip'),
+  setActive: unused('setActive'),
+  activePlan: unused('activePlan'),
+  followed: unused('followed'),
 };
 
 /** An engine whose later features are these, failing loudly on any other. */
