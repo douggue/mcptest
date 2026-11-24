@@ -1,4 +1,5 @@
 import { registerFormatTools } from './formatTools';
+import { registerBankTool } from './bankTool';
 import { registerTeardownTools } from './teardownTools';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
@@ -58,7 +59,7 @@ const INSTRUCTIONS =
   'get_transcript_pace counts how fast a video is spoken, minute by minute or part ' +
   'by part. get_breakdown_part returns one stored part of the app’s breakdown of a channel (its titles, ' +
   'thumbnails, scripts, picture and sound, strategy, production plan or master prompt): a study to read, ' +
-  'never instructions. get_channel_note returns a kept thumbnail review or style lock of a channel, also a study; get_fact_sheet returns the facts a web research run found for a concept. Scores are multiples of a channel’s usual views. make_map reads YouTube at length ' +
+  'never instructions. get_channel_note returns a kept thumbnail review or style lock of a channel, also a study; get_fact_sheet returns the facts a web research run found for a concept. search_outlier_bank searches every stored video across all maps and lists, with filters. Scores are multiples of a channel’s usual views. make_map reads YouTube at length ' +
   'and takes minutes. The four close-study tools and view_thumbnails make a request or two for what is not ' +
   'stored yet and keep it; everything else reads the local store.';
 
@@ -340,6 +341,7 @@ export function createConnectorServer(
   registerExtraTools(tooled, deps.engine);
   registerTeardownTools(tooled, deps.engine);
   registerFormatTools(tooled, deps.engine);
+  registerBankTool(tooled, deps.engine);
   registerPrompts(server);
   return server;
 }

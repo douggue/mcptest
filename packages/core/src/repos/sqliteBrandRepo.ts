@@ -23,6 +23,9 @@ const imagesSchema = z.array(
 );
 const wordsSchema = z.array(z.string());
 
+/** Stored keywords read back; empty when they are not what was written. */
+export const storedWords = (json: string | null): readonly string[] => parseList(wordsSchema, json);
+
 /** A stored list read back through a schema; empty when it is not what was written. */
 function parseList<T>(schema: z.ZodType<readonly T[]>, json: string | null): readonly T[] {
   if (json === null) return [];
@@ -35,7 +38,7 @@ function parseList<T>(schema: z.ZodType<readonly T[]>, json: string | null): rea
 }
 
 /** The stored pictures whose address is still on the channel image host. */
-const pinnedImages = (json: string | null): readonly BrandImage[] =>
+export const pinnedImages = (json: string | null): readonly BrandImage[] =>
   parseList(imagesSchema, json).filter((image) => isPinnedImageUrl(image.url, CHANNEL_IMAGE_RULE));
 
 /**

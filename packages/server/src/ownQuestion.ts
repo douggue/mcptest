@@ -18,6 +18,7 @@ export const OWN_QUESTION_TOOLS = [
   'get_breakouts',
   'get_thumbnail_board',
   'get_channel_videos',
+  'search_outlier_bank',
 ] as const;
 const OWN_QUESTION_MAX_TURNS = 12;
 const OWN_QUESTION_TIMEOUT_MS = 6 * 60 * 1000;
@@ -76,7 +77,7 @@ export function ownQuestionPrompt(channel: string, focus: OwnQuestionFocus): str
     ],
     owner: [OWNER],
     gather: numbered([
-      `Read what you need with ${OWN_QUESTION_TOOLS.join(', ')}: start with get_map for this channel.`,
+      `Read what you need with ${OWN_QUESTION_TOOLS.join(', ')}: start with get_map for this channel. search_outlier_bank reaches every stored video beyond this map, with filters.`,
       'Read enough to answer with proof: the videos and channels the answer rests on, with the numbers the tools give for them.',
     ]),
     craft: bullets([

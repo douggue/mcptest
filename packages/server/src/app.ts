@@ -66,6 +66,8 @@ import { downloadThumbnails, downloadTranscripts } from './downloadRoutes';
 import type { DownloadsEngine } from './downloadTypes';
 import { hubRoutes } from './breakdownHubRoutes';
 import { extraRoutes } from './extrasRoutes';
+import { BANK_PATH, bankRoutes, type BankRoutes } from './bankRoutes';
+import type { BankEngine } from './bankTypes';
 import { formatRoutes } from './formatRoutes';
 import type { FormatEngine } from './formatTypes';
 import type { FormatBuilderEngine } from './formatBuilderTypes';
@@ -156,6 +158,8 @@ export interface Engine
   readonly extras: ExtrasEngine;
   /** The format builder: the shelf of ingredients taken from the other views. */
   readonly formats: FormatEngine;
+  /** The outlier bank: every stored video with its score, the owner's collections, and finding more. */
+  readonly bank: BankEngine;
   /** The format builder's formats, their checks and "Suggest a mix". */
   readonly formatBuilder: FormatBuilderEngine;
   /** The Breakdown view: the channels it offers, a pasted channel, and one video in depth. */
@@ -421,6 +425,7 @@ const READS_YOUTUBE: ReadonlySet<string> = new Set([
   '/api/maps',
   '/api/niches/discover',
   '/api/refresh',
+  `${BANK_PATH}/find`,
 ]);
 
 const deleteRequest = z.object({ channel: z.string().regex(CHANNEL_ID) });
@@ -489,6 +494,7 @@ function jobStatus(
   id: string,
   hub: ReturnType<typeof hubRoutes>,
   builder: FormatBuilderRoutes,
+  bank: BankRoutes,
 ): Response {
   const job =
     options.jobs.get(id) ??
@@ -496,7 +502,8 @@ function jobStatus(
     lab.job(id) ??
     logos.job(id) ??
     hub.job(id) ??
-    builder.job(id);
+    builder.job(id) ??
+    bank.job(id);
   return job ? ok(job) : fail(404, 'No such job');
 }
 
@@ -521,6 +528,7 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
   const extra = extraRoutes(options, analysing);
   const hub = hubRoutes(options, analysing, uploading);
   const builder = formatBuilderRoutes(options, analysing);
+  const bank = bankRoutes(options);
   return async (request) => {
     if (!isTrustedHost(request, options.allowedHosts)) {
       return fail(403, 'This server only answers to its own address');
@@ -543,6 +551,8 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
     if (extraAnswer) return extraAnswer;
     const builderAnswer = builder.handle(request, url);
     if (builderAnswer) return builderAnswer;
+    const bankAnswer = bank.handle(request, url);
+    if (bankAnswer) return bankAnswer;
     const formatAnswer = formatRoutes(options, request, url);
     if (formatAnswer) return formatAnswer;
     if (pathname === '/api/maps/latest') {
@@ -660,13 +670,14 @@ export function createApp(options: AppOptions): (request: Request) => Promise<Re
           extra.listJobs,
           hub.listJobs,
           builder.listJobs,
+          bank.listJobs,
         ]),
       });
     }
     if (pathname.startsWith('/api/jobs/')) {
       const id = pathname.slice('/api/jobs/'.length);
       return method === 'GET'
-        ? jobStatus(options, breakdowns, lab, logos, id, hub, builder)
+        ? jobStatus(options, breakdowns, lab, logos, id, hub, builder, bank)
         : fail(405, 'Use GET');
     }
     return fail(404, 'Not found');

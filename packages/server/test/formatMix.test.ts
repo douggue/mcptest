@@ -44,6 +44,7 @@ describe('the mix question', () => {
     expect(text).toContain('get_format_shelf with format 4');
     expect(text).toContain(`get_map and get_breakouts for the channel ${CHANNEL}`);
     expect(text).toContain('"ingredient": 12');
+    expect(text).toContain('search_outlier_bank');
     expect(mixQuestion(ask({ channel: null }), '')).toContain('judge from the shelf alone');
     expect(MIX_SYSTEM_PROMPT).toMatch(/never forecast/);
   });
@@ -52,6 +53,7 @@ describe('the mix question', () => {
     const request = mixRequest(ask(), 'claude', settings());
     expect(request.allowedTools).toEqual([
       'mcp__jgtube__get_format_shelf',
+      'mcp__jgtube__search_outlier_bank',
       'mcp__jgtube__get_map',
       'mcp__jgtube__get_breakouts',
     ]);
@@ -59,6 +61,7 @@ describe('the mix question', () => {
     expect(request.maxTurns).toBe(10);
     expect(mixRequest(ask({ channel: null }), 'codex', settings()).allowedTools).toEqual([
       'mcp__jgtube__get_format_shelf',
+      'mcp__jgtube__search_outlier_bank',
     ]);
   });
 

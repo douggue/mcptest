@@ -4,6 +4,7 @@ import {
   type RateLimiterOptions,
   type Config,
   type VideoPlayerSource,
+  type VideoSearchSource,
   type WatchPageSource,
   type YouTubeSource,
 } from '@jgtube/core';
@@ -13,13 +14,15 @@ import {
  * files, which the built-in video download works from. The real connection
  * can; a stand-in in a test need not.
  */
-export type PlayerSource = YouTubeSource & Partial<VideoPlayerSource & WatchPageSource>;
+export type PlayerSource = YouTubeSource &
+  Partial<VideoPlayerSource & WatchPageSource & VideoSearchSource>;
 
 /** The connection on first use, with every optional part it may lack refusing when asked. */
-export type LazySource = YouTubeSource & VideoPlayerSource & WatchPageSource;
+export type LazySource = YouTubeSource & VideoPlayerSource & WatchPageSource & VideoSearchSource;
 
 const NO_PLAYER = 'This connection to YouTube cannot fetch a video file';
 const NO_WATCH_PAGE = 'This connection to YouTube cannot read a watch page';
+const NO_SEARCH = 'This connection to YouTube cannot search';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -89,8 +92,16 @@ export function stopWhen(source: PlayerSource, isStopped: () => boolean): Player
   const check = (): void => {
     if (isStopped()) throw new Error(NOT_READING);
   };
-  const { fetchPlayer, fetchWatchHtml } = source;
+  const { fetchPlayer, fetchWatchHtml, searchVideos } = source;
   return {
+    ...(searchVideos === undefined
+      ? {}
+      : {
+          searchVideos: async (query: string) => {
+            check();
+            return searchVideos.call(source, query);
+          },
+        }),
     ...(fetchWatchHtml === undefined
       ? {}
       : {
@@ -132,6 +143,11 @@ export function stopWhen(source: PlayerSource, isStopped: () => boolean): Player
  */
 export function connectOnUse(connect: () => Promise<PlayerSource>): LazySource {
   return {
+    searchVideos: async (query) => {
+      const source = await connect();
+      if (source.searchVideos === undefined) throw new Error(NO_SEARCH);
+      return source.searchVideos(query);
+    },
     fetchWatchHtml: async (videoId) => {
       const source = await connect();
       if (source.fetchWatchHtml === undefined) throw new Error(NO_WATCH_PAGE);

@@ -76,6 +76,7 @@ describe('the connector over the protocol', () => {
       'list_niches',
       'list_transfer_opportunities',
       'make_map',
+      'search_outlier_bank',
       'set_competitor_status',
       'view_format_pictures',
       'view_teardown_images',

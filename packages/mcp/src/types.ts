@@ -45,6 +45,7 @@ type EngineParts = Pick<
   | 'hub'
   | 'channelMeasurements'
   | 'formatBuilder'
+  | 'bank'
 >;
 
 /** What the connector needs from the engine, so tests can stand in for it. */
