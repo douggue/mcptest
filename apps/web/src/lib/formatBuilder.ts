@@ -12,6 +12,7 @@ import type {
   IngredientLayer,
 } from '@jgtube/core';
 import { applySuggestion, clearSlot, fillSlot, noteSlot } from '@jgtube/core/src/format/formats';
+import { engineName } from './analyses';
 import { apiCaller, type Fetch } from './api';
 
 export { applySuggestion, clearSlot, fillSlot, noteSlot };
@@ -20,6 +21,14 @@ export { applySuggestion, clearSlot, fillSlot, noteSlot };
 export interface FormatView extends Format {
   readonly checks: FormatChecks;
   readonly topChannelTitle: string | null;
+}
+
+/** A "Suggest a mix" job as the server reports it. */
+export interface MixJob {
+  readonly status: 'running' | 'done' | 'failed';
+  readonly progress: { readonly text?: string } | null;
+  readonly result: FormatView | null;
+  readonly error: string | null;
 }
 
 export const FORMATS_PATH = '/api/format/formats';
@@ -39,6 +48,9 @@ export function createFormatBuilderApi(fetcher?: Fetch) {
     duplicate: (id: number) => one(`${FORMATS_PATH}/duplicate`, { id }),
     async remove(id: number): Promise<void> {
       unwrap(await send(`${FORMATS_PATH}/remove`, { id }));
+    },
+    async job(id: string): Promise<MixJob> {
+      return unwrap<MixJob>(await call(`/api/jobs/${encodeURIComponent(id)}`));
     },
     /** Starts "Suggest a mix"; resolves with the job to follow. */
     async suggest(id: number, channel: string | null, engine: string | null): Promise<string> {
@@ -127,3 +139,11 @@ export function secondsFrom(minutesText: string): number | null | 'bad' {
   if (!Number.isFinite(minutes) || minutes <= 0) return 'bad';
   return Math.round(minutes * MINUTE);
 }
+
+const ENGINES = ['agy', 'claude', 'codex'] as const;
+
+/** Which engine wrote a suggestion, by its name; "an AI" for one this page does not know. */
+export const writtenBy = (engine: string): string =>
+  (ENGINES as readonly string[]).includes(engine)
+    ? engineName(engine as (typeof ENGINES)[number])
+    : 'an AI';

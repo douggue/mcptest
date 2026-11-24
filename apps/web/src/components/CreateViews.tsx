@@ -77,7 +77,9 @@ export const CREATE_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
   script: withMap('script', (snapshot, parts) => (
     <Script {...parts} centerId={snapshot.center.id} />
   )),
-  format: () => <FormatView />,
+  format: ({ page, work }) => (
+    <FormatView channelId={page.snapshot?.center.id ?? null} ai={aiOf(work)} />
+  ),
   risk: ({ page, work }) => (
     <RiskCheck
       channelId={page.snapshot?.center.id ?? null}

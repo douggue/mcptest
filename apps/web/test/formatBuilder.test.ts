@@ -8,6 +8,7 @@ import {
   originalityLine,
   secondsFrom,
   slotWarnings,
+  writtenBy,
 } from '../src/lib/formatBuilder';
 
 const checks = (parts: Partial<FormatChecks> = {}): FormatChecks => ({
@@ -119,13 +120,15 @@ describe('the builder API', () => {
     const view = { id: 1, name: 'A' };
     const api = createFormatBuilderApi(async (input, init) => {
       sent.push([String(input), init?.body === undefined ? null : JSON.parse(String(init.body))]);
-      const data = String(input).endsWith('/suggest')
-        ? { jobId: 'j1' }
-        : String(input).endsWith('/remove')
-          ? { id: 1 }
-          : init?.method === 'POST'
-            ? view
-            : { formats: [view] };
+      const data = String(input).startsWith('/api/jobs/')
+        ? { status: 'done', result: view }
+        : String(input).endsWith('/suggest')
+          ? { jobId: 'j1' }
+          : String(input).endsWith('/remove')
+            ? { id: 1 }
+            : init?.method === 'POST'
+              ? view
+              : { formats: [view] };
       return new Response(JSON.stringify({ success: true, data, error: null, meta: null }));
     });
     expect(await api.list()).toEqual([view]);
@@ -135,6 +138,7 @@ describe('the builder API', () => {
     await api.remove(1);
     expect(await api.suggest(1, 'UC1', null)).toBe('j1');
     await api.suggest(1, null, 'claude');
+    expect((await api.job('a b')).result).toEqual(view);
     expect(sent.map(([path]) => path)).toEqual([
       '/api/format/formats',
       '/api/format/formats',
@@ -143,9 +147,15 @@ describe('the builder API', () => {
       '/api/format/formats/remove',
       '/api/format/formats/suggest',
       '/api/format/formats/suggest',
+      '/api/jobs/a%20b',
     ]);
     expect(sent[2]?.[1]).toEqual({ id: 1, name: 'B' });
     expect(sent[5]?.[1]).toEqual({ id: 1, channel: 'UC1' });
     expect(sent[6]?.[1]).toEqual({ id: 1, channel: null, engine: 'claude' });
   });
+});
+
+test('writtenBy names a known engine and no other', () => {
+  expect(writtenBy('claude')).not.toBe('an AI');
+  expect(writtenBy('other')).toBe('an AI');
 });

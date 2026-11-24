@@ -1,5 +1,5 @@
 import type { Ingredient } from '@jgtube/core';
-import { Film, Trash2 } from 'lucide-react';
+import { Film, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import {
   LAYER_LABELS,
@@ -142,10 +142,12 @@ interface Props {
   readonly item: Ingredient;
   readonly onRemove: () => void;
   readonly onNote: (note: string) => void;
+  /** Puts it in the format being built; absent when there is none or it is there already. */
+  readonly use?: { readonly label: string; readonly run: () => void } | undefined;
 }
 
 /** One ingredient on the shelf: its pictures, what it rests on, and the owner's note. */
-export function IngredientCard({ item, onRemove, onNote }: Props) {
+export function IngredientCard({ item, onRemove, onNote, use }: Props) {
   const video = videoOf(item);
   return (
     <Card as="li" medium highlighted={item.proven}>
@@ -164,6 +166,12 @@ export function IngredientCard({ item, onRemove, onNote }: Props) {
       <Reading item={item} />
       <NoteField item={item} onSave={onNote} />
       <div className="flex min-w-0 flex-wrap items-center gap-2">
+        {use && (
+          <button type="button" onClick={use.run} className={ICON_BUTTON}>
+            <Plus aria-hidden="true" className="h-4 w-4 flex-none" />
+            <span className="min-w-0 truncate">{use.label}</span>
+          </button>
+        )}
         {video !== null && (
           <a
             href={viewHref('video-breakdown')}
