@@ -53,7 +53,7 @@ export function flowSteps(counts: FlowCounts | null): readonly FlowStep[] {
   return [
     step(
       'research',
-      'Research',
+      'Discover',
       'breakouts',
       (k) => orNone(k.breakouts, 'breakout'),
       (k) => k.breakouts > 0,
@@ -140,8 +140,8 @@ const ORIGINS: Readonly<Record<Origin, { readonly label: string; readonly href: 
   hook: { label: 'the hook library', href: viewHref('hooks') },
   transfer: { label: 'the transfer list', href: viewHref('transfers') },
   formula: { label: 'Trending formats', href: viewHref('formats') },
-  breakdown: { label: 'the channel breakdown', href: viewHref('ask') },
-  review: { label: 'the thumbnail review', href: viewHref('ask') },
+  breakdown: { label: 'the channel breakdown', href: viewHref('breakdown') },
+  review: { label: 'the thumbnail review', href: viewHref('thumbnails') },
 };
 
 /** The words and the link back to where a thing came from. */

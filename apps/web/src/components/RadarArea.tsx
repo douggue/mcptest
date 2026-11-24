@@ -73,7 +73,7 @@ export function RadarArea({ page, onOpenChannel }: Props) {
     <ViewPage labelledBy="radar-title">
       <ViewHeader
         titleId="radar-title"
-        title="Radar"
+        title="Map"
         lead={
           snapshot
             ? `${snapshot.center.title} in the middle; closer rings are closer competitors. Press a channel to open it.`

@@ -1,10 +1,12 @@
 import type { LabJobState, LabTask } from './useLabJob';
 
-export const NOTE = 'rounded bg-surface-card p-space-lg text-body-md text-on-surface-variant';
+export const NOTE =
+  'rounded-lg border border-line bg-surface-card p-space-md sm:p-space-lg text-body-md text-on-surface-variant';
+/** A small action that matters more than the ones beside it; the screen's one main action is cyan. */
 export const PRIMARY_BUTTON =
-  'rounded-full bg-on-surface px-4 py-1.5 text-body-sm font-semibold text-space-deep transition-all hover:bg-white disabled:cursor-not-allowed disabled:opacity-60';
+  'rounded-md border border-line-2 bg-white/[0.12] px-3.5 py-1.5 text-body-sm font-semibold text-ink transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60';
 export const QUIET_BUTTON =
-  'rounded-full bg-surface-container-high px-3 py-1.5 text-body-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-highest disabled:cursor-not-allowed disabled:opacity-60';
+  'rounded-md border border-line bg-white/[0.06] px-3 py-1.5 text-body-sm font-semibold text-ink transition-colors hover:border-line-2 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60';
 export const PILL = 'rounded-full bg-surface-container-high px-2 py-0.5 text-label';
 export const FIELD =
   'w-full min-w-0 min-h-11 rounded border border-border-subtle bg-space-deep px-3 py-2 text-body-md text-on-surface focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container disabled:opacity-60';

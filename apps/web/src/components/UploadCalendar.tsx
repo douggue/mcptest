@@ -142,7 +142,7 @@ export function UploadCalendar({ channelId, reloadKey }: Props) {
       <div className="mx-auto flex w-full max-w-4xl min-w-0 flex-col gap-space-lg">
         <ViewHeader
           titleId="upload-calendar-title"
-          title="Calendar"
+          title="Plan"
           icon={CalendarDays}
           lead="Your kept concepts and scripts by the week you plan to publish them."
         />

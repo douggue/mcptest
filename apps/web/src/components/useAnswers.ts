@@ -10,13 +10,14 @@ export const answersApi: AnswersApi = createAnswersApi();
  * The answers kept for the channel on screen, one at most per analysis, read
  * again when `version` changes (after a new answer is given). Empty while
  * reading, when none is kept, or when the server cannot say: the buttons
- * still work.
+ * still work. None before any channel.
  */
-export function useKeptAnswers(centerId: string, version: number): readonly KeptAnswer[] {
+export function useKeptAnswers(centerId: string | null, version: number): readonly KeptAnswer[] {
   const [kept, setKept] = useState<readonly KeptAnswer[]>([]);
   useEffect(() => {
     let current = true;
     setKept([]);
+    if (centerId === null) return undefined;
     Promise.all(
       ANALYSIS_OPTIONS.map(async ({ id }) => ({
         analysis: id,

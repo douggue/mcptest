@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
-import { VIEWS, routeFromHash, routeHash, type Route } from '../lib/routes';
+import { redirectOf, routeFromHash, routeHash, type Route } from '../lib/routes';
 
 /** How long a view is given to show an element an in-page link points to. */
 const ANCHOR_WAIT_MS = 3000;
 const ANCHOR_POLL_MS = 100;
 
-const current = (): Route => routeFromHash(window.location.hash);
+/**
+ * The screen the address names. An address from before the five places is
+ * rewritten in place to the new one of the same screen, so the bar, a
+ * bookmark made now and the back button all carry the new address.
+ */
+function current(): Route {
+  const { hash } = window.location;
+  const redirect = redirectOf(hash);
+  if (redirect !== null) window.history.replaceState(window.history.state, '', redirect);
+  return routeFromHash(hash);
+}
 
 /** Brings an element into view once it is on the page; sections load their data first. */
 function scrollToWhenShown(id: string): () => void {
@@ -35,7 +45,6 @@ export function useRoute() {
 
   const { view, channelId, anchor } = route;
   useEffect(() => {
-    document.title = `${VIEWS[view].title} · Jgtube`;
     if (anchor) return scrollToWhenShown(anchor);
     window.scrollTo({ top: 0 });
     return undefined;

@@ -23,7 +23,7 @@ describe('the flow strip', () => {
     expect(flowSteps(counts)).toEqual([
       {
         id: 'research',
-        label: 'Research',
+        label: 'Discover',
         view: 'breakouts',
         count: '14 breakouts',
         done: true,
@@ -62,19 +62,28 @@ describe('where a thing in the idea lab or the script writer came from', () => {
   test('links back to the view it came from', () => {
     expect(originLink('breakout')).toEqual({
       label: 'Breaking out right now',
-      href: '#/breakouts',
+      href: '#/discover/videos',
     });
-    expect(originLink('hook')).toEqual({ label: 'the hook library', href: '#/hooks' });
+    expect(originLink('hook')).toEqual({
+      label: 'the hook library',
+      href: '#/style/library/hooks',
+    });
     expect(originLink('transfer')).toEqual({
       label: 'the transfer list',
-      href: '#/transfers',
+      href: '#/discover/videos/other-languages',
     });
-    expect(originLink('formula')).toEqual({ label: 'Trending formats', href: '#/formats' });
+    expect(originLink('formula')).toEqual({
+      label: 'Trending formats',
+      href: '#/style/library',
+    });
     expect(originLink('breakdown')).toEqual({
       label: 'the channel breakdown',
-      href: '#/ask',
+      href: '#/discover/channels/study',
     });
-    expect(originLink('review')).toEqual({ label: 'the thumbnail review', href: '#/ask' });
+    expect(originLink('review')).toEqual({
+      label: 'the thumbnail review',
+      href: '#/my-channel/videos/thumbnails',
+    });
   });
 });
 

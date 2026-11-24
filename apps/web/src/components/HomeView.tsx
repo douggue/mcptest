@@ -1,6 +1,5 @@
 import { Card } from './layout/Card';
 import { ViewPage } from './layout/SplitView';
-import { ViewHeader } from './layout/ViewHeader';
 import { MapToolbar } from './MapToolbar';
 import { NextStepCard } from './NextStepCard';
 import { SavedChannels } from './SavedChannels';
@@ -26,7 +25,7 @@ function Welcome({ running }: { readonly running: boolean }) {
 }
 
 /**
- * Home, in one column: the next step for the channel on screen, your
+ * Today, in one column: the next step for the channel on screen, your
  * channels as cards, and the search that adds a channel. The channel's
  * numbers are on its own page, under Channel.
  */
@@ -34,13 +33,8 @@ export function HomeView({ page, work, path, openChannel }: ViewParts) {
   const { snapshot } = page;
   const running = page.job?.status === 'running';
   return (
-    <ViewPage labelledBy="home-title">
-      <div className="mx-auto flex w-full max-w-4xl min-w-0 flex-col gap-space-lg">
-        <ViewHeader
-          titleId="home-title"
-          title="Home"
-          lead="Pick a channel, then take the next step."
-        />
+    <ViewPage>
+      <div className="flex w-full max-w-4xl min-w-0 flex-col gap-space-lg">
         {snapshot ? (
           <NextStepCard
             counts={path.flow.counts}

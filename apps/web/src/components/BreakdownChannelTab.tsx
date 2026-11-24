@@ -85,9 +85,11 @@ function useChannelRuns(videos: number): string | null {
 function OneChannel({
   candidate,
   parts,
+  own,
 }: {
   readonly candidate: Candidate;
   readonly parts: ViewParts;
+  readonly own: boolean;
 }) {
   const { breakdown, analysis, asking } = parts.work;
   const [fresh, setFresh] = useState(false);
@@ -114,7 +116,9 @@ function OneChannel({
         titleId="breakdown-title"
         title={candidate.title}
         lead={<CandidateMeta candidate={candidate} />}
-        back={{ href: breakdownHref(), label: 'Back to all channels', history: true }}
+        back={
+          own ? undefined : { href: breakdownHref(), label: 'Back to all channels', history: true }
+        }
         media={<CandidateLogo facts={candidate} size="lg" />}
         actions={
           <button
@@ -180,9 +184,12 @@ function OneChannel({
 export function BreakdownChannelTab({
   parts,
   channelId,
+  own = false,
 }: {
   readonly parts: ViewParts;
   readonly channelId: string | null;
+  /** The owner's own channel, under My channel: there is no list to go back to. */
+  readonly own?: boolean;
 }) {
   const { work, page } = parts;
   const { state, paste, readChannel } = useCandidates(
@@ -198,7 +205,7 @@ export function BreakdownChannelTab({
   return (
     <ViewPage id="breakdown" labelledBy="breakdown-title">
       {open ? (
-        <OneChannel key={open.id} candidate={open} parts={parts} />
+        <OneChannel key={open.id} candidate={open} parts={parts} own={own} />
       ) : (
         <>
           <ViewHeader

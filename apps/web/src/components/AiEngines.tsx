@@ -72,7 +72,7 @@ export function AiEngines({ ai }: { readonly ai: AiChoice }) {
       )}
       <Details summary="What this choice covers">
         <p className="text-body-sm text-on-surface-variant">
-          {badge.summary} This choice is used by Ask AI, breakdowns, the idea lab and the script
+          {badge.summary} This choice is used by Ask, breakdowns, the idea lab and the script
           writer. What viewers ask for and Check before publishing always take the first engine that
           is ready. Every answer says which engine gave it.
         </p>

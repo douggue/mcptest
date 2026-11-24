@@ -31,9 +31,9 @@ export function SectionFrame(props: Props) {
     <section
       id={id}
       aria-labelledby={titleId}
-      className="w-full scroll-mt-16 bg-space-deep px-gutter-desktop pb-space-xl"
+      className="w-full scroll-mt-16 px-4 pb-space-xl sm:px-8"
     >
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-space-lg border-t border-border-subtle pt-space-lg">
+      <div className="mx-auto flex max-w-[1260px] flex-col gap-space-lg pt-space-lg">
         <div className="flex min-w-0 flex-col gap-2">
           <h2 id={titleId} className="min-w-0">
             <button
@@ -43,10 +43,8 @@ export function SectionFrame(props: Props) {
               onClick={toggle}
               className="group flex min-w-0 items-center gap-2 rounded text-left focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
             >
-              <Icon aria-hidden="true" className="h-[22px] w-[22px] flex-none text-metric-amber" />
-              <span className="text-headline-lg font-bold tracking-tight text-on-surface">
-                {title}
-              </span>
+              <Icon aria-hidden="true" className="h-[22px] w-[22px] flex-none text-link" />
+              <span className="text-headline-md text-on-surface">{title}</span>
               {summary && (
                 <span className="rounded-full bg-surface-container-high px-2 py-0.5 text-label text-on-surface-variant">
                   {summary}

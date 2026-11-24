@@ -88,8 +88,8 @@ describe('createJobsApi and findRunningJob', () => {
 describe('where a job is shown', () => {
   test('names the view of each kind, and none for an unknown one', () => {
     expect(viewOfJob(job({}))).toBe('risk');
-    expect(jobHref(job({ kind: 'claims' }))).toBe('#/script');
-    expect(jobHref(job({ kind: 'comments-read' }))).toBe('#/comments');
+    expect(jobHref(job({ kind: 'claims' }))).toBe('#/create/scripts');
+    expect(jobHref(job({ kind: 'comments-read' }))).toBe('#/create/ideas/viewers-ask');
     expect(viewOfJob(job({ kind: 'work' }))).toBeNull();
     expect(jobHref(job({ kind: 'work' }))).toBeNull();
   });

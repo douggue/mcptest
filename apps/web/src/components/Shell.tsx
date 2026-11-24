@@ -1,75 +1,87 @@
-import { Radar, Settings as SettingsIcon } from 'lucide-react';
+import { Settings as SettingsIcon, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { AiBadge as Badge } from '../lib/aiBadge';
+import type { PlaceId } from '../lib/places';
 import { viewHref, type ViewId } from '../lib/routes';
-import { destinationOf } from '../lib/sections';
-import { AiBadge } from './AiBadge';
-import { BottomTabs, RailLinks } from './RailLinks';
+import { BottomBar, Rail } from './shell/PlaceNav';
+import { IconButton } from './ui/Button';
 import { WorkingIndicator } from './WorkingIndicator';
 
-const TOP_BUTTON =
-  'flex min-h-11 flex-none items-center gap-2 rounded-full px-3 text-body-sm text-on-surface-variant transition-colors hover:bg-surface-card hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container';
-
 interface Props {
-  /** The view on screen, marked in the rail. */
+  /** The screen on show. */
   readonly active: ViewId;
-  /** Which AI answers, shown in the top bar on every view. */
-  readonly ai: Badge;
-  /** The map's own channel, which the rail's Channel entry opens; null before any map. */
-  readonly centerId: string | null;
+  /** The place it sits in, marked in the rail; null for Ask and Settings. */
+  readonly place: PlaceId | null;
   /** Which channel the app is about and the way to switch, beside the logo. */
   readonly switcher?: ReactNode;
+  /** The search box, in the middle of the bar. */
+  readonly search: ReactNode;
+  /** The Ask panel is open. */
+  readonly asking: boolean;
+  readonly onAsk: () => void;
   readonly children: ReactNode;
 }
 
+function Logo() {
+  return (
+    <a
+      href={viewHref('home')}
+      aria-label="Jgtube, Today"
+      className="flex flex-none items-center gap-2.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal md:w-[196px]"
+    >
+      <span className="relative h-[30px] w-[30px] flex-none rounded-full border-[1.5px] border-signal shadow-[inset_0_0_18px_rgba(0,210,255,0.35)]">
+        <span className="absolute inset-2 rounded-full bg-signal" />
+      </span>
+      <span className="hidden text-[19px] font-bold tracking-tight text-ink md:inline">Jgtube</span>
+    </a>
+  );
+}
+
+function AskButton({ asking, onAsk }: Pick<Props, 'asking' | 'onAsk'>) {
+  return (
+    <button
+      type="button"
+      onClick={onAsk}
+      aria-label="Ask the AI about this screen"
+      aria-expanded={asking}
+      className="flex h-10 w-10 flex-none items-center justify-center gap-2 rounded border border-signal/45 bg-signal/[0.07] text-[15px] font-semibold text-signal transition-colors hover:bg-signal/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal md:w-auto md:px-3.5"
+    >
+      <Sparkles aria-hidden="true" className="h-[18px] w-[18px] flex-none" />
+      <span className="hidden md:inline">Ask</span>
+    </button>
+  );
+}
+
 /**
- * The frame around every view: the top bar with the open channel, the AI
- * that answers and Settings; the destinations in a rail on a wide screen and
- * in a tab bar at the foot of a phone; and the view itself.
+ * The frame around every screen: the top bar with the open channel, search,
+ * the work under way, Ask and Settings; the five places in a rail on a wide
+ * screen and in a bar at the foot of a phone; and the screen itself.
  */
-export function Shell({ active, ai, centerId, switcher, children }: Props) {
-  const destination = destinationOf(active)?.id ?? null;
+export function Shell({ active, place, switcher, search, asking, onAsk, children }: Props) {
   return (
     <>
-      <header className="fixed left-0 top-0 z-50 w-full border-b border-border-subtle bg-space-canvas/90 shadow-[0_4px_24px_rgba(5,7,14,0.6)] backdrop-blur-xl">
-        <div className="flex h-16 w-full min-w-0 items-center gap-2 px-gutter sm:gap-space-md sm:px-gutter-desktop">
-          <a
-            href={viewHref('home')}
-            aria-label="Jgtube home"
-            className="flex flex-none items-center gap-space-sm rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
-          >
-            <span className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border-subtle bg-surface-card">
-              <Radar aria-hidden="true" className="h-5 w-5 text-primary" />
-              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-primary-container shadow-[0_0_8px_#00d2ff]" />
-            </span>
-            <span className="hidden text-headline-md font-bold tracking-tight text-on-surface sm:inline">
-              Jgtube
-            </span>
-          </a>
-          <div className="min-w-0">{switcher}</div>
-          <div className="ml-auto flex min-w-0 items-center gap-1 sm:gap-2">
-            <WorkingIndicator active={active} />
-            <AiBadge badge={ai} />
-            <a
-              href={viewHref('settings')}
-              aria-current={active === 'settings' ? 'page' : undefined}
-              aria-label="Settings"
-              className={`${TOP_BUTTON} aria-[current=page]:text-primary`}
-            >
-              <SettingsIcon aria-hidden="true" className="h-[18px] w-[18px]" />
-              <span className="hidden lg:inline">Settings</span>
-            </a>
-          </div>
+      <header className="fixed left-0 top-0 z-50 flex h-14 w-full min-w-0 items-center gap-2 border-b border-line bg-ground/85 px-4 backdrop-blur-[14px] md:h-16 md:gap-4 md:px-6">
+        <Logo />
+        <div className="min-w-0">{switcher}</div>
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1 md:justify-start md:gap-2.5">
+          {search}
+          <WorkingIndicator active={active} />
+          <AskButton asking={asking} onAsk={onAsk} />
+          <IconButton
+            icon={SettingsIcon}
+            label="Settings"
+            href={viewHref('settings')}
+            className={active === 'settings' ? '!text-signal' : ''}
+          />
         </div>
       </header>
 
-      <aside className="fixed bottom-0 left-0 top-16 z-40 hidden w-56 flex-col border-r border-border-subtle bg-space-canvas px-space-sm py-space-md md:flex">
-        <RailLinks active={destination} centerId={centerId} />
+      <aside className="fixed bottom-0 left-0 top-16 z-40 hidden w-[220px] flex-col border-r border-line px-3 py-4 md:flex">
+        <Rail active={place} />
       </aside>
-      <BottomTabs active={destination} centerId={centerId} />
+      <BottomBar active={place} />
 
-      <div className="md:pl-56">
-        <main id="top" className="relative min-h-screen min-w-0 bg-space-deep pb-20 pt-16 md:pb-0">
+      <div className="md:pl-[220px]">
+        <main id="top" className="relative min-h-screen min-w-0 pb-24 pt-14 md:pb-10 md:pt-16">
           {children}
         </main>
       </div>

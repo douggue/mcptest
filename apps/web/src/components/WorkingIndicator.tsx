@@ -1,11 +1,11 @@
-import { CircleCheck, LoaderCircle, X } from 'lucide-react';
+import { CircleCheck, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { askedFor, doneLine, elapsedText, jobHref, runningJobs, type JobEntry } from '../lib/jobs';
 import type { ViewId } from '../lib/routes';
 import { useJobWatch } from './useJobWatch';
 
 const CHIP =
-  'flex min-h-11 flex-none items-center gap-2 rounded-full border border-border-subtle bg-surface-card px-3 text-body-sm text-on-surface transition-colors hover:border-border-highlight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-container';
+  'flex h-10 flex-none items-center gap-2 whitespace-nowrap rounded-full border border-line px-3 text-body-sm text-muted transition-colors hover:border-line-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal';
 const LINK = 'flex-none text-primary underline-offset-2 hover:underline';
 
 function RunningRow({ job, now }: { readonly job: JobEntry; readonly now: number }) {
@@ -77,8 +77,8 @@ function useCloseOutside(open: boolean, close: () => void) {
 }
 
 /**
- * The top bar's word on the work the local server is doing: how many runs
- * are under way, and on a press a short list of them with how far each has
+ * The top bar's word on the work the local server is doing: "2 running",
+ * and on a press a short list of them with how far each has
  * got and a link to its view. A run that ended while the owner was on
  * another view leaves a quiet "Done" line. Shows nothing when all is quiet.
  */
@@ -93,7 +93,7 @@ export function WorkingIndicator({ active }: { readonly active: ViewId }) {
   if (running.length === 0 && notices.length === 0) return null;
 
   const now = Date.now();
-  const label = running.length > 0 ? `Working (${running.length})` : `Done (${notices.length})`;
+  const label = running.length > 0 ? `${running.length} running` : `${notices.length} done`;
   return (
     <div ref={box} className="relative flex-none">
       <button
@@ -105,22 +105,22 @@ export function WorkingIndicator({ active }: { readonly active: ViewId }) {
         className={CHIP}
       >
         {running.length > 0 ? (
-          <LoaderCircle
+          <span
             aria-hidden="true"
-            className="h-4 w-4 flex-none animate-spin text-primary motion-reduce:animate-none"
+            className="h-2 w-2 flex-none animate-pulse rounded-full bg-signal shadow-[0_0_0_4px_rgba(0,210,255,0.18)] motion-reduce:animate-none"
           />
         ) : (
-          <CircleCheck aria-hidden="true" className="h-4 w-4 flex-none text-primary" />
+          <CircleCheck aria-hidden="true" className="h-4 w-4 flex-none text-good" />
         )}
-        <span className="hidden sm:inline">{running.length > 0 ? 'Working' : 'Done'}</span>
-        <span className="font-semibold tabular-nums">
+        <span className="tabular-nums">
           {running.length > 0 ? running.length : notices.length}
+          <span className="hidden sm:inline">{running.length > 0 ? ' running' : ' done'}</span>
         </span>
       </button>
       {open && (
         <div
           id="working-list"
-          className="fixed inset-x-4 top-16 z-50 mt-1 rounded border border-border-subtle bg-surface-card p-space-md text-body-sm shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80"
+          className="fixed inset-x-4 top-14 z-50 mt-1 rounded-lg border border-line bg-card p-space-md text-body-sm shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80"
         >
           {running.length > 0 ? (
             <ul className="flex flex-col gap-space-sm">

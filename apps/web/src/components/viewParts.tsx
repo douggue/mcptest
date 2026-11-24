@@ -7,7 +7,10 @@ import type { AiChoice } from './AiEngines';
 import type { PagePath } from './usePagePath';
 import type { Go } from './useRoute';
 import type { MapPage } from './useMapPage';
+import type { AskSession } from './useAskSession';
 import type { Workspace } from './useWorkspace';
+import { Button } from './ui/Button';
+import { EmptyState } from './ui/States';
 
 /** Everything a view is drawn from: the map on screen, the workspace and the links between views. */
 export interface ViewParts {
@@ -18,6 +21,8 @@ export interface ViewParts {
   readonly go: Go;
   /** Opens one channel's own view. */
   readonly openChannel: (channelId: string) => void;
+  /** The conversation with the AI, shared with the Ask panel. */
+  readonly ask: AskSession;
 }
 
 /** Which AI answers, as the side panels and Settings take it. */
@@ -32,22 +37,24 @@ export const aiOf = (work: Workspace): AiChoice => ({
 /** Draws one view; a table of these is a group of the rail. */
 export type ViewDraw = (parts: ViewParts) => ReactNode;
 
-/** Said in a view that needs a map when none is on screen yet. */
+/** Said in a screen that needs a map when none is on screen yet: one line and one button. */
 export function NeedsMap({ view }: { readonly view: ViewId }) {
+  const name = view === 'channel' ? 'My channel' : VIEWS[view].title;
   return (
-    <section className="w-full px-gutter-desktop py-space-xl">
-      <div className="mx-auto flex max-w-2xl flex-col items-start gap-space-sm rounded bg-surface-card p-space-lg">
-        <Radar aria-hidden="true" className="h-6 w-6 text-primary" />
-        <h2 className="text-headline-md text-on-surface">{VIEWS[view].title} needs a map first</h2>
-        <p className="text-body-md text-on-surface-variant">
-          Open one of your channels on Home, or paste a channel there and press Find competitors.
-        </p>
-        <a
-          href={viewHref('home')}
-          className="rounded-full bg-on-surface px-4 py-1.5 text-body-sm font-semibold text-space-deep hover:bg-white"
-        >
-          Go to Home
-        </a>
+    <section className="w-full px-4 py-space-lg sm:px-8">
+      <div className="mx-auto max-w-[1260px]">
+        <div className="max-w-2xl">
+          <EmptyState
+            icon={Radar}
+            title={`${name} needs your channel first`}
+            line="Open one of your channels on Today, or paste a channel there and press Find competitors."
+            action={
+              <Button kind="main" href={viewHref('home')}>
+                Go to Today
+              </Button>
+            }
+          />
+        </div>
       </div>
     </section>
   );

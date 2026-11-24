@@ -80,11 +80,11 @@ export const CREATE_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
   format: ({ page, work }) => (
     <FormatView channelId={page.snapshot?.center.id ?? null} ai={aiOf(work)} />
   ),
-  risk: ({ page, work }) => (
+  risk: withMap('risk', (snapshot, { work }) => (
     <RiskCheck
-      channelId={page.snapshot?.center.id ?? null}
+      channelId={snapshot.center.id}
       openConceptId={work.script.view?.concept.id ?? null}
       reloadKey={work.refresh.run.status}
     />
-  ),
+  )),
 };

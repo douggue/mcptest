@@ -3,14 +3,19 @@
 @tailwind utilities;
 
 @layer base {
-  html,
-  body {
-    margin: 0;
+  html {
     background: #05070e;
   }
 
+  /* The ground of every screen: navy-black with a faint cyan glow at the top, as on the Radar. */
   body {
-    @apply font-sans text-body-md text-on-surface antialiased;
+    @apply font-sans text-body-md text-ink antialiased;
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(1100px 520px at 62% -140px, rgba(0, 210, 255, 0.085), transparent 62%),
+      #05070e;
+    background-attachment: fixed;
     font-variant-numeric: tabular-nums;
   }
 
@@ -32,6 +37,15 @@
 /* The top bar is fixed, so a section jumped to from the left rail must stop below it. */
 h2[id] {
   scroll-margin-top: 5.5rem;
+}
+
+/* A row that scrolls sideways on its own (tabs, saved views) shows no scrollbar. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 html {

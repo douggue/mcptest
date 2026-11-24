@@ -15,7 +15,7 @@ import {
 } from '../src/lib/bank';
 import { NO_BANK_FILTERS } from '@jgtube/core/src/bank/query';
 import { routeFromHash } from '../src/lib/routes';
-import { DESTINATIONS } from '../src/lib/sections';
+import { whereOf } from '../src/lib/places';
 
 const NOW = new Date('2026-11-20T12:00:00Z');
 
@@ -136,12 +136,14 @@ describe('the bank api', () => {
 });
 
 describe('where the bank sits', () => {
-  test('is a Research tab right after Breaking out, at its own address', () => {
-    const research = DESTINATIONS.find((d) => d.id === 'research');
-    expect(research?.tabs.slice(0, 2).map((tab) => tab.view)).toEqual([
+  test('is a saved view of Discover › Videos right after Breaking out, at its own address', () => {
+    const videos = whereOf('outlier-bank');
+    expect([videos?.place.id, videos?.tab.label]).toEqual(['discover', 'Videos']);
+    expect(videos?.tab.screens.slice(0, 2).map((screen) => screen.view)).toEqual([
       'breakouts',
       'outlier-bank',
     ]);
+    expect(routeFromHash('#/discover/videos/bank').view).toBe('outlier-bank');
     expect(routeFromHash('#/outlier-bank').view).toBe('outlier-bank');
     expect(NOW).toBeInstanceOf(Date);
   });

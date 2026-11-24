@@ -20,8 +20,9 @@ const messageOf = (error: unknown): string =>
 /**
  * The owner's own question about the channel on screen: the last one asked
  * and its kept answer, read when the channel changes, and asking a new one.
+ * With no channel yet there is nothing to read or ask.
  */
-export function useOwnQuestion(centerId: string): OwnQuestion {
+export function useOwnQuestion(centerId: string | null): OwnQuestion {
   const api = useMemo(() => createOwnQuestionApi(), []);
   const [state, setState] = useState<OwnQuestionState>({ status: 'idle' });
   const [answer, setAnswer] = useState<OwnAnswer | null>(null);
@@ -29,6 +30,7 @@ export function useOwnQuestion(centerId: string): OwnQuestion {
   useEffect(() => {
     let current = true;
     setAnswer(null);
+    if (centerId === null) return undefined;
     api.kept(centerId).then(
       (kept) => {
         if (current) setAnswer(kept);
@@ -42,6 +44,7 @@ export function useOwnQuestion(centerId: string): OwnQuestion {
 
   const ask = useCallback(
     (question: string, choice: EngineChoice) => {
+      if (centerId === null) return;
       setState({ status: 'running', question });
       api.ask(centerId, question, choice).then(
         (answered) => {

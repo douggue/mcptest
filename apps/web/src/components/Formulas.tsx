@@ -103,7 +103,7 @@ export function Formulas({ lab, busy, centerTitle, centerId, onRemix }: Props) {
   return (
     <ViewPage id="formulas" labelledBy="formulas-title">
       <ViewHeader
-        title="Formats"
+        title="Title formats"
         icon={Shapes}
         count={formulas.length}
         lead={

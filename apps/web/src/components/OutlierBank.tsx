@@ -28,7 +28,7 @@ export function OutlierBank({ pickedIds, onPick }: Props) {
     <>
       <ViewHeader
         titleId="outlier-bank-title"
-        title="Outlier bank"
+        title="All-time bank"
         count={page ? page.total.toLocaleString('en') : undefined}
         lead="Every video Jgtube has read, on every map and list, scored against its own channel."
         actions={
@@ -49,7 +49,7 @@ export function OutlierBank({ pickedIds, onPick }: Props) {
       {page && videos.length === 0 && !model.loading && (
         <Notice>
           {page.total === 0
-            ? 'The bank is empty: make a map on Home, or press Find more outliers.'
+            ? 'The bank is empty: make a map on Today, or press Find more outliers.'
             : 'Nothing in the bank matches these filters.'}
         </Notice>
       )}

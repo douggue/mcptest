@@ -23,8 +23,9 @@ interface Props {
 }
 
 /**
- * The top of a view: an optional way back, the title with one short line
- * under it, and the primary action at the right. Wraps under the title on a
+ * The top of a screen, under its place's name and tabs: an optional way
+ * back, the screen's title (a card title, as the place carries the page
+ * title) with one short line under it, and the primary action at the right. Wraps under the title on a
  * phone.
  */
 export function ViewHeader(props: Props) {
@@ -51,7 +52,7 @@ export function ViewHeader(props: Props) {
       <div className="flex min-w-0 flex-1 basis-56 flex-col gap-0.5">
         <h2
           id={titleId}
-          className="flex min-w-0 flex-wrap items-center gap-2 text-headline-lg font-bold tracking-tight text-on-surface"
+          className="flex min-w-0 flex-wrap items-center gap-2 text-headline-md text-on-surface"
         >
           <span className="min-w-0 break-words">{title}</span>
           {count !== undefined && (

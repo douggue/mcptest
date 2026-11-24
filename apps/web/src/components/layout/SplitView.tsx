@@ -51,9 +51,9 @@ export function ViewPage({
     <section
       id={id}
       aria-labelledby={labelledBy}
-      className="w-full scroll-mt-16 bg-space-deep px-gutter py-space-lg sm:px-gutter-desktop"
+      className="w-full scroll-mt-16 px-4 py-space-lg sm:px-8"
     >
-      <div className="mx-auto flex max-w-[1440px] min-w-0 flex-col gap-space-lg">{children}</div>
+      <div className="mx-auto flex max-w-[1260px] min-w-0 flex-col gap-space-lg">{children}</div>
     </section>
   );
 }

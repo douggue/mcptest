@@ -17,6 +17,8 @@ const FIRST_ROWS = 10;
 interface Props {
   readonly snapshot: MapSnapshot;
   readonly page: MapPage;
+  /** What the list is called; "Its competitors" beside a channel's page. */
+  readonly title?: string;
 }
 
 /**
@@ -24,7 +26,7 @@ interface Props {
  * logo, name, how close it sits and its subscribers. A row opens the
  * channel's own view; the cross takes it off the competitors.
  */
-export function ChannelCompetitors({ snapshot, page }: Props) {
+export function ChannelCompetitors({ snapshot, page, title = 'Its competitors' }: Props) {
   const [all, setAll] = useState(false);
   const competitors = snapshot.channels.filter((channel) => channel.peer && !channel.removed);
   const shown = all ? competitors : competitors.slice(0, FIRST_ROWS);
@@ -35,8 +37,10 @@ export function ChannelCompetitors({ snapshot, page }: Props) {
       .catch((error: unknown) => page.setMessage(messageOf(error)));
   };
   return (
-    <Card as="section" label="Its competitors">
-      <Label>Its competitors ({competitors.length})</Label>
+    <Card as="section" label={title}>
+      <Label>
+        {title} ({competitors.length})
+      </Label>
       {competitors.length === 0 ? (
         <p className="text-body-sm text-on-surface-variant">
           The map counts no channel as like this one yet.

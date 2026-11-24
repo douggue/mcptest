@@ -201,21 +201,20 @@ function Results({ list, view, onView, onSetWatched, onBreakDown }: ResultsProps
 
 interface Props {
   readonly niches: NichesData;
-  /** A map is on screen. Without one, an empty list is not worth a view. */
-  readonly hasMap: boolean;
   /** Starts a channel breakdown of a listed channel; absent when none can be started now. */
   readonly onBreakDown?: BreakDown | undefined;
 }
 
-/** New or small channels anywhere in the store with a video that took off, and the saved ones. */
-export function Niches({ niches, hasMap, onBreakDown }: Props) {
+/**
+ * New or small channels anywhere in the store with a video that took off,
+ * and the saved ones. The screen needs no map: the watchlist and its sweeps
+ * are here from the first day, when nothing has been read yet.
+ */
+export function Niches({ niches, onBreakDown }: Props) {
   const [view, setView] = useState<NicheView>('all');
   const { state, setWatched } = niches;
   const list = state.status === 'ready' ? state.list : null;
-  const canDiscover = state.status === 'ready' && state.canDiscover;
   const sweep = useSweep(niches.reload);
-  // With nothing read and no way to search, there is nothing to offer here yet.
-  if (!hasMap && !canDiscover && (list === null || list.channels.length === 0)) return null;
   const count = list ? filterNiches(list.channels, view).length : undefined;
 
   return (

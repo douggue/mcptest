@@ -162,7 +162,7 @@ function NeedsKey() {
     <ViewPage id="comment-mining" labelledBy="comment-mining-title">
       <ViewHeader
         titleId="comment-mining-title"
-        title="Viewers ask"
+        title="What viewers ask"
         lead="Requests, questions and objections that recur in the comments of winning videos."
       />
       <Card>
@@ -193,7 +193,7 @@ export function CommentMining({ channelId, reloadKey }: Props) {
     <ViewPage id="comment-mining" labelledBy="comment-mining-title">
       <ViewHeader
         titleId="comment-mining-title"
-        title="Viewers ask"
+        title="What viewers ask"
         count={count}
         lead="Requests, questions and objections that recur in the comments of winning videos."
       />

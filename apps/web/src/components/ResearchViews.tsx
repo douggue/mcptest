@@ -10,7 +10,7 @@ import { SameTopic } from './SameTopic';
 import { ThumbnailBoard } from './ThumbnailBoard';
 import { ThumbnailReview } from './ThumbnailReview';
 import { Transfers } from './Transfers';
-import { withMap, type ViewDraw, type ViewParts } from './viewParts';
+import { NeedsMap, withMap, type ViewDraw, type ViewParts } from './viewParts';
 
 /** Breaking out: the feed of videos taking off, each one press from the ideas. */
 function Breakouts({ page, work, path }: ViewParts) {
@@ -41,16 +41,16 @@ function Breakouts({ page, work, path }: ViewParts) {
 /** The views of the rail's Research group, each drawn on its own. */
 export const RESEARCH_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
   radar: ({ page, openChannel }) => <RadarArea page={page} onOpenChannel={openChannel} />,
-  'what-changed': ({ page, work }) => (
+  'what-changed': withMap('what-changed', (snapshot, { work }) => (
     <ViewPage labelledBy="what-changed-title">
       <ChangesSection
-        snapshot={page.snapshot}
+        snapshot={snapshot}
         reloadKey={work.refresh.run.status}
         onAlertsChanged={work.alertCounts.reload}
         toolbar={<RefreshBar refresh={work.refresh} />}
       />
     </ViewPage>
-  ),
+  )),
   breakouts: withMap('breakouts', (_snapshot, parts) => <Breakouts {...parts} />),
   // The bank holds every stored video, so it needs no map open.
   'outlier-bank': ({ work }) => (
@@ -93,17 +93,23 @@ export const RESEARCH_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
       onDownloadTranscripts={(channelId) => api.downloadTranscripts(channelId)}
     />
   )),
-  transfers: ({ page, work, path }) => (
-    <Transfers
-      transfers={work.transfers}
-      hasMap={page.snapshot !== null}
-      onMakeConcepts={page.snapshot ? path.conceptsFrom : undefined}
-    />
-  ),
+  transfers: ({ page, work, path }) => {
+    const { state } = work.transfers;
+    const stored =
+      state.status === 'ready' && state.list.ideas.length + state.list.formats.length > 0;
+    // With no map and nothing read there is nothing to compare yet: say what to do first.
+    if (page.snapshot === null && !stored) return <NeedsMap view="transfers" />;
+    return (
+      <Transfers
+        transfers={work.transfers}
+        hasMap={page.snapshot !== null}
+        onMakeConcepts={page.snapshot ? path.conceptsFrom : undefined}
+      />
+    );
+  },
   niches: ({ page, work, path }) => (
     <Niches
       niches={work.niches}
-      hasMap={page.snapshot !== null}
       onBreakDown={page.snapshot && !work.asking ? path.breakDown : undefined}
     />
   ),

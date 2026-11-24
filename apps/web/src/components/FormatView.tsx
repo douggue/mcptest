@@ -20,7 +20,7 @@ function Empty() {
       Nothing on your shelf yet. Press “Add to format” on a formula, a hook, a breakout or a
       teardown in{' '}
       <a href={viewHref('breakouts')} className="text-primary underline">
-        Research
+        Discover
       </a>
       , or add your own here.
     </Notice>
@@ -83,7 +83,7 @@ export function FormatView({ channelId, ai }: Props) {
   return (
     <ViewPage labelledBy="format-builder-title" id="format-builder">
       <ViewHeader
-        title="Format"
+        title="My format"
         titleId="format-builder-title"
         lead="Collect what works, then mix your own style from it."
         count={items.length > 0 ? `${items.length} on the shelf` : undefined}
