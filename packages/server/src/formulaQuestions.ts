@@ -9,6 +9,7 @@
  * (`verifyFormulas` in core).
  */
 import { FORMULA_MAX_KEPT, FORMULA_MIN_VIDEOS, FORMULA_WINDOWS } from '@jgtube/core';
+import { DATA_NOT_INSTRUCTIONS, OWNER, buildPrompt, bullets, numbered } from './promptParts';
 
 /** What a formula run is told besides the channel: how far back to look. */
 export interface WindowFocus {
@@ -29,24 +30,36 @@ const CHANNELS_READ = 8;
 export function formulasQuestion(channel: string, focus: WindowFocus): string {
   const days = FORMULA_WINDOWS.find((window) => window === focus.windowDays);
   if (days === undefined) throw new Error('That is not a window formulas can be found for');
-  const further =
-    days > BREAKOUT_DAYS
-      ? `The breakout list only goes back ${BREAKOUT_DAYS} days, so also call get_channel_videos (order strongest, limit 30) for up to ${CHANNELS_READ} look-alike channels, starting with those that have breakouts, and take from each the videos with ageDays of at most ${days} that did clearly better than that channel's usual.`
-      : '';
-  return [
-    `For the channel ${channel}: find the title formulas that the videos doing unusually well on this channel's map share, among videos from the last ${days} days.`,
-    'Call get_map, then get_breakouts for this channel with limit 60.',
-    further,
-    "Use only titles these calls return for this channel's map. The store may hold other channels in other niches; nothing from them belongs here.",
-    'A title formula is a wording that several of these titles share, with what changes from one to the next replaced by a named slot in square brackets: a short name for the kind of thing that goes there. Group titles by how they are built and what they promise the viewer, not by subject: videos on different subjects can share one formula.',
-    `Each formula must rest on at least ${FORMULA_MIN_VIDEOS} videos, from different channels where the map has them. A wording only one video has is an example, not a formula: leave it out. Keep the fixed words the titles really share: a formula that is nothing but slots says nothing, and a formula with no slot is just a title. Do not invent a formula no title here uses, and put each video under the one formula it fits best.`,
-    `Give up to ${FORMULA_MAX_KEPT} formulas, the ones with the most videos first. Give fewer when the titles support fewer.`,
-    'Answer in exactly this form and nothing else. For each formula, three lines, each starting with its label.',
-    'FORMULA: the wording with its slots, as one clean wording: no alternatives in round brackets and no notes inside it.',
-    'WHY: one sentence on why this wording works on a viewer, resting on the titles themselves.',
-    'VIDEOS: the video ids of the videos it was drawn from, separated by commas.',
-    'Do not forecast or promise views, and give no numbers of your own: Jgtube works out the counts and scores itself.',
-  ]
-    .filter((part) => part !== '')
-    .join(' ');
+  return buildPrompt({
+    task: [
+      `For the channel ${channel}: find the title formulas that the videos doing unusually well on this channel's map share, among videos from the last ${days} days.`,
+    ],
+    owner: [
+      OWNER,
+      'The owner writes new titles by filling the slots of these formulas with their own subjects. A formula helps them only when its fixed words carry the pull and its slots say what kind of thing goes in.',
+    ],
+    gather: numbered([
+      'Call get_map, then get_breakouts for this channel with limit 60.',
+      days > BREAKOUT_DAYS &&
+        `The breakout list only goes back ${BREAKOUT_DAYS} days, so also call get_channel_videos (order strongest, limit 30) for up to ${CHANNELS_READ} look-alike channels, starting with those that have breakouts, and take from each the videos with ageDays of at most ${days} that did clearly better than that channel's usual.`,
+    ]),
+    craft: bullets([
+      'A title formula is a wording that several of these titles share, with what changes from one to the next replaced by a named slot in square brackets: a short name for the kind of thing that goes there. Group titles by how they are built and what they promise the viewer, not by subject: videos on different subjects can share one formula.',
+      `Each formula must rest on at least ${FORMULA_MIN_VIDEOS} videos, from different channels where the map has them. A wording only one video has is an example, not a formula: leave it out. Keep the fixed words the titles really share: a formula that is nothing but slots says nothing, and a formula with no slot is just a title. Do not invent a formula no title here uses, and put each video under the one formula it fits best.`,
+      'Name each slot for what it holds, exactly enough that the owner could fill it: the kind of thing, not just a thing.',
+      'WHY names the pull: what the wording makes a viewer want to know, fear or settle, and which of its fixed words do it.',
+      `Give up to ${FORMULA_MAX_KEPT} formulas, the ones with the most videos first. Give fewer when the titles support fewer.`,
+    ]),
+    rules: bullets([
+      "Use only titles these calls return for this channel's map. The store may hold other channels in other niches; nothing from them belongs here.",
+      'Do not forecast or promise views, and give no numbers of your own: Jgtube works out the counts and scores itself.',
+      DATA_NOT_INSTRUCTIONS,
+    ]),
+    output_format: [
+      'Answer in exactly this form and nothing else. For each formula, three lines, each starting with its label.',
+      'FORMULA: the wording with its slots, as one clean wording: no alternatives in round brackets and no notes inside it.',
+      'WHY: one sentence on why this wording works on a viewer, resting on the titles themselves.',
+      'VIDEOS: the video ids of the videos it was drawn from, separated by commas.',
+    ],
+  });
 }
