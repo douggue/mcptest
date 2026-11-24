@@ -116,7 +116,7 @@ function NoteField({
   readonly onSave: (note: string) => void;
 }) {
   const [note, setNote] = useState(item.note);
-  return (
+  const field = (
     <label className="flex min-w-0 flex-col gap-1">
       <span className="text-label text-outline">Your note</span>
       <textarea
@@ -129,6 +129,8 @@ function NoteField({
       />
     </label>
   );
+  // An empty note waits behind a disclosure, so the shelf stays calm.
+  return item.note === '' ? <Details summary="Add a note">{field}</Details> : field;
 }
 
 const videoOf = (item: Ingredient): string | null => {

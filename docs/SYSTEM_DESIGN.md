@@ -229,6 +229,15 @@ should know about how it was written: another engine wrote it in place of the
 one chosen, and why; or it was written from pictures handed over as files and
 names none of them. Null for most parts. See "Channel breakdown".
 
+`format_ingredients` (step 45, provisional: numbered at merge; the 31st entry
+of the migration list on this branch) is the format builder's shelf: one row
+per piece of a format taken from one source, unique per `(layer, source_kind,
+source_key)`, with `name`, `source_label`, `center_channel_id`,
+`channel_ids_json`, `details_json`, `evidence_json`, `media_json`, the owner's
+`note` and `added_at`. The JSON is checked with a schema when read; a row that
+no longer reads is left off. It refers to no other table. See "Format
+builder".
+
 ### Keeping the store safe
 
 - **Backup before upgrade.** When an existing store with data has pending
@@ -2927,6 +2936,68 @@ a row with any hook of the library is flagged on the page with the phrase.
 one sixteen-minute script: reading five captions for the voice 6 seconds;
 hooks and beats 69 seconds; draft 162 seconds (2,271 words spoken, 76 markers,
 55 cues); tighten 72 seconds.
+
+### Format builder (`core/src/format/`, `sqliteIngredientRepo.ts`, `formatSources.ts`, `formatEngine.ts`, `formatRoutes.ts`; web `FormatView.tsx`, `AddToFormat.tsx`, `lib/formatShelf.ts`)
+
+Batch 1 of 4 is built: ingredients, the "Add to format" buttons and the
+shelf. Still to come: the builder's slots, fit and originality checks and
+"Suggest a mix" (2), the Format Bible and its export (3), and plugging an
+active format into the Idea lab, Script writer, thumbnails and Your videos (4).
+
+**Ingredient.** One piece of a format from one source, on one layer: title
+formula, hook, structure, pacing, visual style, motion and transitions,
+thumbnail layout, sound, other. It holds a short name, the source (kind, key,
+label), the channels it comes from, `details` (what the source holds; an
+engine's words only under `reading`, shown as "AI's reading"), `evidence`
+and `media` (YouTube thumbnails, teardown keyframes and strips, a quote, the
+owner's picture).
+
+**Evidence comes from code only.** A button sends only what names the source
+(`POST /api/format/ingredients`, zod-checked: a formula id and window, a hook's
+video, a teardown section and item number, a breakdown part and optional
+layer, a transfer key, a niche channel, a video and what it was used as, a
+link, or the owner's note, picture or clip). The server reads the source from
+the store (`resolveIngredient`) and builds the ingredient with the pure
+builders in `core/src/format/`; a source that is not stored is answered 404 in
+plain words and nothing is made up. Counts: a formula's videos, channels and
+average score as verified; a transfer format's videos, channels and median
+views; a transfer idea's versions, channels and mean score; a hook's style
+counts every library hook given the same style name (case ignored), with the
+opening's words and pace from its captions; a video its stored views, length
+and outlier score; a teardown section the measured numbers with their methods
+(pace, shot lengths, words a minute, palette hex and share, loudness,
+transitions, chapters); a breakdown part counts one channel; the owner's own
+count nothing.
+
+**Proven.** `PROVEN_MIN_VIDEOS = 2` and `PROVEN_MIN_CHANNELS = 2`: at least two
+videos from at least two channels. One lucky video, however high its score,
+and one channel repeating itself are never proven. The "Proven first" order is
+proven, then more channels, more videos, a higher score.
+
+**Sources and buttons.** Formats (title formula and transfer format cards),
+Hooks, Breaking out (the video as a raw source), Thumbnails ("Add layout"),
+Transfers, New niches, Your videos (uploads and linked videos), each written
+breakdown part (picture also as motion or sound, scripts also as hook or
+pacing), and the teardown's sections (pacing, palette, typography, each
+component, hook beats, structure, transitions, each motion item, sound; shown
+only once the video is measured). "Add your own": a YouTube link (read from
+the store when stored, else kept with its id only), a note, a picture (PNG,
+JPEG or WebP, checked by its first bytes, at most 8 MB, streamed by
+`PUT /api/format/images` and saved under a new name in
+`<downloads>/formats/`, read back at `GET /api/format/images/<file>`), or a
+clip (sent through the One video upload). A raw video's "Analyse it" fills the
+One video tab's link (`lib/videoHandoff.ts`); the owner presses Break it down
+there, so nothing runs on its own.
+
+Other routes: `GET /api/format/ingredients`, `POST .../note`, `POST
+.../remove`. A second add of the same source on the same layer answers the
+one already there.
+
+**What was run for real.** The shelf at 1440, 768 and 390 wide on a seeded
+store (nine ingredients, teardown pictures made with ffmpeg): no console error,
+no sideways scroll, no broken picture; filter by layer and search; adding a
+link and uploading a PNG through the running server. Not run for real: any
+AI (batch 1 has none).
 
 ### Starting a program on Windows (`engines/executable.ts`)
 

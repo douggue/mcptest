@@ -119,7 +119,7 @@ in the top bar:
 | **Home**      | `#/`                                | none: your channels, Find competitors, your next step                           |
 | **Channel**   | the map's channel, `#/channel/<id>` | Overview, Radar, What changed, Your videos, Calendar, Pacing, Viewers ask       |
 | **Research**  | `#/breakouts`                       | Breaking out, Formats, Hooks, Same topic, Thumbnails, Transfers, New niches     |
-| **Create**    | `#/ideas`                           | Ideas, Script, Check                                                            |
+| **Create**    | `#/ideas`                           | Ideas, Script, Check, Format (`#/format`, the format builder)                   |
 | **Breakdown** | `#/breakdown`                       | Channel (`#/breakdown/<id>` opens one channel), One video (`#/video-breakdown`) |
 | **Ask AI**    | `#/ask`                             | none                                                                            |
 
