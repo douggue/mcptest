@@ -130,4 +130,29 @@ describe('Jgtube’s one way to reach YouTube', () => {
     await expect(fetcher(`http://127.0.0.1:${target.port}/`, OPTIONS)).rejects.toThrow(/not valid/);
     expect(target.seen).toEqual([]);
   });
+
+  test('leaves a stop or a time limit as it is, so callers still know it', async () => {
+    const target = await started(startTarget());
+    const proxy = await started(startHttpProxy());
+    const fetcher = makeYouTubeFetch(() => `http://127.0.0.1:${proxy.port}`);
+    const stopped = new AbortController();
+    stopped.abort();
+    await expect(
+      fetcher(`http://127.0.0.1:${target.port}/`, { signal: stopped.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(
+      fetcher(`http://127.0.0.1:${target.port}/`, { signal: AbortSignal.timeout(0) }),
+    ).rejects.toMatchObject({ name: 'TimeoutError' });
+  });
+
+  test('reads the body of a request object given without one alongside', async () => {
+    const target = await started(startTarget());
+    const proxy = await started(startHttpProxy());
+    const fetcher = makeYouTubeFetch(() => `http://127.0.0.1:${proxy.port}`);
+    const request = new Request(`http://127.0.0.1:${target.port}/body`, {
+      method: 'POST',
+      body: 'payload',
+    });
+    expect(await (await fetcher(request)).text()).toBe('hello from the target');
+  });
 });
