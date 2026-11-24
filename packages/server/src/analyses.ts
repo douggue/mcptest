@@ -36,9 +36,12 @@ import {
 } from './breakdownQuestions';
 import { toolsOf } from './engines/failure';
 import {
+  DEPTH_RULE,
   MISSING_EVIDENCE,
   OWNER,
+  PLAIN_TEXT_FORM,
   SPECIFICITY,
+  TAGS_NOTE,
   THUMBNAIL_CRAFT,
   TITLE_CRAFT,
   buildPrompt,
@@ -158,18 +161,6 @@ export const pictureEngines = (failed: readonly EngineId[]): readonly EngineId[]
 
 /** Whether an engine is shown a question's pictures as files rather than as a tool's results. */
 export const seesFiles = (engine: EngineId): boolean => FILE_PICTURE_ENGINES.includes(engine);
-
-/** How every answer in plain text is set out: the page reads capitals as titles and "- " as items. */
-export const PLAIN_TEXT_FORM =
-  'Answer in plain text. Put section titles in CAPITALS on their own line and start list items with "- ". Do not use markdown symbols such as #, * or backticks.';
-
-/** How a question is laid out, so an engine never takes its tags for part of the answer. */
-export const TAGS_NOTE =
-  'The question is set out in sections between tags such as <task> and <output_format>. The tags organise the question: never write one in your answer.';
-
-/** Depth is wanted, padding is not: where the length of an answer goes. */
-export const DEPTH_RULE =
-  'Spend the length the question allows on specifics: numbers the tools gave, lines quoted word for word, times, named videos and the exact change to make. Never spend it on general advice, and never stop short of the length when the evidence holds more.';
 
 const SYSTEM_PROMPT = [
   'You are a YouTube strategist and video director working for the owner of a small faceless YouTube channel. You judge titles, thumbnails, hooks and scripts the way a director with a record of high-retention videos would, and you back every judgement with evidence.',

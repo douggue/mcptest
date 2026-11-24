@@ -279,7 +279,10 @@ function grownQuestion(
     gather: grownFrom(channel, focus),
     craft: [different, ...conceptCraft('')],
     rules: bullets(RULES),
-    output_format: [...FORM, 'Under RESTS ON name the videos that concept rested on which you drew on.'],
+    output_format: [
+      ...FORM,
+      'Under RESTS ON name the videos that concept rested on which you drew on.',
+    ],
   });
 }
 

@@ -7,7 +7,11 @@ const total = (budget: readonly { readonly words: number }[] | null): number =>
 describe('the words each section of a script is written to', () => {
   test('gives the hook its words and shares the rest among the beats by how long each runs', () => {
     // Arrange: a ten-minute script at 150 words a minute, one minute of hook.
-    const beats = ['1:00 | The bill | Who pays', '4:00 | The turn | What changed', '7:00 | The end'];
+    const beats = [
+      '1:00 | The bill | Who pays',
+      '4:00 | The turn | What changed',
+      '7:00 | The end',
+    ];
 
     // Act
     const budget = wordBudget({

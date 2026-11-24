@@ -21,11 +21,7 @@ import { MIX_SYSTEM_PROMPT, mixQuestion, toolLook, type MixAsk } from '../src/fo
 import { DEEP_WATCH_QUESTION } from '../src/oneVideoQuestions';
 import type { PictureFileSet } from '../src/pictureFiles';
 import type { QuestionFocus } from '../src/questionFocus';
-import {
-  RESEARCH_SYSTEM_PROMPT,
-  claimsQuestion,
-  researchQuestion,
-} from '../src/researchQuestions';
+import { RESEARCH_SYSTEM_PROMPT, claimsQuestion, researchQuestion } from '../src/researchQuestions';
 import {
   PICTURE_STAGES,
   TEARDOWN_SYSTEM_PROMPT,
@@ -97,36 +93,39 @@ const FOCUS: Partial<Record<AnalysisId, QuestionFocus>> = {
 };
 
 /** The same question asked another way: the owner's choices that change its wording. */
-const VARIANTS: readonly { readonly name: string; readonly id: AnalysisId; focus: QuestionFocus }[] =
-  [
-    {
-      name: 'concepts (shorts, an angle, a format, formulas, a hook model)',
-      id: 'concepts',
-      focus: {
-        ...CONCEPTS,
-        hookModels: [V(2)],
-        hasFormat: true,
-        angle: 'the owner’s one line',
-        length: 'shorts',
-        formulasFrom: OTHER_CHANNEL,
-      },
+const VARIANTS: readonly {
+  readonly name: string;
+  readonly id: AnalysisId;
+  focus: QuestionFocus;
+}[] = [
+  {
+    name: 'concepts (shorts, an angle, a format, formulas, a hook model)',
+    id: 'concepts',
+    focus: {
+      ...CONCEPTS,
+      hookModels: [V(2)],
+      hasFormat: true,
+      angle: 'the owner’s one line',
+      length: 'shorts',
+      formulasFrom: OTHER_CHANNEL,
     },
-    {
-      name: 'script-hooks (facts not marked)',
-      id: 'script-hooks',
-      focus: { kind: 'script', conceptId: 42, markFacts: false },
-    },
-    {
-      name: 'script-draft (facts not marked)',
-      id: 'script-draft',
-      focus: { kind: 'script', conceptId: 42, markFacts: false },
-    },
-    {
-      name: 'script-tighten (facts not marked)',
-      id: 'script-tighten',
-      focus: { kind: 'script', conceptId: 42, markFacts: false },
-    },
-  ];
+  },
+  {
+    name: 'script-hooks (facts not marked)',
+    id: 'script-hooks',
+    focus: { kind: 'script', conceptId: 42, markFacts: false },
+  },
+  {
+    name: 'script-draft (facts not marked)',
+    id: 'script-draft',
+    focus: { kind: 'script', conceptId: 42, markFacts: false },
+  },
+  {
+    name: 'script-tighten (facts not marked)',
+    id: 'script-tighten',
+    focus: { kind: 'script', conceptId: 42, markFacts: false },
+  },
+];
 
 export interface CatalogEntry {
   readonly name: string;
