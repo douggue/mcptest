@@ -13,6 +13,8 @@ export interface Script {
   readonly saving: SaveState;
   /** Why the last save or the last opening did not work. */
   readonly problem: string | null;
+  /** What the owner should know about how the last AI answer was read; empty when it was stored as written. */
+  readonly notes: readonly string[];
   /** Opens a concept's script, starting it when there is none. */
   readonly open: (conceptId: number) => void;
   readonly close: () => void;
@@ -46,6 +48,7 @@ export function useScript(
   const [view, setView] = useState<ScriptView | null>(null);
   const [saving, setSaving] = useState<SaveState>('saved');
   const [problem, setProblem] = useState<string | null>(null);
+  const [notes, setNotes] = useState<readonly string[]>([]);
   // What has been typed and not stored yet, and the timer that will store it.
   const pending = useRef<Partial<ScriptFields>>({});
   const timer = useRef<number | null>(null);
@@ -55,6 +58,7 @@ export function useScript(
   useEffect(() => {
     setView(null);
     setProblem(null);
+    setNotes([]);
     pending.current = {};
   }, [centerId]);
 
@@ -104,6 +108,7 @@ export function useScript(
           pending.current = {};
           setView(opened);
           setProblem(null);
+          setNotes([]);
         })
         .catch((error: unknown) => setProblem(messageOf(error)));
     },
@@ -113,6 +118,7 @@ export function useScript(
   const { run } = jobs;
   const runStage = (stage: ScriptStage): void => {
     if (centerId === null || conceptId === null) return;
+    setNotes([]);
     run(
       { kind: `script-${stage}` },
       async () => {
@@ -120,7 +126,9 @@ export function useScript(
         return api.startStage(centerId, conceptId, stage, engine);
       },
       (outcome) => {
-        if (outcome.kind === 'script') setView(outcome.view);
+        if (outcome.kind !== 'script') return;
+        setView(outcome.view);
+        setNotes(outcome.notes ?? []);
       },
     );
   };
@@ -148,7 +156,8 @@ export function useScript(
   };
 
   return {
-    ...{ view, saving, problem, open, close: () => setView(null), change, runStage, readVoice },
+    ...{ view, saving, problem, notes, open, close: () => setView(null), change, runStage },
+    readVoice,
     setLength,
   };
 }

@@ -1908,7 +1908,8 @@ THE THREE HOOKS
 - Each hook pays the promise of the concept’s TITLE and THUMBNAIL: a viewer who clicked on them hears, in the first sentence, that they are in the right video.
 - Count the words of each hook before you answer, and bring each within a tenth of hookWords.
 THE BEAT SHEET
-- Then write a beat sheet for the rest of the video, from the end of the hook to targetSeconds: for each beat the time it starts, a short name, and in one sentence what happens in it and what it holds back for later. Build it the way the videos you read are built, not as a list of topics. A video under two minutes has three to five beats.
+- Then write a beat sheet for the rest of the video, from the end of the hook to targetSeconds: for each beat the time it starts, a short name, and what happens in it in at most 45 words: its job, the fact markers it uses such as [F3], and what it holds back. One line each. Build it the way the videos you read are built, not as a list of topics. A video under two minutes has three to five beats.
+- A beat is a plan for a section, not the section: the telling belongs in the draft. Name the facts a beat uses by their markers and do not retell them.
 - Every beat changes something: a new question, a reversal, higher stakes or a payoff. A beat that only adds more of the same is merged into its neighbour.
 - Every beat ends on a re-hook: an unanswered question, an unpaid promise or a turn that makes the next beat necessary.
 - Pay small loops early and often; hold the main promise of the title until the last third, and pay it in full.
@@ -1930,7 +1931,7 @@ Answer in exactly this form and nothing else. For each hook a line "HOOK 1" (the
 WAY: the way it opens, in a few words.
 MODEL: the video id of the library hook it learns from; or none.
 TEXT: the hook, all on one line.
-Then a line "BEATS" and, for each beat, one line in this form: BEAT: the time it starts as minutes:seconds | its name | what happens.
+Then a line "BEATS" and, for each beat, one line in this form: BEAT: the time it starts as minutes:seconds | its name | what happens, in at most 45 words.
 </output_format>"
 `;
 
@@ -1976,7 +1977,8 @@ THE THREE HOOKS
 - Each hook pays the promise of the concept’s TITLE and THUMBNAIL: a viewer who clicked on them hears, in the first sentence, that they are in the right video.
 - Count the words of each hook before you answer, and bring each within a tenth of hookWords.
 THE BEAT SHEET
-- Then write a beat sheet for the rest of the video, from the end of the hook to targetSeconds: for each beat the time it starts, a short name, and in one sentence what happens in it and what it holds back for later. Build it the way the videos you read are built, not as a list of topics. A video under two minutes has three to five beats.
+- Then write a beat sheet for the rest of the video, from the end of the hook to targetSeconds: for each beat the time it starts, a short name, and what happens in it in at most 45 words: its job, the fact markers it uses such as [F3], and what it holds back. One line each. Build it the way the videos you read are built, not as a list of topics. A video under two minutes has three to five beats.
+- A beat is a plan for a section, not the section: the telling belongs in the draft. Name the facts a beat uses by their markers and do not retell them.
 - Every beat changes something: a new question, a reversal, higher stakes or a payoff. A beat that only adds more of the same is merged into its neighbour.
 - Every beat ends on a re-hook: an unanswered question, an unpaid promise or a turn that makes the next beat necessary.
 - Pay small loops early and often; hold the main promise of the title until the last third, and pay it in full.
@@ -2000,7 +2002,7 @@ Answer in exactly this form and nothing else. For each hook a line "HOOK 1" (the
 WAY: the way it opens, in a few words.
 MODEL: the video id of the library hook it learns from; or none.
 TEXT: the hook, all on one line, with its [CHECK: ...] markers.
-Then a line "BEATS" and, for each beat, one line in this form: BEAT: the time it starts as minutes:seconds | its name | what happens.
+Then a line "BEATS" and, for each beat, one line in this form: BEAT: the time it starts as minutes:seconds | its name | what happens, in at most 45 words.
 </output_format>"
 `;
 

@@ -14,7 +14,13 @@ import { SCRIPT_HOOKS, type ScriptHook } from './types';
 const MAX_WAY_CHARS = 80;
 /** A one-minute hook is some 150 to 200 words; this leaves room for a fast voice. */
 const MAX_HOOK_CHARS = 3000;
-const MAX_BEAT_CHARS = 400;
+/**
+ * The most one beat is kept in. A beat is asked for in about 45 words; a
+ * real run wrote up to 946 characters, so there is room for that. A longer
+ * one is shortened and reported, never dropped: a sheet that silently loses
+ * beats becomes a script that silently loses a third of its length.
+ */
+export const MAX_BEAT_CHARS = 1200;
 /** The most beats a sheet may hold: a beat every half minute of an hour-long video. */
 const MAX_BEATS = 120;
 
@@ -28,6 +34,8 @@ export interface HooksAndBeats {
   readonly beats: readonly string[];
   /** Why the answer cannot be used, in plain words; null when it can. */
   readonly problem: string | null;
+  /** What was changed while reading it (a beat shortened, beats left off), for the owner to see. */
+  readonly notes: readonly string[];
 }
 
 function hookOf(block: ReadonlyMap<string, readonly string[]>): ScriptHook | null {
@@ -36,6 +44,23 @@ function hookOf(block: ReadonlyMap<string, readonly string[]>): ScriptHook | nul
   if (!way || !text || way.length > MAX_WAY_CHARS || text.length > MAX_HOOK_CHARS) return null;
   const model = (single(block, 'MODEL') ?? '').match(/(?<![\w-])[\w-]{11}(?![\w-])/)?.[0] ?? null;
   return { way, model: model !== null && VIDEO_ID_PATTERN.test(model) ? model : null, text };
+}
+
+const SENTENCE_END = /[.!?](?=\s|$)/g;
+
+/**
+ * A text within `max` characters: as it is when it fits, else cut after the
+ * last sentence that fits, or at a word with a mark that it goes on.
+ */
+export function shortened(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const room = text.slice(0, max);
+  const ends = [...room.matchAll(SENTENCE_END)].map((match) => match.index + 1);
+  const last = ends.at(-1);
+  // A cut that would lose most of the text is no sentence boundary worth taking.
+  if (last !== undefined && last >= max / 2) return room.slice(0, last);
+  const words = room.slice(0, max - 1);
+  return `${words.slice(0, Math.max(words.lastIndexOf(' '), 1)).trimEnd()}…`;
 }
 
 /** The hooks and the beat sheet of a first-stage answer. */
@@ -49,17 +74,28 @@ export function parseHooksAndBeats(answer: string): HooksAndBeats {
     .map(hookOf)
     .filter((hook): hook is ScriptHook => hook !== null)
     .slice(0, SCRIPT_HOOKS);
-  const beats = blocks
-    .flatMap((block) => block.get('BEAT') ?? [])
-    .filter((beat) => beat !== '' && beat.length <= MAX_BEAT_CHARS)
-    .slice(0, MAX_BEATS);
+  const written = blocks.flatMap((block) => block.get('BEAT') ?? []).filter((beat) => beat !== '');
+  const kept = written.slice(0, MAX_BEATS);
+  const beats = kept.map((beat) => shortened(beat, MAX_BEAT_CHARS));
+  const notes = [
+    ...kept.flatMap((beat, at) =>
+      beat.length > MAX_BEAT_CHARS
+        ? [
+            `Beat ${at + 1} (“${readBeats(beat)[0]?.name ?? ''}”) was longer than a beat sheet keeps, so it was shortened at the end of a sentence. Read it and put back what matters.`,
+          ]
+        : [],
+    ),
+    ...(written.length > MAX_BEATS
+      ? [`The AI wrote ${written.length} beats; a beat sheet keeps the first ${MAX_BEATS}.`]
+      : []),
+  ];
   const problem =
     hooks.length === 0
       ? 'It holds no hook that could be read: each needs its way of opening and its words.'
       : beats.length === 0
         ? 'It holds no beat sheet.'
         : null;
-  return { hooks, beats, problem };
+  return { hooks, beats, problem, notes };
 }
 
 const FENCE = /^```/;

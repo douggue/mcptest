@@ -60,6 +60,12 @@ tells us whether the next fix belongs in code (see the audit's known limits).
   first sentence, is there something at stake and a question left open by
   about 15 seconds, and a turn or surprise by about 30?
 - Does every beat say what it holds back for the next one?
+- Is the stored beat count equal to what the AI wrote? Count the beats on the
+  page. If a notice above the script says a beat was shortened or beats were
+  left off, read that beat and put back what matters. (Before this fix, a
+  real run wrote nine beats and the app kept two without saying so.)
+- Is each beat one line of about 45 words or fewer, naming its facts by their
+  markers such as [F3]?
 - Do the beat times look like a real video's, with more time where there is
   more to tell?
 

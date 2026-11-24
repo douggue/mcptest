@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
-import { parseHooksAndBeats, readBeats, scriptBody } from '../src/script/stages';
+import { MAX_BEAT_CHARS, parseHooksAndBeats, readBeats, scriptBody } from '../src/script/stages';
 
 const A = 'aaaaaaaaaa1';
 
@@ -28,6 +30,7 @@ describe('reading the hooks and the beat sheet', () => {
         '2:30 | The plant | What it made and why it closed',
       ],
       problem: null,
+      notes: [],
     });
   });
 
@@ -58,6 +61,75 @@ describe('reading the hooks and the beat sheet', () => {
       problem: 'It holds no beat sheet.',
     });
     expect(parseHooksAndBeats('I could not reach the tools.').problem).toMatch(/no hook/);
+  });
+});
+
+describe('a beat sheet written at length', () => {
+  /** What a real run wrote: nine beats of 257 to 946 characters. The old reader kept two. */
+  const real = readFileSync(
+    fileURLToPath(new URL('./fixtures/hooksLongBeats.txt', import.meta.url)),
+    'utf8',
+  );
+
+  test('keeps every beat a real run wrote, whole, and has nothing to report', () => {
+    const { hooks, beats, problem, notes } = parseHooksAndBeats(real);
+
+    expect(problem).toBeNull();
+    expect(hooks).toHaveLength(3);
+    expect(beats).toHaveLength(9);
+    expect(beats.map((beat) => beat.split(' | ')[0])).toEqual([
+      '1:00',
+      '2:15',
+      '3:00',
+      '5:30',
+      '7:45',
+      '9:30',
+      '12:00',
+      '13:15',
+      '14:50',
+    ]);
+    expect(Math.max(...beats.map((beat) => beat.length))).toBeGreaterThan(900);
+    expect(notes).toEqual([]);
+  });
+
+  test('shortens a beat that is far too long at the end of a sentence, keeps it, and says so', () => {
+    const sentence = 'Something happens here and it is told at length. ';
+    const long = `2:00 | The long one | ${sentence.repeat(40)}`;
+    const answer = [hook(1, 'none'), 'BEATS', 'BEAT: 1:00 | Short | Fine.', `BEAT: ${long}`].join(
+      '\n',
+    );
+
+    const { beats, notes, problem } = parseHooksAndBeats(answer);
+
+    expect(problem).toBeNull();
+    expect(beats).toHaveLength(2);
+    expect(beats[1]?.startsWith('2:00 | The long one | Something happens')).toBe(true);
+    expect(beats[1]?.length).toBeLessThanOrEqual(MAX_BEAT_CHARS);
+    expect(beats[1]?.endsWith('told at length.')).toBe(true);
+    expect(notes).toEqual([
+      'Beat 2 (“The long one”) was longer than a beat sheet keeps, so it was shortened at the end of a sentence. Read it and put back what matters.',
+    ]);
+  });
+
+  test('cuts at a word when a long beat has no sentence to end on', () => {
+    const answer = [hook(1, 'none'), 'BEATS', `BEAT: 1:00 | Run on | ${'word '.repeat(400)}`].join(
+      '\n',
+    );
+
+    const { beats, notes } = parseHooksAndBeats(answer);
+
+    expect(beats[0]?.length).toBeLessThanOrEqual(MAX_BEAT_CHARS);
+    expect(beats[0]?.endsWith('word…')).toBe(true);
+    expect(notes).toHaveLength(1);
+  });
+
+  test('says how many beats were written when a sheet holds more than are kept', () => {
+    const many = Array.from({ length: 125 }, (_, at) => `BEAT: ${at}:00 | Beat ${at} | x`);
+
+    const { beats, notes } = parseHooksAndBeats([hook(1, 'none'), 'BEATS', ...many].join('\n'));
+
+    expect(beats).toHaveLength(120);
+    expect(notes).toEqual(['The AI wrote 125 beats; a beat sheet keeps the first 120.']);
   });
 });
 

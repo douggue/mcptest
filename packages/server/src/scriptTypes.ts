@@ -60,6 +60,11 @@ export interface ScriptOutcome {
   readonly view: ScriptView;
   readonly engine: EngineId;
   readonly skipped: readonly SkippedEngine[];
+  /**
+   * What the owner should know about how the answer was read: a beat that
+   * was shortened, beats left off. Empty when the answer was stored as written.
+   */
+  readonly notes: readonly string[];
 }
 
 export interface VoiceOutcome {

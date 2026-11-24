@@ -162,6 +162,9 @@ const SPOKEN_CRAFT: readonly string[] = [
   'Speak to the viewer the way the videos you read do. No stage directions, no lists read aloud, nothing in brackets that is meant to be said.',
 ];
 
+/** The most words one beat of a beat sheet is told in: a line the owner reads and edits. */
+const BEAT_WORDS = 45;
+
 /** What the first stage is asked: three hooks and a beat sheet. */
 export function scriptHooksQuestion(channel: string, focus: ScriptFocus): string {
   return buildPrompt({
@@ -193,7 +196,8 @@ export function scriptHooksQuestion(channel: string, focus: ScriptFocus): string
       ]),
       'THE BEAT SHEET',
       ...bullets([
-        'Then write a beat sheet for the rest of the video, from the end of the hook to targetSeconds: for each beat the time it starts, a short name, and in one sentence what happens in it and what it holds back for later. Build it the way the videos you read are built, not as a list of topics. A video under two minutes has three to five beats.',
+        `Then write a beat sheet for the rest of the video, from the end of the hook to targetSeconds: for each beat the time it starts, a short name, and what happens in it in at most ${BEAT_WORDS} words: its job, the fact markers it uses such as [F3], and what it holds back. One line each. Build it the way the videos you read are built, not as a list of topics. A video under two minutes has three to five beats.`,
+        'A beat is a plan for a section, not the section: the telling belongs in the draft. Name the facts a beat uses by their markers and do not retell them.',
         ...RETENTION_CRAFT,
         'Set the start times with care: the time from one beat to the next decides how many words that beat gets. Give a beat the time its content needs, in the proportions of the videos you read.',
         'Every loop a hook opens is closed in a named beat, and the fact sheet, when it holds facts, has enough for every beat: a beat with nothing true to tell is merged into its neighbour.',
@@ -207,7 +211,7 @@ export function scriptHooksQuestion(channel: string, focus: ScriptFocus): string
       focus.markFacts === false
         ? 'TEXT: the hook, all on one line.'
         : 'TEXT: the hook, all on one line, with its [CHECK: ...] markers.',
-      'Then a line "BEATS" and, for each beat, one line in this form: BEAT: the time it starts as minutes:seconds | its name | what happens.',
+      `Then a line "BEATS" and, for each beat, one line in this form: BEAT: the time it starts as minutes:seconds | its name | what happens, in at most ${BEAT_WORDS} words.`,
     ],
   });
 }

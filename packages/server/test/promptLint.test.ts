@@ -208,6 +208,22 @@ describe('no output form contradicts the code that reads the answer', () => {
     expect(read.beats).toHaveLength(2);
   });
 
+  test('a beat of the length the question asks for, and one three times as long, is kept whole', () => {
+    const asked = Number(/what happens, in at most (\d+) words/.exec(form('script-hooks'))?.[1]);
+    const beat = (words: number): string =>
+      `BEAT: 1:00 | A beat | ${Array.from({ length: words }, () => 'happen').join(' ')}.`;
+    const answer = (words: number): string =>
+      ['HOOK 1', 'WAY: a way', 'MODEL: none', 'TEXT: A hook.', 'BEATS', beat(words)].join('\n');
+
+    expect(asked).toBeGreaterThan(0);
+    for (const words of [asked, asked * 3]) {
+      const read = parseHooksAndBeats(answer(words));
+
+      expect(read.beats).toHaveLength(1);
+      expect(read.notes).toEqual([]);
+    }
+  });
+
   test('formulas, hook styles, a fact sheet and a claims check written to their forms are read', () => {
     for (const label of ['FORMULA:', 'WHY:', 'VIDEOS:']) {
       expect(form('title-formulas')).toContain(label);
