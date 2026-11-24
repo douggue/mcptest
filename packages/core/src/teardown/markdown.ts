@@ -35,9 +35,11 @@ type Report = TeardownReport;
 
 function judgedNote(report: Report, stage: keyof Report['stages']): string {
   const state = report.stages[stage];
-  return state.state === 'done'
+  if (state.state !== 'done') return `_Not made: ${state.reason}_`;
+  const repaired = state.repaired ?? [];
+  return repaired.length === 0
     ? `_AI's reading (${state.engine})._`
-    : `_Not made: ${state.reason}_`;
+    : `_AI's reading (${state.engine}). To keep it, code shortened or left out: ${repaired.join(' ')}_`;
 }
 
 function metrics(report: Report, image: (file: string) => string): string {

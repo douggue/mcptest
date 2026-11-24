@@ -17,6 +17,7 @@
  */
 import {
   OPENING_SECONDS,
+  REPAIRED_KEY,
   buildTeardownReport,
   checkStage,
   chapterSpans,
@@ -36,6 +37,10 @@ import { CLOSING } from './running';
 import { STAGE_TITLES, watchQuestion, type JudgedStage } from './teardownQuestions';
 import type { TeardownAsk, TeardownPicture } from './teardownRequests';
 import { teardownInput } from './teardownStore';
+
+/** A stage as it is stored: what was judged and, when anything was, what was shortened or left out to keep it. */
+const storedJson = (data: object, repaired: readonly string[]): string =>
+  JSON.stringify(repaired.length > 0 ? { ...data, [REPAIRED_KEY]: repaired } : data);
 
 export interface TeardownDeps {
   readonly now: () => Date;
@@ -242,7 +247,7 @@ async function judge(
       run.videoId,
       stage,
       checked.ok
-        ? { engine: answer.engine, json: JSON.stringify(checked.data) }
+        ? { engine: answer.engine, json: storedJson(checked.data, checked.repaired) }
         : { problem: `${answer.engine} answered, but ${checked.reason}.` },
       deps.now(),
     );
@@ -305,7 +310,7 @@ async function watchStep(
     deps.repo.save(
       run.videoId,
       'watch',
-      { engine: answer.engine, json: JSON.stringify(checked.data) },
+      { engine: answer.engine, json: storedJson(checked.data, checked.repaired) },
       deps.now(),
     );
     if ((input.transcript?.lines.length ?? 0) === 0 && checked.data.transcript.length > 0) {

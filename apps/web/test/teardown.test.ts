@@ -98,6 +98,13 @@ describe('the teardown on the page', () => {
       "The AI's reading (CLAUDE), checked in code.",
     );
     expect(judgedBy(view, 'plan', String)).toBeNull();
+    const kept = {
+      ...view,
+      stages: { ...view.stages, hook: { ...view.stages.hook, repaired: ['rows 2: left out.'] } },
+    } as TeardownView;
+    expect(judgedBy(kept, 'hook', String)).toBe(
+      "The AI's reading (claude), checked in code. To keep it, the app shortened or left out: rows 2: left out.",
+    );
     expect(clock(-3)).toBe('0:00');
     expect(clock(61.9)).toBe('1:01');
     expect(percent(0.1234)).toBe('12.3%');

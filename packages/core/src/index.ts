@@ -729,6 +729,7 @@ export {
 } from './teardown/words';
 export {
   TEARDOWN_STAGES,
+  REPAIRED_KEY,
   checkStage,
   liftJson,
   secondsOf,

@@ -2,7 +2,7 @@ import { MAX_CHAPTERS } from './constants';
 import type { TeardownMeasurements } from './measurements';
 import type { Span } from './parse';
 import { shotStats } from './shots';
-import { stageSchemas, type StageData, type TeardownStage } from './stages';
+import { REPAIRED_KEY, stageSchemas, type StageData, type TeardownStage } from './stages';
 import { quoteFound, wordStats, type TimedLine, type WordStats } from './words';
 
 /**
@@ -30,7 +30,13 @@ export interface TeardownAbout {
 }
 
 export type StageState<S extends TeardownStage> =
-  | { readonly state: 'done'; readonly engine: string; readonly data: StageData<S> }
+  | {
+      readonly state: 'done';
+      readonly engine: string;
+      readonly data: StageData<S>;
+      /** What code shortened or left out so that the rest of the answer could be kept; absent when nothing. */
+      readonly repaired?: readonly string[];
+    }
   | { readonly state: 'failed' | 'missing'; readonly reason: string };
 
 export interface ChapterRow {
@@ -81,14 +87,29 @@ const NOT_RUN = 'Not made yet.';
 const EVEN_CHAPTER_SECONDS = 60;
 const EVEN_CHAPTERS = 5;
 
+/** The repairs a stored stage carries, when it carries any. */
+function repairedOf(raw: unknown): readonly string[] {
+  const kept =
+    typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>)[REPAIRED_KEY] : [];
+  return Array.isArray(kept) ? kept.filter((note): note is string => typeof note === 'string') : [];
+}
+
 function stageOf<S extends TeardownStage>(stage: S, input: TeardownInput): StageState<S> {
   const stored = input.stages[stage];
   if (stored === undefined) return { state: 'missing', reason: NOT_RUN };
   if ('problem' in stored) return { state: 'failed', reason: stored.problem };
   try {
-    const parsed = stageSchemas[stage].safeParse(JSON.parse(stored.json));
-    if (parsed.success)
-      return { state: 'done', engine: stored.engine, data: parsed.data as StageData<S> };
+    const raw: unknown = JSON.parse(stored.json);
+    const parsed = stageSchemas[stage].safeParse(raw);
+    if (parsed.success) {
+      const repaired = repairedOf(raw);
+      return {
+        state: 'done',
+        engine: stored.engine,
+        data: parsed.data as StageData<S>,
+        ...(repaired.length > 0 ? { repaired } : {}),
+      };
+    }
   } catch {
     // Unreadable: treated as failed below.
   }

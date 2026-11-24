@@ -133,9 +133,12 @@ export function judgedBy(
   names: (engine: string) => string,
 ): string | null {
   const state = view.stages[stage];
-  return state.state === 'done'
-    ? `The AI's reading (${names(state.engine)}), checked in code.`
-    : null;
+  if (state.state !== 'done') return null;
+  const repaired = state.repaired ?? [];
+  const judged = `The AI's reading (${names(state.engine)}), checked in code.`;
+  return repaired.length === 0
+    ? judged
+    : `${judged} To keep it, the app shortened or left out: ${repaired.join(' ')}`;
 }
 
 /** What the AI runs come to, in one line, before starting. */

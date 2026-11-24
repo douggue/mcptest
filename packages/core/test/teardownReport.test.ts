@@ -162,6 +162,32 @@ describe('stage answers', () => {
   });
 });
 
+describe('a stage that code repaired to keep', () => {
+  const sound = { voice: 'v', music: 'm', sfx: [], mix: 'x' };
+  const repaired = ['sfx 1, at: one entry could not be read, so it was left out.'];
+  const input = {
+    ...FULL_INPUT,
+    stages: { ...FULL_INPUT.stages, sound: stage({ ...sound, repaired }) },
+  };
+
+  test('says what was shortened or left out, in the report and in the file', () => {
+    const report = buildTeardownReport(input);
+
+    expect(report.stages.sound).toMatchObject({ state: 'done', data: sound, repaired });
+    expect(teardownMarkdown(report)).toContain(
+      `To keep it, code shortened or left out: ${repaired[0]}`,
+    );
+  });
+
+  test('says nothing of repairs for a stage that fitted as written', () => {
+    const report = buildTeardownReport(FULL_INPUT);
+
+    expect(report.stages.structure.state === 'done' && report.stages.structure.repaired).toBe(
+      undefined,
+    );
+  });
+});
+
 describe('buildTeardownReport', () => {
   test('adds what code knows to what the engines judged', () => {
     const report = buildTeardownReport(FULL_INPUT);
