@@ -38,7 +38,7 @@ import type { PictureChecks } from './pictureChecks';
 import type { EngineSettings } from './engines/settings';
 import type { QuestionFocus } from './questionFocus';
 import {
-  MIX_TITLE,
+  runTitle,
   looksAtPictures as mixLooks,
   mixRequest,
   type MixAsk,
@@ -280,7 +280,7 @@ export function asker(shared: AskerShared, wiring: AskerWiring, stop: AbortSigna
       }
       // The answer is JSON, which a line naming the files opened would spoil.
       return askPictures(
-        MIX_TITLE,
+        runTitle(mix),
         { only },
         async (engine) => {
           if (!seesFiles(engine)) return { request: mixRequest(mix, engine, at(engine)) };

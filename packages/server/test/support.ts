@@ -105,6 +105,9 @@ export const UNUSED_FORMAT_BUILDER: FormatBuilderEngine = {
   suggestMix: unused('suggestMix'),
   shelfForMix: unused('shelfForMix'),
   mixPicture: unused('mixPicture'),
+  writeBible: unused('writeBible'),
+  bibleMarkdown: unused('bibleMarkdown'),
+  bibleZip: unused('bibleZip'),
 };
 
 /** An engine whose later features are these, failing loudly on any other. */

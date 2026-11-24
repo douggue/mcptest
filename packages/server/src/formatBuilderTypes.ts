@@ -43,6 +43,21 @@ export interface FormatBuilderEngine {
     only: EngineId | undefined,
     report: (progress: MixProgress) => void,
   ): Promise<FormatView>;
+  /**
+   * "Write my Format Bible": an AI writes it from the filled slots, code
+   * checks it and keeps it on the format. Rejects, in plain words, when there
+   * is no format, no filled slot, or the answer is not a Bible.
+   */
+  writeBible(
+    formatId: number,
+    channel: string | null,
+    only: EngineId | undefined,
+    report: (progress: MixProgress) => void,
+  ): Promise<FormatView>;
+  /** The kept Bible as Markdown, with the format's name; null when there is none. */
+  bibleMarkdown(formatId: number): { readonly name: string; readonly text: string } | null;
+  /** The kept Bible with its palette, fonts and pictures as one zip; null when there is none. */
+  bibleZip(formatId: number): Promise<Uint8Array | null>;
   /** The shelf as the connector's tool shows it; null when there is no such format. */
   shelfForMix(formatId: number): ShelfForMix | null;
   /** One of the shelf's pictures by its name made in code; null when there is none. */

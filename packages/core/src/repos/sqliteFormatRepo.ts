@@ -10,6 +10,8 @@ import {
   type MixSuggestion,
 } from '../format/formats';
 import { CHANNEL_ID_PATTERN } from '../sources/parse';
+import type { FormatBible } from '../format/bible';
+import { storedBibleSchema } from '../format/bibleSchema';
 import { INGREDIENT_LAYERS } from '../format/types';
 
 /**
@@ -47,13 +49,14 @@ interface Row {
   notes: string;
   slots_json: string;
   suggestion_json: string | null;
+  bible_json: string | null;
   copied_from: number | null;
   created_at: string;
   updated_at: string;
 }
 
 const COLUMNS =
-  'id, channel_id, name, target_seconds, notes, slots_json, suggestion_json, copied_from, created_at, updated_at';
+  'id, channel_id, name, target_seconds, notes, slots_json, suggestion_json, bible_json, copied_from, created_at, updated_at';
 
 function readJson<T>(schema: z.ZodType<T>, json: string | null, fallback: T): T {
   if (json === null) return fallback;
@@ -73,6 +76,7 @@ const formatOf = (row: Row): Format => ({
   notes: row.notes,
   slots: readJson<FormatSlots>(slotsSchema, row.slots_json, {}),
   suggestion: readJson<MixSuggestion | null>(suggestionSchema, row.suggestion_json, null),
+  bible: readJson<FormatBible | null>(storedBibleSchema, row.bible_json, null),
   copiedFrom: row.copied_from,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
@@ -191,6 +195,14 @@ export class SqliteFormatRepo {
     return (
       this.db.prepare('UPDATE formats SET suggestion_json = ? WHERE id = ?').run(json, id).changes >
       0
+    );
+  }
+
+  /** Keeps the last Format Bible of a format; false when there is no such format. */
+  saveBible(id: number, bible: FormatBible): boolean {
+    const json = JSON.stringify(storedBibleSchema.parse(bible));
+    return (
+      this.db.prepare('UPDATE formats SET bible_json = ? WHERE id = ?').run(json, id).changes > 0
     );
   }
 

@@ -33,6 +33,11 @@ export interface MixJob {
 
 export const FORMATS_PATH = '/api/format/formats';
 export const MIX_JOB_KIND = 'format-mix';
+export const BIBLE_JOB_KIND = 'format-bible';
+
+/** Where the kept Bible of a format downloads from. */
+export const bibleUrl = (id: number, kind: 'md' | 'zip'): string =>
+  `${FORMATS_PATH}/${id}/format-bible.${kind}`;
 
 export function createFormatBuilderApi(fetcher?: Fetch) {
   const { call, unwrap, send } = apiCaller(fetcher);
@@ -54,6 +59,11 @@ export function createFormatBuilderApi(fetcher?: Fetch) {
     async job(id: string): Promise<MixJob> {
       return unwrap<MixJob>(await call(`/api/jobs/${encodeURIComponent(id)}`));
     },
+    /** Starts "Write my Format Bible"; resolves with the job to follow. */
+    async writeBible(id: number, channel: string | null, engine: string | null): Promise<string> {
+      const body = { id, channel, ...(engine === null ? {} : { engine }) };
+      return unwrap<{ jobId: string }>(await send(`${FORMATS_PATH}/bible`, body)).jobId;
+    },
     /** Starts "Suggest a mix"; resolves with the job to follow. */
     async suggest(id: number, channel: string | null, engine: string | null): Promise<string> {
       const body = { id, channel, ...(engine === null ? {} : { engine }) };
@@ -66,18 +76,17 @@ export type FormatBuilderApi = ReturnType<typeof createFormatBuilderApi>;
 
 /** One warning beside a slot, in plain words. */
 export interface SlotWarning {
-  readonly kind: 'clash' | 'unproven' | 'copies';
+  readonly kind: 'clash' | 'unproven';
   readonly text: string;
 }
 
-const UNPROVEN =
-  'Not proven yet: fewer than two videos from two channels use it. It may have been one lucky video.';
+const UNPROVEN = 'Not proven: fewer than two videos from two channels.';
 
-/** The warnings beside each slot: clashes, unproven ingredients and copying one channel. */
+/** The warnings beside each slot: clashes and unproven ingredients. Copying one channel is said once, above. */
 export function slotWarnings(
   view: Pick<FormatView, 'checks' | 'topChannelTitle'>,
 ): Readonly<Partial<Record<IngredientLayer, readonly SlotWarning[]>>> {
-  const { clashes, unproven, originality } = view.checks;
+  const { clashes, unproven } = view.checks;
   const byLayer = new Map<IngredientLayer, SlotWarning[]>();
   const add = (layer: IngredientLayer, warning: SlotWarning): void => {
     byLayer.set(layer, [...(byLayer.get(layer) ?? []), warning]);
@@ -86,11 +95,6 @@ export function slotWarnings(
     for (const layer of clash.layers) add(layer, { kind: 'clash', text: clash.says });
   }
   for (const layer of unproven) add(layer, { kind: 'unproven', text: UNPROVEN });
-  if (originality.copiesOneChannel) {
-    for (const layer of originality.layers) {
-      add(layer, { kind: 'copies', text: `From ${view.topChannelTitle ?? 'one channel'}.` });
-    }
-  }
   return Object.fromEntries(byLayer);
 }
 

@@ -1,7 +1,8 @@
 import { Sparkles } from 'lucide-react';
 import { AUTOMATIC } from '../lib/analyses';
 import { applySuggestion, writtenBy, type FormatView } from '../lib/formatBuilder';
-import { EngineSelect, type AiChoice } from './AiEngines';
+import type { AiChoice } from './AiEngines';
+import { AiLine } from './AiLine';
 import { Details } from './layout/Details';
 import { Notice } from './layout/Notice';
 import { PanelAction } from './layout/PanelAction';
@@ -62,18 +63,18 @@ interface Props {
 
 /** "Suggest a mix": an AI reads the shelf and the map's winners and fills every slot it can. */
 export function MixPanel({ format, builder, shelfSize, channelId, ai }: Props) {
-  const { mix } = builder;
+  const { mix, bible } = builder;
   const running = mix.status === 'running';
   const engine = ai === undefined || ai.choice === AUTOMATIC ? null : ai.choice;
   const blocked =
     shelfSize === 0
       ? 'Put a few ingredients on the shelf first.'
-      : ai?.busy && !running
+      : (ai?.busy || bible.status === 'running') && !running
         ? 'Another AI run is under way.'
         : null;
   return (
     <div className="flex min-w-0 flex-col gap-space-sm">
-      {ai && <EngineSelect ai={ai} />}
+      {ai && <AiLine choice={ai.choice} engines={ai.engines} />}
       <PanelAction
         icon={Sparkles}
         onClick={() => builder.suggest(channelId, engine)}

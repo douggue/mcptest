@@ -10,6 +10,7 @@ import { INGREDIENT_LAYERS } from '@jgtube/core';
 import { SERVER_NAME, connectorServer, seesFiles, tool, type AnalysisSettings } from './analyses';
 import type { EngineId, EngineRunRequest } from './engines/types';
 import type { PictureFileSet } from './pictureFiles';
+import { BIBLE_SYSTEM_PROMPT, BIBLE_TITLE, bibleQuestion } from './formatBibleQuestions';
 
 export const SHELF_TOOL = 'get_format_shelf';
 export const MIX_PICTURE_TOOL = 'view_format_pictures';
@@ -19,8 +20,17 @@ const MAP_TOOLS = ['get_map', 'get_breakouts'] as const;
 export const MIX_PICTURES_PER_CALL = 8;
 export const MIX_TITLE = 'Suggest a mix';
 
-const TEXT_LIMITS = { maxTurns: 10, timeoutMs: 6 * 60 * 1000 };
-const PICTURE_LIMITS = { maxTurns: 16, timeoutMs: 10 * 60 * 1000 };
+const LIMITS = {
+  mix: {
+    text: { maxTurns: 10, timeoutMs: 6 * 60 * 1000 },
+    pictures: { maxTurns: 16, timeoutMs: 10 * 60 * 1000 },
+  },
+  // A Bible is a long answer: more turns and time than a mix.
+  bible: {
+    text: { maxTurns: 12, timeoutMs: 10 * 60 * 1000 },
+    pictures: { maxTurns: 18, timeoutMs: 15 * 60 * 1000 },
+  },
+} as const;
 
 export interface MixAskPicture {
   readonly name: string;
@@ -36,7 +46,13 @@ export interface MixAsk {
   readonly pictures: readonly MixAskPicture[];
   /** Thumbnails of ingredients, by video id. */
   readonly thumbnails: readonly string[];
+  /** What the run is for: a suggested mix (the default) or the format's Bible. */
+  readonly purpose?: 'mix' | 'bible';
 }
+
+/** The run's name in a message: "Suggest a mix" or "Write my Format Bible". */
+export const runTitle = (ask: MixAsk): string =>
+  ask.purpose === 'bible' ? BIBLE_TITLE : MIX_TITLE;
 
 export const MIX_SYSTEM_PROMPT = [
   'You are a senior YouTube producer helping the owner of a small faceless channel mix their own format from pieces that work.',
@@ -118,10 +134,11 @@ export function mixRequest(
     ...(pictures && !asFiles && ask.pictures.length > 0 ? [tool(MIX_PICTURE_TOOL)] : []),
     ...(pictures && !asFiles && ask.thumbnails.length > 0 ? [tool(THUMBNAIL_TOOL)] : []),
   ];
-  const limits = pictures ? PICTURE_LIMITS : TEXT_LIMITS;
+  const bible = ask.purpose === 'bible';
+  const limits = LIMITS[bible ? 'bible' : 'mix'][pictures ? 'pictures' : 'text'];
   return {
-    prompt: mixQuestion(ask, look),
-    systemPrompt: MIX_SYSTEM_PROMPT,
+    prompt: bible ? bibleQuestion(ask, look) : mixQuestion(ask, look),
+    systemPrompt: bible ? BIBLE_SYSTEM_PROMPT : MIX_SYSTEM_PROMPT,
     mcpServers: { [SERVER_NAME]: connectorServer(settings, allowedTools) },
     allowedTools,
     maxTurns: limits.maxTurns,
