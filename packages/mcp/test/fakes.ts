@@ -304,12 +304,21 @@ export function niche(overrides: Partial<NicheChannel> = {}): NicheChannel {
     country: null,
     logoUrl: null,
     topic: { label: 'Other', source: 'none' },
+    foundBy: null,
+    newSinceSweep: false,
     ...overrides,
   };
 }
 
 export function nicheList(channels: readonly NicheChannel[] = [niche()]): NicheList {
-  return { channels, channelsChecked: 320, smallMaxSubscribers: 10_000, newMaxAgeDays: 90 };
+  return {
+    channels,
+    channelsChecked: 320,
+    smallMaxSubscribers: 10_000,
+    newMaxAgeDays: 90,
+    lastSweepAt: null,
+    newSinceSweep: 0,
+  };
 }
 
 export function version(overrides: Partial<TransferVersion> = {}): TransferVersion {

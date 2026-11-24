@@ -15,6 +15,8 @@ export interface ChangesReply extends ChangesView {
   /** The moment answered for: a week when "last look" was asked and none is stored. */
   readonly sinceKind: SinceKind;
   readonly lastLookAt: string | null;
+  /** New niche channels the watchlist sweeps found since that moment; left out by an older server. */
+  readonly newNiches?: number;
 }
 
 export const SINCE_OPTIONS: readonly { readonly id: SinceKind; readonly label: string }[] = [

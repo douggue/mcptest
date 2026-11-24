@@ -9,7 +9,12 @@ import { FORMAT_IMAGES_PATH } from './formatRoutes';
 import { createEngine } from './engine';
 import { JobStore, cleanMessage } from './jobs';
 import { liveSettings } from './liveSettings';
-import { startRefreshTimer, startThroughApi } from './schedule';
+import {
+  SWEEP_CHECK_HOURS,
+  startRefreshTimer,
+  startSweepThroughApi,
+  startThroughApi,
+} from './schedule';
 import { startProblem } from './startProblem';
 import { settingsEngine } from './settingsEngine';
 import { namesSetOutside, settingsStore } from './settingsStore';
@@ -223,8 +228,15 @@ function start(): void {
   if (config.refreshHours !== undefined) {
     process.stdout.write(`Stored channels are refreshed every ${config.refreshHours} hours\n`);
   }
+  // Asks every hour whether the watchlist's sweep is due; off unless the owner set a schedule.
+  const sweepTimer = startRefreshTimer({
+    everyHours: SWEEP_CHECK_HOURS,
+    start: startSweepThroughApi(app, `${HOST}:${port}`),
+    onProblem: (message) => process.stderr.write(`Scheduled sweep: ${message}\n`),
+  });
   const stop = (): void => {
     timer?.stop();
+    sweepTimer.stop();
     server.close();
     // Any AI engine that is running is stopped and work under way winds down
     // before the store is closed, so nothing is cut off in the middle of a

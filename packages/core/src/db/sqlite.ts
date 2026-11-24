@@ -656,6 +656,51 @@ CREATE TABLE IF NOT EXISTS outlier_bank_finds (
 );
 CREATE INDEX IF NOT EXISTS outlier_bank_finds_started ON outlier_bank_finds (started_at);
 `,
+  // 34: the niche watchlist and its sweeps.
+  //     niche_keywords are the owner's keywords and topics; niche_sweep_settings is one row
+  //     (the schedule and the reading budget per day); niche_sweeps is one row per sweep with
+  //     what it spent, written as it goes so the day's budget survives a stop; and
+  //     niche_sweep_finds says which sweep first brought a channel into the store, and how.
+  //     They refer to no table of an earlier step (a find's channel may be one the store no
+  //     longer holds).
+  `
+CREATE TABLE IF NOT EXISTS niche_keywords (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  keyword        TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  paused         INTEGER NOT NULL DEFAULT 0,
+  added_at       TEXT NOT NULL,
+  last_swept_at  TEXT
+);
+CREATE TABLE IF NOT EXISTS niche_sweep_settings (
+  id           INTEGER PRIMARY KEY CHECK (id = 1),
+  every_days   INTEGER,
+  page_budget  INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS niche_sweeps (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  started_by    TEXT NOT NULL CHECK (started_by IN ('owner', 'schedule')),
+  via           TEXT NOT NULL CHECK (via IN ('api', 'pages')),
+  requests      INTEGER NOT NULL DEFAULT 0,
+  api_units     INTEGER NOT NULL DEFAULT 0,
+  started_at    TEXT NOT NULL,
+  finished_at   TEXT,
+  stopped       TEXT CHECK (stopped IN ('done', 'budget', 'refused', 'failed')),
+  message       TEXT,
+  summary_json  TEXT
+);
+CREATE INDEX IF NOT EXISTS niche_sweeps_started ON niche_sweeps (started_at);
+CREATE TABLE IF NOT EXISTS niche_sweep_finds (
+  channel_id       TEXT PRIMARY KEY,
+  sweep_id         INTEGER NOT NULL REFERENCES niche_sweeps (id) ON DELETE CASCADE,
+  source           TEXT NOT NULL CHECK (source IN ('keyword', 'snowball')),
+  keyword_id       INTEGER,
+  keyword          TEXT,
+  from_channel_id  TEXT,
+  qualified        INTEGER NOT NULL,
+  found_at         TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS niche_sweep_finds_sweep ON niche_sweep_finds (sweep_id);
+`,
 ];
 
 /** The number of the newest step: what `user_version` reads in a store that is up to date. */

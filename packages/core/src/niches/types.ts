@@ -88,6 +88,30 @@ export interface NicheChannel {
   readonly qualifies: boolean;
   /** The owner marked it to keep an eye on. */
   readonly watched: boolean;
+  /**
+   * How the channel came into the store: a watchlist keyword's sweep, the
+   * snowball from another new niche, or one of the owner's maps. Null when
+   * none of these is recorded (a pasted channel, an earlier keyword search).
+   */
+  readonly foundBy: NicheFoundBy | null;
+  /** The latest finished sweep brought it into the store. */
+  readonly newSinceSweep: boolean;
+}
+
+export type NicheFoundBy =
+  | { readonly kind: 'keyword'; readonly keyword: string }
+  | {
+      readonly kind: 'snowball';
+      readonly fromChannelId: string;
+      /** The title of the niche it stood beside; null when the store no longer holds it. */
+      readonly fromTitle: string | null;
+    }
+  | { readonly kind: 'map' };
+
+/** How a listed channel was found, as the list shows it. */
+export interface NicheFound {
+  readonly foundBy: NicheFoundBy | null;
+  readonly newSinceSweep: boolean;
 }
 
 /** Plain values, ready to serialise. */
@@ -99,6 +123,10 @@ export interface NicheList {
   /** The limits the list was made with, so a reader can say what new and small mean. */
   readonly smallMaxSubscribers: number;
   readonly newMaxAgeDays: number;
+  /** When the latest sweep finished, ISO-8601; null when none has. */
+  readonly lastSweepAt: string | null;
+  /** How many of the listed channels that sweep brought in. */
+  readonly newSinceSweep: number;
 }
 
 /** A stored channel with its videos, newest first. */
@@ -123,6 +151,10 @@ export interface NicheInput {
   readonly logoOf?: (channelId: string) => string | null;
   /** A channel's own keywords and description, asked for only for listed channels. */
   readonly brandOf?: (channelId: string) => TopicInput['brand'];
+  /** How a channel was found, asked for only for listed channels. Without it nothing is said. */
+  readonly foundOf?: (channelId: string) => NicheFound;
+  /** When the latest sweep finished; null or left out when none has. */
+  readonly lastSweepAt?: Date | null;
   /**
    * How many stored channels the sources were chosen from, when they are not
    * the whole store. Left out, the sources are taken to be all of it.

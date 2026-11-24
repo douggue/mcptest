@@ -68,9 +68,17 @@ export interface FindAllowance {
   readonly left: number;
 }
 
-/** What is left of the day's cap after what runs in the last 24 hours spent. */
-export function findAllowance(via: FindVia, used: number): FindAllowance {
-  const cap = via === 'api' ? BANK_FIND_DAILY_API_UNITS : BANK_FIND_DAILY_PAGE_REQUESTS;
+/**
+ * What is left of the day's cap after what runs in the last 24 hours spent.
+ * `pageCap` is the owner's reading budget per day when one is set; it bounds
+ * page requests only.
+ */
+export function findAllowance(
+  via: FindVia,
+  used: number,
+  pageCap: number = BANK_FIND_DAILY_PAGE_REQUESTS,
+): FindAllowance {
+  const cap = via === 'api' ? BANK_FIND_DAILY_API_UNITS : pageCap;
   return { via, cap, used, left: Math.max(0, cap - used) };
 }
 

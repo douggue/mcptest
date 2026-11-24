@@ -5,6 +5,7 @@ import { channelUrl, formatAge, formatCount, formatScore } from '../lib/format';
 import { bestScore, describeTopicSource } from '../lib/nicheBuckets';
 import { describeLanguage, isRestarted } from '../lib/niches';
 import { channelHref } from '../lib/routes';
+import { foundByText } from '../lib/sweep';
 import { ChannelLogo } from './ChannelLogo';
 import { Card } from './layout/Card';
 import { Details } from './layout/Details';
@@ -60,6 +61,14 @@ function Tags({ channel }: { readonly channel: NicheChannel }) {
   const age = ageTag(channel, new Date());
   return (
     <div className="flex min-h-6 min-w-0 flex-wrap items-center gap-1.5">
+      {channel.newSinceSweep && (
+        <span
+          className={`${PILL} font-semibold text-primary`}
+          title="The last watchlist sweep brought this channel in"
+        >
+          New since last sweep
+        </span>
+      )}
       <MoneyBadge channelId={channel.id} />
       {channel.topic.source !== 'none' && (
         <span
@@ -112,6 +121,17 @@ function KeyNumbers({ channel }: { readonly channel: NicheChannel }) {
   );
 }
 
+/** How the channel came into the store, when that is recorded. */
+function FoundBy({ channel }: { readonly channel: NicheChannel }) {
+  const text = foundByText(channel.foundBy);
+  if (text === null) return null;
+  return (
+    <p className="truncate text-body-sm text-outline" title={text}>
+      {text}
+    </p>
+  );
+}
+
 /** The channel's logo, name and handle, with Save at the right. */
 function Header({ channel, onSetWatched }: Props) {
   return (
@@ -139,6 +159,7 @@ export function NicheCard({ channel, onSetWatched, onBreakDown }: Props) {
       <Header channel={channel} onSetWatched={onSetWatched} />
       <Tags channel={channel} />
       <KeyNumbers channel={channel} />
+      <FoundBy channel={channel} />
       <NicheThumbStrip videos={channel.outperformers} />
       <div className="mt-auto flex min-w-0 flex-col gap-space-sm pt-space-xs">
         <div className="flex min-w-0 flex-wrap items-center gap-1">

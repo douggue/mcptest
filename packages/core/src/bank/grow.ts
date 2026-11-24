@@ -47,6 +47,8 @@ export interface FindDeps extends IngestDeps {
   readonly search: (query: string) => Promise<readonly FoundVideo[]>;
   /** The requests made to the API so far, counted exactly; absent when reading pages. */
   readonly apiRequestsMade?: () => number;
+  /** The owner's reading budget per day, in page requests; the usual cap when absent. */
+  readonly pageCap?: number;
 }
 
 export interface FindRequest {
@@ -77,9 +79,14 @@ export interface FindOutcome {
 }
 
 /** What is left of the day's cap now. */
-export function allowanceNow(finds: FindRepo, via: FindVia, now: Date): FindAllowance {
+export function allowanceNow(
+  finds: FindRepo,
+  via: FindVia,
+  now: Date,
+  pageCap?: number,
+): FindAllowance {
   const since = new Date(now.getTime() - BANK_FIND_WINDOW_HOURS * HOUR_MS);
-  return findAllowance(via, finds.spentSince(via, since));
+  return findAllowance(via, finds.spentSince(via, since), pageCap);
 }
 
 /** Channel ids behind the videos: most videos found first, then in the order found. */
@@ -145,7 +152,7 @@ export async function findMoreOutliers(
   const query = checkRequest(request);
   const startedAt = deps.now();
   const plan = planFind(deps.via, request.maxChannels);
-  const allowance = allowanceNow(deps.finds, deps.via, startedAt);
+  const allowance = allowanceNow(deps.finds, deps.via, startedAt, deps.pageCap);
   if (planSpend(plan) > allowance.left) throw new FindCapError(allowance, plan);
 
   onProgress({ text: `Searching for “${query}”` });

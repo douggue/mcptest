@@ -75,12 +75,59 @@ export {
   loadNicheList,
   type NicheChannel,
   type NicheDeps,
+  type NicheFound,
+  type NicheFoundBy,
   type NicheLanguage,
   type NicheList,
   type NicheReason,
   type NicheSample,
 } from './niches/niches';
 export { SqliteWatchlistRepo } from './repos/sqliteWatchlistRepo';
+export { SqliteSweepRepo } from './repos/sqliteSweepRepo';
+export {
+  READING_BUDGET_DEFAULT,
+  READING_BUDGET_MAX,
+  READING_BUDGET_MIN,
+  SWEEP_MAX_EVERY_DAYS,
+  SWEEP_MAX_KEYWORDS,
+  SWEEP_MAX_KEYWORD_LENGTH,
+  addPots,
+  budgetProblem,
+  keywordProblem,
+  leftOf,
+  planSweep,
+  scheduleProblem,
+  sweepAllowance,
+  tidyKeyword,
+  type Pots,
+  type SweepAllowance,
+  type SweepPlan,
+} from './sweep/budget';
+export { refusalRestUntil, sweepDue } from './sweep/due';
+export { foundReader, latestFinished } from './sweep/found';
+export { isRefusal } from './sweep/refusal';
+export { suggestKeywords, type KeywordSuggestion, type SuggestChannel } from './sweep/suggest';
+export {
+  NO_KEYWORDS,
+  runSweep,
+  sweepOrder,
+  type SweepDeps,
+  type SweepOutcome,
+  type SweepProgress,
+} from './sweep/sweep';
+export type {
+  KeywordSummary,
+  SnowballSummary,
+  StoredSweep,
+  SweepFind,
+  SweepRepo,
+  SweepSettings,
+  SweepStarter,
+  SweepStop,
+  SweepSummary,
+  WatchKeyword,
+} from './sweep/types';
+export type { KeywordView, SweepInfo, SweepResult, SweepRunView } from './sweep/view';
 export type { WatchlistRepo } from './repos/types';
 export { COMPETITOR_STATUSES, type CompetitorStatus } from './map/choices';
 export {
