@@ -176,9 +176,13 @@ export function createLabApi(fetcher?: Fetch) {
       );
     },
 
-    /** Starts one stage of a script: hooks and beats, the draft, or the tighten pass. */
-    startStage: (channel: string, concept: number, stage: ScriptStage, choice: EngineChoice) =>
-      started('/api/lab/scripts/stage', { channel, concept, stage, ...withEngine(choice) }),
+    /** Starts one stage of a script: hooks and beats, the draft, the tighten pass, or the short sections again. */
+    startStage: (
+      channel: string,
+      concept: number,
+      stage: ScriptStage | 'lengthen',
+      choice: EngineChoice,
+    ) => started('/api/lab/scripts/stage', { channel, concept, stage, ...withEngine(choice) }),
 
     /** A channel of this map as a voice, measured from its stored captions; null when it is not on the map. */
     voice: (channel: string, voice: string) =>

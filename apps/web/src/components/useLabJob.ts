@@ -13,6 +13,7 @@ export type LabTask =
         | 'script-hooks'
         | 'script-draft'
         | 'script-tighten'
+        | 'script-lengthen'
         | 'voice-read'
         | 'research'
         | 'claims';

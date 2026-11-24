@@ -21,6 +21,8 @@ export interface Script {
   /** Changes the script on screen at once and stores the change a moment later. */
   readonly change: (changes: Partial<ScriptFields>) => void;
   readonly runStage: (stage: ScriptStage) => void;
+  /** Has an AI write again the sections of the draft that came out short, and no others. */
+  readonly writeShortAgain: () => void;
   /** Reads from YouTube the captions of the voice channel's best videos, then measures it again. */
   readonly readVoice: () => void;
   /** Stores a length typed in minutes or words. */
@@ -116,7 +118,7 @@ export function useScript(
   );
 
   const { run } = jobs;
-  const runStage = (stage: ScriptStage): void => {
+  const runStage = (stage: ScriptStage | 'lengthen'): void => {
     if (centerId === null || conceptId === null) return;
     setNotes([]);
     run(
@@ -157,6 +159,7 @@ export function useScript(
 
   return {
     ...{ view, saving, problem, notes, open, close: () => setView(null), change, runStage },
+    writeShortAgain: () => runStage('lengthen'),
     readVoice,
     setLength,
   };

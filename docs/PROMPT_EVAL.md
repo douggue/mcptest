@@ -49,8 +49,15 @@ shows against the target.
 | Sections that just repeat an earlier point to fill space (should be none) |   |     |
 | Facts with neither `[CHECK: …]` nor `[F#]` after them (should be none) |      |     |
 
-If the new draft is still under 90%, note which sections are short. That
-tells us whether the next fix belongs in code (see the audit's known limits).
+If a section is under 85% of its share, the Draft step lists it with the
+words it has and the words it was to hold. Press "Write the short sections
+again" once and check:
+
+- only the listed sections changed (the hook and the others read as before);
+- the rewritten sections tell more, not the same thing twice;
+- a section that stays short says something true and stops. That is the
+  intended result when the fact sheet has no more to give; run research
+  again if the sheet is thin.
 
 **Hooks and beats.**
 
@@ -139,7 +146,7 @@ Run it again on a channel you have a breakdown of (seven runs).
 
 | Feature                  | Look for                                                                                   |
 | ------------------------ | ------------------------------------------------------------------------------------------ |
-| Fact sheet               | 12 to 30 facts, each one sentence with a source you can open; the order of events, the people, the numbers; the title's claim checked |
+| Fact sheet               | About one fact for every 60 words of the script (at least 12), each one sentence with a source you can open; the things your hook and beats mark [CHECK] looked up; any "Fact N was left off the sheet" line under what was not found |
 | Trending formats         | Each slot named for the kind of thing that goes in it; the WHY says which words do the pulling |
 | Hook styles              | Names you could give to a hook on any subject, the same name for the same way of opening   |
 | What viewers ask for     | Each finding exact enough to become a title or a line in a script                          |

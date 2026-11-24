@@ -14,7 +14,15 @@
  */
 import { TAG_CHECKLIST, THUMBNAIL_PROMPT_MARKER, VIDEO_REF_RULE, markerLines } from '@jgtube/core';
 import type { AnalysisSpec } from './analyses';
-import { OWNER, THUMBNAIL_CRAFT, TAGS_NOTE, buildPrompt, bullets, numbered } from './promptParts';
+import {
+  OWNER,
+  TEXT_IN_EDITOR,
+  THUMBNAIL_CRAFT,
+  TAGS_NOTE,
+  buildPrompt,
+  bullets,
+  numbered,
+} from './promptParts';
 import type { PictureFileSet } from './thumbnailFiles';
 
 export const THUMB_TAG_IDS_MAX = 12;
@@ -140,6 +148,7 @@ export function adviceQuestion(channel: string, focus: ThumbAdviceFocus): string
       'A value is worth copying when many winners on several channels show it and their ordinary videos mostly do not. A value winners and ordinary videos share is a habit of the niche, not an edge: do not recommend it as one.',
       'Rank the improvements by how strongly the count supports them, and say the count with each.',
       ...THUMBNAIL_CRAFT,
+      TEXT_IN_EDITOR,
       'An improvement is a decision, not a direction: the overlay words written out, what is shown and how large, the colours by name, where each thing sits, how tall the letters are against the frame.',
     ]),
     rules: bullets([

@@ -10,6 +10,7 @@ import {
   exportText,
   gradeNote,
   scriptStats,
+  shortSectionLine,
   stageStates,
   toggleModel,
   voiceChoices,
@@ -35,6 +36,17 @@ const script = (overrides: Partial<StoredScript> = {}): StoredScript => ({
   centerChannelId: 'UCcccccccccccccccccccccc',
   updatedAt: '2026-11-21T10:00:00.000Z',
   ...overrides,
+});
+
+describe('a short section in a line', () => {
+  test('names it with its words, its number and how far it got', () => {
+    expect(shortSectionLine({ section: 'The turn', words: 200, budget: 450 })).toBe(
+      'The turn: 200 of 450 words (44%)',
+    );
+    expect(shortSectionLine({ section: 'Odd', words: 3, budget: 0 })).toBe(
+      'Odd: 3 of 0 words (0%)',
+    );
+  });
 });
 
 describe('what the page counts about a script', () => {

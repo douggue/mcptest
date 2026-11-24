@@ -18,6 +18,7 @@ import { ScriptEditor } from './ScriptEditor';
 import { HooksAndBeats, Models } from './ScriptHooks';
 import { ScriptPanel } from './ScriptPanel';
 import { ScriptPicker } from './ScriptPicker';
+import { ShortSections } from './ScriptShort';
 import { StepRun } from './ScriptSteps';
 import type { Lab } from './useLab';
 import type { Research } from './useResearch';
@@ -113,7 +114,14 @@ function Workbench(props: Props & { readonly view: ScriptView }) {
       <ConceptHeader view={view} />
       <LabStatus
         state={lab.jobs.state}
-        kinds={['script-hooks', 'script-draft', 'script-tighten', 'voice-read', 'thumbnail']}
+        kinds={[
+          'script-hooks',
+          'script-draft',
+          'script-tighten',
+          'script-lengthen',
+          'voice-read',
+          'thumbnail',
+        ]}
         working="Working on the script"
         takes="A step takes one to six minutes and uses some of the AI’s plan allowance. Keep this page open."
       />
@@ -130,7 +138,16 @@ function Workbench(props: Props & { readonly view: ScriptView }) {
             <HooksAndBeats script={script} view={view} busy={busy} hooks={hooks} />
           </>
         ) : (
-          <ScriptEditor view={view} which={field} onChange={edit} />
+          <>
+            {step === 'draft' && (
+              <ShortSections
+                sections={view.shortSections ?? []}
+                busy={busy}
+                onWriteAgain={script.writeShortAgain}
+              />
+            )}
+            <ScriptEditor view={view} which={field} onChange={edit} />
+          </>
         )}
       </Card>
       <ScriptFooter view={view} text={text} stage={step} />

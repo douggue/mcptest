@@ -1920,7 +1920,7 @@ Claude reads what the app shows. Setup for the owner is in
 | `get_frame_study`             | `video`                                                                                 | A line of JSON (`studied`, `by`, `at`, `source`, `framesAvailable`), then the stored study of the video's frames; `studied: false` when there is none                                                                                                                |
 | `get_idea_brief`              | `channel`, `batch`                                                                      | What the owner chose for one batch of concepts: `picked`, `length`, `modelOpenings`, `format` (`wording`, `from`); never the angle                                                                                                                                   |
 | `get_concept`                 | `channel`, `concept`                                                                    | A line of JSON (`concept`, `batch`, `length`, `restedOn`), then the stored concept in its labelled lines                                                                                                                                                             |
-| `get_script`                  | `channel`, `concept`, `part?` (plan, draft, tightened)                                  | A line of JSON (`voice`, `targetSeconds`, `targetWords`, `hookWords`, `wordBudget`, `modelHooks`, `frameStudies`), then the concept, the chosen hook, the beats and the asked-for text                                                                                             |
+| `get_script`                  | `channel`, `concept`, `part?` (plan, draft, tightened)                                  | A line of JSON (`voice`, `targetSeconds`, `targetWords`, `hookWords`, `wordBudget`, `shortSections`, `modelHooks`, `frameStudies`), then the concept, the chosen hook, the beats and the asked-for text                                                                                             |
 | `get_hooks`                   | `channel`, `video_ids?` (1 to 12)                                                       | A line of JSON (`built`, `seconds`, `hooks`, `noWords`), then per hook a line of JSON (`video`, `title`, `score`, `style`, `how`) and its first-minute words                                                                                                         |
 | Tool                          | Input                                                                                   | Returns                                                                                                                                                                                                                                                              |
 | ----------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -3087,6 +3087,26 @@ budget and the draft shares the words itself. The draft question has the
 engine write and count one section at a time, lengthen any section under its
 number from what the fact sheet and the tools give (never by inventing or
 repeating), and add the sections up before answering.
+
+**The check after a draft, and writing short sections again**
+(`sectionWords`, `shortSections`, `replaceSections` in `core/src/script/budget.ts`).
+The budget makes a short draft less likely; it cannot make an engine count.
+So at every look the server counts the spoken words under each heading of
+the draft against the budget line of the same name (case aside) and lists
+the sections under `SHORT_SECTION_SHARE = 85%` of their number in
+`ScriptView.shortSections`. The hook is the owner's own and is never listed;
+a heading that matches no budget line is not judged. After a draft, the
+stage's `notes` name the short sections, and the Draft step shows them with
+"Write the short sections again". That starts the stage `lengthen` (analysis
+`script-lengthen`): the question names no section (their names are a model's
+and the owner's words); `get_script` lists them under `shortSections` with
+the words each has and its budget. The answer holds those sections under
+their headings. `replaceSections` puts each in the place of the old one,
+keeps the draft's own heading line, and replaces only sections that were
+asked for, so an answer that also rewrites the hook changes nothing else. An
+answer with none of them changes nothing and fails in plain words. A section
+the facts cannot fill stays short: the question says a true short section
+beats a padded one.
 
 **Cues and exports** (`core/src/script/cues.ts`, `apps/web/src/lib/scriptWriter.ts`).
 `parseCues` reads each `[B-ROLL: what | search | sound]` line and gives it a

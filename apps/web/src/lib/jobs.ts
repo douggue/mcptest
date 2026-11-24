@@ -102,6 +102,7 @@ const VIEW_OF: Readonly<Record<string, Exclude<ViewId, 'channel'>>> = {
   'script-hooks': 'script',
   'script-draft': 'script',
   'script-tighten': 'script',
+  'script-lengthen': 'script',
   'voice-read': 'script',
   research: 'script',
   claims: 'script',

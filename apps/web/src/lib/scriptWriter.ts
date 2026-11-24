@@ -54,6 +54,21 @@ export interface ScriptView {
   readonly markFacts?: boolean;
   /** Which length field the owner typed last; absent from an older server. */
   readonly typedLength?: TypedLength | null;
+  /** The sections of the draft under 85% of their words, counted by the server; absent from an older one. */
+  readonly shortSections?: readonly ShortSection[];
+}
+
+/** A section of the draft that came out short: the words it has and the words it was to hold. */
+export interface ShortSection {
+  readonly section: string;
+  readonly words: number;
+  readonly budget: number;
+}
+
+/** One short section in a line: its name, its words against its number, and how far it got. */
+export function shortSectionLine(section: ShortSection): string {
+  const share = section.budget > 0 ? Math.round((section.words / section.budget) * 100) : 0;
+  return `${section.section}: ${section.words} of ${section.budget} words (${share}%)`;
 }
 
 export interface ScriptOutcome extends Answered {

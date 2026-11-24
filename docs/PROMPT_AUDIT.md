@@ -61,7 +61,8 @@ Changed:
 - The hooks stage is told that its beat times decide each beat's words.
 - The tighten pass is told that tightening is not shortening, section by
   section.
-- The fact sheet is asked for 12 to 30 facts instead of 8 to 25, and for what
+- The fact sheet is asked for more facts than the old 8 to 25 (now sized to
+  the script: about one for every 60 spoken words), and for what
   a script needs to fill its length (the order of events, the people, the
   numbers, the stakes, the turn, details a viewer can picture). A thin fact
   sheet was a second cause: the draft may not invent, so it had nothing to
@@ -197,6 +198,46 @@ whole, shortens a longer one at a sentence and keeps it, and the page says
 what was shortened or left off. The reviewer's answer is a regression
 fixture (`packages/core/test/fixtures/hooksLongBeats.txt`).
 
+**Ten more findings from the same review (fixed).**
+
+- "Never stop short of the length when the evidence holds more" padded
+  every answer and contradicted "no filler". It now reads: length follows
+  the evidence; the word limit is a ceiling, not a target. One video in
+  depth: up to 3,000 words for a video of ten minutes or more, fewer for a
+  shorter one.
+- The draft still carried lines about a hook library it never reads, said
+  the length three times, and could lengthen or cut the owner's hook. Now:
+  the hook is fixed and the difference is made up in the beats; a section
+  that could be filled only by repeating or inventing stays short. The
+  tighten pass no longer speaks of a fact sheet it never reads, and allows a
+  repeat that is a deliberate callback.
+- Research was not sized to the script. It is now told the script's length,
+  asked for about one fact for every 60 spoken words (at least 12), and
+  handed what the hook and the beat sheet still mark `[CHECK: …]` as things
+  to look up. A fact is at most 60 words; one that runs over is left off the
+  sheet and listed there as left off, never cut mid-sentence.
+- "A number a tool gave" was the wrong rule for a title: the tools hold
+  views, not facts about the subject. A number about the subject may carry a
+  title, listed under NEEDS to be checked unless a tool returned it.
+- Craft made mechanical: "every beat ends on a re-hook" and "two or three
+  sentences then a short one" produce a pattern a viewer hears. Now most
+  beats end on a pull, the device varies and is never the same twice
+  running; sentence length varies without a fixed pattern; the main promise
+  is held to the last third unless the videos read pay it in parts; the
+  ending may hand over in one line and puts a call to action where the
+  winners put theirs; numbers and abbreviations are written as said; a
+  thumbnail keeps its words out of the bottom-right corner, where YouTube
+  sets the length; an image prompt offers the option to leave the text area
+  clear and add the words in an editor.
+- Repetition: the paragraph on who the owner is was printed twice (system
+  prompt and question), the missing-evidence rule twice, the phone rule for
+  titles twice. Each is now said once. Rules on what to write were mixed
+  into the list of tool calls; they are in the craft section, and the tool
+  calls only call.
+- A code check after the draft: the app counts each section against its
+  number and offers "Write the short sections again", which re-asks only
+  those (see the script writer in `SYSTEM_DESIGN.md`).
+
 ## What did not change
 
 - Every marker and labelled form code reads: `CONCEPT n`, `TITLE:`, `ALT:`,
@@ -209,9 +250,11 @@ fixture (`packages/core/test/fixtures/hooksLongBeats.txt`).
   text as data, tool results as data, no real person, logo, country or flag
   in an image prompt, facts marked `[CHECK]` or `[F#]`, nothing carried over
   from another niche.
-- Tools, engines and routes, with three exceptions made for a question:
-  `get_script` gained `wordBudget`; "One video, in depth" has 15 minutes and
-  20 steps instead of 10 and 16; a fact sheet is asked for 12 to 30 facts.
+- Tools, engines and routes, with these exceptions made for a question:
+  `get_script` gained `wordBudget` and `shortSections`; a fourth script
+  stage, `lengthen`, writes short sections again; "One video, in depth" has
+  15 minutes and 20 steps instead of 10 and 16; a fact sheet is sized to the
+  script (12 to 60 facts, 20 minutes and 60 steps) and holds up to 80.
 
 ## Known limits of this work
 
@@ -220,8 +263,8 @@ fixture (`packages/core/test/fixtures/hooksLongBeats.txt`).
   and, on a weak engine, can be followed less closely. Watch for that with
   the checklist.
 - The word budget makes a short draft less likely; it cannot make an engine
-  count. If drafts still come out short, the next step is code, not words:
-  count the draft's sections after the run and ask once more for the
-  sections that are under.
+  count. The app now counts the sections itself after a draft and offers to
+  have the short ones written again. That second run is a remedy, not a
+  guarantee: it has only the same fact sheet to write from.
 - The owner also found the script writer hard to use. That is the page, not
   the questions, and is not addressed here.
