@@ -776,3 +776,33 @@ export {
   type MeasuredNumber,
 } from './format/types';
 export { SqliteIngredientRepo } from './repos/sqliteIngredientRepo';
+export {
+  MAX_FORMAT_NAME,
+  MAX_FORMAT_NOTES,
+  MAX_SLOT_NOTE,
+  MAX_FORMAT_SECONDS,
+  MIN_FORMAT_SECONDS,
+  SLOT_LAYERS,
+  applySuggestion,
+  changeProblem,
+  clearSlot,
+  fillSlot,
+  liveSlots,
+  noteSlot,
+  type Format,
+  type FormatChange,
+  type FormatSlot,
+  type FormatSlots,
+  type MixSuggestion,
+  type SuggestedSlot,
+} from './format/formats';
+export {
+  formatChecks,
+  hookSeconds,
+  type Clash,
+  type ClashKind,
+  type FormatChecks,
+  type Originality,
+} from './format/checks';
+export { checkMix, type MixCheck } from './format/mix';
+export { SqliteFormatRepo, nextVersionName } from './repos/sqliteFormatRepo';
