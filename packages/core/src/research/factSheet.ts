@@ -8,10 +8,13 @@
  * after it. The page turns the marker into a link to its sources, and the
  * clean voiceover leaves it out.
  */
+import { shortened } from '../script/stages';
 
-export const MAX_FACTS = 40;
+/** A long script is asked for a fact to every 60 spoken words, up to 60 facts; this leaves room. */
+export const MAX_FACTS = 80;
 export const MAX_SOURCES_PER_FACT = 2;
-const MAX_FACT_CHARS = 500;
+/** A fact is one sentence of at most 60 words: some 400 characters, with room for long names. */
+export const MAX_FACT_CHARS = 500;
 const MAX_URL_CHARS = 500;
 const MAX_NOTES = 20;
 
@@ -52,28 +55,47 @@ export function httpsSource(text: string): string | null {
 }
 
 const clean = (line: string): string => line.replace(DECORATION, '').trim();
-const capped = (text: string): string => text.slice(0, MAX_FACT_CHARS);
+/** A note within the room a line has, cut at the end of a sentence or a word, never mid-word. */
+const capped = (text: string): string => shortened(text, MAX_FACT_CHARS);
+const BEGINS_CHARS = 160;
+
+/** What stands in the sheet for a fact too long to keep: that it was left off, and how it began. */
+const leftOff = (number: number, text: string): string =>
+  `Fact ${number} was left off the sheet: it ran to ${text.length} characters, and a fact is one sentence of at most 60 words. It began: ${shortened(text, BEGINS_CHARS)}`;
 
 interface Reading {
   readonly facts: readonly Fact[];
   readonly notFound: readonly string[];
   readonly disputed: readonly string[];
+  /** The numbers of facts left off for their length; a source line after one belongs to no fact. */
+  readonly tooLong: readonly number[];
+  /** The number of the fact line read last, kept or not. */
+  readonly last: number | null;
+}
+
+/** One fact line read into the sheet: kept, or left off and said so when it is too long. */
+function readFact(sheet: Reading, number: number, text: string): Reading {
+  if (sheet.facts.some((one) => one.number === number)) return sheet;
+  // A fact cut short could say something its source does not: it is left off, and the sheet says so.
+  if (text.length > MAX_FACT_CHARS) {
+    return {
+      ...sheet,
+      tooLong: [...sheet.tooLong, number],
+      notFound: [...sheet.notFound, leftOff(number, text)],
+    };
+  }
+  return { ...sheet, facts: [...sheet.facts, { number, text, sources: [] }] };
 }
 
 /** One line read into the sheet so far. */
 function readLine(sheet: Reading, raw: string): Reading {
   const line = clean(raw);
   const fact = FACT_LINE.exec(line);
-  if (fact) {
-    const number = Number(fact[1]);
-    if (sheet.facts.some((one) => one.number === number)) return sheet;
-    return {
-      ...sheet,
-      facts: [...sheet.facts, { number, text: capped(fact[2] ?? ''), sources: [] }],
-    };
-  }
+  if (fact) return readFact({ ...sheet, last: Number(fact[1]) }, Number(fact[1]), fact[2] ?? '');
   const source = SOURCE_LINE.exec(line);
   const last = sheet.facts.at(-1);
+  // A source under a fact that was left off must not be given to the fact before it.
+  if (source && sheet.last !== null && sheet.tooLong.includes(sheet.last)) return sheet;
   if (source && last) {
     const url = httpsSource(source[1] ?? '');
     if (url === null || last.sources.length >= MAX_SOURCES_PER_FACT || last.sources.includes(url)) {
@@ -93,7 +115,8 @@ function readLine(sheet: Reading, raw: string): Reading {
 
 /** The sheet in an answer. A fact with no https source moves to what could not be found. */
 export function parseFactSheet(answer: string): FactSheet {
-  const read = answer.split(/\r?\n/).reduce(readLine, { facts: [], notFound: [], disputed: [] });
+  const start: Reading = { facts: [], notFound: [], disputed: [], tooLong: [], last: null };
+  const read = answer.split(/\r?\n/).reduce(readLine, start);
   const sourced = read.facts.filter((fact) => fact.sources.length > 0);
   const unsourced = read.facts.filter((fact) => fact.sources.length === 0).map((fact) => fact.text);
   return {

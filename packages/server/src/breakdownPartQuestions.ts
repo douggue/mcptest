@@ -19,15 +19,7 @@ import {
   PROMPT_MARKERS,
   markerLines,
 } from '@jgtube/core';
-import {
-  MISSING_EVIDENCE,
-  OWNER,
-  SPECIFICITY,
-  THUMBNAIL_CRAFT,
-  buildPrompt,
-  bullets,
-  numbered,
-} from './promptParts';
+import { OWNER, SPECIFICITY, THUMBNAIL_CRAFT, buildPrompt, bullets, numbered } from './promptParts';
 import { isVideoId } from './engines/videoId';
 import { filesLook, type PictureFileSet } from './pictureFiles';
 
@@ -86,7 +78,6 @@ const RULES: readonly string[] = [
   'Stay with this channel: use only what these tools return for it, and carry nothing over from any other channel or subject.',
   'The owner has never seen these tools: never name a tool or a field of a tool’s answer in what you write; say in plain words where a number comes from (“counted from the captions”, “from the frame study”, “from the titles part”).',
   NAMING,
-  MISSING_EVIDENCE,
   ...SPECIFICITY,
 ];
 /** Who reads a part and what they do with it. */

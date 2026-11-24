@@ -7,6 +7,7 @@
  */
 import {
   MAX_CLAIMS_PER_RUN,
+  checkMarkers,
   claimsToCheck,
   parseClaimVerdicts,
   parseFactSheet,
@@ -21,10 +22,14 @@ import type { EngineId, EngineRunResult } from './engines/types';
 import type { WebRunRequest } from './engines/webRun';
 import { RESEARCH_SYSTEM_PROMPT, claimsQuestion, researchQuestion } from './researchQuestions';
 import type { Report } from './labTypes';
+import { targetWordsOf } from './scriptLength';
 
-/** A fact sheet run searches and reads a dozen pages or more. */
-const RESEARCH_MAX_TURNS = 40;
-const RESEARCH_TIMEOUT_MS = 12 * 60 * 1000;
+/** Line breaks and control characters: a marker holding one is not put into a question. */
+const NOT_ONE_LINE = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/;
+
+/** A fact sheet run searches and reads a dozen pages or more, and more for a long script. */
+const RESEARCH_MAX_TURNS = 60;
+const RESEARCH_TIMEOUT_MS = 20 * 60 * 1000;
 const CLAIMS_MAX_TURNS = 40;
 const CLAIMS_TIMEOUT_MS = 12 * 60 * 1000;
 const NO_SUCH_CONCEPT = 'That concept is not one of this channel’s concepts.';
@@ -130,11 +135,20 @@ export function researchEngine(deps: ResearchDeps): ResearchEngine {
       const batch = repos.concepts.findBatch(center, concept.batchId);
       onProgress({ step: 'asking', text: 'Researching the subject on the web' });
       const needs = concept.needs.trim();
+      const script = repos.scripts.find(center, conceptId);
+      const typed = repos.research.findLength(center, conceptId);
+      // What the hooks and the beat sheet still mark: the sheet is asked to answer them.
+      const planned = [script?.chosenHook ?? '', script?.beats ?? ''].join('\n');
+      const toCheck = [...new Set(checkMarkers(planned).map((marker) => marker.what))].filter(
+        (what) => what.trim() !== '' && !NOT_ONE_LINE.test(what),
+      );
       const answer = await ask(
         researchQuestion({
           title: concept.title,
           needs: needs === '' || /^nothing\.?$/i.test(needs) ? null : needs,
           angle: batch?.angle ?? null,
+          targetWords: targetWordsOf(script, typed),
+          toCheck,
         }),
         RESEARCH_MAX_TURNS,
         RESEARCH_TIMEOUT_MS,

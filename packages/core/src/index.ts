@@ -599,6 +599,7 @@ export {
   MAX_SOURCES_PER_FACT,
   factRefs,
   httpsSource,
+  MAX_FACT_CHARS,
   parseFactSheet,
   sentencesOnFacts,
   type Fact,

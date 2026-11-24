@@ -42,10 +42,29 @@ export interface ResearchSubject {
   readonly title: string;
   readonly needs: string | null;
   readonly angle: string | null;
+  /** The words the script is to hold, when a length has been set: the sheet is sized to it. */
+  readonly targetWords?: number | null;
+  /** What the hooks and the beat sheet still mark to check, in their writer's words. */
+  readonly toCheck?: readonly string[];
+}
+
+/** The most of a script's open questions put into one research question. */
+export const MAX_TO_CHECK = 20;
+const MAX_CHECK_CHARS = 200;
+/** A sheet holds about one fact for every this many spoken words. */
+const WORDS_PER_FACT = 60;
+const WORDS_PER_MINUTE_SAID = 150;
+
+/** How many facts a sheet is asked for: sized to the script, never under the least nor over the most. */
+export function factsAsked(targetWords: number | null | undefined): number {
+  const sized = Math.ceil((targetWords ?? 0) / WORDS_PER_FACT);
+  return Math.min(FACTS_ASKED.max, Math.max(FACTS_ASKED.min, sized));
 }
 
 /** The fewest and the most facts a sheet is asked for: enough to carry a script, few enough to source. */
-const FACTS_ASKED = { min: 12, max: 30 } as const;
+const FACTS_ASKED = { min: 12, max: 60 } as const;
+/** The most words one fact is told in: one sentence a narrator could say. */
+const FACT_WORDS = 60;
 
 /** What a script needs from its fact sheet, so the facts found can carry a whole video. */
 const RESEARCH_CRAFT: readonly string[] = [
@@ -63,12 +82,14 @@ const RESEARCH_CRAFT: readonly string[] = [
   'Prefer a fact with its figure and date over a general statement, and a recent source over an old one for anything that changes.',
 ];
 
-const FORM: readonly string[] = [
+const form = (subject: ResearchSubject): readonly string[] => [
   'Answer in exactly this form and nothing else.',
-  'For each fact, a line "FACT 1:" (then FACT 2, and so on) followed by exactly one sentence (never a second) that gives what, who, when, where and the figures where there are any; then one or two lines "SOURCE:" each followed by one https address of a page you read that supports it. A fact with no such page is not a fact here: put it under NOT FOUND.',
+  `For each fact, a line "FACT 1:" (then FACT 2, and so on) followed by exactly one sentence (never a second) of at most ${FACT_WORDS} words that gives what, who, when, where and the figures where there are any; then one or two lines "SOURCE:" each followed by one https address of a page you read that supports it. A fact with no such page is not a fact here: put it under NOT FOUND. A fact longer than that is left off the sheet, so split it into two facts, each with its source.`,
   'Then a line "NOT FOUND:" for each thing you looked for and could not find or could not support with a page.',
   'Then a line "DISPUTED:" for each point where sources disagree, saying what each side says.',
-  `Write ${FACTS_ASKED.min} to ${FACTS_ASKED.max} facts, the ones a script about this subject would need, most important first. Give fewer when that is all the pages support.`,
+  subject.targetWords
+    ? `The script is to hold about ${subject.targetWords} spoken words (about ${Math.round(subject.targetWords / WORDS_PER_MINUTE_SAID)} minutes). Write about one fact for every ${WORDS_PER_FACT} spoken words, at least ${FACTS_ASKED.min}: about ${factsAsked(subject.targetWords)} facts, the ones a script about this subject would need, most important first. Give fewer when that is all the pages support.`
+    : `Write about one fact for every ${WORDS_PER_FACT} spoken words of the video, at least ${FACTS_ASKED.min}, the ones a script about this subject would need, most important first. Give fewer when that is all the pages support.`,
 ];
 
 /** The question of a research run, for one concept's subject. */
@@ -80,6 +101,12 @@ export function researchQuestion(subject: ResearchSubject): string {
       subject.needs
         ? `What must be looked up before making it: ${quotedSubject(subject.needs, MAX_SUBJECT_CHARS)}.`
         : '',
+      ...(subject.toCheck ?? [])
+        .slice(0, MAX_TO_CHECK)
+        .map(
+          (what, at) =>
+            `Also to look up, from the plan of the video (${at + 1}): ${quotedSubject(what, MAX_CHECK_CHARS)}.`,
+        ),
       subject.angle
         ? `The owner's angle on the topic: ${quotedSubject(subject.angle, MAX_ANGLE_CHARS)}.`
         : '',
@@ -94,7 +121,7 @@ export function researchQuestion(subject: ResearchSubject): string {
       'Never invent a source, a quotation or a figure, and never give an address you did not open.',
       'One fact to a sentence: a second claim is a second fact with its own source.',
     ]),
-    output_format: FORM,
+    output_format: form(subject),
   });
 }
 

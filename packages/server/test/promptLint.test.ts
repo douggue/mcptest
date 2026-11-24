@@ -1,5 +1,7 @@
 import {
   CONCEPTS_PER_BATCH,
+  MAX_FACTS,
+  MAX_FACT_CHARS,
   bibleAnswerSchema,
   markerLines,
   parseClaimVerdicts,
@@ -13,6 +15,8 @@ import {
 } from '@jgtube/core';
 import { describe, expect, test } from 'vitest';
 import {
+  MISSING_EVIDENCE,
+  OWNER,
   PROMPT_SECTIONS,
   REQUIRED_SECTIONS,
   TAGS_NOTE,
@@ -20,6 +24,7 @@ import {
   sectionOf,
   type PromptSection,
 } from '../src/promptParts';
+import { factsAsked, researchQuestion } from '../src/researchQuestions';
 import { promptCatalog, type CatalogEntry } from './promptCatalog';
 
 /**
@@ -104,6 +109,26 @@ describe.each(named(questions))('%s', (_name, entry) => {
     expect(text).not.toMatch(
       /elevenlabs|midjourney|runway|capcut|chatgpt|gemini|claude|openai|dall-e|sora\b|\bveo\b|kling|premiere|davinci/i,
     );
+  });
+
+  test('says a thing once: who the owner is, and what to do when evidence is missing', () => {
+    const text = `${entry.systemPrompt}\n${entry.prompt}`;
+    const times = (needle: string): number => text.split(needle).length - 1;
+
+    expect(times(OWNER)).toBeLessThanOrEqual(1);
+    expect(times(MISSING_EVIDENCE)).toBeLessThanOrEqual(1);
+  });
+
+  test('keeps rules on what to write out of the list of tool calls', () => {
+    expect(part(entry, 'gather')).not.toMatch(/When there is an active format/);
+    expect(part(entry, 'gather')).not.toMatch(/write HOOK STYLE/);
+  });
+
+  test('never asks for length for its own sake', () => {
+    const text = `${entry.systemPrompt}\n${entry.prompt}`;
+
+    expect(text).not.toMatch(/never stop short of the length/);
+    expect(text).not.toMatch(/far shorter than that has left out/);
   });
 
   test('forbids forecasts wherever it could give a number about views', () => {
@@ -378,6 +403,45 @@ describe('lengths add up', () => {
     expect(draft).toMatch(/under nine tenths of targetWords/);
     expect(tighten).toMatch(/Tightening is not shortening/);
     expect(tighten).toMatch(/within a tenth of the draft’s, section by section/);
+  });
+
+  test('the draft never touches the hook, and a section it cannot fill honestly stays short', () => {
+    const draft = part(find('script-draft'), 'craft');
+
+    expect(draft).toMatch(/The HOOK is fixed: never lengthen or cut it/);
+    expect(draft).toMatch(/a true short section beats a padded one/);
+    expect(part(find('script-draft'), 'rules')).not.toMatch(/get_hooks/);
+    expect(find('script-draft').prompt).not.toMatch(/library hook/);
+  });
+
+  test('the tighten pass reads no fact sheet and is told about none', () => {
+    const tighten = find('script-tighten').prompt;
+
+    expect(tighten).not.toMatch(/fact sheet/);
+    expect(tighten).toMatch(/no point made twice unless the repeat is a deliberate callback/);
+  });
+
+  test('writing short sections again names them only through the tool, and writes no other', () => {
+    const lengthen = find('script-lengthen');
+
+    expect(part(lengthen, 'gather')).toMatch(/shortSections/);
+    expect(part(lengthen, 'rules')).toMatch(/Write only the sections listed under shortSections/);
+    expect(part(lengthen, 'rules')).toMatch(/Never write the HOOK/);
+    expect(part(lengthen, 'output_format')).toMatch(/exactly as shortSections gives it/);
+  });
+
+  test('a fact sheet is sized to the script, and a fact is held to a length code keeps', () => {
+    const sized = researchQuestion({ title: 'T', needs: null, angle: null, targetWords: 2400 });
+    const unsized = part(find('research'), 'output_format');
+    const words = Number(/of at most (\d+) words/.exec(unsized)?.[1]);
+
+    expect(sized).toMatch(/about 2400 spoken words \(about 16 minutes\)/);
+    expect(sized).toMatch(/about one fact for every 60 spoken words, at least 12: about 40 facts/);
+    expect(unsized).toMatch(/about one fact for every 60 spoken words of the video, at least 12/);
+    expect(factsAsked(null)).toBe(12);
+    expect(factsAsked(100_000)).toBeLessThanOrEqual(MAX_FACTS);
+    // A fact of that many long words still fits what the reader keeps.
+    expect(words * 8).toBeLessThanOrEqual(MAX_FACT_CHARS);
   });
 
   test('whatever the beats, the budget adds up to the length asked and every section gets words', () => {

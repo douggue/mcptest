@@ -76,6 +76,7 @@ const FOCUS: Partial<Record<AnalysisId, QuestionFocus>> = {
   'script-hooks': { kind: 'script', conceptId: 42 },
   'script-draft': { kind: 'script', conceptId: 42 },
   'script-tighten': { kind: 'script', conceptId: 42 },
+  'script-lengthen': { kind: 'script', conceptId: 42 },
   'concept-thumbnail': { kind: 'concept', conceptId: 42 },
   'viewer-requests': { kind: 'comments', videoIds: [V(1), V(2)] },
   'risk-check': { kind: 'risk', conceptId: 42 },

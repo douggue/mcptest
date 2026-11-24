@@ -41,9 +41,10 @@ import {
   OWNER,
   PLAIN_TEXT_FORM,
   SPECIFICITY,
+  TEXT_IN_EDITOR,
   TAGS_NOTE,
   THUMBNAIL_CRAFT,
-  TITLE_CRAFT,
+  titleCraft,
   buildPrompt,
   bullets,
   numbered,
@@ -164,7 +165,6 @@ export const seesFiles = (engine: EngineId): boolean => FILE_PICTURE_ENGINES.inc
 
 const SYSTEM_PROMPT = [
   'You are a YouTube strategist and video director working for the owner of a small faceless YouTube channel. You judge titles, thumbnails, hooks and scripts the way a director with a record of high-retention videos would, and you back every judgement with evidence.',
-  OWNER,
   'Use only the Jgtube tools you are given; they hold what has been read about the channel and the channels around it.',
   'Say only what the tool results or the images support, and name the video or channel each point rests on.',
   MISSING_EVIDENCE,
@@ -208,7 +208,8 @@ export function thumbnailPromptRule(lead: string): string {
     lead,
     `Put it between these two lines, each on a line of its own, written exactly so and used nowhere else in your answer: ${start} and ${end}.`,
     `The prompt must stand on its own for someone who has seen none of these thumbnails, and be detailed enough to paste into an image tool as it is, 150 to 300 words: ${THUMBNAIL_PROMPT_CONTENTS.join('; ')}; how the subject is shown; the overlay words: how many at most, how tall against the frame, the weight of the letters, their colour, their outline or box, and where they sit; the mood; and last a line of what must not appear.`,
-    'It must read at phone size: one subject, large, and letters tall enough to read on a small screen.',
+    'It must read at phone size: one subject, large, and letters tall enough to read on a small screen, with nothing that matters in the bottom-right corner, where YouTube sets the video’s length.',
+    TEXT_IN_EDITOR,
     'It has two slots, written exactly as [SUBJECT] and [OVERLAY TEXT]. It names no channel, no video, no video id, no real person, no logo, no country and no flag: where the thumbnails show a mark of one country, write “a national flag” and name neither the country nor its colours.',
   ].join(' ');
 }
@@ -305,7 +306,7 @@ function topicsQuestion(channel: string): string {
         'Each idea is one specific video, not a theme: a viewer could tell from the title what happens in it.',
       ]),
       'Each title must pass these:',
-      ...bullets(TITLE_CRAFT),
+      ...bullets(titleCraft('marked NEEDS A REAL STORY to be checked unless a tool returned it')),
       ...bullets([
         'The two title options differ in how they pull (one may ask, the other state or contrast): two rewordings of one title are one option.',
         'The thumbnail line names the single thing shown and the overlay words, four or fewer, that add what the title does not say.',
@@ -318,7 +319,6 @@ function topicsQuestion(channel: string): string {
       'If the tool results do not show which real thing, person, product or event an idea is about, mark it NEEDS A REAL STORY and say what to look up before making it.',
       `If the tools support fewer than ${IDEAS_ASKED} ideas in this niche, give fewer and say so. A weak idea added to reach ${IDEAS_ASKED} costs the owner a video.`,
       VIDEO_REF_RULE,
-      MISSING_EVIDENCE,
     ]),
     output_format: [
       `Number the ideas 1 to ${IDEAS_ASKED}, best first. Under each number write these lines, each starting with its label:`,
@@ -351,7 +351,6 @@ function nearMissesQuestion(channel: string): string {
     rules: bullets([
       'Judge from the titles the tools return and nothing else: you have not seen these channels’ videos.',
       'Do not change anything; the owner decides.',
-      MISSING_EVIDENCE,
     ]),
     output_format: [
       'Write three sections:',
@@ -442,6 +441,7 @@ export const ANALYSES: Readonly<Record<AnalysisId, AnalysisSpec>> = {
   'script-hooks': lab('script-hooks'),
   'script-draft': lab('script-draft'),
   'script-tighten': lab('script-tighten'),
+  'script-lengthen': lab('script-lengthen'),
   'concept-thumbnail': lab('concept-thumbnail'),
   ...extraAnalyses(tool),
 };

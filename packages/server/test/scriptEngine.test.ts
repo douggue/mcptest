@@ -270,7 +270,13 @@ describe('opening a script', () => {
       typicalSeconds: 720,
       videos: 3,
     });
-    expect(view?.plan).toEqual({ hookSeconds: 60, hookWords: 151, targetWords: 1812 });
+    expect(view?.plan).toEqual({
+      hookSeconds: 60,
+      hookWords: 151,
+      targetWords: 1812,
+      wordBudget: null,
+    });
+    expect(view?.shortSections).toEqual([]);
     expect(view?.voice?.channelId).toBe(MODEL);
     expect(view?.concept.kept).toBe(true);
   });
@@ -440,6 +446,69 @@ describe('the three stages', () => {
     expect(asked.at(-1)).toMatchObject({ analysis: 'script-draft' });
     expect(outcome.view.script?.draft.startsWith('## HOOK\n[B-ROLL: a press')).toBe(true);
     expect(outcome.view.script?.draft).toContain('[CHECK: that it still runs]');
+  });
+
+  test('draft: counts each section against its share of the length and says which are short', async () => {
+    await engine.runScriptStage('hooks', MINE, conceptId, undefined, () => {});
+    engine.saveScript(MINE, conceptId, { chosenHook: 'It never stopped.' });
+    answer = DRAFT;
+
+    const outcome = await engine.runScriptStage('draft', MINE, conceptId, undefined, () => {});
+
+    const budget = outcome.view.plan.wordBudget ?? [];
+    expect(budget.map((line) => line.section)).toEqual(['HOOK', 'The bill', 'The plant']);
+    expect(budget.reduce((sum, line) => sum + line.words, 0)).toBe(outcome.view.plan.targetWords);
+    expect(outcome.view.shortSections).toEqual([
+      { section: 'The bill', words: 2, budget: budget[1]?.words },
+    ]);
+    expect(outcome.notes).toEqual([
+      expect.stringMatching(/^Short of their share of the length: The bill \(2 of \d+ words\)/),
+    ]);
+  });
+
+  test('lengthen: waits for a draft with a short section, then replaces that section and nothing else', async () => {
+    expect(engine.stageProblem('lengthen', MINE, conceptId)).toMatch(/no draft/);
+    await engine.runScriptStage('hooks', MINE, conceptId, undefined, () => {});
+    engine.saveScript(MINE, conceptId, { chosenHook: 'It never stopped.', draft: DRAFT.slice(20) });
+    const budget = engine.findScriptView(MINE, conceptId)?.plan.wordBudget?.[1]?.words ?? 0;
+    const full = Array.from({ length: budget }, () => 'word').join(' ');
+    answer = [
+      'Here they are.',
+      '## HOOK',
+      'A new hook.',
+      '## The bill',
+      '[B-ROLL: a bill | a bill | paper]',
+      full,
+    ].join('\n');
+
+    const outcome = await engine.runScriptStage('lengthen', MINE, conceptId, undefined, () => {});
+
+    expect(asked.at(-1)).toMatchObject({
+      analysis: 'script-lengthen',
+      focus: { kind: 'script', conceptId },
+    });
+    const draft = outcome.view.script?.draft ?? '';
+    expect(draft.startsWith('## HOOK\n[B-ROLL: a press | old press | hum]\nIt never stopped')).toBe(
+      true,
+    );
+    expect(draft).not.toContain('A new hook.');
+    expect(draft).toContain(`## The bill\n[B-ROLL: a bill | a bill | paper]\n${full}`);
+    expect(outcome.view.shortSections).toEqual([]);
+    expect(outcome.notes).toEqual(['Written again: The bill. The rest of the draft is as it was.']);
+    expect(engine.stageProblem('lengthen', MINE, conceptId)).toMatch(
+      /No section of the draft is short/,
+    );
+  });
+
+  test('lengthen: an answer without the sections asked for changes nothing', async () => {
+    await engine.runScriptStage('hooks', MINE, conceptId, undefined, () => {});
+    engine.saveScript(MINE, conceptId, { chosenHook: 'It never stopped.', draft: DRAFT.slice(20) });
+    answer = '## The plant\nSomething else entirely.';
+
+    await expect(
+      engine.runScriptStage('lengthen', MINE, conceptId, undefined, () => {}),
+    ).rejects.toThrow(/none of the short sections/);
+    expect(engine.findScriptView(MINE, conceptId)?.script?.draft).toBe(DRAFT.slice(20));
   });
 
   test('tighten: waits for a draft, and never touches the draft itself', async () => {

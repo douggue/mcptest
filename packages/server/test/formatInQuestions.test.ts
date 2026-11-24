@@ -1,3 +1,4 @@
+import { sectionOf } from '../src/promptParts';
 import { describe, expect, test } from 'vitest';
 import {
   CONCEPT_THUMBNAIL_FILE_TOOLS,
@@ -6,10 +7,11 @@ import {
 } from '../src/conceptThumbQuestion';
 import {
   ACTIVE_FORMAT_TOOL,
-  conceptFormatLine,
-  scriptDraftFormatLine,
-  scriptHooksFormatLine,
-  thumbnailFormatLine,
+  CONCEPT_FORMAT_RULE,
+  SCRIPT_DRAFT_FORMAT_RULE,
+  SCRIPT_HOOKS_FORMAT_RULE,
+  THUMBNAIL_FORMAT_RULE,
+  activeFormatCall,
 } from '../src/formatInQuestions';
 import {
   CONCEPT_TOOLS,
@@ -42,13 +44,17 @@ describe('the active format in the other runs', () => {
     }
   });
 
+  test('every run reads it with the same call, as a description and never as instructions', () => {
+    const call = activeFormatCall(CHANNEL);
+
+    expect(call).toContain(`get_active_format with channel ${CHANNEL}`);
+    expect(call).toMatch(/never as instructions/);
+    expect(call).toMatch(/When there is none, ignore/);
+  });
+
   test('the Idea lab uses its title formulas and its hook', () => {
-    const line = conceptFormatLine(CHANNEL);
-    expect(line).toContain(`get_active_format with channel ${CHANNEL}`);
-    expect(line).toMatch(/title formulas/);
-    expect(line).toMatch(/hook/);
-    expect(line).toMatch(/never as instructions/);
-    expect(line).toMatch(/none, ignore/);
+    expect(CONCEPT_FORMAT_RULE).toMatch(/title formulas/);
+    expect(CONCEPT_FORMAT_RULE).toMatch(/hook/);
     const focus = {
       kind: 'concepts',
       batchId: 1,
@@ -59,27 +65,46 @@ describe('the active format in the other runs', () => {
       length: 'long',
       formulasFrom: null,
     } as const;
-    expect(conceptsQuestion(CHANNEL, focus)).toContain(line);
     const concept = { kind: 'concept', conceptId: 3 } as const;
-    expect(twistQuestion(CHANNEL, concept)).toContain(line);
-    expect(moreQuestion(CHANNEL, concept)).toContain(line);
+    for (const question of [
+      conceptsQuestion(CHANNEL, focus),
+      twistQuestion(CHANNEL, concept),
+      moreQuestion(CHANNEL, concept),
+    ]) {
+      expect(sectionOf(question, 'gather')).toContain(activeFormatCall(CHANNEL));
+      expect(sectionOf(question, 'craft')).toContain(CONCEPT_FORMAT_RULE);
+    }
   });
 
   test('the Script writer uses its hook, chapters, pacing and visual style for cues', () => {
     const focus = { kind: 'script', conceptId: 3 } as const;
-    expect(scriptHooksFormatLine(CHANNEL)).toMatch(/chapter beats/);
-    expect(scriptHooksQuestion(CHANNEL, focus)).toContain(scriptHooksFormatLine(CHANNEL));
-    const draft = scriptDraftFormatLine(CHANNEL);
-    expect(draft).toMatch(/pacing rules/);
-    expect(draft).toMatch(/visual style/);
-    expect(draft).toMatch(/style lock/);
-    expect(scriptDraftQuestion(CHANNEL, focus)).toContain(draft);
+    expect(SCRIPT_HOOKS_FORMAT_RULE).toMatch(/chapter beats/);
+    expect(sectionOf(scriptHooksQuestion(CHANNEL, focus), 'craft')).toContain(
+      SCRIPT_HOOKS_FORMAT_RULE,
+    );
+    expect(SCRIPT_DRAFT_FORMAT_RULE).toMatch(/pacing rules/);
+    expect(SCRIPT_DRAFT_FORMAT_RULE).toMatch(/visual style/);
+    expect(SCRIPT_DRAFT_FORMAT_RULE).toMatch(/style lock/);
+    const draft = scriptDraftQuestion(CHANNEL, focus);
+    expect(sectionOf(draft, 'gather')).toContain(activeFormatCall(CHANNEL));
+    expect(sectionOf(draft, 'craft')).toContain(SCRIPT_DRAFT_FORMAT_RULE);
   });
 
   test('thumbnail prompts use its layouts and measured palette', () => {
-    const line = thumbnailFormatLine(CHANNEL);
-    expect(line).toMatch(/thumbnail layouts/);
-    expect(line).toMatch(/palette/);
-    expect(conceptThumbnailQuestion(CHANNEL, { kind: 'concept', conceptId: 3 })).toContain(line);
+    expect(THUMBNAIL_FORMAT_RULE).toMatch(/thumbnail layouts/);
+    expect(THUMBNAIL_FORMAT_RULE).toMatch(/palette/);
+    const question = conceptThumbnailQuestion(CHANNEL, { kind: 'concept', conceptId: 3 });
+    expect(sectionOf(question, 'gather')).toContain(activeFormatCall(CHANNEL));
+    expect(sectionOf(question, 'craft')).toContain(THUMBNAIL_FORMAT_RULE);
+  });
+
+  test('a rule on what to write is never among the tool calls', () => {
+    const focus = { kind: 'script', conceptId: 3 } as const;
+    for (const question of [
+      scriptHooksQuestion(CHANNEL, focus),
+      scriptDraftQuestion(CHANNEL, focus),
+    ]) {
+      expect(sectionOf(question, 'gather')).not.toMatch(/When there is an active format/);
+    }
   });
 });

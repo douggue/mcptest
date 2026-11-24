@@ -65,6 +65,39 @@ describe('a fact sheet from a web research run', () => {
   });
 });
 
+describe('a fact too long to keep', () => {
+  const long = `The plant ${'opened and was built and '.repeat(30)}closed.`;
+  const answer = [
+    'FACT 1: A short fact.',
+    'SOURCE: https://a.example/1',
+    `FACT 2: ${long}`,
+    'SOURCE: https://a.example/2',
+    'FACT 3: Another short fact.',
+    'SOURCE: https://a.example/3',
+  ].join('\n');
+
+  test('is left off the sheet whole, never cut, and the sheet says so', () => {
+    const sheet = parseFactSheet(answer);
+
+    expect(sheet.facts.map((fact) => fact.number)).toEqual([1, 3]);
+    expect(sheet.notFound).toHaveLength(1);
+    expect(sheet.notFound[0]).toMatch(/^Fact 2 was left off the sheet: it ran to \d+ characters/);
+    expect(sheet.notFound[0]).toMatch(/It began: The plant opened/);
+  });
+
+  test('does not hand its source to the fact before it', () => {
+    expect(parseFactSheet(answer).facts[0]?.sources).toEqual(['https://a.example/1']);
+  });
+
+  test('a fact of 60 ordinary words is kept as written', () => {
+    const sixty = `${Array.from({ length: 60 }, () => 'battery').join(' ')}.`;
+
+    const sheet = parseFactSheet(`FACT 1: ${sixty}\nSOURCE: https://a.example/1`);
+
+    expect(sheet.facts[0]?.text).toBe(sixty);
+  });
+});
+
 describe('an https source', () => {
   test('is a plain https address with a host and no credentials, else nothing', () => {
     expect(httpsSource('https://example.org/a?b=1')).toBe('https://example.org/a?b=1');

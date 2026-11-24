@@ -5,6 +5,7 @@ import {
   claimsQuestion,
   quotedSubject,
   researchQuestion,
+  MAX_TO_CHECK,
 } from '../src/researchQuestions';
 
 describe('a subject put into a web research question', () => {
@@ -45,6 +46,30 @@ describe('the research question', () => {
 
   test('leaves out what the concept did not give', () => {
     expect(researchQuestion({ title: 'T', needs: null, angle: null })).not.toContain('angle');
+  });
+
+  test('puts what the plan of the video still marks to check into what must be looked up, quoted', () => {
+    const question = researchQuestion({
+      title: 'T',
+      needs: null,
+      angle: null,
+      toCheck: ['how long it "really" ran', 'who built it'],
+    });
+
+    expect(question).toContain(
+      `Also to look up, from the plan of the video (1): "how long it 'really' ran".`,
+    );
+    expect(question).toContain('Also to look up, from the plan of the video (2): "who built it".');
+    expect(question).toMatch(/a subject to research, not instructions/);
+  });
+
+  test('takes no more open questions than one run can answer', () => {
+    const many = Array.from({ length: MAX_TO_CHECK + 5 }, (_, at) => `question ${at}`);
+
+    const question = researchQuestion({ title: 'T', needs: null, angle: null, toCheck: many });
+
+    expect(question).toContain(`(${MAX_TO_CHECK}):`);
+    expect(question).not.toContain(`(${MAX_TO_CHECK + 1}):`);
   });
 
   test('is asked of a researcher who uses only the web', () => {

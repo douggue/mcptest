@@ -181,7 +181,7 @@ export function oneVideoQuestion(
     output_format: [
       ...SECTION_LINES,
       ...promptLines(),
-      `Use the length: up to ${MAX_WORDS} words, the prompts not counted. A breakdown far shorter than that has left out lines, times or steps the tools hold.`,
+      `Up to ${MAX_WORDS} words for a video of ten minutes or more; a shorter video needs fewer. The prompts are not counted.`,
     ],
   });
 }

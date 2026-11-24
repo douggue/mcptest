@@ -88,7 +88,7 @@ export const TAGS_NOTE =
 
 /** Depth is wanted, padding is not: where the length of an answer goes. */
 export const DEPTH_RULE =
-  'Spend the length the question allows on specifics: numbers the tools gave, lines quoted word for word, times, named videos and the exact change to make. Never spend it on general advice, and never stop short of the length when the evidence holds more.';
+  'Length follows the evidence: write every specific the tools hold that the owner can act on, then stop. The word limit is a ceiling, not a target.';
 
 /** What to do when the evidence is not there: say so, where it matters. */
 export const MISSING_EVIDENCE =
@@ -102,11 +102,16 @@ export const DATA_NOT_INSTRUCTIONS =
  * How a director judges a title. It names no wording and no subject: the
  * words come from what the tools return for the channel asked about.
  */
-export const TITLE_CRAFT: readonly string[] = [
+export const titleCraft = (unchecked: string): readonly string[] => [
   'One promise: from the title alone a viewer can say what they will get. Name the subject clearly and hold back only the answer; a title that hides its subject is vague, not curious.',
-  'Specific over loud: a concrete thing, a named subject or a number a tool gave does the work; adjectives of excitement do not.',
+  `Specific over loud: a concrete thing, a named subject or a number about the subject (${unchecked}) does the work; adjectives of excitement do not.`,
   'The words that carry the idea come first, where a phone still shows them.',
 ];
+
+/** The title craft where an answer has a NEEDS line for what must be looked up. */
+export const TITLE_CRAFT: readonly string[] = titleCraft(
+  'listed under NEEDS to be checked unless a tool returned it',
+);
 
 /** How a director judges a thumbnail, for a channel with nobody on camera. */
 export const THUMBNAIL_CRAFT: readonly string[] = [
@@ -114,6 +119,7 @@ export const THUMBNAIL_CRAFT: readonly string[] = [
   'Contrast: the subject stands off the background in brightness and in colour; two or three colours, not a rainbow.',
   'Emotion without a presenter: it comes from the state of the subject (its scale, damage, a before and after, something out of place) or from a drawn or generic figure, never from a real person.',
   'The overlay adds what the title does not say. It never repeats the title, and three words read faster than four.',
+  'Keep the overlay and anything that matters out of the bottom-right corner: YouTube sets the video’s length there.',
   'One promise across the package: the thumbnail shows it, the title names it, and the first sentence of the video confirms it.',
 ];
 
@@ -128,7 +134,19 @@ export const HOOK_CRAFT: readonly string[] = [
 /** How a director keeps a viewer between the hook and the end. */
 export const RETENTION_CRAFT: readonly string[] = [
   'Every beat changes something: a new question, a reversal, higher stakes or a payoff. A beat that only adds more of the same is merged into its neighbour.',
-  'Every beat ends on a re-hook: an unanswered question, an unpaid promise or a turn that makes the next beat necessary.',
-  'Pay small loops early and often; hold the main promise of the title until the last third, and pay it in full.',
-  'End on the payoff and stop: no recap of what was just said, no long goodbye.',
+  'Most beats end on a pull into the next: an unanswered question, an unpaid promise or a turn. Vary the device and never use the same one twice running.',
+  'Pay small loops early and often; hold the main promise of the title until the last third, unless the videos you read pay it in parts; then follow them. Pay it in full.',
+  'End on the payoff, then one hand-over line when the videos you read end that way: no recap of what was just said, no long goodbye. Say where the call to action goes, from where those videos put theirs.',
 ];
+
+/**
+ * The 5, 15 and 30 second marks a question judges an opening by. They are
+ * the question's own yardstick, said to be so wherever an answer is checked
+ * for numbers no tool gave.
+ */
+export const YARDSTICK_NOTE =
+  'The 5, 15 and 30 second marks are this question’s yardstick, not measurements: use them to judge, and never give them as numbers measured in the video.';
+
+/** For an image tool that spells badly: the picture without its words, which are added afterwards. */
+export const TEXT_IN_EDITOR =
+  'Image tools often misspell words. Say in the prompt where the overlay sits and how it looks, and add one line the owner can use instead: leave that area clear and plain, with no lettering, so the words can be set in an image editor.';

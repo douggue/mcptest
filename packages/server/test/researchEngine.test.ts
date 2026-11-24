@@ -80,6 +80,39 @@ describe('researching a concept’s subject', () => {
     expect(engine.findResearch(OTHER, conceptId).sheet).toBeNull();
   });
 
+  test('sizes the sheet to the script and asks for what its hook and beats still mark to check', async () => {
+    scripts.save(
+      MINE,
+      conceptId,
+      {
+        wordsPerMinute: 150,
+        targetSeconds: 960,
+        chosenHook: 'It runs for days [CHECK: how many hours it runs].',
+        beats: '1:00 | The wall | Where others stop [CHECK: how long others last] [F3]',
+      },
+      NOW,
+    );
+
+    await engine.researchConcept(MINE, conceptId, undefined, quiet);
+
+    const prompt = asked[0]?.prompt ?? '';
+    expect(prompt).toContain('about 2400 spoken words (about 16 minutes)');
+    expect(prompt).toContain('about 40 facts');
+    expect(prompt).toContain('(1): "how many hours it runs".');
+    expect(prompt).toContain('(2): "how long others last".');
+  });
+
+  test('a fact too long to keep is left off, and the sheet the owner sees says so', async () => {
+    const long = `It ${'was built and opened and '.repeat(30)}closed.`;
+    answer = `FACT 1: A short fact.\nSOURCE: https://a.example/1\nFACT 2: ${long}\nSOURCE: https://a.example/2`;
+
+    await engine.researchConcept(MINE, conceptId, undefined, quiet);
+
+    const sheet = engine.findResearch(MINE, conceptId).sheet;
+    expect(sheet?.facts.map((fact) => fact.number)).toEqual([1]);
+    expect(sheet?.notFound[0]).toMatch(/^Fact 2 was left off the sheet/);
+  });
+
   test('keeps nothing from an answer with no fact sheet in it', async () => {
     answer = 'I could not search the web.';
 

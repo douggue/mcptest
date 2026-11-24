@@ -70,7 +70,15 @@ const found = (overrides: Partial<ScriptForTool> = {}): ScriptForTool => ({
     },
   ],
   script,
-  plan: { hookSeconds: 60, hookWords: 152, targetWords: 1520 },
+  plan: {
+    hookSeconds: 60,
+    hookWords: 152,
+    targetWords: 1520,
+    wordBudget: [
+      { section: 'HOOK', words: 152 },
+      { section: 'The bill', words: 1368 },
+    ],
+  },
   voice: {
     channelId: MODEL,
     title: 'Model',
@@ -149,7 +157,7 @@ describe('get_script', () => {
     engine.script = found({
       script: null,
       voice: null,
-      plan: { hookSeconds: 60, hookWords: null, targetWords: null },
+      plan: { hookSeconds: 60, hookWords: null, targetWords: null, wordBudget: null },
     });
 
     const result = await tools.getScript({ channel: CENTER_ID, concept: 42 });

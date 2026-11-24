@@ -41,12 +41,14 @@ import { labFocusOf, type QuestionFocus } from './questionFocus';
 import {
   SCRIPT_DRAFT_TOOLS,
   SCRIPT_HOOK_TOOLS,
+  SCRIPT_LENGTHEN_TOOLS,
   SCRIPT_MAX_TURNS,
   SCRIPT_SYSTEM_PROMPT,
   SCRIPT_TIGHTEN_TOOLS,
   SCRIPT_TIMEOUT_MS,
   scriptDraftQuestion,
   scriptHooksQuestion,
+  scriptLengthenQuestion,
   scriptTightenQuestion,
 } from './scriptQuestions';
 
@@ -60,6 +62,7 @@ export const LAB_ANALYSIS_IDS = [
   'script-hooks',
   'script-draft',
   'script-tighten',
+  'script-lengthen',
   'concept-thumbnail',
 ] as const;
 export type LabAnalysisId = (typeof LAB_ANALYSIS_IDS)[number];
@@ -158,6 +161,16 @@ export const LAB_SPECS: Readonly<Record<LabAnalysisId, LabSpec>> = {
     timeoutMs: SCRIPT_TIMEOUT_MS,
     systemPrompt: SCRIPT_SYSTEM_PROMPT,
     question: (channel, focus) => scriptTightenQuestion(channel, labFocusOf(focus, 'script')),
+  },
+  'script-lengthen': {
+    title: 'Short sections again',
+    description:
+      'Writes again, at their full length, the sections of the draft that came out short of their share.',
+    tools: SCRIPT_LENGTHEN_TOOLS,
+    maxTurns: SCRIPT_MAX_TURNS,
+    timeoutMs: SCRIPT_TIMEOUT_MS,
+    systemPrompt: SCRIPT_SYSTEM_PROMPT,
+    question: (channel, focus) => scriptLengthenQuestion(channel, labFocusOf(focus, 'script')),
   },
   'concept-thumbnail': {
     title: 'Thumbnail prompt',
