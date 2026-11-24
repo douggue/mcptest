@@ -87,12 +87,12 @@ export function formatBuilder(deps: FormatBuilderDeps): FormatBuilderEngine {
   const view = (format: Format | null): FormatView | null =>
     format === null ? null : viewOf(deps, format, shelf());
   return {
-    listFormats() {
+    listFormats(channel = null) {
       const items = shelf();
-      return formats.list().map((format) => viewOf(deps, format, items));
+      return formats.list(channel).map((format) => viewOf(deps, format, items));
     },
-    createFormat: (name, targetSeconds) =>
-      viewOf(deps, formats.create(name, targetSeconds, now()), shelf()),
+    createFormat: (name, targetSeconds, channel = null) =>
+      viewOf(deps, formats.create(name, targetSeconds, now(), channel), shelf()),
     updateFormat: (id, change: FormatChange) => view(formats.update(id, change, now())),
     duplicateFormat: (id) => view(formats.duplicate(id, now())),
     removeFormat: (id) => formats.remove(id),

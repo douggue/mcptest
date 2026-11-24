@@ -65,6 +65,7 @@ function NameAndLength({
   const [name, setName] = useState(format.name);
   const minutesOf = (seconds: number | null) => (seconds === null ? '' : String(seconds / 60));
   const [minutes, setMinutes] = useState(minutesOf(format.targetSeconds));
+  const [notes, setNotes] = useState(format.notes);
   const saveLength = () => {
     const seconds = secondsFrom(minutes);
     if (seconds !== 'bad' && seconds !== format.targetSeconds) {
@@ -90,6 +91,18 @@ function NameAndLength({
           inputMode="decimal"
           onChange={(event) => setMinutes(event.target.value)}
           onBlur={saveLength}
+          className={FIELD}
+        />
+      </label>
+      <label className="flex min-w-0 basis-full flex-col gap-1">
+        <span className="text-label text-outline">Notes on this format</span>
+        <textarea
+          value={notes}
+          rows={2}
+          maxLength={4000}
+          placeholder="What this format is for, what to try next"
+          onChange={(event) => setNotes(event.target.value)}
+          onBlur={() => notes !== format.notes && void builder.change({ notes })}
           className={FIELD}
         />
       </label>

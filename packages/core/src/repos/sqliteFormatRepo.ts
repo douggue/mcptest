@@ -41,6 +41,7 @@ const suggestionSchema = z.object({
 
 interface Row {
   id: number;
+  channel_id: string | null;
   name: string;
   target_seconds: number | null;
   notes: string;
@@ -52,7 +53,7 @@ interface Row {
 }
 
 const COLUMNS =
-  'id, name, target_seconds, notes, slots_json, suggestion_json, copied_from, created_at, updated_at';
+  'id, channel_id, name, target_seconds, notes, slots_json, suggestion_json, copied_from, created_at, updated_at';
 
 function readJson<T>(schema: z.ZodType<T>, json: string | null, fallback: T): T {
   if (json === null) return fallback;
@@ -66,6 +67,7 @@ function readJson<T>(schema: z.ZodType<T>, json: string | null, fallback: T): T 
 
 const formatOf = (row: Row): Format => ({
   id: row.id,
+  channelId: row.channel_id,
   name: row.name,
   targetSeconds: row.target_seconds,
   notes: row.notes,
@@ -86,12 +88,21 @@ export function nextVersionName(name: string): string {
 export class SqliteFormatRepo {
   constructor(private readonly db: Db) {}
 
-  /** Every format, the one changed last first. */
-  list(): readonly Format[] {
-    return this.db
-      .prepare<[], Row>(`SELECT ${COLUMNS} FROM formats ORDER BY updated_at DESC, id DESC`)
-      .all()
-      .map(formatOf);
+  /**
+   * The formats of a channel (null: those made with no map open), or every
+   * format when no channel is named; the one changed last first.
+   */
+  list(channelId?: string | null): readonly Format[] {
+    const order = 'ORDER BY updated_at DESC, id DESC';
+    const rows =
+      channelId === undefined
+        ? this.db.prepare<[], Row>(`SELECT ${COLUMNS} FROM formats ${order}`).all()
+        : this.db
+            .prepare<[string | null], Row>(
+              `SELECT ${COLUMNS} FROM formats WHERE channel_id IS ? ${order}`,
+            )
+            .all(channelId);
+    return rows.map(formatOf);
   }
 
   find(id: number): Format | null {
@@ -101,16 +112,25 @@ export class SqliteFormatRepo {
     return row ? formatOf(row) : null;
   }
 
-  /** Throws when the name or length breaks a rule. */
-  create(name: string, targetSeconds: number | null, now: Date): Format {
+  /** Throws when the name, length or channel breaks a rule. */
+  create(
+    name: string,
+    targetSeconds: number | null,
+    now: Date,
+    channelId: string | null = null,
+  ): Format {
     const problem = changeProblem({ name, targetSeconds });
     if (problem !== null) throw new Error(problem);
+    if (channelId !== null && !CHANNEL_ID_PATTERN.test(channelId)) {
+      throw new Error('Not a channel id');
+    }
     const at = now.toISOString();
     const { lastInsertRowid } = this.db
       .prepare(
-        `INSERT INTO formats (name, target_seconds, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+        `INSERT INTO formats (channel_id, name, target_seconds, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?)`,
       )
-      .run(name.trim(), targetSeconds, at, at);
+      .run(channelId, name.trim(), targetSeconds, at, at);
     return this.find(Number(lastInsertRowid)) as Format;
   }
 
@@ -144,10 +164,12 @@ export class SqliteFormatRepo {
     const at = now.toISOString();
     const { lastInsertRowid } = this.db
       .prepare(
-        `INSERT INTO formats (name, target_seconds, notes, slots_json, copied_from, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO formats (channel_id, name, target_seconds, notes, slots_json, copied_from,
+           created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
+        current.channelId,
         nextVersionName(current.name),
         current.targetSeconds,
         current.notes,

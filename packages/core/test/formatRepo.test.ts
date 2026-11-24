@@ -85,6 +85,23 @@ describe('SqliteFormatRepo', () => {
     expect(repo.find(format.id)).toMatchObject({ slots: {}, suggestion: null });
   });
 
+  test('keeps several named formats per channel, and a copy stays with its channel', () => {
+    const { repo } = fresh();
+    const other = 'UCbbbbbbbbbbbbbbbbbbbbbb';
+    const long = repo.create('Long-form', 600, NOW, CHANNEL);
+    const short = repo.create('Shorts', 45, later(1), CHANNEL);
+    const theirs = repo.create('Theirs', null, later(2), other);
+    const loose = repo.create('No map', null, later(3));
+    expect(long.channelId).toBe(CHANNEL);
+    expect(loose.channelId).toBeNull();
+    expect(repo.list(CHANNEL).map((format) => format.id)).toEqual([short.id, long.id]);
+    expect(repo.list(other).map((format) => format.id)).toEqual([theirs.id]);
+    expect(repo.list(null).map((format) => format.id)).toEqual([loose.id]);
+    expect(repo.list()).toHaveLength(4);
+    expect(repo.duplicate(long.id, later(4))?.channelId).toBe(CHANNEL);
+    expect(() => repo.create('Bad', null, NOW, 'nope')).toThrow(/channel/);
+  });
+
   test('keeps each channel’s active format, and lets it go with its format', () => {
     const { repo } = fresh();
     const format = repo.create('A', null, NOW);

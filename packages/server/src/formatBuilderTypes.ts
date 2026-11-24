@@ -20,10 +20,10 @@ export interface MixProgress {
 }
 
 export interface FormatBuilderEngine {
-  /** Every format, the one changed last first. */
-  listFormats(): readonly FormatView[];
+  /** The formats of a channel (null: made with no map open), the one changed last first. */
+  listFormats(channel?: string | null): readonly FormatView[];
   /** Throws, in plain words, for a name or length that breaks a rule. */
-  createFormat(name: string, targetSeconds: number | null): FormatView;
+  createFormat(name: string, targetSeconds: number | null, channel?: string | null): FormatView;
   /** Null when there is no such format; throws for a change that breaks a rule. */
   updateFormat(id: number, change: FormatChange): FormatView | null;
   /** A copy named "… v2"; null when there is no such format. */

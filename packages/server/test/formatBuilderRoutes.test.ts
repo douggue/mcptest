@@ -213,6 +213,23 @@ describe('the format routes', () => {
     expect(del.status).toBe(405);
   });
 
+  test('formats are listed and made per channel', async () => {
+    const { app } = appWith();
+    await post(app, PATH, { name: 'Long-form', channel: A });
+    await post(app, PATH, { name: 'Shorts', channel: A });
+    await post(app, PATH, { name: 'Theirs', channel: B });
+    await post(app, PATH, { name: 'Loose' });
+    const names = async (query: string) =>
+      (await read<{ formats: FormatView[] }>(await get(app, `${PATH}${query}`))).data.formats.map(
+        (one) => one.name,
+      );
+    expect(await names(`?channel=${A}`)).toEqual(['Shorts', 'Long-form']);
+    expect(await names(`?channel=${B}`)).toEqual(['Theirs']);
+    expect(await names('')).toEqual(['Loose']);
+    expect((await get(app, `${PATH}?channel=bad`)).status).toBe(400);
+    expect((await post(app, PATH, { name: 'X', channel: 'bad' })).status).toBe(400);
+  });
+
   test('Suggest a mix runs as a job listed in Working, one AI run at a time', async () => {
     const answer = JSON.stringify({
       summary: 'S',

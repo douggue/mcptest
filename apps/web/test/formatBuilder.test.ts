@@ -131,8 +131,8 @@ describe('the builder API', () => {
               : { formats: [view] };
       return new Response(JSON.stringify({ success: true, data, error: null, meta: null }));
     });
-    expect(await api.list()).toEqual([view]);
-    expect(await api.create('A', 60)).toEqual(view);
+    expect(await api.list(null)).toEqual([view]);
+    expect(await api.create('A', 60, null)).toEqual(view);
     await api.update(1, { name: 'B' });
     await api.duplicate(1);
     await api.remove(1);
@@ -149,10 +149,21 @@ describe('the builder API', () => {
       '/api/format/formats/suggest',
       '/api/jobs/a%20b',
     ]);
+    expect(sent[1]?.[1]).toEqual({ name: 'A', targetSeconds: 60, channel: null });
     expect(sent[2]?.[1]).toEqual({ id: 1, name: 'B' });
     expect(sent[5]?.[1]).toEqual({ id: 1, channel: 'UC1' });
     expect(sent[6]?.[1]).toEqual({ id: 1, channel: null, engine: 'claude' });
   });
+});
+
+test('the formats of a map are asked for by its channel', async () => {
+  const paths: string[] = [];
+  const api = createFormatBuilderApi(async (input) => {
+    paths.push(String(input));
+    return new Response(JSON.stringify({ success: true, data: { formats: [] }, error: null }));
+  });
+  await api.list('UCaaaaaaaaaaaaaaaaaaaaaa');
+  expect(paths).toEqual(['/api/format/formats?channel=UCaaaaaaaaaaaaaaaaaaaaaa']);
 });
 
 test('writtenBy names a known engine and no other', () => {

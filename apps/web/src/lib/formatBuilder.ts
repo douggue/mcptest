@@ -39,11 +39,13 @@ export function createFormatBuilderApi(fetcher?: Fetch) {
   const one = async (path: string, body: unknown): Promise<FormatView> =>
     unwrap<FormatView>(await send(path, body));
   return {
-    async list(): Promise<readonly FormatView[]> {
-      return unwrap<{ formats: FormatView[] }>(await call(FORMATS_PATH)).formats;
+    /** The formats of the map's channel; null for those made with no map open. */
+    async list(channel: string | null): Promise<readonly FormatView[]> {
+      const query = channel === null ? '' : `?channel=${encodeURIComponent(channel)}`;
+      return unwrap<{ formats: FormatView[] }>(await call(`${FORMATS_PATH}${query}`)).formats;
     },
-    create: (name: string, targetSeconds: number | null) =>
-      one(FORMATS_PATH, { name, targetSeconds }),
+    create: (name: string, targetSeconds: number | null, channel: string | null) =>
+      one(FORMATS_PATH, { name, targetSeconds, channel }),
     update: (id: number, change: FormatChange) => one(`${FORMATS_PATH}/update`, { id, ...change }),
     duplicate: (id: number) => one(`${FORMATS_PATH}/duplicate`, { id }),
     async remove(id: number): Promise<void> {

@@ -32,6 +32,7 @@ const item = (id: number, parts: Partial<Ingredient> = {}): Ingredient => ({
 
 const format: Format = {
   id: 3,
+  channelId: null,
   name: 'Long-form',
   targetSeconds: 600,
   notes: '',

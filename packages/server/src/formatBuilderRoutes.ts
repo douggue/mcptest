@@ -27,7 +27,16 @@ const SLOTS = z.partialRecord(
   z.object({ ingredientId: ID, note: z.string().max(MAX_SLOT_NOTE) }),
 );
 
-const createRequest = z.object({ name: NAME, targetSeconds: SECONDS.default(null) });
+const CHANNEL = z
+  .string()
+  .regex(/^UC[\w-]{22}$/)
+  .nullable()
+  .default(null);
+const createRequest = z.object({
+  name: NAME,
+  targetSeconds: SECONDS.default(null),
+  channel: CHANNEL,
+});
 const updateRequest = z.object({
   id: ID,
   name: NAME.optional(),
@@ -38,11 +47,7 @@ const updateRequest = z.object({
 const idRequest = z.object({ id: ID });
 const suggestRequest = z.object({
   id: ID,
-  channel: z
-    .string()
-    .regex(/^UC[\w-]{22}$/)
-    .nullable()
-    .default(null),
+  channel: CHANNEL,
   engine: z.enum(ENGINE_IDS).optional(),
 });
 
@@ -68,7 +73,11 @@ async function create(context: Context, request: Request): Promise<Response> {
   if (body instanceof Response) return body;
   try {
     return ok(
-      context.options.engine.formatBuilder.createFormat(body.name, body.targetSeconds),
+      context.options.engine.formatBuilder.createFormat(
+        body.name,
+        body.targetSeconds,
+        body.channel,
+      ),
       201,
     );
   } catch (error) {
@@ -150,7 +159,9 @@ export function formatBuilderRoutes(
     handle(request, url) {
       const { pathname } = url;
       if (pathname === FORMATS_PATH && request.method === 'GET') {
-        return ok({ formats: options.engine.formatBuilder.listFormats() });
+        const channel = CHANNEL.safeParse(url.searchParams.get('channel'));
+        if (!channel.success) return fail(400, 'That is not a channel id.');
+        return ok({ formats: options.engine.formatBuilder.listFormats(channel.data) });
       }
       const post = POSTS[pathname];
       if (!post) return null;

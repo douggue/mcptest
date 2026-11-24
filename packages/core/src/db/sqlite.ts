@@ -587,7 +587,7 @@ CREATE TABLE IF NOT EXISTS format_ingredients (
 `,
   // 46 (provisional; renumbered at merge): the formats the owner builds from the shelf,
   //     and the one each channel uses.
-  //     formats keeps a named format: a target length, notes, the ingredient chosen for
+  //     formats keeps a named format of a channel (null: made with no map open): a target length, notes, the ingredient chosen for
   //     each layer's slot with a note (slots_json), the last AI suggestion of a mix and
   //     the last Format Bible (JSON, checked again when read) and the format it was copied
   //     from. A slot names an ingredient by id; one taken off the shelf reads as empty.
@@ -595,6 +595,7 @@ CREATE TABLE IF NOT EXISTS format_ingredients (
   `
 CREATE TABLE IF NOT EXISTS formats (
   id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  channel_id       TEXT,
   name             TEXT NOT NULL,
   target_seconds   INTEGER,
   notes            TEXT NOT NULL DEFAULT '',

@@ -89,7 +89,7 @@ function useMixJob(
  * The owner's formats, read when the view opens and again when the shelf
  * changes (the checks rest on it), with the one being built and its changes.
  */
-export function useFormatBuilder(shelfKey: string): FormatBuilder {
+export function useFormatBuilder(shelfKey: string, channelId: string | null): FormatBuilder {
   const api = useMemo(() => createFormatBuilderApi(), []);
   const [state, setState] = useState<FormatsState>({ status: 'loading' });
   const [chosenId, setChosenId] = useState<number | null>(null);
@@ -99,14 +99,14 @@ export function useFormatBuilder(shelfKey: string): FormatBuilder {
 
   useEffect(() => {
     let current = true;
-    api.list().then(
+    api.list(channelId).then(
       (formats) => current && setState({ status: 'ready', formats }),
       (error: unknown) => current && setState({ status: 'failed', message: messageOf(error) }),
     );
     return () => {
       current = false;
     };
-  }, [api, version, shelfKey]);
+  }, [api, version, shelfKey, channelId]);
 
   const formats = state.status === 'ready' ? state.formats : [];
   const chosen = formats.find((one) => one.id === chosenId) ?? formats[0] ?? null;
@@ -142,7 +142,7 @@ export function useFormatBuilder(shelfKey: string): FormatBuilder {
     choose: setChosenId,
     problem,
     mix,
-    create: (name, targetSeconds) => attempt(() => api.create(name, targetSeconds)),
+    create: (name, targetSeconds) => attempt(() => api.create(name, targetSeconds, channelId)),
     change: (change) =>
       id === null ? Promise.resolve(null) : attempt(() => api.update(id, change)),
     duplicate: () => void (id !== null && attempt(() => api.duplicate(id))),

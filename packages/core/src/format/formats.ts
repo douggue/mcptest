@@ -41,6 +41,8 @@ export interface MixSuggestion {
 
 export interface Format {
   readonly id: number;
+  /** The channel it is a format of; null when it was made with no map open. */
+  readonly channelId: string | null;
   readonly name: string;
   /** The length it is planned for; null when the owner has not said. */
   readonly targetSeconds: number | null;

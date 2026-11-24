@@ -79,7 +79,7 @@ export function FormatView({ channelId, ai }: Props) {
   const shelf = useShelf();
   const [filter, setFilter] = useState<ShelfFilter>(ALL);
   const items = shelf.state.status === 'ready' ? shelf.state.items : [];
-  const builder = useFormatBuilder(items.map((item) => item.id).join(','));
+  const builder = useFormatBuilder(items.map((item) => item.id).join(','), channelId);
   return (
     <ViewPage labelledBy="format-builder-title" id="format-builder">
       <ViewHeader
