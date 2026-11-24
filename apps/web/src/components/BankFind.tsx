@@ -71,6 +71,7 @@ export function BankFind({ onGrown }: { readonly onGrown: () => void }) {
   const [channels, setChannels] = useState(BANK_FIND_DEFAULT_CHANNELS);
   const [info, setInfo] = useState<FindInfo | null>(null);
   const { run, setRun, follow } = useFindRun(onGrown);
+  const running = run.status === 'running';
 
   useEffect(() => {
     let live = true;
@@ -86,8 +87,7 @@ export function BankFind({ onGrown }: { readonly onGrown: () => void }) {
       live = false;
     };
     // Asked again when the size changes or a run ends; following is started once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channels, run.status === 'running']);
+  }, [channels, running]);
 
   const query = mode === 'keyword' ? keyword.trim() : topicQuery(topic || (info?.topics[0] ?? ''));
   const spend = info ? (info.plan.via === 'api' ? info.plan.apiUnits : info.plan.requests) : 0;

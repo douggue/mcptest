@@ -573,9 +573,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       repos: wiring.repos,
       transact: transactionRunner(wiring.db),
       snapshots: () =>
-        wiring.repos.maps
-          .listCenterIds()
-          .flatMap((center) => maps.findSnapshot(center) ?? []),
+        wiring.repos.maps.listCenterIds().flatMap((center) => maps.findSnapshot(center) ?? []),
       // Read at each use: the owner can set or clear the key while Jgtube runs.
       apiKey: () => config.youtubeApiKey,
       source: wiring.lazySource,
