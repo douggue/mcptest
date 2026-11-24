@@ -109,6 +109,8 @@ Mitigations built into the design:
   official API alone.
 - Low request rates, caching (videos 24 h, edges 7 d), no logged-in sessions, no
   media downloads.
+- An optional proxy for YouTube (`JGTUBE_YOUTUBE_PROXY`, see SYSTEM_DESIGN.md)
+  changes only the address requests come from, never their number or pace.
 - Search-based competitor discovery works without sidebars, so the product
   degrades to "no map" rather than "no product".
 - Get legal advice before charging money for a product that depends on this.
