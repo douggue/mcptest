@@ -1,4 +1,11 @@
-import { effectWords, stateWords, type Draft, type SettingView } from '../lib/settings';
+import type { ReactNode } from 'react';
+import {
+  effectWords,
+  placeholderOf,
+  stateWords,
+  type Draft,
+  type SettingView,
+} from '../lib/settings';
 import { FIELD, PILL, QUIET_BUTTON } from './LabStatus';
 
 interface Props {
@@ -6,6 +13,8 @@ interface Props {
   readonly draft: Draft | undefined;
   readonly disabled: boolean;
   readonly onDraft: (draft: Draft | undefined) => void;
+  /** Shown under the box: what only this setting has, such as the proxy's Test. */
+  readonly extra?: ReactNode;
 }
 
 /** The settings that are a switch, with what each position is called in the `.env` file. */
@@ -87,13 +96,7 @@ export function SettingRow(props: Props) {
             spellCheck={false}
             disabled={disabled || clearing}
             value={typed}
-            placeholder={
-              setting.secret
-                ? setting.set
-                  ? 'Paste a new key to replace it'
-                  : 'Paste the key'
-                : ''
-            }
+            placeholder={placeholderOf(setting)}
             onChange={(event) => onDraft({ kind: 'set', value: event.target.value })}
             className={`${FIELD} flex-1 basis-56`}
           />
@@ -109,6 +112,7 @@ export function SettingRow(props: Props) {
           )}
         </div>
       )}
+      {props.extra}
       {/* Saving is said once beside Save; only a setting that needs a restart says so here. */}
       {(setting.outside || setting.effect !== 'now') && (
         <p className="text-body-sm text-metric-amber">{effectWords(setting)}</p>
