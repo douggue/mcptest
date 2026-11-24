@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { SinceKind } from '@jgtube/core';
 import { SINCE_OPTIONS, describeFreshness, describeSince } from '../lib/changes';
 import { Findings } from './ChangeParts';
+import { NewNichesEntry } from './NewNichesEntry';
 import { Card, Label } from './layout/Card';
 import { Notice } from './layout/Notice';
 import { Segmented } from './layout/Segmented';
@@ -80,6 +81,7 @@ export function WhatChanged({ changes, centerTitle, children, toolbar }: Props) 
           {state.status === 'ready' && state.problem && (
             <Notice tone="problem">{state.problem}</Notice>
           )}
+          {reply && <NewNichesEntry count={reply.newNiches ?? 0} />}
           {reply && <Findings reply={reply} />}
           {freshness && <Freshness text={freshness.text} stale={freshness.stale} />}
         </Card>

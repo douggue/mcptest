@@ -11,6 +11,7 @@ import {
 import { channelUrl, thumbnailUrl, watchUrl } from '../lib/format';
 import { Card, Label } from './layout/Card';
 import { Details } from './layout/Details';
+import { NewNichesEntry } from './NewNichesEntry';
 import { Notice } from './layout/Notice';
 import { FIELD, PRIMARY_BUTTON, QUIET_BUTTON } from './LabStatus';
 import type { Alerts } from './useAlerts';
@@ -197,6 +198,7 @@ export function AlertsPanel({ alerts }: { readonly alerts: Alerts }) {
                 {state.problem}
               </p>
             )}
+            <NewNichesEntry count={reply.newNiches?.count ?? 0} />
             <AlertList reply={reply} />
             <p className="text-body-sm text-outline">
               {freshnessNote(reply.lastRefreshAt, new Date())}

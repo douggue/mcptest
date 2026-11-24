@@ -2,6 +2,7 @@ import type { NicheChannel, NicheList } from '@jgtube/core';
 import { useState } from 'react';
 import { applyFilters, clearFilters, type NicheFilterState } from '../lib/nicheFilters';
 import { describeView, emptyNiches, filterNiches } from '../lib/niches';
+import { onlyNew } from '../lib/sweep';
 import { Details } from './layout/Details';
 import { Notice, ShowMore } from './layout/Notice';
 import { Segmented } from './layout/Segmented';
@@ -11,9 +12,11 @@ import { NicheCard } from './NicheCard';
 import { NicheFilterBar } from './NicheFilterBar';
 import type { NicheFilterModel } from './NicheFilterGroup';
 import { NicheSearch } from './NicheSearch';
+import { NicheWatchlist } from './NicheWatchlist';
 import { useMoney } from './useMoney';
 import { useNicheFilters } from './useNicheFilters';
 import type { Niches as NichesData } from './useNiches';
+import { useSweep } from './useSweep';
 
 /** Four rows of three on a wide screen. */
 const PAGE_SIZE = 12;
@@ -99,8 +102,35 @@ function useFilterModel(channels: readonly NicheChannel[]): NicheFilterModel {
 }
 
 /** A key that changes whenever what is shown does, so "Show more" starts again. */
-const shownKey = (view: NicheView, state: NicheFilterState): string =>
-  `${view}:${JSON.stringify(state)}`;
+const shownKey = (view: NicheView, state: NicheFilterState, newOnly: boolean): string =>
+  `${view}:${newOnly}:${JSON.stringify(state)}`;
+
+/** Shows only what the last sweep brought in; pressed again, everything. */
+function NewToggle({
+  count,
+  pressed,
+  onToggle,
+}: {
+  readonly count: number;
+  readonly pressed: boolean;
+  readonly onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onToggle}
+      disabled={count === 0 && !pressed}
+      className={`min-h-11 rounded-full px-4 text-body-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+        pressed
+          ? 'bg-primary-container text-on-primary'
+          : 'bg-surface-container-high text-on-surface hover:bg-surface-container-highest'
+      }`}
+    >
+      New since last sweep ({count})
+    </button>
+  );
+}
 
 interface ResultsProps {
   readonly list: NicheList;
@@ -112,13 +142,16 @@ interface ResultsProps {
 
 /** The view switch, the filters, and the cards they leave. */
 function Results({ list, view, onView, onSetWatched, onBreakDown }: ResultsProps) {
-  const inView = filterNiches(list.channels, view);
+  const [newOnly, setNewOnly] = useState(false);
+  const ofView = filterNiches(list.channels, view);
+  const newCount = onlyNew(ofView, true).length;
+  const inView = onlyNew(ofView, newOnly);
   const model = useFilterModel(inView);
   const matching = applyFilters(inView, model.state, model.context);
   const saved = filterNiches(list.channels, 'watched').length;
   return (
     <>
-      <div className="flex min-w-0">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <Segmented<NicheView>
           label="Which channels to show"
           options={[
@@ -128,9 +161,20 @@ function Results({ list, view, onView, onSetWatched, onBreakDown }: ResultsProps
           value={view}
           onChange={onView}
         />
+        {list.lastSweepAt !== null && (
+          <NewToggle
+            count={newCount}
+            pressed={newOnly}
+            onToggle={() => setNewOnly((only) => !only)}
+          />
+        )}
       </div>
       {inView.length > 0 && <NicheFilterBar model={model} shown={matching.length} />}
-      {inView.length === 0 && <Notice>{emptyNiches(list, view)}</Notice>}
+      {inView.length === 0 && (
+        <Notice>
+          {newOnly ? 'The last sweep brought in nothing shown here.' : emptyNiches(list, view)}
+        </Notice>
+      )}
       {inView.length > 0 && matching.length === 0 && (
         <Notice>
           No channel matches these filters.{' '}
@@ -145,7 +189,7 @@ function Results({ list, view, onView, onSetWatched, onBreakDown }: ResultsProps
       )}
       {matching.length > 0 && (
         <Cards
-          key={shownKey(view, model.state)}
+          key={shownKey(view, model.state, newOnly)}
           channels={matching}
           onSetWatched={onSetWatched}
           onBreakDown={onBreakDown}
@@ -169,6 +213,7 @@ export function Niches({ niches, hasMap, onBreakDown }: Props) {
   const { state, setWatched } = niches;
   const list = state.status === 'ready' ? state.list : null;
   const canDiscover = state.status === 'ready' && state.canDiscover;
+  const sweep = useSweep(niches.reload);
   // With nothing read and no way to search, there is nothing to offer here yet.
   if (!hasMap && !canDiscover && (list === null || list.channels.length === 0)) return null;
   const count = list ? filterNiches(list.channels, view).length : undefined;
@@ -190,6 +235,7 @@ export function Niches({ niches, hasMap, onBreakDown }: Props) {
       {state.status === 'ready' && state.problem && (
         <Notice tone="problem">Your choice was not saved: {state.problem}</Notice>
       )}
+      <NicheWatchlist sweep={sweep} />
       {list && list.channels.length === 0 && <Notice>{emptyNiches(list, 'all')}</Notice>}
       {list && list.channels.length > 0 && (
         <Results
