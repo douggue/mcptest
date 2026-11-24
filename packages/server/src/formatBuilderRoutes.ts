@@ -5,12 +5,7 @@
  * Host, Origin and JSON checks the other routes use; every body is checked
  * with zod.
  */
-import {
-  INGREDIENT_LAYERS,
-  MAX_FORMAT_NAME,
-  MAX_FORMAT_NOTES,
-  MAX_SLOT_NOTE,
-} from '@jgtube/core';
+import { INGREDIENT_LAYERS, MAX_FORMAT_NAME, MAX_FORMAT_NOTES, MAX_SLOT_NOTE } from '@jgtube/core';
 import { z } from 'zod';
 import type { AnalysisTracker } from './analysisRoutes';
 import type { AppOptions } from './app';
@@ -72,14 +67,22 @@ async function create(context: Context, request: Request): Promise<Response> {
   const body = await bodyOf(context, request, createRequest, 'Give the format a name.');
   if (body instanceof Response) return body;
   try {
-    return ok(context.options.engine.formatBuilder.createFormat(body.name, body.targetSeconds), 201);
+    return ok(
+      context.options.engine.formatBuilder.createFormat(body.name, body.targetSeconds),
+      201,
+    );
   } catch (error) {
     return fail(400, plain(error));
   }
 }
 
 async function update(context: Context, request: Request): Promise<Response> {
-  const body = await bodyOf(context, request, updateRequest, 'Give the format’s number and the change.');
+  const body = await bodyOf(
+    context,
+    request,
+    updateRequest,
+    'Give the format’s number and the change.',
+  );
   if (body instanceof Response) return body;
   const { id, ...change } = body;
   try {

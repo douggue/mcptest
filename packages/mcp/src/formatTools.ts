@@ -44,7 +44,10 @@ const TYPES = { jpg: 'image/jpeg', png: 'image/png', webp: 'image/webp' } as con
 const typeOf = (name: string): string =>
   TYPES[name.slice(name.lastIndexOf('.') + 1) as keyof typeof TYPES];
 
-export function getFormatShelf(engine: FormatToolsEngine, input: GetFormatShelfArgs): CallToolResult {
+export function getFormatShelf(
+  engine: FormatToolsEngine,
+  input: GetFormatShelfArgs,
+): CallToolResult {
   try {
     const args = checkedArgs(shelfArgs, input);
     const shelf = engine.formatBuilder.shelfForMix(args.format);
