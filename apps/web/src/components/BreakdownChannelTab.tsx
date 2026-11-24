@@ -24,6 +24,7 @@ import { Notice } from './layout/Notice';
 import { ViewPage } from './layout/SplitView';
 import { ViewHeader } from './layout/ViewHeader';
 import { PRIMARY_BUTTON } from './LabStatus';
+import { buttonClass } from './ui/Button';
 import { useCandidates } from './useCandidates';
 import type { ViewParts } from './viewParts';
 
@@ -85,11 +86,12 @@ function useChannelRuns(videos: number): string | null {
 function OneChannel({
   candidate,
   parts,
-  own,
+  embedded,
 }: {
   readonly candidate: Candidate;
   readonly parts: ViewParts;
-  readonly own: boolean;
+  /** Under a channel's own page, which already carries its name and logo. */
+  readonly embedded: boolean;
 }) {
   const { breakdown, analysis, asking } = parts.work;
   const [fresh, setFresh] = useState(false);
@@ -114,18 +116,21 @@ function OneChannel({
     <>
       <ViewHeader
         titleId="breakdown-title"
-        title={candidate.title}
-        lead={<CandidateMeta candidate={candidate} />}
-        back={
-          own ? undefined : { href: breakdownHref(), label: 'Back to all channels', history: true }
+        title={embedded ? 'Breakdown' : candidate.title}
+        lead={
+          embedded ? (
+            'How it makes its videos, from titles to a master prompt.'
+          ) : (
+            <CandidateMeta candidate={candidate} />
+          )
         }
-        media={<CandidateLogo facts={candidate} size="lg" />}
+        media={embedded ? undefined : <CandidateLogo facts={candidate} size="lg" />}
         actions={
           <button
             type="button"
             disabled={asking}
             onClick={() => start(fresh)}
-            className={`min-h-11 ${PRIMARY_BUTTON}`}
+            className={embedded ? buttonClass('main') : `min-h-11 ${PRIMARY_BUTTON}`}
           >
             {running ? 'Working…' : 'Break it down'}
           </button>
@@ -184,12 +189,12 @@ function OneChannel({
 export function BreakdownChannelTab({
   parts,
   channelId,
-  own = false,
+  embedded = false,
 }: {
   readonly parts: ViewParts;
   readonly channelId: string | null;
-  /** The owner's own channel, under My channel: there is no list to go back to. */
-  readonly own?: boolean;
+  /** The Breakdown tab of one channel's page: that channel only, with no list to pick from. */
+  readonly embedded?: boolean;
 }) {
   const { work, page } = parts;
   const { state, paste, readChannel } = useCandidates(
@@ -202,10 +207,24 @@ export function BreakdownChannelTab({
     state.status === 'ready' && channelId
       ? state.candidates.find((c) => c.id === channelId)
       : undefined;
+  if (embedded) {
+    return (
+      <div id="breakdown" className="flex min-w-0 flex-col gap-space-lg">
+        {open && <OneChannel key={open.id} candidate={open} parts={parts} embedded />}
+        {!open && state.status === 'loading' && (
+          <Notice tone="working">Reading what is stored about this channel.</Notice>
+        )}
+        {!open && state.status === 'failed' && <Notice tone="problem">{state.message}</Notice>}
+        {!open && state.status === 'ready' && (
+          <Notice>This channel is not stored yet, so there is nothing to break down.</Notice>
+        )}
+      </div>
+    );
+  }
   return (
     <ViewPage id="breakdown" labelledBy="breakdown-title">
       {open ? (
-        <OneChannel key={open.id} candidate={open} parts={parts} own={own} />
+        <OneChannel key={open.id} candidate={open} parts={parts} embedded={false} />
       ) : (
         <>
           <ViewHeader

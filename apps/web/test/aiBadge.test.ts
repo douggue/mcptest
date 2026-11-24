@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { aiBadge, readyEngines } from '../src/lib/aiBadge';
+import { aiBadge, answersLine, readyEngines } from '../src/lib/aiBadge';
 import type { EngineReport, EngineStatus } from '../src/lib/analyses';
 
 const status = (
@@ -82,6 +82,16 @@ describe('the AI badge in the top bar', () => {
       summary: 'Checking which AI is set up on this computer.',
       lines: [],
     });
+  });
+});
+
+describe('who answers, in the Ask header', () => {
+  test('is the AI by name when it is ready, and plain words when it is not', () => {
+    expect(answersLine(aiBadge('auto', report()))).toBe('Antigravity answers');
+    expect(answersLine(aiBadge('claude', report()))).toBe('Claude Code is not set up');
+    expect(answersLine(aiBadge('auto', null))).toBe('Checking…');
+    const none = report({ engines: [status('claude', false)], order: ['claude'] });
+    expect(answersLine(aiBadge('auto', none))).toBe('No AI ready');
   });
 });
 

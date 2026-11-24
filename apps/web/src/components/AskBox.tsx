@@ -19,15 +19,13 @@ interface InputProps {
   /** The box's id; the panel and the large view each have their own. */
   readonly id?: string;
   readonly placeholder?: string;
-  /** Words a press of the chip puts at the start of the question, such as a channel's name. */
-  readonly starter?: { readonly label: string; readonly text: string } | null;
 }
 
 const SUGGESTION =
   'min-h-11 flex-none whitespace-nowrap rounded-full border border-line px-4 text-body-sm text-muted transition-colors hover:border-line-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal disabled:cursor-not-allowed disabled:opacity-50';
 
 /** One line to ask anything about the map in your own words, with the one button. */
-export function AskInput({ busy, onAsk, id = 'own-question', placeholder, starter }: InputProps) {
+export function AskInput({ busy, onAsk, id = 'own-question', placeholder }: InputProps) {
   const [question, setQuestion] = useState('');
   const blocked = askBlocked(question, busy);
   const submit = (event: FormEvent) => {
@@ -38,15 +36,6 @@ export function AskInput({ busy, onAsk, id = 'own-question', placeholder, starte
   };
   return (
     <div className="flex min-w-0 flex-col gap-space-sm">
-      {starter && !question.startsWith(starter.text) && (
-        <button
-          type="button"
-          onClick={() => setQuestion(`${starter.text}${question}`)}
-          className={`${SUGGESTION} w-fit max-w-full truncate`}
-        >
-          {starter.label}
-        </button>
-      )}
       <form
         onSubmit={submit}
         className="flex min-w-0 items-center gap-2 rounded border border-signal/35 bg-white/[0.035] p-1.5 focus-within:border-signal/70"

@@ -65,6 +65,8 @@ export const UNUSED_EXTRAS: ExtrasEngine = {
   askRisk: unused('askRisk'),
   riskFindings: unused('riskFindings'),
   findChannelProfile: unused('findChannelProfile'),
+  searchChannels: unused('searchChannels'),
+  findStoredChannel: unused('findStoredChannel'),
   thumbnailVideos: unused('thumbnailVideos'),
   findThumbnailReview: unused('findThumbnailReview'),
   askThumbnailReview: unused('askThumbnailReview'),
@@ -128,6 +130,7 @@ export const UNUSED_SWEEP: SweepEngine = {
 
 export const UNUSED_BANK: BankEngine = {
   look: unused('look'),
+  video: unused('video'),
   findInfo: unused('findInfo'),
   findMore: unused('findMore'),
   collections: {

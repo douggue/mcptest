@@ -32,6 +32,24 @@ describe('your own question', () => {
     expect(asked[0]?.[0]).toBe('/api/analyses/question');
   });
 
+  test('carries the channel or video on screen, by its id, when there is one', async () => {
+    const asked: Array<[string, string | null]> = [];
+    const api = replying(ANSWER, asked);
+
+    await api.ask(CHANNEL, 'Why did it win?', AUTOMATIC, { videoId: 'dQw4w9WgXcQ' });
+    await api.ask(CHANNEL, 'What does it do well?', 'claude', { channelId: CHANNEL });
+
+    expect(asked.map(([, body]) => (body ? JSON.parse(body) : null))).toEqual([
+      { channel: CHANNEL, question: 'Why did it win?', about: { videoId: 'dQw4w9WgXcQ' } },
+      {
+        channel: CHANNEL,
+        question: 'What does it do well?',
+        engine: 'claude',
+        about: { channelId: CHANNEL },
+      },
+    ]);
+  });
+
   test('reads back the last question and answer kept for the channel', async () => {
     const asked: Array<[string, string | null]> = [];
 

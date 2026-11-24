@@ -1,11 +1,6 @@
 import { Search, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  MAX_SEARCH_CHARS,
-  MIN_SEARCH_CHARS,
-  channelOfHandle,
-  type SearchChannel,
-} from '../../lib/search';
+import { MAX_SEARCH_CHARS, MIN_SEARCH_CHARS, type SearchChannel } from '../../lib/search';
 import { createBreakdownViewApi } from '../../lib/videoBreakdown';
 import { IconButton } from '../ui/Button';
 import { SearchResults, type SearchActions } from './SearchResults';
@@ -21,17 +16,6 @@ interface Props {
 const isTyping = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement &&
   (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
-
-/** The stored channel a pasted channel link names; null when it is not stored here. */
-function storedOf(
-  link: ReturnType<typeof useSearch>['link'],
-  channels: readonly SearchChannel[],
-): SearchChannel | null {
-  if (link?.kind === 'channel') {
-    return channels.find((channel) => channel.id === link.channelId) ?? null;
-  }
-  return link?.kind === 'handle' ? channelOfHandle(link.handle, channels) : null;
-}
 
 /** Reading a channel that is not stored from YouTube, so its page can open. */
 function useChannelRead(onRead: (channelId: string) => void) {
@@ -95,6 +79,7 @@ export function SearchBox({ channels, onOpenChannel, onOpenVideo }: Props) {
       done();
       onOpenVideo(videoId);
     },
+    close: done,
     readChannel: reader.read,
     reading: reader.reading,
     readProblem: reader.problem,
@@ -119,17 +104,17 @@ export function SearchBox({ channels, onOpenChannel, onOpenVideo }: Props) {
     };
   }, [close]);
 
-  const stored = storedOf(results.link, channels);
   const shown =
     open && text.trim() !== '' && (results.link !== null || text.trim().length >= MIN_SEARCH_CHARS);
   /** Enter opens the link named, or the first thing found. */
   const submit = (): void => {
-    const { link } = results;
+    const { link, linked } = results;
     const first = results.channels[0];
     const firstVideo = results.videos[0];
     if (link?.kind === 'video') actions.openVideo(link.videoId);
-    else if (link && stored) openChannel(stored.id);
-    else if (link) reader.read(text.trim());
+    else if (link && linked?.status === 'channel') openChannel(linked.channel.id);
+    else if (link && linked?.status === 'missing') reader.read(text.trim());
+    else if (link) return;
     else if (first) openChannel(first.id);
     else if (firstVideo) actions.openVideo(firstVideo.videoId);
   };
@@ -191,12 +176,7 @@ export function SearchBox({ channels, onOpenChannel, onOpenVideo }: Props) {
             aria-label="Search results"
             className="absolute inset-x-2 top-full z-[60] mt-1 max-h-[70vh] overflow-y-auto rounded-lg border border-line bg-card p-1.5 shadow-2xl md:inset-x-0 md:mt-2"
           >
-            <SearchResults
-              text={text.trim()}
-              results={results}
-              storedLink={stored}
-              actions={actions}
-            />
+            <SearchResults text={text.trim()} results={results} actions={actions} />
           </div>
         )}
       </div>

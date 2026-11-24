@@ -2,6 +2,7 @@ import type { MapSnapshot } from '@jgtube/core';
 import { Radar } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { Api } from '../lib/api';
+import type { AskContext } from '../lib/askContext';
 import { VIEWS, viewHref, type ViewId } from '../lib/routes';
 import type { AiChoice } from './AiEngines';
 import type { PagePath } from './usePagePath';
@@ -23,6 +24,13 @@ export interface ViewParts {
   readonly openChannel: (channelId: string) => void;
   /** The conversation with the AI, shared with the Ask panel. */
   readonly ask: AskSession;
+  /** Tells the browser tab the name of the channel or video whose page is on screen. */
+  readonly nameScreen: (id: string, name: string) => void;
+  /** Ask opened large: what it is about, and the way back to the panel. */
+  readonly askLarge: {
+    readonly context: AskContext | null;
+    readonly shrink: () => void;
+  };
 }
 
 /** Which AI answers, as the side panels and Settings take it. */
@@ -39,14 +47,17 @@ export type ViewDraw = (parts: ViewParts) => ReactNode;
 
 /** Said in a screen that needs a map when none is on screen yet: one line and one button. */
 export function NeedsMap({ view }: { readonly view: ViewId }) {
-  const name = view === 'channel' ? 'My channel' : VIEWS[view].title;
+  const title =
+    view === 'channel'
+      ? 'Add your channel to see how it is doing'
+      : `${VIEWS[view].title} needs your channel first`;
   return (
     <section className="w-full px-4 py-space-lg sm:px-8">
       <div className="mx-auto max-w-[1260px]">
         <div className="max-w-2xl">
           <EmptyState
             icon={Radar}
-            title={`${name} needs your channel first`}
+            title={title}
             line="Open one of your channels on Today, or paste a channel there and press Find competitors."
             action={
               <Button kind="main" href={viewHref('home')}>

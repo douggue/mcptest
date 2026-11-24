@@ -1,5 +1,5 @@
 import type { Pick } from './ideaLab';
-import { viewHref, type ViewId } from './routes';
+import { viewHref, type PlainView as ViewId } from './routes';
 
 /**
  * The path from research to a finished script, as the page shows it: a strip

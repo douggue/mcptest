@@ -60,6 +60,13 @@ function look(options: AppOptions, url: URL): Response {
   return ok(options.engine.bank.look(state, { offset, limit }));
 }
 
+/** One stored video by its id, for its own page; null when it is not stored. */
+function oneVideo(options: AppOptions, url: URL): Response {
+  const videoId = url.searchParams.get('video') ?? '';
+  if (!VIDEO_ID.test(videoId)) return fail(400, 'Give the video’s 11-character id');
+  return ok({ found: options.engine.bank.video(videoId) });
+}
+
 function running(jobs: FindJobs): string | null {
   return jobs.list().find((job) => job.status === 'running')?.id ?? null;
 }
@@ -164,6 +171,7 @@ export function bankRoutes(options: AppOptions): BankRoutes {
     >
   > = {
     [BANK_PATH]: { GET: (_request, url) => look(options, url) },
+    [`${BANK_PATH}/video`]: { GET: (_request, url) => oneVideo(options, url) },
     [`${BANK_PATH}/find`]: {
       GET: (_request, url) => findInfo(options, jobs, url),
       POST: (request) => startFind(options, jobs, request),

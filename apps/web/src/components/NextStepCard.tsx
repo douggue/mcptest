@@ -4,6 +4,7 @@ import { viewHref } from '../lib/routes';
 import { FlowStrip } from './FlowStrip';
 import { Card } from './layout/Card';
 import { Notice } from './layout/Notice';
+import { Skeleton } from './ui/States';
 
 interface Props {
   readonly counts: FlowCounts | null;
@@ -15,7 +16,20 @@ interface Props {
 /** Home's one obvious action: the next step for the channel on screen, and the path so far. */
 export function NextStepCard({ counts, problem, centerTitle }: Props) {
   if (problem) return <Notice tone="problem">{problem}</Notice>;
-  if (!counts) return null;
+  if (!counts) {
+    // The card's own height, so what is under it does not jump when the counts arrive.
+    return (
+      <Card label="Your next step">
+        <div role="status" aria-label="Working out your next step" className="flex flex-col gap-3">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-8 w-2/3" />
+          <Skeleton className="h-5 w-1/2" />
+          <Skeleton className="h-12 w-44" />
+          <Skeleton className="mt-4 h-16 w-full" />
+        </div>
+      </Card>
+    );
+  }
   const step = nextStep(counts);
   return (
     <Card label="Your next step">

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Badge, Level, ScoreBadge } from './ui/Badge';
 import { Button, IconButton } from './ui/Button';
 import { Card } from './ui/Card';
+import { ChannelChip, VideoChip } from './ui/Chip';
 import { Avatar, Row } from './ui/Row';
 import { Stat, Stats } from './ui/Stat';
 import { EmptyState, ErrorState, LoadingState } from './ui/States';
@@ -58,6 +59,13 @@ function Pieces() {
             2 facts to look up
           </Badge>
         </Line>
+        <p className="text-answer text-ink">
+          AI text with a video{' '}
+          <VideoChip videoId="" score>
+            269×
+          </VideoChip>{' '}
+          and a channel <ChannelChip title="Sample Channel" /> inline.
+        </p>
       </div>
     </Card>
   );

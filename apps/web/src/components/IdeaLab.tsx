@@ -52,7 +52,7 @@ export function IdeaLab(props: Props) {
   return (
     <ViewPage id="idea-lab" labelledBy="idea-lab-title">
       <ViewHeader
-        title="Ideas"
+        title="My ideas"
         lead={
           concepts.length > 0
             ? `${concepts.length - unkept} saved · ${unkept} not saved`

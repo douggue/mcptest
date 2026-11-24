@@ -1,3 +1,4 @@
+import { videoHref } from './routes';
 import { formatScore } from './format';
 /**
  * The per-video thumbnail review as the page shows it: the videos to pick
@@ -131,8 +132,8 @@ export function pickList(videos: PickableVideos | null): readonly PickableVideo[
 const REVIEW_ANCHOR = 'thumbnail-review';
 const REVIEW_HASH = /^#thumbnail-review-([\w-]{11})$/;
 
-/** The address that opens the review of one video, as a link from anywhere in the app. */
-export const reviewHref = (videoId: string): string => `#${REVIEW_ANCHOR}-${videoId}`;
+/** The address that opens the review of one video: the Thumbnail tab of its page. */
+export const reviewHref = (videoId: string): string => videoHref(videoId, 'thumbnail');
 
 /** The element id the review carries while a video is picked, so a link can scroll to it. */
 export const reviewAnchor = (videoId: string | null): string =>

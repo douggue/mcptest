@@ -1,7 +1,8 @@
+import { videoHref } from '../lib/routes';
 import { AddToFormat } from './AddToFormat';
 import type { BoardVideo } from '@jgtube/core';
 import type { ScoreTone } from '../lib/board';
-import { formatCount, formatDuration, formatScore, thumbnailUrl, watchUrl } from '../lib/format';
+import { formatCount, formatDuration, formatScore, thumbnailUrl } from '../lib/format';
 
 const BADGE: Readonly<Record<Exclude<ScoreTone, 'none'>, string>> = {
   winner: 'bg-[#2a1f08] text-metric-amber shadow-[0_0_8px_rgba(251,191,36,0.3)]',
@@ -17,7 +18,7 @@ interface Props {
 
 /** One 16:9 thumbnail with its score on it, linking to the video. */
 export function ThumbnailTile({ video, tone, addable }: Props) {
-  const href = watchUrl(video.videoId);
+  const href = videoHref(video.videoId);
   const thumbnail = thumbnailUrl(video.videoId);
   const duration = formatDuration(video.durationSeconds);
   const body = (
@@ -55,7 +56,7 @@ export function ThumbnailTile({ video, tone, addable }: Props) {
   );
   const className = 'group flex min-w-0 flex-col gap-1.5';
   const tile = href ? (
-    <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+    <a href={href} className={className}>
       {body}
     </a>
   ) : (

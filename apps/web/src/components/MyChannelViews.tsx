@@ -71,7 +71,9 @@ export const MY_CHANNEL_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
     </ViewPage>
   )),
   'own-breakdown': withMap('own-breakdown', (snapshot, parts) => (
-    <BreakdownChannelTab parts={parts} channelId={snapshot.center.id} own />
+    <ViewPage>
+      <BreakdownChannelTab parts={parts} channelId={snapshot.center.id} embedded />
+    </ViewPage>
   )),
   bible: (parts) => <Bible {...parts} />,
 };

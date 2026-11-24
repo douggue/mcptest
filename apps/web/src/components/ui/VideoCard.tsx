@@ -15,7 +15,7 @@ export function VideoThumb({ videoId, score, durationSeconds }: ThumbProps) {
   const picture = thumbnailUrl(videoId);
   const length = formatDuration(durationSeconds ?? null);
   return (
-    <div className="relative aspect-video overflow-hidden rounded border border-white/[0.08] bg-card-2">
+    <div className="relative aspect-video overflow-hidden rounded border border-white/[0.08] bg-gradient-to-br from-card-2 to-[#22345c]">
       {picture && (
         <img
           src={picture}
@@ -91,7 +91,12 @@ export function VideoCard(props: CardProps) {
             ) : (
               <b className="flex-none font-medium text-ink">{channel.title}</b>
             ))}
-          {meta && <span className="min-w-0 truncate">· {meta}</span>}
+          {meta && (
+            <span className="min-w-0 truncate">
+              {channel ? '· ' : ''}
+              {meta}
+            </span>
+          )}
         </p>
       )}
       {(actions !== undefined || why !== undefined) && (

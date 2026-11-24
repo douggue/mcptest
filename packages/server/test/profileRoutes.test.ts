@@ -57,6 +57,47 @@ describe('GET /api/channels/profile', () => {
   });
 });
 
+describe('GET /api/channels/search and /api/channels/find', () => {
+  const found = { id: CHANNEL_ID, title: 'Mine', handle: '@mine', subscribers: 10, logoUrl: null };
+
+  test('search answers the stored channels the letters match', async () => {
+    const asked: string[] = [];
+    const app = appWith({
+      searchChannels: (words) => {
+        asked.push(words);
+        return [found];
+      },
+    });
+    const reply = await read<{ channels: unknown[] }>(
+      await get(app, '/api/channels/search?q=%20mi%20'),
+    );
+    expect(reply.data.channels).toEqual([found]);
+    expect(asked).toEqual(['mi']);
+    expect((await get(app, '/api/channels/search')).status).toBe(400);
+    expect((await get(app, `/api/channels/search?q=${'x'.repeat(201)}`)).status).toBe(400);
+  });
+
+  test('find answers the stored channel a link names, null when not stored, 400 for no channel', async () => {
+    const app = appWith({
+      findStoredChannel: (ref) => {
+        if (ref === 'not a channel') throw new Error('Not a valid YouTube channel');
+        return ref.includes('mine') ? found : null;
+      },
+    });
+    const link = encodeURIComponent('https://www.youtube.com/@mine');
+    const hit = await read<{ channel: unknown }>(
+      await get(app, `/api/channels/find?channel=${link}`),
+    );
+    expect(hit.data.channel).toEqual(found);
+    const miss = await read<{ channel: unknown }>(
+      await get(app, '/api/channels/find?channel=@other'),
+    );
+    expect(miss.data.channel).toBeNull();
+    expect((await get(app, '/api/channels/find?channel=not%20a%20channel')).status).toBe(400);
+    expect((await get(app, '/api/channels/find')).status).toBe(400);
+  });
+});
+
 describe('profileEngine', () => {
   test('reads the store, and has nothing for a channel it does not hold', () => {
     const db = openDatabase(':memory:');
@@ -81,5 +122,51 @@ describe('profileEngine', () => {
 
     expect(engine.findChannelProfile(CHANNEL_ID)).toEqual(profile);
     expect(engine.findChannelProfile(`UC${'n'.repeat(22)}`)).toBeNull();
+  });
+
+  test('searches every stored channel, whichever map read it, and finds one by link or handle', () => {
+    const db = openDatabase(':memory:');
+    const repos = {
+      channels: new SqliteChannelRepo(db),
+      videos: new SqliteVideoRepo(db),
+      maps: new SqliteMapRepo(db),
+      brands: new SqliteBrandRepo(db),
+    };
+    const other = `UC${'o'.repeat(22)}`;
+    const base = { subscribersHidden: false, videoCount: null };
+    repos.channels.upsert(
+      { ...base, id: CHANNEL_ID, title: 'Steel Daily', handle: 'steeldaily', subscribers: 900 },
+      NOW,
+    );
+    repos.channels.upsert(
+      {
+        ...base,
+        id: other,
+        title: 'Deep Steel Works',
+        handle: null,
+        subscribers: 5000,
+        subscribersHidden: true,
+      },
+      NOW,
+    );
+    const engine = profileEngine({ now: () => NOW, repos });
+
+    expect(engine.searchChannels('steel')).toEqual([
+      {
+        id: CHANNEL_ID,
+        title: 'Steel Daily',
+        handle: 'steeldaily',
+        subscribers: 900,
+        logoUrl: null,
+      },
+      { id: other, title: 'Deep Steel Works', handle: null, subscribers: null, logoUrl: null },
+    ]);
+    expect(engine.searchChannels('zzz')).toEqual([]);
+    expect(engine.findStoredChannel(`https://www.youtube.com/channel/${other}`)?.title).toBe(
+      'Deep Steel Works',
+    );
+    expect(engine.findStoredChannel('https://www.youtube.com/@SteelDaily')?.id).toBe(CHANNEL_ID);
+    expect(engine.findStoredChannel('@nobodyhere')).toBeNull();
+    expect(() => engine.findStoredChannel('not a channel')).toThrow();
   });
 });

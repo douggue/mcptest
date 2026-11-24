@@ -35,7 +35,22 @@ export function ChannelSwitcher({ channels, currentId, busy, onOpen }: Props) {
     };
   }, []);
   const current = channels.find((channel) => channel.id === currentId);
-  if (!current) return null;
+  if (!current) {
+    // No channel yet: the same place in the bar is the way to add the first one.
+    return (
+      <a
+        href={viewHref('home')}
+        onClick={() =>
+          window.setTimeout(() => document.getElementById('channel-query')?.focus(), 300)
+        }
+        className="flex h-10 flex-none items-center gap-1.5 rounded-full border border-line px-3 text-[15px] font-medium text-link transition-colors hover:border-line-2"
+      >
+        <Plus aria-hidden="true" className="h-4 w-4" />
+        <span className="hidden sm:inline">Add a channel</span>
+        <span className="sm:hidden">Add</span>
+      </a>
+    );
+  }
   return (
     <details ref={menu} className="group/switch relative min-w-0">
       <summary

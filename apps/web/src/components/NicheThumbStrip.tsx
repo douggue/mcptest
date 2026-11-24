@@ -1,12 +1,13 @@
+import { videoHref } from '../lib/routes';
 import type { BoardVideo } from '@jgtube/core';
-import { formatCount, formatScore, thumbnailUrl, watchUrl } from '../lib/format';
+import { formatCount, formatScore, thumbnailUrl } from '../lib/format';
 
 /** Three places, so every card's strip is the same height whatever it holds. */
 const SLOTS = 3;
 
 /** One small thumbnail with its multiple on it, linking to the video. */
 function SmallThumb({ video }: { readonly video: BoardVideo }) {
-  const href = watchUrl(video.videoId);
+  const href = videoHref(video.videoId);
   const src = thumbnailUrl(video.videoId);
   const score = video.score === null ? null : formatScore(video.score);
   const label = `${video.title}: ${formatCount(video.views)} views${score ? `, ${score} its usual views` : ''}`;
@@ -29,7 +30,7 @@ function SmallThumb({ video }: { readonly video: BoardVideo }) {
     </span>
   );
   return href ? (
-    <a href={href} target="_blank" rel="noopener noreferrer" title={label} aria-label={label}>
+    <a href={href} title={label} aria-label={label}>
       {body}
     </a>
   ) : (

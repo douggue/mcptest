@@ -64,9 +64,9 @@ export function usePagePath(snapshot: MapSnapshot | null, work: Workspace, go: G
     lab.choose({ format: taken.format, fromIdea: taken.idea });
     open('ideas');
   };
-  /** Opens Breakdown on a channel, where the owner presses Break it down. */
+  /** Opens the Breakdown tab of a channel's page, where the owner presses Break it down. */
   const breakDown = (channel: NamedChannel): void => {
-    go({ view: 'breakdown', channelId: channel.id, anchor: null });
+    go({ view: 'channel', channelId: channel.id, anchor: null, tab: 'breakdown' });
   };
   return { flow, connections, draft, remix, conceptsFrom, breakDown };
 }

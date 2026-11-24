@@ -1,3 +1,4 @@
+import { viewHref } from '../lib/routes';
 import { describeLogoRun } from '../lib/logos';
 import { describeMix } from '../lib/mix';
 import { Details } from './layout/Details';
@@ -26,8 +27,16 @@ function EmptyRadar({ running }: { readonly running: boolean }) {
       <p className="mt-2 text-body-md text-on-surface-variant">
         {running
           ? 'The map appears here when it is done, in a few minutes. Keep this page open.'
-          : 'Paste your channel on the overview and press Find competitors.'}
+          : 'Paste your channel on Today and press Find competitors.'}
       </p>
+      {!running && (
+        <a
+          href={viewHref('home')}
+          className="mt-3 inline-flex h-11 items-center rounded bg-signal px-[18px] text-[15px] font-semibold text-on-signal"
+        >
+          Go to Today
+        </a>
+      )}
     </div>
   );
 }
@@ -74,11 +83,6 @@ export function RadarArea({ page, onOpenChannel }: Props) {
       <ViewHeader
         titleId="radar-title"
         title="Map"
-        lead={
-          snapshot
-            ? `${snapshot.center.title} in the middle; closer rings are closer competitors. Press a channel to open it.`
-            : 'Your channel in the middle, its competitors on rings around it.'
-        }
         actions={
           snapshot && (
             <ScopeToggle

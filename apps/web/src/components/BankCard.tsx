@@ -1,9 +1,8 @@
 import type { BankCollection, BankVideo } from '@jgtube/core';
 import { Check, Plus, ScanSearch, TrendingUp } from 'lucide-react';
 import { closenessText, videoMeta } from '../lib/bank';
-import { formatCount, formatScore, thumbnailUrl, watchUrl } from '../lib/format';
-import { channelHref, viewHref } from '../lib/routes';
-import { handVideo } from '../lib/videoHandoff';
+import { formatCount, formatScore, thumbnailUrl } from '../lib/format';
+import { channelHref, videoHref } from '../lib/routes';
 import { AddToFormat } from './AddToFormat';
 import { BankSave } from './BankSave';
 import { ChannelLogo } from './ChannelLogo';
@@ -85,13 +84,13 @@ interface Props {
 
 /** One outlier from the bank: picture with its multiple, title, channel, meta, tags and the four presses. */
 export function BankCard({ video, picked, onPick, collections, inCollections, onSaved }: Props) {
-  const href = watchUrl(video.videoId);
+  const href = videoHref(video.videoId);
   return (
     <article className="group flex min-w-0 flex-col gap-2">
       <Picture video={video} />
       <h3 className="line-clamp-2 break-words text-body-md font-semibold text-on-surface">
         {href ? (
-          <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-primary">
+          <a href={href} className="hover:text-primary">
             {video.title}
           </a>
         ) : (
@@ -132,11 +131,7 @@ export function BankCard({ video, picked, onPick, collections, inCollections, on
           source={{ kind: 'video', use: 'video', videoId: video.videoId, center: null }}
           iconOnly
         />
-        <a
-          href={viewHref('video-breakdown')}
-          onClick={() => handVideo(video.videoId)}
-          className={QUIET}
-        >
+        <a href={videoHref(video.videoId, 'teardown')} className={QUIET}>
           <ScanSearch aria-hidden="true" className="h-4 w-4" />
           Break down
         </a>

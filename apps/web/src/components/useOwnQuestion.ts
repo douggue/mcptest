@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { EngineChoice } from '../lib/analyses';
+import type { AskAbout } from '../lib/askContext';
 import { createOwnQuestionApi, type OwnAnswer } from '../lib/ownQuestion';
 
 export type OwnQuestionState =
@@ -11,7 +12,8 @@ export interface OwnQuestion {
   readonly state: OwnQuestionState;
   /** The last question asked about the channel and its answer; null when none. */
   readonly answer: OwnAnswer | null;
-  readonly ask: (question: string, choice: EngineChoice) => void;
+  /** Asks a question; `about` is the channel or video on screen, when there is one. */
+  readonly ask: (question: string, choice: EngineChoice, about?: AskAbout) => void;
 }
 
 const messageOf = (error: unknown): string =>
@@ -43,10 +45,10 @@ export function useOwnQuestion(centerId: string | null): OwnQuestion {
   }, [api, centerId]);
 
   const ask = useCallback(
-    (question: string, choice: EngineChoice) => {
+    (question: string, choice: EngineChoice, about?: AskAbout) => {
       if (centerId === null) return;
       setState({ status: 'running', question });
-      api.ask(centerId, question, choice).then(
+      api.ask(centerId, question, choice, about).then(
         (answered) => {
           setAnswer(answered);
           setState({ status: 'idle' });

@@ -1,5 +1,5 @@
 import { Compass, Layers, PenLine, Sun, Tv, type LucideIcon } from 'lucide-react';
-import { PLACES, placeHref, type PlaceId } from '../../lib/places';
+import { PLACES, railHref, type LastScreens, type PlaceId } from '../../lib/places';
 
 /** The icon of each place, in the rail and in the phone's bottom bar. */
 const ICONS: Readonly<Record<PlaceId, LucideIcon>> = {
@@ -13,10 +13,12 @@ const ICONS: Readonly<Record<PlaceId, LucideIcon>> = {
 interface Props {
   /** The place on screen, marked; null on Ask and Settings. */
   readonly active: PlaceId | null;
+  /** The screen last open in each place, which its entry leads back to. */
+  readonly last: LastScreens;
 }
 
 /** The five places down the left of a wide screen, the one on screen marked in cyan. */
-export function Rail({ active }: Props) {
+export function Rail({ active, last }: Props) {
   return (
     <nav aria-label="Main" className="flex flex-col gap-1">
       {PLACES.map((place) => {
@@ -25,7 +27,7 @@ export function Rail({ active }: Props) {
         return (
           <a
             key={place.id}
-            href={placeHref(place)}
+            href={railHref(place, active, last)}
             aria-current={on ? 'page' : undefined}
             className={`flex h-[46px] items-center gap-3 rounded px-3.5 text-body-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal ${
               on
@@ -43,7 +45,7 @@ export function Rail({ active }: Props) {
 }
 
 /** The same five places at the foot of a phone: icon over a short name. */
-export function BottomBar({ active }: Props) {
+export function BottomBar({ active, last }: Props) {
   return (
     <nav
       aria-label="Main"
@@ -56,7 +58,7 @@ export function BottomBar({ active }: Props) {
           return (
             <li key={place.id} className="min-w-0">
               <a
-                href={placeHref(place)}
+                href={railHref(place, active, last)}
                 aria-current={on ? 'page' : undefined}
                 className={`flex h-14 min-w-0 flex-col items-center justify-center gap-[3px] rounded text-[13px] font-medium leading-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-signal ${
                   on ? 'text-signal' : 'text-dim'

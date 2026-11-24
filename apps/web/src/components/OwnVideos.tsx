@@ -169,7 +169,7 @@ export function OwnVideos({ channelId, reloadKey }: Props) {
   return (
     <ViewPage id="own-videos" labelledBy="own-videos-title">
       <ViewHeader
-        title="Your videos"
+        title="My videos"
         lead="Each video against your channel's usual at the same age."
         count={plan && plan.linked.length > 0 ? plan.linked.length : undefined}
       />

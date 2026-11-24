@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { redirectOf, routeFromHash, routeHash, type Route } from '../lib/routes';
+import { isUnknownAddress, redirectOf, routeFromHash, routeHash, type Route } from '../lib/routes';
 
 /** How long a view is given to show an element an in-page link points to. */
 const ANCHOR_WAIT_MS = 3000;
@@ -12,10 +12,14 @@ const ANCHOR_POLL_MS = 100;
  */
 function current(): Route {
   const { hash } = window.location;
+  if (isUnknownAddress(hash)) lost = hash;
   const redirect = redirectOf(hash);
   if (redirect !== null) window.history.replaceState(window.history.state, '', redirect);
   return routeFromHash(hash);
 }
+
+/** The last address typed or followed that no screen has; null once the owner has moved on. */
+let lost: string | null = null;
 
 /** Brings an element into view once it is on the page; sections load their data first. */
 function scrollToWhenShown(id: string): () => void {
@@ -36,9 +40,15 @@ function scrollToWhenShown(id: string): () => void {
  */
 export function useRoute() {
   const [route, setRoute] = useState<Route>(current);
+  // Read after `current` has run for this render: the address that was not found, if any.
+  const [notFound, setNotFound] = useState<string | null>(() => lost);
 
   useEffect(() => {
-    const follow = () => setRoute(current());
+    const follow = () => {
+      lost = null;
+      setRoute(current());
+      setNotFound(lost);
+    };
     window.addEventListener('hashchange', follow);
     return () => window.removeEventListener('hashchange', follow);
   }, []);
@@ -56,7 +66,7 @@ export function useRoute() {
     else window.location.hash = hash;
   }, []);
 
-  return { route, go };
+  return { route, go, notFound };
 }
 
 export type Go = (route: Route) => void;

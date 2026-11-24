@@ -5,7 +5,9 @@
  * server; leaving a view only stops the page from watching it.
  */
 import { apiCaller, type Fetch } from './api';
-import { viewHref, type ViewId } from './routes';
+import { breakdownHref, videoHref, viewHref, type PlainView, type ViewId } from './routes';
+
+const VIDEO_ID = /^[\w-]{11}$/;
 
 export interface JobEntry {
   readonly id: string;
@@ -83,7 +85,7 @@ export async function findRunningJob(
 }
 
 /** The view each kind of work is shown and followed in. */
-const VIEW_OF: Readonly<Record<string, Exclude<ViewId, 'channel'>>> = {
+const VIEW_OF: Readonly<Record<string, PlainView>> = {
   map: 'radar',
   logos: 'radar',
   refresh: 'what-changed',
@@ -119,6 +121,11 @@ export const viewOfJob = (job: JobEntry): ViewId | null => VIEW_OF[job.kind] ?? 
 
 /** The address of the view a job belongs to; null for work with no view of its own. */
 export function jobHref(job: JobEntry): string | null {
+  // A breakdown is followed on its channel's own page, a teardown on its video's.
+  if (job.kind === 'breakdown' && job.channelId) return breakdownHref(job.channelId);
+  if (job.kind === 'video-breakdown' && job.videoId && VIDEO_ID.test(job.videoId)) {
+    return videoHref(job.videoId, 'teardown');
+  }
   const view = VIEW_OF[job.kind];
   return view ? viewHref(view) : null;
 }

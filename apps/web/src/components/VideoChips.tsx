@@ -1,16 +1,15 @@
-import { formatCount, thumbnailUrl, watchUrl } from '../lib/format';
+import { videoHref } from '../lib/routes';
+import { formatCount, thumbnailUrl } from '../lib/format';
 import type { NamedVideo } from '../lib/videoRefs';
 
 /** One named video as a small thumbnail that opens the video, its title beneath. */
 function Chip({ video }: { readonly video: NamedVideo }) {
-  const href = watchUrl(video.videoId);
+  const href = videoHref(video.videoId);
   const src = thumbnailUrl(video.videoId);
   if (href === null || src === null) return null;
   return (
     <a
       href={href}
-      target="_blank"
-      rel="noopener noreferrer"
       title={`${video.title} · ${video.channelTitle} · ${formatCount(video.views)} views`}
       className="group flex w-28 flex-none flex-col gap-1 rounded focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container sm:w-32"
     >
@@ -58,7 +57,7 @@ export function VideoLine({
     readonly channelTitle: string;
   };
 }) {
-  const href = watchUrl(video.videoId);
+  const href = videoHref(video.videoId);
   const src = thumbnailUrl(video.videoId);
   return (
     <span className="flex min-w-0 items-center gap-2">
@@ -75,8 +74,6 @@ export function VideoLine({
         {href ? (
           <a
             href={href}
-            target="_blank"
-            rel="noopener noreferrer"
             className="hover:text-primary hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container"
           >
             {video.title}

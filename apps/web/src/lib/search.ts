@@ -1,27 +1,31 @@
 /**
- * The top bar's search: what a pasted YouTube link names, and which stored
- * channels a few typed letters match. Stored videos are matched by the
- * outlier bank on the server, which holds every stored video.
+ * The top bar's search: what a pasted YouTube link names, and the stored
+ * channels and videos a few typed letters match. Every stored channel and
+ * every stored video is searched on the server; the channels already on
+ * screen are matched here first, so the first results show at once.
  */
 import type { BankVideo } from '@jgtube/core';
+import {
+  CHANNEL_HITS,
+  MAX_SEARCH_CHARS,
+  MIN_SEARCH_CHARS,
+  channelOfHandle,
+  matchChannels,
+  type SearchChannel,
+} from '@jgtube/core/src/channel/search';
 import { parseChannelRef } from '@jgtube/core/src/sources/parse';
 import { parseVideoRef } from '@jgtube/core/src/video/ref';
+import { apiCaller, type Fetch } from './api';
 import { formatCount, formatScore } from './format';
+
+export { CHANNEL_HITS, MAX_SEARCH_CHARS, MIN_SEARCH_CHARS, channelOfHandle, matchChannels };
+export type { SearchChannel };
 
 /** What a pasted link names: a video, a channel by its id, or a channel by its @handle. */
 export type LinkTarget =
   | { readonly kind: 'video'; readonly videoId: string }
   | { readonly kind: 'channel'; readonly channelId: string }
   | { readonly kind: 'handle'; readonly handle: string };
-
-/** A channel the search can find: one on the map on screen, or one of the owner's. */
-export interface SearchChannel {
-  readonly id: string;
-  readonly title: string;
-  readonly handle: string | null;
-  readonly subscribers: number | null;
-  readonly logoUrl?: string | null;
-}
 
 export interface VideoHit {
   readonly videoId: string;
@@ -31,10 +35,6 @@ export interface VideoHit {
   readonly meta: string;
 }
 
-/** Fewer letters than this match too much to be worth showing. */
-export const MIN_SEARCH_CHARS = 2;
-export const MAX_SEARCH_CHARS = 200;
-export const CHANNEL_HITS = 5;
 export const VIDEO_HITS = 6;
 
 const LOOKS_LIKE_LINK = /^(https?:\/\/|www\.|m\.|youtube\.com|youtu\.be)/i;
@@ -72,49 +72,6 @@ export function linkTarget(input: string): LinkTarget | null {
   return CHANNEL_PATH.test(text) ? channelTarget(text) : null;
 }
 
-const fold = (text: string): string => text.toLowerCase().normalize('NFKD');
-
-/** How well a channel matches: 0 its name starts with the words, 1 a word of it does, 2 it holds them. */
-function rank(channel: SearchChannel, words: string): number | null {
-  const title = fold(channel.title);
-  const handle = fold((channel.handle ?? '').replace(/^@/, ''));
-  if (title.startsWith(words) || handle.startsWith(words.replace(/^@/, ''))) return 0;
-  if (title.split(/\s+/).some((word) => word.startsWith(words))) return 1;
-  return title.includes(words) || (handle !== '' && handle.includes(words)) ? 2 : null;
-}
-
-/** The stored channels a few letters match, best first, each once. */
-export function matchChannels(
-  query: string,
-  channels: readonly SearchChannel[],
-  limit: number = CHANNEL_HITS,
-): readonly SearchChannel[] {
-  const words = fold(query.trim());
-  if (words.length < MIN_SEARCH_CHARS) return [];
-  const seen = new Set<string>();
-  const ranked = channels.flatMap((channel) => {
-    if (seen.has(channel.id)) return [];
-    seen.add(channel.id);
-    const at = rank(channel, words);
-    return at === null ? [] : [{ channel, at }];
-  });
-  return [...ranked]
-    .sort((a, b) => a.at - b.at || (b.channel.subscribers ?? 0) - (a.channel.subscribers ?? 0))
-    .slice(0, limit)
-    .map((entry) => entry.channel);
-}
-
-/** A stored channel whose @handle is the one a link names; null when none is stored. */
-export function channelOfHandle(
-  handle: string,
-  channels: readonly SearchChannel[],
-): SearchChannel | null {
-  const wanted = fold(handle.replace(/^@/, ''));
-  return (
-    channels.find((channel) => fold((channel.handle ?? '').replace(/^@/, '')) === wanted) ?? null
-  );
-}
-
 /** One line under a channel's name in the results. */
 export const channelMeta = (channel: SearchChannel): string =>
   channel.subscribers === null ? 'Channel' : `${formatCount(channel.subscribers)} subscribers`;
@@ -130,8 +87,43 @@ export function videoHit(video: BankVideo): VideoHit {
   };
 }
 
-/** Whether the words are worth asking the bank about: not a link, and long enough. */
+/** Whether the words are worth searching the store for: not a link, and long enough. */
 export const searchable = (input: string): boolean => {
   const text = input.trim();
   return text.length >= MIN_SEARCH_CHARS && text.length <= MAX_SEARCH_CHARS && !linkTarget(text);
 };
+
+/**
+ * The channels to list: the ones already on screen that match, at once, and
+ * then every stored channel the server found, best match first, each once.
+ */
+export function mergeChannels(
+  words: string,
+  onScreen: readonly SearchChannel[],
+  stored: readonly SearchChannel[] | null,
+): readonly SearchChannel[] {
+  return matchChannels(words, [...(stored ?? []), ...onScreen]);
+}
+
+/** The search's own requests: every stored channel, by words or by a link. */
+export function createSearchApi(fetcher?: Fetch) {
+  const { call, unwrap } = apiCaller(fetcher);
+  return {
+    /** The stored channels the words match, on any map or none. */
+    async channels(words: string): Promise<readonly SearchChannel[]> {
+      const query = new URLSearchParams({ q: words.trim() });
+      return unwrap<{ channels: readonly SearchChannel[] }>(
+        await call(`/api/channels/search?${query.toString()}`),
+      ).channels;
+    },
+    /** The stored channel a link, an @handle or a channel id names; null when the store has none. */
+    async findChannel(ref: string): Promise<SearchChannel | null> {
+      const query = new URLSearchParams({ channel: ref.trim() });
+      return unwrap<{ channel: SearchChannel | null }>(
+        await call(`/api/channels/find?${query.toString()}`),
+      ).channel;
+    },
+  };
+}
+
+export type SearchApi = ReturnType<typeof createSearchApi>;

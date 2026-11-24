@@ -1,5 +1,6 @@
+import { videoHref } from '../lib/routes';
 import { readSections, type AnswerBlock } from '../lib/analyses';
-import { thumbnailUrl, watchUrl } from '../lib/format';
+import { thumbnailUrl } from '../lib/format';
 import {
   comparedLine,
   flagText,
@@ -17,14 +18,12 @@ import { ReadyPrompt } from './ReadyPrompt';
 
 /** One winner as a small thumbnail with its score, opening the video. */
 function WinnerChip({ thumb }: { readonly thumb: CompareThumb }) {
-  const href = watchUrl(thumb.videoId);
+  const href = videoHref(thumb.videoId);
   const src = thumbnailUrl(thumb.videoId);
   if (href === null || src === null) return null;
   return (
     <a
       href={href}
-      target="_blank"
-      rel="noopener noreferrer"
       title={`${thumb.title} · ${thumb.channelTitle}`}
       className="flex w-28 flex-none flex-col gap-1 rounded focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-container sm:w-32"
     >

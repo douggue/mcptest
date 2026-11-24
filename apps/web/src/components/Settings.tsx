@@ -126,6 +126,7 @@ export function Settings({ ai }: Props) {
   return (
     <ViewPage labelledBy="settings-title">
       <ViewHeader
+        page
         titleId="settings-title"
         title="Settings"
         icon={SettingsIcon}

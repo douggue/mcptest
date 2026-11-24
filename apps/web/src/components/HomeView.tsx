@@ -6,18 +6,14 @@ import { SavedChannels } from './SavedChannels';
 import { TodayBreakouts } from './TodayBreakouts';
 import type { ViewParts } from './viewParts';
 
-/** Before any map: what to do first, in one line. */
-function Welcome({ running }: { readonly running: boolean }) {
+/** While the first map is made: what is happening and how long. */
+function Welcome() {
   return (
     <Card>
-      <div role={running ? 'status' : undefined} className="flex flex-col gap-2">
-        <h3 className="text-headline-md font-bold text-on-surface">
-          {running ? 'Making your map' : 'Start with your channel'}
-        </h3>
+      <div role="status" className="flex flex-col gap-2">
+        <h3 className="text-headline-md font-bold text-on-surface">Making your map</h3>
         <p className="text-body-md text-on-surface-variant">
-          {running
-            ? 'This takes a few minutes. Keep this page open.'
-            : 'Paste your channel below and press Find competitors.'}
+          This takes a few minutes. Keep this page open.
         </p>
       </div>
     </Card>
@@ -42,7 +38,7 @@ export function HomeView({ page, work, path, openChannel }: ViewParts) {
             centerTitle={snapshot.center.title}
           />
         ) : (
-          <Welcome running={running} />
+          running && <Welcome />
         )}
         {page.visible && page.visible.breakouts.length > 0 && (
           <TodayBreakouts breakouts={page.visible.breakouts} />

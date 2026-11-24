@@ -4,16 +4,19 @@ import {
   VIEWS,
   breakdownHref,
   channelHref,
+  isUnknownAddress,
   myChannelHref,
   redirectOf,
   routeFromHash,
   routeHash,
+  videoHref,
   viewHref,
   type PlainView,
   type ViewId,
 } from '../src/lib/routes';
 
 const CHANNEL = 'UCHnyfMqiRRG1u-2MsSQLbXA';
+const VIDEO = 'dQw4w9WgXcQ';
 
 /** Every address of the app before the five places, and the screen it must still open. */
 const OLD_ADDRESSES: readonly (readonly [string, ViewId, string])[] = [
@@ -24,7 +27,8 @@ const OLD_ADDRESSES: readonly (readonly [string, ViewId, string])[] = [
   ['#/breakouts', 'breakouts', '#/discover/videos'],
   ['#/outlier-bank', 'outlier-bank', '#/discover/videos/bank'],
   ['#/same-topic', 'same-topic', '#/discover/channels/same-topic'],
-  ['#/thumbnails', 'thumbnails', '#/my-channel/videos/thumbnails'],
+  ['#/thumbnails', 'thumbnails', '#/discover/channels/thumbnails'],
+  ['#/my-channel/videos/thumbnails', 'thumbnails', '#/discover/channels/thumbnails'],
   ['#/transfers', 'transfers', '#/discover/videos/other-languages'],
   ['#/niches', 'niches', '#/discover/channels/new-niches'],
   ['#/formats', 'formats', '#/style/library'],
@@ -34,8 +38,10 @@ const OLD_ADDRESSES: readonly (readonly [string, ViewId, string])[] = [
   ['#/risk', 'risk', '#/create/scripts/check'],
   ['#/format', 'format', '#/style/my-format'],
   ['#/breakdown', 'breakdown', '#/discover/channels/study'],
-  [`#/breakdown/${CHANNEL}`, 'breakdown', `#/discover/channels/study/${CHANNEL}`],
-  ['#/video-breakdown', 'video-breakdown', '#/discover/videos/one-video'],
+  [`#/breakdown/${CHANNEL}`, 'channel', `#/channel/${CHANNEL}/breakdown`],
+  [`#/discover/channels/study/${CHANNEL}`, 'channel', `#/channel/${CHANNEL}/breakdown`],
+  ['#/video-breakdown', 'video-breakdown', '#/discover/videos/studied'],
+  ['#/discover/videos/one-video', 'video-breakdown', '#/discover/videos/studied'],
   ['#/own-videos', 'own-videos', '#/my-channel/videos'],
   ['#/calendar', 'calendar', '#/create/plan'],
   ['#/pacing', 'pacing', '#/my-channel/results'],
@@ -125,9 +131,29 @@ describe('an address from before the five places', () => {
     expect(routeFromHash(now)).toEqual(routeFromHash(old));
   });
 
-  test('keeps the channel a breakdown link names', () => {
-    expect(routeFromHash(`#/breakdown/${CHANNEL}`).channelId).toBe(CHANNEL);
-    expect(routeFromHash('#/breakdown/not-a-channel').channelId).toBeNull();
+  test('opens the Breakdown tab of the channel a breakdown link names', () => {
+    expect(routeFromHash(`#/breakdown/${CHANNEL}`)).toEqual({
+      view: 'channel',
+      channelId: CHANNEL,
+      anchor: null,
+      tab: 'breakdown',
+    });
+    expect(routeFromHash('#/breakdown/not-a-channel')).toEqual({
+      view: 'breakdown',
+      channelId: null,
+      anchor: null,
+    });
+  });
+
+  test('opens the Thumbnail tab of the video an old review link names', () => {
+    expect(routeFromHash(`#thumbnail-review-${VIDEO}`)).toEqual({
+      view: 'video',
+      channelId: null,
+      anchor: null,
+      videoId: VIDEO,
+      tab: 'thumbnail',
+    });
+    expect(routeFromHash('#thumbnail-review-title').view).toBe('thumbnails');
   });
 
   test('keeps Ask, Settings and a channel’s page where they were', () => {
@@ -142,8 +168,14 @@ describe('an address from before the five places', () => {
     expect(redirectOf('#idea-lab')).toBeNull();
   });
 
-  test('an address no screen has is shown as Today', () => {
+  test('an address no screen has is shown as Today, and is known to be unknown', () => {
     expect(redirectOf('#/nowhere')).toBe('#/today');
+    for (const hash of ['#/nowhere', '#/discover/nowhere', '#/channel/not-an-id', '#/video/x']) {
+      expect(isUnknownAddress(hash)).toBe(true);
+    }
+    for (const hash of ['', '#', '#/', '#/home', '#/today', '#/today/', '#/radar', '#idea-lab']) {
+      expect(isUnknownAddress(hash)).toBe(false);
+    }
   });
 });
 
@@ -174,27 +206,87 @@ describe('the address of a screen', () => {
   });
 });
 
+describe('a channel’s page', () => {
+  test('opens on its Overview, or on the tab named after it', () => {
+    expect(routeFromHash(`#/channel/${CHANNEL}/overview`)).toEqual({
+      view: 'channel',
+      channelId: CHANNEL,
+      anchor: null,
+    });
+    for (const tab of ['videos', 'thumbnails', 'breakdown'] as const) {
+      expect(routeFromHash(`#/channel/${CHANNEL}/${tab}`)).toEqual({
+        view: 'channel',
+        channelId: CHANNEL,
+        anchor: null,
+        tab,
+      });
+      expect(channelHref(CHANNEL, tab)).toBe(`#/channel/${CHANNEL}/${tab}`);
+    }
+    expect(channelHref(CHANNEL, 'overview')).toBe(`#/channel/${CHANNEL}`);
+    expect(routeFromHash(`#/channel/${CHANNEL}/nowhere`).tab).toBeUndefined();
+    expect(redirectOf(`#/channel/${CHANNEL}/nowhere`)).toBe(`#/channel/${CHANNEL}`);
+  });
+
+  test('reads back from its address, and ignores a tab that is a video’s', () => {
+    const route = routeFromHash(`#/channel/${CHANNEL}/thumbnails`);
+    expect(routeHash(route)).toBe(`#/channel/${CHANNEL}/thumbnails`);
+    expect(routeHash({ ...route, tab: 'teardown' })).toBe(`#/channel/${CHANNEL}`);
+  });
+});
+
+describe('a video’s page', () => {
+  test('opens on its Summary, or on the tab named after it', () => {
+    expect(routeFromHash(`#/video/${VIDEO}`)).toEqual({
+      view: 'video',
+      channelId: null,
+      anchor: null,
+      videoId: VIDEO,
+    });
+    expect(routeFromHash(`#/video/${VIDEO}/summary`).tab).toBeUndefined();
+    for (const tab of ['teardown', 'thumbnail', 'hook'] as const) {
+      expect(routeFromHash(`#/video/${VIDEO}/${tab}`)).toMatchObject({ videoId: VIDEO, tab });
+      expect(videoHref(VIDEO, tab)).toBe(`#/video/${VIDEO}/${tab}`);
+    }
+    expect(videoHref(VIDEO)).toBe(`#/video/${VIDEO}`);
+    expect(videoHref(VIDEO, 'summary')).toBe(`#/video/${VIDEO}`);
+  });
+
+  test('is Today for anything that is not a video id', () => {
+    expect(routeFromHash('#/video').view).toBe('home');
+    expect(routeFromHash('#/video/short').view).toBe('home');
+    expect(routeFromHash(`#/video/${VIDEO}x`).view).toBe('home');
+  });
+
+  test('reads back from its address', () => {
+    const route = routeFromHash(`#/video/${VIDEO}/hook`);
+    expect(routeHash(route)).toBe(`#/video/${VIDEO}/hook`);
+    expect(routeHash({ ...route, tab: 'videos' })).toBe(`#/video/${VIDEO}`);
+    expect(routeHash({ view: 'video', channelId: null, anchor: null })).toBe('#/today');
+    expect(redirectOf(`#/video/${VIDEO}`)).toBeNull();
+  });
+});
+
 describe('the addresses of a channel to study', () => {
-  test('open the list, or one channel in it', () => {
+  test('open the list of channels, or the Breakdown tab of one', () => {
     expect(routeFromHash('#/discover/channels/study')).toEqual({
       view: 'breakdown',
       channelId: null,
       anchor: null,
     });
-    expect(routeFromHash(`#/discover/channels/study/${CHANNEL}`)).toEqual({
-      view: 'breakdown',
+    expect(routeFromHash(`#/discover/channels/study/${CHANNEL}`)).toMatchObject({
+      view: 'channel',
       channelId: CHANNEL,
-      anchor: null,
+      tab: 'breakdown',
     });
-    expect(routeFromHash('#/discover/channels/study/not-a-channel').channelId).toBeNull();
+    expect(routeFromHash('#/discover/channels/study/not-a-channel').view).toBe('breakdown');
   });
 
   test('are made by one helper, for buttons anywhere in the app', () => {
     expect(breakdownHref()).toBe('#/discover/channels/study');
-    expect(breakdownHref(CHANNEL)).toBe(`#/discover/channels/study/${CHANNEL}`);
+    expect(breakdownHref(CHANNEL)).toBe(`#/channel/${CHANNEL}/breakdown`);
     expect(breakdownHref('@handle')).toBe('#/discover/channels/study');
-    expect(routeHash({ view: 'breakdown', channelId: CHANNEL, anchor: null })).toBe(
-      `#/discover/channels/study/${CHANNEL}`,
+    expect(routeHash({ view: 'breakdown', channelId: null, anchor: null })).toBe(
+      '#/discover/channels/study',
     );
   });
 

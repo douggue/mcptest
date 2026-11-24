@@ -201,7 +201,8 @@ function followed(context: Context, url: URL): Response {
   const channel = CHANNEL.safeParse(url.searchParams.get('channel'));
   if (!channel.success || channel.data === null) return fail(400, 'Give the channel’s id.');
   const view = context.options.engine.formatBuilder.followed(channel.data);
-  return view === null ? fail(404, 'This channel has no active format yet.') : ok(view);
+  // No active format is an answer, not a failure: the page says so and the browser logs no error.
+  return ok(view);
 }
 
 const POSTS: Readonly<Record<string, (context: Context, request: Request) => Promise<Response>>> = {

@@ -2,9 +2,9 @@ import type { BankVideo } from '@jgtube/core';
 import { describe, expect, test } from 'vitest';
 import {
   channelMeta,
-  channelOfHandle,
+  createSearchApi,
   linkTarget,
-  matchChannels,
+  mergeChannels,
   searchable,
   videoHit,
   type SearchChannel,
@@ -71,40 +71,46 @@ describe('a pasted link', () => {
   });
 });
 
-describe('the channels a few letters match', () => {
-  const channels = [
-    channel('a', 'Deep Steel Works', 500),
-    channel('b', 'Steel Daily', 90_000),
-    channel('c', 'Steelyard', 2_000_000),
-    channel('d', 'Unrelated', 10, '@steelfan'),
-    channel('e', 'Other', null),
-    channel('b', 'Steel Daily', 90_000),
-  ];
+describe('the channels to list', () => {
+  const onScreen = [channel('a', 'Steel Daily', 90_000), channel('b', 'Unrelated', 10)];
+  const stored = [channel('c', 'Steelyard', 2_000_000), channel('a', 'Steel Daily', 90_000)];
 
-  test('lists a name that starts with them first, then a word that does, then the rest', () => {
-    expect(matchChannels('steel', channels).map((each) => each.id)).toEqual(['c', 'b', 'd', 'a']);
-    expect(matchChannels('eel', channels).map((each) => each.id)).toEqual(['c', 'b', 'a', 'd']);
-  });
-
-  test('ignores case, lists a channel once and keeps to the limit', () => {
-    expect(matchChannels('  STEEL ', channels, 2).map((each) => each.id)).toEqual(['c', 'b']);
-    expect(matchChannels('@steelfan', channels).map((each) => each.id)).toEqual(['d']);
-  });
-
-  test('is empty for a single letter or no match', () => {
-    expect(matchChannels('s', channels)).toEqual([]);
-    expect(matchChannels('zzz', channels)).toEqual([]);
-  });
-
-  test('finds the stored channel a handle names', () => {
-    expect(channelOfHandle('SteelFan', channels)?.id).toBe('d');
-    expect(channelOfHandle('@steelfan', channels)?.id).toBe('d');
-    expect(channelOfHandle('nobody', channels)).toBeNull();
+  test('are the ones on screen at once, then every stored one the server found, each once', () => {
+    expect(mergeChannels('steel', onScreen, null).map((each) => each.id)).toEqual(['a']);
+    expect(mergeChannels('steel', onScreen, stored).map((each) => each.id)).toEqual(['c', 'a']);
+    expect(mergeChannels('s', onScreen, stored)).toEqual([]);
   });
 
   test('says how big a channel is under its name', () => {
     expect(channelMeta(channel('a', 'A', 1500))).toBe('1.5K subscribers');
     expect(channelMeta(channel('a', 'A', null))).toBe('Channel');
+  });
+});
+
+describe('the search api', () => {
+  const answering = (data: unknown, calls: string[]) =>
+    createSearchApi(async (path) => {
+      calls.push(String(path));
+      return new Response(JSON.stringify({ success: true, data, error: null }), {
+        headers: { 'content-type': 'application/json' },
+      });
+    });
+
+  test('asks the server for every stored channel the words match', async () => {
+    const calls: string[] = [];
+    const found = [channel('a', 'Steel Daily')];
+    const api = answering({ channels: found }, calls);
+    expect(await api.channels(' steel & co ')).toEqual(found);
+    expect(calls).toEqual(['/api/channels/search?q=steel+%26+co']);
+  });
+
+  test('asks the server which stored channel a link names', async () => {
+    const calls: string[] = [];
+    const api = answering({ channel: null }, calls);
+    expect(await api.findChannel('https://www.youtube.com/@some.channel')).toBeNull();
+    expect(calls).toEqual([
+      '/api/channels/find?channel=https%3A%2F%2Fwww.youtube.com%2F%40some.channel',
+    ]);
   });
 });
 

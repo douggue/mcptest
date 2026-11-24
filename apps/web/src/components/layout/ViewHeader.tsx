@@ -20,6 +20,8 @@ interface Props {
   /** A picture before the title, such as a channel's logo. */
   readonly media?: ReactNode;
   readonly titleId?: string;
+  /** The screen sits under no place, so its title is the page's: larger, and the page's one h1. */
+  readonly page?: boolean;
 }
 
 /**
@@ -30,7 +32,8 @@ interface Props {
  */
 export function ViewHeader(props: Props) {
   // `icon` is taken and not drawn: titles carry no icon, so they read the same on every view.
-  const { title, lead, count, actions, back, media, titleId } = props;
+  const { title, lead, count, actions, back, media, titleId, page } = props;
+  const Title = page ? 'h1' : 'h2';
   return (
     <header className="flex min-w-0 flex-wrap items-center gap-x-space-md gap-y-space-sm">
       {back && (
@@ -50,15 +53,15 @@ export function ViewHeader(props: Props) {
       )}
       {media}
       <div className="flex min-w-0 flex-1 basis-56 flex-col gap-0.5">
-        <h2
+        <Title
           id={titleId}
-          className="flex min-w-0 flex-wrap items-center gap-2 text-headline-md text-on-surface"
+          className={`flex min-w-0 flex-wrap items-center gap-2 text-on-surface ${page ? 'text-headline-lg' : 'text-headline-md'}`}
         >
           <span className="min-w-0 break-words">{title}</span>
           {count !== undefined && (
             <span className="text-body-md font-normal text-outline">({count})</span>
           )}
-        </h2>
+        </Title>
         {lead && <div className="text-body-md text-on-surface-variant">{lead}</div>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

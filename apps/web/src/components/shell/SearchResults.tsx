@@ -1,9 +1,10 @@
-import { Clapperboard, Link2, type LucideIcon } from 'lucide-react';
+import { Clapperboard, Link2, Upload, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { thumbnailUrl } from '../../lib/format';
-import { channelMeta, type LinkTarget, type SearchChannel, type VideoHit } from '../../lib/search';
+import { viewHref } from '../../lib/routes';
+import { channelMeta, type LinkTarget, type VideoHit } from '../../lib/search';
 import { Avatar } from '../ui/Row';
-import type { SearchResults as Results } from './useSearch';
+import type { Linked, SearchResults as Results } from './useSearch';
 
 const ITEM =
   'flex min-h-14 w-full min-w-0 items-center gap-3 rounded px-3 py-2 text-left transition-colors hover:bg-white/[0.06] focus-visible:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-signal disabled:opacity-60';
@@ -54,6 +55,8 @@ function VideoThumbSmall({ videoId }: { readonly videoId: string }) {
 export interface SearchActions {
   readonly openChannel: (channelId: string) => void;
   readonly openVideo: (videoId: string) => void;
+  /** Closes the results, as after any pick. */
+  readonly close: () => void;
   /** Reads a channel that is not stored from YouTube, then opens it. */
   readonly readChannel: (ref: string) => void;
   /** A channel is being read from YouTube. */
@@ -65,27 +68,57 @@ export interface SearchActions {
 interface LinkProps {
   readonly link: LinkTarget;
   readonly text: string;
-  /** The stored channel the link names, when it is one. */
-  readonly stored: SearchChannel | null;
+  /** What the store holds for the link. */
+  readonly linked: Linked | null;
   readonly actions: SearchActions;
 }
 
+/** The one row a pasted video link gives: its stored title when it has one. */
+function VideoLinkRow({ link, linked, actions }: LinkProps & { readonly link: VideoLink }) {
+  const stored = linked?.status === 'video' ? linked.video : null;
+  return (
+    <button type="button" className={ITEM} onClick={() => actions.openVideo(link.videoId)}>
+      <VideoThumbSmall videoId={link.videoId} />
+      {stored ? (
+        <Words
+          title={stored.title}
+          meta={`Open its page · ${stored.channelTitle} · ${stored.meta}`}
+        />
+      ) : (
+        <Words
+          title="Open this video"
+          meta={
+            linked?.status === 'missing'
+              ? 'Not stored yet. Its page is where you break it down.'
+              : 'Looking it up in the store…'
+          }
+        />
+      )}
+    </button>
+  );
+}
+
+type VideoLink = Extract<LinkTarget, { kind: 'video' }>;
+
 /** The one row a pasted link gives: the video or the channel it names. */
-function LinkRow({ link, text, stored, actions }: LinkProps) {
-  if (link.kind === 'video') {
-    return (
-      <button type="button" className={ITEM} onClick={() => actions.openVideo(link.videoId)}>
-        <VideoThumbSmall videoId={link.videoId} />
-        <Words title="Open this video" meta="Break it down, or review its thumbnail" />
-      </button>
-    );
-  }
-  if (stored) {
+function LinkRow(props: LinkProps) {
+  const { link, text, linked, actions } = props;
+  if (link.kind === 'video') return <VideoLinkRow {...props} link={link} />;
+  if (linked?.status === 'channel') {
+    const stored = linked.channel;
     return (
       <button type="button" className={ITEM} onClick={() => actions.openChannel(stored.id)}>
         <Avatar title={stored.title} logoUrl={stored.logoUrl} />
         <Words title={stored.title} meta={`Open this channel · ${channelMeta(stored)}`} />
       </button>
+    );
+  }
+  if (linked?.status !== 'missing') {
+    return (
+      <p role="status" className={`${ITEM} text-body-md text-muted`}>
+        <IconTile icon={Link2} />
+        Looking the channel up in the store…
+      </p>
     );
   }
   return (
@@ -97,8 +130,10 @@ function LinkRow({ link, text, stored, actions }: LinkProps) {
     >
       <IconTile icon={Link2} />
       <Words
-        title={actions.reading ? 'Reading the channel from YouTube…' : 'Open this channel'}
-        meta="It is not stored yet. Jgtube reads it from YouTube first."
+        title={
+          actions.reading ? 'Reading the channel from YouTube…' : 'Read this channel from YouTube'
+        }
+        meta="It is not in your store yet. Jgtube reads it, then opens its page."
       />
     </button>
   );
@@ -107,8 +142,6 @@ function LinkRow({ link, text, stored, actions }: LinkProps) {
 interface Props {
   readonly text: string;
   readonly results: Results;
-  /** The stored channel a pasted channel link names; null when none. */
-  readonly storedLink: SearchChannel | null;
   readonly actions: SearchActions;
 }
 
@@ -137,12 +170,12 @@ function Videos({
 }
 
 /** What the search found, under the box: a pasted link's one row, or channels and videos. */
-export function SearchResults({ text, results, storedLink, actions }: Props) {
-  const { link, channels, videos, loading, problem } = results;
+export function SearchResults({ text, results, actions }: Props) {
+  const { link, linked, channels, videos, loading, problem } = results;
   if (link) {
     return (
       <div className="flex flex-col">
-        <LinkRow link={link} text={text} stored={storedLink} actions={actions} />
+        <LinkRow link={link} text={text} linked={linked} actions={actions} />
         {actions.readProblem && (
           <p role="alert" className="px-3 pb-2 text-body-sm text-bad">
             {actions.readProblem}
@@ -175,14 +208,25 @@ export function SearchResults({ text, results, storedLink, actions }: Props) {
           The stored videos were not searched: {problem}
         </p>
       )}
-      {nothing && !problem && (
-        <p role="status" className="flex items-center gap-3 px-3 py-3 text-body-md text-muted">
-          <Clapperboard aria-hidden="true" className="h-5 w-5 flex-none text-dim" />
-          {loading
-            ? 'Searching what is stored…'
-            : 'Nothing stored matches. Paste a YouTube link to open a channel or a video.'}
+      {loading && (
+        <p role="status" className="px-3 py-2 text-body-sm text-dim">
+          Searching videos…
         </p>
       )}
+      {nothing && !loading && !problem && (
+        <p role="status" className="flex items-center gap-3 px-3 py-3 text-body-md text-muted">
+          <Clapperboard aria-hidden="true" className="h-5 w-5 flex-none text-dim" />
+          Nothing stored matches. Paste a YouTube link to open a channel or a video.
+        </p>
+      )}
+      <a
+        href={viewHref('video-breakdown')}
+        onClick={actions.close}
+        className={`${ITEM} mt-1 border-t border-line text-body-sm font-semibold text-link`}
+      >
+        <Upload aria-hidden="true" className="h-4 w-4 flex-none" />
+        Add a video file
+      </a>
     </div>
   );
 }

@@ -34,8 +34,8 @@ export function Segmented<T extends string>(props: Props<T>) {
             onClick={() => onChange(option.value)}
             className={`min-h-9 rounded-md px-3 text-body-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
               chosen
-                ? 'bg-primary-container text-space-deep'
-                : 'text-on-surface-variant hover:bg-surface-card hover:text-on-surface'
+                ? 'border border-line-2 bg-white/[0.12] text-white'
+                : 'border border-transparent text-on-surface-variant hover:bg-surface-card hover:text-on-surface'
             }`}
           >
             {option.label}

@@ -188,7 +188,7 @@ export function ScriptWriter(props: Props) {
         <>
           <ViewHeader
             titleId="script-writer-title"
-            title="Scripts"
+            title="My scripts"
             lead="Hooks and beats, then the draft, then a tighten pass."
           />
           <ScriptPicker

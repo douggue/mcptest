@@ -9,8 +9,7 @@ import {
   mediaUrl,
   paletteOf,
 } from '../lib/formatShelf';
-import { viewHref } from '../lib/routes';
-import { handVideo } from '../lib/videoHandoff';
+import { videoHref } from '../lib/routes';
 import { Card } from './layout/Card';
 import { Details } from './layout/Details';
 import { FIELD, PILL } from './LabStatus';
@@ -173,11 +172,7 @@ export function IngredientCard({ item, onRemove, onNote, use }: Props) {
           </button>
         )}
         {video !== null && (
-          <a
-            href={viewHref('video-breakdown')}
-            onClick={() => handVideo(video)}
-            className={ICON_BUTTON}
-          >
+          <a href={videoHref(video, 'teardown')} className={ICON_BUTTON}>
             <Film aria-hidden="true" className="h-4 w-4" />
             Analyse it
           </a>

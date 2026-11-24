@@ -82,7 +82,7 @@ describe('where a thing in the idea lab or the script writer came from', () => {
     });
     expect(originLink('review')).toEqual({
       label: 'the thumbnail review',
-      href: '#/my-channel/videos/thumbnails',
+      href: '#/discover/channels/thumbnails',
     });
   });
 });

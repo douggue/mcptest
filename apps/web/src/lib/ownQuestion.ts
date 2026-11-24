@@ -1,5 +1,6 @@
 import { AUTOMATIC, type EngineChoice } from './analyses';
 import { apiCaller, type Fetch } from './api';
+import type { AskAbout } from './askContext';
 
 /**
  * The owner's own question in Ask AI: one line, sent to the server as data,
@@ -32,11 +33,18 @@ export function createOwnQuestionApi(fetcher?: Fetch) {
   const { call, unwrap, send } = apiCaller(fetcher);
   return {
     /** Asks the question about the channel and waits for the kept answer. */
-    async ask(channel: string, question: string, choice: EngineChoice): Promise<OwnAnswer> {
+    async ask(
+      channel: string,
+      question: string,
+      choice: EngineChoice,
+      about?: AskAbout,
+    ): Promise<OwnAnswer> {
       const body = {
         channel,
         question: question.trim(),
         ...(choice === AUTOMATIC ? {} : { engine: choice }),
+        // The channel or video on screen while asking, by its id.
+        ...(about ? { about } : {}),
       };
       return unwrap<OwnAnswer>(await send(PATH, body));
     },

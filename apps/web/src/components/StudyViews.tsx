@@ -10,9 +10,9 @@ const reloadOf = ({ work }: ViewParts): string => work.refresh.run.status;
 
 /** The views of the rail's Study group, each drawn on its own. */
 export const STUDY_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
-  ask: withMap('ask', (snapshot, { ask }) => (
-    <AskClaude session={ask} centerTitle={snapshot.center.title} />
-  )),
+  ask: ({ ask, askLarge }) => (
+    <AskClaude session={ask} context={askLarge.context} onShrink={askLarge.shrink} />
+  ),
   // Each of these is about the owner's own channel: with none yet, the screen says so.
   'own-videos': withMap('own-videos', (snapshot, parts) => (
     <OwnVideos channelId={snapshot.center.id} reloadKey={reloadOf(parts)} />

@@ -189,6 +189,15 @@ export function bankEngine(deps: BankFindDeps): BankInside {
         return { ...outcome, bankBefore: before, bankAfter: reader.read().videos.length };
       });
     },
+    video(videoId) {
+      const video = reader.read().videos.find((one) => one.videoId === videoId);
+      if (!video) return null;
+      return {
+        video,
+        collections: collections.list(),
+        saved: collections.membership().get(videoId) ?? [],
+      };
+    },
     collections: collectionsPart(deps, collections, () => reader.read()),
     videos: () => reader.read().videos,
   };

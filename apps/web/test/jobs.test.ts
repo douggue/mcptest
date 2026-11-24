@@ -93,6 +93,20 @@ describe('where a job is shown', () => {
     expect(viewOfJob(job({ kind: 'work' }))).toBeNull();
     expect(jobHref(job({ kind: 'work' }))).toBeNull();
   });
+
+  test('a breakdown is followed on its channel’s page, a teardown on its video’s', () => {
+    expect(jobHref(job({ kind: 'breakdown' }))).toBe(`#/channel/${CHANNEL}/breakdown`);
+    expect(jobHref(job({ kind: 'breakdown', channelId: null }))).toBe('#/discover/channels/study');
+    expect(jobHref(job({ kind: 'video-breakdown', videoId: 'dQw4w9WgXcQ' }))).toBe(
+      '#/video/dQw4w9WgXcQ/teardown',
+    );
+    expect(jobHref(job({ kind: 'video-breakdown', videoId: null }))).toBe(
+      '#/discover/videos/studied',
+    );
+    expect(jobHref(job({ kind: 'video-breakdown', videoId: 'not a video id' }))).toBe(
+      '#/discover/videos/studied',
+    );
+  });
 });
 
 describe('elapsedText', () => {

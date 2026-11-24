@@ -41,7 +41,7 @@ function ScrollRow({
   return (
     <nav
       aria-label={label}
-      className={`no-scrollbar -mx-4 flex min-w-0 overflow-x-auto px-4 sm:mx-0 sm:px-0 ${className}`}
+      className={`no-scrollbar -mx-4 flex min-w-0 overflow-x-auto pl-4 pr-10 [mask-image:linear-gradient(to_right,black_calc(100%-2.5rem),transparent)] sm:mx-0 sm:px-0 sm:[mask-image:none] ${className}`}
     >
       {children}
     </nav>

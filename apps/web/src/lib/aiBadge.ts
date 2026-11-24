@@ -63,7 +63,7 @@ function automaticBadge(lines: readonly EngineLine[]): AiBadge {
         lines,
       }
     : {
-        name: 'No AI ready',
+        name: NONE_READY,
         automatic: true,
         ready: false,
         summary: 'Automatic: no AI is set up on this computer.',
@@ -72,6 +72,10 @@ function automaticBadge(lines: readonly EngineLine[]): AiBadge {
 }
 
 /** What the badge says for the owner's choice and the engines the server reported. */
+/** The badge's name while the server has not said which AI is set up, and when none is. */
+const CHECKING = 'Checking';
+const NONE_READY = 'No AI ready';
+
 /** The answering engines that are set up and can be chosen; none before the report is in. */
 export function readyEngines(report: EngineReport | null): ReadonlySet<string> {
   if (report === null) return new Set();
@@ -81,7 +85,7 @@ export function readyEngines(report: EngineReport | null): ReadonlySet<string> {
 export function aiBadge(choice: EngineChoice, report: EngineReport | null): AiBadge {
   if (report === null) {
     return {
-      name: 'Checking',
+      name: CHECKING,
       automatic: choice === AUTOMATIC,
       ready: false,
       summary: 'Checking which AI is set up on this computer.',
@@ -99,4 +103,15 @@ export function aiBadge(choice: EngineChoice, report: EngineReport | null): AiBa
     summary: `Chosen: only ${name} answers${ready ? '' : ', and it is not set up'}.`,
     lines,
   };
+}
+
+/**
+ * Who answers, in the few words the Ask header has room for: "Checking…"
+ * while the server has not said, the AI's name when it is ready, and plainly
+ * that it is not set up when it is not.
+ */
+export function answersLine(badge: Pick<AiBadge, 'name' | 'ready'>): string {
+  if (badge.ready) return `${badge.name} answers`;
+  if (badge.name === CHECKING) return 'Checking…';
+  return badge.name === NONE_READY ? NONE_READY : `${badge.name} is not set up`;
 }

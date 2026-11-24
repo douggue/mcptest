@@ -2,6 +2,7 @@ import { Check, Layers } from 'lucide-react';
 import { useState } from 'react';
 import { createFormatApi, type IngredientSourceRequest } from '../lib/formatApi';
 import { viewHref } from '../lib/routes';
+import { buttonClass } from './ui/Button';
 
 const formatApi = createFormatApi();
 
@@ -17,6 +18,8 @@ interface Props {
   readonly label?: string;
   /** Icon only, with the words as its label: for a tight card. */
   readonly iconOnly?: boolean;
+  /** Drawn as a full second button, where it sits beside other buttons of that size. */
+  readonly large?: boolean;
 }
 
 const BUTTON =
@@ -27,11 +30,12 @@ const BUTTON =
  * shelf. The server reads the piece from the store and counts what it rests
  * on; once it is there the button links to the shelf.
  */
-export function AddToFormat({ source, label = 'Add to format', iconOnly }: Props) {
+export function AddToFormat({ source, label = 'Add to format', iconOnly, large }: Props) {
   const [state, setState] = useState<State>({ status: 'idle' });
+  const button = large ? buttonClass('second') : BUTTON;
   if (state.status === 'added') {
     return (
-      <a href={viewHref('format')} className={`${BUTTON} text-primary`}>
+      <a href={viewHref('format')} className={`${button} ${large ? '' : 'text-primary'}`}>
         <Check aria-hidden="true" className="h-4 w-4" />
         On your shelf
       </a>
@@ -57,7 +61,7 @@ export function AddToFormat({ source, label = 'Add to format', iconOnly }: Props
         disabled={state.status === 'adding'}
         aria-label={iconOnly ? label : undefined}
         title={iconOnly ? label : undefined}
-        className={BUTTON}
+        className={button}
       >
         <Layers aria-hidden="true" className="h-4 w-4" />
         {!iconOnly && (state.status === 'adding' ? 'Adding…' : label)}

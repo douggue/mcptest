@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChannelSwitcher } from './components/ChannelSwitcher';
 import { ConnectionsContext } from './components/Connections';
 import { Shell } from './components/Shell';
@@ -13,8 +13,15 @@ import { useWorkspace } from './components/useWorkspace';
 import { aiOf } from './components/viewParts';
 import { createApi } from './lib/api';
 import { askContext } from './lib/askContext';
-import { pageTitle, whereIs } from './lib/places';
-import { handVideo } from './lib/videoHandoff';
+import {
+  noteScreen,
+  pageTitle,
+  settled,
+  whereIs,
+  type LastScreens,
+  type PageName,
+} from './lib/places';
+import { routeHash } from './lib/routes';
 
 /**
  * The app: one screen at a time, named in the address. The rail opens the
@@ -25,7 +32,7 @@ import { handVideo } from './lib/videoHandoff';
  */
 export function App() {
   const api = useMemo(() => createApi(), []);
-  const { route, go } = useRoute();
+  const { route, go, notFound } = useRoute();
   const page = useMapPage(api);
   const work = useWorkspace(api, page.snapshot, page.saved);
   const path = usePagePath(page.snapshot, work, go);
@@ -35,15 +42,13 @@ export function App() {
     [go],
   );
   const openVideo = useCallback(
-    (videoId: string) => {
-      // The video is studied in the one-video screen, which fills its link with it.
-      handVideo(videoId);
-      go({ view: 'video-breakdown', channelId: null, anchor: null });
-    },
+    (videoId: string) => go({ view: 'video', channelId: null, anchor: null, videoId }),
     [go],
   );
   const { snapshot } = page;
   const centerId = snapshot?.center.id ?? null;
+  // A tab of the owner's own channel page, reached by its channel id, is a screen of My channel.
+  const shown = useMemo(() => settled(route, centerId), [route, centerId]);
   const { analysis, breakdown } = work;
   const ask = useAskSession(analysis, {
     centerId,
@@ -55,20 +60,42 @@ export function App() {
     [page.saved, snapshot],
   );
   const closeAsk = useCallback(() => setAsking(false), []);
+  // What Ask is about is the screen it was opened over: opened large, the last screen before it.
+  const lastScreen = useRef(shown);
+  if (shown.view !== 'ask') lastScreen.current = shown;
+  const context = askContext(lastScreen.current, snapshot);
+  const openLarge = useCallback(() => {
+    setAsking(false);
+    go({ view: 'ask', channelId: null, anchor: null });
+  }, [go]);
+  /** Back from the large view to the screen it was opened over, with the panel open. */
+  const shrinkAsk = useCallback(() => {
+    setAsking(true);
+    if (window.history.length > 1) window.history.back();
+    else go(lastScreen.current);
+  }, [go]);
 
+  // Each place is picked up where it was left: the menu leads back to its last screen.
+  const [last, setLast] = useState<LastScreens>({});
   useEffect(() => {
-    document.title = pageTitle(route, centerId);
-  }, [route, centerId]);
+    setLast((now) => noteScreen(now, shown, centerId, routeHash(shown)));
+  }, [shown, centerId]);
+  const [named, setNamed] = useState<PageName | null>(null);
+  const nameScreen = useCallback((id: string, name: string) => setNamed({ id, name }), []);
+  useEffect(() => {
+    document.title = pageTitle(shown, centerId, named);
+  }, [shown, centerId, named]);
   // Ask opened large is the same conversation on a page of its own: the panel steps aside.
-  const panelOpen = asking && route.view !== 'ask';
+  const panelOpen = asking && shown.view !== 'ask';
 
   return (
     <ConnectionsContext.Provider value={snapshot ? path.connections : null}>
       <Shell
-        active={route.view}
-        place={whereIs(route, centerId)?.place.id ?? null}
+        active={shown.view}
+        place={whereIs(shown, centerId)?.place.id ?? null}
+        last={last}
         asking={panelOpen}
-        onAsk={() => setAsking(route.view !== 'ask')}
+        onAsk={() => (shown.view === 'ask' ? shrinkAsk() : setAsking(true))}
         search={
           <SearchBox channels={searchable} onOpenChannel={openChannel} onOpenVideo={openVideo} />
         }
@@ -85,13 +112,24 @@ export function App() {
         }
       >
         <ViewHost
-          route={route}
-          parts={{ api, page, work, path, go, openChannel, ask }}
+          notFound={notFound}
+          route={shown}
+          parts={{
+            api,
+            page,
+            work,
+            path,
+            go,
+            openChannel,
+            ask,
+            nameScreen,
+            askLarge: { context, shrink: shrinkAsk },
+          }}
           ai={aiOf(work)}
         />
       </Shell>
       {panelOpen && (
-        <AskPanel session={ask} context={askContext(route, snapshot)} onClose={closeAsk} />
+        <AskPanel session={ask} context={context} onClose={closeAsk} onLarge={openLarge} />
       )}
     </ConnectionsContext.Provider>
   );

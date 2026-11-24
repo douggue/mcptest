@@ -1,6 +1,6 @@
 import { AddToFormat } from './AddToFormat';
 import { MoneyBadge } from './MoneyBadge';
-import { channelHref } from '../lib/routes';
+import { channelHref, videoHref } from '../lib/routes';
 import type { BreakoutVideo } from '@jgtube/core';
 import { Check, Plus, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
@@ -10,7 +10,7 @@ import {
   filterBreakouts,
   type BreakoutFilter,
 } from '../lib/feed';
-import { formatCount, formatDuration, formatScore, thumbnailUrl, watchUrl } from '../lib/format';
+import { formatCount, formatDuration, formatScore, thumbnailUrl } from '../lib/format';
 import { Notice, ShowMore } from './layout/Notice';
 import { Segmented } from './layout/Segmented';
 import { ViewHeader } from './layout/ViewHeader';
@@ -48,7 +48,7 @@ function Evidence({ item }: { readonly item: BreakoutVideo }) {
 
 /** One video taking off, as a thumbnail tile: picture, title, channel and views, and Add to ideas. */
 function BreakoutCard({ item, picked, onPick, onBreakDown }: CardProps) {
-  const href = watchUrl(item.videoId);
+  const href = videoHref(item.videoId);
   const thumbnail = thumbnailUrl(item.videoId);
   const duration = formatDuration(item.durationSeconds);
   return (
@@ -74,13 +74,7 @@ function BreakoutCard({ item, picked, onPick, onBreakDown }: CardProps) {
         )}
       </div>
       <h3 className="line-clamp-2 text-body-md font-semibold text-on-surface transition-colors group-hover:text-primary">
-        {href ? (
-          <a href={href} target="_blank" rel="noopener noreferrer">
-            {item.title}
-          </a>
-        ) : (
-          item.title
-        )}
+        {href ? <a href={href}>{item.title}</a> : item.title}
       </h3>
       <p className="truncate text-body-sm text-on-surface-variant">
         <a

@@ -21,6 +21,8 @@ describe('your videos against the active format', () => {
       format: { name: 'Long-form' },
     });
     expect(await api.followed('UCbbbbbbbbbbbbbbbbbbbbbb')).toBeNull();
+    const none = createFollowedApi(async () => envelope(null));
+    expect(await none.followed('UCaaaaaaaaaaaaaaaaaaaaaa')).toBeNull();
     expect(paths[0]).toBe('/api/format/followed?channel=UCaaaaaaaaaaaaaaaaaaaaaa');
     const failing = createFollowedApi(async () => envelope(null, 500, 'Broken'));
     await expect(failing.followed('UCaaaaaaaaaaaaaaaaaaaaaa')).rejects.toThrow('Broken');

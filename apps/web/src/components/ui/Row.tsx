@@ -40,6 +40,8 @@ interface RowProps {
   readonly meta?: ReactNode;
   /** One thing at the right: a badge, a level, a button. */
   readonly right?: ReactNode;
+  /** Lets the grey line run onto more lines instead of being cut: for a sentence, not a fact. */
+  readonly wrap?: boolean;
   /** With an address, the title and its line open it. */
   readonly href?: string;
   readonly as?: 'div' | 'li';
@@ -49,11 +51,15 @@ interface RowProps {
  * A row of a list: logo, name, one grey line, one thing on the right. Rows
  * are separated by a line and sit straight inside a card.
  */
-export function Row({ media, title, meta, right, href, as: Tag = 'div' }: RowProps) {
+export function Row({ media, title, meta, right, href, wrap, as: Tag = 'div' }: RowProps) {
   const words = (
     <>
-      <div className="truncate text-body-md font-semibold text-ink">{title}</div>
-      {meta !== undefined && <div className="truncate text-body-sm text-muted">{meta}</div>}
+      <div className={`text-body-md font-semibold text-ink ${wrap ? 'break-words' : 'truncate'}`}>
+        {title}
+      </div>
+      {meta !== undefined && (
+        <div className={`text-body-sm text-muted ${wrap ? 'break-words' : 'truncate'}`}>{meta}</div>
+      )}
     </>
   );
   return (

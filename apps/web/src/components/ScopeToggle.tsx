@@ -35,7 +35,7 @@ export function ScopeToggle({ scope, onChange, peerCount, totalCount }: Props) {
             onClick={() => onChange(option.id)}
             className={`min-h-9 rounded-md px-3 text-body-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
               chosen
-                ? 'bg-primary-container text-space-deep'
+                ? 'border border-line-2 bg-white/[0.12] text-white'
                 : 'text-on-surface-variant hover:bg-surface-card hover:text-on-surface'
             }`}
           >

@@ -118,9 +118,18 @@ describe('which rows the page shows', () => {
 });
 
 describe('a link to the review of one video', () => {
-  test('opens Thumbnails that worked at that video, and is read back from the address', () => {
-    expect(reviewHref('aaaaaaaaaaa')).toBe('#thumbnail-review-aaaaaaaaaaa');
-    expect(routeFromHash(reviewHref('aaaaaaaaaaa')).view).toBe('thumbnails');
+  test('opens the Thumbnail tab of that video’s page, as the old in-page link still does', () => {
+    expect(reviewHref('aaaaaaaaaaa')).toBe('#/video/aaaaaaaaaaa/thumbnail');
+    expect(routeFromHash(reviewHref('aaaaaaaaaaa'))).toMatchObject({
+      view: 'video',
+      videoId: 'aaaaaaaaaaa',
+      tab: 'thumbnail',
+    });
+    expect(routeFromHash('#thumbnail-review-aaaaaaaaaaa')).toMatchObject({
+      view: 'video',
+      videoId: 'aaaaaaaaaaa',
+      tab: 'thumbnail',
+    });
     expect(reviewVideoOf('#thumbnail-review-aaaaaaaaaaa')).toBe('aaaaaaaaaaa');
     expect(reviewVideoOf('#thumbnail-review-short')).toBeNull();
     expect(reviewVideoOf('#/thumbnails')).toBeNull();

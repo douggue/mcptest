@@ -1,3 +1,4 @@
+import { videoHref } from '../lib/routes';
 import { ExternalLink, Upload } from 'lucide-react';
 import { useState, type ChangeEvent } from 'react';
 import {
@@ -7,7 +8,6 @@ import {
   type UploadedVideo,
   type VideoToSupply,
 } from '../lib/breakdown';
-import { watchUrl } from '../lib/format';
 
 /** Sends one video file for a video, reporting the fraction sent as it goes. */
 export type SendVideo = (
@@ -30,7 +30,7 @@ interface RowProps {
 /** One video the owner can give a file for: what it is, why Jgtube has none, and the control to choose it. */
 function SupplyRow({ video, onSend }: RowProps) {
   const [state, setState] = useState<SendState>({ status: 'idle' });
-  const link = watchUrl(video.videoId);
+  const link = videoHref(video.videoId);
   const sending = state.status === 'sending';
 
   const choose = (event: ChangeEvent<HTMLInputElement>) => {
@@ -55,8 +55,6 @@ function SupplyRow({ video, onSend }: RowProps) {
         {link ? (
           <a
             href={link}
-            target="_blank"
-            rel="noopener noreferrer"
             className="flex min-w-0 items-center gap-1.5 text-body-md text-on-surface underline decoration-border-highlight underline-offset-2 hover:text-primary"
           >
             <span className="min-w-0 break-words">{video.title}</span>

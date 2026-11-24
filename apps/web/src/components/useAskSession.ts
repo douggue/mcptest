@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import type { AskAbout } from '../lib/askContext';
 import { choiceFor, latestKept, type AnalysisId, type KeptAnswer } from '../lib/analyses';
 import type { Analysis } from './useAnalysis';
 import { useKeptAnswers } from './useAnswers';
@@ -22,7 +23,8 @@ export interface AskSession {
   readonly busy: boolean;
   /** A channel breakdown is running, named by its channel; null when none is. */
   readonly breakingDown: string | null;
-  readonly ask: (question: string) => void;
+  /** Asks a question in the owner's words; `about` is the channel or video on screen. */
+  readonly ask: (question: string, about?: AskAbout) => void;
   readonly quick: (question: AnalysisId) => void;
 }
 
@@ -47,9 +49,9 @@ export function useAskSession(analysis: Analysis, around: Around): AskSession {
   const { ask: askOwn } = own;
   const { choice, engines, run } = analysis;
   const ask = useCallback(
-    (question: string) => {
+    (question: string, about?: AskAbout) => {
       setChosen('own');
-      askOwn(question, choice);
+      askOwn(question, choice, about);
     },
     [askOwn, choice],
   );

@@ -132,6 +132,28 @@ describe('the outlier bank routes', () => {
     expect(none.page.matched).toBe(0);
   });
 
+  test('give one stored video by its id, with the collections it is in', async () => {
+    const { app, engine } = world();
+    await engine.crawl('@chanA', 1, () => {});
+    const first = (await read<BankLook>(await get(app, '/api/bank'))).data.page.videos[0];
+    const videoId = first?.videoId ?? '';
+    type One = { found: { video: { videoId: string }; saved: number[] } | null };
+    const one = (await read<One>(await get(app, `/api/bank/video?video=${videoId}`))).data;
+    expect(one.found?.video).toMatchObject({ videoId, title: first?.title, score: first?.score });
+    expect(one.found?.saved).toEqual([]);
+
+    const made = await post(app, '/api/bank/collections/create', { name: 'Kept' });
+    const { collection } = (await read<{ collection: { id: number } }>(made)).data;
+    await post(app, '/api/bank/collections/add', { id: collection.id, video: videoId });
+    const saved = (await read<One>(await get(app, `/api/bank/video?video=${videoId}`))).data;
+    expect(saved.found?.saved).toEqual([collection.id]);
+
+    const unknown = (await read<One>(await get(app, '/api/bank/video?video=abcdefghijk'))).data;
+    expect(unknown.found).toBeNull();
+    expect((await get(app, '/api/bank/video?video=nope')).status).toBe(400);
+    expect((await get(app, '/api/bank/video')).status).toBe(400);
+  });
+
   test('find more outliers without a key: says the cost, runs as a job, grows the bank', async () => {
     const { app, searches } = world();
     const info = (await read<FindInfo>(await get(app, '/api/bank/find?channels=2'))).data;

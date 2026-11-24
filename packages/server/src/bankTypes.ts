@@ -18,6 +18,14 @@ import type { LazySource } from './connection';
 export type { BankLook, FindInfo, FindResult } from '@jgtube/core/src/bank/view';
 import type { BankLook, FindInfo, FindResult } from '@jgtube/core/src/bank/view';
 
+/** One stored video as its own page shows it. */
+export interface BankVideoLook {
+  readonly video: BankVideo;
+  /** The owner's collections, and which of them hold this video. */
+  readonly collections: readonly BankCollection[];
+  readonly saved: readonly number[];
+}
+
 export interface CollectionFile {
   readonly filename: string;
   readonly type: string;
@@ -33,6 +41,8 @@ export interface BankInside extends BankEngine {
 export interface BankEngine {
   /** One page of the bank under the filters given; reads the store only. */
   look(state: BankFilterState, page: { readonly offset: number; readonly limit: number }): BankLook;
+  /** One stored video with its score and the collections it is in; null when it is not stored. */
+  video(videoId: string): BankVideoLook | null;
   /** How a find would read YouTube now, what it would cost, and what is left of today's cap. */
   findInfo(channels: number): FindInfo;
   /** Searches and reads the channels found, under the store's lease. */

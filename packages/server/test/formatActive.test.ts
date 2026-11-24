@@ -108,7 +108,9 @@ describe('the active format routes', () => {
     const item = shelf.add(title, NOW);
     const id = engine.createFormat('Long-form', 600, A).id;
     engine.updateFormat(id, { slots: { title: { ingredientId: item.id, note: '' } } });
-    expect((await get(app, `/api/format/followed?channel=${A}`)).status).toBe(404);
+    const none = await get(app, `/api/format/followed?channel=${A}`);
+    expect(none.status).toBe(200);
+    expect((await read(none)).data).toBeNull();
     expect((await post(app, '/api/format/active', { channel: A, id: 99 })).status).toBe(404);
     expect((await post(app, '/api/format/active', { channel: 'bad', id })).status).toBe(400);
     const set = await read<{ formats: FormatView[] }>(

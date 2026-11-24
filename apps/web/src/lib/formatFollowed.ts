@@ -22,7 +22,7 @@ export function createFollowedApi(fetcher?: Fetch) {
     /** The channel's videos against its active format; null when it has none. */
     async followed(channel: string): Promise<FollowedView | null> {
       try {
-        return unwrap<FollowedView>(
+        return unwrap<FollowedView | null>(
           await call(`${FOLLOWED_PATH}?channel=${encodeURIComponent(channel)}`),
         );
       } catch (error) {

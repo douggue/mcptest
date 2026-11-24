@@ -1,6 +1,7 @@
+import { videoHref } from '../lib/routes';
 import { AddToFormat } from './AddToFormat';
 import type { LinkedVideo, PlanTableRow } from '@jgtube/core';
-import { formatDuration, thumbnailUrl, watchUrl } from '../lib/format';
+import { formatDuration, thumbnailUrl } from '../lib/format';
 import { KIND_LABELS, inspirationLine, medianText, scoreLine, tableCaution } from '../lib/plan';
 import { Card, Label } from './layout/Card';
 import { Details } from './layout/Details';
@@ -13,11 +14,11 @@ interface CardProps {
 }
 
 function VideoTitle({ video }: { readonly video: LinkedVideo }) {
-  const href = watchUrl(video.videoId);
+  const href = videoHref(video.videoId);
   return (
     <p className="line-clamp-2 break-words text-title-md font-semibold text-on-surface">
       {href ? (
-        <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-primary">
+        <a href={href} className="hover:text-primary">
           {video.videoTitle}
         </a>
       ) : (

@@ -1,5 +1,6 @@
+import { videoHref } from '../lib/routes';
 import type { BreakoutVideo } from '@jgtube/core';
-import { formatCount, formatScore, thumbnailUrl, watchUrl } from '../lib/format';
+import { formatCount, formatScore, thumbnailUrl } from '../lib/format';
 import { previewNeighbours, titleCheck, type ConceptView } from '../lib/ideaLab';
 
 /** The frame every card of the preview shares: a 16:9 picture, then two lines of title. */
@@ -31,7 +32,7 @@ function Draft({ title, overlay, shorts }: DraftProps) {
 /** A real video from this map, as a feed would show it. */
 function Real({ video }: { readonly video: BreakoutVideo }) {
   const picture = thumbnailUrl(video.videoId);
-  const href = watchUrl(video.videoId);
+  const href = videoHref(video.videoId);
   return (
     <div className={CARD}>
       <div className={PICTURE}>
@@ -47,7 +48,7 @@ function Real({ video }: { readonly video: BreakoutVideo }) {
       </div>
       <p className={TITLE}>
         {href ? (
-          <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-primary">
+          <a href={href} className="hover:text-primary">
             {video.title}
           </a>
         ) : (

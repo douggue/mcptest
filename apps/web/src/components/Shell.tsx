@@ -1,6 +1,6 @@
 import { Settings as SettingsIcon, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { PlaceId } from '../lib/places';
+import type { LastScreens, PlaceId } from '../lib/places';
 import { viewHref, type ViewId } from '../lib/routes';
 import { BottomBar, Rail } from './shell/PlaceNav';
 import { IconButton } from './ui/Button';
@@ -11,6 +11,8 @@ interface Props {
   readonly active: ViewId;
   /** The place it sits in, marked in the rail; null for Ask and Settings. */
   readonly place: PlaceId | null;
+  /** The screen last open in each place, which the menu leads back to. */
+  readonly last: LastScreens;
   /** Which channel the app is about and the way to switch, beside the logo. */
   readonly switcher?: ReactNode;
   /** The search box, in the middle of the bar. */
@@ -56,7 +58,8 @@ function AskButton({ asking, onAsk }: Pick<Props, 'asking' | 'onAsk'>) {
  * the work under way, Ask and Settings; the five places in a rail on a wide
  * screen and in a bar at the foot of a phone; and the screen itself.
  */
-export function Shell({ active, place, switcher, search, asking, onAsk, children }: Props) {
+export function Shell(props: Props) {
+  const { active, place, last, switcher, search, asking, onAsk, children } = props;
   return (
     <>
       <header className="fixed left-0 top-0 z-50 flex h-14 w-full min-w-0 items-center gap-2 border-b border-line bg-ground/85 px-4 backdrop-blur-[14px] md:h-16 md:gap-4 md:px-6">
@@ -76,9 +79,9 @@ export function Shell({ active, place, switcher, search, asking, onAsk, children
       </header>
 
       <aside className="fixed bottom-0 left-0 top-16 z-40 hidden w-[220px] flex-col border-r border-line px-3 py-4 md:flex">
-        <Rail active={place} />
+        <Rail active={place} last={last} />
       </aside>
-      <BottomBar active={place} />
+      <BottomBar active={place} last={last} />
 
       <div className="md:pl-[220px]">
         <main id="top" className="relative min-h-screen min-w-0 pb-24 pt-14 md:pb-10 md:pt-16">

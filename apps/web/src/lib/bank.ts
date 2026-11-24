@@ -17,6 +17,14 @@ import { formatAge, formatCount, formatDuration } from './format';
 
 export type { BankLook, FindInfo, FindResult };
 export const BANK_PATH = '/api/bank';
+
+/** One stored video as its own page shows it. */
+export interface BankVideoLook {
+  readonly video: BankVideo;
+  readonly collections: readonly BankCollection[];
+  /** The collections that hold this video. */
+  readonly saved: readonly number[];
+}
 /** The browser key the choice is kept under; versioned so a new shape starts afresh. */
 export const BANK_FILTERS_KEY = 'jgtube.bankFilters.v1';
 
@@ -112,6 +120,12 @@ export function createBankApi(fetcher?: Fetch) {
   return {
     async look(state: BankFilterState, offset: number, limit: number): Promise<BankLook> {
       return unwrap<BankLook>(await call(bankLookPath(state, offset, limit)));
+    },
+    /** One stored video with its score and the collections it is in; null when it is not stored. */
+    async video(videoId: string): Promise<BankVideoLook | null> {
+      return unwrap<{ found: BankVideoLook | null }>(
+        await call(`${BANK_PATH}/video?video=${encodeURIComponent(videoId)}`),
+      ).found;
     },
     async findInfo(channels: number): Promise<FindInfo & { jobId: string | null }> {
       return unwrap(await call(`${BANK_PATH}/find?channels=${channels}`));
