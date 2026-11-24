@@ -56,6 +56,7 @@ export const DESTINATIONS: readonly Destination[] = [
       { label: 'Ideas', view: 'ideas' },
       { label: 'Script', view: 'script' },
       { label: 'Check', view: 'risk' },
+      { label: 'Format', view: 'format' },
     ],
   },
   {

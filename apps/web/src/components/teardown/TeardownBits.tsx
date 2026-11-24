@@ -1,3 +1,4 @@
+import { AddToFormat } from '../AddToFormat';
 import type { ReactNode } from 'react';
 import { imageUrl } from '../../lib/teardown';
 import { Notice } from '../layout/Notice';
@@ -78,12 +79,15 @@ export function TeardownSection({
   note,
   problem,
   children,
+  adds,
 }: {
   readonly id: string;
   readonly title: string;
   readonly note?: string | null;
   readonly problem?: string | null;
   readonly children?: ReactNode;
+  /** Its "Add to format" buttons, under the heading. */
+  readonly adds?: ReactNode;
 }) {
   return (
     <section aria-labelledby={id} className="flex min-w-0 flex-col gap-space-sm">
@@ -91,6 +95,7 @@ export function TeardownSection({
         {title}
       </h4>
       {note ? <p className="text-body-sm text-outline">{note}</p> : null}
+      {adds}
       {problem ? <Notice tone="problem">{`Not made: ${problem}`}</Notice> : null}
       {children}
     </section>
@@ -114,5 +119,30 @@ export function Points({ items }: { readonly items: readonly ReactNode[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** The parts of one teardown section the owner can put on the format builder's shelf. */
+export function TeardownAdds({
+  videoId,
+  measured,
+  sections,
+}: {
+  readonly videoId: string;
+  /** Nothing can be added before the video is measured. */
+  readonly measured: boolean;
+  readonly sections: readonly { readonly section: string; readonly label?: string }[];
+}) {
+  if (!measured) return null;
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-1">
+      {sections.map(({ section, label }) => (
+        <AddToFormat
+          key={section}
+          source={{ kind: 'teardown', videoId, section, index: 0 }}
+          label={label ?? 'Add to format'}
+        />
+      ))}
+    </div>
   );
 }

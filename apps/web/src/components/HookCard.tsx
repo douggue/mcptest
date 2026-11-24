@@ -2,6 +2,7 @@ import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 import { formatCount, formatScore } from '../lib/format';
 import { hookPreview, withoutWords, type LibraryHook } from '../lib/hookLibrary';
+import { AddToFormat } from './AddToFormat';
 import { Card } from './layout/Card';
 import { Details } from './layout/Details';
 import { QUIET_BUTTON } from './LabStatus';
@@ -99,6 +100,8 @@ function Words({ hook, seconds }: { readonly hook: LibraryHook; readonly seconds
 interface Props {
   readonly hook: LibraryHook;
   readonly seconds: number;
+  /** The map's own channel, whose library it is in; null while it is not known. */
+  readonly center?: string | null;
   /** It is among the idea lab's picks. */
   readonly picked: boolean;
   readonly onUse: () => void;
@@ -109,7 +112,7 @@ interface Props {
 }
 
 /** One opening of a breakout video: its style and score, its words, and what to do with it. */
-export function HookCard({ hook, seconds, picked, onUse, onModel, modelled }: Props) {
+export function HookCard({ hook, seconds, center, picked, onUse, onModel, modelled }: Props) {
   return (
     <Card as="article" id={`hook-${hook.videoId}`} className="h-full">
       <Top hook={hook} />
@@ -136,6 +139,7 @@ export function HookCard({ hook, seconds, picked, onUse, onModel, modelled }: Pr
                 {modelled ? 'A model for the script' : 'Model this in the script'}
               </button>
             )}
+            {center && <AddToFormat source={{ kind: 'hook', center, videoId: hook.videoId }} />}
             <span className="ml-auto">
               <CopyButton text={hook.text} />
             </span>

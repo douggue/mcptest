@@ -35,7 +35,12 @@ function Tiles({ videos, grid, emptyText, board }: TilesProps) {
   return (
     <div className={grid}>
       {videos.map((video) => (
-        <ThumbnailTile key={video.videoId} video={video} tone={scoreTone(video.score, board)} />
+        <ThumbnailTile
+          key={video.videoId}
+          video={video}
+          tone={scoreTone(video.score, board)}
+          addable
+        />
       ))}
     </div>
   );

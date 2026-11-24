@@ -129,3 +129,12 @@ export function uploadBreakdownFile(
 ): Promise<SavedFile> {
   return sendFile<SavedFile>(FILES_PATH, type, file, onProgress, createRequest);
 }
+
+/** Sends a picture (PNG, JPEG or WebP) for the format builder's shelf; resolves with its saved name. */
+export function uploadFormatImage(
+  file: Blob,
+  onProgress: (fraction: number) => void,
+  createRequest: () => UploadRequest = browserRequest,
+): Promise<{ readonly file: string }> {
+  return sendFile('/api/format/images', file.type || 'image/png', file, onProgress, createRequest);
+}

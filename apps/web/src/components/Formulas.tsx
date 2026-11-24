@@ -86,6 +86,7 @@ interface Props {
   readonly lab: Lab;
   /** An AI run is under way somewhere on the page. */
   readonly busy: boolean;
+  readonly centerId: string;
   readonly centerTitle: string;
   /** Takes a formula into the idea lab as its title format. */
   readonly onRemix: (formulaId: number) => void;
@@ -96,7 +97,7 @@ interface Props {
  * map share, with named slots for what changes. An AI proposes them; which
  * videos count and every number shown come from the store.
  */
-export function Formulas({ lab, busy, centerTitle, onRemix }: Props) {
+export function Formulas({ lab, busy, centerTitle, centerId, onRemix }: Props) {
   const list = lab.formulas;
   const formulas = list?.formulas ?? [];
   return (
@@ -140,6 +141,7 @@ export function Formulas({ lab, busy, centerTitle, onRemix }: Props) {
                   formula={formula}
                   windowDays={list.windowDays}
                   onRemix={() => onRemix(formula.id)}
+                  centerId={centerId}
                 />
               </li>
             ))}
