@@ -234,7 +234,8 @@ builds: the channel it is a format of (null when made with no map open), a
 name, a planned length, notes, one slot per layer (`slots_json`: an
 ingredient's id and a note), the last suggested mix and the last Format Bible
 (JSON, checked with a schema when read; what no longer reads is empty), and
-the format it was copied from. `channel_formats` keeps each channel's active
+the format it was copied from (a copy starts without a suggestion or a
+Bible). `channel_formats` keeps each channel's active
 format and goes with its format.
 
 `format_ingredients` (step 31) is the format builder's shelf: one row
@@ -3041,6 +3042,38 @@ id and a one-line reason citing the evidence. Code keeps only ingredients on
 the shelf, on that slot's layer, one per layer, and lists what it dropped and
 why; nothing is applied until the owner presses "Use" on a slot or "Use the
 whole mix". The reasons and summary are shown as the AI's reading.
+
+**Format Bible** (core `format/bible.ts`, `bibleFacts.ts`, `bibleSchema.ts`,
+`bibleMarkdown.ts`, `paletteStrip.ts`; server `formatBible.ts`,
+`formatBibleQuestions.ts`; web `BiblePanel.tsx`). "Write my Format Bible" is
+one AI run in the shared slot, a job (`format-bible`) listed in Working, using
+the same read-only tools and picture route as "Suggest a mix" (the shelf ask
+carries `purpose: 'bible'`; more turns and time). It is written from the
+filled slots only.
+
+- _Facts, from code_ (`bibleFacts`): each filled slot with its evidence and
+  the owner's note, every measured number with its method and source, the
+  palette (hex and share from the slots' teardowns), title formulas with
+  their counts, the hook's seconds, words a minute, the typography a
+  teardown's AI reading named, and the slots' pictures. They are kept with
+  the Bible, so its export does not change when the shelf does.
+- _Words, from the AI_: core rules, visual system (a role may be given only to
+  a measured hex code; any other is dropped and listed), typography,
+  component kit, motion recipes, pacing rules, hook and chapter beats, title
+  formulas with examples, thumbnail layouts with image prompts, sound
+  targets, a pipeline per layer, a master prompt and what not to copy. The
+  answer is one JSON object checked with zod (`checkBible`).
+- _Numbers_: the Markdown's tables hold only the facts. Every number in the
+  AI's words that no fact holds (hex codes and whole numbers up to 10, which
+  are counts, aside) is listed per section under "Caveats", and the Format
+  tab says how many there are.
+- _Export_: `GET /api/format/formats/<id>/format-bible.md` (the production
+  teardown's shape: 1 core rules to 12 what not to copy, then the evidence),
+  and `.../format-bible.zip` with the Markdown, `palette.json` (measured
+  colours, shares and sources; roles marked as the AI's reading),
+  `palette.png` (a 600×80 strip, each colour as wide as its share), `fonts.txt`
+  (the fonts the Bible names, as the AI's reading) and `images/` (the slots'
+  pictures still on this computer).
 
 **What was run for real.** The shelf at 1440, 768 and 390 wide on a seeded
 store (nine ingredients, teardown pictures made with ffmpeg): no console error,
