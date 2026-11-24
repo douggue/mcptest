@@ -15,6 +15,7 @@ import { BIBLE_SYSTEM_PROMPT, BIBLE_TITLE, bibleQuestion } from './formatBibleQu
 export const SHELF_TOOL = 'get_format_shelf';
 export const MIX_PICTURE_TOOL = 'view_format_pictures';
 export const THUMBNAIL_TOOL = 'view_thumbnails';
+export const BANK_TOOL = 'search_outlier_bank';
 const MAP_TOOLS = ['get_map', 'get_breakouts'] as const;
 /** The most picture names one call of the picture tool takes. */
 export const MIX_PICTURES_PER_CALL = 8;
@@ -108,6 +109,7 @@ export function mixQuestion(ask: MixAsk, look: string): string {
   return [
     `Call ${SHELF_TOOL} with format ${ask.formatId} first: it lists the owner's shelf, each ingredient with its evidence counted in code.`,
     map,
+    `If a layer needs evidence the shelf lacks, ${BANK_TOOL} lists stored videos far above their channel's usual across every map (filters such as min_score, topics, length); it is evidence to weigh, never an ingredient to name.`,
     look,
     `Build a full mix for the format: for each layer (${INGREDIENT_LAYERS.join(', ')}) choose at most one ingredient from the shelf whose layer is that layer, by its id. Leave a layer out when nothing on the shelf fits it; never name an ingredient that is not on the shelf.`,
     'Prefer proven ingredients and ones that fit together: a hook short enough for the length planned, a pace that matches the motion and visual style, a thumbnail whose promise the hook pays off. Mix from several channels: no more than three in five slots from one channel.',
@@ -128,13 +130,15 @@ export function mixRequest(
   const pictures = looksAtPictures(ask);
   const asFiles = pictures && seesFiles(engine) && files !== undefined;
   const look = !pictures ? '' : asFiles ? filesLook(files) : toolLook(ask);
+  const bible = ask.purpose === 'bible';
   const allowedTools = [
     tool(SHELF_TOOL),
+    // The Bible is written from the filled slots only; the mix may weigh the bank.
+    ...(bible ? [] : [tool(BANK_TOOL)]),
     ...(ask.channel === null ? [] : MAP_TOOLS.map(tool)),
     ...(pictures && !asFiles && ask.pictures.length > 0 ? [tool(MIX_PICTURE_TOOL)] : []),
     ...(pictures && !asFiles && ask.thumbnails.length > 0 ? [tool(THUMBNAIL_TOOL)] : []),
   ];
-  const bible = ask.purpose === 'bible';
   const limits = LIMITS[bible ? 'bible' : 'mix'][pictures ? 'pictures' : 'text'];
   return {
     prompt: bible ? bibleQuestion(ask, look) : mixQuestion(ask, look),

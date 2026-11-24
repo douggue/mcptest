@@ -245,7 +245,8 @@ describe('opening a store made by an earlier version', () => {
     first.pragma(`user_version = ${version}`);
     // Undo what later steps add with ALTER, so the store looks as that version left it.
     first.exec(
-      `ALTER TABLE maps DROP COLUMN snapshot_json; ALTER TABLE maps DROP COLUMN model_channel;
+      `DROP VIEW outlier_bank_rows;
+       ALTER TABLE maps DROP COLUMN snapshot_json; ALTER TABLE maps DROP COLUMN model_channel;
        DROP TABLE map_removals;
        ALTER TABLE channels DROP COLUMN created_at; ALTER TABLE channels DROP COLUMN country;
        ALTER TABLE channels DROP COLUMN total_views;

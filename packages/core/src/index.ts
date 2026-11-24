@@ -868,3 +868,54 @@ export {
   type FollowedSlot,
   type OwnVideoInput,
 } from './format/followed';
+export type { Bank, BankChannel, BankCloseness, BankVideo } from './bank/types';
+export { buildBank, createBankReader, loadBankRows, type BankReader } from './bank/load';
+export {
+  BANK_GROUPS,
+  BANK_GROUP_IDS,
+  type BankFilterContext,
+  type BankGroupId,
+  type BankOption,
+} from './bank/filters';
+export {
+  BANK_DEFAULT_PAGE,
+  BANK_MAX_PAGE,
+  BANK_SORTS,
+  NO_BANK_FILTERS,
+  bankQueryParams,
+  parseBankQuery,
+  queryBank,
+  withChoice,
+  type BankFilterState,
+  type BankOptionCount,
+  type BankPage,
+  type BankSort,
+} from './bank/query';
+export {
+  MAX_COLLECTION_NAME,
+  collectionNameProblem,
+  type BankCollection,
+  type CollectionRepo,
+} from './bank/collections';
+export { collectionCsv, collectionMarkdown } from './bank/exportCollection';
+export {
+  BANK_FIND_DEFAULT_CHANNELS,
+  BANK_FIND_MAX_CHANNELS,
+  findAllowance,
+  planFind,
+  topicQuery,
+  type FindAllowance,
+  type FindPlan,
+  type FindVia,
+} from './bank/cost';
+export {
+  FindCapError,
+  allowanceNow,
+  findMoreOutliers,
+  type FindOutcome,
+  type FindProgress,
+} from './bank/grow';
+export { SqliteCollectionRepo } from './repos/sqliteCollectionRepo';
+export { SqliteFindRepo, type FindRepo } from './repos/sqliteFindRepo';
+export { fetchApiChannel } from './sources/apiChannels';
+export type { FoundVideo, VideoSearchSource } from './sources/searchResults';

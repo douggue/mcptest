@@ -21,6 +21,7 @@ import {
   UNUSED_EXTRAS,
   UNUSED_FORMATS,
   UNUSED_FORMAT_BUILDER,
+  UNUSED_BANK,
   UNUSED_HUB,
   UNUSED_LAB,
 } from './support';
@@ -99,6 +100,7 @@ class FakeEngine implements Engine {
   hub = UNUSED_HUB;
   formats = UNUSED_FORMATS;
   formatBuilder = UNUSED_FORMAT_BUILDER;
+  bank = UNUSED_BANK;
   nicheReads = 0;
   /** The channels the fake store holds, for the watchlist. */
   known: readonly string[] = [CHANNEL_ID];

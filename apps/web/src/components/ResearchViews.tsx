@@ -3,6 +3,7 @@ import { BreakoutFeed } from './BreakoutFeed';
 import { ChangesSection } from './ChangesSection';
 import { ViewPage } from './layout/SplitView';
 import { Niches } from './Niches';
+import { OutlierBank } from './OutlierBank';
 import { RadarArea } from './RadarArea';
 import { RefreshBar } from './RefreshBar';
 import { SameTopic } from './SameTopic';
@@ -51,6 +52,23 @@ export const RESEARCH_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
     </ViewPage>
   ),
   breakouts: withMap('breakouts', (_snapshot, parts) => <Breakouts {...parts} />),
+  // The bank holds every stored video, so it needs no map open.
+  'outlier-bank': ({ work }) => (
+    <ViewPage id="outlier-bank" labelledBy="outlier-bank-title">
+      <OutlierBank
+        pickedIds={work.lab.picks.map((pick) => pick.videoId)}
+        onPick={(video) =>
+          work.lab.pick({
+            videoId: video.videoId,
+            title: video.title,
+            channelTitle: video.channel.title,
+            modelOpening: false,
+            from: 'breakout',
+          })
+        }
+      />
+    </ViewPage>
+  ),
   'same-topic': withMap('same-topic', (snapshot, { work, page }) => (
     <SameTopic
       state={work.sameTopic}

@@ -79,9 +79,11 @@ import { extras } from './extrasSetup';
 import { formatEngine, ingredientRepo, storedVideoFacts } from './formatEngine';
 import { formatBuilder, mixPicturePath } from './formatBuilder';
 import { ownVideosOf } from './formatOwnVideos';
+import { bankEngine } from './bankEngine';
 import { teardownReportOf } from './teardownStore';
 import { join } from 'node:path';
 import { cleanMessage } from './jobs';
+import type { BankFindDeps } from './bankTypes';
 import { lab } from './labSetup';
 import { logos } from './logoEngine';
 import { trackWork, type WorkTracker } from './running';
@@ -129,6 +131,8 @@ export interface EngineOptions extends AnalysisOptions {
   readonly fetchVideoDetails?: (videoIds: readonly string[]) => Promise<readonly ApiVideoDetails[]>;
   /** Replaces the network for thumbnails, frame sheets and channel pictures; used by tests. */
   readonly fetchImage?: FetchImage;
+  /** Replaces reading a channel through the official API for the outlier bank; used by tests. */
+  readonly fetchApiChannel?: BankFindDeps['fetchApiChannel'];
 }
 
 function openRepos(db: Db) {
@@ -575,6 +579,22 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     extras: extras({ ...wiring, analyse: asking.analyse }),
     formats,
     formatBuilder: builder,
+    bank: bankEngine({
+      db: wiring.db,
+      now: wiring.now,
+      repos: wiring.repos,
+      transact: transactionRunner(wiring.db),
+      snapshots: () =>
+        wiring.repos.maps.listCenterIds().flatMap((center) => maps.findSnapshot(center) ?? []),
+      // Read at each use: the owner can set or clear the key while Jgtube runs.
+      apiKey: () => config.youtubeApiKey,
+      source: wiring.lazySource,
+      reading: wiring.reading,
+      ...(options.search
+        ? { apiSearch: (query, { publishedAfter }) => options.search!(query, { publishedAfter }) }
+        : {}),
+      ...(options.fetchApiChannel ? { fetchApiChannel: options.fetchApiChannel } : {}),
+    }),
     hub: breakdownHub({
       config,
       candidates: { ...wiring.repos, now: wiring.now },

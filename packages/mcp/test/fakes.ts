@@ -23,6 +23,8 @@ import type {
   StoredChannelNote,
 } from '@jgtube/core';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { BankFilterState, BankVideo } from '@jgtube/core';
+import { queryBank } from '@jgtube/core/src/bank/query';
 import type { ConceptForTool, HookLibrary, IdeaBrief } from '@jgtube/server/src/labTypes';
 import type { ResearchView } from '@jgtube/server/src/researchEngine';
 import type { ScriptForTool } from '@jgtube/server/src/scriptTypes';
@@ -422,6 +424,42 @@ export function transferList(overrides: Partial<TransferList> = {}): TransferLis
 
 type Crawl = ConnectorEngine['crawl'];
 
+const bankVideo = (id: string, score: number | null, views: number): BankVideo => ({
+  videoId: id,
+  title: `Video ${id}`,
+  views,
+  ageDays: 12.5,
+  publishedAt: '2026-11-08T00:00:00.000Z',
+  publishedRaw: '1w ago',
+  durationSeconds: 600,
+  isShort: false,
+  score,
+  baseline: score === null ? null : 1000,
+  sampleSize: score === null ? null : 9,
+  caution: null,
+  viewsPerDay: views / 12.5,
+  readAt: '2026-11-20T00:00:00.000Z',
+  channel: {
+    id: CENTER_ID,
+    title: 'Channel',
+    handle: null,
+    subscribers: 5000,
+    logoUrl: null,
+    country: null,
+    topic: { label: 'Cars', source: 'titles' },
+    alphabet: 'latin',
+    money: 'not-checked',
+    closeness: { centerId: CENTER_ID, centerTitle: 'Mine', tier: 'close' },
+    onAMap: true,
+  },
+});
+
+/** Two videos of the outlier bank: one far above its usual, one too new to score. */
+export const BANK_VIDEOS: readonly BankVideo[] = [
+  bankVideo('aaaaaaaaaaa', 23.456, 40_000),
+  bankVideo('bbbbbbbbbbb', null, 300),
+];
+
 /** Stands in for the store and YouTube; every answer can be replaced by a test. */
 export class FakeEngine implements ConnectorEngine {
   stored: MapSnapshot | null = snapshot();
@@ -462,6 +500,22 @@ export class FakeEngine implements ConnectorEngine {
     activePlan: (channel: string) =>
       channel === 'UCaaaaaaaaaaaaaaaaaaaaaa' ? { format: { id: 1, name: 'Long-form' } } : null,
   } as unknown as ConnectorEngine['formatBuilder'];
+
+  /** The outlier bank's reads: the states asked for, and the real query over two videos. */
+  bankStates: BankFilterState[] = [];
+  bank = {
+    look: (state: BankFilterState, page: { offset: number; limit: number }) => {
+      this.bankStates.push(state);
+      const context = {
+        collectionsOf: (id: string) => (id === BANK_VIDEOS[0]?.videoId ? [7] : []),
+        collectionNames: new Map([[7, 'Hooks to steal']]),
+      };
+      return { builtAt: '', collections: [], page: queryBank(BANK_VIDEOS, state, context, page) };
+    },
+    collections: {
+      list: () => [{ id: 7, name: 'Hooks to steal', count: 1, createdAt: '' }],
+    },
+  } as unknown as ConnectorEngine['bank'];
 
   findSnapshot(ref: string): MapSnapshot | null {
     this.lookups.push(ref);
