@@ -806,3 +806,17 @@ export {
 } from './format/checks';
 export { checkMix, type MixCheck } from './format/mix';
 export { SqliteFormatRepo, nextVersionName } from './repos/sqliteFormatRepo';
+export {
+  MAX_MIX_PICTURES,
+  MAX_MIX_THUMBNAILS,
+  SHELF_NOTE,
+  mixPictureNamed,
+  mixPictures,
+  shelfForMix,
+  type MixPicture,
+  type MixPictureRef,
+  type MixPictures,
+  type MixThumbnail,
+  type ShelfEntry,
+  type ShelfForMix,
+} from './format/mixShelf';
