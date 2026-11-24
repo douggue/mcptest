@@ -487,6 +487,8 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     isClosing: wiring.work.isClosing,
     // Read at each use: the owner can change it from the settings screen while Jgtube runs.
     markFacts: () => config.markFacts !== false,
+    // Read when a script opens, after `builder` below is made.
+    activeFormat: (channel) => builder.activePlan(channel),
   });
 
   const choices = ownerChoices(wiring);
