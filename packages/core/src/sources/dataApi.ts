@@ -158,6 +158,11 @@ async function getItems(
   return reply.data.items ?? [];
 }
 
+/** The network the API is reached through: the one given (a test's), else the global one. */
+export function apiFetcher(options: DataApiOptions): typeof fetch {
+  return options.fetch ?? fetch;
+}
+
 export function requireKey(apiKey: string): string {
   const key = apiKey.trim();
   if (key === '') {
