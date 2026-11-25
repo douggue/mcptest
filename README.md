@@ -1,13 +1,14 @@
 # Cutroom
 
-A personal clipping tool that runs on your own computer. It has four parts:
+A personal clipping tool that runs on your own computer. It has five parts:
 
 - **Clipper** – cut a section out of a video link or a local file and save it as MP4, MOV, MP3, M4A, GIF or PNG frames.
-- **Shorts studio** – find the best moments in a long video and edit each into a captioned vertical short.
-- **Library** – your exports, music, b-roll, sound effects, logos, voiceovers and style templates.
+- **Shorts studio** – turn a video into captioned vertical shorts: the best moments of a long video, a whole advert, or one story from raw footage, each edited in the style you choose.
+- **Styles** – how your shorts look and get made: built-in styles, your copies of them, and styles learned from reference videos and from your own edits.
+- **Library** – your exports, music, b-roll, sound effects, logos, voiceovers and templates.
 - **Agency** – campaigns, accounts, a posting planner, view and earnings tracking, rule checks and duplicate detection.
 
-Everything is stored in the `data/` folder next to this file. Nothing is uploaded anywhere unless you add an AI key, in which case transcripts are sent to the provider you chose (Anthropic or Google).
+Everything is stored in the `data/` folder next to this file (or in `CutroomData` in your user folder when Cutroom sits inside OneDrive or Dropbox, see below). Nothing is uploaded anywhere unless you set up an AI, in which case transcripts and frames are sent to the one you chose (Anthropic, OpenAI or Google).
 
 ## Install and run
 
@@ -28,6 +29,15 @@ The first run installs the dependencies and builds the interface (a few minutes)
 
 The first export also downloads the renderer's headless browser (about 100 MB), once.
 
+### Updating
+
+Get the new version over the old one and start it as usual:
+
+- **Downloaded as a ZIP:** on GitHub, open the branch you use, choose **Code → Download ZIP**, and unzip it over your Cutroom folder, replacing the files. Use the same folder, so your projects stay where they are.
+- **With git:** run `git pull` in the Cutroom folder.
+
+Then double-click `start.bat` (or run `./start.sh`). It notices what changed: it rebuilds the interface when its code changed, reinstalls packages when the requirement files changed, and repairs OpenCV if two copies of it were installed over each other. (Versions of `start.bat` before November 2026 only built the interface once; if you update from one of those, delete the `web\dist` folder once so the new interface is built.)
+
 ### Manual steps
 
 ```bash
@@ -46,11 +56,12 @@ For development, run `python run.py` and, in another terminal, `cd web && npm ru
 | Clipping local files, editing, rendering | Nothing |
 | Clipping or importing from a link | Internet. Sites change often, so if links stop working run `pip install -U "yt-dlp[default]"` |
 | Whisper transcription | A one-time model download on first use |
-| AI moment picking, scores, remix, hooks, post text | A Claude (Anthropic) or Gemini (Google) API key (Settings → AI). Without one, simpler built-in rules are used |
-| Caption translation | A Claude or Gemini API key |
+| AI moment picking, scores, planning edits, Ask, hooks, post text, studying styles | Any AI set up under Settings → AI: a Claude or Gemini API key, or your Claude, ChatGPT or Google subscription through its command-line tool (below). Without one, simpler built-in rules are used where there are some |
+| Caption translation | Any AI set up |
+| Watching whole reference videos (with their sound) | Gemini: an API key, or your Google subscription through the Antigravity CLI. The others look at still frames |
 | Voiceover from a script | Internet (uses the `edge-tts` voice service), or a Gemini key for Google voices |
 | Generating images, clips (Gemini Omni 1.2 Flash), voices and music | A Gemini key; billed by Google per use |
-| AI upscale | `pip install onnx onnxruntime`, and a one-time 5 MB download |
+| AI upscale | Installed by `start.bat` (optional packages), and a one-time 5 MB download. On Windows it runs on the graphics card |
 | CapCut project export | `pip install pycapcut==0.0.4` (in requirements-optional.txt) |
 | Stock b-roll search | A free Pexels API key (Settings) |
 | Refreshing view counts in Agency | Internet |
@@ -67,6 +78,7 @@ Settings → AI lets you pick **Claude** or **Gemini** and paste a key for eithe
 **Gemini with your Google subscription (no API key), for chosen tasks.** If the Antigravity CLI (`agy`) is installed and signed in with your Google AI Pro or Ultra account, Settings → AI can send *finding moments* and/or *studying and reviewing style references* to it, while everything else keeps the provider above. It watches reference videos whole, with their sound, but slowly (about five minutes for a 30-second video). Install it from https://antigravity.google, run `agy` once to sign in, then tick the tasks and press Test. Since June 2026 the Gemini CLI no longer takes personal Google sign-ins, which is why Cutroom uses `agy`. Own computer only, like the Claude subscription.
 
 On the same card: a model for each task (*Load models* asks `agy` for the ones your plan offers, or type any name); *Whole videos, frame by frame as backup* or *Frame by frame only (faster)*; and *Backup for everything else*, which sends any request to Gemini when the main AI fails (usage limit reached, signed out, an error). Because the CLI cannot be held to an answer format, every answer is checked against the format the feature needs and sent back once with the problems listed if it does not fit.
+
 ## Clipper
 
 Paste a link or drop a file, set the range with the slider or the time boxes, choose format, quality, shape and cut mode, and save. You can queue several ranges from one video, or paste several links to cut with the same settings. For links, only the selected section is downloaded. Saved clips can be sent to the studio.
@@ -75,19 +87,25 @@ Paste a link or drop a file, set the range with the slider or the time boxes, ch
 
 1. **Import** a long video from a link or a file.
 2. **Transcribe** it with Whisper, with the site's own captions, or by importing an SRT, VTT or JSON file.
-3. **Find moments.** Choose what to make: highlights, a series (Part 1, 2, 3…), every moment on a topic, a recap of the main points, or a trailer that holds back the ending. Pick a length (Auto, Short, Medium, Long), add instructions in your own words, or mark a clip by hand. Each clip gets a hook title and a 0–100 score. Once five or more of your posted clips have views, the AI is told what worked for your audience. Select clips to merge them, or export them all at once.
-4. **Edit** each clip:
-   - *Framing* – detect camera cuts, centre the speaker in each shot, follow movement, split for two or three people, or fit the whole frame over a blur. Twelve transitions between shots (cross-fade, slide, push, zoom, whip pan, spin, blur, flash, dip to black, glitch, smooth pan, hard cut) with adjustable length. Zooms, freezes, speed changes, opening hook, audio mixer, voice clean-up, music with ducking, voiceover.
-   - *Style* – caption styles, fonts, colours, emojis, translation, colour looks with brightness, contrast and saturation, film grain, cinema bars, slow push-in, fade in and out, mirror, brand kit, reusable templates and learned styles.
-   - *Words* – remove silences and filler words, or click any word to cut, rewrite or emphasise it.
-   - *Motion* – keyword pops, cascades, gauges, counters, lower thirds, step lists, emoji bursts, b-roll, text labels, name tags, circles, arrows, spotlights, image stickers and blur boxes (to hide a face or number plate), each with placement, animation and sound, and a Duplicate button. "AI remix" plans them for you.
-   - *Export* – post title, description and hashtags; 9:16, 4:5, 3:4, 1:1 or 16:9; 30 or 60 fps; 1080p or 720p; optional **AI upscale** for low-resolution footage; captions as an `.srt` file; or **Finish in CapCut** (below).
+3. **Make clips.** Pick the style first; each style makes its short its own way:
+   - **Brand ad:** *Make the short* uses the whole advert (the fade from black at the start and the held last second are trimmed). There are no moments to find.
+   - **Storyline, Kindness story, Clean story, Neon story:** one story from raw footage: *Use the whole video*, or mark where the story starts and ends. Each style shows the length it works best at.
+   - **Narrated story:** finds the one moment the narration sets up.
+   - **No style or your own styles:** *Find moments*: highlights, a series (Part 1, 2, 3…), every moment on a topic, a recap of the main points, or a trailer that holds back the ending. Pick a length, add instructions in your own words, or mark a clip by hand. Each clip gets a hook title and a 0–100 score; once five or more of your posted clips have views, the AI is told what worked for your audience. A video under 90 seconds can also simply become the short.
 
-**AI upscale.** Sharpens CCTV, dashcam and old phone footage with Real-ESRGAN before the short is made (needs `pip install onnx onnxruntime`; a 5 MB model downloads on first use). It is slow on a processor: about 1.2 seconds per frame on four cores, so roughly 15 to 20 minutes for a 30-second short. A graphics card is much faster.
+   Select clips to merge them, or export them all at once.
+4. **Edit** each clip. At the top of the side panel, the chosen style's own steps are a checklist: the ones the program can see tick themselves (music added, edit planned, title written…), the rest you tick, and each opens the tool where it is done. *Plan the edit* (Style) has the AI place the style's titles, captions, callouts, freezes and speed changes, within what the style allows. **Simple view** (the default) folds less-used settings away; *Show all tools* shows everything.
+   - *Framing* – detect camera cuts and frame each shot: on the speaker, on two people together when they fit, or on the action when there is no face; follow movement; split for two or three people, or fit the whole frame over a blur. Fourteen transitions between shots (including whip up and dip-and-defocus) with adjustable length. Zooms, freezes, speed changes, title and opening hook. Audio: voice clean-up; music with ducking, a song start, *Drop at the playhead* to land the music's drop on a moment, fades, and *replaces the original sound*; your **camera-flash sound** (styles play it on their flashes or spotlights); and a voiceover, which can be **transcribed into the captions** (the clip's own sound can pause while the narrator speaks).
+   - *Style* – caption styles, fonts, colours, emojis, translation, colour looks with brightness, contrast, saturation, **sharpen** and **warmth**, film grain, cinema bars, slow push-in, fade in and out, mirror, brand kit, templates, and the style itself (see Styles).
+   - *Words* – remove silences and filler words, or click any word to cut, rewrite or emphasise it.
+   - *Motion* – keyword pops, cascades, gauges, counters, lower thirds, step lists, emoji bursts, b-roll, text labels, name tags, circles, arrows, spotlights, image stickers and blur boxes (to hide a face or number plate), each with placement, animation (including letter-by-letter typing and word by word) and sound. **Follow the person** makes a name tag, circle, arrow, label or spotlight move with whoever or whatever it sits on.
+   - *Export* – post title, description and hashtags; 9:16, 4:5, 3:4, 1:1 or 16:9; 30 or 60 fps; 1080p or 720p; **smooth 60 fps** (new in-between frames for 24–30 fps footage; slow); optional **AI upscale** for low-resolution footage; the loudness is evened out to the style's level; captions as an `.srt` file; or **Finish in CapCut** (below).
+
+**AI upscale.** Sharpens CCTV, dashcam and old phone footage with Real-ESRGAN before the short is made (installed by `start.bat`; a 5 MB model downloads on first use). Storyline turns it on by default. On a processor it is slow (about 1.2 seconds per frame on four cores, roughly 15 to 20 minutes for a 30-second short); on Windows `start.bat` sets it up to run on the graphics card, which is much faster.
 
 **Finish in CapCut.** Sends the edit to CapCut as a project you can keep editing: every cut and speed change, freeze frames, framing (tracking and punch-ins as keyframes), split screens, b-roll, logo, captions, title, text graphics, watermark, voice, voiceover, music and sound effects, each on its own track. On the same computer it is saved straight into CapCut; otherwise you download a zip to unpack into CapCut's projects folder. Effects CapCut cannot import (animated cards, circles, arrows, the word-by-word caption highlight, colour looks) are listed after the export. This uses the open-source `pycapcut` library and has not yet been opened in CapCut by us; tell us if a project does not open.
 
-**Edit by asking:** type a change in the box at the top of the editor ("make the title red and freeze for a second when he says sorry"). The AI picks the changes, the editor applies them as one step that Ctrl+Z undoes, and says what it could not do. Needs an AI key.
+**Edit by asking:** type a change in the box at the top of the editor ("make the title red and freeze for a second when he says sorry"). The AI picks the changes, the editor applies them as one step that Ctrl+Z undoes, and says what it could not do. Needs an AI set up.
 
 **Split:** Export → "Split into two" cuts a clip at the playhead; each half keeps its edits.
 
@@ -95,9 +113,32 @@ Paste a link or drop a file, set the range with the slider or the time boxes, ch
 
 Shortcuts in the editor: Space plays, ←/→ step a frame (Shift for a second), Ctrl+Z / Ctrl+Shift+Z undo and redo, Delete removes the selected graphic, Esc clears the selection.
 
+## Styles
+
+The **Styles** page (left menu) lists the built-in styles and your own; each style has its own page.
+
+| Built-in style | For | Step 2 |
+|---|---|---|
+| Storyline | CCTV, dashcam and phone clips: square picture, title that stays up, boxed captions, freeze-frame spotlights | One story from the footage |
+| Kindness story | Feel-good stories: typed narration, callout freeze, colour flashes, heart at the end; music replaces the sound | One story, about 20–35 s |
+| Clean story | Brighter story in quoted labels, name tag, callouts; no freezes | One story, about 16–22 s |
+| Neon story | Caption-only story in neon text, spotlight and twist freeze; original sound | One story, about 14–27 s |
+| Brand ad | A TV advert as a short: channel header, two-line colour title, rounded box, word captions | The whole advert |
+| Narrated story | Your voiceover with glowing centre captions, a new shot every few seconds | One moment |
+
+Each built-in style also decides what the AI may add (Storyline: no circles or arrows; Brand ad: no extra graphics, sound effects or emoji), its sound (music, camera-flash sound, loudness), its framing (Brand ad follows moving subjects) and its steps. Built-in styles are fixed; **Copy to make it yours** (or *Copy to teach it* in the editor) makes a copy you can change and teach.
+
+On a style's page:
+
+- **AI for studying and reviewing** – choose which AI does the work below: Claude or ChatGPT (your subscription or a key), or Gemini. **Each AI keeps its own findings**, and *Use these* switches which ones the style follows.
+- **Reference videos** – videos made in the style, saved with it. The built-in styles list the reference links from your skills (*Download N listed*); add any link or file. *Study the style* (your own styles) builds the look and rules from them.
+- **What the AI remembers** – *Review again* has the AI look at the saved references and write down what to match; that list goes with every AI request in the style, and *Plan the edit* also looks at frames from the references each time.
+- **Before and after: learn from your own edits** – add a raw video and the short made from it. Cutroom lines the two up by their sound and measures every decision (trims, where each shot is framed, punch-ins, pans); *Understand this edit* has the AI explain each one and why; *Learn the style* turns what holds across all your pairs into the style's rules. The more pairs, the better it separates the style from one video's content.
+- **Rules** – what the AI follows, including corrections you teach from the editor.
+
 ## Agency
 
-Campaigns hold the pay rate, budget and rules (required hashtags, banned words, duration limits). The planner schedules posts per account and can distribute one video across several accounts. Cutroom **does not upload to TikTok, YouTube or Instagram**; it plans and tracks, and you post by hand. Rule checks run before you submit, and duplicate detection warns about overlapping clips.
+Campaigns hold the pay rate, budget and rules (required hashtags, banned words, duration limits). The planner schedules posts per account and can distribute one video across several accounts. Cutroom posts to **YouTube** (below); for TikTok and Instagram it plans and tracks, and you post by hand. Rule checks run before you submit, and duplicate detection warns about overlapping clips.
 
 ## Command line
 
@@ -119,6 +160,10 @@ Settings → YouTube connects your own channels with your own Google Cloud OAuth
 
 `python -m server.mcp_server` lets Claude Desktop, Claude Code or any MCP client import videos, find moments, edit and export clips, and more, on a running Cutroom. Setup in [docs/MCP.md](docs/MCP.md).
 
+## Graphics card
+
+Settings → **Graphics card** shows what runs on it. Cutroom finds the card's own video encoder (NVIDIA, AMD, Intel, or Apple on a Mac) and uses it for encoding; on Windows the export draws through the card and `start.bat` sets the AI upscaler up on it (DirectML, any card), and on an NVIDIA card adds the libraries Whisper needs (about 1 GB, once). Anything that fails on the card is done again on the processor. Switch it off there if an export ever shows glitches. Smooth 60 fps stays on the processor.
+
 ## Copy to Google Drive
 
 Set **Settings → Also copy finished files to this folder** to your Google Drive (or Dropbox, OneDrive) desktop folder. Every clip and export is copied there and syncs to the cloud. There is no direct Drive login.
@@ -137,7 +182,7 @@ Start with `python run.py --host 0.0.0.0` and open `http://<your computer's addr
 ## Good to know
 
 - YouTube links need a JavaScript runtime for `yt-dlp`; Cutroom points it at the Node.js you already installed, so there is nothing extra to set up.
-- Whisper uses a graphics card when one is set up for it and falls back to the processor otherwise.
+- Whisper uses an NVIDIA graphics card when its libraries are installed (`start.bat` does it) and the processor otherwise.
 - Only clip videos you have the right to use. Downloading from a site may be against its terms unless the owner has allowed it, as clipping campaigns usually do.
 - Rendering takes roughly two to five times the clip's length on a typical laptop.
 - For sharper vertical crops from a wide video, import at 1440p or 4K.
@@ -152,7 +197,9 @@ run.py              start the server
 server/             Python API (FastAPI)
   clipper_core.py   cutting, formats, yt-dlp
   agency_core.py    earnings, rule checks, duplicates
-  studio/           transcription, moments, vision, render, AI
+  gpu.py            using the graphics card, with the processor as fallback
+  studio/           transcription, moments, vision, render, AI, styles (presets.py, profiles.py),
+                    before-and-after edit comparison (compare.py)
   routers/          HTTP endpoints
 web/                interface (React + Vite)
   src/remotion/     the short itself: one composition used for preview and render
