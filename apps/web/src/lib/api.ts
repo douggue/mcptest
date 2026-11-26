@@ -1,5 +1,5 @@
 import type { PartsRun } from './partFixes';
-import { DATA_VERSION_HEADER, pageCache, type QueryCache } from './queryCache';
+import { DATA_VERSION_HEADER, READS_SENT_AS_POST, pageCache, type QueryCache } from './queryCache';
 import {
   AUTOMATIC,
   type AnalysisAnswer,
@@ -154,6 +154,7 @@ export function apiCaller(fetcher?: Fetch, cache: QueryCache | null = fetcher ? 
   const call = async (path: string, init?: RequestInit): Promise<Reply> => {
     if (cache === null) return ask(path, init);
     if (isRead(init)) return cache.read(path, () => ask(path, init));
+    if (READS_SENT_AS_POST.has(path)) return ask(path, init);
     const reply = await ask(path, init).finally(() => cache.wrote());
     cache.saw(reply.version);
     return reply;

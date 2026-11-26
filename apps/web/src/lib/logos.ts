@@ -12,6 +12,8 @@ export const LOGO_MAX_ROUNDS = 8;
 /** How long to wait when a map, a refresh or a search is reading YouTube. */
 export const LOGO_RETRY_MS = 30_000;
 export const LOGO_POLL_MS = 1500;
+/** How long after a map comes on screen the missing logos are asked for: after the page's own reads. */
+export const LOGO_FIRST_WAIT_MS = 4000;
 
 export interface LogoJob {
   readonly id: string;

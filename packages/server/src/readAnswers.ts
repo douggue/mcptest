@@ -24,6 +24,9 @@ export const KEPT_READS: ReadonlySet<string> = new Set([
   '/api/bank',
 ]);
 
+/** Reads sent as POST because what they ask for is long (a list of channels): not writes. */
+export const READS_SENT_AS_POST: ReadonlySet<string> = new Set(['/api/breakdowns/candidates']);
+
 const MAX_KEPT = 64;
 
 /** Answers kept are those that say something stable: found, or not found. */
@@ -131,7 +134,8 @@ export function keptReads(handler: Handler, options: KeptReadsOptions): Handler 
       return read(request, `${url.pathname}${url.search}`);
     }
     const response = await handler(request);
-    if (request.method !== 'GET' && request.method !== 'HEAD') writes += 1;
+    const isWrite = request.method !== 'GET' && request.method !== 'HEAD';
+    if (isWrite && !READS_SENT_AS_POST.has(url.pathname)) writes += 1;
     return withVersion(response, version());
   };
 }

@@ -137,3 +137,17 @@ describe('which of two data versions is older', () => {
     expect(isOlder('r:1.5-0', null)).toBe(false);
   });
 });
+
+describe('a read the page sends as POST', () => {
+  test('drops nothing kept', async () => {
+    const api = server();
+    const { call, send } = apiCaller(api.fetcher, createQueryCache());
+    await call('/api/niches');
+
+    await send('/api/breakdowns/candidates', { ids: [] });
+    api.setVersion('r:1.0-0');
+    await call('/api/niches');
+
+    expect(api.asked()).toBe(2);
+  });
+});

@@ -27,6 +27,9 @@ const KEPT_READS: ReadonlySet<string> = new Set([
   '/api/bank',
 ]);
 
+/** Reads sent as POST because what they ask for is long (a list of channels): not writes. */
+export const READS_SENT_AS_POST: ReadonlySet<string> = new Set(['/api/breakdowns/candidates']);
+
 /** Answers found or not found are kept; failures never are. */
 const KEPT_STATUSES: ReadonlySet<number> = new Set([200, 404]);
 

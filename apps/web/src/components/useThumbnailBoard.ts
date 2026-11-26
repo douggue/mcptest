@@ -12,11 +12,16 @@ const IDLE: BoardState = { status: 'idle' };
 const LOADING: BoardState = { status: 'loading' };
 
 /**
- * The thumbnail board for the map on screen. It is read again whenever the map
- * is (a new map, a competitor removed or restored), and the board already shown
- * stays up meanwhile so the page does not jump.
+ * The thumbnail board for the map on screen, once a screen that shows it has
+ * opened (`wanted`). It is read again whenever the map is (a new map, a
+ * competitor removed or restored), and the board already shown stays up
+ * meanwhile so the page does not jump.
  */
-export function useThumbnailBoard(api: Api, snapshot: MapSnapshot | null): BoardState {
+export function useThumbnailBoard(
+  api: Api,
+  snapshot: MapSnapshot | null,
+  wanted = true,
+): BoardState {
   const [state, setState] = useState<BoardState>(IDLE);
   const centerId = snapshot?.center.id ?? null;
 
@@ -25,6 +30,7 @@ export function useThumbnailBoard(api: Api, snapshot: MapSnapshot | null): Board
       setState(IDLE);
       return;
     }
+    if (!wanted) return;
     let current = true;
     setState((previous) =>
       previous.status === 'ready' && previous.board.center.id === centerId ? previous : LOADING,
@@ -44,7 +50,7 @@ export function useThumbnailBoard(api: Api, snapshot: MapSnapshot | null): Board
       current = false;
     };
     // `snapshot` changes identity on every read of the map, which is when to read again.
-  }, [api, centerId, snapshot]);
+  }, [api, centerId, snapshot, wanted]);
 
   return state;
 }

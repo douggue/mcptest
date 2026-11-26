@@ -1,6 +1,7 @@
 import type { LogoFound, LogoProgress, MapSnapshot } from '@jgtube/core';
 import { useEffect, useState } from 'react';
 import {
+  LOGO_FIRST_WAIT_MS,
   LOGO_POLL_MS,
   LOGO_RETRY_MS,
   afterLogoRun,
@@ -67,7 +68,8 @@ export function useLogos(
         onLost: () => take({ kind: 'stop' }, round),
       });
     };
-    ask(1);
+    // Not while the page is first drawn: the screen's own reads go first.
+    timer = setTimeout(() => ask(1), LOGO_FIRST_WAIT_MS);
 
     return () => {
       over = true;

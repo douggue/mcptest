@@ -188,3 +188,16 @@ describe('the kept answers to the slow reads', () => {
     expect(api.calls()).toBe(2);
   });
 });
+
+describe('a read sent as POST', () => {
+  test('is not counted as a write', async () => {
+    const api = counting((_request, calls) => json({ calls }));
+    const app = keptReads(api.handler, { storeVersion: () => 's1', run: () => 'r' });
+    await app(GET('/api/niches'));
+
+    await app(POST('/api/breakdowns/candidates'));
+    await app(GET('/api/niches'));
+
+    expect(api.calls()).toBe(2);
+  });
+});

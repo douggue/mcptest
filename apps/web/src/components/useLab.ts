@@ -56,6 +56,15 @@ export interface Lab {
   readonly nameHooks: () => void;
 }
 
+/** Which of the lab's reads a screen opened so far shows; each is read only then. */
+export interface LabWanted {
+  readonly concepts: boolean;
+  readonly hooks: boolean;
+  readonly formulas: boolean;
+}
+
+const ALL_WANTED: LabWanted = { concepts: true, hooks: true, formulas: true };
+
 const NO_CHOICES: LabChoices = { format: '', angle: '', length: 'long' satisfies ConceptLength };
 
 const messageOf = (error: unknown): string =>
@@ -74,6 +83,7 @@ export function useLab(
   centerId: string | null,
   mapId: number | null,
   engine: EngineChoice,
+  wanted: LabWanted = ALL_WANTED,
 ): Lab {
   const [concepts, setConcepts] = useState<readonly ConceptView[] | null>(null);
   const [conceptNote, setConceptNote] = useState<string | null>(null);
@@ -105,25 +115,30 @@ export function useLab(
       .catch((error: unknown) => setProblem(messageOf(error)));
   }, [api, centerId]);
 
+  const { concepts: wantsConcepts, hooks: wantsHooks, formulas: wantsFormulas } = wanted;
   useEffect(() => {
     setConcepts(null);
-    setLibrary(null);
     setThumbnails(null);
-    if (centerId === null) return;
+    if (centerId === null || !wantsConcepts) return;
     readConcepts();
     api
       .conceptThumbnails(centerId)
       .then(setThumbnails)
       .catch(() => undefined);
+  }, [api, centerId, mapId, readConcepts, wantsConcepts]);
+
+  useEffect(() => {
+    setLibrary(null);
+    if (centerId === null || !wantsHooks) return;
     api
       .hooks(centerId)
       .then(setLibrary)
       .catch(() => undefined);
-  }, [api, centerId, mapId, readConcepts]);
+  }, [api, centerId, mapId, wantsHooks]);
 
   useEffect(() => {
     setFormulas(null);
-    if (centerId === null) return;
+    if (centerId === null || !wantsFormulas) return;
     let current = true;
     api
       .formulas(centerId, formulaWindow)
@@ -134,7 +149,7 @@ export function useLab(
     return () => {
       current = false;
     };
-  }, [api, centerId, mapId, formulaWindow]);
+  }, [api, centerId, mapId, formulaWindow, wantsFormulas]);
 
   /** What a finished job changes on the page. */
   const settle = useCallback(

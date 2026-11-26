@@ -54,13 +54,19 @@ function useCrawl(api: Api) {
   const [model, setModel] = useState(() => recall(MODEL_STORAGE_KEY));
   const [size, setSize] = useState<number>(CRAWL_DEFAULT_MAX_CHANNELS);
   const [saved, setSaved] = useState<readonly SavedChannel[]>([]);
+  // Whether the first map has been looked for: found, not found, or none to look for.
+  const [mapKnown, setMapKnown] = useState(false);
 
   // Every channel a map was made for. If the list cannot be read, the row keeps what it had.
   const loadSaved = useCallback(() => {
     api
       .savedChannels()
-      .then(setSaved)
-      .catch(() => undefined);
+      .then((list) => {
+        setSaved(list);
+        // With no channel remembered and none saved, there is no map to wait for.
+        if (list.length === 0 && recall().trim() === '') setMapKnown(true);
+      })
+      .catch(() => setMapKnown(true));
   }, [api]);
   useEffect(loadSaved, [loadSaved]);
 
@@ -78,6 +84,8 @@ function useCrawl(api: Api) {
       } catch (error) {
         setMessage(messageOf(error));
         return false;
+      } finally {
+        setMapKnown(true);
       }
     },
     [api],
@@ -128,7 +136,7 @@ function useCrawl(api: Api) {
   return {
     ...{ query, setQuery, snapshot, setSnapshot, job, message, setMessage },
     ...{ depth, setDepth, model, setModel, size, setSize },
-    ...{ saved, setSaved, load, submit },
+    ...{ saved, setSaved, load, submit, mapKnown },
   };
 }
 

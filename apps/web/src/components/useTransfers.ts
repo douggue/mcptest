@@ -40,7 +40,16 @@ export interface Transfers {
  * It is read when the page opens and again when a different map is on screen.
  * The list already shown stays up meanwhile so the page does not jump.
  */
-export function useTransfers(api: Api, channelId: string | null, mapId: number | null): Transfers {
+export function useTransfers(
+  api: Api,
+  channelId: string | null,
+  mapId: number | null,
+  /**
+   * Read only once a screen that shows it has opened and the map on screen is
+   * known, so the list is not read first for no channel and then for the one.
+   */
+  wanted = true,
+): Transfers {
   const [state, setState] = useState<TransfersState>(LOADING);
 
   // Only the answer to the newest read is shown, so a slow older one cannot replace it.
@@ -63,13 +72,14 @@ export function useTransfers(api: Api, channelId: string | null, mapId: number |
   );
 
   useEffect(() => {
+    if (!wanted) return undefined;
     let current = true;
     setState((previous) => (previous.status === 'ready' ? previous : LOADING));
     void read(() => current);
     return () => {
       current = false;
     };
-  }, [read, mapId]);
+  }, [read, mapId, wanted]);
 
   const setSaved = useCallback(
     (key: string, saved: boolean) => {
@@ -90,8 +100,8 @@ export function useTransfers(api: Api, channelId: string | null, mapId: number |
   );
 
   const reload = useCallback(() => {
-    void read(() => true);
-  }, [read]);
+    if (wanted) void read(() => true);
+  }, [read, wanted]);
 
   const placeApi = useMemo(() => createTransferPlaceApi(), []);
   const [countryNote, setCountryNote] = useState<string | null>(null);

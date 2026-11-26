@@ -22,7 +22,12 @@ const messageOf = (error: unknown): string =>
  * strip shows, read again whenever `version` changes (a job finished), and
  * the style lock the owner chose for the channel.
  */
-export function useFlow(centerId: string | null, version: string): Flow {
+export function useFlow(
+  centerId: string | null,
+  version: string,
+  /** The counts are read only once a screen that shows them has opened; the style lock always. */
+  wanted = true,
+): Flow {
   const [counts, setCounts] = useState<FlowCounts | null>(null);
   const [styleLock, setStyleLock] = useState<StyleLockView | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -35,10 +40,6 @@ export function useFlow(centerId: string | null, version: string): Flow {
       return undefined;
     }
     answersApi
-      .flow(centerId)
-      .then((found) => current && setCounts(found))
-      .catch(() => current && setCounts(null));
-    answersApi
       .styleLock(centerId)
       .then((found) => current && setStyleLock(found))
       .catch(() => undefined);
@@ -46,6 +47,18 @@ export function useFlow(centerId: string | null, version: string): Flow {
       current = false;
     };
   }, [centerId, version]);
+
+  useEffect(() => {
+    let current = true;
+    if (centerId === null || !wanted) return undefined;
+    answersApi
+      .flow(centerId)
+      .then((found) => current && setCounts(found))
+      .catch(() => current && setCounts(null));
+    return () => {
+      current = false;
+    };
+  }, [centerId, version, wanted]);
 
   const useStyleLock = useCallback(
     (fromChannelId: string) => {
