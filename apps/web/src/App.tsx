@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChannelSwitcher } from './components/ChannelSwitcher';
 import { ConnectionsContext } from './components/Connections';
 import { Shell } from './components/Shell';
-import { AskPanel } from './components/shell/AskPanel';
 import { SearchBox } from './components/shell/SearchBox';
 import { ViewHost } from './components/ViewHost';
+import { Arriving, AskPanel } from './components/lazyViews';
 import { useAskSession } from './components/useAskSession';
 import { useMapPage } from './components/useMapPage';
 import { usePagePath } from './components/usePagePath';
@@ -134,7 +134,9 @@ export function App() {
         />
       </Shell>
       {panelOpen && (
-        <AskPanel session={ask} context={context} onClose={closeAsk} onLarge={openLarge} />
+        <Arriving quiet>
+          <AskPanel session={ask} context={context} onClose={closeAsk} onLarge={openLarge} />
+        </Arriving>
       )}
     </ConnectionsContext.Provider>
   );

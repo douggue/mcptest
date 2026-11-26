@@ -1,30 +1,23 @@
 import type { ReactNode } from 'react';
 import type { AiChoice } from './AiEngines';
 import { isObjectPage, isOwnChannel, whereIs } from '../lib/places';
-import { CHANNEL_TABS, VIDEO_TABS, type Route, type ViewId } from '../lib/routes';
-import { BreakdownChannelTab } from './BreakdownChannelTab';
-import { CREATE_VIEWS } from './CreateViews';
-import { DesignSheet } from './DesignSheet';
-import { HomeView } from './HomeView';
-import { MY_CHANNEL_VIEWS } from './MyChannelViews';
-import { ChannelPage } from './pages/ChannelPage';
-import { VideoPage } from './pages/VideoPage';
-import { RESEARCH_VIEWS } from './ResearchViews';
-import { Settings } from './Settings';
+import { CHANNEL_TABS, VIDEO_TABS, type Route } from '../lib/routes';
+import {
+  Arriving,
+  BreakdownChannelTab,
+  ChannelPage,
+  DesignSheet,
+  HomeView,
+  Settings,
+  tableView,
+  VideoBreakdownTab,
+  VideoPage,
+} from './lazyViews';
 import { PlaceHeader } from './shell/PlaceHeader';
-import { STUDY_VIEWS } from './StudyViews';
-import { VideoBreakdownTab } from './VideoBreakdownTab';
-import { NeedsMap, type ViewDraw, type ViewParts } from './viewParts';
+import { NeedsMap, type ViewParts } from './viewParts';
 
 /** A mistyped address is shown back, but not at any length. */
 const MAX_ADDRESS_SHOWN = 80;
-
-const VIEW_DRAWS: Partial<Record<ViewId, ViewDraw>> = {
-  ...RESEARCH_VIEWS,
-  ...CREATE_VIEWS,
-  ...STUDY_VIEWS,
-  ...MY_CHANNEL_VIEWS,
-};
 
 const tabIn = <T extends string>(tabs: readonly T[], tab: string | undefined, first: T): T =>
   tabs.find((each) => each === tab) ?? first;
@@ -49,8 +42,7 @@ function drawView(route: Route, parts: ViewParts, ai: AiChoice): ReactNode {
   if (route.view === 'design-system') return <DesignSheet />;
   if (route.view === 'breakdown') return <BreakdownChannelTab parts={parts} channelId={null} />;
   if (route.view === 'video-breakdown') return <VideoBreakdownTab parts={parts} />;
-  const draw = VIEW_DRAWS[route.view];
-  return draw ? draw(parts) : <HomeView {...parts} />;
+  return tableView(route.view, parts) ?? <HomeView {...parts} />;
 }
 
 /** Said above Today when the address typed has no screen: what happened, and where the owner is now. */
@@ -102,7 +94,7 @@ export function ViewHost({
           compact={route.view === 'radar'}
         />
       )}
-      {drawView(route, parts, ai)}
+      <Arriving>{drawView(route, parts, ai)}</Arriving>
     </>
   );
 }
