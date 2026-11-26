@@ -72,6 +72,8 @@ export interface KeptReadsOptions {
   readonly storeVersion: () => string;
   readonly now?: () => number;
   readonly maxAgeMs?: number;
+  /** Names this run of the server; tests fix it. */
+  readonly run?: () => string;
 }
 
 /**
@@ -84,7 +86,9 @@ export function keptReads(handler: Handler, options: KeptReadsOptions): Handler 
   const now = options.now ?? (() => Date.now());
   const maxAgeMs = options.maxAgeMs ?? READ_MAX_AGE_MS;
   let writes = 0;
-  const version = (): string => `${options.storeVersion()}-${writes}`;
+  // Which run of the server this is: its versions start again from the beginning.
+  const run = (options.run ?? (() => Date.now().toString(36)))();
+  const version = (): string => `${run}:${options.storeVersion()}-${writes}`;
   const kept = new Map<string, Entry>();
 
   const keep = (key: string, entry: Entry): void => {

@@ -98,44 +98,44 @@ function counting(answer: (request: Request, calls: number) => Response) {
 describe('the kept answers to the slow reads', () => {
   test('answer a repeated read from memory, with the version on every answer', async () => {
     const api = counting((_request, calls) => json({ calls }));
-    const app = keptReads(api.handler, { storeVersion: () => 's1' });
+    const app = keptReads(api.handler, { storeVersion: () => 's1', run: () => 'r' });
 
     const first = await app(GET('/api/transfers?channel=UCa'));
     const second = await app(GET('/api/transfers?channel=UCa'));
 
     expect(await second.json()).toEqual(await first.json());
     expect(api.calls()).toBe(1);
-    expect(second.headers.get(DATA_VERSION_HEADER)).toBe('s1-0');
+    expect(second.headers.get(DATA_VERSION_HEADER)).toBe('r:s1-0');
   });
 
   test('read the store again after a write: the next read is fresh', async () => {
     let store = 's1';
     const api = counting((_request, calls) => json({ calls }));
-    const app = keptReads(api.handler, { storeVersion: () => store });
+    const app = keptReads(api.handler, { storeVersion: () => store, run: () => 'r' });
     await app(GET('/api/maps/latest?channel=UCa'));
 
     store = 's2';
     const after = await app(GET('/api/maps/latest?channel=UCa'));
 
     expect(await after.json()).toEqual({ success: true, data: { calls: 2 } });
-    expect(after.headers.get(DATA_VERSION_HEADER)).toBe('s2-0');
+    expect(after.headers.get(DATA_VERSION_HEADER)).toBe('r:s2-0');
   });
 
   test('count a write through the API as a change, for what is not in the store', async () => {
     const api = counting((_request, calls) => json({ calls }));
-    const app = keptReads(api.handler, { storeVersion: () => 's1' });
+    const app = keptReads(api.handler, { storeVersion: () => 's1', run: () => 'r' });
     await app(GET('/api/niches'));
 
     const saved = await app(POST('/api/settings'));
     const after = await app(GET('/api/niches'));
 
-    expect(saved.headers.get(DATA_VERSION_HEADER)).toBe('s1-1');
+    expect(saved.headers.get(DATA_VERSION_HEADER)).toBe('r:s1-1');
     expect(await after.json()).toEqual({ success: true, data: { calls: 3 } });
   });
 
   test('work out identical reads asked at once only once', async () => {
     const api = counting((_request, calls) => json({ calls }));
-    const app = keptReads(api.handler, { storeVersion: () => 's1' });
+    const app = keptReads(api.handler, { storeVersion: () => 's1', run: () => 'r' });
 
     const answers = await Promise.all([
       app(GET('/api/flow?channel=UCa')),
@@ -148,7 +148,7 @@ describe('the kept answers to the slow reads', () => {
 
   test('keep apart reads that ask for different things', async () => {
     const api = counting((_request, calls) => json({ calls }));
-    const app = keptReads(api.handler, { storeVersion: () => 's1' });
+    const app = keptReads(api.handler, { storeVersion: () => 's1', run: () => 'r' });
 
     await app(GET('/api/transfers?channel=UCa'));
     await app(GET('/api/transfers?channel=UCb'));
@@ -158,7 +158,7 @@ describe('the kept answers to the slow reads', () => {
 
   test('never keep a failed read', async () => {
     const api = counting((_request, calls) => json({ calls }, calls === 1 ? 500 : 200));
-    const app = keptReads(api.handler, { storeVersion: () => 's1' });
+    const app = keptReads(api.handler, { storeVersion: () => 's1', run: () => 'r' });
 
     expect((await app(GET('/api/bank'))).status).toBe(500);
     expect((await app(GET('/api/bank'))).status).toBe(200);
@@ -171,7 +171,7 @@ describe('the kept answers to the slow reads', () => {
         calls += 1;
         return calls === 1 ? Promise.reject(new Error('broken')) : Promise.resolve(json({}));
       },
-      { storeVersion: () => 's1' },
+      { storeVersion: () => 's1', run: () => 'r' },
     );
 
     await expect(app(GET('/api/bank'))).rejects.toThrow('broken');
@@ -180,7 +180,7 @@ describe('the kept answers to the slow reads', () => {
 
   test('pass every other request through, each time', async () => {
     const api = counting((_request, calls) => json({ calls }));
-    const app = keptReads(api.handler, { storeVersion: () => 's1' });
+    const app = keptReads(api.handler, { storeVersion: () => 's1', run: () => 'r' });
 
     await app(GET('/api/jobs'));
     await app(GET('/api/jobs'));
