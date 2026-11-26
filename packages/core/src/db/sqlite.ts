@@ -701,7 +701,7 @@ CREATE TABLE IF NOT EXISTS niche_sweep_finds (
 );
 CREATE INDEX IF NOT EXISTS niche_sweep_finds_sweep ON niche_sweep_finds (sweep_id);
 `,
-  // 49 (provisional; renumber when merged after steps 35 to 48): indexes for the hot reads.
+  // 35: indexes for the hot reads.
   //     videos_channel_newest serves each channel's videos newest first, the order the map,
   //     the board and the outlier bank read them in, with no sort afterwards; videos_fetched
   //     answers "when was a video last read" (the bank's change check) without a full scan.
