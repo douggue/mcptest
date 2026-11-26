@@ -215,7 +215,9 @@ function start(): void {
     engine.shutdown().finally(() => process.exit(1));
   });
   server.listen(port, HOST, () => {
-    process.stdout.write(`Jgtube is running at http://${HOST}:${port}\n`);
+    // How long since the process started: with `npm start`, any building included.
+    const ready = (performance.now() / 1000).toFixed(1);
+    process.stdout.write(`Jgtube is running at http://${HOST}:${port} (ready in ${ready} s)\n`);
   });
   const timer =
     config.refreshHours === undefined
