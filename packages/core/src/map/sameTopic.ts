@@ -130,8 +130,10 @@ export function loadSameTopicList(
   deps: SnapshotDeps,
   centerChannelId: string,
   now: Date,
+  /** The map, when the caller has already read it; left out, it is read here. */
+  read: MapSnapshot | null = loadMapSnapshot(deps, centerChannelId, now),
 ): SameTopicList | null {
-  const snapshot = loadMapSnapshot(deps, centerChannelId, now);
+  const snapshot = read;
   return snapshot
     ? buildSameTopicList(snapshot, (channelId) => deps.videos.listByChannel(channelId))
     : null;

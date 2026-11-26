@@ -13,7 +13,9 @@ import { runPictureCheck } from './pictureCheckEngine';
 import { pictureChecks, pictureChecksPath, type PictureChecks } from './pictureChecks';
 import type { PictureFileSet, PictureNeed } from './pictureFiles';
 import type { Engine } from './app';
-import { checkEngines, createEngines, type Engines } from './engines/catalog';
+import { checkPrograms, createEngines, geminiStatus, type Engines } from './engines/catalog';
+import { lastKnown, type LastKnown } from './engines/lastKnown';
+import { engineStatusPath, readStatusFile, writeStatusFile } from './engines/statusFile';
 import type { EngineAnswer } from './engines/fallback';
 import type { GeminiFetch } from './engines/geminiVideo';
 import { spawnProcess } from './engines/process';
@@ -42,11 +44,14 @@ const OWNER_ONLY = 0o700;
 /** The folder, inside the private one, where an engine watches a video. */
 const VIDEO_FOLDER = 'video';
 /**
- * How long what was learnt about the engines is reused. Finding out starts
- * several programs, which is too much for every opening of the page, and
- * installing or signing in to one takes longer than this anyway.
+ * How long what was learnt about the engines counts as fresh. Finding out
+ * starts several programs, which is too much for every opening of the page,
+ * and installing or signing in to one is rarer than this. An older answer is
+ * still given at once, and checked again behind it.
  */
-const STATUS_FRESH_MS = 60_000;
+const STATUS_FRESH_MS = 10 * 60_000;
+/** No check starts behind the page in the first seconds: the first page load has the computer. */
+const STATUS_QUIET_MS = 10_000;
 /** A work folder this old was left behind by a run that was cut short. */
 const LEFTOVER_AFTER_MS = 24 * 60 * 60 * 1000;
 
@@ -177,20 +182,29 @@ function privateFolders() {
 }
 
 /** Reuses what `load` found for `freshMs` before asking again; `fresh` asks again now. */
-function remembered<T>(load: () => Promise<T>, freshMs: number): (fresh?: boolean) => Promise<T> {
-  let kept: { readonly at: number; readonly value: Promise<T> } | null = null;
-  return (fresh = false) => {
-    if (fresh || kept === null || Date.now() - kept.at > freshMs) {
-      const value = load();
-      const fresh = { at: Date.now(), value };
-      kept = fresh;
-      // A failure is not worth remembering: the next call asks again.
-      value.catch(() => {
-        if (kept === fresh) kept = null;
-      });
-    }
-    return kept.value;
-  };
+/**
+ * What is known about the engines: the last answer at once, checked again
+ * behind it when old. The programs' answer is kept beside the store for the
+ * next start; Gemini's is worked out from the settings each time.
+ */
+function engineStatuses(
+  wiring: AnalysisWiring,
+  engines: Engines,
+  settings: EngineSettings,
+  deps: EngineDeps,
+): LastKnown<readonly EngineStatus[]> {
+  const quietUntil = Date.now() + STATUS_QUIET_MS;
+  const { checkEngines: standIn } = wiring.options;
+  if (standIn) return lastKnown({ load: standIn, freshMs: STATUS_FRESH_MS, quietUntil });
+  const path = engineStatusPath(storeOf(wiring));
+  const programs = lastKnown<readonly EngineStatus[]>({
+    load: () => checkPrograms(engines, deps),
+    freshMs: STATUS_FRESH_MS,
+    read: () => readStatusFile(path),
+    write: (found) => writeStatusFile(path, found),
+    quietUntil,
+  });
+  return async (fresh) => [...(await programs(fresh)), geminiStatus(settings)];
 }
 
 /** What the analyses and video watching are both built from. */
@@ -206,11 +220,14 @@ interface Shared {
 }
 
 /** Where the picture checks are kept: beside the store on disk, nowhere for one in memory. */
-function checksPathOf({ config, options }: AnalysisWiring): string | null {
-  if (options.pictureChecksPath !== undefined) return options.pictureChecksPath;
-  const store =
-    options.storePath ?? (config.dbPath === IN_MEMORY ? IN_MEMORY : resolve(config.dbPath));
-  return pictureChecksPath(store);
+function checksPathOf(wiring: AnalysisWiring): string | null {
+  const { pictureChecksPath: path } = wiring.options;
+  return path !== undefined ? path : pictureChecksPath(storeOf(wiring));
+}
+
+/** The store's path as the connector opens it, or ":memory:". */
+function storeOf({ config, options }: AnalysisWiring): string {
+  return options.storePath ?? (config.dbPath === IN_MEMORY ? IN_MEMORY : resolve(config.dbPath));
 }
 
 /** The analyses, the frame study, the teardown stages and the picture check. */
@@ -262,10 +279,7 @@ export function analysisEngines(wiring: AnalysisWiring, stop: AbortSignal): Anal
   const settings = options.engines ?? DEFAULT_ENGINE_SETTINGS;
   const engines = createEngines(settings, SERVER_NAME);
   const deps: EngineDeps = { spawn: options.spawn ?? spawnProcess, env: process.env, signal: stop };
-  const statuses = remembered(
-    () => options.checkEngines?.() ?? checkEngines(engines, settings, deps),
-    STATUS_FRESH_MS,
-  );
+  const statuses = engineStatuses(wiring, engines, settings, deps);
   const checks = pictureChecks(checksPathOf(wiring));
   const shared: Shared = { settings, engines, deps, folders: privateFolders(), statuses, checks };
   const asking = askers(shared, wiring, stop);
