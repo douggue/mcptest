@@ -52,6 +52,7 @@ import type {
   BreakdownProgress,
   BreakdownView,
 } from './breakdownTypes';
+import { keptReads } from './readAnswers';
 import { refreshState, startRefresh, type RefreshTracker } from './refreshRoutes';
 import {
   BREAKDOWN_TEXT_PATH,
@@ -168,6 +169,11 @@ export interface Engine
   readonly formatBuilder: FormatBuilderEngine;
   /** The Breakdown view: the channels it offers, a pasted channel, and one video in depth. */
   readonly hub: BreakdownHub;
+  /**
+   * Changes whenever the store does, read in microseconds; the slow reads are
+   * kept until it changes. Without it nothing is kept.
+   */
+  readonly dataVersion?: () => string;
   /** The latest stored map around a channel; reads the store only. */
   findSnapshot(channel: string): MapSnapshot | null;
   /** Every channel a map has been made for, the most recently mapped first. */
@@ -261,7 +267,8 @@ export interface Engine
   watchVideo(videoId: string, question: string, options?: WatchOptions): Promise<VideoAnswer>;
   /**
    * Which AI engines are installed and signed in. Starts nothing that spends
-   * allowance. What was found is reused for a minute unless `fresh` is true.
+   * allowance. What was last found is answered at once and checked again in
+   * the background when it is old; `fresh` waits for a new check.
    */
   engineStatus(fresh?: boolean): Promise<EngineReport>;
   /**
@@ -516,6 +523,12 @@ function jobStatus(
 
 /** The JSON API as a plain function from request to response. */
 export function createApp(options: AppOptions): (request: Request) => Promise<Response> {
+  const answer = routes(options);
+  const { dataVersion } = options.engine;
+  return dataVersion ? keptReads(answer, { storeVersion: dataVersion }) : answer;
+}
+
+function routes(options: AppOptions): (request: Request) => Promise<Response> {
   const refreshing: RefreshTracker = { jobId: null };
   // An analysis and a breakdown each keep an AI engine busy, so they share this one slot.
   const held = heldRuns();

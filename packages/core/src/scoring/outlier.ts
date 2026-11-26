@@ -46,29 +46,68 @@ export function median(values: readonly number[]): number | null {
   return ((sorted[middle - 1] ?? 0) + upper) / 2;
 }
 
-/** The videos a given video is compared against: recent ones, or the newest few if the channel is quiet. */
-function comparisonPool(
+/** The middle of `sorted` (ascending) with the value at `skip` left out; -1 leaves nothing out. */
+function middleWithout(sorted: readonly number[], skip: number): number | null {
+  const length = skip < 0 ? sorted.length : sorted.length - 1;
+  if (length === 0) return null;
+  const at = (index: number): number => sorted[skip >= 0 && index >= skip ? index + 1 : index] ?? 0;
+  const middle = Math.floor(length / 2);
+  return length % 2 === 1 ? at(middle) : (at(middle - 1) + at(middle)) / 2;
+}
+
+/** Where `value` is in `sorted` (ascending); any equal one serves, since only the values count. */
+function indexOf(sorted: readonly number[], value: number): number {
+  let low = 0;
+  let high = sorted.length - 1;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if ((sorted[middle] ?? 0) < value) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
+function scoreFrom(
   video: ScorableVideo,
-  all: readonly ScorableVideo[],
-): readonly ScorableVideo[] {
-  const others = all.filter((other) => other.id !== video.id);
-  const recent = others.filter((other) => other.ageDays <= RECENT_WINDOW_DAYS);
-  if (recent.length >= MIN_POOL_SIZE) return recent;
-  return [...others].sort((a, b) => a.ageDays - b.ageDays).slice(0, FALLBACK_POOL_SIZE);
-}
-
-function scoreOne(video: ScorableVideo, all: readonly ScorableVideo[]): OutlierScore | null {
-  const pool = comparisonPool(video, all);
-  if (pool.length < MIN_POOL_SIZE) return null;
-  const baseline = median(pool.map((other) => other.views));
-  if (baseline === null || baseline <= 0) return null;
+  baseline: number | null,
+  sampleSize: number,
+): OutlierScore | null {
+  if (sampleSize < MIN_POOL_SIZE || baseline === null || baseline <= 0) return null;
   const expected = baseline * ageRamp(video.ageDays);
-  return { score: video.views / expected, baseline, expected, sampleSize: pool.length };
+  return { score: video.views / expected, baseline, expected, sampleSize };
 }
 
-/** Scores every video of one channel. A video with too little to compare against maps to null. */
+/**
+ * Scores every video of one channel. A video with too little to compare against maps to null.
+ *
+ * Each video is compared with the channel's other recent videos or, when
+ * fewer than three of them are recent, with its ten newest others. The recent
+ * views are sorted once and each video's baseline is their middle with its
+ * own left out: the same numbers as sorting each pool afresh, in a fraction
+ * of the time on a channel with thousands of videos.
+ */
 export function scoreVideos(
   videos: readonly ScorableVideo[],
 ): ReadonlyMap<string, OutlierScore | null> {
-  return new Map(videos.map((video) => [video.id, scoreOne(video, videos)]));
+  const recent = videos.filter((video) => video.ageDays <= RECENT_WINDOW_DAYS);
+  const recentViews = recent.map((video) => video.views).sort((a, b) => a - b);
+  // Newest first; ties keep the channel's own order, as a stable sort of each pool would.
+  const newest = [...videos].sort((a, b) => a.ageDays - b.ageDays);
+  return new Map(
+    videos.map((video) => {
+      const isRecent = video.ageDays <= RECENT_WINDOW_DAYS;
+      const recentOthers = recent.length - (isRecent ? 1 : 0);
+      if (recentOthers >= MIN_POOL_SIZE) {
+        const skip = isRecent ? indexOf(recentViews, video.views) : -1;
+        return [video.id, scoreFrom(video, middleWithout(recentViews, skip), recentOthers)];
+      }
+      // One more than the pool holds, in case the video is among them.
+      const pool = newest
+        .slice(0, FALLBACK_POOL_SIZE + 1)
+        .filter((other) => other.id !== video.id)
+        .slice(0, FALLBACK_POOL_SIZE)
+        .map((other) => other.views);
+      return [video.id, scoreFrom(video, median(pool), pool.length)];
+    }),
+  );
 }

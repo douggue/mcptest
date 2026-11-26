@@ -2,14 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChannelSwitcher } from './components/ChannelSwitcher';
 import { ConnectionsContext } from './components/Connections';
 import { Shell } from './components/Shell';
-import { AskPanel } from './components/shell/AskPanel';
 import { SearchBox } from './components/shell/SearchBox';
 import { ViewHost } from './components/ViewHost';
+import { Arriving, AskPanel } from './components/lazyViews';
 import { useAskSession } from './components/useAskSession';
 import { useMapPage } from './components/useMapPage';
 import { usePagePath } from './components/usePagePath';
 import { useRoute } from './components/useRoute';
+import { useWanted } from './components/useWanted';
 import { useWorkspace } from './components/useWorkspace';
+import { partsFor } from './lib/dataParts';
 import { aiOf } from './components/viewParts';
 import { createApi } from './lib/api';
 import { askContext } from './lib/askContext';
@@ -34,9 +36,14 @@ export function App() {
   const api = useMemo(() => createApi(), []);
   const { route, go, notFound } = useRoute();
   const page = useMapPage(api);
-  const work = useWorkspace(api, page.snapshot, page.saved);
-  const path = usePagePath(page.snapshot, work, go);
   const [asking, setAsking] = useState(false);
+  const centerId = page.snapshot?.center.id ?? null;
+  // A tab of the owner's own channel page, reached by its channel id, is a screen of My channel.
+  const shown = useMemo(() => settled(route, centerId), [route, centerId]);
+  // Each slow read waits for the first screen that shows it.
+  const parts = useWanted(partsFor(shown, asking));
+  const work = useWorkspace(api, page.snapshot, page.saved, { parts, mapKnown: page.mapKnown });
+  const path = usePagePath(page.snapshot, work, go, parts.has('flow'));
   const openChannel = useCallback(
     (channelId: string) => go({ view: 'channel', channelId, anchor: null }),
     [go],
@@ -46,14 +53,12 @@ export function App() {
     [go],
   );
   const { snapshot } = page;
-  const centerId = snapshot?.center.id ?? null;
-  // A tab of the owner's own channel page, reached by its channel id, is a screen of My channel.
-  const shown = useMemo(() => settled(route, centerId), [route, centerId]);
   const { analysis, breakdown } = work;
   const ask = useAskSession(analysis, {
     centerId,
     otherRun: work.asking && analysis.state.status !== 'running',
     breakingDown: breakdown.state.status === 'running' ? breakdown.state.channel.title : null,
+    wanted: parts.has('answers'),
   });
   const searchable = useMemo(
     () => [...page.saved, ...(snapshot?.channels ?? [])],
@@ -129,7 +134,9 @@ export function App() {
         />
       </Shell>
       {panelOpen && (
-        <AskPanel session={ask} context={context} onClose={closeAsk} onLarge={openLarge} />
+        <Arriving quiet>
+          <AskPanel session={ask} context={context} onClose={closeAsk} onLarge={openLarge} />
+        </Arriving>
       )}
     </ConnectionsContext.Provider>
   );

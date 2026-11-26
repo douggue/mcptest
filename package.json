@@ -22,7 +22,7 @@
     "web": "vite --config apps/web/vite.config.ts",
     "build": "vite build --config apps/web/vite.config.ts",
     "engines": "tsx packages/server/src/cli.ts",
-    "start": "npm run build && npm run api"
+    "start": "node scripts/start.mjs"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",

@@ -82,6 +82,8 @@ You need about ten minutes and a Mac, Windows or Linux computer.
    instantly from the copy stored on your computer.
 
 To start it again another day, open a terminal in the folder and type `npm start`.
+It builds only what changed since the last start (the first start after an
+update takes a few seconds longer), then says how long starting took.
 
 ### If `npm install` fails
 

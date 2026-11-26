@@ -10,7 +10,13 @@ import type { Workspace } from './useWorkspace';
  * The path from research to a script: the counts of the flow strip, and the
  * links that take a thing from one view into another and open that view.
  */
-export function usePagePath(snapshot: MapSnapshot | null, work: Workspace, go: Go) {
+export function usePagePath(
+  snapshot: MapSnapshot | null,
+  work: Workspace,
+  go: Go,
+  /** The flow strip's counts are read only once a screen that shows them has opened. */
+  showsFlow = true,
+) {
   const open = (view: ViewId): void => go({ view, channelId: null, anchor: null });
   const { lab, script, voices, analysis, breakdown, labJobs } = work;
   // Read again whenever a run ends or a script changes, so the strip's counts stay true.
@@ -22,6 +28,7 @@ export function usePagePath(snapshot: MapSnapshot | null, work: Workspace, go: G
       breakdown.state.status,
       script.view?.concept.id,
     ].join('|'),
+    showsFlow,
   );
   const connections: Connections = {
     useVoice: (channel) => {

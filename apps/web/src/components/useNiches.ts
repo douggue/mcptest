@@ -43,7 +43,12 @@ export interface Niches {
  * again when a different map is on screen, since a new map means new channels
  * were read. The list already shown stays up meanwhile so the page does not jump.
  */
-export function useNiches(api: Api, mapId: number | null): Niches {
+export function useNiches(
+  api: Api,
+  mapId: number | null,
+  /** Read only once a screen that shows it has opened; until then a reload asks nothing. */
+  wanted = true,
+): Niches {
   const [state, setState] = useState<NichesState>(LOADING);
   const [search, setSearch] = useState<SearchState>(IDLE);
 
@@ -69,13 +74,14 @@ export function useNiches(api: Api, mapId: number | null): Niches {
   );
 
   useEffect(() => {
+    if (!wanted) return undefined;
     let current = true;
     setState((previous) => (previous.status === 'ready' ? previous : LOADING));
     void read(() => current);
     return () => {
       current = false;
     };
-  }, [read, mapId]);
+  }, [read, mapId, wanted]);
 
   const setWatched = useCallback(
     (channelId: string, watched: boolean) => {
@@ -114,8 +120,8 @@ export function useNiches(api: Api, mapId: number | null): Niches {
   );
 
   const reload = useCallback(() => {
-    void read(() => true);
-  }, [read]);
+    if (wanted) void read(() => true);
+  }, [read, wanted]);
 
   return { state, setWatched, search, discover, reload };
 }

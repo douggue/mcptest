@@ -12,12 +12,17 @@ export const answersApi: AnswersApi = createAnswersApi();
  * reading, when none is kept, or when the server cannot say: the buttons
  * still work. None before any channel.
  */
-export function useKeptAnswers(centerId: string | null, version: number): readonly KeptAnswer[] {
+export function useKeptAnswers(
+  centerId: string | null,
+  version: number,
+  /** Read only once Ask has been opened. */
+  wanted = true,
+): readonly KeptAnswer[] {
   const [kept, setKept] = useState<readonly KeptAnswer[]>([]);
   useEffect(() => {
     let current = true;
     setKept([]);
-    if (centerId === null) return undefined;
+    if (centerId === null || !wanted) return undefined;
     Promise.all(
       ANALYSIS_OPTIONS.map(async ({ id }) => ({
         analysis: id,
@@ -31,7 +36,7 @@ export function useKeptAnswers(centerId: string | null, version: number): readon
     return () => {
       current = false;
     };
-  }, [centerId, version]);
+  }, [centerId, version, wanted]);
   return kept;
 }
 

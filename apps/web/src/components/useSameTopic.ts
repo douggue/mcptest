@@ -16,7 +16,12 @@ const LOADING: SameTopicState = { status: 'loading' };
  * read again whenever the map is (a new map, a channel kept or let go), and the
  * list already shown stays up meanwhile so the page does not jump.
  */
-export function useSameTopic(api: Api, snapshot: MapSnapshot | null): SameTopicState {
+export function useSameTopic(
+  api: Api,
+  snapshot: MapSnapshot | null,
+  /** Read only once a screen that shows it has opened. */
+  wanted = true,
+): SameTopicState {
   const [state, setState] = useState<SameTopicState>(IDLE);
   const centerId = snapshot?.center.id ?? null;
 
@@ -25,6 +30,7 @@ export function useSameTopic(api: Api, snapshot: MapSnapshot | null): SameTopicS
       setState(IDLE);
       return;
     }
+    if (!wanted) return;
     let current = true;
     setState((previous) =>
       previous.status === 'ready' && previous.list.centerId === centerId ? previous : LOADING,
@@ -43,7 +49,7 @@ export function useSameTopic(api: Api, snapshot: MapSnapshot | null): SameTopicS
       current = false;
     };
     // `snapshot` changes identity on every read of the map, which is when to read again.
-  }, [api, centerId, snapshot]);
+  }, [api, centerId, snapshot, wanted]);
 
   return state;
 }

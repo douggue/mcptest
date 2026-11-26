@@ -1,7 +1,7 @@
 import { buildVideoReport } from '../report';
 import type { StoredVideo } from '../repos/types';
 import { DEFAULT_MIN_BREAKOUT_SCORE } from './breakouts';
-import { loadMapSnapshot, type SnapshotDeps } from './snapshot';
+import { loadMapSnapshot, type MapSnapshot, type SnapshotDeps } from './snapshot';
 
 /** A video at or above this multiple of its channel's usual views worked. */
 export const WINNER_MIN_SCORE = DEFAULT_MIN_BREAKOUT_SCORE;
@@ -84,6 +84,8 @@ export interface BoardOptions {
   readonly winnersPerChannel?: number;
   readonly ordinaryPerChannel?: number;
   readonly ownVideos?: number;
+  /** The map, when the caller has already read it; left out, it is read here. */
+  readonly snapshot?: MapSnapshot | null;
 }
 
 /** A channel's videos as board entries, strongest first and unscored last. */
@@ -167,7 +169,8 @@ export function loadThumbnailBoard(
   now: Date,
   options: BoardOptions = {},
 ): ThumbnailBoard | null {
-  const snapshot = loadMapSnapshot(deps, centerChannelId, now);
+  const snapshot =
+    options.snapshot === undefined ? loadMapSnapshot(deps, centerChannelId, now) : options.snapshot;
   if (!snapshot) return null;
   const withVideos = (channel: {
     readonly id: string;

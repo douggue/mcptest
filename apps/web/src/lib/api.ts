@@ -1,4 +1,5 @@
 import type { PartsRun } from './partFixes';
+import { DATA_VERSION_HEADER, READS_SENT_AS_POST, pageCache, type QueryCache } from './queryCache';
 import {
   AUTOMATIC,
   type AnalysisAnswer,
@@ -127,13 +128,36 @@ async function readEnvelope(response: Response): Promise<Envelope> {
 }
 
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
-export type Reply = Envelope & { readonly status: number };
+export type Reply = Envelope & {
+  readonly status: number;
+  /** The server's data version; null when it sent none. */
+  readonly version: string | null;
+};
 
-/** How every part of the API asks the server and reads its envelope. */
-export function apiCaller(fetcher: Fetch = (input, init) => fetch(input, init)) {
+const realFetch: Fetch = (input, init) => fetch(input, init);
+const isRead = (init?: RequestInit): boolean => (init?.method ?? 'GET').toUpperCase() === 'GET';
+
+/**
+ * How every part of the API asks the server and reads its envelope. With no
+ * `fetcher` (the page itself), reads go through the page's shared cache: a
+ * read already on its way is not asked again, slow ones are kept until the
+ * store changes, and a write drops what was kept. A given `fetcher` (a test)
+ * asks every time.
+ */
+export function apiCaller(fetcher?: Fetch, cache: QueryCache | null = fetcher ? null : pageCache) {
+  const sendRequest = fetcher ?? realFetch;
+  const ask = async (path: string, init?: RequestInit): Promise<Reply> => {
+    const response = await sendRequest(path, init);
+    const version = response.headers?.get(DATA_VERSION_HEADER) ?? null;
+    return { ...(await readEnvelope(response)), status: response.status, version };
+  };
   const call = async (path: string, init?: RequestInit): Promise<Reply> => {
-    const response = await fetcher(path, init);
-    return { ...(await readEnvelope(response)), status: response.status };
+    if (cache === null) return ask(path, init);
+    if (isRead(init)) return cache.read(path, () => ask(path, init));
+    if (READS_SENT_AS_POST.has(path)) return ask(path, init);
+    const reply = await ask(path, init).finally(() => cache.wrote());
+    cache.saw(reply.version);
+    return reply;
   };
   const unwrap = <T>(envelope: Reply): T => {
     if (!envelope.success) {
@@ -170,7 +194,7 @@ export const answerFrom = (
 });
 
 /** The local server's API. `fetcher` is injectable so it can be tested without a network. */
-export function createApi(fetcher: Fetch = (input, init) => fetch(input, init)) {
+export function createApi(fetcher?: Fetch) {
   const { call, unwrap } = apiCaller(fetcher);
 
   return {

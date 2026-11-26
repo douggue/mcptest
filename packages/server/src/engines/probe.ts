@@ -8,8 +8,12 @@ import { EngineRunError } from './failure';
 import { runProcess, type ProcessOutput } from './process';
 import type { EngineDeps, EngineStatus, Program } from './types';
 
-/** A program asked for its version answers at once; one that has not after this long is stuck. */
-const CHECK_TIMEOUT_MS = 15_000;
+/**
+ * A program asked for its version answers at once; one that has not after
+ * this long is stuck. Checks run behind the page, so this only bounds how long
+ * "Check again" can take.
+ */
+const CHECK_TIMEOUT_MS = 8_000;
 const VERSION = /\d+\.\d+\.\d+(?:[-+][\w.]+)?/;
 
 /** Runs a program with a few fixed arguments. Never rejects: a failure comes back as a value. */

@@ -92,6 +92,7 @@ import { lab } from './labSetup';
 import { logos } from './logoEngine';
 import { trackWork, type WorkTracker } from './running';
 import { transfers } from './transferEngine';
+import { storeVersion, versioned, type Versioned } from './readCache';
 import { videoCopies, type FetchVideoFile } from './videoCopies';
 
 /**
@@ -193,12 +194,17 @@ interface Wiring {
   readonly work: WorkTracker;
   /** Gives back every lease this engine still holds. */
   readonly releaseLeases: () => void;
+  /** Changes whenever the store does; see `storeVersion`. */
+  readonly dataVersion: () => string;
+  /** Slow reads kept until the store changes, shared by the parts that use them. */
+  readonly kept: Versioned;
 }
 
 function wire(config: Config, options: EngineOptions): Wiring {
   const db = openDatabase(config.dbPath);
   const now = options.now ?? (() => new Date());
   const leases = new SqliteLeaseRepo(db);
+  const dataVersion = storeVersion(db);
   const work = trackWork();
   // Made on first use, so stored maps can be read with no network at all, and
   // shared by crawls, refreshes and keyword searches. Once the engine is
@@ -226,6 +232,8 @@ function wire(config: Config, options: EngineOptions): Wiring {
     reading: (reads) => work.run(() => holding(reads)),
     work,
     releaseLeases: () => held.forEach((owner) => leases.release(owner)),
+    dataVersion,
+    kept: versioned({ version: dataVersion }),
   };
 }
 
@@ -239,7 +247,7 @@ type MapReads = Pick<
 >;
 
 /** Reads of a channel's latest map; the store only. */
-function mapReads({ repos, now }: Wiring): MapReads {
+function mapReads({ repos, now, kept }: Wiring): MapReads {
   /** The stored channel a handle, link or id refers to. */
   const findStored = (channel: string): StoredChannel | null => {
     const ref = parseChannelRef(channel);
@@ -253,12 +261,16 @@ function mapReads({ repos, now }: Wiring): MapReads {
       const stored = findStored(channel);
       return stored ? load(stored.id) : null;
     };
+  // The map is the slow part of each of these reads, and the same for all of them.
+  const snapshotOf = (id: string) => kept.get(`map:${id}`, () => loadMapSnapshot(repos, id, now()));
   return {
-    findSnapshot: latest((id) => loadMapSnapshot(repos, id, now())),
+    findSnapshot: latest(snapshotOf),
     listSavedChannels: () => listSavedChannels(repos),
     deleteSavedChannel: (channelId) => repos.maps.deleteForCenter(channelId) > 0,
-    findThumbnailBoard: latest((id) => loadThumbnailBoard(repos, id, now())),
-    findSameTopic: latest((id) => loadSameTopicList(repos, id, now())),
+    findThumbnailBoard: latest((id) =>
+      loadThumbnailBoard(repos, id, now(), { snapshot: snapshotOf(id) }),
+    ),
+    findSameTopic: latest((id) => loadSameTopicList(repos, id, now(), snapshotOf(id))),
   };
 }
 
@@ -505,6 +517,9 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     // Read when a script opens, after `builder` below is made.
     activeFormat: (channel) => builder.activePlan(channel),
   });
+  // Read by the hook library itself, the flow strip and the format builder.
+  const hookLibrary: typeof labbing.hookLibrary = (center) =>
+    wiring.kept.get(`hooks:${center}`, () => labbing.hookLibrary(center));
 
   const choices = ownerChoices(wiring);
   const shelf = ingredientRepo(wiring.db);
@@ -514,7 +529,7 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
     imagesFolder: () => join(downloadsRoot(config), 'formats'),
     sources: {
       listFormulas: labbing.listFormulas,
-      hookLibrary: labbing.hookLibrary,
+      hookLibrary,
       listTransfers: () => transferring.listTransfers(),
       listNiches: choices.listNiches,
       findBreakdownPart: (channel, part) => wiring.repos.breakdowns.find(channel, part),
@@ -645,8 +660,10 @@ export function createEngine(config: Config, options: EngineOptions = {}): Runni
       repos: wiring.repos,
       findSnapshot: maps.findSnapshot,
       hookCount: (center) =>
-        labbing.hookLibrary(center)?.hooks.filter((hook) => hook.text !== null).length ?? 0,
+        hookLibrary(center)?.hooks.filter((hook) => hook.text !== null).length ?? 0,
     }),
+    hookLibrary,
+    dataVersion: wiring.dataVersion,
     analyse: asking.analyse,
     watchVideo: asking.watchVideo,
     engineStatus: asking.engineStatus,

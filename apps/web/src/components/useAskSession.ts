@@ -34,14 +34,16 @@ interface Around {
   /** Another AI run (a breakdown, the idea lab) is under way. */
   readonly otherRun: boolean;
   readonly breakingDown: string | null;
+  /** Ask has been opened, so the answers kept are worth reading. */
+  readonly wanted?: boolean;
 }
 
 export function useAskSession(analysis: Analysis, around: Around): AskSession {
-  const { centerId, otherRun, breakingDown } = around;
+  const { centerId, otherRun, breakingDown, wanted = true } = around;
   const { state } = analysis;
-  const own = useOwnQuestion(centerId);
+  const own = useOwnQuestion(centerId, wanted);
   // Read again after each answer, so the ones shown are the latest.
-  const kept = useKeptAnswers(centerId, state.status === 'done' ? 1 : 0);
+  const kept = useKeptAnswers(centerId, state.status === 'done' ? 1 : 0, wanted);
   const [chosen, setChosen] = useState<ShownAnswer | null>(null);
   const shown = chosen ?? (own.answer ? 'own' : (latestKept(kept)?.analysis ?? 'topics'));
   const busy = state.status === 'running' || own.state.status === 'running' || otherRun;

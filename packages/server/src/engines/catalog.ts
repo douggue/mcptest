@@ -49,12 +49,16 @@ export function geminiStatus({ gemini }: EngineSettings): EngineStatus {
   };
 }
 
+/** What is known about each program, all asked at once. Starts nothing that spends allowance. */
+export function checkPrograms(engines: Engines, deps: EngineDeps): Promise<EngineStatus[]> {
+  return Promise.all(ENGINE_IDS.map((id) => engines[id].check(deps)));
+}
+
 /** What is known about every engine, in a fixed order. Starts nothing that spends allowance. */
 export async function checkEngines(
   engines: Engines,
   settings: EngineSettings,
   deps: EngineDeps,
 ): Promise<readonly EngineStatus[]> {
-  const programs = await Promise.all(ENGINE_IDS.map((id) => engines[id].check(deps)));
-  return [...programs, geminiStatus(settings)];
+  return [...(await checkPrograms(engines, deps)), geminiStatus(settings)];
 }
