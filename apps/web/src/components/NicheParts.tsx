@@ -15,24 +15,20 @@ export function Stat({
   );
 }
 
-/** A link to YouTube when the id is well formed, plain text otherwise. */
-export function Outbound({
+/** A video or a channel named in a line of text: it opens that video's or channel's page in the app. */
+export function Inside({
   href,
   children,
 }: {
-  readonly href: string | null;
+  readonly href: string;
   readonly children: ReactNode;
 }) {
-  return href ? (
+  return (
     <a
       href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="transition-colors hover:text-primary"
+      className="rounded transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
     >
       {children}
     </a>
-  ) : (
-    <>{children}</>
   );
 }

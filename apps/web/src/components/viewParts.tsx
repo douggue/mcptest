@@ -46,27 +46,36 @@ export const aiOf = (work: Workspace): AiChoice => ({
 export type ViewDraw = (parts: ViewParts) => ReactNode;
 
 /** Said in a screen that needs a map when none is on screen yet: one line and one button. */
-export function NeedsMap({ view }: { readonly view: ViewId }) {
+export function NeedsMap({
+  view,
+  bare,
+}: {
+  readonly view: ViewId;
+  /** Inside a screen that has its own margins: the card alone. */
+  readonly bare?: boolean;
+}) {
   const title =
     view === 'channel'
       ? 'Add your channel to see how it is doing'
       : `${VIEWS[view].title} needs your channel first`;
+  const card = (
+    <div className="max-w-2xl">
+      <EmptyState
+        icon={Radar}
+        title={title}
+        line="Open one of your channels on Today, or paste a channel there and press Find competitors."
+        action={
+          <Button kind="main" href={viewHref('home')}>
+            Go to Today
+          </Button>
+        }
+      />
+    </div>
+  );
+  if (bare) return card;
   return (
     <section className="w-full px-4 py-space-lg sm:px-8">
-      <div className="mx-auto max-w-[1260px]">
-        <div className="max-w-2xl">
-          <EmptyState
-            icon={Radar}
-            title={title}
-            line="Open one of your channels on Today, or paste a channel there and press Find competitors."
-            action={
-              <Button kind="main" href={viewHref('home')}>
-                Go to Today
-              </Button>
-            }
-          />
-        </div>
-      </div>
+      <div className="mx-auto max-w-[1260px]">{card}</div>
     </section>
   );
 }

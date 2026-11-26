@@ -1,3 +1,4 @@
+import { channelHref, videoHref } from '../lib/routes';
 import { Bell, Check } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
@@ -8,7 +9,7 @@ import {
   type AlertsReply,
   type AlertView,
 } from '../lib/alerts';
-import { channelUrl, thumbnailUrl, watchUrl } from '../lib/format';
+import { thumbnailUrl } from '../lib/format';
 import { Card, Label } from './layout/Card';
 import { Details } from './layout/Details';
 import { NewNichesEntry } from './NewNichesEntry';
@@ -20,7 +21,7 @@ const LABEL = 'text-label text-outline';
 
 function AlertItem({ alert }: { readonly alert: AlertView }) {
   const video = alert.kind === 'breakout';
-  const href = video ? watchUrl(alert.subjectId) : channelUrl(alert.channelId);
+  const href = video ? videoHref(alert.subjectId) : channelHref(alert.channelId);
   const thumbnail = video ? thumbnailUrl(alert.subjectId) : null;
   return (
     <li className="flex min-w-0 gap-space-sm rounded-lg bg-space-deep p-space-sm">
@@ -44,7 +45,7 @@ function AlertItem({ alert }: { readonly alert: AlertView }) {
             />
           )}
           {href ? (
-            <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-primary">
+            <a href={href} className="hover:text-primary">
               {alert.videoTitle ?? alert.channelTitle}
             </a>
           ) : (

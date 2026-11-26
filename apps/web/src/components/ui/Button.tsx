@@ -38,6 +38,8 @@ interface Props {
   readonly disabled?: boolean;
   readonly submit?: boolean;
   readonly label?: string;
+  /** A choice that is on or off, such as "In ideas"; read aloud as pressed or not. */
+  readonly pressed?: boolean;
 }
 
 /** A button of the design system: one cyan `main` per screen, `second` for the rest. */
@@ -65,6 +67,7 @@ export function Button(props: Props) {
       onClick={props.onClick}
       disabled={props.disabled}
       aria-label={label}
+      aria-pressed={props.pressed}
       className={className}
     >
       {inside}

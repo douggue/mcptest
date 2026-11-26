@@ -17,6 +17,7 @@ import { Tabs } from '../ui/Tabs';
 import { useChannelProfile } from '../useChannelProfile';
 import type { ViewParts } from '../viewParts';
 import { ChannelOverview } from './ChannelOverview';
+import { ChannelVideos } from './ChannelVideos';
 import { ChannelActions, VideoGrid } from './ChannelParts';
 
 /** Winners beside ordinary ones: the way a channel's thumbnails are laid out here. */
@@ -140,31 +141,6 @@ function Thumbnails({
   );
 }
 
-/** All the channel's stored videos: its outliers, then the newest of the rest. */
-function Videos({ profile }: { readonly profile: ChannelProfile }) {
-  const { outliers, newest } = pageVideos(profile);
-  return (
-    <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
-      <Card title="Its outliers">
-        <p className="mb-3.5 text-body-sm text-muted">
-          Stored videos at {profile.outliers.minScore}× or more of its usual views at the same age.
-        </p>
-        <VideoGrid videos={outliers} empty="None of its stored videos stands out yet." />
-      </Card>
-      <Card title="Its newest videos">
-        <VideoGrid
-          videos={newest}
-          empty={
-            profile.recent.length === 0
-              ? 'No videos of this channel are stored.'
-              : 'Its newest stored videos are all among its outliers above.'
-          }
-        />
-      </Card>
-    </div>
-  );
-}
-
 interface Props {
   readonly parts: ViewParts;
   readonly channelId: string;
@@ -223,7 +199,7 @@ export function ChannelPage({ parts, channelId, tab, own }: Props) {
             />
           )}
           {tab === 'overview' && <ChannelOverview profile={profile} parts={parts} own={own} />}
-          {tab === 'videos' && <Videos profile={profile} />}
+          {tab === 'videos' && <ChannelVideos channelId={channelId} />}
           {tab === 'thumbnails' && <Thumbnails profile={profile} parts={parts} />}
           {tab === 'breakdown' && (
             <BreakdownChannelTab parts={parts} channelId={channelId} embedded />

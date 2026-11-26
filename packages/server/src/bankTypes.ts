@@ -39,8 +39,15 @@ export interface BankInside extends BankEngine {
 }
 
 export interface BankEngine {
-  /** One page of the bank under the filters given; reads the store only. */
-  look(state: BankFilterState, page: { readonly offset: number; readonly limit: number }): BankLook;
+  /**
+   * One page of the bank under the filters given; reads the store only. With
+   * a channel, only that channel's stored videos are looked through.
+   */
+  look(
+    state: BankFilterState,
+    page: { readonly offset: number; readonly limit: number },
+    channelId?: string,
+  ): BankLook;
   /** One stored video with its score and the collections it is in; null when it is not stored. */
   video(videoId: string): BankVideoLook | null;
   /** How a find would read YouTube now, what it would cost, and what is left of today's cap. */

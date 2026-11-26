@@ -12,6 +12,8 @@ interface Props {
   readonly collections: readonly BankCollection[];
   /** The ids of the collections the video is in now. */
   readonly inCollections: readonly number[];
+  /** Opens at once: for a Save that was pressed before the collections were known. */
+  readonly defaultOpen?: boolean;
   readonly onChanged: (
     collections: readonly BankCollection[],
     inCollections: readonly number[],
@@ -19,8 +21,9 @@ interface Props {
 }
 
 /** Saves one video to the owner's collections, or takes it out; a new collection can be named here. */
-export function BankSave({ videoId, collections, inCollections, onChanged }: Props) {
-  const [open, setOpen] = useState(false);
+export function BankSave(props: Props) {
+  const { videoId, collections, inCollections, onChanged } = props;
+  const [open, setOpen] = useState(props.defaultOpen === true);
   const [name, setName] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
   const run = (work: Promise<readonly BankCollection[]>, next: readonly number[]) => {

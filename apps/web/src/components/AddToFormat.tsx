@@ -20,6 +20,8 @@ interface Props {
   readonly iconOnly?: boolean;
   /** Drawn as a full second button, where it sits beside other buttons of that size. */
   readonly large?: boolean;
+  /** Drawn as a small second button, as on a video card. */
+  readonly small?: boolean;
 }
 
 const BUTTON =
@@ -30,12 +32,14 @@ const BUTTON =
  * shelf. The server reads the piece from the store and counts what it rests
  * on; once it is there the button links to the shelf.
  */
-export function AddToFormat({ source, label = 'Add to format', iconOnly, large }: Props) {
+export function AddToFormat(props: Props) {
+  const { source, label = 'Add to format', iconOnly, large, small } = props;
   const [state, setState] = useState<State>({ status: 'idle' });
-  const button = large ? buttonClass('second') : BUTTON;
+  const framed = large === true || small === true;
+  const button = framed ? buttonClass('second', small === true) : BUTTON;
   if (state.status === 'added') {
     return (
-      <a href={viewHref('format')} className={`${button} ${large ? '' : 'text-primary'}`}>
+      <a href={viewHref('format')} className={`${button} ${framed ? '' : 'text-primary'}`}>
         <Check aria-hidden="true" className="h-4 w-4" />
         On your shelf
       </a>

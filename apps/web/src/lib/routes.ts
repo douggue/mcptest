@@ -64,6 +64,11 @@ export interface Route {
   readonly videoId?: string;
   /** The tab of a channel's or a video's page, when it is not the first. */
   readonly tab?: ChannelTab | VideoTab;
+  /**
+   * A saved view of Discover › Videos that is not a screen of its own: a
+   * preset over the breakouts, a collection, or a view the owner saved.
+   */
+  readonly saved?: string;
   /** An element of the screen to scroll to; null for the top. */
   readonly anchor: string | null;
 }
@@ -214,6 +219,8 @@ function pathRoute(path: string): Route {
   if (whole === MY_CHANNEL) return { view: 'channel', channelId: null, anchor: null };
   const known = VIEW_OF_PATH.get(whole);
   if (known) return plain(known);
+  const view = videosViewRoute(parts);
+  if (view) return view;
   if (parts[0] === 'channel') return channelRoute(parts[1] ?? '', parts[2] ?? '');
   if (parts[0] === 'video') return videoRoute(parts[1] ?? '', parts[2] ?? '');
   if (parts.length === 4 && parts.slice(0, 3).join('/') === PATHS.breakdown) {
@@ -221,6 +228,43 @@ function pathRoute(path: string): Route {
   }
   return oldRoute(parts[0] ?? '', parts[1] ?? '') ?? HOME;
 }
+
+/** The saved views over the map's breakouts that have an address of their own. */
+const BREAKOUT_VIEWS: ReadonlySet<string> = new Set(['100x', 'small-channels']);
+const COLLECTION_VIEW = /^collection\/\d{1,9}$/;
+const OWN_VIEW = /^saved\/[a-z0-9-]{1,40}$/;
+
+/** A saved view of Discover › Videos, from the parts of its address; null for any other address. */
+function videosViewRoute(parts: readonly string[]): Route | null {
+  if (parts.length < 3 || parts.slice(0, 2).join('/') !== PATHS.breakouts) return null;
+  const saved = parts.slice(2).join('/');
+  if (COLLECTION_VIEW.test(saved)) return { ...plain('outlier-bank'), saved };
+  return BREAKOUT_VIEWS.has(saved) || OWN_VIEW.test(saved)
+    ? { ...plain('breakouts'), saved }
+    : null;
+}
+
+/** The screens that are views of Discover › Videos, with what the address carries for each. */
+const VIDEOS_VIEW_KEYS: Readonly<Partial<Record<ViewId, string>>> = {
+  breakouts: '',
+  'outlier-bank': 'bank',
+  transfers: 'other-languages',
+  'video-breakdown': 'studied',
+};
+
+/**
+ * Which view of Discover › Videos a route shows, as the part of its address
+ * after `discover/videos`; null for a route that is not one of its views.
+ */
+export function videosViewKey(route: Route): string | null {
+  const own = VIDEOS_VIEW_KEYS[route.view];
+  if (own === undefined) return null;
+  return route.saved ?? own;
+}
+
+/** The address of a view of Discover › Videos, from that part. */
+export const videosViewHref = (key: string): string =>
+  key === '' ? viewHref('breakouts') : `${viewHref('breakouts')}/${key}`;
 
 /** The screen an address names; Today for anything it does not know. */
 export function routeFromHash(hash: string): Route {
@@ -282,7 +326,8 @@ export function routeHash(route: Route): string {
     if (!route.videoId) return viewHref('home');
     return videoHref(route.videoId, tabOf(route, isVideoTab));
   }
-  return viewHref(route.view);
+  const saved = route.saved === undefined ? null : videosViewKey(route);
+  return saved === null ? viewHref(route.view) : videosViewHref(saved);
 }
 
 /**

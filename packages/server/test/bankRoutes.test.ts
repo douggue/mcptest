@@ -132,6 +132,20 @@ describe('the outlier bank routes', () => {
     expect(none.page.matched).toBe(0);
   });
 
+  test('look at one channel’s stored videos only, sorted as asked', async () => {
+    const { app, engine } = world();
+    await engine.crawl('@chanA', 1, () => {});
+    const own = (await read<BankLook>(await get(app, `/api/bank?channel=${cid('A')}&sort=newest`)))
+      .data.page;
+    expect(own.total).toBe(6);
+    expect(own.videos.every((video) => video.channel.id === cid('A'))).toBe(true);
+    const ages = own.videos.map((video) => video.ageDays);
+    expect(ages).toEqual([...ages].sort((a, b) => a - b));
+    const other = (await read<BankLook>(await get(app, `/api/bank?channel=${cid('Z')}`))).data.page;
+    expect(other.total).toBe(0);
+    expect((await get(app, '/api/bank?channel=nope')).status).toBe(400);
+  });
+
   test('give one stored video by its id, with the collections it is in', async () => {
     const { app, engine } = world();
     await engine.crawl('@chanA', 1, () => {});

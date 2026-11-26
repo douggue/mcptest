@@ -35,9 +35,22 @@ export interface BankModel {
   readonly reload: () => void;
 }
 
-/** The bank as the view shows it: the filters (kept in this browser), the pages read, the collections. */
-export function useBank(): BankModel {
-  const [state, setState] = useState<BankFilterState>(readSaved);
+export interface BankOptions {
+  /**
+   * The filters to open with, for a view with filters of its own (a
+   * collection, a saved view, one channel's videos). Left out, the bank
+   * opens with the filters last used, and keeps them in this browser.
+   */
+  readonly initial?: BankFilterState;
+  /** Only this channel's stored videos, for its own page. */
+  readonly channelId?: string;
+}
+
+/** The bank as the view shows it: the filters, the pages read, the collections. */
+export function useBank(options: BankOptions = {}): BankModel {
+  const { initial, channelId } = options;
+  const remembered = initial === undefined && channelId === undefined;
+  const [state, setState] = useState<BankFilterState>(() => initial ?? readSaved());
   const [asked, setAsked] = useState<BankFilterState>(state);
   const [page, setPage] = useState<BankPage | null>(null);
   const [videos, setVideos] = useState<readonly BankVideo[]>([]);
@@ -51,20 +64,20 @@ export function useBank(): BankModel {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(BANK_FILTERS_KEY, savedBankText(state));
+      if (remembered) window.localStorage.setItem(BANK_FILTERS_KEY, savedBankText(state));
     } catch {
       // A private window or blocked storage: the filters still work, they are just not kept.
     }
     const wait = window.setTimeout(() => setAsked(state), WORDS_WAIT_MS);
     return () => window.clearTimeout(wait);
-  }, [state]);
+  }, [state, remembered]);
 
   const read = useCallback(
     (offset: number) => {
       const current = counter.begin();
       setLoading(true);
       bankApi
-        .look(asked, offset, BANK_PAGE)
+        .look(asked, offset, BANK_PAGE, channelId)
         .then((look) => {
           if (!current()) return;
           setProblem(null);
@@ -81,7 +94,7 @@ export function useBank(): BankModel {
           if (current()) setLoading(false);
         });
     },
-    [asked, counter],
+    [asked, counter, channelId],
   );
 
   useEffect(() => read(0), [read, round]);

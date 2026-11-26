@@ -1,8 +1,9 @@
+import { channelHref, videoHref } from '../lib/routes';
 import type { SameTopicChannel } from '@jgtube/core';
 import { Plus } from 'lucide-react';
-import { channelUrl, formatCount, formatScore, initials, percent, watchUrl } from '../lib/format';
+import { formatCount, formatScore, initials, percent } from '../lib/format';
 import { Card, Label } from './layout/Card';
-import { Outbound, Stat } from './NicheCard';
+import { Inside, Stat } from './NicheCard';
 import { MoneyBadge } from './MoneyBadge';
 
 interface Props {
@@ -43,7 +44,7 @@ function RecentTitles({ channel }: { readonly channel: SameTopicChannel }) {
         {channel.recentTitles.map((video) => (
           <li key={video.videoId} className="flex items-baseline justify-between gap-3 px-3 py-2">
             <span className="line-clamp-2 min-w-0 text-body-md text-on-surface">
-              <Outbound href={watchUrl(video.videoId)}>{video.title}</Outbound>
+              <Inside href={videoHref(video.videoId)}>{video.title}</Inside>
             </span>
             <span className="flex-none text-body-sm text-outline">
               {formatCount(video.views)} views
@@ -66,7 +67,7 @@ export function SameTopicCard({ number, channel, busy, onKeep }: Props) {
         </span>
         <div className="flex min-w-0 flex-1 basis-40 flex-col">
           <h3 className="truncate text-title-md text-on-surface">
-            <Outbound href={channelUrl(channel.id)}>{channel.title}</Outbound>
+            <Inside href={channelHref(channel.id)}>{channel.title}</Inside>
           </h3>
           <span className="flex min-w-0 flex-wrap items-center gap-x-2">
             {channel.handle && (

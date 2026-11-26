@@ -10,6 +10,8 @@ import {
   routeFromHash,
   routeHash,
   videoHref,
+  videosViewHref,
+  videosViewKey,
   viewHref,
   type PlainView,
   type ViewId,
@@ -263,6 +265,62 @@ describe('a video’s page', () => {
     expect(routeHash({ ...route, tab: 'videos' })).toBe(`#/video/${VIDEO}`);
     expect(routeHash({ view: 'video', channelId: null, anchor: null })).toBe('#/today');
     expect(redirectOf(`#/video/${VIDEO}`)).toBeNull();
+  });
+});
+
+describe('the saved views of Discover › Videos', () => {
+  const at = (hash: string) => routeFromHash(hash);
+
+  test('each has its own address, and reads back from it', () => {
+    expect(at('#/discover/videos/100x')).toEqual({
+      view: 'breakouts',
+      channelId: null,
+      anchor: null,
+      saved: '100x',
+    });
+    expect(at('#/discover/videos/small-channels').saved).toBe('small-channels');
+    expect(at('#/discover/videos/collection/12')).toMatchObject({
+      view: 'outlier-bank',
+      saved: 'collection/12',
+    });
+    expect(at('#/discover/videos/saved/my-view')).toMatchObject({
+      view: 'breakouts',
+      saved: 'saved/my-view',
+    });
+    for (const key of ['100x', 'small-channels', 'collection/12', 'saved/my-view']) {
+      const hash = `#/discover/videos/${key}`;
+      expect(routeHash(at(hash))).toBe(hash);
+      expect(redirectOf(hash)).toBeNull();
+    }
+  });
+
+  test('says which view a route shows, and none for another screen', () => {
+    expect(videosViewKey(at('#/discover/videos'))).toBe('');
+    expect(videosViewKey(at('#/breakouts'))).toBe('');
+    expect(videosViewKey(at('#/discover/videos/bank'))).toBe('bank');
+    expect(videosViewKey(at('#/outlier-bank'))).toBe('bank');
+    expect(videosViewKey(at('#/transfers'))).toBe('other-languages');
+    expect(videosViewKey(at('#/video-breakdown'))).toBe('studied');
+    expect(videosViewKey(at('#/discover/videos/100x'))).toBe('100x');
+    expect(videosViewKey(at('#/discover/videos/collection/3'))).toBe('collection/3');
+    expect(videosViewKey(at('#/discover/map'))).toBeNull();
+    expect(videosViewKey(at('#/create/ideas'))).toBeNull();
+  });
+
+  test('every view’s address is made from what it carries', () => {
+    expect(videosViewHref('')).toBe('#/discover/videos');
+    expect(videosViewHref('bank')).toBe('#/discover/videos/bank');
+    expect(videosViewHref('collection/3')).toBe('#/discover/videos/collection/3');
+    for (const key of ['', 'bank', 'other-languages', 'studied', '100x', 'collection/3']) {
+      expect(videosViewKey(at(videosViewHref(key)))).toBe(key);
+    }
+  });
+
+  test('an address that names no view is not found', () => {
+    expect(isUnknownAddress('#/discover/videos/nope')).toBe(true);
+    expect(isUnknownAddress('#/discover/videos/collection/x')).toBe(true);
+    expect(isUnknownAddress('#/discover/videos/saved/Not A Slug')).toBe(true);
+    expect(isUnknownAddress('#/discover/videos/100x')).toBe(false);
   });
 });
 

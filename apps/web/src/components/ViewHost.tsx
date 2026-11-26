@@ -1,16 +1,16 @@
 import type { ReactNode } from 'react';
 import type { AiChoice } from './AiEngines';
 import { isObjectPage, isOwnChannel, whereIs } from '../lib/places';
-import { CHANNEL_TABS, VIDEO_TABS, type Route } from '../lib/routes';
+import { CHANNEL_TABS, VIDEO_TABS, videosViewKey, type Route } from '../lib/routes';
 import {
   Arriving,
   BreakdownChannelTab,
   ChannelPage,
   DesignSheet,
+  DiscoverVideos,
   HomeView,
   Settings,
   tableView,
-  VideoBreakdownTab,
   VideoPage,
 } from './lazyViews';
 import { PlaceHeader } from './shell/PlaceHeader';
@@ -41,7 +41,9 @@ function drawView(route: Route, parts: ViewParts, ai: AiChoice): ReactNode {
   if (route.view === 'settings') return <Settings ai={ai} />;
   if (route.view === 'design-system') return <DesignSheet />;
   if (route.view === 'breakdown') return <BreakdownChannelTab parts={parts} channelId={null} />;
-  if (route.view === 'video-breakdown') return <VideoBreakdownTab parts={parts} />;
+  // Discover › Videos is one screen: its views share one row and one grid.
+  const videosView = videosViewKey(route);
+  if (videosView !== null) return <DiscoverVideos viewKey={videosView} parts={parts} />;
   return tableView(route.view, parts) ?? <HomeView {...parts} />;
 }
 

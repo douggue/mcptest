@@ -37,7 +37,7 @@ export function PlaceHeader({ where, channelTitle, compact }: Props) {
           }))}
         />
       )}
-      {tab.screens.length > 1 && (
+      {tab.screens.length > 1 && !tab.ownViews && (
         <ViewPills
           label={`${tab.label} views`}
           active={screen.view}

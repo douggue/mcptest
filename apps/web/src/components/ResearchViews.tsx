@@ -1,42 +1,13 @@
 import type { ViewId } from '../lib/routes';
-import { BreakoutFeed } from './BreakoutFeed';
 import { ChangesSection } from './ChangesSection';
 import { ViewPage } from './layout/SplitView';
 import { Niches } from './Niches';
-import { OutlierBank } from './OutlierBank';
 import { RadarArea } from './RadarArea';
 import { RefreshBar } from './RefreshBar';
 import { SameTopic } from './SameTopic';
 import { ThumbnailBoard } from './ThumbnailBoard';
 import { ThumbnailReview } from './ThumbnailReview';
-import { Transfers } from './Transfers';
-import { NeedsMap, withMap, type ViewDraw, type ViewParts } from './viewParts';
-
-/** Breaking out: the feed of videos taking off, each one press from the ideas. */
-function Breakouts({ page, work, path }: ViewParts) {
-  const { visible } = page;
-  const { lab } = work;
-  if (!visible) return null;
-  return (
-    <ViewPage id="breakouts" labelledBy="breakouts-title">
-      <BreakoutFeed
-        items={visible.breakouts}
-        centerTitle={visible.center.title}
-        pickedIds={lab.picks.map((pick) => pick.videoId)}
-        onBreakDown={work.asking ? undefined : path.breakDown}
-        onPick={(item) =>
-          lab.pick({
-            videoId: item.videoId,
-            title: item.title,
-            channelTitle: item.channelTitle,
-            modelOpening: false,
-            from: 'breakout',
-          })
-        }
-      />
-    </ViewPage>
-  );
-}
+import { withMap, type ViewDraw } from './viewParts';
 
 /** The views of the rail's Research group, each drawn on its own. */
 export const RESEARCH_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
@@ -51,24 +22,6 @@ export const RESEARCH_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
       />
     </ViewPage>
   )),
-  breakouts: withMap('breakouts', (_snapshot, parts) => <Breakouts {...parts} />),
-  // The bank holds every stored video, so it needs no map open.
-  'outlier-bank': ({ work }) => (
-    <ViewPage id="outlier-bank" labelledBy="outlier-bank-title">
-      <OutlierBank
-        pickedIds={work.lab.picks.map((pick) => pick.videoId)}
-        onPick={(video) =>
-          work.lab.pick({
-            videoId: video.videoId,
-            title: video.title,
-            channelTitle: video.channel.title,
-            modelOpening: false,
-            from: 'breakout',
-          })
-        }
-      />
-    </ViewPage>
-  ),
   'same-topic': withMap('same-topic', (snapshot, { work, page }) => (
     <SameTopic
       state={work.sameTopic}
@@ -93,20 +46,6 @@ export const RESEARCH_VIEWS: Partial<Record<ViewId, ViewDraw>> = {
       onDownloadTranscripts={(channelId) => api.downloadTranscripts(channelId)}
     />
   )),
-  transfers: ({ page, work, path }) => {
-    const { state } = work.transfers;
-    const stored =
-      state.status === 'ready' && state.list.ideas.length + state.list.formats.length > 0;
-    // With no map and nothing read there is nothing to compare yet: say what to do first.
-    if (page.snapshot === null && !stored) return <NeedsMap view="transfers" />;
-    return (
-      <Transfers
-        transfers={work.transfers}
-        hasMap={page.snapshot !== null}
-        onMakeConcepts={page.snapshot ? path.conceptsFrom : undefined}
-      />
-    );
-  },
   niches: ({ page, work, path }) => (
     <Niches
       niches={work.niches}

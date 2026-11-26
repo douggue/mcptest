@@ -36,11 +36,8 @@ const GROUPS = {
 export const VIEW_GROUPS: Partial<Record<ViewId, keyof typeof GROUPS>> = {
   radar: 'research',
   'what-changed': 'research',
-  breakouts: 'research',
-  'outlier-bank': 'research',
   'same-topic': 'research',
   thumbnails: 'research',
-  transfers: 'research',
   niches: 'research',
   formats: 'create',
   hooks: 'create',
@@ -83,8 +80,9 @@ export const DesignSheet = lazyNamed(() => import('./DesignSheet').then((m) => m
 export const BreakdownChannelTab = lazyNamed(() =>
   import('./BreakdownChannelTab').then((m) => m.BreakdownChannelTab),
 );
-export const VideoBreakdownTab = lazyNamed(() =>
-  import('./VideoBreakdownTab').then((m) => m.VideoBreakdownTab),
+/** Discover › Videos: its saved views share one row and one grid, in one file. */
+export const DiscoverVideos = lazyNamed(() =>
+  import('./discover/DiscoverVideos').then((m) => m.DiscoverVideos),
 );
 export const AskPanel = lazyNamed(() => import('./shell/AskPanel').then((m) => m.AskPanel));
 

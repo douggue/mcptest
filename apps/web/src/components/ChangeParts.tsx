@@ -1,3 +1,4 @@
+import { channelHref, videoHref } from '../lib/routes';
 import type { BreakoutFormat, GroupChange, LookalikeRef, NewBreakout } from '@jgtube/core';
 import { TrendingUp } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -10,7 +11,7 @@ import {
   uncomparedNote,
   type ChangesReply,
 } from '../lib/changes';
-import { channelUrl, formatCount, formatScore, thumbnailUrl, watchUrl } from '../lib/format';
+import { formatCount, formatScore, thumbnailUrl } from '../lib/format';
 
 const LABEL = 'text-label text-outline';
 export const LINK = 'text-primary underline-offset-2 hover:underline';
@@ -25,7 +26,7 @@ function Group({ title, children }: { readonly title: string; readonly children:
 }
 
 function BreakoutCard({ entry }: { readonly entry: NewBreakout }) {
-  const href = watchUrl(entry.videoId);
+  const href = videoHref(entry.videoId);
   const thumbnail = thumbnailUrl(entry.videoId);
   return (
     <article className="flex min-w-0 gap-space-md rounded-lg bg-space-deep p-space-sm">
@@ -52,7 +53,7 @@ function BreakoutCard({ entry }: { readonly entry: NewBreakout }) {
         </div>
         <p className="line-clamp-2 text-body-md font-semibold text-on-surface">
           {href ? (
-            <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-primary">
+            <a href={href} className="hover:text-primary">
               {entry.title}
             </a>
           ) : (
@@ -70,19 +71,14 @@ function ChannelNames({ channels }: { readonly channels: readonly LookalikeRef[]
   return (
     <ul className="flex flex-wrap gap-2">
       {channels.map((channel) => {
-        const href = channelUrl(channel.channelId);
+        const href = channelHref(channel.channelId);
         return (
           <li
             key={channel.channelId}
             className="rounded-full bg-surface-container px-3 py-1 text-body-sm text-on-surface"
           >
             {href ? (
-              <a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-primary"
-              >
+              <a href={href} className="hover:text-primary">
                 {channel.title}
               </a>
             ) : (
@@ -114,11 +110,11 @@ function FormatLines({ formats }: { readonly formats: readonly BreakoutFormat[] 
           <p className="text-body-sm text-outline">In {format.videos.length} breakouts:</p>
           <ul className="mt-1 flex flex-col gap-0.5 text-body-sm text-on-surface-variant">
             {format.videos.map((video) => {
-              const href = watchUrl(video.videoId);
+              const href = videoHref(video.videoId);
               return (
                 <li key={video.videoId} className="truncate">
                   {href ? (
-                    <a href={href} target="_blank" rel="noopener noreferrer" className={LINK}>
+                    <a href={href} className={LINK}>
                       {video.title}
                     </a>
                   ) : (

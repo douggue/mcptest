@@ -50,6 +50,9 @@ describe('the outlier bank’s filters on the page', () => {
   test('become the address the page reads a page of the bank from', () => {
     const path = bankLookPath(toggleBankChoice(NO_BANK_FILTERS, 'score', '10'), 24, 24);
     expect(path).toBe('/api/bank?score=10&sort=score&offset=24&limit=24');
+    expect(bankLookPath(NO_BANK_FILTERS, 0, 12, 'UC0UJp3kmO7wf33XFf56gbTw')).toBe(
+      '/api/bank?sort=score&channel=UC0UJp3kmO7wf33XFf56gbTw&offset=0&limit=12',
+    );
   });
 });
 

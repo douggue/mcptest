@@ -75,9 +75,16 @@ export function parseSavedBank(text: string | null): BankFilterState {
 }
 
 /** The address one page of the bank is read from. */
-export function bankLookPath(state: BankFilterState, offset: number, limit: number): string {
+export function bankLookPath(
+  state: BankFilterState,
+  offset: number,
+  limit: number,
+  channelId?: string,
+): string {
   const params = new URLSearchParams({
     ...bankQueryParams(state),
+    // One channel's stored videos only, for its own page.
+    ...(channelId === undefined ? {} : { channel: channelId }),
     offset: String(offset),
     limit: String(limit),
   });
@@ -118,8 +125,19 @@ export function createBankApi(fetcher?: Fetch) {
   const collectionsOf = async (path: string, body: unknown) =>
     unwrap<{ collections: readonly BankCollection[] }>(await send(path, body)).collections;
   return {
-    async look(state: BankFilterState, offset: number, limit: number): Promise<BankLook> {
-      return unwrap<BankLook>(await call(bankLookPath(state, offset, limit)));
+    async look(
+      state: BankFilterState,
+      offset: number,
+      limit: number,
+      channelId?: string,
+    ): Promise<BankLook> {
+      return unwrap<BankLook>(await call(bankLookPath(state, offset, limit, channelId)));
+    },
+    /** The owner's collections, without reading the bank itself. */
+    async collections(): Promise<readonly BankCollection[]> {
+      return unwrap<{ collections: readonly BankCollection[] }>(
+        await call(`${BANK_PATH}/collections`),
+      ).collections;
     },
     /** One stored video with its score and the collections it is in; null when it is not stored. */
     async video(videoId: string): Promise<BankVideoLook | null> {

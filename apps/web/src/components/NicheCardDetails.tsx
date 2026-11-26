@@ -1,5 +1,6 @@
+import { videoHref } from '../lib/routes';
 import type { NicheChannel } from '@jgtube/core';
-import { formatCount, formatScore, watchUrl } from '../lib/format';
+import { formatCount, formatScore } from '../lib/format';
 import { describeRpm, rpmOf } from '../lib/nicheBuckets';
 import {
   describeEarnings,
@@ -10,7 +11,7 @@ import {
   formatPerSubscriber,
   otherTitles,
 } from '../lib/niches';
-import { Outbound, Stat } from './NicheParts';
+import { Inside, Stat } from './NicheParts';
 
 const NOTE = 'text-body-sm text-on-surface-variant';
 const SUBHEAD = 'text-label text-outline';
@@ -69,7 +70,7 @@ function Titles({ channel }: { readonly channel: NicheChannel }) {
         {rows.map((row) => (
           <li key={row.videoId} className="flex items-baseline justify-between gap-3">
             <span className="line-clamp-2 min-w-0 text-body-sm text-on-surface">
-              <Outbound href={watchUrl(row.videoId)}>{row.title}</Outbound>
+              <Inside href={videoHref(row.videoId)}>{row.title}</Inside>
             </span>
             <span className="flex-none text-label text-outline">
               {formatCount(row.views)} views{row.note}

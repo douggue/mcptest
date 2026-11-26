@@ -1,8 +1,9 @@
 import { SlidersHorizontal } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { BANK_GROUPS, type BankGroupId } from '@jgtube/core/src/bank/filters';
-import { BANK_SORTS, isBankSort, type BankPage } from '@jgtube/core/src/bank/query';
+import { BANK_SORTS, isBankSort, type BankSort } from '@jgtube/core/src/bank/query';
 import { activeBankFilters, clearBankFilters, toggleBankChoice } from '../lib/bank';
+import { FilterBar, SearchField, ShownLine } from './discover/FilterBar';
 import { BottomSheet } from './layout/BottomSheet';
 import { Popover } from './layout/Popover';
 import type { BankModel } from './useBank';
@@ -48,7 +49,7 @@ function GroupOptions({
                 }
                 className={`flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-body-sm transition-colors ${
                   on
-                    ? 'border-primary-container bg-primary-container font-semibold text-space-deep'
+                    ? 'border-line-2 bg-white/[0.14] font-semibold text-white'
                     : 'border-border-subtle text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
                 }`}
               >
@@ -65,11 +66,24 @@ function GroupOptions({
   );
 }
 
+/** The filters shown as chips of their own; the rest sit together under "More filters". */
+const MAIN_GROUPS: ReadonlySet<BankGroupId> = new Set([
+  'score',
+  'age',
+  'size',
+  'money',
+  'language',
+  'length',
+]);
+const MORE = 'more';
+
 function FilterButtons({ model }: { readonly model: BankModel }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const rest = BANK_GROUPS.filter((group) => !MAIN_GROUPS.has(group.id));
+  const restChosen = rest.reduce((sum, group) => sum + model.state.chosen[group.id].length, 0);
   return (
     <>
-      {BANK_GROUPS.map((group) => {
+      {BANK_GROUPS.filter((group) => MAIN_GROUPS.has(group.id)).map((group) => {
         const chosen = model.state.chosen[group.id].length;
         return (
           <Popover
@@ -83,6 +97,18 @@ function FilterButtons({ model }: { readonly model: BankModel }) {
           </Popover>
         );
       })}
+      <Popover
+        label={restChosen > 0 ? `More filters · ${restChosen}` : 'More filters'}
+        active={restChosen > 0}
+        open={openId === MORE}
+        onOpenChange={(open) => setOpenId(open ? MORE : null)}
+      >
+        <div className="flex max-h-[60vh] min-w-0 flex-col gap-space-md overflow-y-auto">
+          {rest.map((group) => (
+            <GroupOptions key={group.id} model={model} groupId={group.id} />
+          ))}
+        </div>
+      </Popover>
     </>
   );
 }
@@ -95,9 +121,9 @@ function FilterSheet({ model }: { readonly model: BankModel }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`flex min-h-10 items-center gap-1.5 rounded-full border px-3 text-body-sm ${
+        className={`flex h-[38px] items-center gap-1.5 rounded-md border px-3 text-body-sm ${
           count > 0
-            ? 'border-primary-container bg-primary-container/15 font-semibold text-primary'
+            ? 'border-line-2 bg-white/[0.12] font-semibold text-white'
             : 'border-border-subtle text-on-surface-variant'
         }`}
       >
@@ -124,53 +150,46 @@ function FilterSheet({ model }: { readonly model: BankModel }) {
   );
 }
 
-/** The title words to keep and to leave out. */
-function TitleWords({ model }: { readonly model: BankModel }) {
+/** Words no title shown may hold, in a chip's menu. */
+function WithoutWords({ model }: { readonly model: BankModel }) {
+  const [open, setOpen] = useState(false);
+  const { excludes } = model.state;
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
-      <label className="flex min-w-0 flex-col gap-1 text-body-sm text-outline">
-        Title contains
-        <input
-          type="search"
-          value={model.state.contains}
-          maxLength={100}
-          placeholder="Words every title has"
-          onChange={(event) => {
-            const contains = event.target.value;
-            model.update((state) => ({ ...state, contains }));
-          }}
-          className={FIELD}
-        />
-      </label>
-      <label className="flex min-w-0 flex-col gap-1 text-body-sm text-outline">
+    <Popover
+      label={excludes.trim() === '' ? 'Without words' : `Without: ${excludes.trim()}`}
+      active={excludes.trim() !== ''}
+      open={open}
+      onOpenChange={setOpen}
+    >
+      <label className="flex min-w-0 flex-col gap-2 text-body-sm font-semibold text-ink">
         Title excludes
         <input
           type="search"
-          value={model.state.excludes}
+          value={excludes}
           maxLength={100}
           placeholder="Words no title has"
           onChange={(event) => {
-            const excludes = event.target.value;
-            model.update((state) => ({ ...state, excludes }));
+            const next = event.target.value;
+            model.update((state) => ({ ...state, excludes: next }));
           }}
           className={FIELD}
         />
       </label>
-    </div>
+    </Popover>
   );
 }
 
 function SortSelect({ model }: { readonly model: BankModel }) {
   return (
-    <label className="flex min-w-0 items-center gap-2 text-body-sm text-outline">
-      Sort
+    <label className="flex min-w-0 items-center gap-2 text-body-sm text-dim">
+      <span className="sr-only">Sort</span>
       <select
         value={model.state.sort}
         onChange={(event) => {
           const sort = event.target.value;
           if (isBankSort(sort)) model.update((state) => ({ ...state, sort }));
         }}
-        className="min-h-10 min-w-0 rounded-full border border-border-subtle bg-space-deep px-3 text-body-sm text-on-surface"
+        className="h-[38px] min-w-0 rounded-md border border-line bg-ground px-3 text-body-sm text-ink"
       >
         {BANK_SORTS.map((option) => (
           <option key={option.id} value={option.id}>
@@ -182,39 +201,45 @@ function SortSelect({ model }: { readonly model: BankModel }) {
   );
 }
 
-function Counts({ model, page }: { readonly model: BankModel; readonly page: BankPage | null }) {
-  const count = activeBankFilters(model.state);
-  return (
-    <p className="flex min-w-0 flex-wrap items-center gap-x-3 text-body-sm text-outline">
-      <span aria-live="polite">
-        {page
-          ? `Showing ${page.matched.toLocaleString('en')} of ${page.total.toLocaleString('en')}`
-          : 'Reading the bank…'}
-      </span>
-      {count > 0 && (
-        <button type="button" className={LINK} onClick={() => model.update(clearBankFilters)}>
-          Clear filters
-        </button>
-      )}
-    </p>
-  );
+/** The order the videos are shown in, in words, for the line at the right of the bar. */
+const sortWords = (sort: BankSort): string =>
+  `${BANK_SORTS.find((option) => option.id === sort)?.label ?? ''} first`;
+
+interface Props {
+  readonly model: BankModel;
+  /** Controls that sit with the filters, such as "Find more" and "Save this view". */
+  readonly extras?: ReactNode;
 }
 
-/** The bank's filters (as on New niches), the title words, the order, and how many they keep. */
-export function BankFilterBar({ model }: { readonly model: BankModel }) {
+/**
+ * The bank's one filter bar: the title search, each filter as a chip with
+ * live counts (one sheet of them on a phone), the sort, and how many are
+ * shown. Choices in one filter are joined by OR; filters are joined by AND.
+ */
+export function BankFilterBar({ model, extras }: Props) {
   const narrow = useNarrow();
+  const { page } = model;
+  const count = activeBankFilters(model.state);
   return (
-    <div className="flex min-w-0 flex-col gap-space-sm">
-      <div
-        role="group"
-        aria-label="Filter the outliers"
-        className="flex min-w-0 flex-wrap items-center gap-2"
-      >
-        {narrow ? <FilterSheet model={model} /> : <FilterButtons model={model} />}
-        <SortSelect model={model} />
-      </div>
-      <TitleWords model={model} />
-      <Counts model={model} page={model.page} />
-    </div>
+    <FilterBar label="Filter the videos">
+      <SearchField
+        label="Words in the title"
+        placeholder="Search titles"
+        value={model.state.contains}
+        onChange={(contains) => model.update((state) => ({ ...state, contains }))}
+      />
+      {narrow ? <FilterSheet model={model} /> : <FilterButtons model={model} />}
+      <WithoutWords model={model} />
+      <SortSelect model={model} />
+      {extras}
+      <ShownLine
+        text={
+          page
+            ? `Showing ${page.matched.toLocaleString('en')} of ${page.total.toLocaleString('en')} · ${sortWords(model.state.sort)}`
+            : 'Reading the bank…'
+        }
+        onClear={count > 0 ? () => model.update(clearBankFilters) : undefined}
+      />
+    </FilterBar>
   );
 }

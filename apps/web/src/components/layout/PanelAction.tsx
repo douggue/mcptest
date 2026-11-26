@@ -1,9 +1,13 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-/** The look of a side panel's one primary action: full width, in the accent colour. */
+/**
+ * The look of a side panel's one primary action: full width, in the accent
+ * colour. While it cannot be pressed it stays the same button, dimmed, with
+ * the reason in a line under it.
+ */
 export const PANEL_BUTTON =
-  'flex min-h-12 w-full items-center justify-center gap-2 rounded bg-primary-container px-4 text-body-md font-semibold text-on-primary transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:bg-surface-container-high disabled:text-outline';
+  'flex min-h-12 w-full items-center justify-center gap-2 rounded bg-primary-container px-4 text-body-md font-semibold text-on-primary transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50';
 
 /** The same place, for a run that has been made already: running it again is a quiet choice. */
 export const PANEL_BUTTON_QUIET =
@@ -12,7 +16,8 @@ export const PANEL_BUTTON_QUIET =
 /** Why a button cannot be pressed now, in one line under it; nothing when it can. */
 export function DisabledReason({ reason }: { readonly reason: string | null | undefined }) {
   if (!reason) return null;
-  return <span className="text-center text-body-sm text-metric-amber">{reason}</span>;
+  // Muted, never amber: amber is kept for breakout scores.
+  return <span className="text-center text-body-sm text-muted">{reason}</span>;
 }
 
 interface Props {

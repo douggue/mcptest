@@ -1,7 +1,7 @@
 import { AddToFormat } from './AddToFormat';
 import type { NicheChannel } from '@jgtube/core';
 import { Bookmark, BookmarkCheck } from 'lucide-react';
-import { channelUrl, formatAge, formatCount, formatScore } from '../lib/format';
+import { formatAge, formatCount, formatScore } from '../lib/format';
 import { bestScore, describeTopicSource } from '../lib/nicheBuckets';
 import { describeLanguage, isRestarted } from '../lib/niches';
 import { channelHref } from '../lib/routes';
@@ -11,10 +11,10 @@ import { Card } from './layout/Card';
 import { Details } from './layout/Details';
 import { MoneyBadge } from './MoneyBadge';
 import { NicheCardDetails } from './NicheCardDetails';
-import { Outbound } from './NicheParts';
+import { Inside } from './NicheParts';
 import { NicheThumbStrip } from './NicheThumbStrip';
 
-export { Outbound, Stat } from './NicheParts';
+export { Inside, Stat } from './NicheParts';
 
 const PILL = 'whitespace-nowrap rounded-full bg-surface-container-high px-2 py-0.5 text-label';
 const QUIET =
@@ -141,7 +141,7 @@ function Header({ channel, onSetWatched }: Props) {
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <h3 className="truncate text-body-md font-semibold text-on-surface">
-          <Outbound href={channelUrl(channel.id)}>{channel.title}</Outbound>
+          <Inside href={channelHref(channel.id)}>{channel.title}</Inside>
         </h3>
         {channel.handle && (
           <span className="truncate text-body-sm text-outline">@{channel.handle}</span>

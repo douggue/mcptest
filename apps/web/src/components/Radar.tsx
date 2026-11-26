@@ -90,6 +90,8 @@ export function Radar({ snapshot, layout, selectedId, onSelect, emptyState, chil
   const [zoomIndex, setZoomIndex] = useState(home);
   const zoom = ZOOM_STEPS[zoomIndex] ?? 1;
   const centerId = snapshot?.center.id;
+  // With no map there is nothing to zoom: the controls are there, and off.
+  const empty = snapshot === null;
 
   return (
     <section
@@ -193,7 +195,7 @@ export function Radar({ snapshot, layout, selectedId, onSelect, emptyState, chil
           <button
             type="button"
             aria-label="Zoom in"
-            disabled={zoomIndex >= ZOOM_STEPS.length - 1}
+            disabled={empty || zoomIndex >= ZOOM_STEPS.length - 1}
             onClick={() => setZoomIndex((index) => Math.min(index + 1, ZOOM_STEPS.length - 1))}
             className="flex h-10 w-10 items-center justify-center rounded text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface disabled:opacity-40"
           >
@@ -202,7 +204,7 @@ export function Radar({ snapshot, layout, selectedId, onSelect, emptyState, chil
           <button
             type="button"
             aria-label="Zoom out"
-            disabled={zoomIndex <= 0}
+            disabled={empty || zoomIndex <= 0}
             onClick={() => setZoomIndex((index) => Math.max(index - 1, 0))}
             className="flex h-10 w-10 items-center justify-center rounded text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface disabled:opacity-40"
           >
@@ -211,8 +213,9 @@ export function Radar({ snapshot, layout, selectedId, onSelect, emptyState, chil
           <button
             type="button"
             aria-label="Reset zoom"
+            disabled={empty}
             onClick={() => setZoomIndex(home)}
-            className="flex h-10 w-10 items-center justify-center rounded text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+            className="flex h-10 w-10 items-center justify-center rounded text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface disabled:opacity-40"
           >
             <Maximize aria-hidden="true" className="h-[18px] w-[18px]" />
           </button>

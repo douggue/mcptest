@@ -1,8 +1,9 @@
+import { videoHref } from '../lib/routes';
 import { AddToFormat } from './AddToFormat';
 import type { OwnerPlace, TransferIdea, TransferVersion } from '@jgtube/core';
 import { Bookmark, BookmarkCheck, Lightbulb } from 'lucide-react';
 import { scoreTone } from '../lib/board';
-import { formatAge, formatCount, formatScore, watchUrl } from '../lib/format';
+import { formatAge, formatCount, formatScore } from '../lib/format';
 import {
   describeIdeaReach,
   describeVerdict,
@@ -13,7 +14,7 @@ import {
 import { versionCountry } from '../lib/transferPlace';
 import { Card, Label } from './layout/Card';
 import { Details } from './layout/Details';
-import { Outbound } from './NicheCard';
+import { Inside } from './NicheCard';
 import { ThumbnailTile } from './ThumbnailTile';
 
 /** The multiple from which a score is drawn in amber, as on the thumbnail board. */
@@ -81,7 +82,7 @@ function VersionRow({ version }: { readonly version: TransferVersion }) {
           {version.place?.name ?? 'Country unknown'}
         </span>
         <span className="truncate text-body-sm text-on-surface" title={version.title}>
-          <Outbound href={watchUrl(version.videoId)}>{version.channelTitle}</Outbound>
+          <Inside href={videoHref(version.videoId)}>{version.channelTitle}</Inside>
         </span>
       </span>
       <span className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-label text-outline">
@@ -136,7 +137,7 @@ function Variants({ idea, place }: { readonly idea: TransferIdea; readonly place
         {idea.variants.map((variant) => (
           <li key={variant.videoId} className="flex items-baseline justify-between gap-3">
             <span className="line-clamp-2 min-w-0 text-body-sm text-on-surface">
-              <Outbound href={watchUrl(variant.videoId)}>{variant.title}</Outbound>
+              <Inside href={videoHref(variant.videoId)}>{variant.title}</Inside>
             </span>
             <span className="flex-none text-label text-outline">
               {formatCount(variant.views)} views

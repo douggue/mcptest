@@ -56,10 +56,10 @@ export function Popover({ label, active, open, onOpenChange, children }: Props) 
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => onOpenChange(!open)}
-        className={`flex min-h-10 items-center gap-1 whitespace-nowrap rounded-full border px-3 text-body-sm transition-colors ${
+        className={`flex h-[38px] items-center gap-1 whitespace-nowrap rounded-md border px-3 text-body-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal ${
           active
-            ? 'border-primary-container bg-primary-container/15 font-semibold text-primary'
-            : 'border-border-subtle text-on-surface-variant hover:bg-surface-card hover:text-on-surface'
+            ? 'border-line-2 bg-white/[0.12] text-white'
+            : 'border-line text-muted hover:border-line-2 hover:text-ink'
         }`}
       >
         {label}

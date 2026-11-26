@@ -146,10 +146,14 @@ export function bankEngine(deps: BankFindDeps): BankInside {
     };
   };
   return {
-    look(state: BankFilterState, page) {
+    look(state: BankFilterState, page, channelId) {
       const bank = reader.read();
       const context = filterContext();
-      const found = queryBank(bank.videos, state, context, page);
+      const videos =
+        channelId === undefined
+          ? bank.videos
+          : bank.videos.filter((video) => video.channel.id === channelId);
+      const found = queryBank(videos, state, context, page);
       const saved = Object.fromEntries(
         found.videos.flatMap((video) => {
           const ids = context.collectionsOf(video.videoId);

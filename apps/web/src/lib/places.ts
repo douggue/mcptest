@@ -22,6 +22,8 @@ export interface Tab {
   readonly label: string;
   /** The screens inside, the first opened by the tab. */
   readonly screens: readonly Screen[];
+  /** The tab draws its own row of views (with counts and the owner's own), so no pills are drawn for it. */
+  readonly ownViews?: boolean;
 }
 
 export interface Place {
@@ -52,20 +54,23 @@ export const PLACES: readonly Place[] = [
     short: 'Discover',
     lead: 'What is working around {channel} right now.',
     tabs: [
-      tab(
-        'Videos',
-        screen('breakouts'),
-        screen('outlier-bank'),
-        screen('transfers'),
-        screen('video-breakdown'),
-      ),
+      {
+        ...tab(
+          'Videos',
+          screen('breakouts'),
+          screen('outlier-bank'),
+          screen('transfers'),
+          screen('video-breakdown'),
+        ),
+        ownViews: true,
+      },
       tab(
         'Channels',
         screen('competitors'),
         screen('niches'),
         screen('same-topic'),
-        screen('thumbnails'),
         screen('breakdown'),
+        screen('thumbnails'),
       ),
       tab('Map', screen('radar')),
     ],

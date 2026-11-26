@@ -1,13 +1,14 @@
+import { videoHref } from '../lib/routes';
 import { firstSentence, formulaLine } from '../lib/formatsView';
 import { formulaParts } from '@jgtube/core/src/formulas/formulas';
 import { Shuffle } from 'lucide-react';
-import { formatAge, formatCount, formatScore, thumbnailUrl, watchUrl } from '../lib/format';
+import { formatAge, formatCount, formatScore, thumbnailUrl } from '../lib/format';
 import type { FormulaView } from '../lib/labApi';
 import { AddToFormat } from './AddToFormat';
 import { Card } from './layout/Card';
 import { Details } from './layout/Details';
 import { QUIET_BUTTON } from './LabStatus';
-import { Outbound } from './NicheCard';
+import { Inside } from './NicheCard';
 
 /** Videos shown on a card before the rest go behind a disclosure. */
 const VIDEOS_ON_CARD = 3;
@@ -52,7 +53,7 @@ function VideoRow({ video }: { readonly video: Video }) {
       </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="line-clamp-2 text-body-sm text-on-surface">
-          <Outbound href={watchUrl(video.videoId)}>{video.title}</Outbound>
+          <Inside href={videoHref(video.videoId)}>{video.title}</Inside>
         </span>
         <span className="truncate text-body-sm text-outline">
           {video.channelTitle} · {formatCount(video.views)} views ·{' '}

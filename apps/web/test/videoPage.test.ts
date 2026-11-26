@@ -158,4 +158,18 @@ describe('reading one stored video', () => {
     expect(await answering(null).video(ID)).toBeNull();
     expect(calls[0]).toBe(`/api/bank/video?video=${ID}`);
   });
+
+  test('reads the owner’s collections alone, without the bank', async () => {
+    const calls: string[] = [];
+    const kept = [{ id: 3, name: 'Hooks', count: 2, createdAt: '2026-11-01T00:00:00.000Z' }];
+    const api = createBankApi(async (path) => {
+      calls.push(String(path));
+      return new Response(
+        JSON.stringify({ success: true, data: { collections: kept }, error: null }),
+        { headers: { 'content-type': 'application/json' } },
+      );
+    });
+    expect(await api.collections()).toEqual(kept);
+    expect(calls).toEqual(['/api/bank/collections']);
+  });
 });

@@ -26,6 +26,7 @@ export const BANK_BUSY =
   'A map, a refresh, a keyword search or a money check is reading YouTube. Try again when it has finished.';
 const FIND_BUSY = 'Jgtube is already finding more outliers. Wait for it to finish.';
 const VIDEO_ID = /^[\w-]{11}$/;
+const CHANNEL_ID = /^UC[\w-]{22}$/;
 const MAX_QUERY = 200;
 
 type FindJobs = JobStore<FindResult, FindProgress>;
@@ -57,7 +58,10 @@ function look(options: AppOptions, url: URL): Response {
   const state = parseBankQuery(url.searchParams);
   const offset = wholeOr(url.searchParams.get('offset'), 0);
   const limit = wholeOr(url.searchParams.get('limit'), BANK_DEFAULT_PAGE);
-  return ok(options.engine.bank.look(state, { offset, limit }));
+  // One channel's stored videos, for its own page; every stored video otherwise.
+  const channel = url.searchParams.get('channel');
+  if (channel !== null && !CHANNEL_ID.test(channel)) return fail(400, 'Give the channel’s id');
+  return ok(options.engine.bank.look(state, { offset, limit }, channel ?? undefined));
 }
 
 /** One stored video by its id, for its own page; null when it is not stored. */
